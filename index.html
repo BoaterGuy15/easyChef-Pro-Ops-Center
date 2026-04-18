@@ -3459,11 +3459,11 @@ function triggerCelebration(){
 // ── What-If Scenario Playground ────────────────────────────
 const WHATIF_PRESETS = {
   prelaunch:    { adSpend:     0, revenue:     0, payoneer: 24000, label: 'Pre-Launch'  },
-  conservative: { adSpend:  5000, revenue:  2000, payoneer: 24000, label: 'Conservative'},
-  growth:       { adSpend: 20000, revenue:  8000, payoneer: 24000, label: 'Growth'      },
-  postlaunch:   { adSpend: 15000, revenue: 15000, payoneer: 24000, label: 'Post-Launch' },
+  conservative: { adSpend:  5000, revenue:  2000, payoneer: 15000, label: 'Conservative'},
+  growth:       { adSpend: 20000, revenue:  8000, payoneer: 15000, label: 'Growth'      },
+  postlaunch:   { adSpend: 15000, revenue: 15000, payoneer: 10000, label: 'Post-Launch' },
 };
-let _wiState = { adSpend: 0, revenue: 0, payoneer: 24000, preset: null, expOpen: false, expenses: null };
+let _wiState = { adSpend: 0, revenue: 0, preset: null, expOpen: false, expenses: null };
 
 function _wiInitExpenses(){
   const b = DASHBOARD_DATA.budget;
@@ -3477,10 +3477,10 @@ function _wiInitExpenses(){
 }
 
 function _wiTotals(){
-  if(!_wiState.expenses) return { fixedAndTeam:0, payoneer:_wiState.payoneer, totalBurn:_wiState.payoneer+_wiState.adSpend, netBurn:_wiState.payoneer+_wiState.adSpend };
-  const payExp = _wiState.expenses.find(e=>e.source==='payoneer');
+  const expenses = _wiState.expenses || [];
+  const payExp = expenses.find(e=>e.source==='payoneer');
   const payoneer = payExp&&payExp.active ? payExp.amount : 0;
-  const fixedAndTeam = _wiState.expenses.filter(e=>e.active&&e.source!=='payoneer').reduce((a,e)=>a+e.amount,0);
+  const fixedAndTeam = expenses.filter(e=>e.active&&e.source!=='payoneer').reduce((a,e)=>a+e.amount,0);
   const totalBurn = payoneer + fixedAndTeam + _wiState.adSpend;
   const netBurn = Math.max(0, totalBurn - _wiState.revenue);
   return { fixedAndTeam, payoneer, totalBurn, netBurn };
@@ -3492,7 +3492,6 @@ function renderWhatIf(){
   const b = DASHBOARD_DATA.budget;
   _wiState.adSpend  = b.adBudget || 0;
   _wiState.revenue  = b.monthlyRevenue || 0;
-  _wiState.payoneer = b.payoneer || 24000;
   if(!_wiState.expenses) _wiState.expenses = _wiInitExpenses();
 
   const presetBtns = Object.entries(WHATIF_PRESETS).map(([k,p])=>`
@@ -3543,7 +3542,7 @@ function renderWhatIf(){
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:24px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">MONTHLY AD SPEND</div>
         <div id="wi-adspend-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--red);margin-bottom:8px">${fmt(_wiState.adSpend)}</div>
@@ -3555,12 +3554,6 @@ function renderWhatIf(){
         <div id="wi-revenue-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--green);margin-bottom:8px">${fmt(_wiState.revenue)}</div>
         <input id="wi-slider-revenue" type="range" min="0" max="20000" step="250" value="${_wiState.revenue}" style="${ss}" oninput="wiUpdate('revenue',+this.value)">
         <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$20K</span></div>
-      </div>
-      <div>
-        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">PAYONEER COST / MO</div>
-        <div id="wi-payoneer-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--amber);margin-bottom:8px">${fmt(_wiState.payoneer)}</div>
-        <input id="wi-slider-payoneer" type="range" min="10000" max="24000" step="1000" value="${_wiState.payoneer}" style="${ss}" oninput="wiUpdate('payoneer',+this.value)">
-        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$10K</span><span>$24K</span></div>
       </div>
     </div>
 
@@ -3599,7 +3592,6 @@ function wiRenderExpRows(){
         <span id="wi-exp-name-${i}" onclick="wiStartRenameExp(${i})"
           style="font-family:'DM Mono',monospace;font-size:11px;color:${e.active?'var(--text)':'var(--muted)'};cursor:pointer"
           title="Click to rename">${e.name}</span>
-        ${e.source==='payoneer'?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);margin-left:6px;opacity:0.7">linked to slider</span>':''}
       </td>
       <td style="padding:5px 10px;text-align:right">
         <input type="number" min="0" step="1" value="${e.amount}" id="wi-exp-amt-${i}"
@@ -3663,14 +3655,6 @@ function wiToggleExpense(i){
 
 function wiEditExpense(i, val){
   _wiState.expenses[i].amount = val;
-  // keep payoneer slider in sync
-  if(_wiState.expenses[i].source === 'payoneer'){
-    _wiState.payoneer = val;
-    const sl = document.getElementById('wi-slider-payoneer');
-    const pv = document.getElementById('wi-payoneer-val');
-    if(sl) sl.value = val;
-    if(pv) pv.textContent = fmt(val);
-  }
   wiUpdateExpSummary();
   wiCalc();
 }
@@ -3707,18 +3691,6 @@ function wiDeleteExpense(i){
 function wiUpdate(field, val){
   if(field==='adSpend')  _wiState.adSpend  = val;
   if(field==='revenue')  _wiState.revenue  = val;
-  if(field==='payoneer'){
-    _wiState.payoneer = val;
-    // keep payoneer expense row in sync
-    if(_wiState.expenses){
-      const pe = _wiState.expenses.find(e=>e.source==='payoneer');
-      if(pe){
-        pe.amount = val;
-        const amtInp = document.getElementById('wi-exp-amt-'+_wiState.expenses.indexOf(pe));
-        if(amtInp) amtInp.value = val;
-      }
-    }
-  }
   _wiState.preset = null;
   document.querySelectorAll('[id^="wi-preset-"]').forEach(b=>{
     b.style.background='transparent'; b.style.color='var(--muted)'; b.style.borderColor='var(--border)';
@@ -3731,7 +3703,6 @@ function wiApplyPreset(key){
   const p = WHATIF_PRESETS[key];
   _wiState.adSpend  = p.adSpend;
   _wiState.revenue  = p.revenue;
-  _wiState.payoneer = p.payoneer;
   _wiState.preset   = key;
   if(_wiState.expenses){
     const pe = _wiState.expenses.find(e=>e.source==='payoneer');
@@ -3739,14 +3710,11 @@ function wiApplyPreset(key){
   }
   const sAd = document.getElementById('wi-slider-adspend');
   const sRe = document.getElementById('wi-slider-revenue');
-  const sPa = document.getElementById('wi-slider-payoneer');
   if(sAd) sAd.value = p.adSpend;
   if(sRe) sRe.value = p.revenue;
-  if(sPa) sPa.value = p.payoneer;
-  const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val'), paV=document.getElementById('wi-payoneer-val');
+  const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val');
   if(adV) adV.textContent=fmt(p.adSpend);
   if(reV) reV.textContent=fmt(p.revenue);
-  if(paV) paV.textContent=fmt(p.payoneer);
   Object.keys(WHATIF_PRESETS).forEach(k=>{
     const btn=document.getElementById('wi-preset-'+k); if(!btn) return;
     const active=k===key;
@@ -3773,10 +3741,9 @@ function wiCalc(){
   const breakEvenStr = _wiState.revenue >= totalBurn ? 'Already profitable'
     : _wiState.revenue === 0 ? 'N/A (no revenue)' : 'N/A (static model)';
 
-  const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val'), paV=document.getElementById('wi-payoneer-val');
+  const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val');
   if(adV) adV.textContent=fmt(_wiState.adSpend);
   if(reV) reV.textContent=fmt(_wiState.revenue);
-  if(paV) paV.textContent=fmt(_wiState.payoneer);
 
   const statsEl = document.getElementById('wi-stats');
   if(statsEl){
@@ -3845,9 +3812,10 @@ function wiApplyToLive(){
   const b = DASHBOARD_DATA.budget;
   b.adBudget = _wiState.adSpend;
   b.monthlyRevenue = _wiState.revenue;
-  b.payoneer = _wiState.payoneer;
   // apply sandbox expenses to live budget
   if(_wiState.expenses){
+    const pe = _wiState.expenses.find(e=>e.source==='payoneer');
+    if(pe) b.payoneer = pe.amount;
     _wiState.expenses.forEach(e=>{
       if(e.source==='fixed' && e.name in b.fixedMonthly) b.fixedMonthly[e.name]=e.amount;
       if(e.source==='team'  && e.name in b.team)         b.team[e.name]=e.amount;
