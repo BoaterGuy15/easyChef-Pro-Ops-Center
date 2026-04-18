@@ -542,11 +542,11 @@ const DASHBOARD_DATA = {
     runwayScenario: 'pre-launch',
     daysToLaunch: 75,
     adPhases: [
-      { name: "Phase 1", desc: "Pre-Launch Awareness",   pct: 20 },
-      { name: "Phase 2", desc: "Beta / Waitlist Push",   pct: 25 },
-      { name: "Phase 3", desc: "Launch Week",            pct: 30 },
-      { name: "Phase 4", desc: "Post-Launch Growth",     pct: 15 },
-      { name: "Phase 5", desc: "Retention & Referral",   pct: 10 }
+      { name: "Pre-Beta",           sdOffset: null, edOffset: -51, pct: 15 },
+      { name: "Beta Launch",        sdOffset: -51,  edOffset: -30, pct: 20 },
+      { name: "Pre-Launch Push",    sdOffset: -30,  edOffset:  -9, pct: 25 },
+      { name: "Launch Week",        sdOffset:  -9,  edOffset:   7, pct: 30 },
+      { name: "Post-Launch Growth", sdOffset:   7,  edOffset: null,pct: 10 }
     ]
   },
   tasks: [
@@ -2622,7 +2622,7 @@ function _mergeBudget(d){
   if(d.capital!==undefined)         b.capital=d.capital;
   if(d.startingCapital!==undefined) b.startingCapital=d.startingCapital;
   if(d.adBudget!==undefined)        b.adBudget=d.adBudget;
-  if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length===b.adPhases.length)
+  if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length>0&&'sdOffset' in d.adPhases[0])
     b.adPhases=d.adPhases;
   if(d.payoneer&&d.payoneer.active)  b.payoneer.active=d.payoneer.active;
   if(d.monthlyRevenue!==undefined)  b.monthlyRevenue=d.monthlyRevenue;
@@ -2658,72 +2658,171 @@ function setAdBudget(){
   renderBudget();
 }
 
+// ── Ad Phase helpers ────────────────────────────────────────
+function _phaseDate(offsetDays){
+  const launch=new Date((DASHBOARD_DATA.meta.milestoneDate||'2026-07-01')+'T00:00:00');
+  return new Date(launch.getTime()+offsetDays*86400000);
+}
+function _phaseSD(p){
+  if(p.sdOffset===null||p.sdOffset===undefined){const t=new Date();t.setHours(0,0,0,0);return t;}
+  return _phaseDate(p.sdOffset);
+}
+function _phaseED(p){
+  if(p.edOffset===null||p.edOffset===undefined) return null;
+  return _phaseDate(p.edOffset);
+}
+function _phaseDaysCount(p){
+  const sd=_phaseSD(p), ed=_phaseED(p);
+  if(!ed) return null;
+  const d=Math.round((ed-sd)/86400000);
+  return d>0?d:1;
+}
+function _dateLabel(d){
+  if(!d) return 'open';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+function _normalizePhasePcts(){
+  const phases=DASHBOARD_DATA.budget.adPhases;
+  if(!phases.length) return;
+  const each=Math.floor(100/phases.length);
+  const rem=100-each*phases.length;
+  phases.forEach((p,i)=>{p.pct=each+(i===0?rem:0);});
+}
+
 function renderAdPhases(){
-  const card = document.getElementById('ad-phase-card');
+  const card=document.getElementById('ad-phase-card');
   if(!card) return;
-  const b = DASHBOARD_DATA.budget;
-  card.innerHTML = `
+  const b=DASHBOARD_DATA.budget;
+  const launchStr=DASHBOARD_DATA.meta.milestoneDate||'2026-07-01';
+  const rows=b.adPhases.map((p,i)=>{
+    const sdLabel=p.sdOffset===null?'Today':_dateLabel(_phaseSD(p));
+    const edLabel=_dateLabel(_phaseED(p));
+    const days=_phaseDaysCount(p);
+    return `<tr>
+      <td>
+        <span id="phase-name-${i}" onclick="editPhaseName(${i})" title="Click to rename"
+          style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);cursor:pointer;white-space:nowrap"
+          onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${p.name}</span>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">${sdLabel} → ${edLabel}</div>
+      </td>
+      <td style="text-align:right;white-space:nowrap">
+        <input type="number" min="0" max="100" step="1" value="${p.pct}"
+          style="width:56px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 7px;font-family:'DM Mono',monospace;font-size:12px;text-align:right;outline:none"
+          oninput="updatePhase(${i},this.value)"
+          onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"
+        /><span style="color:var(--muted);font-size:11px;margin-left:3px">%</span>
+      </td>
+      <td style="text-align:right">
+        <span id="phase-amt-${i}" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--green)"></span>
+      </td>
+      <td style="text-align:right">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${days!=null?days+'d':'—'}</span>
+      </td>
+      <td style="text-align:right">
+        <span id="phase-daily-${i}" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)"></span>
+      </td>
+      <td style="padding-left:10px;text-align:center">
+        <span onclick="removePhase(${i})" title="Remove phase"
+          style="cursor:pointer;color:var(--muted);font-size:15px;line-height:1;user-select:none"
+          onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">×</span>
+      </td>
+    </tr>`;
+  }).join('');
+  card.innerHTML=`
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:16px">
-      ALLOCATE ADVERTISING BUDGET ACROSS LAUNCH PHASES — PERCENTAGES MUST SUM TO 100
+      AD BUDGET ALLOCATION — PHASE DATES RELATIVE TO LAUNCH · ${launchStr}
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Phase</th><th>Description</th>
-          <th style="text-align:right">Allocation %</th>
-          <th style="text-align:right">Dollar Amount</th>
+          <th>Phase / Date Range</th>
+          <th style="text-align:right">Alloc %</th>
+          <th style="text-align:right">Amount</th>
+          <th style="text-align:right">Days</th>
+          <th style="text-align:right">Daily</th>
+          <th></th>
         </tr></thead>
-        <tbody>
-          ${b.adPhases.map((p,i)=>`<tr>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);white-space:nowrap">${p.name}</span></td>
-            <td style="color:var(--muted);font-size:12px">${p.desc}</td>
-            <td style="text-align:right;white-space:nowrap">
-              <input type="number" min="0" max="100" step="1" value="${p.pct}"
-                style="width:64px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:12px;text-align:right;outline:none"
-                oninput="updatePhase(${i},this.value)"
-                onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"
-              /><span style="color:var(--muted);font-size:11px;margin-left:4px">%</span>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr style="border-top:1px solid var(--border)">
+            <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding-top:10px;letter-spacing:1px">TOTAL</td>
+            <td style="text-align:right;padding-top:10px">
+              <span id="phase-pct-total" style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500"></span>
             </td>
-            <td style="text-align:right">
-              <span id="phase-amt-${i}" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--green)"></span>
+            <td style="text-align:right;padding-top:10px">
+              <span id="phase-amt-total" style="font-family:'DM Mono',monospace;font-size:14px;color:var(--gold)"></span>
             </td>
-          </tr>`).join('')}
-        </tbody>
-        <tfoot><tr style="border-top:1px solid var(--border)">
-          <td colspan="2" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding-top:10px;letter-spacing:1px">TOTAL</td>
-          <td style="text-align:right;padding-top:10px">
-            <span id="phase-pct-total" style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500"></span>
-          </td>
-          <td style="text-align:right;padding-top:10px">
-            <span id="phase-amt-total" style="font-family:'DM Mono',monospace;font-size:14px;color:var(--gold)"></span>
-          </td>
-        </tr></tfoot>
+            <td colspan="3"></td>
+          </tr>
+          <tr>
+            <td colspan="6" style="padding-top:12px">
+              <span onclick="addPhase()" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;letter-spacing:0.5px;border:1px dashed var(--border);padding:4px 12px;border-radius:6px;display:inline-block;transition:all 0.15s"
+                onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)'"
+                onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">+ Add Phase</span>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>`;
   updateAdPhaseAmounts();
 }
 
 function updatePhase(i, val){
-  DASHBOARD_DATA.budget.adPhases[i].pct = parseFloat(val)||0;
+  DASHBOARD_DATA.budget.adPhases[i].pct=parseFloat(val)||0;
   saveBudgetToLocal();
   updateAdPhaseAmounts();
 }
 
 function updateAdPhaseAmounts(){
-  const b = DASHBOARD_DATA.budget;
+  const b=DASHBOARD_DATA.budget;
   if(!b.adPhases) return;
-  const totalPct = b.adPhases.reduce((a,p)=>a+p.pct, 0);
+  const totalPct=b.adPhases.reduce((a,p)=>a+p.pct,0);
   b.adPhases.forEach((p,i)=>{
-    const el = document.getElementById('phase-amt-'+i);
-    if(el) el.textContent = fmt(b.adBudget * p.pct / 100);
+    const amt=b.adBudget*p.pct/100;
+    const days=_phaseDaysCount(p);
+    const daily=days?amt/days:null;
+    const amtEl=document.getElementById('phase-amt-'+i);
+    const dailyEl=document.getElementById('phase-daily-'+i);
+    if(amtEl) amtEl.textContent=fmt(amt);
+    if(dailyEl) dailyEl.textContent=daily!=null?fmt(daily)+'/d':'—';
   });
-  const pctEl = document.getElementById('phase-pct-total');
-  const amtEl = document.getElementById('phase-amt-total');
+  const pctEl=document.getElementById('phase-pct-total');
+  const amtEl=document.getElementById('phase-amt-total');
   if(pctEl){
-    pctEl.textContent = totalPct + '%';
-    pctEl.style.color = Math.abs(totalPct-100)<0.01 ? 'var(--green)' : 'var(--red)';
+    pctEl.textContent=Math.round(totalPct*10)/10+'%';
+    pctEl.style.color=Math.abs(totalPct-100)<0.01?'var(--green)':'var(--red)';
   }
-  if(amtEl) amtEl.textContent = fmt(b.adPhases.reduce((a,p)=>a+b.adBudget*p.pct/100, 0));
+  if(amtEl) amtEl.textContent=fmt(b.adPhases.reduce((a,p)=>a+b.adBudget*p.pct/100,0));
+}
+
+function editPhaseName(i){
+  const el=document.getElementById('phase-name-'+i);
+  if(!el) return;
+  const cur=DASHBOARD_DATA.budget.adPhases[i].name;
+  el.outerHTML=`<input id="phase-name-${i}" type="text" value="${cur}"
+    style="background:var(--surface);border:1px solid var(--gold);border-radius:4px;color:var(--gold);font-family:'DM Mono',monospace;font-size:11px;width:120px;padding:2px 5px;outline:none"
+    onblur="savePhaseName(${i},this)" onkeydown="if(event.key==='Enter')this.blur()" autofocus>`;
+  setTimeout(()=>{const inp=document.getElementById('phase-name-'+i);if(inp)inp.select();},10);
+}
+function savePhaseName(i, inp){
+  const v=inp.value.trim();
+  if(v) DASHBOARD_DATA.budget.adPhases[i].name=v;
+  saveBudgetToLocal();
+  renderAdPhases();
+}
+function addPhase(){
+  DASHBOARD_DATA.budget.adPhases.push({name:'New Phase',sdOffset:null,edOffset:null,pct:0});
+  _normalizePhasePcts();
+  saveBudgetToLocal();
+  renderAdPhases();
+}
+function removePhase(i){
+  const phases=DASHBOARD_DATA.budget.adPhases;
+  if(phases.length<=1) return;
+  phases.splice(i,1);
+  _normalizePhasePcts();
+  saveBudgetToLocal();
+  renderAdPhases();
 }
 
 // ── Milestone editor ────────────────────────────────────────
@@ -2754,6 +2853,14 @@ function saveMilestoneDate(){
   DASHBOARD_DATA.meta.milestoneLabel=labelVal;
   updateCountdown();
   closeMilestoneEditor();
+  renderAdPhases(); // phase date ranges shift with launch date
+  if(confirm('Launch date updated to '+dateVal+'.\n\nAdd a new budget phase for "'+labelVal+'"?')){
+    DASHBOARD_DATA.budget.adPhases.push({name:labelVal,sdOffset:null,edOffset:null,pct:0});
+    _normalizePhasePcts();
+    saveBudgetToLocal();
+    renderAdPhases();
+    showPage('budget');
+  }
 }
 
 // ── Auth ──────────────────────────────────────────────────
