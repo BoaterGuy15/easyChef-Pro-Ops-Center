@@ -3561,6 +3561,15 @@ function deleteTask(taskId){
 
 // ── localStorage persistence ────────────────────────────────
 const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','sd','ed','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+const PROTECTED_DATE_FIELDS=new Set(['sd','ed','lastStatusChange']);
+function _mergeTask(t,s){
+  _PERSIST_FIELDS.forEach(f=>{
+    const incoming=s[f];
+    if(incoming==null||incoming==='') return;
+    if(PROTECTED_DATE_FIELDS.has(f)&&t[f]&&t[f].length===10) return;
+    t[f]=incoming;
+  });
+}
 
 // ── Google Sheets sync ──────────────────────────────────────
 function updateSyncStatus(state){
@@ -3600,8 +3609,8 @@ function loadFromSheets(){
       if(!rows.length) return;
       rows.forEach(s=>{
         const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
-        if(t){ _PERSIST_FIELDS.forEach(f=>{ if(s[f]!=null&&s[f]!=='') t[f]=s[f]; }); }
-        else if(s.id){ DASHBOARD_DATA.tasks.push(s); }
+        if(t){ _mergeTask(t,s); }
+        else if(s.id&&s.name){ DASHBOARD_DATA.tasks.push(s); }
       });
       masterRefresh();
       updateSyncStatus('ok');
@@ -3619,7 +3628,7 @@ function loadFromLocal(){
     JSON.parse(saved).forEach(s=>{
       const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
       if(!t) return;
-      _PERSIST_FIELDS.forEach(f=>{ if(s[f]!=null&&s[f]!=='') t[f]=s[f]; });
+      _mergeTask(t,s);
     });
   }catch(e){}
   try{
