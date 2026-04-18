@@ -256,7 +256,14 @@ const DASHBOARD_DATA = {
     },
     team: { "Searah Teitgen": 0, "Sadee Tison": 0, "Other / TBD": 0 },
     adBudget: 0,
-    daysToLaunch: 75
+    daysToLaunch: 75,
+    adPhases: [
+      { name: "Phase 1", desc: "Pre-Launch Awareness",   pct: 20 },
+      { name: "Phase 2", desc: "Beta / Waitlist Push",   pct: 25 },
+      { name: "Phase 3", desc: "Launch Week",            pct: 30 },
+      { name: "Phase 4", desc: "Post-Launch Growth",     pct: 15 },
+      { name: "Phase 5", desc: "Retention & Referral",   pct: 10 }
+    ]
   },
   tasks: [
     {id:"T-001",name:"ICP Research",cat:"Marketing Strategy",pri:"High",status:"Started",owner:"Adam",deps:"",notes:"Define ideal customer profile",Taylor:"A",Steve:"I",Adam:"R",Mary:"I",JR:"I",Hammad:"I",Searah:"",Sadee:"",flag:""},
@@ -550,6 +557,9 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-align:center;padding:24px">No transactions yet. Upload a statement or add manually above.</div>
     </div>
   </div>
+
+  <div class="section-label" style="margin-top:32px">Ad Budget Phase Allocation</div>
+  <div class="card" id="ad-phase-card"></div>
 </div>
 
 <!-- ══ PAGE: TEAM ══ -->
@@ -784,6 +794,7 @@ function renderBudget(){
   if(maxEl) maxEl.textContent = fmt(maxAd);
   const adEl = document.getElementById('ad-budget-display');
   if(adEl) adEl.textContent = b.adBudget===0 ? '$0 — Click to set Monday' : fmt(b.adBudget);
+  updateAdPhaseAmounts();
 }
 
 // ── Command KPIs ────────────────────────────────────────────
@@ -1188,6 +1199,73 @@ function setAdBudget(){
   renderBudget();
 }
 
+function renderAdPhases(){
+  const card = document.getElementById('ad-phase-card');
+  if(!card) return;
+  const b = DASHBOARD_DATA.budget;
+  card.innerHTML = `
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:16px">
+      ALLOCATE ADVERTISING BUDGET ACROSS LAUNCH PHASES — PERCENTAGES MUST SUM TO 100
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Phase</th><th>Description</th>
+          <th style="text-align:right">Allocation %</th>
+          <th style="text-align:right">Dollar Amount</th>
+        </tr></thead>
+        <tbody>
+          ${b.adPhases.map((p,i)=>`<tr>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);white-space:nowrap">${p.name}</span></td>
+            <td style="color:var(--muted);font-size:12px">${p.desc}</td>
+            <td style="text-align:right;white-space:nowrap">
+              <input type="number" min="0" max="100" step="1" value="${p.pct}"
+                style="width:64px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:12px;text-align:right;outline:none"
+                oninput="updatePhase(${i},this.value)"
+                onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"
+              /><span style="color:var(--muted);font-size:11px;margin-left:4px">%</span>
+            </td>
+            <td style="text-align:right">
+              <span id="phase-amt-${i}" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--green)"></span>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="border-top:1px solid var(--border)">
+          <td colspan="2" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding-top:10px;letter-spacing:1px">TOTAL</td>
+          <td style="text-align:right;padding-top:10px">
+            <span id="phase-pct-total" style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500"></span>
+          </td>
+          <td style="text-align:right;padding-top:10px">
+            <span id="phase-amt-total" style="font-family:'DM Mono',monospace;font-size:14px;color:var(--gold)"></span>
+          </td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+  updateAdPhaseAmounts();
+}
+
+function updatePhase(i, val){
+  DASHBOARD_DATA.budget.adPhases[i].pct = parseFloat(val)||0;
+  updateAdPhaseAmounts();
+}
+
+function updateAdPhaseAmounts(){
+  const b = DASHBOARD_DATA.budget;
+  if(!b.adPhases) return;
+  const totalPct = b.adPhases.reduce((a,p)=>a+p.pct, 0);
+  b.adPhases.forEach((p,i)=>{
+    const el = document.getElementById('phase-amt-'+i);
+    if(el) el.textContent = fmt(b.adBudget * p.pct / 100);
+  });
+  const pctEl = document.getElementById('phase-pct-total');
+  const amtEl = document.getElementById('phase-amt-total');
+  if(pctEl){
+    pctEl.textContent = totalPct + '%';
+    pctEl.style.color = Math.abs(totalPct-100)<0.01 ? 'var(--green)' : 'var(--red)';
+  }
+  if(amtEl) amtEl.textContent = fmt(b.adPhases.reduce((a,p)=>a+b.adBudget*p.pct/100, 0));
+}
+
 // ── Init all ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
   buildCommandKPIs();
@@ -1199,6 +1277,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   buildTeamGrid();
   buildAgenda();
   renderSpendLog();
+  renderAdPhases();
 });
 </script>
 </body>
