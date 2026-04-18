@@ -776,10 +776,12 @@ function catSelect(t){
     CAT_OPTS.map(o=>`<option value="${o}"${o===t.cat?' selected':''}>${CAT_LABELS[o]}</option>`).join('')
   }</select>`;
 }
+const OWNER_COLORS={Taylor:'var(--gold)',Steve:'var(--green)',Adam:'var(--amber)',Mary:'#c084fc',JR:'#60a5fa',Hammad:'var(--red)',Searah:'#f97316',Sadee:'#2dd4bf',TBD:'var(--muted)'};
+function ownerColor(name){return OWNER_COLORS[name]||'var(--text)';}
 function ownerSelect(t){
   const owners=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
   const inList=owners.includes(t.owner);
-  return `<select class="status-select" style="background:rgba(107,114,128,0.1);color:var(--text);max-width:90px"
+  return `<select class="status-select" style="background:var(--surface);color:${ownerColor(t.owner)};max-width:90px"
     onchange="setTaskOwner('${t.id}',this.value,this)">${
     (!inList?`<option value="${t.owner}" selected>${t.owner}</option>`:'')+
     owners.map(o=>`<option value="${o}"${o===t.owner?' selected':''}>${o}</option>`).join('')
@@ -799,6 +801,7 @@ function setTaskCat(id,val,el){
 function setTaskOwner(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
   task.owner=val;
+  el.style.color=ownerColor(val);
   buildCommandKPIs();
   buildTeamGrid();
 }
