@@ -877,6 +877,9 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <div id="page-appdata" class="page">
   <div class="section-label">App Data &amp; Beta Tracking</div>
 
+  <div class="section-label" style="margin-top:32px">Slack</div>
+  <div class="card" id="slack-card"></div>
+
   <div class="section-label" style="margin-top:32px">Beta Family Tracker</div>
   <div class="card" id="beta-families-card"></div>
 
@@ -5225,6 +5228,172 @@ function wiApplyToLive(){
 }
 
 // ── Init all ───────────────────────────────────────────────
+// ── Slack Card ───────────────────────────────────────────────
+let _slackChannelId = null;
+const _SLACK_FOUNDERS = ['taylor','steve','hammad','adam'];
+function _slackCanSend(){ return _SLACK_FOUNDERS.includes(window._DGL_USER||''); }
+
+function renderSlackCard(){
+  const el=document.getElementById('slack-card');
+  if(!el) return;
+  const iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:12px;outline:none;box-sizing:border-box';
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <select id="slack-channel-select" style="${iSt};width:auto;flex:1" onchange="slackSelectChannel(this.value)">
+        <option value="">Loading channels…</option>
+      </select>
+      <button onclick="slackRefresh()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap">↻ Refresh</button>
+    </div>
+    <div id="slack-feed" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:12px">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);text-align:center;padding:20px 0">Select a channel to load messages</div>
+    </div>
+    ${_slackCanSend()?`
+    <div style="display:flex;gap:8px">
+      <input type="text" id="slack-send-input" style="${iSt};flex:1" placeholder="Send a message…">
+      <button onclick="slackSend()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 16px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Send</button>
+    </div>`:''}`;
+  _slackLoadChannels();
+}
+
+function _slackFmt(ts){
+  if(!ts) return '';
+  try{ const d=new Date(parseFloat(ts)*1000); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ts; }
+}
+
+function _slackLoadChannels(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=slack_channels')
+    .then(r=>r.json())
+    .then(data=>{
+      const sel=document.getElementById('slack-channel-select');
+      if(!sel) return;
+      if(data.error){ sel.innerHTML=`<option value="">Error: ${data.error}</option>`; return; }
+      const chs=data.channels||[];
+      sel.innerHTML='<option value="">— Select channel —</option>'+
+        chs.map(c=>`<option value="${c.id}">#${c.name} (${c.member_count||0})</option>`).join('');
+      if(_slackChannelId){
+        sel.value=_slackChannelId;
+        if(sel.value) _slackLoadMessages(_slackChannelId);
+      }
+    })
+    .catch(err=>{ const sel=document.getElementById('slack-channel-select'); if(sel) sel.innerHTML=`<option value="">Failed to load</option>`; });
+}
+
+function slackSelectChannel(val){
+  _slackChannelId=val||null;
+  const feed=document.getElementById('slack-feed');
+  if(!val){ if(feed) feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);text-align:center;padding:20px 0">Select a channel to load messages</div>'; return; }
+  _slackLoadMessages(val);
+}
+
+function slackRefresh(){
+  if(_slackChannelId) _slackLoadMessages(_slackChannelId);
+}
+
+function _slackLoadMessages(channelId){
+  const feed=document.getElementById('slack-feed');
+  if(!feed||!CONFIG.sheetsUrl) return;
+  feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);text-align:center;padding:20px 0">Loading…</div>';
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=25')
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.error){ feed.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--red);padding:8px">Error: ${data.error}</div>`; return; }
+      const msgs=data.messages||[];
+      if(!msgs.length){ feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);text-align:center;padding:20px 0">No messages</div>'; return; }
+      feed.innerHTML=msgs.map((m,i)=>{
+        const hasThread=m.thread_ts&&(m.reply_count||0)>0;
+        const threadBtn=hasThread&&_slackCanSend()?`<button onclick="slackViewThread('${channelId}','${m.thread_ts}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--amber,#d4a017);background:transparent;color:var(--amber,#d4a017);cursor:pointer;margin-top:4px">View Thread (${m.reply_count} ${m.reply_count===1?'reply':'replies'})</button>`:'';
+        return `<div style="padding:8px 4px;${i>0?'border-top:1px solid var(--surface)':''}">
+          <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:3px">
+            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)">${m.user||'bot'}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)">${_slackFmt(m.ts)}</span>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(m.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          ${threadBtn}
+          <div id="slack-thread-${m.ts.replace('.','_')}" style="margin-top:6px"></div>
+        </div>`;
+      }).join('');
+    })
+    .catch(()=>{ feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:8px">Failed to load messages</div>'; });
+}
+
+function slackViewThread(channelId, threadTs, btn){
+  const slotId='slack-thread-'+threadTs.replace('.','_');
+  const slot=document.getElementById(slotId);
+  if(!slot||!CONFIG.sheetsUrl) return;
+  if(slot.dataset.loaded==='1'){ slot.style.display=slot.style.display==='none'?'block':'none'; return; }
+  btn.textContent='Loading…'; btn.disabled=true;
+  fetch(CONFIG.sheetsUrl+'?action=slack_thread&channel='+encodeURIComponent(channelId)+'&thread='+encodeURIComponent(threadTs))
+    .then(r=>r.json())
+    .then(data=>{
+      btn.textContent='Hide Thread'; btn.disabled=false;
+      if(data.error){ slot.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--red);padding:4px">Error: ${data.error}</div>`; return; }
+      const msgs=data.messages||[];
+      const threadText=msgs.map(m=>(m.user||'bot')+': '+(m.text||'')).join('\n');
+      const analyzeBtn=_slackCanSend()?`<button onclick="slackAnalyzeThread(this,'${slotId}')" data-thread-text="${encodeURIComponent(threadText)}" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;margin-top:6px">✦ AI Analyze</button>`:'';
+      slot.innerHTML=`
+        <div style="border-left:2px solid var(--border);margin-left:8px;padding-left:10px;margin-top:4px">
+          ${msgs.map((m,i)=>`
+            <div style="padding:5px 0;${i>0?'border-top:1px solid var(--surface)':''}">
+              <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:2px">
+                <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)">${m.user||'bot'}</span>
+                <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)">${_slackFmt(m.ts)}</span>
+              </div>
+              <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(m.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            </div>`).join('')}
+          ${analyzeBtn}
+          <div id="${slotId}-ai" style="margin-top:6px"></div>
+        </div>`;
+      slot.dataset.loaded='1';
+    })
+    .catch(()=>{ btn.textContent='View Thread'; btn.disabled=false; slot.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Failed to load thread</div>'; });
+}
+
+function slackAnalyzeThread(btn, slotId){
+  const aiSlot=document.getElementById(slotId+'-ai');
+  if(!aiSlot||!CONFIG.sheetsUrl) return;
+  const threadText=decodeURIComponent(btn.dataset.threadText||'');
+  if(!threadText){ aiSlot.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">No thread content to analyze.</div>'; return; }
+  btn.textContent='Analyzing…'; btn.disabled=true;
+  const system='You are analyzing a Slack thread for the DGL easyChef Pro team. Summarize key decisions, action items, and who is responsible for what. Be specific and concise.';
+  const url=CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(threadText);
+  fetch(url)
+    .then(r=>r.json())
+    .then(data=>{
+      btn.textContent='✦ AI Analyze'; btn.disabled=false;
+      const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
+      aiSlot.innerHTML=`<div style="border:1px solid var(--gold);border-radius:6px;padding:10px;margin-top:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+    })
+    .catch(()=>{ btn.textContent='✦ AI Analyze'; btn.disabled=false; aiSlot.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red)">AI analysis failed</div>'; });
+}
+
+function slackSend(){
+  if(!_slackChannelId||!CONFIG.sheetsUrl) return;
+  const inp=document.getElementById('slack-send-input');
+  const text=(inp?inp.value:'').trim();
+  if(!text) return;
+  const btn=inp.nextElementSibling;
+  if(btn){ btn.textContent='Sending…'; btn.disabled=true; }
+  fetch(CONFIG.sheetsUrl,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'slack_send',channelId:_slackChannelId,text})
+  })
+    .then(r=>r.json())
+    .then(data=>{
+      if(btn){ btn.disabled=false; }
+      if(data.ok){
+        if(inp) inp.value='';
+        if(btn){ btn.textContent='Sent ✓'; setTimeout(()=>{ btn.textContent='Send'; },1800); }
+        _slackLoadMessages(_slackChannelId);
+      } else {
+        if(btn) btn.textContent='Send';
+        alert('Send failed: '+(data.error||'unknown error'));
+      }
+    })
+    .catch(()=>{ if(btn){ btn.textContent='Send'; btn.disabled=false; } alert('Send failed'); });
+}
+
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
   loadFromLocal();
@@ -5243,6 +5412,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   buildAgendaPage();
   renderSpendLog();
   renderAdPhases();
+  renderSlackCard();
   renderBetaFamilies();
   renderBetaMetrics();
   renderAppAnalytics();
