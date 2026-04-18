@@ -876,6 +876,19 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <!-- ══ PAGE: APP DATA ══ -->
 <div id="page-appdata" class="page">
   <div class="section-label">App Data &amp; Beta Tracking</div>
+
+  <div class="section-label" style="margin-top:32px">Beta Family Tracker</div>
+  <div class="card" id="beta-families-card"></div>
+
+  <div class="section-label" style="margin-top:32px">Weekly Beta Metrics</div>
+  <div class="card" id="beta-metrics-card"></div>
+
+  <div class="section-label" style="margin-top:32px">App Analytics</div>
+  <div class="card" id="app-analytics-card"></div>
+
+  <div class="section-label" style="margin-top:32px">Sean Ellis PMF Survey</div>
+  <div class="card" id="survey-results-card"></div>
+
   <div class="section-label" style="margin-top:32px">PMF Kill Criteria — June 8 Checkpoint</div>
   <div class="card" id="kill-criteria-card"></div>
 </div>
@@ -3040,6 +3053,279 @@ function _kpiStatus(kpi){
   if(c>=t*0.8)   return 'risk';
   return 'notmet';
 }
+// ── Beta Family Tracker ─────────────────────────────────────
+function _getBetaFamilies(){
+  try{ const r=localStorage.getItem('dgl_beta_families'); if(r) return JSON.parse(r); }catch(e){}
+  return {target:50,enrolled:0,weeks:[]};
+}
+function _saveBetaFamilies(d){ try{localStorage.setItem('dgl_beta_families',JSON.stringify(d));}catch(e){} }
+function renderBetaFamilies(){
+  const card=document.getElementById('beta-families-card'); if(!card) return;
+  const d=_getBetaFamilies();
+  const pct=Math.min(100,Math.round((d.enrolled/d.target)*100));
+  const barCol=pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)';
+  const iSt=`background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:4px 8px;outline:none;width:70px;text-align:center`;
+  const weekRows=d.weeks.map((w,i)=>`<tr>
+    <td style="padding:6px 10px"><input type="text" value="${w.week||''}" style="${iSt};width:80px" onchange="betaFamilyWeekEdit(${i},'week',this.value)"></td>
+    <td style="padding:6px 10px;text-align:center"><input type="number" value="${w.added||0}" min="0" style="${iSt}" onchange="betaFamilyWeekEdit(${i},'added',+this.value)"></td>
+    <td style="padding:6px 10px;text-align:center;color:var(--gold);font-family:'DM Mono',monospace;font-size:12px">${w.total||0}</td>
+    <td style="padding:6px 10px"><input type="text" value="${w.notes||''}" placeholder="Notes…" style="${iSt};width:100%;box-sizing:border-box" onchange="betaFamilyWeekEdit(${i},'notes',this.value)"></td>
+    <td style="padding:6px 10px;text-align:center"><button onclick="betaFamilyDelWeek(${i})" style="font-family:'DM Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">✕</button></td>
+  </tr>`).join('');
+  card.innerHTML=`<div style="padding:20px 24px">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:20px;flex-wrap:wrap">
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.5px;margin-bottom:6px">ENROLLED FAMILIES</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input id="bf-enrolled" type="number" value="${d.enrolled}" min="0" style="${iSt};font-size:22px;width:80px;padding:6px 10px" onchange="betaFamilySetEnrolled(+this.value)">
+          <span style="font-family:'DM Mono',monospace;font-size:18px;color:var(--muted)">/ ${d.target}</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px"><span>${d.enrolled} enrolled</span><span>${pct}%</span></div>
+        <div style="height:14px;background:var(--surface);border-radius:7px;border:1px solid var(--border);overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${barCol};border-radius:7px;transition:width 0.4s ease"></div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px">Target: ${d.target} families</div>
+      </div>
+      <button onclick="syncBetaFamiliesToSheets(this)" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Sync to Sheets ↑</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="padding:6px 10px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">WEEK</th>
+        <th style="padding:6px 10px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">ADDED</th>
+        <th style="padding:6px 10px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">TOTAL</th>
+        <th style="padding:6px 10px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">NOTES</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${weekRows}</tbody>
+    </table>
+    <button onclick="betaFamilyAddWeek()" style="margin-top:12px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--muted);cursor:pointer" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">+ Add Week</button>
+  </div>`;
+}
+function betaFamilySetEnrolled(v){
+  const d=_getBetaFamilies(); d.enrolled=v||0; _saveBetaFamilies(d); renderBetaFamilies();
+}
+function betaFamilyAddWeek(){
+  const d=_getBetaFamilies();
+  const total=(d.weeks.length?d.weeks[d.weeks.length-1].total:0);
+  d.weeks.push({week:'Week '+(d.weeks.length+1),added:0,total,notes:''});
+  _saveBetaFamilies(d); renderBetaFamilies();
+}
+function betaFamilyDelWeek(i){
+  const d=_getBetaFamilies(); d.weeks.splice(i,1);
+  _saveBetaFamilies(d); renderBetaFamilies();
+}
+function betaFamilyWeekEdit(i,field,val){
+  const d=_getBetaFamilies(); d.weeks[i][field]=val;
+  if(field==='added'){
+    let total=0;
+    d.weeks.forEach((w,j)=>{ total+=(j<=i?w.added:0); if(j===i) w.total=total; else if(j<i) total=w.total; });
+    let running=0; d.weeks.forEach(w=>{ running+=w.added; w.total=running; });
+  }
+  _saveBetaFamilies(d); renderBetaFamilies();
+}
+function syncBetaFamiliesToSheets(btn){
+  if(!CONFIG.sheetsUrl) return;
+  if(btn){btn.textContent='Syncing…';btn.disabled=true;}
+  const d=_getBetaFamilies();
+  const url=CONFIG.sheetsUrl+'?action=beta_families_write&enrolled='+encodeURIComponent(d.enrolled)+'&target='+encodeURIComponent(d.target)+'&weeks='+encodeURIComponent(JSON.stringify(d.weeks));
+  fetch(url).then(r=>r.json()).then(()=>{
+    if(btn){btn.textContent='Synced ✓';btn.style.color='var(--green)';btn.style.borderColor='var(--green)';setTimeout(()=>{btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;},2000);}
+  }).catch(()=>{if(btn){btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;}});
+}
+
+// ── Weekly Beta Metrics ─────────────────────────────────────
+const BETA_METRICS_TARGETS={firstStrike:70,retention14:40};
+function _getBetaMetrics(){
+  try{ const r=localStorage.getItem('dgl_beta_metrics'); if(r) return JSON.parse(r); }catch(e){}
+  return {rows:[]};
+}
+function _saveBetaMetrics(d){ try{localStorage.setItem('dgl_beta_metrics',JSON.stringify(d));}catch(e){} }
+function _metricColor(val,target){
+  const v=parseFloat(val); if(isNaN(v)||target==null) return 'var(--text)';
+  if(v>=target) return 'var(--green)'; if(v>=target*0.8) return 'var(--amber)'; return 'var(--red)';
+}
+function renderBetaMetrics(){
+  const card=document.getElementById('beta-metrics-card'); if(!card) return;
+  const d=_getBetaMetrics();
+  const iSt=`background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:3px 6px;outline:none;width:100%;box-sizing:border-box`;
+  const rows=d.rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:6px 8px"><input type="text" value="${r.week||''}" style="${iSt}" onchange="betaMetricEdit(${i},'week',this.value)"></td>
+    <td style="padding:6px 8px;text-align:center"><input type="number" value="${r.active||''}" placeholder="—" min="0" style="${iSt};text-align:center;width:60px" onchange="betaMetricEdit(${i},'active',this.value)"></td>
+    <td style="padding:6px 8px;text-align:center"><input type="number" value="${r.receipts||''}" placeholder="—" min="0" style="${iSt};text-align:center;width:60px" onchange="betaMetricEdit(${i},'receipts',this.value)"></td>
+    <td style="padding:6px 8px;text-align:center"><input type="number" value="${r.tickets||''}" placeholder="—" min="0" style="${iSt};text-align:center;width:60px" onchange="betaMetricEdit(${i},'tickets',this.value)"></td>
+    <td style="padding:6px 8px;text-align:center"><input type="number" value="${r.firstStrike||''}" placeholder="—" min="0" max="100" style="${iSt};text-align:center;width:60px;color:${_metricColor(r.firstStrike,BETA_METRICS_TARGETS.firstStrike)}" onchange="betaMetricEdit(${i},'firstStrike',this.value)"><span style="color:var(--muted);font-size:10px">%</span></td>
+    <td style="padding:6px 8px;text-align:center"><input type="number" value="${r.retention||''}" placeholder="—" min="0" max="100" style="${iSt};text-align:center;width:60px;color:${_metricColor(r.retention,BETA_METRICS_TARGETS.retention14)}" onchange="betaMetricEdit(${i},'retention',this.value)"><span style="color:var(--muted);font-size:10px">%</span></td>
+    <td style="padding:6px 8px"><input type="text" value="${r.notes||''}" placeholder="Notes…" style="${iSt}" onchange="betaMetricEdit(${i},'notes',this.value)"></td>
+    <td style="padding:6px 8px;text-align:center"><button onclick="betaMetricDelRow(${i})" style="font-family:'DM Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">✕</button></td>
+  </tr>`).join('');
+  card.innerHTML=`<div style="padding:20px 24px;overflow-x:auto">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);align-self:center">Targets: First Strike ≥${BETA_METRICS_TARGETS.firstStrike}% · 14-Day Retention ≥${BETA_METRICS_TARGETS.retention14}%</span>
+      <button onclick="syncBetaMetricsToSheets(this)" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Sync to Sheets ↑</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse;min-width:700px">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="padding:6px 8px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">WEEK</th>
+        <th style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">ACTIVE FAM.</th>
+        <th style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">RECEIPTS</th>
+        <th style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">TICKETS</th>
+        <th style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">FIRST STRIKE</th>
+        <th style="padding:6px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">14-DAY RET.</th>
+        <th style="padding:6px 8px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-weight:600">NOTES</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <button onclick="betaMetricAddRow()" style="margin-top:12px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--muted);cursor:pointer" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">+ Add Week</button>
+  </div>`;
+}
+function betaMetricAddRow(){
+  const d=_getBetaMetrics(); d.rows.push({week:'Week '+(d.rows.length+1),active:'',receipts:'',tickets:'',firstStrike:'',retention:'',notes:''});
+  _saveBetaMetrics(d); renderBetaMetrics();
+}
+function betaMetricDelRow(i){ const d=_getBetaMetrics(); d.rows.splice(i,1); _saveBetaMetrics(d); renderBetaMetrics(); }
+function betaMetricEdit(i,field,val){ const d=_getBetaMetrics(); d.rows[i][field]=val; _saveBetaMetrics(d); renderBetaMetrics(); }
+function syncBetaMetricsToSheets(btn){
+  if(!CONFIG.sheetsUrl) return;
+  if(btn){btn.textContent='Syncing…';btn.disabled=true;}
+  const d=_getBetaMetrics();
+  const url=CONFIG.sheetsUrl+'?action=beta_metrics_write&data='+encodeURIComponent(JSON.stringify(d.rows));
+  fetch(url).then(r=>r.json()).then(()=>{
+    if(btn){btn.textContent='Synced ✓';btn.style.color='var(--green)';btn.style.borderColor='var(--green)';setTimeout(()=>{btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;},2000);}
+  }).catch(()=>{if(btn){btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;}});
+}
+
+// ── App Analytics ───────────────────────────────────────────
+function _getAppAnalytics(){
+  try{ const r=localStorage.getItem('dgl_app_analytics'); if(r) return JSON.parse(r); }catch(e){}
+  return {
+    dau:     {value:'',prev:'',updated:''},
+    receipts:{value:'',prev:'',updated:''},
+    session: {value:'',prev:'',updated:''}
+  };
+}
+function _saveAppAnalytics(d){ try{localStorage.setItem('dgl_app_analytics',JSON.stringify(d));}catch(e){} }
+function _trendArrow(cur,prev){
+  const c=parseFloat(cur),p=parseFloat(prev); if(isNaN(c)||isNaN(p)) return '<span style="color:var(--muted)">→</span>';
+  if(c>p) return '<span style="color:var(--green)">↑</span>';
+  if(c<p) return '<span style="color:var(--red)">↓</span>';
+  return '<span style="color:var(--muted)">→</span>';
+}
+function renderAppAnalytics(){
+  const card=document.getElementById('app-analytics-card'); if(!card) return;
+  const d=_getAppAnalytics();
+  const iSt=`background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:26px;padding:8px 12px;outline:none;width:120px;text-align:center`;
+  const stat=(key,label,unit,hint)=>{
+    const s=d[key]; return `<div style="flex:1;min-width:180px;padding:16px 20px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:10px">${label}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="${unit==='min'?'number':'number'}" value="${s.value}" placeholder="—" min="0" style="${iSt}"
+          onchange="appAnalyticsEdit('${key}',this.value)">
+        <span style="font-family:'DM Mono',monospace;font-size:14px;color:var(--muted)">${unit}</span>
+        <span style="font-size:20px">${_trendArrow(s.value,s.prev)}</span>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:8px">${hint}</div>
+      ${s.updated?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px">Updated: ${s.updated}</div>`:''}
+    </div>`;
+  };
+  card.innerHTML=`<div style="padding:20px 24px">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+      ${stat('dau','DAILY ACTIVE USERS','users','Updated by Hammad')}
+      ${stat('receipts','TOTAL RECEIPTS PROCESSED','receipts','Cumulative')}
+      ${stat('session','AVG SESSION LENGTH','min','Minutes per session')}
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button onclick="syncAppAnalyticsToSheets(this)" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Sync to Sheets ↑</button>
+    </div>
+  </div>`;
+}
+function appAnalyticsEdit(key,val){
+  const d=_getAppAnalytics();
+  d[key].prev=d[key].value; d[key].value=val;
+  const now=new Date(); d[key].updated=now.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  _saveAppAnalytics(d); renderAppAnalytics();
+}
+function syncAppAnalyticsToSheets(btn){
+  if(!CONFIG.sheetsUrl) return;
+  if(btn){btn.textContent='Syncing…';btn.disabled=true;}
+  const d=_getAppAnalytics();
+  const url=CONFIG.sheetsUrl+'?action=analytics_write&dau='+encodeURIComponent(d.dau.value)+'&receipts='+encodeURIComponent(d.receipts.value)+'&session='+encodeURIComponent(d.session.value);
+  fetch(url).then(r=>r.json()).then(()=>{
+    if(btn){btn.textContent='Synced ✓';btn.style.color='var(--green)';btn.style.borderColor='var(--green)';setTimeout(()=>{btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;},2000);}
+  }).catch(()=>{if(btn){btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;}});
+}
+
+// ── Survey Results ──────────────────────────────────────────
+function _getSurveyResults(){
+  try{ const r=localStorage.getItem('dgl_survey_results'); if(r) return JSON.parse(r); }catch(e){}
+  return {veryDisappointed:0,somewhatDisappointed:0,notDisappointed:0};
+}
+function _saveSurveyResults(d){ try{localStorage.setItem('dgl_survey_results',JSON.stringify(d));}catch(e){} }
+function renderSurveyResults(){
+  const card=document.getElementById('survey-results-card'); if(!card) return;
+  const d=_getSurveyResults();
+  const total=d.veryDisappointed+d.somewhatDisappointed+d.notDisappointed;
+  const pmfScore=total>0?Math.round((d.veryDisappointed/total)*100):0;
+  const threshold=40;
+  const scoreCol=pmfScore>=threshold?'var(--green)':pmfScore>=threshold*0.8?'var(--amber)':'var(--red)';
+  const barPct=Math.min(100,pmfScore); const threshPct=threshold;
+  const counter=(key,label,col)=>`<div style="flex:1;min-width:140px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--surface);text-align:center">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:${col};letter-spacing:0.5px;margin-bottom:10px">${label}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:32px;color:${col};font-weight:700;margin-bottom:10px">${d[key]}</div>
+    <div style="display:flex;justify-content:center;gap:8px">
+      <button onclick="surveyAdj('${key}',-1)" style="font-family:'DM Mono',monospace;font-size:14px;padding:2px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">−</button>
+      <button onclick="surveyAdj('${key}',1)" style="font-family:'DM Mono',monospace;font-size:14px;padding:2px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">+</button>
+    </div>
+  </div>`;
+  card.innerHTML=`<div style="padding:20px 24px">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+      ${counter('veryDisappointed','VERY DISAPPOINTED','var(--green)')}
+      ${counter('somewhatDisappointed','SOMEWHAT DISAPPOINTED','var(--amber)')}
+      ${counter('notDisappointed','NOT DISAPPOINTED','var(--muted)')}
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:6px">
+        <span style="color:var(--muted)">PMF SCORE (Very Disappointed / Total)</span>
+        <span style="color:${scoreCol};font-weight:700;font-size:14px">${pmfScore}%</span>
+      </div>
+      <div style="position:relative;height:14px;background:var(--surface);border-radius:7px;border:1px solid var(--border);overflow:visible">
+        <div style="height:100%;width:${barPct}%;background:${scoreCol};border-radius:7px;transition:width 0.4s ease"></div>
+        <div style="position:absolute;top:-4px;left:${threshPct}%;width:2px;height:22px;background:var(--amber);border-radius:1px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px">
+        <span>${total} total responses</span>
+        <span style="color:var(--amber)">▲ ${threshold}% threshold</span>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="syncSurveyToSheets(this)" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Sync to Sheets ↑</button>
+    </div>
+  </div>`;
+}
+function surveyAdj(key,delta){
+  const d=_getSurveyResults(); d[key]=Math.max(0,(d[key]||0)+delta);
+  _saveSurveyResults(d);
+  const total=d.veryDisappointed+d.somewhatDisappointed+d.notDisappointed;
+  const pmfScore=total>0?Math.round((d.veryDisappointed/total)*100):0;
+  const kc=_getKillCriteria();
+  const ellisIdx=kc.kpis.findIndex(k=>/ellis|pmf score/i.test(k.name));
+  if(ellisIdx>=0){ updateKillKpi(ellisIdx,'current',String(pmfScore)); }
+  else { renderSurveyResults(); }
+}
+function syncSurveyToSheets(btn){
+  if(!CONFIG.sheetsUrl) return;
+  if(btn){btn.textContent='Syncing…';btn.disabled=true;}
+  const d=_getSurveyResults();
+  const total=d.veryDisappointed+d.somewhatDisappointed+d.notDisappointed;
+  const pmfScore=total>0?Math.round((d.veryDisappointed/total)*100):0;
+  const url=CONFIG.sheetsUrl+'?action=survey_write&very='+encodeURIComponent(d.veryDisappointed)+'&somewhat='+encodeURIComponent(d.somewhatDisappointed)+'&not='+encodeURIComponent(d.notDisappointed)+'&score='+encodeURIComponent(pmfScore);
+  fetch(url).then(r=>r.json()).then(()=>{
+    if(btn){btn.textContent='Synced ✓';btn.style.color='var(--green)';btn.style.borderColor='var(--green)';setTimeout(()=>{btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;},2000);}
+  }).catch(()=>{if(btn){btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;}});
+}
+
 function renderKillCriteria(){
   const card=document.getElementById('kill-criteria-card');
   if(!card) return;
@@ -4528,6 +4814,10 @@ window.addEventListener('DOMContentLoaded',()=>{
   buildAgendaPage();
   renderSpendLog();
   renderAdPhases();
+  renderBetaFamilies();
+  renderBetaMetrics();
+  renderAppAnalytics();
+  renderSurveyResults();
   renderKillCriteria();
   renderWhatIf();
   initFlagToolbar();
