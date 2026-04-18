@@ -3693,12 +3693,14 @@ function wiTop10Html(){
 function wiToggleExpense(i){
   _wiState.expenses[i].active = !_wiState.expenses[i].active;
   wiRenderExpRows();
+  wiUpdatePresetFormTotals();
   wiCalc();
 }
 
 function wiEditExpense(i, val){
   _wiState.expenses[i].amount = val;
   wiUpdateExpSummary();
+  wiUpdatePresetFormTotals();
   wiCalc();
 }
 
@@ -3758,9 +3760,20 @@ function wiFormFieldUpdate(field, val){
   wiUpdatePresetFormTotals();
   wiCalc();
 }
+function _wiPfTotalHTML(){
+  const { fixedAndTeam, payoneer, netBurn } = _wiTotals();
+  const fixed = fixedAndTeam + payoneer;
+  const ad    = _wiState.adSpend;
+  const rev   = _wiState.revenue;
+  const netCol = netBurn > 0 ? 'var(--red)' : 'var(--green)';
+  return `<span style="color:var(--muted)">Fixed: </span><span style="color:var(--red)">${fmtWi(fixed)}</span>` +
+    ` <span style="color:var(--muted)">+ Ad: </span><span style="color:var(--amber)">${fmtWi(ad)}</span>` +
+    ` <span style="color:var(--muted)">− Rev: </span><span style="color:var(--green)">${fmtWi(rev)}</span>` +
+    ` <span style="color:var(--muted)">= Net: </span><span style="color:${netCol};font-weight:600">${fmtWi(netBurn)}</span>`;
+}
 function wiUpdatePresetFormTotals(){
   const el=document.getElementById('wi-pf-total');
-  if(el) el.textContent=fmtWi(_wiTotals().totalBurn);
+  if(el) el.innerHTML=_wiPfTotalHTML();
 }
 
 function wiApplyPreset(key){
@@ -3769,6 +3782,8 @@ function wiApplyPreset(key){
   _wiState.adSpend  = p.adSpend;
   _wiState.revenue  = p.revenue;
   _wiState.preset   = key;
+  if(p.expenses && Array.isArray(p.expenses) && p.expenses.length > 0)
+    _wiState.expenses = JSON.parse(JSON.stringify(p.expenses));
   const sAd = document.getElementById('wi-slider-adspend');
   const sRe = document.getElementById('wi-slider-revenue');
   if(sAd) sAd.value = p.adSpend;
@@ -3849,8 +3864,8 @@ function wiRenderPresetForm(){
         <input id="wi-pf-revenue" type="number" value="${p.revenue}" min="0" style="${inpStyle}" ${focusBlur} oninput="wiFormFieldUpdate('revenue',+this.value)">
       </div>
     </div>
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:12px">
-      TOTAL EXPENSES: <span id="wi-pf-total" style="color:var(--red);font-weight:600">${fmtWi(totalBurn)}</span> / mo
+    <div style="font-family:'DM Mono',monospace;font-size:9px;margin-bottom:12px">
+      <span id="wi-pf-total">${_wiPfTotalHTML()}</span>
     </div>
     <div style="display:flex;gap:8px">
       <button onclick="wiSavePresetForm()"
@@ -3885,7 +3900,7 @@ function wiSavePresetForm(){
   const revenue  = parseFloat((document.getElementById('wi-pf-revenue')||{}).value)||0;
   const isNew    = _wiState.editingPreset==='__new__';
   const key      = isNew ? 'custom_'+Date.now() : _wiState.editingPreset;
-  _getWiPresets()[key] = { label:name, adSpend, revenue };
+  _getWiPresets()[key] = { label:name, adSpend, revenue, expenses: JSON.parse(JSON.stringify(_wiState.expenses||[])) };
   _saveWiPresets();
   _wiState.editingPreset = null;
   wiCancelPresetForm();
