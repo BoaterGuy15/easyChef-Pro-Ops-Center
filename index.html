@@ -409,8 +409,9 @@ const DASHBOARD_DATA = {
     milestoneItems: []
   },
   budget: {
-    capital: 200000,
-    minReserve: 40000,
+    capital: 93000,
+    startingCapital: 93000,
+    minReserve: 20000,
     payoneer: { current: 24000, conservative: 15000, aggressive: 10000, active: "conservative" },
     fixedMonthly: {
       "RankAndBeyond SEO": 11857,
@@ -428,7 +429,8 @@ const DASHBOARD_DATA = {
       "Starlink": 50,
       "Other": 2402
     },
-    team: { "Searah Teitgen": 0, "Sadee Tison": 0, "Other / TBD": 0 },
+    team: { "Searah Teitgen": 1000, "Sadee Tison": 0, "Other / TBD": 0 },
+    teamNotes: { "Sadee Tison": "Boho Beach Hut — no additional cost" },
     adBudget: 0,
     daysToLaunch: 75,
     adPhases: [
@@ -1378,15 +1380,15 @@ function renderBudget(){
 
   // KPIs
   const kpis = [
-    {label:'Total Capital', val:fmt(b.capital), sub:'Starting balance', cls:''},
+    {label:'Total Capital', val:fmt(b.capital), sub:'Starting balance', cls:'', editable:true},
     {label:'Total Burn / Month', val:fmt(totalBurn), sub:`Payoneer ${fmt(payoneer)} + ops`, cls:'red'},
     {label:'Ops Cost to Launch', val:fmt(totalOpsCost), sub:`${daysLeft} days of burn`, cls:''},
-    {label:'Launch Day Reserve (est.)', val:fmt(launchReserve), sub:`After ops · Ad budget $0`, cls: launchReserve<40000?'red':'green'},
+    {label:'Launch Day Reserve (est.)', val:fmt(launchReserve), sub:`After ops · Ad budget $0`, cls: launchReserve<b.minReserve?'red':'green'},
   ];
   const kpiEl = document.getElementById('budget-kpis');
   if(kpiEl) kpiEl.innerHTML = kpis.map(k=>`
     <div class="kpi ${k.cls}"><div class="kpi-label">${k.label}</div>
-    <div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+    <div class="kpi-val">${k.editable?`<span class="editable-val" id="capital-display" onclick="editCapital()" title="Click to edit">${k.val}</span>`:k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
 
   // Burn breakdown
   const bd = document.getElementById('burn-breakdown');
@@ -1396,7 +1398,8 @@ function renderBudget(){
       html+=`<div class="b-row"><span class="b-label">${k}</span><span class="b-val">${fmt(v)}</span></div>`;
     });
     Object.entries(b.team).forEach(([k,v])=>{
-      html+=`<div class="b-row"><span class="b-label">${k}</span><span class="b-val amber">${v===0?'TBD — set in Assumptions':fmt(v)}</span></div>`;
+      const note=(b.teamNotes&&b.teamNotes[k])?` <span style="font-size:9px;color:var(--muted);font-style:italic">${b.teamNotes[k]}</span>`:'';
+      html+=`<div class="b-row"><span class="b-label">${k}${note}</span><span class="b-val amber">${v===0?'Included':fmt(v)}</span></div>`;
     });
     html+=`<div class="b-row total"><span class="b-label" style="font-weight:500;color:var(--text)">TOTAL MONTHLY BURN</span><span class="b-val red" style="font-size:15px">${fmt(totalBurn)}</span></div>`;
     bd.innerHTML = html;
@@ -2315,6 +2318,21 @@ function importPdfTransactions(){
 function closeModal(e){
   if(!e || e.target===document.getElementById('modal-overlay'))
     document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function editCapital(){
+  const el=document.getElementById('capital-display');
+  if(!el) return;
+  const cur=DASHBOARD_DATA.budget.capital;
+  el.outerHTML=`<input id="capital-input" type="number" value="${cur}" min="0" style="background:var(--surface);border:1px solid var(--gold);border-radius:4px;color:var(--gold);font-family:'DM Mono',monospace;font-size:18px;font-weight:700;width:140px;padding:2px 6px;outline:none" onblur="saveCapital(this)" onkeydown="if(event.key==='Enter')this.blur()" autofocus>`;
+  setTimeout(()=>{ const i=document.getElementById('capital-input'); if(i){i.select();} },10);
+}
+function saveCapital(inp){
+  const val=parseFloat(inp.value)||0;
+  DASHBOARD_DATA.budget.capital=val;
+  DASHBOARD_DATA.budget.startingCapital=val;
+  saveToLocal();
+  renderBudget();
 }
 
 function setAdBudget(){
