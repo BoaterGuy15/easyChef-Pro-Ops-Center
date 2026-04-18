@@ -830,6 +830,7 @@ function showPage(id){
   });
   const pg=document.getElementById('page-'+id);
   if(pg) pg.classList.add('active');
+  sessionStorage.setItem('dgl_active_tab',id);
 }
 
 // ── RACI table ─────────────────────────────────────────────
@@ -2971,6 +2972,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       closeMilestoneEditor();
   });
   if(window._DGL_USER) showDashboard(window._DGL_USER);
+  showPage(sessionStorage.getItem('dgl_active_tab')||'agenda');
   updateLiveDot();
   setInterval(masterRefresh, 60000);
 });
