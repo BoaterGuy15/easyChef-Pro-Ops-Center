@@ -444,10 +444,6 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <h1 style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900">easyChef Pro <span style="color:var(--gold)">Ops Center</span></h1>
       <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px">Digital Galactica Labs · Updated <span id="meta-updated"></span></div>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn-secondary" onclick="showModal('spend')">+ Log Spend</button>
-      <button class="btn-secondary" onclick="showModal('update')">+ Update Task</button>
-    </div>
   </div>
 
   <div class="alert-banner" id="cmd-alert">⬤ &nbsp;<span id="gap-count">6</span> ACCOUNTABILITY GAPS · 0 START DATES LOCKED · MONDAY 11AM ET IS THE RESOLUTION DEADLINE</div>
@@ -1504,54 +1500,6 @@ function showModal(type){
         <button class="btn-secondary" onclick="closeModal()">Close</button>
       </div>`;
 
-  } else if(type==='spend'){
-    content.innerHTML=`
-      <h3>Add Transaction</h3>
-      <div class="modal-sub">MANUAL ENTRY · SINGLE TRANSACTION</div>
-      <div class="modal-field"><label>Date</label><input type="date" id="m-date" value="${new Date().toISOString().split('T')[0]}"></div>
-      <div class="modal-field"><label>Vendor / Description</label><input type="text" id="m-vendor" placeholder="e.g. OpenAI API · invoice #12345"></div>
-      <div class="modal-field"><label>Category</label>
-        <select id="m-cat">
-          <option>Payment Processing</option>
-          <option>AI / LLM API</option>
-          <option>Cloud Infrastructure</option>
-          <option>Marketing & SEO</option>
-          <option>Developer Tools</option>
-          <option>Advertising</option>
-          <option>Team / Headcount</option>
-          <option>Subscriptions</option>
-          <option>Travel</option>
-          <option>IP / Legal</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div class="modal-field"><label>Amount ($)</label><input type="number" id="m-amount" placeholder="0.00" min="0" step="0.01"></div>
-      <div class="modal-field"><label>Notes (optional)</label><textarea id="m-notes" placeholder="Invoice number, context, or reason..."></textarea></div>
-      <div class="modal-actions">
-        <button class="btn-primary" onclick="logSpend()">Add Transaction</button>
-        <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-      </div>`;
-
-  } else if(type==='update'){
-    content.innerHTML=`
-      <h3>Update Task Status</h3>
-      <div class="modal-sub">RACI TRACKER · TASK UPDATE</div>
-      <div class="modal-field"><label>Task ID</label>
-        <select id="m-taskid">
-          ${DASHBOARD_DATA.tasks.map(t=>`<option value="${t.id}">${t.id} — ${t.name}</option>`).join('')}
-        </select>
-      </div>
-      <div class="modal-field"><label>New Status</label>
-        <select id="m-status">
-          <option>Not Started</option><option>Started</option><option>Ready</option><option>Blocked</option><option>Done</option>
-        </select>
-      </div>
-      <div class="modal-field"><label>Update Note (who confirmed, what changed)</label><textarea id="m-note" placeholder="e.g. JR confirmed T-026 complete. All 5 emails built and scheduled."></textarea></div>
-      <div class="modal-actions">
-        <button class="btn-primary" onclick="updateTask()">Update Task</button>
-        <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-      </div>`;
-
   } else if(type==='adbudget'){
     content.innerHTML=`
       <h3>Set Advertising Budget</h3>
@@ -1661,30 +1609,6 @@ function importPdfTransactions(){
 function closeModal(e){
   if(!e || e.target===document.getElementById('modal-overlay'))
     document.getElementById('modal-overlay').classList.remove('open');
-}
-
-function logSpend(){
-  const date = document.getElementById('m-date').value;
-  const vendor = (document.getElementById('m-vendor').value||'').trim();
-  const cat = document.getElementById('m-cat').value;
-  const amount = parseFloat(document.getElementById('m-amount').value)||0;
-  const notes = document.getElementById('m-notes').value||'';
-  if(!vendor||amount===0){alert('Please fill in vendor and amount.');return;}
-  addTransactions([{date,vendor,cat,amount,notes}]);
-  closeModal();
-}
-
-function updateTask(){
-  const id = document.getElementById('m-taskid').value;
-  const status = document.getElementById('m-status').value;
-  const note = (document.getElementById('m-note').value||'').trim();
-  const task = DASHBOARD_DATA.tasks.find(t=>t.id===id);
-  if(task){
-    task.status=status;
-    if(note) task.notes=note;
-  }
-  closeModal();
-  masterRefresh();
 }
 
 function setAdBudget(){
