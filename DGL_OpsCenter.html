@@ -103,6 +103,12 @@ tr.hidden-row{display:none}
 .flag-edit{font-size:10px;min-width:120px;max-width:200px;outline:none;cursor:text;border-bottom:1px solid transparent;transition:border-color 0.15s;white-space:pre-wrap;word-break:break-word;line-height:1.5}
 .flag-edit:focus{border-bottom-color:var(--border)}
 .flag-edit:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none;font-style:italic}
+/* ── RACI table — no scroll, compact fit ── */
+#page-raci .table-wrap{overflow-x:visible}
+#page-raci table th{padding:6px 6px}
+#page-raci table td{padding:5px 6px}
+.raci-person-col{width:26px;max-width:30px;text-align:center!important;padding:5px 2px!important}
+#page-raci .flag-cell{max-width:none;min-width:100px}
 .owner-cell{font-size:11px;color:var(--text);max-width:130px}
 .warn{color:var(--amber)}
 
@@ -432,7 +438,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <table id="raci-table">
       <thead><tr>
         <th>ID</th><th>Task</th><th>Category</th><th>Pri</th><th>Status</th><th>Owner</th>
-        <th>Taylor</th><th>Steve</th><th>Adam</th><th>Mary</th><th>JR</th><th>Hammad</th><th>Searah</th><th>Sadee</th>
+        <th class="raci-person-col">Tay</th><th class="raci-person-col">Stv</th><th class="raci-person-col">Adm</th><th class="raci-person-col">Mry</th><th class="raci-person-col">JR</th><th class="raci-person-col">Hmd</th><th class="raci-person-col">Sea</th><th class="raci-person-col">Sde</th>
         <th>Timeline</th><th>ICS Flags / Notes</th>
       </tr></thead>
       <tbody id="raci-body"></tbody>
@@ -601,12 +607,12 @@ function showPage(id){
 // ── RACI table ─────────────────────────────────────────────
 let raciPersonFilter='all', raciStatusFilter='all';
 function raciCell(val){
-  if(!val) return '<td class="raci-empty">·</td>';
-  if(val==='R') return '<td><span class="raci-r">R</span></td>';
-  if(val==='A'||val==='A/R') return '<td><span class="raci-a">'+val+'</span></td>';
-  if(val==='C') return '<td><span class="raci-c">C</span></td>';
-  if(val==='I') return '<td><span class="raci-i">I</span></td>';
-  return '<td class="raci-empty">·</td>';
+  if(!val) return '<td class="raci-empty raci-person-col">·</td>';
+  if(val==='R') return '<td class="raci-person-col"><span class="raci-r">R</span></td>';
+  if(val==='A'||val==='A/R') return '<td class="raci-person-col"><span class="raci-a">'+val+'</span></td>';
+  if(val==='C') return '<td class="raci-person-col"><span class="raci-c">C</span></td>';
+  if(val==='I') return '<td class="raci-person-col"><span class="raci-i">I</span></td>';
+  return '<td class="raci-empty raci-person-col">·</td>';
 }
 function getCatClass(cat){
   if(cat.includes('Marketing Strategy')) return 'cat-Marketing';
