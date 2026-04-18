@@ -3082,8 +3082,8 @@ function renderKillCriteria(){
         <span style="color:${sCol[st]};font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${sIcon[st]} ${sLabel[st]}</span>
       </td>
       <td style="padding:8px 10px;width:100%">
-        <textarea placeholder="Notes…" rows="1" style="${iSt};width:100%;box-sizing:border-box;resize:none;overflow:hidden;line-height:1.4;vertical-align:top" ${fo}
-          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+        <textarea placeholder="Notes…" rows="2" style="${iSt};width:100%;box-sizing:border-box;resize:none;overflow:hidden;line-height:1.4;vertical-align:top;min-height:32px" ${fo}
+          oninput="this.style.height=Math.max(32,this.scrollHeight)+'px'"
           onchange="updateKillKpi(${i},'notes',this.value)">${k.notes||''}</textarea>
       </td>
     </tr>`;
@@ -3150,7 +3150,7 @@ function renderKillCriteria(){
         </table></div>
       </div>`;
     })()}`;
-  card.querySelectorAll('textarea').forEach(el=>{el.style.height='auto';el.style.height=el.scrollHeight+'px';});
+  card.querySelectorAll('textarea').forEach(el=>{el.style.height=Math.max(32,el.scrollHeight)+'px';});
 }
 function updateKillKpi(i,field,val){
   _getKillCriteria().kpis[i][field]=val;
