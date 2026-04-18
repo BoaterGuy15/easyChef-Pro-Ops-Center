@@ -240,7 +240,7 @@ tr.hidden-row{display:none}
     <div class="nav-tab" onclick="showPage('team')">Team</div>
   </div>
   <div class="topbar-right">
-    <div class="countdown">Launch in <span id="days-countdown">75</span> days — Jul 1, 2026</div>
+    <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
     <div class="live-dot" title="Live data"></div>
   </div>
 </nav>
@@ -261,7 +261,10 @@ const DASHBOARD_DATA = {
     launchDate: new Date("2026-07-01"),
     startCapital: 200000,
     minReserve: 40000,
-    betaLaunch: "May 11, 2026"
+    betaLaunch: "May 11, 2026",
+    milestoneDate: "2026-07-01",
+    milestoneLabel: "Launch Day",
+    milestones: [{date:"2026-07-01", label:"Launch Day"}]
   },
   budget: {
     capital: 200000,
@@ -613,12 +616,39 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div class="modal" id="modal-content"></div>
 </div>
 
+<div id="milestone-editor" style="display:none;position:fixed;z-index:502;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:240px">
+  <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Edit Milestone</div>
+  <div style="margin-bottom:8px">
+    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);display:block;margin-bottom:4px">DATE</label>
+    <input type="date" id="ms-date-input" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;width:100%;outline:none">
+  </div>
+  <div style="margin-bottom:10px">
+    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);display:block;margin-bottom:4px">LABEL</label>
+    <input type="text" id="ms-label-input" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;width:100%;outline:none" placeholder="Launch Day">
+  </div>
+  <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:10px">
+    <button onclick="closeMilestoneEditor()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer">Cancel</button>
+    <button onclick="saveMilestoneDate()" style="background:var(--gold);border:none;color:#0b0d10;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:500;cursor:pointer">Save</button>
+  </div>
+  <div style="border-top:1px solid var(--border);padding-top:8px">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px;letter-spacing:1px">HISTORY</div>
+    <div id="ms-history"></div>
+  </div>
+</div>
+
 <script>
 // ── Countdown ──────────────────────────────────────────────
 function updateCountdown(){
-  const now = new Date();
-  const diff = Math.ceil((DASHBOARD_DATA.meta.launchDate - now)/(1000*60*60*24));
+  const target = new Date(DASHBOARD_DATA.meta.milestoneDate+'T00:00:00');
+  const now = getPSTDate();
+  const diff = Math.ceil((target - now)/(1000*60*60*24));
   document.getElementById('days-countdown').textContent = diff;
+  const lbl = document.getElementById('milestone-label-display');
+  if(lbl){
+    const d = new Date(DASHBOARD_DATA.meta.milestoneDate+'T00:00:00');
+    const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    lbl.textContent = mo[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
+  }
   const el = document.getElementById('meta-updated');
   if(el) el.textContent = DASHBOARD_DATA.meta.updated;
 }
@@ -689,6 +719,8 @@ function setTaskStatus(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
   if(!task) return;
   task.status=val;
+  const _p=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  task.lastStatusChange=_p.getFullYear()+'-'+String(_p.getMonth()+1).padStart(2,'0')+'-'+String(_p.getDate()).padStart(2,'0');
   const c=getStatusColors(val);
   el.style.background=c.bg; el.style.color=c.color;
   const tr=el.closest('tr');
@@ -770,9 +802,14 @@ function setTaskOwner(id,val,el){
   buildCommandKPIs();
   buildTeamGrid();
 }
+function getPSTDate(){
+  const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  d.setHours(0,0,0,0);
+  return d;
+}
 function getBlockingDeps(task){
   if(!task.deps) return [];
-  const now=new Date(); now.setHours(0,0,0,0);
+  const now=getPSTDate();
   return task.deps.split(',').map(s=>s.trim()).filter(id=>{
     const dep=DASHBOARD_DATA.tasks.find(t=>t.id===id);
     if(!dep||!dep.ed) return false;
@@ -782,7 +819,7 @@ function getBlockingDeps(task){
 }
 function taskProgress(t){
   if(!t.sd||!t.ed) return '<td></td>';
-  const now = new Date(); now.setHours(0,0,0,0);
+  const now = getPSTDate();
   const start = new Date(t.sd); start.setHours(0,0,0,0);
   const end = new Date(t.ed); end.setHours(0,0,0,0);
   const done = t.status==='Done'||t.status==='Complete';
@@ -802,13 +839,25 @@ function taskProgress(t){
   }
   const blocking=getBlockingDeps(t);
   const blockHtml=blocking.map(id=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:2px">⛔ Blocked by ${id}</div>`).join('');
+  let tisHtml='';
+  if(!done){
+    const lscStr=t.lastStatusChange||t.sd;
+    if(lscStr){
+      const lscDate=new Date(lscStr+'T00:00:00'); lscDate.setHours(0,0,0,0);
+      const tisD=Math.round((now-lscDate)/(1000*60*60*24));
+      if(tisD>=0){
+        const tisC=tisD>14?'var(--red)':tisD>7?'var(--amber)':'var(--muted)';
+        tisHtml=`<div style="font-family:'DM Mono',monospace;font-size:9px;color:${tisC};margin-top:2px">${t.status} ${tisD}d</div>`;
+      }
+    }
+  }
   return `<td style="white-space:nowrap;min-width:96px">
     <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:4px">
       <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
     </div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${fd(start)} → ${fd(end)}</div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};margin-top:1px">${label}</div>
-    ${blockHtml}
+    ${tisHtml}${blockHtml}
   </td>`;
 }
 function flagColor(text){
@@ -979,7 +1028,7 @@ function applyRaciFilters(){
     if(raciStatusFilter!=='all'&&show){
       if(raciStatusFilter==='overdue'){
         const task=DASHBOARD_DATA.tasks.find(t=>t.id===tr.dataset.id);
-        const now=new Date(); now.setHours(0,0,0,0);
+        const now=getPSTDate();
         const end=task&&task.ed?new Date(task.ed):null; if(end) end.setHours(0,0,0,0);
         const done=tr.dataset.status==='Done'||tr.dataset.status==='Complete';
         const selfOverdue=end&&now>end&&!done;
@@ -1606,6 +1655,36 @@ function updateAdPhaseAmounts(){
   if(amtEl) amtEl.textContent = fmt(b.adPhases.reduce((a,p)=>a+b.adBudget*p.pct/100, 0));
 }
 
+// ── Milestone editor ────────────────────────────────────────
+function showMilestoneEditor(el){
+  event.stopPropagation();
+  const editor=document.getElementById('milestone-editor');
+  document.getElementById('ms-date-input').value=DASHBOARD_DATA.meta.milestoneDate;
+  document.getElementById('ms-label-input').value=DASHBOARD_DATA.meta.milestoneLabel;
+  const hist=document.getElementById('ms-history');
+  hist.innerHTML=DASHBOARD_DATA.meta.milestones.slice().reverse().map(m=>
+    `<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:2px 0">${m.date} — ${m.label}</div>`
+  ).join('');
+  const r=el.getBoundingClientRect();
+  editor.style.top=(r.bottom+8)+'px';
+  editor.style.right=(window.innerWidth-r.right)+'px';
+  editor.style.left='auto';
+  editor.style.display='block';
+}
+function closeMilestoneEditor(){
+  document.getElementById('milestone-editor').style.display='none';
+}
+function saveMilestoneDate(){
+  const dateVal=document.getElementById('ms-date-input').value;
+  const labelVal=(document.getElementById('ms-label-input').value||'').trim()||'Launch Day';
+  if(!dateVal) return;
+  DASHBOARD_DATA.meta.milestones.push({date:DASHBOARD_DATA.meta.milestoneDate,label:DASHBOARD_DATA.meta.milestoneLabel});
+  DASHBOARD_DATA.meta.milestoneDate=dateVal;
+  DASHBOARD_DATA.meta.milestoneLabel=labelVal;
+  updateCountdown();
+  closeMilestoneEditor();
+}
+
 // ── Init all ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
   buildCommandKPIs();
@@ -1620,6 +1699,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderAdPhases();
   initFlagToolbar();
   initRaciPopover();
+  document.addEventListener('click',e=>{
+    const ed=document.getElementById('milestone-editor');
+    if(ed&&ed.style.display!=='none'&&!ed.contains(e.target)&&!e.target.closest('#milestone-countdown'))
+      closeMilestoneEditor();
+  });
 });
 </script>
 </body>
