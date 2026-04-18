@@ -3477,10 +3477,10 @@ function triggerCelebration(){
 
 // ── What-If Scenario Playground ────────────────────────────
 const WI_DEFAULT_PRESETS = {
-  prelaunch:    { adSpend:     0, revenue:     0, payoneer: 24000, label: 'Pre-Launch'   },
-  conservative: { adSpend:  5000, revenue:  2000, payoneer: 15000, label: 'Conservative' },
-  growth:       { adSpend: 20000, revenue:  8000, payoneer: 15000, label: 'Growth'       },
-  postlaunch:   { adSpend: 15000, revenue: 15000, payoneer: 10000, label: 'Post-Launch'  },
+  prelaunch:    { adSpend:     0, revenue:     0, label: 'Pre-Launch'   },
+  conservative: { adSpend:  5000, revenue:  2000, label: 'Conservative' },
+  growth:       { adSpend: 20000, revenue:  8000, label: 'Growth'       },
+  postlaunch:   { adSpend: 15000, revenue: 15000, label: 'Post-Launch'  },
 };
 const WI_DEFAULT_KEYS = new Set(Object.keys(WI_DEFAULT_PRESETS));
 let _wiPresets = null;
@@ -3499,7 +3499,7 @@ function _saveWiPresets(){
   const customs={};
   Object.entries(_wiPresets).forEach(([k,p])=>{
     const def=WI_DEFAULT_PRESETS[k];
-    if(!def||p.label!==def.label||p.adSpend!==def.adSpend||p.revenue!==def.revenue||p.payoneer!==def.payoneer)
+    if(!def||p.label!==def.label||p.adSpend!==def.adSpend||p.revenue!==def.revenue)
       customs[k]=p;
   });
   try{ localStorage.setItem('dgl_wi_presets',JSON.stringify(customs)); }catch(e){}
@@ -3734,12 +3734,33 @@ function wiDeleteExpense(i){
 function wiUpdate(field, val){
   if(field==='adSpend')  _wiState.adSpend  = val;
   if(field==='revenue')  _wiState.revenue  = val;
+  if(_wiState.editingPreset){
+    const pfAd=document.getElementById('wi-pf-adspend');
+    const pfRe=document.getElementById('wi-pf-revenue');
+    if(field==='adSpend'&&pfAd) pfAd.value=val;
+    if(field==='revenue'&&pfRe) pfRe.value=val;
+    wiUpdatePresetFormTotals();
+  }
   _wiState.preset = null;
   document.querySelectorAll('[id^="wi-preset-"]').forEach(b=>{
     b.style.background='transparent'; b.style.color='var(--muted)'; b.style.borderColor='var(--border)';
   });
   wiUpdateExpSummary();
   wiCalc();
+}
+function wiFormFieldUpdate(field, val){
+  if(field==='adSpend') _wiState.adSpend=val;
+  if(field==='revenue') _wiState.revenue=val;
+  const sl=document.getElementById(field==='adSpend'?'wi-slider-adspend':'wi-slider-revenue');
+  const dv=document.getElementById(field==='adSpend'?'wi-adspend-val':'wi-revenue-val');
+  if(sl) sl.value=val;
+  if(dv) dv.textContent=fmtWi(val);
+  wiUpdatePresetFormTotals();
+  wiCalc();
+}
+function wiUpdatePresetFormTotals(){
+  const el=document.getElementById('wi-pf-total');
+  if(el) el.textContent=fmtWi(_wiTotals().totalBurn);
 }
 
 function wiApplyPreset(key){
@@ -3748,10 +3769,6 @@ function wiApplyPreset(key){
   _wiState.adSpend  = p.adSpend;
   _wiState.revenue  = p.revenue;
   _wiState.preset   = key;
-  if(_wiState.expenses){
-    const pe = _wiState.expenses.find(e=>e.source==='payoneer');
-    if(pe) pe.amount = p.payoneer;
-  }
   const sAd = document.getElementById('wi-slider-adspend');
   const sRe = document.getElementById('wi-slider-revenue');
   if(sAd) sAd.value = p.adSpend;
@@ -3811,32 +3828,29 @@ function wiRenderPresetForm(){
   const key = _wiState.editingPreset;
   if(!key){ wrap.style.display='none'; wrap.innerHTML=''; return; }
   const isNew = key==='__new__';
-  const p = isNew ? {label:'',adSpend:0,revenue:0,payoneer:24000} : (_getWiPresets()[key]||{label:'',adSpend:0,revenue:0,payoneer:24000});
-  const inp = (id,val,type='number',ph='') =>
-    `<input id="${id}" type="${type}" value="${val}" placeholder="${ph}" min="0"
-      style="background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);
-             font-family:'DM Mono',monospace;font-size:11px;width:100%;padding:4px 7px;outline:none;box-sizing:border-box"
-      onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">`;
+  const p = isNew ? {label:'',adSpend:0,revenue:0} : (_getWiPresets()[key]||{label:'',adSpend:0,revenue:0});
+  const inpStyle = `background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;width:100%;padding:4px 7px;outline:none;box-sizing:border-box`;
+  const focusBlur = `onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"`;
+  const { totalBurn } = _wiTotals();
   wrap.style.display='block';
   wrap.innerHTML=`<div style="margin-top:8px;padding:14px 16px;border:1px solid var(--gold);border-radius:8px;background:var(--surface)">
     <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1px;margin-bottom:12px">${isNew?'NEW PRESET':'EDIT PRESET — '+p.label}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">NAME</div>
-        ${inp('wi-pf-name',p.label,'text','')}
+        <input id="wi-pf-name" type="text" value="${p.label}" style="${inpStyle}" ${focusBlur}>
       </div>
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">AD SPEND / MO</div>
-        ${inp('wi-pf-adspend',p.adSpend)}
+        <input id="wi-pf-adspend" type="number" value="${p.adSpend}" min="0" style="${inpStyle}" ${focusBlur} oninput="wiFormFieldUpdate('adSpend',+this.value)">
       </div>
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">MONTHLY REVENUE</div>
-        ${inp('wi-pf-revenue',p.revenue)}
+        <input id="wi-pf-revenue" type="number" value="${p.revenue}" min="0" style="${inpStyle}" ${focusBlur} oninput="wiFormFieldUpdate('revenue',+this.value)">
       </div>
-      <div>
-        <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">PAYONEER COST</div>
-        ${inp('wi-pf-payoneer',p.payoneer)}
-      </div>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:12px">
+      TOTAL EXPENSES: <span id="wi-pf-total" style="color:var(--red);font-weight:600">${fmtWi(totalBurn)}</span> / mo
     </div>
     <div style="display:flex;gap:8px">
       <button onclick="wiSavePresetForm()"
@@ -3867,12 +3881,11 @@ function wiSavePresetForm(){
   const nameEl=document.getElementById('wi-pf-name');
   const name=(nameEl?nameEl.value:'').trim();
   if(!name){ nameEl&&(nameEl.style.borderColor='var(--red)'); return; }
-  const adSpend  = parseFloat((document.getElementById('wi-pf-adspend' )||{}).value)||0;
-  const revenue  = parseFloat((document.getElementById('wi-pf-revenue' )||{}).value)||0;
-  const payoneer = parseFloat((document.getElementById('wi-pf-payoneer')||{}).value)||0;
+  const adSpend  = parseFloat((document.getElementById('wi-pf-adspend')||{}).value)||0;
+  const revenue  = parseFloat((document.getElementById('wi-pf-revenue')||{}).value)||0;
   const isNew    = _wiState.editingPreset==='__new__';
   const key      = isNew ? 'custom_'+Date.now() : _wiState.editingPreset;
-  _getWiPresets()[key] = { label:name, adSpend, revenue, payoneer };
+  _getWiPresets()[key] = { label:name, adSpend, revenue };
   _saveWiPresets();
   _wiState.editingPreset = null;
   wiCancelPresetForm();
