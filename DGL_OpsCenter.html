@@ -127,6 +127,7 @@ tr.hidden-row{display:none}
 #page-raci table td{padding:5px 6px}
 .raci-person-col{width:26px;max-width:30px;text-align:center!important;padding:5px 2px!important}
 #page-raci .flag-cell{max-width:none;min-width:100px}
+.blocked-row td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 .owner-cell{font-size:11px;color:var(--text);max-width:130px}
 .warn{color:var(--amber)}
 
@@ -769,6 +770,16 @@ function setTaskOwner(id,val,el){
   buildCommandKPIs();
   buildTeamGrid();
 }
+function getBlockingDeps(task){
+  if(!task.deps) return [];
+  const now=new Date(); now.setHours(0,0,0,0);
+  return task.deps.split(',').map(s=>s.trim()).filter(id=>{
+    const dep=DASHBOARD_DATA.tasks.find(t=>t.id===id);
+    if(!dep||!dep.ed) return false;
+    const end=new Date(dep.ed); end.setHours(0,0,0,0);
+    return now>end && dep.status!=='Done' && dep.status!=='Complete';
+  });
+}
 function taskProgress(t){
   if(!t.sd||!t.ed) return '<td></td>';
   const now = new Date(); now.setHours(0,0,0,0);
@@ -789,12 +800,15 @@ function taskProgress(t){
   } else {
     pct = 0; color = 'var(--muted)'; label = 'Not started';
   }
+  const blocking=getBlockingDeps(t);
+  const blockHtml=blocking.map(id=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:2px">⛔ Blocked by ${id}</div>`).join('');
   return `<td style="white-space:nowrap;min-width:96px">
     <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:4px">
       <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
     </div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${fd(start)} → ${fd(end)}</div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};margin-top:1px">${label}</div>
+    ${blockHtml}
   </td>`;
 }
 function flagColor(text){
@@ -947,6 +961,7 @@ function buildRaciTable(){
       ${taskProgress(t)}
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()">${t.flag||''}</div></td>
     `;
+    if(getBlockingDeps(t).length>0){ tr.classList.add('blocked-row'); tr.dataset.blocked='true'; }
     tbody.appendChild(tr);
   });
   applyRaciFilters();
@@ -967,7 +982,9 @@ function applyRaciFilters(){
         const now=new Date(); now.setHours(0,0,0,0);
         const end=task&&task.ed?new Date(task.ed):null; if(end) end.setHours(0,0,0,0);
         const done=tr.dataset.status==='Done'||tr.dataset.status==='Complete';
-        if(!(end&&now>end&&!done)) show=false;
+        const selfOverdue=end&&now>end&&!done;
+        const depBlocked=task&&getBlockingDeps(task).length>0;
+        if(!selfOverdue&&!depBlocked) show=false;
       } else {
         if(tr.dataset.status!==raciStatusFilter) show=false;
       }
