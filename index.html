@@ -3925,8 +3925,9 @@ function wiCalc(){
   const launchRes  = capital - totalBurn * moToLaunch;
   const runway     = netBurn > 0 ? (capital - minReserve) / netBurn : 99;
   const postSurv   = netBurn > 0 ? Math.max(0, (launchRes - minReserve) / netBurn) : 99;
-  const breakEvenStr = _wiState.revenue >= totalBurn ? 'Already profitable'
-    : _wiState.revenue === 0 ? 'N/A (no revenue)' : 'N/A (static model)';
+  const profitable  = _wiState.revenue > totalBurn;
+  const netProfit   = profitable ? _wiState.revenue - totalBurn : 0;
+  const breakEvenStr = _wiState.revenue === 0 ? 'N/A (no revenue)' : 'N/A (static model)';
 
   const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val');
   if(adV) adV.textContent=fmtWi(_wiState.adSpend);
@@ -3935,16 +3936,44 @@ function wiCalc(){
   const statsEl = document.getElementById('wi-stats');
   if(statsEl){
     const stats = [
-      { label:'NET BURN / MO',        val: fmt(netBurn),  col: netBurn>totalBurn*0.8?'var(--red)':'var(--amber)' },
-      { label:'RUNWAY',               val: runway>99?'∞':runway.toFixed(1)+' mo', col: runway>6?'var(--green)':runway>3?'var(--amber)':'var(--red)' },
-      { label:'LAUNCH RESERVE',       val: fmt(launchRes), col: launchRes>minReserve?'var(--green)':launchRes>0?'var(--amber)':'var(--red)' },
-      { label:'POST-LAUNCH SURVIVAL', val: postSurv>99?'∞':postSurv.toFixed(1)+' mo', col: postSurv>6?'var(--green)':postSurv>3?'var(--amber)':'var(--red)' },
-      { label:'BREAK-EVEN',           val: breakEvenStr, col: _wiState.revenue>=totalBurn?'var(--green)':'var(--muted)' },
+      {
+        label: profitable ? 'NET PROFIT / MO' : 'NET BURN / MO',
+        val:   profitable ? fmtWi(netProfit) : fmt(netBurn),
+        col:   profitable ? 'var(--green)' : (netBurn>totalBurn*0.8?'var(--red)':'var(--amber)')
+      },
+      {
+        label: 'RUNWAY',
+        val:   runway>99 ? '∞ Infinite' : runway.toFixed(1)+' mo',
+        col:   runway>6 ? 'var(--green)' : runway>3 ? 'var(--amber)' : 'var(--red)',
+        sub:   runway>99 ? `Capital growing ${fmtWi(netProfit)}/mo` : null
+      },
+      {
+        label: 'LAUNCH RESERVE',
+        val:   fmt(launchRes),
+        col:   launchRes>minReserve?'var(--green)':launchRes>0?'var(--amber)':'var(--red)'
+      },
+      {
+        label: 'POST-LAUNCH SURVIVAL',
+        val:   postSurv>99 ? '∞ Sustained' : postSurv.toFixed(1)+' mo',
+        col:   postSurv>6 ? 'var(--green)' : postSurv>3 ? 'var(--amber)' : 'var(--red)'
+      },
+      {
+        label: 'BREAK-EVEN',
+        val:   profitable ? `Profitable — ${fmtWi(netProfit)}/mo` : breakEvenStr,
+        col:   profitable ? 'var(--green)' : 'var(--muted)'
+      },
     ];
+    if(profitable) stats.push({
+      label: 'CAPITAL GROWTH',
+      val:   `${fmt(netProfit*12)} / year`,
+      col:   'var(--green)'
+    });
+    statsEl.style.gridTemplateColumns = `repeat(${stats.length},1fr)`;
     statsEl.innerHTML = stats.map(s=>`
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px">
         <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${s.label}</div>
         <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:${s.col}">${s.val}</div>
+        ${s.sub?`<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--green);margin-top:3px;opacity:0.8">${s.sub}</div>`:''}
       </div>`).join('');
   }
   const hdr = document.getElementById('wi-exp-total-hdr');
