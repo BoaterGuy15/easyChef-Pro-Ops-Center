@@ -119,6 +119,8 @@ tr.hidden-row{display:none}
 #raci-search:focus{border-color:var(--gold)}
 #raci-search-clear{position:absolute;right:8px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;display:none;padding:0}
 #raci-search-clear:hover{color:var(--text)}
+.raci-filter-select{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none}
+.raci-filter-select:focus{border-color:var(--gold)}
 /* ── RACI table — no scroll, compact fit ── */
 #page-raci .table-wrap{overflow-x:visible}
 #page-raci table th{padding:6px 6px}
@@ -443,12 +445,17 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <button class="filter-btn" onclick="filterRaci('Sadee',this)">Sadee</button>
   </div>
   <div class="filter-bar" style="margin-top:-8px">
-    <span class="filter-label">Filter by status:</span>
-    <button class="filter-btn active" onclick="filterStatus('all',this)">All</button>
-    <button class="filter-btn" onclick="filterStatus('Started',this)">In Progress</button>
-    <button class="filter-btn" onclick="filterStatus('Not Started',this)">Not Started</button>
-    <button class="filter-btn" onclick="filterStatus('Ready',this)">Ready</button>
-    <button class="filter-btn" onclick="filterStatus('flag',this)">⚠️ Flagged</button>
+    <select id="raci-status-filter" class="raci-filter-select" onchange="filterStatusDropdown(this.value)">
+      <option value="all">All Statuses</option>
+      <option value="Not Started">Not Started</option>
+      <option value="Ready">Ready</option>
+      <option value="Started">Started</option>
+      <option value="In Progress">In Progress</option>
+      <option value="In Review">In Review</option>
+      <option value="Complete">Complete</option>
+      <option value="Blocked">Blocked</option>
+      <option value="overdue">⚠️ Overdue</option>
+    </select>
     <div class="raci-search-wrap">
       <input id="raci-search" type="text" placeholder="Search tasks, owners, notes..." oninput="raciSearch(this.value)">
       <button id="raci-search-clear" onclick="raciSearch('');document.getElementById('raci-search').value=''" title="Clear">×</button>
@@ -955,10 +962,14 @@ function applyRaciFilters(){
       if(!val||val==='I') show=false;
     }
     if(raciStatusFilter!=='all'&&show){
-      if(raciStatusFilter==='flag'){
-        if(!tr.dataset.flag||tr.dataset.flag===''||tr.dataset.flag.startsWith('✓')) show=false;
+      if(raciStatusFilter==='overdue'){
+        const task=DASHBOARD_DATA.tasks.find(t=>t.id===tr.dataset.id);
+        const now=new Date(); now.setHours(0,0,0,0);
+        const end=task&&task.ed?new Date(task.ed):null; if(end) end.setHours(0,0,0,0);
+        const done=tr.dataset.status==='Done'||tr.dataset.status==='Complete';
+        if(!(end&&now>end&&!done)) show=false;
       } else {
-        if(!tr.dataset.status.includes(raciStatusFilter)) show=false;
+        if(tr.dataset.status!==raciStatusFilter) show=false;
       }
     }
     if(raciSearchQuery&&show){
@@ -984,6 +995,10 @@ function applyRaciFilters(){
   } else {
     if(noRes) noRes.classList.add('hidden-row');
   }
+}
+function filterStatusDropdown(val){
+  raciStatusFilter=val;
+  applyRaciFilters();
 }
 function raciSearch(val){
   raciSearchQuery=val.trim().toLowerCase();
