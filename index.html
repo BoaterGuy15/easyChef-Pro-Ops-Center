@@ -1427,7 +1427,8 @@ function buildLaunchHealth(){
   const blocked = tasks.filter(t=>getBlockingDeps(t).length>0).length;
   const missedStarts = tasks.filter(t=>t.pri==='High'&&t.status==='Not Started'&&t.sd&&t.sd<today).length;
   const complete = tasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
-  let score = Math.max(0, Math.min(100, 100 - (overdue*5) - (blocked*3) - (missedStarts*2) + (complete*2)));
+  const pastSdNotStarted = tasks.filter(t=>t.status==='Not Started'&&t.sd&&t.sd<today).length;
+  let score = Math.max(0, Math.min(100, 100 - (overdue*5) - (blocked*3) - (missedStarts*2) - (pastSdNotStarted*1) + (complete*2)));
   const color = score>=80?'var(--green)':score>=50?'var(--amber)':'var(--red)';
   const label = score>=80?'HEALTHY':score>=50?'AT RISK':'CRITICAL';
   const parts = [];
@@ -1803,7 +1804,8 @@ ${milestoneLines}`;
     const resp=await fetch(CONFIG.sheetsUrl+'?action=anthropic&prompt='+encodeURIComponent(userPrompt)+'&system='+encodeURIComponent(systemPrompt));
     const data=await resp.json();
     if(data.text){
-      const html=data.text.split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="margin-bottom:14px;line-height:1.8;color:#c5c8d0;font-family:'DM Sans',sans-serif;font-size:13px">${p.trim()}</p>`).join('');
+      const renderMd=t=>t.replace(/^##\s+(.+)$/gm,(_,h)=>`<div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;margin:18px 0 6px">${h.trim()}</div>`).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+      const html=data.text.split(/\n\n+/).filter(p=>p.trim()).map(p=>{const r=renderMd(p.trim());return r.startsWith('<div')? r:`<p style="margin-bottom:14px;line-height:1.8;color:#c5c8d0;font-family:'DM Sans',sans-serif;font-size:13px">${r}</p>`;}).join('');
       contentEl.innerHTML=html;
       const ts=new Date().toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'});
       try{localStorage.setItem('dgl_assessment',JSON.stringify({html,ts}));}catch(e){}
