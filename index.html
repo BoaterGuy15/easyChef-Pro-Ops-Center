@@ -1427,14 +1427,17 @@ function buildLaunchHealth(){
   const blocked = tasks.filter(t=>getBlockingDeps(t).length>0).length;
   const missedStarts = tasks.filter(t=>t.pri==='High'&&t.status==='Not Started'&&t.sd&&t.sd<today).length;
   const complete = tasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
-  const pastSdNotStarted = tasks.filter(t=>t.status==='Not Started'&&t.sd&&t.sd<today).length;
-  let score = Math.max(0, Math.min(100, 100 - (overdue*5) - (blocked*3) - (missedStarts*2) - (pastSdNotStarted*1) + (complete*2)));
-  const color = score>=80?'var(--green)':score>=50?'var(--amber)':'var(--red)';
-  const label = score>=80?'HEALTHY':score>=50?'AT RISK':'CRITICAL';
+  const gaps = tasks.filter(t=>t.flag&&(t.flag.startsWith('⚠️')||t.flag.startsWith('⛔'))&&t.status!=='Complete').length;
+  const notStartedCount = tasks.filter(t=>t.status==='Not Started').length;
+  let score = Math.max(0, Math.min(100, 70 + Math.min(complete, 30) - (overdue*5) - (blocked*3) - (missedStarts*2) - (gaps*1)));
+  const color = score>=80?'var(--green)':score>=60?'var(--amber)':'var(--red)';
+  const label = score>=80?'HEALTHY':score>=60?'AT RISK':'CRITICAL';
   const parts = [];
   if(overdue) parts.push(overdue+' overdue');
   if(blocked) parts.push(blocked+' blocked');
   if(complete) parts.push(complete+' complete');
+  if(notStartedCount) parts.push(notStartedCount+' not started');
+  if(gaps) parts.push(gaps+' gaps');
   const summary = parts.length ? parts.join(' · ') : 'All tasks on track';
   el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 28px;display:flex;align-items:center;gap:28px;margin-bottom:20px">
     <div style="text-align:center;flex-shrink:0;min-width:90px">
