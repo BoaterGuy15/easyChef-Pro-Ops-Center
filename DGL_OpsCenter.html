@@ -668,6 +668,69 @@ function setTaskStatus(id,val,el){
   buildAgenda();
   if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
 }
+function getCatColors(cat){
+  if(cat.includes('Marketing Strategy')) return {bg:'rgba(79,142,247,0.12)',  color:'#82b0ff'};
+  if(cat.includes('Brand'))    return {bg:'rgba(167,139,250,0.12)',color:'var(--purple)'};
+  if(cat.includes('Content'))  return {bg:'rgba(52,211,153,0.12)', color:'var(--green)'};
+  if(cat.includes('Digital'))  return {bg:'rgba(251,191,36,0.12)', color:'var(--amber)'};
+  if(cat.includes('Social'))   return {bg:'rgba(201,168,76,0.12)', color:'var(--gold-light)'};
+  if(cat.includes('Email'))    return {bg:'rgba(45,212,191,0.12)', color:'var(--teal)'};
+  if(cat.includes('Product'))  return {bg:'rgba(248,113,113,0.12)',color:'var(--red)'};
+  if(cat.includes('Data'))     return {bg:'rgba(107,114,128,0.12)',color:'var(--muted)'};
+  if(cat.includes('Partner'))  return {bg:'rgba(167,139,250,0.12)',color:'var(--purple)'};
+  if(cat.includes('Launch'))   return {bg:'rgba(45,212,191,0.12)', color:'var(--teal)'};
+  return {bg:'rgba(107,114,128,0.1)',color:'var(--muted)'};
+}
+const CAT_LABELS = {
+  'Marketing Strategy':'Mktg Strategy','Content - Website':'Content/Web',
+  'Social Media Marketing':'Social Media','Digital Marketing':'Digital Mktg',
+  'Product Marketing':'Product Mktg','Launch Ops':'Launch Ops',
+  'Tech & Infrastructure':'Tech & Infra','Finance & Legal':'Finance & Legal',
+  'UX & Product':'UX & Product'
+};
+const CAT_OPTS = Object.keys(CAT_LABELS);
+function priSelect(t){
+  const priColor=t.pri==='High'?'var(--red)':t.pri==='Medium'?'var(--amber)':'var(--green)';
+  return `<select class="status-select" style="color:${priColor};background:transparent"
+    onchange="setTaskPri('${t.id}',this.value,this)">${
+    ['High','Medium','Low'].map(o=>`<option value="${o}"${o===t.pri?' selected':''}>${o}</option>`).join('')
+  }</select>`;
+}
+function catSelect(t){
+  const c=getCatColors(t.cat);
+  const inList=CAT_OPTS.includes(t.cat);
+  return `<select class="status-select" style="background:${c.bg};color:${c.color};max-width:110px"
+    onchange="setTaskCat('${t.id}',this.value,this)">${
+    (!inList?`<option value="${t.cat}" selected>${t.cat}</option>`:'')+
+    CAT_OPTS.map(o=>`<option value="${o}"${o===t.cat?' selected':''}>${CAT_LABELS[o]}</option>`).join('')
+  }</select>`;
+}
+function ownerSelect(t){
+  const owners=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
+  const inList=owners.includes(t.owner);
+  return `<select class="status-select" style="background:rgba(107,114,128,0.1);color:var(--text);max-width:90px"
+    onchange="setTaskOwner('${t.id}',this.value,this)">${
+    (!inList?`<option value="${t.owner}" selected>${t.owner}</option>`:'')+
+    owners.map(o=>`<option value="${o}"${o===t.owner?' selected':''}>${o}</option>`).join('')
+  }</select>`;
+}
+function setTaskPri(id,val,el){
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
+  task.pri=val;
+  el.style.color=val==='High'?'var(--red)':val==='Medium'?'var(--amber)':'var(--green)';
+  buildCommandKPIs();
+}
+function setTaskCat(id,val,el){
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
+  task.cat=val;
+  const c=getCatColors(val); el.style.background=c.bg; el.style.color=c.color;
+}
+function setTaskOwner(id,val,el){
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
+  task.owner=val;
+  buildCommandKPIs();
+  buildTeamGrid();
+}
 function taskProgress(t){
   if(!t.sd||!t.ed) return '<td></td>';
   const now = new Date(); now.setHours(0,0,0,0);
@@ -717,10 +780,10 @@ function buildRaciTable(){
     tr.innerHTML = `
       <td class="tid">${t.id}</td>
       <td class="task-name">${t.name}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
-      <td><span class="cat-pill ${getCatClass(t.cat)}">${t.cat.replace('Marketing Strategy','Mktg Strategy').replace('Content - Website','Content/Web').replace('Social Media Marketing','Social Media').replace('Digital Marketing','Digital Mktg').replace('Product Marketing','Product Mktg').replace('Launch Ops','Launch Ops')}</span></td>
-      <td class="pri-${t.pri}">${t.pri}</td>
+      <td>${catSelect(t)}</td>
+      <td>${priSelect(t)}</td>
       <td>${statusSelect(t)}</td>
-      <td class="owner-cell">${t.owner}</td>
+      <td>${ownerSelect(t)}</td>
       ${raciCell(t.Taylor)}${raciCell(t.Steve)}${raciCell(t.Adam)}${raciCell(t.Mary)}${raciCell(t.JR)}${raciCell(t.Hammad)}${raciCell(t.Searah)}${raciCell(t.Sadee)}
       ${taskProgress(t)}
       <td class="flag-cell ${flagIsGood?'resolved':''}">${t.flag||''}</td>
