@@ -3111,7 +3111,43 @@ function renderKillCriteria(){
         <tbody>${kpiRows}</tbody>
       </table>
     </div>
-    ${banner}`;
+    ${banner}
+    <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <input type="text" id="pmf-reading-notes" placeholder="Notes — e.g. Week 1 check-in…"
+        style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;outline:none;flex:1;min-width:180px"
+        onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+      <button onclick="recordPmfReading()"
+        style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap"
+        onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">Record Reading</button>
+      <button onclick="syncPmfToSheets()"
+        style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap"
+        onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--muted)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Sync to Sheets ↑</button>
+    </div>
+    ${(()=>{
+      const hist=_getPmfHistory().slice().reverse().slice(0,10);
+      if(!hist.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border);margin-top:16px;letter-spacing:0.5px">No readings recorded yet.</div>';
+      const oCol={met:'var(--green)',risk:'var(--amber)',notmet:'var(--red)',pending:'var(--muted)'};
+      const rows=hist.map(h=>`<tr>
+        <td style="font-family:'DM Mono',monospace;font-size:10px;white-space:nowrap;color:var(--muted)">${h.date}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:10px;text-align:center">${h.kpi1_current!==''?h.kpi1_current+'%':'—'}${h.kpi1_target?'<span style="color:var(--border)"> /'+h.kpi1_target+'%</span>':''}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:10px;text-align:center">${h.kpi2_current!==''?h.kpi2_current+'%':'—'}${h.kpi2_target?'<span style="color:var(--border)"> /'+h.kpi2_target+'%</span>':''}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:10px;text-align:center">${h.kpi3_current!==''?h.kpi3_current+'%':'—'}${h.kpi3_target?'<span style="color:var(--border)"> /'+h.kpi3_target+'%</span>':''}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:10px;text-align:center;font-weight:600;color:${oCol[h.overall_status]||'var(--muted)'}">${h.overall_status||'—'}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">${h.notes||''}</td>
+      </tr>`).join('');
+      return `<div style="margin-top:16px">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px">PMF HISTORY — LAST 10 READINGS</div>
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th>Date</th><th style="text-align:center">${kc.kpis[0]?.name||'KPI 1'}</th>
+            <th style="text-align:center">${kc.kpis[1]?.name||'KPI 2'}</th>
+            <th style="text-align:center">${kc.kpis[2]?.name||'KPI 3'}</th>
+            <th style="text-align:center">Status</th><th>Notes</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`;
+    })()}`;
 }
 function updateKillKpi(i,field,val){
   _getKillCriteria().kpis[i][field]=val;
@@ -3121,6 +3157,41 @@ function updateKillKpi(i,field,val){
 function updateKillField(field,val){
   _getKillCriteria()[field]=val;
   saveKillCriteria();
+  renderKillCriteria();
+}
+function _getPmfHistory(){
+  try{ const r=localStorage.getItem('dgl_pmf_history'); if(r) return JSON.parse(r); }catch(e){}
+  return [];
+}
+function _savePmfHistoryLocal(hist){
+  try{ localStorage.setItem('dgl_pmf_history',JSON.stringify(hist)); }catch(e){}
+}
+function syncPmfToSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'pmf_write',pmfHistory:_getPmfHistory()})
+  }).catch(()=>{});
+}
+function recordPmfReading(){
+  const notesEl=document.getElementById('pmf-reading-notes');
+  const notes=notesEl?notesEl.value.trim():'';
+  const kc=_getKillCriteria();
+  const statuses=kc.kpis.map(_kpiStatus);
+  const overall=statuses.includes('notmet')?'notmet':statuses.every(s=>s==='met')?'met':statuses.includes('risk')?'risk':'pending';
+  const now=new Date();
+  const date=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  const entry={
+    date, notes, overall_status:overall,
+    kpi1_target:kc.kpis[0]?.target||'', kpi1_current:kc.kpis[0]?.current||'',
+    kpi2_target:kc.kpis[1]?.target||'', kpi2_current:kc.kpis[1]?.current||'',
+    kpi3_target:kc.kpis[2]?.target||'', kpi3_current:kc.kpis[2]?.current||''
+  };
+  const hist=_getPmfHistory();
+  hist.push(entry);
+  _savePmfHistoryLocal(hist);
+  syncPmfToSheets();
+  if(notesEl) notesEl.value='';
   renderKillCriteria();
 }
 
