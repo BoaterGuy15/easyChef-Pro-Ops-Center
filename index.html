@@ -387,7 +387,7 @@ tr.hidden-row{display:none}
 // CONFIG — paste your Apps Script Web App URL to enable sync
 // ─────────────────────────────────────────────────────────────
 const CONFIG = {
-  sheetsUrl: '' // e.g. 'https://script.google.com/macros/s/YOUR_ID/exec'
+  sheetsUrl: 'https://script.google.com/a/macros/digitalgalactica.dev/s/AKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw/exec'
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -2327,7 +2327,8 @@ function loadFromSheets(){
       if(!rows.length) return;
       rows.forEach(s=>{
         const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
-        if(t) _PERSIST_FIELDS.forEach(f=>{ if(s[f]!==undefined) t[f]=s[f]; });
+        if(t){ _PERSIST_FIELDS.forEach(f=>{ if(s[f]!==undefined) t[f]=s[f]; }); }
+        else if(s.id){ DASHBOARD_DATA.tasks.push(s); }
       });
       masterRefresh();
       updateSyncStatus('ok');
