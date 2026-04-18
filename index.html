@@ -481,6 +481,7 @@ tr.hidden-row{display:none}
     <div class="nav-tab" onclick="showPage('roadmap')">Roadmap</div>
     <div class="nav-tab" onclick="showPage('budget')">Budget &amp; Burn</div>
     <div class="nav-tab" onclick="showPage('team')">Team</div>
+    <div class="nav-tab" onclick="showPage('appdata')">App Data</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -868,11 +869,15 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div class="section-label" style="margin-top:32px">Ad Budget Phase Allocation</div>
   <div class="card" id="ad-phase-card"></div>
 
-  <div class="section-label" style="margin-top:32px">PMF Kill Criteria — June 8 Checkpoint</div>
-  <div class="card" id="kill-criteria-card"></div>
-
   <div class="section-label" style="margin-top:32px">What-If Scenario Playground</div>
   <div class="card" id="whatif-card"></div>
+</div>
+
+<!-- ══ PAGE: APP DATA ══ -->
+<div id="page-appdata" class="page">
+  <div class="section-label">App Data &amp; Beta Tracking</div>
+  <div class="section-label" style="margin-top:32px">PMF Kill Criteria — June 8 Checkpoint</div>
+  <div class="card" id="kill-criteria-card"></div>
 </div>
 
 <!-- ══ PAGE: TEAM ══ -->
