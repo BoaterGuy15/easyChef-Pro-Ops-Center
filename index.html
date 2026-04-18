@@ -895,7 +895,10 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
 <!-- ══ PAGE: TEAM ══ -->
 <div id="page-team" class="page">
-  <div class="section-label">Team Responsibility Summary — 8 Members</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div class="section-label" id="team-section-label" style="margin:0">Team Responsibility Summary</div>
+    <button onclick="openTeamMemberModal(-1)" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap" onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">+ Add Team Member</button>
+  </div>
   <div class="team-grid" id="team-grid"></div>
   <div class="section-label">Monday Meeting Agenda — 11AM ET / 8AM PT</div>
   <div id="agenda-list"></div>
@@ -920,6 +923,16 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <!-- ══ MODALS ══ -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal" id="modal-content"></div>
+</div>
+
+<div class="modal-overlay" id="team-member-modal-overlay" onclick="if(event.target===this)closeTeamMemberModal()">
+  <div class="modal" style="max-width:560px;width:90%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <span id="tmm-title" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">TEAM MEMBER</span>
+      <button onclick="closeTeamMemberModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div id="tmm-modal-body"></div>
+  </div>
 </div>
 
 <div id="milestone-editor" style="display:none;position:fixed;z-index:502;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:240px">
@@ -1305,6 +1318,20 @@ function initRaciPopover(){
 function buildRaciTable(){
   const tbody = document.getElementById('raci-body');
   tbody.innerHTML = '';
+  // Inject custom member columns into thead
+  const theadTr=document.querySelector('#raci-table thead tr');
+  if(theadTr){
+    document.querySelectorAll('#raci-table thead th.raci-custom-col').forEach(th=>th.remove());
+    const ths=Array.from(theadTr.children);
+    const timelineTh=ths.find(th=>th.textContent.trim()==='Timeline');
+    _getCustomTeamMembers().forEach(cm=>{
+      const th=document.createElement('th');
+      th.className='raci-person-col raci-custom-col';
+      th.textContent=cm.raciKey.slice(0,3);
+      if(timelineTh) theadTr.insertBefore(th,timelineTh); else theadTr.appendChild(th);
+    });
+  }
+  const customMembers=_getCustomTeamMembers();
   DASHBOARD_DATA.tasks.forEach(t=>{
     const flagIsGood = t.flag.startsWith('✓');
     const flagIsWarn = t.flag.startsWith('⚠️') || t.flag.startsWith('⛔');
@@ -1318,6 +1345,7 @@ function buildRaciTable(){
     tr.dataset.hammad = t.Hammad||'';
     tr.dataset.searah = t.Searah||'';
     tr.dataset.sadee = t.Sadee||'';
+    customMembers.forEach(cm=>{ tr.dataset[cm.raciKey.toLowerCase()]=t[cm.raciKey]||''; });
     tr.dataset.status = t.status;
     tr.dataset.pri = t.pri;
     tr.dataset.flag = t.flag;
@@ -1329,7 +1357,7 @@ function buildRaciTable(){
       <td>${priSelect(t)}</td>
       <td>${statusSelect(t)}</td>
       <td>${ownerSelect(t)}</td>
-      ${raciCell(t.Taylor,t.id,'Taylor')}${raciCell(t.Steve,t.id,'Steve')}${raciCell(t.Adam,t.id,'Adam')}${raciCell(t.Mary,t.id,'Mary')}${raciCell(t.JR,t.id,'JR')}${raciCell(t.Hammad,t.id,'Hammad')}${raciCell(t.Searah,t.id,'Searah')}${raciCell(t.Sadee,t.id,'Sadee')}
+      ${raciCell(t.Taylor,t.id,'Taylor')}${raciCell(t.Steve,t.id,'Steve')}${raciCell(t.Adam,t.id,'Adam')}${raciCell(t.Mary,t.id,'Mary')}${raciCell(t.JR,t.id,'JR')}${raciCell(t.Hammad,t.id,'Hammad')}${raciCell(t.Searah,t.id,'Searah')}${raciCell(t.Sadee,t.id,'Sadee')}${customMembers.map(cm=>raciCell(t[cm.raciKey]||'',t.id,cm.raciKey)).join('')}
       ${taskProgress(t)}
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()">${t.flag||''}</div></td>
     `;
@@ -2344,6 +2372,104 @@ function buildMilestones(){
 }
 
 // ── Team grid ───────────────────────────────────────────────
+// ── Team Member Management ──────────────────────────────────
+function _getCustomTeamMembers(){
+  try{ const r=localStorage.getItem('dgl_team_members'); if(r) return JSON.parse(r); }catch(e){}
+  return [];
+}
+function _saveCustomTeamMembers(arr){ try{localStorage.setItem('dgl_team_members',JSON.stringify(arr));}catch(e){} }
+function _initCustomTeamExtensions(){
+  _getCustomTeamMembers().forEach(cm=>{
+    USER_RACI_COL[cm.user]=cm.raciKey;
+    USER_DISPLAY[cm.user]=cm.raciKey;
+  });
+  _rebuildRaciPersonFilter();
+}
+function _rebuildRaciPersonFilter(){
+  const bar=document.getElementById('raci-person-filter-bar');
+  if(!bar) return;
+  const defaultPeople=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+  const customPeople=_getCustomTeamMembers().map(m=>m.raciKey);
+  const all=[...defaultPeople,...customPeople];
+  bar.innerHTML=`<span class="filter-label">Filter by person:</span>`
+    +`<button class="filter-btn${raciPersonFilter==='all'?' active':''}" onclick="filterRaci('all',this)">All</button>`
+    +all.map(k=>`<button class="filter-btn${raciPersonFilter===k?' active':''}" onclick="filterRaci('${k}',this)">${k}</button>`).join('');
+  _raciStickyThTop();
+}
+function openTeamMemberModal(idx){
+  const overlay=document.getElementById('team-member-modal-overlay');
+  if(!overlay) return;
+  const arr=_getCustomTeamMembers();
+  const cm=idx>=0?arr[idx]:null;
+  const title=document.getElementById('tmm-title');
+  if(title) title.textContent=cm?'EDIT TEAM MEMBER':'ADD TEAM MEMBER';
+  const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
+  const colorOpts=['gold','blue','purple','green','teal','amber','muted'].map(c=>`<option value="${c}"${cm&&cm.color===c?' selected':''}>${c}</option>`).join('');
+  const levelOpts=['Founder','Executive','Member','View Only'].map(l=>`<option value="${l}"${(cm?cm.accessLevel:l)==='Member'&&l==='Member'?' selected':cm&&cm.accessLevel===l?' selected':''}>${l}</option>`).join('');
+  document.getElementById('tmm-modal-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cm?cm.name:''}" placeholder="Alice Smith" style="${iSt}"></div>
+      <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cm?cm.role:''}" placeholder="Marketing Associate" style="${iSt}"></div>
+      <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cm?cm.email:''}" placeholder="alice@DGL.dev" style="${iSt}"></div>
+      <div class="modal-field"><label>Password ${cm?'(blank = keep current)':''}</label><input type="password" id="tmm-password" placeholder="${cm?'Leave blank to keep':'Set password'}" style="${iSt}"></div>
+      <div class="modal-field"><label>RACI Column Name (no spaces)</label><input type="text" id="tmm-raci" value="${cm?cm.raciKey:''}" placeholder="Alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+iSt+'"'}></div>
+      <div class="modal-field"><label>Login Key (lowercase, no spaces)</label><input type="text" id="tmm-user" value="${cm?cm.user:''}" placeholder="alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+iSt+'"'}></div>
+      <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${iSt}">${levelOpts}</select></div>
+      <div class="modal-field"><label>Badge Color</label><select id="tmm-color" style="${iSt}">${colorOpts}</select></div>
+    </div>
+    <div class="modal-actions" style="justify-content:space-between;margin-top:20px">
+      ${idx>=0?`<button onclick="deleteTeamMember(${idx})" style="background:none;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;padding:0">Delete Member</button>`:'<span></span>'}
+      <div style="display:flex;gap:10px">
+        <button class="btn-primary" onclick="saveTeamMember(${idx})">Save</button>
+        <button class="btn-secondary" onclick="closeTeamMemberModal()">Cancel</button>
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+function closeTeamMemberModal(){
+  const ov=document.getElementById('team-member-modal-overlay');
+  if(ov) ov.classList.remove('open');
+}
+async function saveTeamMember(idx){
+  const name=(document.getElementById('tmm-name').value||'').trim();
+  const role=(document.getElementById('tmm-role').value||'').trim();
+  const email=(document.getElementById('tmm-email').value||'').trim();
+  const pw=(document.getElementById('tmm-password').value||'').trim();
+  const raciKey=(document.getElementById('tmm-raci').value||'').trim();
+  const user=(document.getElementById('tmm-user').value||'').trim().toLowerCase().replace(/\s+/g,'');
+  const accessLevel=document.getElementById('tmm-level').value;
+  const color=document.getElementById('tmm-color').value;
+  if(!name||!role||!email||!raciKey||!user){ alert('Name, role, email, RACI key, and login key are all required.'); return; }
+  const arr=_getCustomTeamMembers();
+  const existing=idx>=0?arr[idx]:null;
+  let passwordHash=existing?existing.passwordHash:'';
+  if(pw) passwordHash=await sha256hex(pw);
+  if(!passwordHash){ alert('Password is required for new members.'); return; }
+  const member={name,role,email,color,user,raciKey,accessLevel,passwordHash};
+  if(idx>=0) arr[idx]=member; else arr.push(member);
+  _saveCustomTeamMembers(arr);
+  USER_RACI_COL[user]=raciKey;
+  USER_DISPLAY[user]=raciKey;
+  closeTeamMemberModal();
+  buildTeamGrid();
+  _rebuildRaciPersonFilter();
+  buildRaciTable();
+}
+function deleteTeamMember(idx){
+  const arr=_getCustomTeamMembers();
+  const m=arr[idx];
+  if(!m) return;
+  if(!confirm('Delete '+m.name+'? This cannot be undone.')) return;
+  arr.splice(idx,1);
+  _saveCustomTeamMembers(arr);
+  delete USER_RACI_COL[m.user];
+  delete USER_DISPLAY[m.user];
+  closeTeamMemberModal();
+  buildTeamGrid();
+  _rebuildRaciPersonFilter();
+  buildRaciTable();
+}
+
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
@@ -2384,6 +2510,41 @@ function buildTeamGrid(){
       ${warnHtml}${noteHtml}
     </div>`;
   }).join('');
+  // Append custom team member cards
+  const customMembers=_getCustomTeamMembers();
+  el.innerHTML += customMembers.map((cm,i)=>{
+    const key=cm.raciKey;
+    const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
+    const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
+    const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
+    const inProg=myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
+    const notStarted=myTasks.filter(t=>t.status==='Not Started').length;
+    const tasksHtml2=myTasks.slice(0,5).map(t=>{
+      const isWarn=t.flag&&(t.flag.startsWith('⛔')||t.flag.startsWith('⚠️'));
+      const isDone=t.status==='Done'||t.status==='Complete';
+      const col2=isWarn?'var(--red)':isDone?'var(--green)':'var(--muted)';
+      const label=t.name.length>28?t.name.substring(0,26)+'…':t.name;
+      return `<div class="tc-task"><span class="tc-task-name" style="color:${col2}">${t.id}: ${label}</span></div>`;
+    }).join('');
+    const statsHtml2=[
+      {k:'Total',v:myTasks.length},{k:'Done',v:done},
+      {k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}
+    ].map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
+    const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
+    return `<div class="tc" style="position:relative">
+      <div style="position:absolute;top:10px;right:10px">
+        <button onclick="openTeamMemberModal(${i})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>
+      </div>
+      <div class="tc-name">${cm.name}${accessLabel}</div>
+      <div class="tc-role">${cm.role}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
+      ${tasksHtml2}
+      <div class="tc-stats">${statsHtml2}</div>
+    </div>`;
+  }).join('');
+  const lbl=document.getElementById('team-section-label');
+  const total=DASHBOARD_DATA.team.length+customMembers.length;
+  if(lbl) lbl.textContent=`Team Responsibility Summary — ${total} Members`;
 }
 
 // ── Agenda ──────────────────────────────────────────────────
@@ -3690,7 +3851,13 @@ async function tryLogin(){
   if(idx>=0){
     sessionStorage.setItem('dgl_user',CREDS[idx].user);
     showDashboard(CREDS[idx].user, true);
-  } else { shakePwInput(); }
+  } else {
+    let found=false;
+    for(const cm of _getCustomTeamMembers()){
+      if(cm.passwordHash&&cm.passwordHash===h){ sessionStorage.setItem('dgl_user',cm.user); showDashboard(cm.user,true); found=true; break; }
+    }
+    if(!found) shakePwInput();
+  }
 }
 function loginAsView(){
   sessionStorage.setItem('dgl_user','view');
@@ -3740,7 +3907,11 @@ function applyViewOnly(){
 
 // ── Briefing system ─────────────────────────────────────────
 function getUserRole(user){
-  return (user==='taylor'||user==='steve')?'founder':(user==='view')?'view':'member';
+  if(user==='taylor'||user==='steve') return 'founder';
+  if(user==='view') return 'view';
+  const _cm2=_getCustomTeamMembers().find(m=>m.user===user);
+  if(_cm2){ return _cm2.accessLevel==='Founder'?'founder':_cm2.accessLevel==='View Only'?'view':'member'; }
+  return 'member';
 }
 function getUserTitle(user){
   const T={
@@ -3753,7 +3924,16 @@ function getUserTitle(user){
     'searah':{text:'TEAM · SEARAH',   bg:'rgba(52,211,153,0.1)',   color:'var(--green)', border:'1px solid rgba(52,211,153,0.25)'},
     'sadee': {text:'TEAM · SADEE',    bg:'rgba(52,211,153,0.1)',   color:'var(--green)', border:'1px solid rgba(52,211,153,0.25)'},
   };
-  return T[user]||{text:'VIEW ONLY',bg:'rgba(107,114,128,0.1)',color:'var(--muted)',border:'1px solid var(--border)'};
+  if(T[user]) return T[user];
+  const _cm=_getCustomTeamMembers().find(m=>m.user===user);
+  if(_cm){
+    const _f=_cm.accessLevel==='Founder',_e=_cm.accessLevel==='Executive';
+    return {text:(_cm.role.split('·')[0].trim().toUpperCase()+' · '+_cm.raciKey.toUpperCase()),
+      bg:_f?'rgba(201,168,76,0.15)':_e?'rgba(96,165,250,0.12)':'rgba(52,211,153,0.1)',
+      color:_f?'var(--gold)':_e?'#60a5fa':'var(--green)',
+      border:_f?'1px solid rgba(201,168,76,0.3)':_e?'1px solid rgba(96,165,250,0.3)':'1px solid rgba(52,211,153,0.25)'};
+  }
+  return {text:'VIEW ONLY',bg:'rgba(107,114,128,0.1)',color:'var(--muted)',border:'1px solid var(--border)'};
 }
 function canEditAgenda(){
   return ['taylor','steve','hammad','adam'].includes(window._DGL_USER);
@@ -4803,6 +4983,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadBudgetFromLocal();
   loadFromSheets();
   loadBudgetFromSheets();
+  _initCustomTeamExtensions();
   buildCommandKPIs();
   buildGapList();
   buildMilestones();
