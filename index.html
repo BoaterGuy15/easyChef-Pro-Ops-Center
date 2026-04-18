@@ -4,18 +4,37 @@
   ║  Deploy: Extensions → Apps Script → Deploy → New deployment         ║
   ║    Execute as: Me  |  Who has access: Anyone                        ║
   ║  Paste the Web App URL into CONFIG.sheetsUrl below.                 ║
-  ║  Sheet must be named exactly: Tasks                                 ║
+  ║  Sheets: "Tasks" (task rows) · "Budget" (key/value pairs)           ║
   ╚══════════════════════════════════════════════════════════════════════╝
 
   const SHEET_NAME = 'Tasks';
+  const BUDGET_SHEET_NAME = 'Budget';
   const FIELDS = [
     'id','name','cat','pri','status','owner','deps','notes',
     'Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',
     'flag','flagColor','sd','ed','lastStatusChange'
   ];
+  // Budget fields persisted as key/value rows. Array/object values are JSON strings.
+  const BUDGET_FIELDS = [
+    'capital','startingCapital','adBudget','adPhases',
+    'payoneerActive','monthlyRevenue','runwayScenario','minReserve','team'
+  ];
+
+  // ── Routing ────────────────────────────────────────────────────────────
 
   function doGet(e) {
     try {
+      const action = e && e.parameter && e.parameter.action ? e.parameter.action : 'tasks';
+      if (action === 'budget_read') {
+        return respond({ ok: true, budget: getBudget() });
+      }
+      if (action === 'anthropic') {
+        const prompt = e.parameter.prompt || '';
+        const system = e.parameter.system || '';
+        const result = callAnthropic(prompt, system);
+        return respond({ ok: true, result: result });
+      }
+      // default: tasks
       return respond({ ok: true, tasks: getTasks() });
     } catch(err) {
       return respond({ ok: false, error: err.message });
@@ -24,13 +43,21 @@
 
   function doPost(e) {
     try {
-      const tasks = JSON.parse(e.postData.contents);
-      setTasks(tasks);
+      const body = JSON.parse(e.postData.contents);
+      const action = body.action || 'tasks';
+      if (action === 'budget_write') {
+        setBudget(body.budget);
+        return respond({ ok: true });
+      }
+      // default: write tasks array
+      setTasks(Array.isArray(body) ? body : body.tasks);
       return respond({ ok: true });
     } catch(err) {
       return respond({ ok: false, error: err.message });
     }
   }
+
+  // ── Tasks ──────────────────────────────────────────────────────────────
 
   function getTasks() {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
@@ -54,6 +81,83 @@
     sheet.getRange(1, 1, rows.length, FIELDS.length).setValues(rows);
   }
 
+  // ── Budget ─────────────────────────────────────────────────────────────
+
+  function setupBudgetSheet() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
+    if (sheet) return sheet; // already exists
+    sheet = ss.insertSheet(BUDGET_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 3).setValues([['key', 'value', 'updated']]);
+    sheet.getRange(1, 1, 1, 3)
+      .setBackground('#1a1a2e')
+      .setFontColor('#c9a84c')
+      .setFontWeight('bold');
+    sheet.setColumnWidth(1, 180);
+    sheet.setColumnWidth(2, 400);
+    sheet.setColumnWidth(3, 160);
+    // Seed with empty rows for each field so the sheet is self-documenting
+    const now = new Date().toISOString();
+    const seed = BUDGET_FIELDS.map(k => [k, '', now]);
+    sheet.getRange(2, 1, seed.length, 3).setValues(seed);
+    return sheet;
+  }
+
+  function getBudget() {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(BUDGET_SHEET_NAME);
+    if (!sheet) return {};
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return {};
+    const result = {};
+    rows.slice(1).forEach(row => {
+      const key = String(row[0]).trim();
+      const raw = String(row[1]).trim();
+      if (!key || !raw) return;
+      try { result[key] = JSON.parse(raw); } catch(_) { result[key] = raw; }
+    });
+    return result;
+  }
+
+  function setBudget(data) {
+    const sheet = setupBudgetSheet();
+    const now = new Date().toISOString();
+    // Read existing rows to update in place (preserves any extra rows)
+    const existing = sheet.getDataRange().getValues();
+    const keyIndex = {};
+    existing.slice(1).forEach((row, i) => { keyIndex[String(row[0]).trim()] = i + 2; }); // 1-based row
+    Object.keys(data).forEach(key => {
+      const val = typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]);
+      if (keyIndex[key]) {
+        sheet.getRange(keyIndex[key], 2, 1, 2).setValues([[val, now]]);
+      } else {
+        sheet.appendRow([key, val, now]);
+      }
+    });
+  }
+
+  // ── Anthropic proxy ────────────────────────────────────────────────────
+
+  function callAnthropic(prompt, system) {
+    const apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+    const payload = {
+      model: 'claude-opus-4-7',
+      max_tokens: 1024,
+      system: system || 'You are a helpful assistant.',
+      messages: [{ role: 'user', content: prompt }]
+    };
+    const resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    const json = JSON.parse(resp.getContentText());
+    return json.content && json.content[0] ? json.content[0].text : '';
+  }
+
+  // ── Utility ────────────────────────────────────────────────────────────
+
   function respond(data) {
     return ContentService
       .createTextOutput(JSON.stringify(data))
@@ -63,6 +167,8 @@
   // CORS NOTE: Apps Script includes CORS headers for GET automatically.
   // POST from the browser uses mode:'no-cors' (fire-and-forget). The sync
   // indicator shows 'Synced ✓' optimistically once the request completes.
+  // Run setupBudgetSheet() once manually from the Apps Script editor to
+  // initialize the Budget tab before the first budget_write POST.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -2501,7 +2607,7 @@ function saveRevenue(inp){
 function saveBudgetToLocal(){
   try{
     const b=DASHBOARD_DATA.budget;
-    localStorage.setItem('dgl_budget',JSON.stringify({
+    const payload={
       capital:b.capital,
       startingCapital:b.startingCapital,
       adBudget:b.adBudget,
@@ -2511,7 +2617,16 @@ function saveBudgetToLocal(){
       runwayScenario:b.runwayScenario||'pre-launch',
       minReserve:b.minReserve,
       team:b.team,
-    }));
+    };
+    localStorage.setItem('dgl_budget',JSON.stringify(payload));
+    // Fire-and-forget sync to Budget sheet
+    if(CONFIG.sheetsUrl){
+      fetch(CONFIG.sheetsUrl,{
+        method:'POST',mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'budget_write',budget:payload})
+      }).catch(()=>{});
+    }
   }catch(e){}
 }
 function loadBudgetFromLocal(){
