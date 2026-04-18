@@ -1718,11 +1718,7 @@ ${gapLines}`;
   const btn=document.getElementById('cfo-generate-btn');
   if(btn){btn.disabled=true;btn.style.opacity='0.55';}
   try{
-    const resp=await fetch(CONFIG.sheetsUrl,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'anthropic',prompt})
-    });
+    const resp=await fetch(CONFIG.sheetsUrl+'?action=anthropic&prompt='+encodeURIComponent(prompt));
     const data=await resp.json();
     if(data.text){
       const html=data.text.split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="margin-bottom:14px;line-height:1.8;color:#c5c8d0;font-family:'DM Sans',sans-serif;font-size:13px">${p.trim()}</p>`).join('');
