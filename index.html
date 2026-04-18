@@ -460,6 +460,12 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <option value="Blocked">Blocked</option>
       <option value="overdue">⚠️ Overdue</option>
     </select>
+    <select id="raci-pri-filter" class="raci-filter-select" onchange="filterPriDropdown(this.value,this)">
+      <option value="all">All Priorities</option>
+      <option value="High">High</option>
+      <option value="Medium">Medium</option>
+      <option value="Low">Low</option>
+    </select>
     <div class="raci-search-wrap">
       <input id="raci-search" type="text" placeholder="Search tasks, owners, notes..." oninput="raciSearch(this.value)">
       <button id="raci-search-clear" onclick="raciSearch('');document.getElementById('raci-search').value=''" title="Clear">×</button>
@@ -663,7 +669,7 @@ function showPage(id){
 }
 
 // ── RACI table ─────────────────────────────────────────────
-let raciPersonFilter='all', raciStatusFilter='all', raciSearchQuery='';
+let raciPersonFilter='all', raciStatusFilter='all', raciSearchQuery='', raciPriFilter='all';
 function raciCell(val,taskId,person){
   const click=taskId?` onclick="showRaciPopover(event,'${taskId}','${person}')" style="cursor:pointer"`:'';
   if(!val) return `<td class="raci-empty raci-person-col"${click}>·</td>`;
@@ -791,6 +797,7 @@ function setTaskPri(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
   task.pri=val;
   el.style.color=val==='High'?'var(--red)':val==='Medium'?'var(--amber)':'var(--green)';
+  const tr=el.closest('tr'); if(tr) tr.dataset.pri=val;
   buildCommandKPIs();
 }
 function setTaskCat(id,val,el){
@@ -1001,6 +1008,7 @@ function buildRaciTable(){
     tr.dataset.searah = t.Searah||'';
     tr.dataset.sadee = t.Sadee||'';
     tr.dataset.status = t.status;
+    tr.dataset.pri = t.pri;
     tr.dataset.flag = t.flag;
     tr.innerHTML = `
       <td class="tid">${t.id}</td>
@@ -1041,6 +1049,9 @@ function applyRaciFilters(){
         if(tr.dataset.status!==raciStatusFilter) show=false;
       }
     }
+    if(raciPriFilter!=='all'&&show){
+      if(tr.dataset.pri!==raciPriFilter) show=false;
+    }
     if(raciSearchQuery&&show){
       const task=DASHBOARD_DATA.tasks.find(t=>t.id===tr.dataset.id);
       if(task){
@@ -1067,6 +1078,11 @@ function applyRaciFilters(){
 }
 function filterStatusDropdown(val){
   raciStatusFilter=val;
+  applyRaciFilters();
+}
+function filterPriDropdown(val,el){
+  raciPriFilter=val;
+  el.style.color=val==='High'?'var(--red)':val==='Medium'?'var(--amber)':val==='Low'?'var(--green)':'var(--text)';
   applyRaciFilters();
 }
 function raciSearch(val){
