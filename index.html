@@ -2697,10 +2697,14 @@ function renderAdPhases(){
   if(!card) return;
   const b=DASHBOARD_DATA.budget;
   const launchStr=DASHBOARD_DATA.meta.milestoneDate||'2026-07-01';
+  const totalCampaignDays=b.adPhases.reduce((a,p)=>a+(_phaseDaysCount(p)||0),0);
+  const dailyRate=b.adBudget/30;
+  const totalCost=dailyRate*totalCampaignDays;
   const rows=b.adPhases.map((p,i)=>{
     const sdLabel=p.sdOffset===null?'Today':_dateLabel(_phaseSD(p));
     const edLabel=_dateLabel(_phaseED(p));
     const days=_phaseDaysCount(p);
+    const pctOfCampaign=days&&totalCampaignDays?Math.round(days/totalCampaignDays*100):0;
     return `<tr>
       <td>
         <span id="phase-name-${i}" onclick="editPhaseName(${i})" title="Click to rename"
@@ -2709,11 +2713,7 @@ function renderAdPhases(){
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">${sdLabel} → ${edLabel}</div>
       </td>
       <td style="text-align:right;white-space:nowrap">
-        <input type="number" min="0" max="100" step="1" value="${p.pct}"
-          style="width:56px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 7px;font-family:'DM Mono',monospace;font-size:12px;text-align:right;outline:none"
-          oninput="updatePhase(${i},this.value)"
-          onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"
-        /><span style="color:var(--muted);font-size:11px;margin-left:3px">%</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${pctOfCampaign}%</span>
       </td>
       <td style="text-align:right">
         <span id="phase-amt-${i}" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--green)"></span>
@@ -2737,15 +2737,18 @@ function renderAdPhases(){
     </tr>`;
   }).join('');
   card.innerHTML=`
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:16px">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">
       AD BUDGET ALLOCATION — PHASE DATES RELATIVE TO LAUNCH · ${launchStr}
+    </div>
+    <div id="phase-note" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:14px">
+      Based on ${fmt(b.adBudget)}/mo ad spend · ${fmt(totalCost)} total over ${totalCampaignDays} campaign days
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
           <th>Phase / Date Range</th>
-          <th style="text-align:right">Alloc %</th>
-          <th style="text-align:right">Amount</th>
+          <th style="text-align:right">% Days</th>
+          <th style="text-align:right">Phase Cost</th>
           <th style="text-align:right">Days</th>
           <th style="text-align:right">Daily</th>
           <th></th>
@@ -2755,7 +2758,7 @@ function renderAdPhases(){
           <tr style="border-top:1px solid var(--border)">
             <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding-top:10px;letter-spacing:1px">TOTAL</td>
             <td style="text-align:right;padding-top:10px">
-              <span id="phase-pct-total" style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500"></span>
+              <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${totalCampaignDays}d</span>
             </td>
             <td style="text-align:right;padding-top:10px">
               <span id="phase-amt-total" style="font-family:'DM Mono',monospace;font-size:14px;color:var(--gold)"></span>
@@ -2798,23 +2801,20 @@ function updatePhase(i, val){
 function updateAdPhaseAmounts(){
   const b=DASHBOARD_DATA.budget;
   if(!b.adPhases) return;
-  const totalPct=b.adPhases.reduce((a,p)=>a+p.pct,0);
+  const dailyRate=b.adBudget/30;
+  const totalCampaignDays=b.adPhases.reduce((a,p)=>a+(_phaseDaysCount(p)||0),0);
   b.adPhases.forEach((p,i)=>{
-    const amt=b.adBudget*p.pct/100;
     const days=_phaseDaysCount(p);
-    const daily=days?amt/days:null;
+    const amt=days?dailyRate*days:0;
     const amtEl=document.getElementById('phase-amt-'+i);
     const dailyEl=document.getElementById('phase-daily-'+i);
     if(amtEl) amtEl.textContent=fmt(amt);
-    if(dailyEl) dailyEl.textContent=daily!=null?fmt(daily)+'/d':'—';
+    if(dailyEl) dailyEl.textContent=dailyRate?fmt(dailyRate)+'/d':'—';
   });
-  const pctEl=document.getElementById('phase-pct-total');
   const amtEl=document.getElementById('phase-amt-total');
-  if(pctEl){
-    pctEl.textContent=Math.round(totalPct*10)/10+'%';
-    pctEl.style.color=Math.abs(totalPct-100)<0.01?'var(--green)':'var(--red)';
-  }
-  if(amtEl) amtEl.textContent=fmt(b.adPhases.reduce((a,p)=>a+b.adBudget*p.pct/100,0));
+  if(amtEl) amtEl.textContent=fmt(dailyRate*totalCampaignDays);
+  const noteEl=document.getElementById('phase-note');
+  if(noteEl) noteEl.textContent=`Based on ${fmt(b.adBudget)}/mo ad spend · ${fmt(dailyRate*totalCampaignDays)} total over ${totalCampaignDays} campaign days`;
 }
 
 function editPhaseName(i){
