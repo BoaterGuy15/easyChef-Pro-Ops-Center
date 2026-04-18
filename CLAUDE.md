@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tech Stack
 
-- Single HTML file: `DGL_OpsCenter.html` — vanilla JavaScript, inline CSS, no frameworks, no build step, no npm
+- Single HTML file: `index.html` — vanilla JavaScript, inline CSS, no frameworks, no build step, no npm
 - Supporting source data (read-only reference, not loaded by the app):
   - `EasyChefPro_RACI.xlsx` — RACI tracker
   - `easyChef-Pro-Launch-Roadmap.xlsx` — 10-week roadmap
@@ -16,11 +16,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the Dashboard
 
-Open `DGL_OpsCenter.html` directly in a browser. No server, no install, no build step required.
+Open `index.html` directly in a browser, or access the live GitHub Pages URL. No server, no install, no build step required.
 
 ## Architecture
 
-All dashboard data lives in the `DASHBOARD_DATA` JavaScript object at the top of the `<script>` section in `DGL_OpsCenter.html`. This is the single source of truth for everything rendered on screen.
+All dashboard data lives in the `DASHBOARD_DATA` JavaScript object at the top of the `<script>` section in `index.html`. This is the single source of truth for everything rendered on screen.
 
 The UI is organized into five nav tabs — do not rename or remove them:
 1. **Command** — high-level status and KPIs
