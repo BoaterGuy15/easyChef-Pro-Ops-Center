@@ -108,6 +108,9 @@ tr.hidden-row{display:none}
 #flag-toolbar button:hover{opacity:1;background:rgba(255,255,255,0.08)}
 .flag-swatch{width:14px;height:14px;border-radius:50%;cursor:pointer;border:1px solid transparent;transition:transform 0.12s,border-color 0.12s;flex-shrink:0}
 .flag-swatch:hover{transform:scale(1.3);border-color:rgba(255,255,255,0.4)}
+#raci-popover{position:fixed;z-index:501;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 8px;box-shadow:0 6px 24px rgba(0,0,0,0.5);display:none;gap:4px;align-items:center}
+.raci-pop-btn{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;transition:opacity 0.1s}
+.raci-pop-btn:hover{opacity:0.8}
 /* ── RACI table — no scroll, compact fit ── */
 #page-raci .table-wrap{overflow-x:visible}
 #page-raci table th{padding:6px 6px}
@@ -611,13 +614,14 @@ function showPage(id){
 
 // ── RACI table ─────────────────────────────────────────────
 let raciPersonFilter='all', raciStatusFilter='all';
-function raciCell(val){
-  if(!val) return '<td class="raci-empty raci-person-col">·</td>';
-  if(val==='R') return '<td class="raci-person-col"><span class="raci-r">R</span></td>';
-  if(val==='A'||val==='A/R') return '<td class="raci-person-col"><span class="raci-a">'+val+'</span></td>';
-  if(val==='C') return '<td class="raci-person-col"><span class="raci-c">C</span></td>';
-  if(val==='I') return '<td class="raci-person-col"><span class="raci-i">I</span></td>';
-  return '<td class="raci-empty raci-person-col">·</td>';
+function raciCell(val,taskId,person){
+  const click=taskId?` onclick="showRaciPopover(event,'${taskId}','${person}')" style="cursor:pointer"`:'';
+  if(!val) return `<td class="raci-empty raci-person-col"${click}>·</td>`;
+  if(val==='R') return `<td class="raci-person-col"${click}><span class="raci-r">R</span></td>`;
+  if(val==='A'||val==='A/R') return `<td class="raci-person-col"${click}><span class="raci-a">${val}</span></td>`;
+  if(val==='C') return `<td class="raci-person-col"${click}><span class="raci-c">C</span></td>`;
+  if(val==='I') return `<td class="raci-person-col"${click}><span class="raci-i">I</span></td>`;
+  return `<td class="raci-empty raci-person-col"${click}>·</td>`;
 }
 function getCatClass(cat){
   if(cat.includes('Marketing Strategy')) return 'cat-Marketing';
@@ -844,6 +848,55 @@ function initFlagToolbar(){
     </div>`;
   document.body.appendChild(tb);
 }
+// ── RACI cell popover ─────────────────────────────────────────
+let _rpTaskId=null,_rpPerson=null,_rpCellEl=null;
+function showRaciPopover(e,taskId,person){
+  e.stopPropagation();
+  _rpTaskId=taskId; _rpPerson=person; _rpCellEl=e.currentTarget;
+  const pop=document.getElementById('raci-popover');
+  if(!pop) return;
+  pop.style.display='flex';
+  requestAnimationFrame(()=>{
+    const r=_rpCellEl.getBoundingClientRect();
+    pop.style.top=(r.top-pop.offsetHeight-6)+'px';
+    pop.style.left=Math.max(4,r.left)+'px';
+  });
+}
+function hideRaciPopover(){
+  const pop=document.getElementById('raci-popover');
+  if(pop) pop.style.display='none';
+  _rpTaskId=null; _rpPerson=null; _rpCellEl=null;
+}
+function setRaciValue(val){
+  if(!_rpTaskId||!_rpPerson||!_rpCellEl) return;
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===_rpTaskId);
+  if(!task) return;
+  task[_rpPerson]=val;
+  const tr=_rpCellEl.closest('tr');
+  if(tr) tr.dataset[_rpPerson.toLowerCase()]=val;
+  const wrap=document.createElement('div');
+  wrap.innerHTML='<table><tbody><tr>'+raciCell(val,_rpTaskId,_rpPerson)+'</tr></tbody></table>';
+  const newTd=wrap.querySelector('td');
+  if(newTd) _rpCellEl.parentNode.replaceChild(newTd,_rpCellEl);
+  buildCommandKPIs();
+  hideRaciPopover();
+}
+function initRaciPopover(){
+  const btns=[
+    {v:'R', bg:'var(--gold-dim)',       color:'var(--gold)'},
+    {v:'A', bg:'rgba(248,113,113,0.1)', color:'var(--red)'},
+    {v:'C', bg:'rgba(79,142,247,0.1)',  color:'var(--accent)'},
+    {v:'I', bg:'rgba(107,114,128,0.1)', color:'var(--muted)'},
+    {v:'',  bg:'transparent',           color:'var(--muted)', label:'—'}
+  ];
+  const pop=document.createElement('div');
+  pop.id='raci-popover';
+  pop.innerHTML=btns.map(b=>`<button class="raci-pop-btn" style="background:${b.bg};color:${b.color}" onclick="setRaciValue('${b.v}')">${b.label||b.v}</button>`).join('');
+  document.body.appendChild(pop);
+  document.addEventListener('click',e=>{
+    if(!pop.contains(e.target)) hideRaciPopover();
+  });
+}
 function buildRaciTable(){
   const tbody = document.getElementById('raci-body');
   tbody.innerHTML = '';
@@ -869,7 +922,7 @@ function buildRaciTable(){
       <td>${priSelect(t)}</td>
       <td>${statusSelect(t)}</td>
       <td>${ownerSelect(t)}</td>
-      ${raciCell(t.Taylor)}${raciCell(t.Steve)}${raciCell(t.Adam)}${raciCell(t.Mary)}${raciCell(t.JR)}${raciCell(t.Hammad)}${raciCell(t.Searah)}${raciCell(t.Sadee)}
+      ${raciCell(t.Taylor,t.id,'Taylor')}${raciCell(t.Steve,t.id,'Steve')}${raciCell(t.Adam,t.id,'Adam')}${raciCell(t.Mary,t.id,'Mary')}${raciCell(t.JR,t.id,'JR')}${raciCell(t.Hammad,t.id,'Hammad')}${raciCell(t.Searah,t.id,'Searah')}${raciCell(t.Sadee,t.id,'Sadee')}
       ${taskProgress(t)}
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()">${t.flag||''}</div></td>
     `;
@@ -1495,6 +1548,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderSpendLog();
   renderAdPhases();
   initFlagToolbar();
+  initRaciPopover();
 });
 </script>
 </body>
