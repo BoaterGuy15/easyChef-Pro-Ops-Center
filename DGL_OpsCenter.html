@@ -98,8 +98,11 @@ tr.hidden-row{display:none}
 .raci-c{background:rgba(79,142,247,0.1);color:var(--accent);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px;padding:1px 5px;display:inline-block}
 .raci-i{background:rgba(107,114,128,0.1);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px;padding:1px 5px;display:inline-block}
 .raci-empty{color:var(--border);font-size:10px;text-align:center}
-.flag-cell{font-size:10px;color:var(--red);max-width:160px}
+.flag-cell{font-size:10px;max-width:200px}
 .flag-cell.resolved{color:var(--green)}
+.flag-edit{font-size:10px;min-width:120px;max-width:200px;outline:none;cursor:text;border-bottom:1px solid transparent;transition:border-color 0.15s;white-space:pre-wrap;word-break:break-word;line-height:1.5}
+.flag-edit:focus{border-bottom-color:var(--border)}
+.flag-edit:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none;font-style:italic}
 .owner-cell{font-size:11px;color:var(--text);max-width:130px}
 .warn{color:var(--amber)}
 
@@ -759,6 +762,22 @@ function taskProgress(t){
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};margin-top:1px">${label}</div>
   </td>`;
 }
+function flagColor(text){
+  if(!text) return 'var(--muted)';
+  if(text.startsWith('✓'))  return 'var(--green)';
+  if(text.startsWith('⛔'))  return 'var(--red)';
+  if(text.startsWith('⚠️')) return 'var(--amber)';
+  return 'var(--muted)';
+}
+function applyFlagStyle(el, text){
+  el.style.color = flagColor(text);
+}
+function setTaskFlag(id, el){
+  const task = DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
+  const text = el.innerText.trim();
+  task.flag = text;
+  applyFlagStyle(el, text);
+}
 function buildRaciTable(){
   const tbody = document.getElementById('raci-body');
   tbody.innerHTML = '';
@@ -786,7 +805,7 @@ function buildRaciTable(){
       <td>${ownerSelect(t)}</td>
       ${raciCell(t.Taylor)}${raciCell(t.Steve)}${raciCell(t.Adam)}${raciCell(t.Mary)}${raciCell(t.JR)}${raciCell(t.Hammad)}${raciCell(t.Searah)}${raciCell(t.Sadee)}
       ${taskProgress(t)}
-      <td class="flag-cell ${flagIsGood?'resolved':''}">${t.flag||''}</td>
+      <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${flagColor(t.flag)}" onblur="setTaskFlag('${t.id}',this)">${t.flag||''}</div></td>
     `;
     tbody.appendChild(tr);
   });
