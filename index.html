@@ -1695,10 +1695,6 @@ async function generateAssessment(){
   if(!canEditAgenda()) return;
   const contentEl=document.getElementById('cfo-assessment-content');
   if(!contentEl) return;
-  if(!CONFIG.anthropicKey){
-    contentEl.innerHTML='<span style="color:var(--amber)">Add your Anthropic API key to CONFIG.anthropicKey to enable AI assessment.</span>';
-    return;
-  }
   const tasks=DASHBOARD_DATA.tasks;
   const today=getPSTDate();
   const complete=tasks.filter(t=>t.status==='Complete').length;
@@ -1717,28 +1713,24 @@ Launch health score: ${healthScore}/100
 
 Open accountability gaps (${gaps.length}):
 ${gapLines}`;
+  const prompt=`Current launch status:\n\n${context}\n\nWrite a 3-paragraph executive assessment: (1) overall launch readiness and what the health score reflects, (2) the most critical risks requiring resolution this week and why they block progress, (3) one specific actionable recommendation the team can execute at Monday's meeting. Paragraphs only — no bullet points or headers. Be direct and specific.`;
   contentEl.innerHTML=`<span style="color:var(--muted);font-style:italic">Generating assessment…</span>`;
   const btn=document.getElementById('cfo-generate-btn');
   if(btn){btn.disabled=true;btn.style.opacity='0.55';}
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    const resp=await fetch(CONFIG.sheetsUrl,{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':CONFIG.anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-cors':'true'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        system:'You are the executive advisor to Digital Galactica Labs, reviewing the easyChef Pro launch. Provide an honest, direct assessment as if you are the board advisor speaking to the founding team.',
-        messages:[{role:'user',content:`Current launch status:\n\n${context}\n\nWrite a 3-paragraph executive assessment: (1) overall launch readiness and what the health score reflects, (2) the most critical risks requiring resolution this week and why they block progress, (3) one specific actionable recommendation the team can execute at Monday's meeting. Paragraphs only — no bullet points or headers. Be direct and specific.`}]
-      })
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'anthropic',prompt})
     });
     const data=await resp.json();
-    if(data.content&&data.content[0]&&data.content[0].text){
-      const html=data.content[0].text.split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="margin-bottom:14px;line-height:1.8;color:#c5c8d0;font-family:'DM Sans',sans-serif;font-size:13px">${p.trim()}</p>`).join('');
+    if(data.text){
+      const html=data.text.split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="margin-bottom:14px;line-height:1.8;color:#c5c8d0;font-family:'DM Sans',sans-serif;font-size:13px">${p.trim()}</p>`).join('');
       contentEl.innerHTML=html;
       const ts=new Date().toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'});
       try{localStorage.setItem('dgl_assessment',JSON.stringify({html,ts}));}catch(e){}
     } else {
-      contentEl.innerHTML=`<span style="color:var(--red)">API error: ${data.error?data.error.message:JSON.stringify(data)}</span>`;
+      contentEl.innerHTML=`<span style="color:var(--red)">Error: ${data.error||'No response text returned.'}</span>`;
     }
   }catch(err){
     contentEl.innerHTML=`<span style="color:var(--red)">Request failed: ${err.message}</span>`;
