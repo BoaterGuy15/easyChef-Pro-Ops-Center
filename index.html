@@ -226,9 +226,38 @@ tr.hidden-row{display:none}
 .date-input-inline:focus{color:var(--gold)}
 .date-input-inline::-webkit-calendar-picker-indicator{display:none}
 .date-input-inline::-webkit-inner-spin-button,.date-input-inline::-webkit-clear-button{display:none}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.shake{animation:shake 0.4s ease}
+#login-overlay{transition:opacity 0.4s}
+#user-badge{font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;display:none}
+#sign-out-btn{background:transparent;border:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;padding:0 2px;letter-spacing:1px;text-transform:uppercase;display:none}
+#sign-out-btn:hover{color:var(--text)}
 </style>
 </head>
 <body>
+
+<!-- ══ LOGIN OVERLAY ══ -->
+<div id="login-overlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center">
+  <div style="text-align:center;max-width:340px;width:100%;padding:0 24px">
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px">
+      <div style="width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,var(--gold),#a07230);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:15px;font-weight:900;color:#0b0d10">DGL</div>
+      <div style="text-align:left">
+        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--text)">easyChef Pro</div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">Ops Center</div>
+      </div>
+    </div>
+    <div style="height:1px;background:var(--border);margin:20px 0"></div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px">Founder Access</div>
+    <input id="login-pw" type="password" placeholder="Enter password" autocomplete="current-password"
+      style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 14px;border-radius:8px;outline:none;letter-spacing:1px;text-align:center;display:block;box-sizing:border-box"
+      onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"
+      onkeydown="if(event.key==='Enter')tryLogin()">
+    <div id="login-error" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--red);margin-top:8px;min-height:14px;opacity:0;transition:opacity 0.2s">Access denied</div>
+    <button onclick="tryLogin()" style="margin-top:10px;width:100%;background:var(--gold);border:none;color:#0b0d10;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;padding:10px;border-radius:8px;cursor:pointer;letter-spacing:2px;box-sizing:border-box">ENTER</button>
+    <button onclick="loginAsView()" style="margin-top:12px;background:transparent;border:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;padding:4px;letter-spacing:1px">→ View dashboard (read-only)</button>
+  </div>
+</div>
+<script>if(sessionStorage.getItem('dgl_user'))document.getElementById('login-overlay').style.display='none';</script>
 
 <!-- ══ TOP NAV ══ -->
 <nav class="topbar">
@@ -245,6 +274,8 @@ tr.hidden-row{display:none}
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
+    <div id="user-badge"></div>
+    <button id="sign-out-btn" onclick="doSignOut()">Sign out</button>
     <div class="live-dot" title="Live data"></div>
   </div>
 </nav>
@@ -734,43 +765,14 @@ function setTaskStatus(id,val,el){
   task.status=val;
   const _p=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   task.lastStatusChange=_p.getFullYear()+'-'+String(_p.getMonth()+1).padStart(2,'0')+'-'+String(_p.getDate()).padStart(2,'0');
-  const c=getStatusColors(val);
-  el.style.background=c.bg; el.style.color=c.color;
-  const tr=el.closest('tr');
-  if(tr){
-    tr.dataset.status=val;
-    const cells=tr.querySelectorAll('td');
-    const timelineTd=cells[cells.length-2];
-    if(timelineTd){
-      const wrap=document.createElement('div');
-      wrap.innerHTML='<table><tbody><tr>'+taskProgress(task)+'</tr></tbody></table>';
-      const newTd=wrap.querySelector('td');
-      if(newTd) tr.replaceChild(newTd,timelineTd);
-    }
-  }
-  buildCommandKPIs();
-  buildAgenda();
-  if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
-  saveToLocal();
+  masterRefresh();
 }
 function setTaskDate(id,field,val){
   if(!val) return;
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
   if(!task) return;
   task[field]=val;
-  const tr=document.querySelector('#raci-body tr[data-id="'+id+'"]');
-  if(tr){
-    const cells=tr.querySelectorAll('td');
-    const timelineTd=cells[cells.length-2];
-    if(timelineTd){
-      const wrap=document.createElement('div');
-      wrap.innerHTML='<table><tbody><tr>'+taskProgress(task)+'</tr></tbody></table>';
-      const newTd=wrap.querySelector('td');
-      if(newTd) tr.replaceChild(newTd,timelineTd);
-    }
-  }
-  buildCommandKPIs();
-  saveToLocal();
+  masterRefresh();
 }
 function getCatColors(cat){
   if(cat.includes('Marketing Strategy')) return {bg:'rgba(79,142,247,0.12)',  color:'#82b0ff'};
@@ -823,24 +825,17 @@ function ownerSelect(t){
 function setTaskPri(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
   task.pri=val;
-  el.style.color=val==='High'?'var(--red)':val==='Medium'?'var(--amber)':'var(--green)';
-  const tr=el.closest('tr'); if(tr) tr.dataset.pri=val;
-  buildCommandKPIs();
-  saveToLocal();
+  masterRefresh();
 }
 function setTaskCat(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
   task.cat=val;
-  const c=getCatColors(val); el.style.background=c.bg; el.style.color=c.color;
-  saveToLocal();
+  masterRefresh();
 }
 function setTaskOwner(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
   task.owner=val;
-  el.style.color=ownerColor(val);
-  buildCommandKPIs();
-  buildTeamGrid();
-  saveToLocal();
+  masterRefresh();
 }
 function getPSTDate(){
   const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
@@ -914,8 +909,7 @@ function setTaskFlag(id, el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
   const text=el.innerText.trim();
   task.flag=text;
-  if(!task.flagColor) applyFlagStyle(el,text);
-  saveToLocal();
+  masterRefresh();
 }
 // ── Flag toolbar ──────────────────────────────────────────────
 let _ftId=null,_ftEl=null,_ftHide=null;
@@ -996,15 +990,8 @@ function setRaciValue(val){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===_rpTaskId);
   if(!task) return;
   task[_rpPerson]=val;
-  const tr=_rpCellEl.closest('tr');
-  if(tr) tr.dataset[_rpPerson.toLowerCase()]=val;
-  const wrap=document.createElement('div');
-  wrap.innerHTML='<table><tbody><tr>'+raciCell(val,_rpTaskId,_rpPerson)+'</tr></tbody></table>';
-  const newTd=wrap.querySelector('td');
-  if(newTd) _rpCellEl.parentNode.replaceChild(newTd,_rpCellEl);
-  buildCommandKPIs();
-  saveToLocal();
   hideRaciPopover();
+  masterRefresh();
 }
 function initRaciPopover(){
   const btns=[
@@ -1059,6 +1046,7 @@ function buildRaciTable(){
   applyRaciFilters();
   const ru = document.getElementById('raci-updated');
   if(ru) ru.textContent = DASHBOARD_DATA.meta.updated;
+  if(window._DGL_USER==='view') applyViewOnly();
 }
 function applyRaciFilters(){
   let visibleCount=0;
@@ -1139,27 +1127,44 @@ function filterStatus(status, btn){
 // ── Roadmap ─────────────────────────────────────────────────
 function buildRoadmap(){
   const tbody = document.getElementById('roadmap-body');
-  const weeks = ['W1','W2','W3','W4','W5','W6','W7','W8','W9','W10','LAUNCH'];
-  DASHBOARD_DATA.roadmap.forEach(row=>{
-    const isSearah = row.ws.includes('Social');
-    const isSadee  = row.ws.includes('Sadee') || row.ws.includes('Beta');
-    const isHammad = row.ws.includes('Hammad') || row.ws.includes('Infra');
+  if(!tbody) return;
+  const WEEKS = [
+    {label:'W1',  start:'2026-04-20', end:'2026-04-26'},
+    {label:'W2',  start:'2026-04-27', end:'2026-05-03'},
+    {label:'W3',  start:'2026-05-04', end:'2026-05-10'},
+    {label:'W4',  start:'2026-05-11', end:'2026-05-17'},
+    {label:'W5',  start:'2026-05-18', end:'2026-05-24'},
+    {label:'W6',  start:'2026-05-25', end:'2026-05-31'},
+    {label:'W7',  start:'2026-06-01', end:'2026-06-07'},
+    {label:'W8',  start:'2026-06-08', end:'2026-06-14'},
+    {label:'W9',  start:'2026-06-15', end:'2026-06-21'},
+    {label:'W10', start:'2026-06-22', end:'2026-06-28'},
+    {label:'LAUNCH', start:'2026-07-01', end:'2026-07-31'},
+  ];
+  const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const cats = {};
+  DASHBOARD_DATA.tasks.forEach(t=>{ if(!cats[t.cat]) cats[t.cat]=[]; cats[t.cat].push(t); });
+  tbody.innerHTML = '';
+  Object.entries(cats).forEach(([cat, tasks])=>{
     const tr = document.createElement('tr');
-    let html = `<td class="ws-label">${row.ws}</td>`;
-    weeks.forEach(w=>{
-      const val = row[w]||'';
-      if(!val||val==='—'){
-        html+=`<td><span class="rm-empty">—</span></td>`;
-      } else if(w==='LAUNCH'){
-        html+=`<td><div class="rm-cell milestone">${val}</div></td>`;
-      } else if(isSearah && parseInt(w.replace('W',''))>=1){
-        html+=`<td><div class="rm-cell searah">${val}</div></td>`;
-      } else if(isSadee && parseInt(w.replace('W',''))>=4){
-        html+=`<td><div class="rm-cell sadee">${val}</div></td>`;
-      } else if(isHammad){
-        html+=`<td><div class="rm-cell hammad">${val}</div></td>`;
+    const rowLabel = CAT_LABELS[cat] || cat;
+    let html = `<td class="ws-label">${rowLabel}</td>`;
+    WEEKS.forEach(w=>{
+      const inWeek = tasks.filter(t=>t.sd&&t.ed&&t.sd<=w.end&&t.ed>=w.start);
+      if(!inWeek.length){
+        html += `<td><span class="rm-empty">—</span></td>`;
       } else {
-        html+=`<td><div class="rm-cell active">${val}</div></td>`;
+        const cells = inWeek.map(t=>{
+          const isDone = t.status==='Done'||t.status==='Complete';
+          const isActive = ['Started','In Progress','Ready','In Review'].includes(t.status);
+          const isOverdue = !isDone && t.ed < today;
+          const cls = isDone ? 'rm-cell milestone' : isActive ? 'rm-cell active' : 'rm-cell';
+          const style = isOverdue ? ' style="color:var(--red);border-color:rgba(248,113,113,0.4)"' : '';
+          const name = t.name.length>18 ? t.name.substring(0,16)+'…' : t.name;
+          return `<div class="${cls}"${style}>${name}</div>`;
+        }).join('');
+        html += `<td>${cells}</td>`;
       }
     });
     tr.innerHTML = html;
@@ -1239,16 +1244,20 @@ function renderBudget(){
 
 // ── Command KPIs ────────────────────────────────────────────
 function buildCommandKPIs(){
-  const totalTasks = DASHBOARD_DATA.tasks.length;
-  const started = DASHBOARD_DATA.tasks.filter(t=>t.status==='Started').length;
-  const gaps = DASHBOARD_DATA.tasks.filter(t=>t.flag&&t.flag.startsWith('⚠️')||t.flag&&t.flag.startsWith('⛔')).length;
-  const resolved = DASHBOARD_DATA.tasks.filter(t=>t.flag&&t.flag.startsWith('✓')).length;
+  const tasks = DASHBOARD_DATA.tasks;
+  const totalTasks = tasks.length;
+  const datesLocked = tasks.filter(t=>t.sd&&t.ed).length;
+  const inProgress = tasks.filter(t=>['Started','In Progress','In Review','Ready'].includes(t.status)).length;
+  const notStarted = tasks.filter(t=>t.status==='Not Started').length;
+  const gaps = tasks.filter(t=>t.flag&&(t.flag.startsWith('⚠️')||t.flag.startsWith('⛔'))).length;
+  const resolvedTasks = tasks.filter(t=>t.flag&&t.flag.startsWith('✓'));
+  const resolvedSub = resolvedTasks.length ? resolvedTasks.slice(0,5).map(t=>t.id).join(', ')+(resolvedTasks.length>5?' +more':'') : 'None this week';
   const kpis = [
-    {label:'Total Tasks',val:totalTasks,sub:'40 total · 0 dates locked',cls:''},
-    {label:'In Progress',val:started,sub:'Active workstreams',cls:'blue'},
-    {label:'Not Started',val:totalTasks-started-DASHBOARD_DATA.tasks.filter(t=>t.status==='Ready').length,sub:'Awaiting kickoff',cls:''},
+    {label:'Total Tasks',val:totalTasks,sub:`${totalTasks} total · ${datesLocked} dates locked`,cls:''},
+    {label:'In Progress',val:inProgress,sub:'Active workstreams',cls:'blue'},
+    {label:'Not Started',val:notStarted,sub:'Awaiting kickoff',cls:''},
     {label:'Accountability Gaps',val:gaps,sub:'Must resolve Monday',cls:'red'},
-    {label:'Resolved This Week',val:resolved,sub:'T-022, T-024, T-039, T-040',cls:'green'},
+    {label:'Resolved This Week',val:resolvedTasks.length,sub:resolvedSub,cls:'green'},
   ];
   const el = document.getElementById('kpi-grid');
   if(el) el.innerHTML = kpis.map(k=>`
@@ -1305,26 +1314,39 @@ function buildMilestones(){
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
+  const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const RACI_KEY = {
+    'Taylor Reasoner':'Taylor','Adam G':'Adam','Hammad':'Hammad',
+    'Steve':'Steve','Mary':'Mary','JR':'JR',
+    'Searah Teitgen':'Searah','Sadee Tison':'Sadee'
+  };
   el.innerHTML = DASHBOARD_DATA.team.map(m=>{
+    const key = RACI_KEY[m.name] || m.name;
+    const myTasks = DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
+    const done = myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
+    const overdue = myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
+    const inProg = myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
+    const notStarted = myTasks.filter(t=>t.status==='Not Started').length;
     const cls = m.isNew?'tc new-hire':m.isNewTeal?'tc new-teal':'tc';
     const badgeHtml = m.isNew?'<span class="tc-badge">NEW · APR 20</span>':m.isNewTeal?'<span class="tc-badge teal">ACTIVATED</span>':'';
-    const tasks = m.tasks.map(t=>{
-      const isWarn = t.includes('⛔')||t.includes('⚠️');
-      const isDone = t.includes('✓')||t.includes('COMMITTED')||t.includes('YES');
+    const tasksHtml = myTasks.slice(0,5).map(t=>{
+      const isWarn = t.flag&&(t.flag.startsWith('⛔')||t.flag.startsWith('⚠️'));
+      const isDone = t.status==='Done'||t.status==='Complete';
       const color = isWarn?'var(--red)':isDone?'var(--green)':'var(--muted)';
-      return `<div class="tc-task"><span class="tc-task-name" style="color:${color}">${t}</span></div>`;
+      const label = t.name.length>28 ? t.name.substring(0,26)+'…' : t.name;
+      return `<div class="tc-task"><span class="tc-task-name" style="color:${color}">${t.id}: ${label}</span></div>`;
     }).join('');
-    const statsHtml = Object.entries(m.stats).map(([k,v])=>`
-      <div class="tc-stat">
-        <div class="tc-stat-val">${v}</div>
-        <div class="tc-stat-label">${k}</div>
-      </div>`).join('');
+    const statsHtml = [
+      {k:'Total',v:myTasks.length},{k:'Done',v:done},
+      {k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}
+    ].map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
     const warnHtml = m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
     const noteHtml = m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
     return `<div class="${cls}">
       <div class="tc-name">${m.name}${badgeHtml}</div>
       <div class="tc-role">${m.role}</div>
-      ${tasks}
+      ${tasksHtml}
       <div class="tc-stats">${statsHtml}</div>
       ${warnHtml}${noteHtml}
     </div>`;
@@ -1628,8 +1650,7 @@ function updateTask(){
     if(note) task.notes=note;
   }
   closeModal();
-  buildRaciTable();
-  buildCommandKPIs();
+  masterRefresh();
 }
 
 function setAdBudget(){
@@ -1736,6 +1757,77 @@ function saveMilestoneDate(){
   closeMilestoneEditor();
 }
 
+// ── Auth ──────────────────────────────────────────────────
+async function sha256hex(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function tryLogin(){
+  const val=document.getElementById('login-pw').value;
+  if(!val) return;
+  const [h,ht,hs]=await Promise.all([sha256hex(val),sha256hex('DGL-Taylor-2026'),sha256hex('DGL-Steve-2026')]);
+  if(h===ht){ sessionStorage.setItem('dgl_user','taylor'); showDashboard('taylor'); }
+  else if(h===hs){ sessionStorage.setItem('dgl_user','steve'); showDashboard('steve'); }
+  else { shakePwInput(); }
+}
+function loginAsView(){
+  sessionStorage.setItem('dgl_user','view');
+  showDashboard('view');
+}
+function shakePwInput(){
+  const err=document.getElementById('login-error');
+  const inp=document.getElementById('login-pw');
+  err.style.opacity='1';
+  inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake');
+  inp.value='';
+  setTimeout(()=>inp.classList.remove('shake'),400);
+}
+function showDashboard(user){
+  window._DGL_USER=user;
+  const ov=document.getElementById('login-overlay');
+  if(ov&&ov.style.display!=='none'){ ov.style.opacity='0'; setTimeout(()=>ov.style.display='none',400); }
+  const badge=document.getElementById('user-badge');
+  const so=document.getElementById('sign-out-btn');
+  if(badge){
+    if(user==='taylor'||user==='steve'){
+      badge.textContent='FOUNDER · '+user.toUpperCase();
+      badge.style.background='rgba(201,168,76,0.15)';
+      badge.style.color='var(--gold)';
+      badge.style.border='1px solid rgba(201,168,76,0.3)';
+    } else {
+      badge.textContent='VIEW ONLY';
+      badge.style.background='rgba(107,114,128,0.1)';
+      badge.style.color='var(--muted)';
+      badge.style.border='1px solid var(--border)';
+    }
+    badge.style.display='inline-block';
+  }
+  if(so) so.style.display='inline-block';
+  if(user==='view') applyViewOnly();
+}
+function doSignOut(){
+  sessionStorage.removeItem('dgl_user');
+  location.reload();
+}
+function applyViewOnly(){
+  document.querySelectorAll('#raci-body select').forEach(el=>{ el.disabled=true; el.style.pointerEvents='none'; el.style.opacity='0.7'; });
+  document.querySelectorAll('#raci-body .date-input-inline').forEach(el=>{ el.disabled=true; el.style.pointerEvents='none'; });
+  document.querySelectorAll('#raci-body .flag-edit').forEach(el=>{ el.contentEditable='false'; el.style.pointerEvents='none'; });
+  document.querySelectorAll('#raci-body .raci-person-col').forEach(el=>{ el.onclick=null; el.style.cursor='default'; });
+}
+
+// ── Master refresh ──────────────────────────────────────────
+function masterRefresh(){
+  buildCommandKPIs();
+  buildGapList();
+  buildRaciTable();
+  buildRoadmap();
+  buildTeamGrid();
+  buildAgenda();
+  if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
+  saveToLocal();
+}
+
 // ── localStorage persistence ────────────────────────────────
 const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','sd','ed','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
 function saveToLocal(){
@@ -1760,6 +1852,7 @@ function resetToDefaults(){
 
 // ── Init all ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
+  window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
   loadFromLocal();
   buildCommandKPIs();
   buildGapList();
@@ -1778,6 +1871,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(ed&&ed.style.display!=='none'&&!ed.contains(e.target)&&!e.target.closest('#milestone-countdown'))
       closeMilestoneEditor();
   });
+  if(window._DGL_USER) showDashboard(window._DGL_USER);
 });
 </script>
 </body>
