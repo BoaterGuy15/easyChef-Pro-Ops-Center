@@ -2615,7 +2615,7 @@ function _mergeBudget(d){
   if(d.capital!==undefined)         b.capital=d.capital;
   if(d.startingCapital!==undefined) b.startingCapital=d.startingCapital;
   if(d.adBudget!==undefined)        b.adBudget=d.adBudget;
-  if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length>0&&'sdOffset' in d.adPhases[0]){
+  if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length>0&&('sdOffset' in d.adPhases[0]||'sd' in d.adPhases[0]||'ed' in d.adPhases[0])){
     const defs=b.adPhases;
     b.adPhases=d.adPhases.map((p,i)=>({...p,pct:(typeof p.pct==='number'&&!isNaN(p.pct))?p.pct:(defs[i]?defs[i].pct:0)}));
   }
@@ -2684,6 +2684,11 @@ function _dateLabel(d){
   if(!d) return 'open';
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 }
+function _isoDate(d){
+  if(!d) return '';
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dy=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dy}`;
+}
 function _normalizePhasePcts(){
   const phases=DASHBOARD_DATA.budget.adPhases;
   if(!phases.length) return;
@@ -2700,20 +2705,41 @@ function renderAdPhases(){
   const totalCampaignDays=b.adPhases.reduce((a,p)=>a+(_phaseDaysCount(p)||0),0);
   const dailyRate=b.adBudget/30;
   const totalCost=dailyRate*totalCampaignDays;
+  const launchD=new Date((DASHBOARD_DATA.meta.milestoneDate||'2026-07-01')+'T00:00:00');
+  const sixMoAfter=new Date(launchD); sixMoAfter.setMonth(sixMoAfter.getMonth()+6);
+  const minDate='2025-01-01';
+  const maxDate=_isoDate(sixMoAfter);
+  const dInpSt='background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;width:90px;outline:none;cursor:pointer;padding:1px 2px';
+  const nInpSt='background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;width:46px;text-align:right;outline:none;padding:1px 2px';
   const rows=b.adPhases.map((p,i)=>{
-    const sdLabel=p.sdOffset===null?'Today':_dateLabel(_phaseSD(p));
-    const edLabel=_dateLabel(_phaseED(p));
+    const sd=_phaseSD(p); const ed=_phaseED(p);
     const days=_phaseDaysCount(p);
     const pctOfCampaign=days&&totalCampaignDays?Math.round(days/totalCampaignDays*100):0;
+    const isManual=typeof p.pctManual==='number';
+    const displayPct=isManual?p.pctManual:pctOfCampaign;
+    const lockIcon=isManual
+      ?`<span id="phase-pct-lock-${i}" title="Manual override — click to reset to auto" onclick="phaseUnlockPct(${i})" style="cursor:pointer;font-size:11px;opacity:1;margin-left:2px">🔒</span>`
+      :`<span id="phase-pct-lock-${i}" title="Auto-calculated from days" style="font-size:11px;opacity:0.35;margin-left:2px;cursor:default">🔓</span>`;
     return `<tr>
       <td>
         <span id="phase-name-${i}" onclick="editPhaseName(${i})" title="Click to rename"
           style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);cursor:pointer;white-space:nowrap"
           onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${p.name}</span>
-        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">${sdLabel} → ${edLabel}</div>
+        <div style="margin-top:3px;display:flex;align-items:center;gap:4px">
+          <input type="date" value="${_isoDate(sd)}" min="${minDate}" max="${maxDate}"
+            onchange="phaseEditDate(${i},'sd',this.value)" style="${dInpSt}" title="Start date">
+          <span style="color:var(--muted);font-size:9px">→</span>
+          <input type="date" value="${_isoDate(ed)}" min="${minDate}" max="${maxDate}"
+            onchange="phaseEditDate(${i},'ed',this.value)" style="${dInpSt}" title="End date">
+        </div>
       </td>
       <td style="text-align:right;white-space:nowrap">
-        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${pctOfCampaign}%</span>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:2px">
+          <input type="number" value="${displayPct}" min="0" max="100" step="1"
+            onchange="phaseEditPct(${i},this.value)" style="${nInpSt}" title="Allocation %">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">%</span>
+          ${lockIcon}
+        </div>
       </td>
       <td style="text-align:right">
         <span id="phase-amt-${i}" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--green)"></span>
@@ -2722,7 +2748,11 @@ function renderAdPhases(){
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${days!=null?days+'d':'—'}</span>
       </td>
       <td style="text-align:right">
-        <span id="phase-daily-${i}" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)"></span>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:2px">
+          <input type="number" id="phase-daily-${i}" min="0" step="1"
+            onchange="phaseEditDaily(+this.value)" style="${nInpSt}" title="Daily spend — changes monthly ad budget">
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">/d</span>
+        </div>
       </td>
       <td style="padding-left:10px;text-align:right;white-space:nowrap">
         <button onclick="phaseSetFromSandbox(${i})"
@@ -2803,16 +2833,19 @@ function updateAdPhaseAmounts(){
   if(!b.adPhases) return;
   const dailyRate=b.adBudget/30;
   const totalCampaignDays=b.adPhases.reduce((a,p)=>a+(_phaseDaysCount(p)||0),0);
+  let totalAmt=0;
   b.adPhases.forEach((p,i)=>{
     const days=_phaseDaysCount(p);
-    const amt=days?dailyRate*days:0;
+    const isManual=typeof p.pctManual==='number';
+    const amt=isManual?b.adBudget*p.pctManual/100:(days?dailyRate*days:0);
+    totalAmt+=amt;
     const amtEl=document.getElementById('phase-amt-'+i);
     const dailyEl=document.getElementById('phase-daily-'+i);
     if(amtEl) amtEl.textContent=fmt(amt);
-    if(dailyEl) dailyEl.textContent=dailyRate?fmt(dailyRate)+'/d':'—';
+    if(dailyEl) dailyEl.value=Math.round(dailyRate);
   });
   const amtEl=document.getElementById('phase-amt-total');
-  if(amtEl) amtEl.textContent=fmt(dailyRate*totalCampaignDays);
+  if(amtEl) amtEl.textContent=fmt(totalAmt);
   const noteEl=document.getElementById('phase-note');
   if(noteEl) noteEl.textContent=`Based on ${fmt(b.adBudget)}/mo ad spend · ${fmt(dailyRate*totalCampaignDays)} total over ${totalCampaignDays} campaign days`;
 }
@@ -2882,6 +2915,31 @@ function phaseLoadFromSandbox(){
   saveBudgetToLocal();
   renderBudget();
   renderAdPhases();
+}
+function phaseEditDate(i,field,val){
+  const p=DASHBOARD_DATA.budget.adPhases[i];
+  if(field==='sd'){ p.sd=val; delete p.sdOffset; }
+  else { p.ed=val; delete p.edOffset; }
+  saveBudgetToLocal(); renderAdPhases();
+}
+function phaseEditPct(i,val){
+  DASHBOARD_DATA.budget.adPhases[i].pctManual=parseFloat(val)||0;
+  saveBudgetToLocal(); updateAdPhaseAmounts();
+  const icon=document.getElementById('phase-pct-lock-'+i);
+  if(icon){
+    icon.textContent='🔒'; icon.style.opacity='1'; icon.style.cursor='pointer';
+    icon.setAttribute('onclick','phaseUnlockPct('+i+')');
+    icon.setAttribute('title','Manual override — click to reset to auto');
+  }
+}
+function phaseUnlockPct(i){
+  delete DASHBOARD_DATA.budget.adPhases[i].pctManual;
+  saveBudgetToLocal(); renderAdPhases();
+}
+function phaseEditDaily(val){
+  const daily=parseFloat(val)||0;
+  DASHBOARD_DATA.budget.adBudget=Math.round(daily*30);
+  saveBudgetToLocal(); renderBudget(); renderAdPhases();
 }
 
 // ── PMF Kill Criteria ─────────────────────────────────────
