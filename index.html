@@ -2698,9 +2698,12 @@ function showTaskModal(taskId){
         <textarea id="tm-notes">${isNew?'':esc(task.notes||'')}</textarea>
       </div>
     </div>
-    <div class="modal-actions">
-      <button class="btn-primary" onclick="saveTaskModal('${isNew?'':taskId}')">${isNew?'Add Task':'Save Changes'}</button>
-      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+    <div class="modal-actions" style="justify-content:space-between">
+      ${!isNew&&['taylor','steve','hammad','adam'].includes(window._DGL_USER)?`<button onclick="deleteTask('${taskId}')" style="background:none;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;padding:0;opacity:0.8" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">Delete Task</button>`:'<span></span>'}
+      <div style="display:flex;gap:10px">
+        <button class="btn-primary" onclick="saveTaskModal('${isNew?'':taskId}')">${isNew?'Add Task':'Save Changes'}</button>
+        <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      </div>
     </div>`;
   _renderTmOwnerChips();
   document.getElementById('modal-overlay').classList.add('open');
@@ -2731,6 +2734,16 @@ function saveTaskModal(taskId){
   }
   closeModal();
   masterRefresh();
+}
+
+function deleteTask(taskId){
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
+  if(!task) return;
+  if(!confirm('Delete '+task.name+'? This cannot be undone.')) return;
+  DASHBOARD_DATA.tasks=DASHBOARD_DATA.tasks.filter(t=>t.id!==taskId);
+  closeModal();
+  masterRefresh();
+  saveToLocal();
 }
 
 // ── localStorage persistence ────────────────────────────────
