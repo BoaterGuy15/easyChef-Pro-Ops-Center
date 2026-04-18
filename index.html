@@ -446,6 +446,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     </div>
   </div>
 
+  <div id="launch-health"></div>
   <div class="alert-banner" id="cmd-alert">⬤ &nbsp;<span id="gap-count">6</span> ACCOUNTABILITY GAPS · 0 START DATES LOCKED · MONDAY 11AM ET IS THE RESOLUTION DEADLINE</div>
   <div class="alert-banner green">⬤ &nbsp;T-022 + T-024 RESOLVED — SEARAH NAMED · T-039 + T-040 RESOLVED — SADEE ACTIVATED</div>
 
@@ -1280,6 +1281,41 @@ function renderBudget(){
   updateAdPhaseAmounts();
 }
 
+// ── Launch Health Score ─────────────────────────────────────
+function buildLaunchHealth(){
+  const el = document.getElementById('launch-health');
+  if(!el) return;
+  const tasks = DASHBOARD_DATA.tasks;
+  const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  _d.setHours(0,0,0,0);
+  const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const overdue = tasks.filter(t=>t.ed&&t.ed<today&&t.status!=='Done'&&t.status!=='Complete').length;
+  const blocked = tasks.filter(t=>getBlockingDeps(t).length>0).length;
+  const missedStarts = tasks.filter(t=>t.pri==='High'&&t.status==='Not Started'&&t.sd&&t.sd<today).length;
+  const complete = tasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
+  let score = Math.max(0, Math.min(100, 100 - (overdue*5) - (blocked*3) - (missedStarts*2) + (complete*2)));
+  const color = score>=80?'var(--green)':score>=50?'var(--amber)':'var(--red)';
+  const label = score>=80?'HEALTHY':score>=50?'AT RISK':'CRITICAL';
+  const parts = [];
+  if(overdue) parts.push(overdue+' overdue');
+  if(blocked) parts.push(blocked+' blocked');
+  if(complete) parts.push(complete+' complete');
+  const summary = parts.length ? parts.join(' · ') : 'All tasks on track';
+  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 28px;display:flex;align-items:center;gap:28px;margin-bottom:20px">
+    <div style="text-align:center;flex-shrink:0;min-width:90px">
+      <div style="font-family:'DM Mono',monospace;font-size:48px;font-weight:700;line-height:1;color:${color}">${score}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:${color};margin-top:6px">${label}</div>
+    </div>
+    <div style="border-left:1px solid var(--border);padding-left:24px;flex:1">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px">LAUNCH HEALTH SCORE</div>
+      <div style="font-size:12px;color:var(--muted)">${summary}</div>
+      <div style="margin-top:12px;background:var(--surface);border-radius:4px;height:4px;overflow:hidden">
+        <div style="height:100%;width:${score}%;background:${color};border-radius:4px"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // ── Command KPIs ────────────────────────────────────────────
 function buildCommandKPIs(){
   const tasks = DASHBOARD_DATA.tasks;
@@ -1303,6 +1339,7 @@ function buildCommandKPIs(){
     <div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
   const gc = document.getElementById('gap-count');
   if(gc) gc.textContent = gaps;
+  buildLaunchHealth();
 }
 
 // ── Gap list ────────────────────────────────────────────────
