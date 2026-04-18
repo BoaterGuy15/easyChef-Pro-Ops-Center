@@ -515,6 +515,7 @@ const DASHBOARD_DATA = {
     milestoneItems: []
   },
   budget: {
+    _v: 2,
     capital: 93000,
     startingCapital: 93000,
     minReserve: 20000,
@@ -1589,6 +1590,10 @@ function buildCapitalRunway(){
           <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">LAUNCH RESERVE</div>
           <div style="font-family:'DM Mono',monospace;font-size:17px;font-weight:600;color:${launchReserve>minReserve?'var(--green)':launchReserve>0?'var(--amber)':'var(--red)'}">${fmt(launchReserve)}</div>
         </div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">KILL SWITCH FLOOR — click to adjust</div>
+          <div id="minreserve-display" onclick="editMinReserve()" title="Click to adjust" style="font-family:'DM Mono',monospace;font-size:17px;font-weight:600;color:var(--amber);cursor:pointer;transition:color 0.15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--amber)'">${fmt(minReserve)}</div>
+        </div>
       </div>
     </div>
   </div>`;
@@ -2576,6 +2581,19 @@ function saveRevenue(inp){
   saveBudgetToLocal();
   buildCapitalRunway();
 }
+function editMinReserve(){
+  const el=document.getElementById('minreserve-display');
+  if(!el) return;
+  const cur=DASHBOARD_DATA.budget.minReserve;
+  el.outerHTML=`<input id="minreserve-input" type="number" value="${cur}" min="0" style="background:var(--surface);border:1px solid var(--gold);border-radius:4px;color:var(--gold);font-family:'DM Mono',monospace;font-size:16px;font-weight:600;width:130px;padding:2px 6px;outline:none" onblur="saveMinReserve(this)" onkeydown="if(event.key==='Enter')this.blur()" autofocus>`;
+  setTimeout(()=>{const i=document.getElementById('minreserve-input');if(i)i.select();},10);
+}
+function saveMinReserve(inp){
+  const val=parseFloat(inp.value)||0;
+  DASHBOARD_DATA.budget.minReserve=val;
+  saveBudgetToLocal();
+  buildCapitalRunway();
+}
 function saveBudgetToLocal(){
   try{
     const b=DASHBOARD_DATA.budget;
@@ -2612,6 +2630,7 @@ function loadBudgetFromLocal(){
     const d=JSON.parse(raw);
     // if saved data has old object-shaped payoneer, it predates the simplification — discard monthlyRevenue too
     if(d.payoneer&&typeof d.payoneer==='object') d.monthlyRevenue=0;
+    if(!d._v||d._v<2) d.monthlyRevenue=0;
     _mergeBudget(d);
   }catch(e){}
 }
