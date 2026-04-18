@@ -432,6 +432,8 @@ const DASHBOARD_DATA = {
     team: { "Searah Teitgen": 1000, "Sadee Tison": 0, "Other / TBD": 0 },
     teamNotes: { "Sadee Tison": "Boho Beach Hut — no additional cost" },
     adBudget: 0,
+    monthlyRevenue: 0,
+    runwayScenario: 'pre-launch',
     daysToLaunch: 75,
     adPhases: [
       { name: "Phase 1", desc: "Pre-Launch Awareness",   pct: 20 },
@@ -1368,76 +1370,137 @@ function buildCapitalRunway(){
   const b=DASHBOARD_DATA.budget;
   const capital=b.capital;
   const burn=getTotalBurn();
+  const revenue=b.monthlyRevenue||0;
+  const netBurn=Math.max(0,burn-revenue);
   const minReserve=b.minReserve;
-  const runway=burn>0?((capital-minReserve)/burn):99;
+  const runway=netBurn>0?((capital-minReserve)/netBurn):99;
+  const sc=b.runwayScenario||'pre-launch';
+  const launchDate=new Date((DASHBOARD_DATA.meta.milestoneDate||'2026-07-01')+'T00:00:00');
   const barStart=new Date('2026-04-18T00:00:00');
-  const barEnd  =new Date('2026-10-01T00:00:00');
-  const betaDate  =new Date('2026-05-11T00:00:00');
-  const launchDate=new Date('2026-07-01T00:00:00');
-  const todayDate =new Date();
-  todayDate.setHours(0,0,0,0);
+  // bar extends 6 months past launch date
+  const barEnd=new Date(launchDate.getTime());
+  barEnd.setMonth(barEnd.getMonth()+6);
+  const betaDate=new Date('2026-05-11T00:00:00');
+  const todayDate=new Date(); todayDate.setHours(0,0,0,0);
   const barDays=(barEnd-barStart)/86400000;
   function pct(d){return Math.max(0,Math.min(100,((d-barStart)/86400000/barDays*100)));}
   function balAt(d){
-    const days=(d-barStart)/86400000;
-    const spend=burn*(days/30)+(d>=launchDate?b.adBudget:0);
-    return capital-spend;
+    const daysSinceStart=(d-barStart)/86400000;
+    const preMonths=Math.min(daysSinceStart/30,(launchDate-barStart)/86400000/30);
+    const postMonths=d>launchDate?(d-launchDate)/86400000/30:0;
+    const preCost=burn*preMonths;
+    const postCost=netBurn*postMonths+(postMonths>0?b.adBudget:0);
+    return capital-preCost-postCost;
   }
   const launchReserve=balAt(launchDate);
-  // Build 5 segments: barStart→today, today→beta, beta→launch, launch→+90, +90→barEnd
-  const segPoints=[barStart,todayDate,betaDate,launchDate,new Date('2026-10-01T00:00:00')];
+  // Kill switch: find when balance first dips below minReserve
+  let killDate=null;
+  for(let mo=0;mo<=24;mo++){
+    const d=new Date(barStart.getTime()+mo*30*86400000);
+    if(balAt(d)<minReserve){killDate=d;break;}
+  }
+  // Segments: past(dim) / pre-launch / post-launch phases
+  const segPoints=[barStart,todayDate,betaDate,launchDate,barEnd].filter((d,i,a)=>i===0||d>a[i-1]);
   const segs=[];
   for(let i=0;i<segPoints.length-1;i++){
-    const p0=Math.max(0,pct(segPoints[i])), p1=Math.max(0,pct(segPoints[i+1]));
-    const w=p1-p0; if(w<=0) continue;
+    const p0=pct(segPoints[i]), p1=pct(segPoints[i+1]);
+    const w=p1-p0; if(w<=0.1) continue;
     const bal=balAt(segPoints[i+1]);
-    const col=bal>40000?'var(--green)':bal>20000?'var(--amber)':'var(--red)';
-    const op=i===0?'0.35':'0.8';
+    const isPost=segPoints[i]>=launchDate;
+    const isPast=segPoints[i+1]<=todayDate;
+    const col=isPost?(bal>minReserve*1.5?'var(--green)':bal>minReserve?'var(--amber)':'var(--red)')
+                    :(bal>40000?'var(--gold)':bal>20000?'var(--amber)':'var(--red)');
+    const op=isPast?'0.3':'0.8';
     segs.push(`<div style="width:${w}%;height:100%;background:${col};opacity:${op}"></div>`);
   }
-  const marks=[
-    {label:'Today', d:todayDate, col:'var(--text)'},
-    {label:'Beta',  d:betaDate,  col:'var(--amber)'},
+  // Kill switch stripe overlay
+  const killStripe=killDate&&killDate>=barStart&&killDate<=barEnd
+    ?`<div style="position:absolute;left:${pct(killDate)}%;top:0;width:2px;height:100%;background:var(--red);opacity:0.9;z-index:2"></div>`:'' ;
+  // Marks
+  const markDefs=[
+    {label:'Today',d:todayDate,col:'var(--text)'},
+    {label:'Beta',d:betaDate,col:'var(--amber)'},
     {label:'Launch',d:launchDate,col:'var(--green)'},
-    {label:'Oct',   d:barEnd,    col:'var(--muted)'},
-  ].filter(m=>m.d>=barStart&&m.d<=barEnd).map(m=>{
+  ];
+  const marks=markDefs.filter(m=>m.d>=barStart&&m.d<=barEnd).map(m=>{
     const p=pct(m.d);
     return `<div style="position:absolute;left:${p}%;top:-18px;transform:translateX(-50%);text-align:center;pointer-events:none">
       <div style="font-family:'DM Mono',monospace;font-size:8px;color:${m.col};white-space:nowrap;letter-spacing:0.5px">${m.label}</div>
-      <div style="width:1px;height:14px;background:${m.col};opacity:0.5;margin:2px auto 0"></div>
+      <div style="width:1px;height:14px;background:${m.col};opacity:0.6;margin:2px auto 0"></div>
     </div>`;
   }).join('');
-  const months=['Apr','May','Jun','Jul','Aug','Sep','Oct'];
-  const monthMarks=months.map((mo,i)=>{
-    const d=new Date(2026,3+i,1); const p=pct(d);
-    return `<div style="position:absolute;left:${p}%;transform:translateX(-50%);font-family:'DM Mono',monospace;font-size:7px;color:var(--muted)">${mo}</div>`;
-  }).join('');
-  el.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px 28px;margin-bottom:20px;display:grid;grid-template-columns:190px 1fr 170px;gap:28px;align-items:center">
-    <div>
-      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">TOTAL CAPITAL</div>
-      <div id="capital-display" onclick="editCapital()" title="Click to edit" style="font-family:'DM Mono',monospace;font-size:34px;font-weight:700;color:var(--text);line-height:1;cursor:pointer;transition:color 0.15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text)'">${fmt(capital)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px">Starting balance · April 2026</div>
-    </div>
-    <div>
-      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:22px">CAPITAL RUNWAY — APR → OCT 2026</div>
-      <div style="position:relative;margin-bottom:20px">
-        ${marks}
-        <div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden;display:flex">${segs.join('')}</div>
-      </div>
-      <div style="position:relative;height:12px">${monthMarks}</div>
-    </div>
-    <div style="border-left:1px solid var(--border);padding-left:24px;display:flex;flex-direction:column;gap:14px">
+  // Month labels spanning the full bar range
+  const startYear=barStart.getFullYear(), startMo=barStart.getMonth();
+  const endYear=barEnd.getFullYear(), endMo=barEnd.getMonth();
+  const moNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthMarks=[];
+  for(let y=startYear;y<=endYear;y++){
+    const mo0=y===startYear?startMo:0;
+    const mo1=y===endYear?endMo:11;
+    for(let m=mo0;m<=mo1;m++){
+      const d=new Date(y,m,1);
+      if(d<barStart||d>barEnd) continue;
+      const p=pct(d);
+      monthMarks.push(`<div style="position:absolute;left:${p}%;transform:translateX(-50%);font-family:'DM Mono',monospace;font-size:7px;color:var(--muted)">${moNames[m]}${y!==2026?' '+String(y).slice(2):''}</div>`);
+    }
+  }
+  // Scenario buttons
+  const scenarios=[
+    {key:'pre-launch',label:'Pre-Launch'},
+    {key:'conservative',label:'Conservative'},
+    {key:'growth',label:'Growth'},
+  ];
+  const scBtns=scenarios.map(s=>`<button onclick="setRunwayScenario('${s.key}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:10px;border:1px solid ${sc===s.key?'var(--gold)':'var(--border)'};background:${sc===s.key?'var(--gold)':'transparent'};color:${sc===s.key?'#111':'var(--muted)'};cursor:pointer;transition:all 0.15s">${s.label}</button>`).join('');
+  // Kill switch warning banner
+  const killBanner=killDate
+    ?`<div style="margin-top:10px;padding:7px 12px;background:rgba(239,68,68,0.12);border:1px solid var(--red);border-radius:7px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:14px">⚠️</span>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);letter-spacing:0.5px">KILL SWITCH — Reserve floor breached ~${killDate.toLocaleDateString('en-US',{month:'short',year:'numeric'})}</span>
+      </div>`
+    :`<div style="margin-top:10px;padding:7px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:7px">
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);letter-spacing:0.5px">✓ RUNWAY HEALTHY — Reserve floor maintained through projection</span>
+      </div>`;
+  el.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px 28px;margin-bottom:20px">
+    <div style="display:grid;grid-template-columns:200px 1fr 200px;gap:28px;align-items:start">
       <div>
-        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">MONTHLY BURN</div>
-        <div style="font-family:'DM Mono',monospace;font-size:17px;font-weight:600;color:var(--red)">${fmt(burn)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">TOTAL CAPITAL</div>
+        <div id="capital-display" onclick="editCapital()" title="Click to edit" style="font-family:'DM Mono',monospace;font-size:34px;font-weight:700;color:var(--text);line-height:1;cursor:pointer;transition:color 0.15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text)'">${fmt(capital)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Starting balance · April 2026</div>
+        <div style="margin-top:14px">
+          <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">MONTHLY REVENUE</div>
+          <div id="revenue-display" onclick="editRevenue()" title="Click to edit" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:${revenue>0?'var(--green)':'var(--muted)'};cursor:pointer;transition:color 0.15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='${revenue>0?'var(--green)':'var(--muted)'}'">
+            ${revenue>0?fmt(revenue):'$0 — click to set'}
+          </div>
+        </div>
       </div>
       <div>
-        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">RUNWAY</div>
-        <div style="font-family:'DM Mono',monospace;font-size:17px;font-weight:600;color:${runway>6?'var(--green)':runway>3?'var(--amber)':'var(--red)'}">${runway>99?'∞':runway.toFixed(1)} months</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">CAPITAL RUNWAY — ${barStart.toLocaleDateString('en-US',{month:'short',year:'numeric'})} → ${barEnd.toLocaleDateString('en-US',{month:'short',year:'numeric'})}</div>
+          <div style="display:flex;gap:5px">${scBtns}</div>
+        </div>
+        <div style="position:relative;margin:22px 0 8px">
+          ${marks}
+          <div style="position:relative;height:10px;background:var(--border);border-radius:5px;overflow:hidden;display:flex">
+            ${segs.join('')}${killStripe}
+          </div>
+        </div>
+        <div style="position:relative;height:14px">${monthMarks.join('')}</div>
+        ${killBanner}
       </div>
-      <div>
-        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">LAUNCH RESERVE</div>
-        <div style="font-family:'DM Mono',monospace;font-size:17px;font-weight:600;color:${launchReserve>minReserve?'var(--green)':launchReserve>0?'var(--amber)':'var(--red)'}">${fmt(launchReserve)}</div>
+      <div style="border-left:1px solid var(--border);padding-left:24px;display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">MONTHLY BURN</div>
+          <div style="font-family:'DM Mono',monospace;font-size:17px;font-weight:600;color:var(--red)">${fmt(burn)}</div>
+          ${revenue>0?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green);margin-top:1px">NET: ${fmt(netBurn)}/mo</div>`:''}
+        </div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">RUNWAY</div>
+          <div style="font-family:'DM Mono',monospace;font-size:17px;font-weight:600;color:${runway>6?'var(--green)':runway>3?'var(--amber)':'var(--red)'}">${runway>99?'∞':runway.toFixed(1)} months</div>
+        </div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">LAUNCH RESERVE</div>
+          <div style="font-family:'DM Mono',monospace;font-size:17px;font-weight:600;color:${launchReserve>minReserve?'var(--green)':launchReserve>0?'var(--amber)':'var(--red)'}">${fmt(launchReserve)}</div>
+        </div>
       </div>
     </div>
   </div>`;
@@ -2412,8 +2475,44 @@ function saveCapital(inp){
   const val=parseFloat(inp.value)||0;
   DASHBOARD_DATA.budget.capital=val;
   DASHBOARD_DATA.budget.startingCapital=val;
+  saveBudgetLocal();
   saveToLocal();
   renderBudget();
+}
+function setRunwayScenario(sc){
+  DASHBOARD_DATA.budget.runwayScenario=sc;
+  saveBudgetLocal();
+  buildCapitalRunway();
+}
+function editRevenue(){
+  const el=document.getElementById('revenue-display');
+  if(!el) return;
+  const cur=DASHBOARD_DATA.budget.monthlyRevenue||0;
+  el.outerHTML=`<input id="revenue-input" type="number" value="${cur}" min="0" style="background:var(--surface);border:1px solid var(--gold);border-radius:4px;color:var(--gold);font-family:'DM Mono',monospace;font-size:16px;font-weight:600;width:130px;padding:2px 6px;outline:none" onblur="saveRevenue(this)" onkeydown="if(event.key==='Enter')this.blur()" autofocus>`;
+  setTimeout(()=>{const i=document.getElementById('revenue-input');if(i)i.select();},10);
+}
+function saveRevenue(inp){
+  const val=parseFloat(inp.value)||0;
+  DASHBOARD_DATA.budget.monthlyRevenue=val;
+  saveBudgetLocal();
+  buildCapitalRunway();
+}
+function saveBudgetLocal(){
+  try{
+    localStorage.setItem('dgl_budget_extra',JSON.stringify({
+      monthlyRevenue:DASHBOARD_DATA.budget.monthlyRevenue||0,
+      runwayScenario:DASHBOARD_DATA.budget.runwayScenario||'pre-launch',
+    }));
+  }catch(e){}
+}
+function loadBudgetLocal(){
+  try{
+    const raw=localStorage.getItem('dgl_budget_extra');
+    if(!raw) return;
+    const d=JSON.parse(raw);
+    if(d.monthlyRevenue!==undefined) DASHBOARD_DATA.budget.monthlyRevenue=d.monthlyRevenue;
+    if(d.runwayScenario) DASHBOARD_DATA.budget.runwayScenario=d.runwayScenario;
+  }catch(e){}
 }
 
 function setAdBudget(){
@@ -3064,6 +3163,7 @@ function triggerCelebration(){
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
   loadFromLocal();
+  loadBudgetLocal();
   loadFromSheets();
   buildCommandKPIs();
   buildGapList();
