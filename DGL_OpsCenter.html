@@ -97,6 +97,8 @@ tr.hidden-row{display:none}
 .raci-a{background:rgba(248,113,113,0.1);color:var(--red);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px;padding:1px 5px;display:inline-block}
 .raci-c{background:rgba(79,142,247,0.1);color:var(--accent);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px;padding:1px 5px;display:inline-block}
 .raci-i{background:rgba(107,114,128,0.1);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px;padding:1px 5px;display:inline-block}
+.raci-ar{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;border-radius:3px;padding:1px 4px;display:inline-block;background:transparent}
+.raci-ar .ar-a{color:var(--red)}.raci-ar .ar-r{color:var(--amber);margin-left:2px}
 .raci-empty{color:var(--border);font-size:10px;text-align:center}
 .flag-cell{font-size:10px;max-width:200px}
 .flag-cell.resolved{color:var(--green)}
@@ -111,6 +113,12 @@ tr.hidden-row{display:none}
 #raci-popover{position:fixed;z-index:501;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 8px;box-shadow:0 6px 24px rgba(0,0,0,0.5);display:none;gap:4px;align-items:center}
 .raci-pop-btn{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;transition:opacity 0.1s}
 .raci-pop-btn:hover{opacity:0.8}
+.raci-search-wrap{position:relative;display:flex;align-items:center;margin-left:auto}
+#raci-search{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:5px 26px 5px 10px;border-radius:99px;width:220px;outline:none;letter-spacing:0.5px}
+#raci-search::placeholder{color:var(--muted)}
+#raci-search:focus{border-color:var(--gold)}
+#raci-search-clear{position:absolute;right:8px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;display:none;padding:0}
+#raci-search-clear:hover{color:var(--text)}
 /* ── RACI table — no scroll, compact fit ── */
 #page-raci .table-wrap{overflow-x:visible}
 #page-raci table th{padding:6px 6px}
@@ -441,6 +449,10 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <button class="filter-btn" onclick="filterStatus('Not Started',this)">Not Started</button>
     <button class="filter-btn" onclick="filterStatus('Ready',this)">Ready</button>
     <button class="filter-btn" onclick="filterStatus('flag',this)">⚠️ Flagged</button>
+    <div class="raci-search-wrap">
+      <input id="raci-search" type="text" placeholder="Search tasks, owners, notes..." oninput="raciSearch(this.value)">
+      <button id="raci-search-clear" onclick="raciSearch('');document.getElementById('raci-search').value=''" title="Clear">×</button>
+    </div>
   </div>
   <div class="table-wrap">
     <table id="raci-table">
@@ -613,12 +625,13 @@ function showPage(id){
 }
 
 // ── RACI table ─────────────────────────────────────────────
-let raciPersonFilter='all', raciStatusFilter='all';
+let raciPersonFilter='all', raciStatusFilter='all', raciSearchQuery='';
 function raciCell(val,taskId,person){
   const click=taskId?` onclick="showRaciPopover(event,'${taskId}','${person}')" style="cursor:pointer"`:'';
   if(!val) return `<td class="raci-empty raci-person-col"${click}>·</td>`;
   if(val==='R') return `<td class="raci-person-col"${click}><span class="raci-r">R</span></td>`;
-  if(val==='A'||val==='A/R') return `<td class="raci-person-col"${click}><span class="raci-a">${val}</span></td>`;
+  if(val==='A/R') return `<td class="raci-person-col"${click}><span class="raci-ar"><span class="ar-a">A</span><span class="ar-r">R</span></span></td>`;
+  if(val==='A') return `<td class="raci-person-col"${click}><span class="raci-a">A</span></td>`;
   if(val==='C') return `<td class="raci-person-col"${click}><span class="raci-c">C</span></td>`;
   if(val==='I') return `<td class="raci-person-col"${click}><span class="raci-i">I</span></td>`;
   return `<td class="raci-empty raci-person-col"${click}>·</td>`;
@@ -887,6 +900,7 @@ function initRaciPopover(){
     {v:'A', bg:'rgba(248,113,113,0.1)', color:'var(--red)'},
     {v:'C', bg:'rgba(79,142,247,0.1)',  color:'var(--accent)'},
     {v:'I', bg:'rgba(107,114,128,0.1)', color:'var(--muted)'},
+    {v:'A/R',bg:'transparent',color:'var(--red)',label:'<span style="color:var(--red)">A</span><span style="color:var(--amber);margin-left:2px">R</span>'},
     {v:'',  bg:'transparent',           color:'var(--muted)', label:'—'}
   ];
   const pop=document.createElement('div');
@@ -933,24 +947,49 @@ function buildRaciTable(){
   if(ru) ru.textContent = DASHBOARD_DATA.meta.updated;
 }
 function applyRaciFilters(){
-  document.querySelectorAll('#raci-body tr').forEach(tr=>{
-    let show = true;
-    const person = raciPersonFilter;
-    const status = raciStatusFilter;
-    if(person!=='all'){
-      const key = person.toLowerCase();
-      const val = tr.dataset[key]||'';
-      if(!val || val==='I') show = false;
+  let visibleCount=0;
+  document.querySelectorAll('#raci-body tr:not(#raci-no-results)').forEach(tr=>{
+    let show=true;
+    if(raciPersonFilter!=='all'){
+      const val=tr.dataset[raciPersonFilter.toLowerCase()]||'';
+      if(!val||val==='I') show=false;
     }
-    if(status!=='all' && show){
-      if(status==='flag'){
-        if(!tr.dataset.flag || tr.dataset.flag==='' || tr.dataset.flag.startsWith('✓')) show=false;
+    if(raciStatusFilter!=='all'&&show){
+      if(raciStatusFilter==='flag'){
+        if(!tr.dataset.flag||tr.dataset.flag===''||tr.dataset.flag.startsWith('✓')) show=false;
       } else {
-        if(!tr.dataset.status.includes(status)) show=false;
+        if(!tr.dataset.status.includes(raciStatusFilter)) show=false;
+      }
+    }
+    if(raciSearchQuery&&show){
+      const task=DASHBOARD_DATA.tasks.find(t=>t.id===tr.dataset.id);
+      if(task){
+        const hay=[task.id,task.name,task.cat,task.owner,task.flag].join(' ').toLowerCase();
+        if(!hay.includes(raciSearchQuery)) show=false;
       }
     }
     tr.classList.toggle('hidden-row',!show);
+    if(show) visibleCount++;
   });
+  const tbody=document.getElementById('raci-body');
+  let noRes=document.getElementById('raci-no-results');
+  if(visibleCount===0){
+    if(!noRes){
+      noRes=document.createElement('tr');
+      noRes.id='raci-no-results';
+      noRes.innerHTML='<td colspan="16" style="text-align:center;padding:24px;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted)">No tasks match your search</td>';
+      tbody.appendChild(noRes);
+    }
+    noRes.classList.remove('hidden-row');
+  } else {
+    if(noRes) noRes.classList.add('hidden-row');
+  }
+}
+function raciSearch(val){
+  raciSearchQuery=val.trim().toLowerCase();
+  const cl=document.getElementById('raci-search-clear');
+  if(cl) cl.style.display=raciSearchQuery?'block':'none';
+  applyRaciFilters();
 }
 function filterRaci(person, btn){
   raciPersonFilter = person;
