@@ -2750,10 +2750,10 @@ function buildTeamGrid(){
       const editBtnHtml=canEdit?`<button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>`:'';
       return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
         ${dragHandle}
-        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnHtml}</div>
         <div class="tc-name">${displayName}${badgeHtml}</div>
         <div class="tc-role">${displayRole}</div>
         ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${warnHtml}${noteHtml}
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnHtml}</div>
       </div>`;
     } else {
       const {cm,ci}=entry;
@@ -2777,11 +2777,11 @@ function buildTeamGrid(){
       const editBtnHtml2=canEdit2?`<button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>`:'';
       return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
         ${dragHandle}
-        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnHtml2}</div>
         <div class="tc-name">${cm.name}${accessLabel}</div>
         <div class="tc-role">${cm.role}</div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
         ${tasksHtml2}<div class="tc-stats">${statsHtml2}</div>
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnHtml2}</div>
       </div>`;
     }
   }).join('');
