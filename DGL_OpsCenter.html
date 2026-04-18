@@ -92,6 +92,7 @@ tr.hidden-row{display:none}
 .s-Ready{background:rgba(52,211,153,0.12);color:var(--green)}
 .s-Blocked{background:rgba(248,113,113,0.12);color:var(--red)}
 .s-Done{background:rgba(52,211,153,0.15);color:var(--green)}
+.status-select{font-family:'DM Mono',monospace;font-size:9px;border-radius:4px;border:none;cursor:pointer;padding:2px 8px;-webkit-appearance:none;appearance:none;outline:none;white-space:nowrap}
 .raci-r{background:var(--gold-dim);color:var(--gold);font-family:'DM Mono',monospace;font-size:10px;font-weight:500;border-radius:3px;padding:1px 5px;display:inline-block}
 .raci-a{background:rgba(248,113,113,0.1);color:var(--red);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px;padding:1px 5px;display:inline-block}
 .raci-c{background:rgba(79,142,247,0.1);color:var(--accent);font-family:'DM Mono',monospace;font-size:10px;border-radius:3px;padding:1px 5px;display:inline-block}
@@ -629,6 +630,44 @@ function getStatusLabel(s){
   if(s==='Ready') return 'Ready to deploy';
   return s;
 }
+function getStatusColors(s){
+  if(s==='Started'||s==='In Progress') return {bg:'rgba(79,142,247,0.12)',color:'#82b0ff'};
+  if(s==='Ready')    return {bg:'rgba(52,211,153,0.12)', color:'var(--green)'};
+  if(s==='Blocked')  return {bg:'rgba(248,113,113,0.12)',color:'var(--red)'};
+  if(s==='Done'||s==='Complete') return {bg:'rgba(52,211,153,0.15)',color:'var(--green)'};
+  if(s==='In Review') return {bg:'rgba(251,191,36,0.12)',color:'var(--amber)'};
+  return {bg:'rgba(107,114,128,0.1)',color:'var(--muted)'};
+}
+function statusSelect(t){
+  const opts=['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'];
+  const c=getStatusColors(t.status);
+  return `<select class="status-select" style="background:${c.bg};color:${c.color}"
+    onchange="setTaskStatus('${t.id}',this.value,this)">${
+    opts.map(o=>`<option value="${o}"${o===t.status?' selected':''}>${o}</option>`).join('')
+  }</select>`;
+}
+function setTaskStatus(id,val,el){
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
+  if(!task) return;
+  task.status=val;
+  const c=getStatusColors(val);
+  el.style.background=c.bg; el.style.color=c.color;
+  const tr=el.closest('tr');
+  if(tr){
+    tr.dataset.status=val;
+    const cells=tr.querySelectorAll('td');
+    const timelineTd=cells[cells.length-2];
+    if(timelineTd){
+      const wrap=document.createElement('div');
+      wrap.innerHTML='<table><tbody><tr>'+taskProgress(task)+'</tr></tbody></table>';
+      const newTd=wrap.querySelector('td');
+      if(newTd) tr.replaceChild(newTd,timelineTd);
+    }
+  }
+  buildCommandKPIs();
+  buildAgenda();
+  if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
+}
 function taskProgress(t){
   if(!t.sd||!t.ed) return '<td></td>';
   const now = new Date(); now.setHours(0,0,0,0);
@@ -680,7 +719,7 @@ function buildRaciTable(){
       <td class="task-name">${t.name}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
       <td><span class="cat-pill ${getCatClass(t.cat)}">${t.cat.replace('Marketing Strategy','Mktg Strategy').replace('Content - Website','Content/Web').replace('Social Media Marketing','Social Media').replace('Digital Marketing','Digital Mktg').replace('Product Marketing','Product Mktg').replace('Launch Ops','Launch Ops')}</span></td>
       <td class="pri-${t.pri}">${t.pri}</td>
-      <td><span class="status-badge ${getStatusClass(t.status)}">${getStatusLabel(t.status)}</span></td>
+      <td>${statusSelect(t)}</td>
       <td class="owner-cell">${t.owner}</td>
       ${raciCell(t.Taylor)}${raciCell(t.Steve)}${raciCell(t.Adam)}${raciCell(t.Mary)}${raciCell(t.JR)}${raciCell(t.Hammad)}${raciCell(t.Searah)}${raciCell(t.Sadee)}
       ${taskProgress(t)}
