@@ -2373,6 +2373,64 @@ function buildMilestones(){
 
 // ── Team grid ───────────────────────────────────────────────
 // ── Team Member Management ──────────────────────────────────
+const DEFAULT_TEAM_MEMBERS={
+  'taylor':{user:'taylor',raciKey:'Taylor',name:'Taylor Reasoner',role:'Founder · CFO/COO',email:'taylor@DGL.dev',color:'gold',accessLevel:'Founder'},
+  'steve': {user:'steve', raciKey:'Steve', name:'Steve',          role:'COO · Operations Lead',email:'steve@DGL.dev',color:'muted',accessLevel:'Founder'},
+  'adam':  {user:'adam',  raciKey:'Adam',  name:'Adam G',         role:'CMO · Planning Lead',email:'adam@DGL.dev',color:'blue',accessLevel:'Executive'},
+  'hammad':{user:'hammad',raciKey:'Hammad',name:'Hammad',         role:'CTO · Dev Lead',email:'hammad@DGL.dev',color:'purple',accessLevel:'Executive'},
+  'mary':  {user:'mary',  raciKey:'Mary',  name:'Mary',           role:'Content Lead',email:'mary@DGL.dev',color:'green',accessLevel:'Member'},
+  'jr':    {user:'jr',    raciKey:'JR',    name:'JR',             role:'Growth Strategist · Contract',email:'jr@DGL.dev',color:'teal',accessLevel:'Member'},
+  'searah':{user:'searah',raciKey:'Searah',name:'Searah Teitgen', role:'Marketing Operations Associate',email:'searah@DGL.dev',color:'amber',accessLevel:'Member'},
+  'sadee': {user:'sadee', raciKey:'Sadee', name:'Sadee Tison',    role:'PA · Support & Beta Ops',email:'sadee@DGL.dev',color:'teal',accessLevel:'Member'},
+};
+function _getDefaultTeamEdits(){ try{const r=localStorage.getItem('dgl_default_team_edits');if(r)return JSON.parse(r);}catch(e){} return {}; }
+function _saveDefaultTeamEdits(obj){ try{localStorage.setItem('dgl_default_team_edits',JSON.stringify(obj));}catch(e){} }
+function openDefaultTeamMemberModal(user){
+  const overlay=document.getElementById('team-member-modal-overlay');
+  if(!overlay) return;
+  const def=DEFAULT_TEAM_MEMBERS[user]||{};
+  const ed=(_getDefaultTeamEdits()[user])||{};
+  const cur={...def,...ed};
+  const title=document.getElementById('tmm-title');
+  if(title) title.textContent='EDIT TEAM MEMBER';
+  const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
+  const roSt=iSt+';opacity:0.5';
+  const colorOpts=['gold','blue','purple','green','teal','amber','muted'].map(c=>`<option value="${c}"${cur.color===c?' selected':''}>${c}</option>`).join('');
+  const levelOpts=['Founder','Executive','Member','View Only'].map(l=>`<option value="${l}"${cur.accessLevel===l?' selected':''}>${l}</option>`).join('');
+  document.getElementById('tmm-modal-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cur.name||''}" style="${iSt}"></div>
+      <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cur.role||''}" style="${iSt}"></div>
+      <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cur.email||''}" style="${iSt}"></div>
+      <div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep" style="${iSt}"></div>
+      <div class="modal-field"><label>RACI Column Name</label><input type="text" value="${cur.raciKey||''}" readonly style="${roSt}"></div>
+      <div class="modal-field"><label>Login Key</label><input type="text" value="${cur.user||''}" readonly style="${roSt}"></div>
+      <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${iSt}">${levelOpts}</select></div>
+      <div class="modal-field"><label>Badge Color</label><select id="tmm-color" style="${iSt}">${colorOpts}</select></div>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-end;margin-top:20px;gap:10px">
+      <button class="btn-primary" onclick="saveDefaultTeamMember('${user}')">Save</button>
+      <button class="btn-secondary" onclick="closeTeamMemberModal()">Cancel</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+async function saveDefaultTeamMember(user){
+  const name=(document.getElementById('tmm-name').value||'').trim();
+  const role=(document.getElementById('tmm-role').value||'').trim();
+  const email=(document.getElementById('tmm-email').value||'').trim();
+  const pw=(document.getElementById('tmm-password').value||'').trim();
+  const accessLevel=document.getElementById('tmm-level').value;
+  const color=document.getElementById('tmm-color').value;
+  if(!name||!role||!email){ alert('Name, role, and email are required.'); return; }
+  const edits=_getDefaultTeamEdits();
+  const existing=edits[user]||{};
+  const update={name,role,email,color,accessLevel};
+  if(pw) update.passwordHash=await sha256hex(pw); else if(existing.passwordHash) update.passwordHash=existing.passwordHash;
+  edits[user]=update;
+  _saveDefaultTeamEdits(edits);
+  closeTeamMemberModal();
+  buildTeamGrid();
+}
 function _getCustomTeamMembers(){
   try{ const r=localStorage.getItem('dgl_team_members'); if(r) return JSON.parse(r); }catch(e){}
   return [];
@@ -2480,8 +2538,14 @@ function buildTeamGrid(){
     'Steve':'Steve','Mary':'Mary','JR':'JR',
     'Searah Teitgen':'Searah','Sadee Tison':'Sadee'
   };
+  const _defEdits=_getDefaultTeamEdits();
   el.innerHTML = DASHBOARD_DATA.team.map(m=>{
     const key = RACI_KEY[m.name] || m.name;
+    const defMeta=Object.values(DEFAULT_TEAM_MEMBERS).find(dm=>dm.raciKey===key);
+    const userKey=defMeta?defMeta.user:key.toLowerCase();
+    const ed=_defEdits[userKey]||{};
+    const displayName=ed.name||m.name;
+    const displayRole=ed.role||m.role;
     const myTasks = DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
     const done = myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
     const overdue = myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
@@ -2502,9 +2566,12 @@ function buildTeamGrid(){
     ].map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
     const warnHtml = m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
     const noteHtml = m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
-    return `<div class="${cls}">
-      <div class="tc-name">${m.name}${badgeHtml}</div>
-      <div class="tc-role">${m.role}</div>
+    return `<div class="${cls}" style="position:relative">
+      <div style="position:absolute;top:10px;right:10px">
+        <button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>
+      </div>
+      <div class="tc-name">${displayName}${badgeHtml}</div>
+      <div class="tc-role">${displayRole}</div>
       ${tasksHtml}
       <div class="tc-stats">${statsHtml}</div>
       ${warnHtml}${noteHtml}
@@ -3846,6 +3913,10 @@ async function tryLogin(){
     {pw:'DGL-Searah-2026',user:'searah'},{pw:'DGL-Sadee-2026',user:'sadee'},
   ];
   const h=await sha256hex(val);
+  // Check default member password overrides first
+  for(const [_du,_de] of Object.entries(_getDefaultTeamEdits())){
+    if(_de.passwordHash&&_de.passwordHash===h){ sessionStorage.setItem('dgl_user',_du); showDashboard(_du,true); return; }
+  }
   const hashes=await Promise.all(CREDS.map(c=>sha256hex(c.pw)));
   const idx=hashes.indexOf(h);
   if(idx>=0){
