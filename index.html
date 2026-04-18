@@ -3082,9 +3082,18 @@ function renderKillCriteria(){
         <span style="color:${sCol[st]};font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${sIcon[st]} ${sLabel[st]}</span>
       </td>
       <td style="padding:8px 10px;width:100%">
-        <textarea placeholder="Notes…" rows="2" style="${iSt};width:100%;box-sizing:border-box;resize:none;overflow:hidden;line-height:1.4;vertical-align:top;min-height:32px" ${fo}
-          oninput="this.style.height=Math.max(32,this.scrollHeight)+'px'"
-          onchange="updateKillKpi(${i},'notes',this.value)">${k.notes||''}</textarea>
+        <div style="position:relative">
+          <textarea id="pmf-ta-${i}" placeholder="Notes…" rows="1"
+            style="${iSt};width:100%;box-sizing:border-box;resize:none;overflow:hidden;line-height:1.4;vertical-align:top;min-height:32px;height:32px;transition:height 0.2s ease"
+            onfocus="this.style.height='120px';this.style.borderColor='var(--gold)';var d=document.getElementById('pmf-done-${i}');if(d){d.style.opacity='1';d.style.pointerEvents='auto'}"
+            onblur="var self=this,d=document.getElementById('pmf-done-${i}');setTimeout(function(){if(d&&!d._clk){self.style.height='32px';self.style.borderColor='var(--border)';d.style.opacity='0';d.style.pointerEvents='none';}},160)"
+          >${k.notes||''}</textarea>
+          <button id="pmf-done-${i}"
+            style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);border-radius:4px;cursor:pointer;margin-top:4px;float:right;opacity:0;pointer-events:none;transition:opacity 0.15s ease;clear:both;display:block"
+            onmousedown="this._clk=true"
+            onclick="var ta=document.getElementById('pmf-ta-${i}');updateKillKpi(${i},'notes',ta.value);ta.style.height='32px';ta.style.borderColor='var(--border)';this.style.opacity='0';this.style.pointerEvents='none';this._clk=false"
+          >✓ Done</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -3150,7 +3159,7 @@ function renderKillCriteria(){
         </table></div>
       </div>`;
     })()}`;
-  card.querySelectorAll('textarea').forEach(el=>{el.style.height=Math.max(32,el.scrollHeight)+'px';});
+  card.querySelectorAll('textarea[id^="pmf-ta-"]').forEach(el=>{el.style.height='32px';});
 }
 function updateKillKpi(i,field,val){
   _getKillCriteria().kpis[i][field]=val;
