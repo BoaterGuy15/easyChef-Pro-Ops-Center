@@ -232,6 +232,30 @@ tr.hidden-row{display:none}
 #user-badge{font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;display:none}
 #sign-out-btn{background:transparent;border:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;padding:0 2px;letter-spacing:1px;text-transform:uppercase;display:none}
 #sign-out-btn:hover{color:var(--text)}
+/* ── BRIEFING BELL ── */
+#briefing-bell{background:transparent;border:none;cursor:pointer;padding:4px 6px;position:relative;font-size:16px;line-height:1;display:none}
+#briefing-bell:hover{opacity:0.75}
+#bell-dot{position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--red);display:none;border:1.5px solid var(--bg)}
+/* ── BRIEFING POPUP ── */
+#briefing-overlay{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.82);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+#briefing-overlay.open{display:flex}
+#briefing-modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:640px;width:100%;margin:auto}
+.briefing-header{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:4px}
+.briefing-subhead{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:24px}
+.briefing-section{margin-bottom:22px}
+.briefing-section-title{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.briefing-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.briefing-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(37,42,53,0.4);font-size:12px}
+.briefing-row:last-child{border-bottom:none}
+.briefing-row-name{flex:1;color:var(--text)}
+.briefing-row-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.briefing-empty{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 0;font-style:italic}
+.briefing-pulse{display:flex;gap:0;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.briefing-pulse-item{flex:1;text-align:center;padding:14px 8px;border-right:1px solid var(--border);background:var(--surface)}
+.briefing-pulse-item:last-child{border-right:none}
+.briefing-pulse-val{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--gold-light);line-height:1}
+.briefing-pulse-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.briefing-footer{display:flex;align-items:center;justify-content:space-between;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -247,7 +271,7 @@ tr.hidden-row{display:none}
       </div>
     </div>
     <div style="height:1px;background:var(--border);margin:20px 0"></div>
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px">Founder Access</div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px">Team Access</div>
     <input id="login-pw" type="password" placeholder="Enter password" autocomplete="current-password"
       style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 14px;border-radius:8px;outline:none;letter-spacing:1px;text-align:center;display:block;box-sizing:border-box"
       onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"
@@ -258,6 +282,13 @@ tr.hidden-row{display:none}
   </div>
 </div>
 <script>if(sessionStorage.getItem('dgl_user'))document.getElementById('login-overlay').style.display='none';</script>
+
+<!-- ══ BRIEFING POPUP ══ -->
+<div id="briefing-overlay">
+  <div id="briefing-modal">
+    <div id="briefing-content"></div>
+  </div>
+</div>
 
 <!-- ══ TOP NAV ══ -->
 <nav class="topbar">
@@ -276,6 +307,7 @@ tr.hidden-row{display:none}
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
     <div id="user-badge"></div>
     <button id="sign-out-btn" onclick="doSignOut()">Sign out</button>
+    <button id="briefing-bell" onclick="showBriefing()" title="Open daily briefing">🔔<span id="bell-dot"></span></button>
     <div class="live-dot" id="live-dot" title="Live data"></div>
   </div>
 </nav>
@@ -1883,10 +1915,19 @@ async function sha256hex(str){
 async function tryLogin(){
   const val=document.getElementById('login-pw').value;
   if(!val) return;
-  const [h,ht,hs]=await Promise.all([sha256hex(val),sha256hex('DGL-Taylor-2026'),sha256hex('DGL-Steve-2026')]);
-  if(h===ht){ sessionStorage.setItem('dgl_user','taylor'); showDashboard('taylor'); }
-  else if(h===hs){ sessionStorage.setItem('dgl_user','steve'); showDashboard('steve'); }
-  else { shakePwInput(); }
+  const CREDS=[
+    {pw:'DGL-Taylor-2026',user:'taylor'},{pw:'DGL-Steve-2026',user:'steve'},
+    {pw:'DGL-Adam-2026',user:'adam'},{pw:'DGL-Mary-2026',user:'mary'},
+    {pw:'DGL-JR-2026',user:'jr'},{pw:'DGL-Hammad-2026',user:'hammad'},
+    {pw:'DGL-Searah-2026',user:'searah'},{pw:'DGL-Sadee-2026',user:'sadee'},
+  ];
+  const h=await sha256hex(val);
+  const hashes=await Promise.all(CREDS.map(c=>sha256hex(c.pw)));
+  const idx=hashes.indexOf(h);
+  if(idx>=0){
+    sessionStorage.setItem('dgl_user',CREDS[idx].user);
+    showDashboard(CREDS[idx].user, true);
+  } else { shakePwInput(); }
 }
 function loginAsView(){
   sessionStorage.setItem('dgl_user','view');
@@ -1900,18 +1941,26 @@ function shakePwInput(){
   inp.value='';
   setTimeout(()=>inp.classList.remove('shake'),400);
 }
-function showDashboard(user){
+function showDashboard(user, showPopup=false){
   window._DGL_USER=user;
+  const role=getUserRole(user);
   const ov=document.getElementById('login-overlay');
   if(ov&&ov.style.display!=='none'){ ov.style.opacity='0'; setTimeout(()=>ov.style.display='none',400); }
   const badge=document.getElementById('user-badge');
   const so=document.getElementById('sign-out-btn');
+  const bell=document.getElementById('briefing-bell');
   if(badge){
-    if(user==='taylor'||user==='steve'){
+    if(role==='founder'){
       badge.textContent='FOUNDER · '+user.toUpperCase();
       badge.style.background='rgba(201,168,76,0.15)';
       badge.style.color='var(--gold)';
       badge.style.border='1px solid rgba(201,168,76,0.3)';
+    } else if(role==='member'){
+      const dn=USER_DISPLAY[user]||user;
+      badge.textContent='MEMBER · '+dn.toUpperCase();
+      badge.style.background='rgba(52,211,153,0.1)';
+      badge.style.color='var(--green)';
+      badge.style.border='1px solid rgba(52,211,153,0.25)';
     } else {
       badge.textContent='VIEW ONLY';
       badge.style.background='rgba(107,114,128,0.1)';
@@ -1921,7 +1970,11 @@ function showDashboard(user){
     badge.style.display='inline-block';
   }
   if(so) so.style.display='inline-block';
-  if(user==='view') applyViewOnly();
+  if(role==='view') applyViewOnly();
+  if(role==='member') applyViewOnly();
+  if(bell&&user!=='view') bell.style.display='inline-block';
+  updateBellDot();
+  if(showPopup&&user!=='view') setTimeout(()=>showBriefing(), 500);
 }
 function doSignOut(){
   sessionStorage.removeItem('dgl_user');
@@ -1932,6 +1985,100 @@ function applyViewOnly(){
   document.querySelectorAll('#raci-body .date-input-inline').forEach(el=>{ el.disabled=true; el.style.pointerEvents='none'; });
   document.querySelectorAll('#raci-body .flag-edit').forEach(el=>{ el.contentEditable='false'; el.style.pointerEvents='none'; });
   document.querySelectorAll('#raci-body .raci-person-col').forEach(el=>{ el.onclick=null; el.style.cursor='default'; });
+}
+
+// ── Briefing system ─────────────────────────────────────────
+function getUserRole(user){
+  return (user==='taylor'||user==='steve')?'founder':(user==='view')?'view':'member';
+}
+const USER_RACI_COL={
+  'taylor':'Taylor','adam':'Adam','steve':'Steve','mary':'Mary',
+  'jr':'JR','hammad':'Hammad','searah':'Searah','sadee':'Sadee'
+};
+const USER_DISPLAY={
+  'taylor':'Taylor','adam':'Adam','steve':'Steve','mary':'Mary',
+  'jr':'JR','hammad':'Hammad','searah':'Searah','sadee':'Sadee','view':'Guest'
+};
+function updateBellDot(){
+  const dot=document.getElementById('bell-dot');
+  if(!dot||!window._DGL_USER||window._DGL_USER==='view'){if(dot)dot.style.display='none';return;}
+  const col=USER_RACI_COL[window._DGL_USER];
+  if(!col){dot.style.display='none';return;}
+  const today=getPSTDate();
+  const hasOverdue=DASHBOARD_DATA.tasks.some(t=>{
+    const rc=(t[col]||'');
+    return (rc==='R'||rc==='A/R')&&t.status!=='Complete'&&t.ed&&new Date(t.ed)<today;
+  });
+  dot.style.display=hasOverdue?'inline-block':'none';
+}
+function showBriefing(){
+  const user=window._DGL_USER;
+  if(!user||user==='view') return;
+  const el=document.getElementById('briefing-content');
+  if(el) el.innerHTML=buildBriefingHTML(user);
+  const ov=document.getElementById('briefing-overlay');
+  if(ov) ov.classList.add('open');
+}
+function closeBriefing(){
+  const ov=document.getElementById('briefing-overlay');
+  if(ov) ov.classList.remove('open');
+}
+function briefingGoToRaci(name){
+  closeBriefing();
+  showPage('raci');
+  const bar=document.getElementById('raci-person-filter-bar');
+  if(!bar) return;
+  bar.querySelectorAll('.filter-btn').forEach(b=>{if(b.textContent.trim()===name) filterRaci(name,b);});
+}
+function buildBriefingHTML(user){
+  const col=USER_RACI_COL[user];
+  const name=USER_DISPLAY[user]||user;
+  const today=getPSTDate();
+  const hour=parseInt(new Date().toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',hour12:false}),10);
+  const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  const dow=(today.getDay()+6)%7;
+  const thisMonday=new Date(today); thisMonday.setDate(today.getDate()-dow); thisMonday.setHours(0,0,0,0);
+  const thisSunday=new Date(thisMonday); thisSunday.setDate(thisMonday.getDate()+6); thisSunday.setHours(23,59,59,999);
+  const nextMonday=new Date(thisMonday); nextMonday.setDate(thisMonday.getDate()+7); nextMonday.setHours(0,0,0,0);
+  const nextSunday=new Date(thisMonday); nextSunday.setDate(thisMonday.getDate()+13); nextSunday.setHours(23,59,59,999);
+  const myTasks=col?DASHBOARD_DATA.tasks.filter(t=>{const rc=(t[col]||'');return rc==='R'||rc==='A/R';}) : [];
+  const dueThisWeek=myTasks.filter(t=>{
+    if(t.status==='Complete') return false;
+    const sd=t.sd?new Date(t.sd):null; const ed=t.ed?new Date(t.ed):null;
+    return (ed&&ed>=thisMonday&&ed<=thisSunday)||(sd&&sd>=thisMonday&&sd<=thisSunday);
+  });
+  const overdue=myTasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today);
+  const taskMap={}; DASHBOARD_DATA.tasks.forEach(t=>taskMap[t.id]=t);
+  const blocked=myTasks.filter(t=>{
+    if(t.status==='Complete'||!t.deps) return false;
+    return t.deps.split(',').map(d=>d.trim()).filter(Boolean).some(id=>{
+      const dep=taskMap[id]; return dep&&dep.status!=='Complete'&&dep.ed&&new Date(dep.ed)<today;
+    });
+  });
+  const nextWeek=myTasks.filter(t=>t.status!=='Complete'&&t.sd&&new Date(t.sd)>=nextMonday&&new Date(t.sd)<=nextSunday);
+  const totalComplete=DASHBOARD_DATA.tasks.filter(t=>t.status==='Complete').length;
+  const daysToLaunch=Math.max(0,Math.ceil((DASHBOARD_DATA.meta.launchDate-today)/86400000));
+  const all=DASHBOARD_DATA.tasks;
+  const tovd=all.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length;
+  const tblk=all.filter(t=>t.status==='Blocked').length;
+  const tmis=all.filter(t=>t.status==='Not Started'&&t.sd&&new Date(t.sd)<today).length;
+  const healthScore=Math.max(0,Math.min(100,100-(tovd*5)-(tblk*3)-(tmis*2)+(totalComplete*2)));
+  function sbadge(s){const cls=s==='Complete'?'s-Done':s==='Blocked'?'s-Blocked':s==='Not Started'?'s-Not':'s-Started';return`<span class="status-badge ${cls}">${s}</span>`;}
+  function priColor(p){return p==='High'?'var(--red)':p==='Medium'?'var(--amber)':'var(--muted)';}
+  function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'}):''}
+  function daysAgo(d){return Math.round((today-new Date(d))/86400000);}
+  let h=`<div class="briefing-header">${greeting}, ${name}. Here's your day.</div>
+<div class="briefing-subhead">${today.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>`;
+  h+=`<div class="briefing-section"><div class="briefing-section-title">Your tasks due this week</div>`;
+  if(!dueThisWeek.length) h+=`<div class="briefing-empty">No tasks due this week — you're clear.</div>`;
+  else dueThisWeek.forEach(t=>{h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid ${priColor(t.pri)};padding-left:8px">${t.name}</div><div class="briefing-row-meta">${sbadge(t.status)}<span>due ${fmtDate(t.ed)}</span></div></div>`;});
+  h+=`</div>`;
+  if(overdue.length){h+=`<div class="briefing-section"><div class="briefing-section-title">⛔ Overdue</div>`;overdue.forEach(t=>{h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--red);padding-left:8px">${t.name}</div><div class="briefing-row-meta"><span style="color:var(--red)">${daysAgo(t.ed)}d overdue</span>${sbadge(t.status)}</div></div>`;});h+=`</div>`;}
+  if(blocked.length){h+=`<div class="briefing-section"><div class="briefing-section-title">⚠️ Blocked by dependency</div>`;blocked.forEach(t=>{const bIds=t.deps.split(',').map(d=>d.trim()).filter(id=>{const dep=taskMap[id];return dep&&dep.status!=='Complete'&&dep.ed&&new Date(dep.ed)<today;});const bNames=bIds.map(id=>taskMap[id]?taskMap[id].name:id).join(', ');h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--amber);padding-left:8px">${t.name}</div><div class="briefing-row-meta" style="color:var(--amber)">blocked by: ${bNames}</div></div>`;});h+=`</div>`;}
+  if(nextWeek.length){h+=`<div class="briefing-section"><div class="briefing-section-title">Coming up next week</div>`;nextWeek.forEach(t=>{h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--accent);padding-left:8px">${t.name}</div><div class="briefing-row-meta">${sbadge(t.status)}<span>starts ${fmtDate(t.sd)}</span></div></div>`;});h+=`</div>`;}
+  h+=`<div class="briefing-section"><div class="briefing-section-title">Team pulse</div><div class="briefing-pulse"><div class="briefing-pulse-item"><div class="briefing-pulse-val">${totalComplete}</div><div class="briefing-pulse-label">Tasks complete</div></div><div class="briefing-pulse-item"><div class="briefing-pulse-val">${healthScore}</div><div class="briefing-pulse-label">Health score</div></div><div class="briefing-pulse-item"><div class="briefing-pulse-val">${daysToLaunch}</div><div class="briefing-pulse-label">Days to launch</div></div></div></div>`;
+  h+=`<div class="briefing-footer"><button class="btn-primary" onclick="closeBriefing()">Let's go →</button><a href="#" onclick="briefingGoToRaci('${name}');return false;" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:1px">View full RACI →</a></div>`;
+  return h;
 }
 
 // ── Master refresh ──────────────────────────────────────────
@@ -1951,6 +2098,7 @@ function masterRefresh(){
   if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
   saveToLocal();
   updateLiveDot();
+  updateBellDot();
 }
 
 // ── Task modal (new + edit) ─────────────────────────────────
