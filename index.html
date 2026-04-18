@@ -2615,8 +2615,10 @@ function _mergeBudget(d){
   if(d.capital!==undefined)         b.capital=d.capital;
   if(d.startingCapital!==undefined) b.startingCapital=d.startingCapital;
   if(d.adBudget!==undefined)        b.adBudget=d.adBudget;
-  if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length>0&&'sdOffset' in d.adPhases[0])
-    b.adPhases=d.adPhases;
+  if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length>0&&'sdOffset' in d.adPhases[0]){
+    const defs=b.adPhases;
+    b.adPhases=d.adPhases.map((p,i)=>({...p,pct:(typeof p.pct==='number'&&!isNaN(p.pct))?p.pct:(defs[i]?defs[i].pct:0)}));
+  }
   if(typeof d.payoneer==='number')   b.payoneer=d.payoneer;
   if(d.monthlyRevenue!==undefined)  b.monthlyRevenue=d.monthlyRevenue;
   if(d.runwayScenario)              b.runwayScenario=d.runwayScenario;
@@ -2902,7 +2904,16 @@ function _getKillCriteria(){
       const d=JSON.parse(raw);
       if(d.checkpointDate) _killCriteria.checkpointDate=d.checkpointDate;
       if(d.consequence)    _killCriteria.consequence=d.consequence;
-      if(d.kpis&&Array.isArray(d.kpis)&&d.kpis.length>=3) _killCriteria.kpis=d.kpis;
+      if(d.kpis&&Array.isArray(d.kpis)){
+        d.kpis.forEach((saved,i)=>{
+          if(i<_killCriteria.kpis.length){
+            if(saved.name)              _killCriteria.kpis[i].name   =saved.name;
+            if(saved.target!==undefined)_killCriteria.kpis[i].target =saved.target;
+            if(saved.current!==undefined)_killCriteria.kpis[i].current=saved.current;
+            _killCriteria.kpis[i].notes=saved.notes||'';
+          } else { _killCriteria.kpis.push(saved); }
+        });
+      }
     }
   }catch(e){}
   return _killCriteria;
