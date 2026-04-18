@@ -222,6 +222,10 @@ tr.hidden-row{display:none}
 .narrative p{color:#9ca3af;line-height:1.8;margin-bottom:10px;font-size:13px}
 .narrative strong{color:var(--text)}
 .data-note{font-family:'DM Mono',monospace;font-size:9px;color:var(--border);text-align:right;margin-top:12px;letter-spacing:1px}
+.date-input-inline{background:transparent;border:none;outline:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:0;margin:0;cursor:pointer;width:68px;-webkit-appearance:none;appearance:none;line-height:1.4;vertical-align:middle}
+.date-input-inline:focus{color:var(--gold)}
+.date-input-inline::-webkit-calendar-picker-indicator{display:none}
+.date-input-inline::-webkit-inner-spin-button,.date-input-inline::-webkit-clear-button{display:none}
 </style>
 </head>
 <body>
@@ -745,6 +749,24 @@ function setTaskStatus(id,val,el){
   buildAgenda();
   if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
 }
+function setTaskDate(id,field,val){
+  if(!val) return;
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
+  if(!task) return;
+  task[field]=val;
+  const tr=document.querySelector('#raci-body tr[data-id="'+id+'"]');
+  if(tr){
+    const cells=tr.querySelectorAll('td');
+    const timelineTd=cells[cells.length-2];
+    if(timelineTd){
+      const wrap=document.createElement('div');
+      wrap.innerHTML='<table><tbody><tr>'+taskProgress(task)+'</tr></tbody></table>';
+      const newTd=wrap.querySelector('td');
+      if(newTd) tr.replaceChild(newTd,timelineTd);
+    }
+  }
+  buildCommandKPIs();
+}
 function getCatColors(cat){
   if(cat.includes('Marketing Strategy')) return {bg:'rgba(79,142,247,0.12)',  color:'#82b0ff'};
   if(cat.includes('Brand'))    return {bg:'rgba(167,139,250,0.12)',color:'var(--purple)'};
@@ -865,7 +887,7 @@ function taskProgress(t){
     <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:4px">
       <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
     </div>
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${fd(start)} → ${fd(end)}</div>
+    <div style="display:flex;align-items:center;gap:2px"><input type="date" class="date-input-inline" value="${t.sd}" onchange="setTaskDate('${t.id}','sd',this.value)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">→</span><input type="date" class="date-input-inline" value="${t.ed}" onchange="setTaskDate('${t.id}','ed',this.value)"></div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};margin-top:1px">${label}</div>
     ${tisHtml}${blockHtml}
   </td>`;
