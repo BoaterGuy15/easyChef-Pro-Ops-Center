@@ -935,6 +935,19 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
+<div class="modal-overlay" id="profile-modal-overlay" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal" style="max-width:700px;width:92%">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+      <div>
+        <span id="profile-modal-name" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--gold);letter-spacing:2px"></span>
+      </div>
+      <button onclick="closeProfileModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div id="profile-modal-role" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:16px"></div>
+    <div id="profile-modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:20px"></div>
+  </div>
+</div>
+
 <div id="milestone-editor" style="display:none;position:fixed;z-index:502;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:240px">
   <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Edit Milestone</div>
   <div style="margin-bottom:8px">
@@ -2385,12 +2398,99 @@ const DEFAULT_TEAM_MEMBERS={
 };
 function _getDefaultTeamEdits(){ try{const r=localStorage.getItem('dgl_default_team_edits');if(r)return JSON.parse(r);}catch(e){} return {}; }
 function _saveDefaultTeamEdits(obj){ try{localStorage.setItem('dgl_default_team_edits',JSON.stringify(obj));}catch(e){} }
+function _getProfiles(){ try{const r=localStorage.getItem('dgl_profiles');if(r)return JSON.parse(r);}catch(e){} return {}; }
+function _saveProfiles(obj){ try{localStorage.setItem('dgl_profiles',JSON.stringify(obj));}catch(e){} }
+function _getMemberInfo(userKey){
+  const defMeta=DEFAULT_TEAM_MEMBERS[userKey];
+  const ed=(_getDefaultTeamEdits()[userKey])||{};
+  if(defMeta) return {...defMeta,...ed};
+  const custom=_getCustomTeamMembers().find(c=>c.user===userKey);
+  return custom||{name:userKey,role:'',email:''};
+}
+let _profileClockInterval=null;
+function openProfileModal(userKey){
+  const overlay=document.getElementById('profile-modal-overlay');
+  if(!overlay) return;
+  const info=_getMemberInfo(userKey);
+  const p=(_getProfiles()[userKey])||{};
+  const tz=p.timezone||'America/Los_Angeles';
+  document.getElementById('profile-modal-name').textContent=(info.name||userKey).toUpperCase();
+  document.getElementById('profile-modal-role').textContent=info.role||'';
+  const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;box-sizing:border-box`;
+  const fRow=(lbl,val)=>`<div style="margin-bottom:10px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:3px">${lbl}</div><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${val||'<span style="color:var(--border)">—</span>'}</div></div>`;
+  const logItems=(p.log||[]).slice(-10).reverse();
+  const logHtml=logItems.length?logItems.map(e=>`<div style="display:flex;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--surface)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;min-width:72px">${e.date}</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)">${e.text}</span></div>`).join(''):'<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border)">No entries yet.</span>';
+  document.getElementById('profile-modal-body').innerHTML=`
+    <div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">CONTACT</div>
+      ${fRow('EMAIL',info.email)}
+      ${fRow('PHONE',p.phone)}
+      ${fRow('SLACK',p.slack)}
+      ${fRow('CHANNELS',p.channels)}
+      ${fRow('GITHUB',p.github)}
+      <div style="margin-bottom:10px">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:3px">TIMEZONE</div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${tz}</div>
+        <div id="profile-clock" style="font-family:'DM Mono',monospace;font-size:20px;color:var(--gold);margin-top:4px;letter-spacing:1px">—</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">NOTES</div>
+      <textarea id="profile-notes" rows="4" style="${iSt};resize:vertical;margin-bottom:8px" placeholder="Private notes about this team member…">${p.notes||''}</textarea>
+      <button onclick="saveProfileNote('${userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;margin-bottom:18px">Save Note</button>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:8px">COMMUNICATION LOG</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input type="text" id="profile-log-input" style="${iSt};flex:1" placeholder="Log an interaction…">
+        <button onclick="addProfileLog('${userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap">+ Add</button>
+      </div>
+      <div id="profile-log-list" style="max-height:180px;overflow-y:auto">${logHtml}</div>
+    </div>`;
+  overlay.classList.add('open');
+  if(_profileClockInterval) clearInterval(_profileClockInterval);
+  function _tick(){ const el=document.getElementById('profile-clock'); if(el) el.textContent=new Date().toLocaleTimeString('en-US',{timeZone:tz,hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+  _tick();
+  _profileClockInterval=setInterval(_tick,1000);
+}
+function closeProfileModal(){
+  const ov=document.getElementById('profile-modal-overlay');
+  if(ov) ov.classList.remove('open');
+  if(_profileClockInterval){ clearInterval(_profileClockInterval); _profileClockInterval=null; }
+}
+function saveProfileNote(userKey){
+  const notes=(document.getElementById('profile-notes').value||'').trim();
+  const profiles=_getProfiles();
+  if(!profiles[userKey]) profiles[userKey]={};
+  profiles[userKey].notes=notes;
+  _saveProfiles(profiles);
+  const btn=event.target;
+  const orig=btn.textContent;
+  btn.textContent='Saved ✓';
+  setTimeout(()=>{ btn.textContent=orig; },1500);
+}
+function addProfileLog(userKey){
+  const inp=document.getElementById('profile-log-input');
+  const text=(inp?inp.value:'').trim();
+  if(!text) return;
+  const d=new Date();
+  const date=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const profiles=_getProfiles();
+  if(!profiles[userKey]) profiles[userKey]={};
+  if(!profiles[userKey].log) profiles[userKey].log=[];
+  profiles[userKey].log.push({date,text});
+  _saveProfiles(profiles);
+  if(inp) inp.value='';
+  const logItems=profiles[userKey].log.slice(-10).reverse();
+  const logHtml=logItems.map(e=>`<div style="display:flex;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--surface)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;min-width:72px">${e.date}</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)">${e.text}</span></div>`).join('');
+  const listEl=document.getElementById('profile-log-list');
+  if(listEl) listEl.innerHTML=logHtml;
+}
 function openDefaultTeamMemberModal(user){
   const overlay=document.getElementById('team-member-modal-overlay');
   if(!overlay) return;
   const def=DEFAULT_TEAM_MEMBERS[user]||{};
   const ed=(_getDefaultTeamEdits()[user])||{};
   const cur={...def,...ed};
+  const p=(_getProfiles()[user])||{};
   const title=document.getElementById('tmm-title');
   if(title) title.textContent='EDIT TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
@@ -2408,6 +2508,16 @@ function openDefaultTeamMemberModal(user){
       <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${iSt}">${levelOpts}</select></div>
       <div class="modal-field"><label>Badge Color</label><select id="tmm-color" style="${iSt}">${colorOpts}</select></div>
     </div>
+    <div style="margin-top:18px">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">PROFILE DETAILS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="modal-field"><label>Phone</label><input type="text" id="tmm-phone" value="${p.phone||''}" placeholder="+1 555 000 0000" style="${iSt}"></div>
+        <div class="modal-field"><label>Slack Username</label><input type="text" id="tmm-slack" value="${p.slack||''}" placeholder="@username" style="${iSt}"></div>
+        <div class="modal-field"><label>Slack Channels</label><input type="text" id="tmm-channels" value="${p.channels||''}" placeholder="#general, #product" style="${iSt}"></div>
+        <div class="modal-field"><label>GitHub Username</label><input type="text" id="tmm-github" value="${p.github||''}" placeholder="username" style="${iSt}"></div>
+        <div class="modal-field" style="grid-column:span 2"><label>Timezone</label><input type="text" id="tmm-timezone" value="${p.timezone||''}" placeholder="America/Los_Angeles" style="${iSt}"></div>
+      </div>
+    </div>
     <div class="modal-actions" style="justify-content:flex-end;margin-top:20px;gap:10px">
       <button class="btn-primary" onclick="saveDefaultTeamMember('${user}')">Save</button>
       <button class="btn-secondary" onclick="closeTeamMemberModal()">Cancel</button>
@@ -2421,6 +2531,11 @@ async function saveDefaultTeamMember(user){
   const pw=(document.getElementById('tmm-password').value||'').trim();
   const accessLevel=document.getElementById('tmm-level').value;
   const color=document.getElementById('tmm-color').value;
+  const phone=(document.getElementById('tmm-phone')?.value||'').trim();
+  const slack=(document.getElementById('tmm-slack')?.value||'').trim();
+  const channels=(document.getElementById('tmm-channels')?.value||'').trim();
+  const github=(document.getElementById('tmm-github')?.value||'').trim();
+  const timezone=(document.getElementById('tmm-timezone')?.value||'').trim();
   if(!name||!role||!email){ alert('Name, role, and email are required.'); return; }
   const edits=_getDefaultTeamEdits();
   const existing=edits[user]||{};
@@ -2428,6 +2543,10 @@ async function saveDefaultTeamMember(user){
   if(pw) update.passwordHash=await sha256hex(pw); else if(existing.passwordHash) update.passwordHash=existing.passwordHash;
   edits[user]=update;
   _saveDefaultTeamEdits(edits);
+  const profiles=_getProfiles();
+  if(!profiles[user]) profiles[user]={};
+  Object.assign(profiles[user],{phone,slack,channels,github,timezone});
+  _saveProfiles(profiles);
   closeTeamMemberModal();
   buildTeamGrid();
 }
@@ -2459,6 +2578,7 @@ function openTeamMemberModal(idx){
   if(!overlay) return;
   const arr=_getCustomTeamMembers();
   const cm=idx>=0?arr[idx]:null;
+  const p=cm?(_getProfiles()[cm.user]||{}):{};
   const title=document.getElementById('tmm-title');
   if(title) title.textContent=cm?'EDIT TEAM MEMBER':'ADD TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
@@ -2474,6 +2594,16 @@ function openTeamMemberModal(idx){
       <div class="modal-field"><label>Login Key (lowercase, no spaces)</label><input type="text" id="tmm-user" value="${cm?cm.user:''}" placeholder="alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+iSt+'"'}></div>
       <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${iSt}">${levelOpts}</select></div>
       <div class="modal-field"><label>Badge Color</label><select id="tmm-color" style="${iSt}">${colorOpts}</select></div>
+    </div>
+    <div style="margin-top:18px">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">PROFILE DETAILS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="modal-field"><label>Phone</label><input type="text" id="tmm-phone" value="${p.phone||''}" placeholder="+1 555 000 0000" style="${iSt}"></div>
+        <div class="modal-field"><label>Slack Username</label><input type="text" id="tmm-slack" value="${p.slack||''}" placeholder="@username" style="${iSt}"></div>
+        <div class="modal-field"><label>Slack Channels</label><input type="text" id="tmm-channels" value="${p.channels||''}" placeholder="#general, #product" style="${iSt}"></div>
+        <div class="modal-field"><label>GitHub Username</label><input type="text" id="tmm-github" value="${p.github||''}" placeholder="username" style="${iSt}"></div>
+        <div class="modal-field" style="grid-column:span 2"><label>Timezone</label><input type="text" id="tmm-timezone" value="${p.timezone||''}" placeholder="America/Los_Angeles" style="${iSt}"></div>
+      </div>
     </div>
     <div class="modal-actions" style="justify-content:space-between;margin-top:20px">
       ${idx>=0?`<button onclick="deleteTeamMember(${idx})" style="background:none;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;padding:0">Delete Member</button>`:'<span></span>'}
@@ -2497,6 +2627,11 @@ async function saveTeamMember(idx){
   const user=(document.getElementById('tmm-user').value||'').trim().toLowerCase().replace(/\s+/g,'');
   const accessLevel=document.getElementById('tmm-level').value;
   const color=document.getElementById('tmm-color').value;
+  const phone=(document.getElementById('tmm-phone')?.value||'').trim();
+  const slack=(document.getElementById('tmm-slack')?.value||'').trim();
+  const channels=(document.getElementById('tmm-channels')?.value||'').trim();
+  const github=(document.getElementById('tmm-github')?.value||'').trim();
+  const timezone=(document.getElementById('tmm-timezone')?.value||'').trim();
   if(!name||!role||!email||!raciKey||!user){ alert('Name, role, email, RACI key, and login key are all required.'); return; }
   const arr=_getCustomTeamMembers();
   const existing=idx>=0?arr[idx]:null;
@@ -2506,6 +2641,10 @@ async function saveTeamMember(idx){
   const member={name,role,email,color,user,raciKey,accessLevel,passwordHash};
   if(idx>=0) arr[idx]=member; else arr.push(member);
   _saveCustomTeamMembers(arr);
+  const profiles=_getProfiles();
+  if(!profiles[user]) profiles[user]={};
+  Object.assign(profiles[user],{phone,slack,channels,github,timezone});
+  _saveProfiles(profiles);
   USER_RACI_COL[user]=raciKey;
   USER_DISPLAY[user]=raciKey;
   closeTeamMemberModal();
@@ -2599,7 +2738,7 @@ function buildTeamGrid(){
       const noteHtml=m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
       return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
         ${dragHandle}
-        <div style="position:absolute;top:10px;right:10px"><button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button></div>
+        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button><button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button></div>
         <div class="tc-name">${displayName}${badgeHtml}</div>
         <div class="tc-role">${displayRole}</div>
         ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${warnHtml}${noteHtml}
@@ -2624,7 +2763,7 @@ function buildTeamGrid(){
       const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
       return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
         ${dragHandle}
-        <div style="position:absolute;top:10px;right:10px"><button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button></div>
+        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button><button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button></div>
         <div class="tc-name">${cm.name}${accessLabel}</div>
         <div class="tc-role">${cm.role}</div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
