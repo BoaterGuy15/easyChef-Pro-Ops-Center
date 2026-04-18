@@ -1791,16 +1791,33 @@ function nextTaskId(){
   const nums = DASHBOARD_DATA.tasks.map(t=>parseInt(t.id.replace('T-',''))||0);
   return 'T-'+String(Math.max(...nums)+1).padStart(3,'0');
 }
+let _tmOwners = [];
+function _renderTmOwnerChips(){
+  const wrap = document.getElementById('tm-owner-chips');
+  if(!wrap) return;
+  const all = ['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
+  const chips = _tmOwners.map(o=>`<span style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;background:var(--card);border:1px solid rgba(201,168,76,0.45);border-radius:4px;padding:3px 7px;color:var(--text);white-space:nowrap">${o}<span style="cursor:pointer;color:var(--muted);font-size:12px;line-height:1;margin-left:1px" onclick="tmRemoveOwner('${o}')">×</span></span>`).join('');
+  const addOpts = all.map(o=>`<option value="${o}"${_tmOwners.includes(o)?' disabled':''}>${o}</option>`).join('');
+  wrap.innerHTML = chips+`<select style="background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:2px 4px;cursor:pointer;outline:none;margin-left:2px" onchange="tmAddOwner(this.value);this.value=''"><option value="">＋ add</option>${addOpts}</select>`;
+}
+function tmAddOwner(name){
+  if(!name||_tmOwners.includes(name)) return;
+  _tmOwners.push(name);
+  _renderTmOwnerChips();
+}
+function tmRemoveOwner(name){
+  _tmOwners=_tmOwners.filter(o=>o!==name);
+  _renderTmOwnerChips();
+}
 function showTaskModal(taskId){
   const task = taskId ? DASHBOARD_DATA.tasks.find(t=>t.id===taskId) : null;
   const isNew = !task;
   const esc = s=>(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   const id = isNew ? nextTaskId() : task.id;
   const statuses = ['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'];
-  const owners = ['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
+  _tmOwners = isNew ? ['TBD'] : (task.owner||'TBD').split('/').map(s=>s.trim()).filter(Boolean);
   const catOpts = Object.keys(CAT_LABELS).map(o=>`<option value="${o}"${!isNew&&task.cat===o?' selected':''}>${CAT_LABELS[o]}</option>`).join('');
   const statusOpts = statuses.map(o=>`<option${(!isNew&&task.status===o)||(isNew&&o==='Not Started')?' selected':''}>${o}</option>`).join('');
-  const ownerOpts = owners.map(o=>`<option${(!isNew&&task.owner===o)||(isNew&&o==='TBD')?' selected':''}>${o}</option>`).join('');
   const priOpts = ['High','Medium','Low'].map(o=>`<option${(!isNew&&task.pri===o)||(isNew&&o==='Medium')?' selected':''}>${o}</option>`).join('');
   document.getElementById('modal-content').innerHTML = `
     <h3>${isNew?'New Task':'Edit Task'}</h3>
@@ -1826,9 +1843,9 @@ function showTaskModal(taskId){
         <label>Status</label>
         <select id="tm-status">${statusOpts}</select>
       </div>
-      <div class="modal-field">
-        <label>Owner</label>
-        <select id="tm-owner">${ownerOpts}</select>
+      <div class="modal-field" style="grid-column:1/3">
+        <label>Owner(s)</label>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;min-height:36px" id="tm-owner-chips"></div>
       </div>
       <div class="modal-field">
         <label>Start Date</label>
@@ -1851,6 +1868,7 @@ function showTaskModal(taskId){
       <button class="btn-primary" onclick="saveTaskModal('${isNew?'':taskId}')">${isNew?'Add Task':'Save Changes'}</button>
       <button class="btn-secondary" onclick="closeModal()">Cancel</button>
     </div>`;
+  _renderTmOwnerChips();
   document.getElementById('modal-overlay').classList.add('open');
 }
 function saveTaskModal(taskId){
@@ -1861,7 +1879,7 @@ function saveTaskModal(taskId){
   const cat = document.getElementById('tm-cat').value;
   const pri = document.getElementById('tm-pri').value;
   const status = document.getElementById('tm-status').value;
-  const owner = document.getElementById('tm-owner').value;
+  const owner = _tmOwners.length ? _tmOwners.join(' / ') : 'TBD';
   const sd = document.getElementById('tm-sd').value;
   const ed = document.getElementById('tm-ed').value;
   const deps = (document.getElementById('tm-deps').value||'').trim();
