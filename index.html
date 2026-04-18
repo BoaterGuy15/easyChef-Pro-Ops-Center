@@ -1118,11 +1118,19 @@ function getBlockingDeps(task){
     return now>end && dep.status!=='Done' && dep.status!=='Complete';
   });
 }
+function _toYMD(v){
+  if(!v) return '';
+  const s=String(v).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if(s.length>10&&/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  return '';
+}
 function taskProgress(t){
-  if(!t.sd||!t.ed) return '<td></td>';
+  const sd=_toYMD(t.sd), ed=_toYMD(t.ed);
+  if(!sd||!ed) return '<td></td>';
   const now = getPSTDate();
-  const start = new Date(t.sd); start.setHours(0,0,0,0);
-  const end = new Date(t.ed); end.setHours(0,0,0,0);
+  const start = new Date(sd+'T00:00:00'); start.setHours(0,0,0,0);
+  const end = new Date(ed+'T00:00:00'); end.setHours(0,0,0,0);
   const done = t.status==='Done'||t.status==='Complete';
   const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const fd = d => mo[d.getMonth()]+' '+d.getDate();
@@ -1156,7 +1164,7 @@ function taskProgress(t){
     <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:4px">
       <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
     </div>
-    <div style="display:flex;align-items:center;gap:2px"><input type="date" class="date-input-inline" value="${t.sd}" onblur="setTaskDate('${t.id}','sd',this.value)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">→</span><input type="date" class="date-input-inline" value="${t.ed}" onblur="setTaskDate('${t.id}','ed',this.value)"></div>
+    <div style="display:flex;align-items:center;gap:2px"><input type="date" class="date-input-inline" value="${sd}" onblur="setTaskDate('${t.id}','sd',this.value)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">→</span><input type="date" class="date-input-inline" value="${ed}" onblur="setTaskDate('${t.id}','ed',this.value)"></div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};margin-top:1px">${label}</div>
     ${tisHtml}${blockHtml}
   </td>`;
@@ -3592,7 +3600,7 @@ function loadFromSheets(){
       if(!rows.length) return;
       rows.forEach(s=>{
         const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
-        if(t){ _PERSIST_FIELDS.forEach(f=>{ if(s[f]!==undefined&&!(s[f]===''&&(f==='sd'||f==='ed'))) t[f]=s[f]; }); }
+        if(t){ _PERSIST_FIELDS.forEach(f=>{ if(s[f]!=null&&!(s[f]===''&&(f==='sd'||f==='ed'))) t[f]=s[f]; }); }
         else if(s.id){ DASHBOARD_DATA.tasks.push(s); }
       });
       masterRefresh();
@@ -3611,7 +3619,7 @@ function loadFromLocal(){
     JSON.parse(saved).forEach(s=>{
       const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
       if(!t) return;
-      _PERSIST_FIELDS.forEach(f=>{ if(s[f]!==undefined&&!(s[f]===''&&(f==='sd'||f==='ed'))) t[f]=s[f]; });
+      _PERSIST_FIELDS.forEach(f=>{ if(s[f]!=null&&!(s[f]===''&&(f==='sd'||f==='ed'))) t[f]=s[f]; });
     });
   }catch(e){}
   try{
