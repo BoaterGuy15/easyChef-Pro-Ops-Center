@@ -492,7 +492,7 @@ const DASHBOARD_DATA = {
     {ws:"Launch Ops & Infra (Hammad)", W1:"Cloud API engineer onboarding", W2:"—", W3:"Test-net → cloud migration", W4:"—", W5:"Load-test 100K concurrent", W6:"—", W7:"App store submission", W8:"—", W9:"App approved + monitoring", W10:"War-room + comms tree", LAUNCH:"GO"},
   ],
   team: [
-    {name:"Taylor Reasoner", role:"Incident Commander · CFO/COO", email:"taylor@DGL.dev", color:"gold",
+    {name:"Taylor Reasoner", role:"Founder · CFO/COO", email:"taylor@DGL.dev", color:"gold",
      tasks:["T-023 · Ad Budget (YES ✓)","T-027 · Onboarding (YES ✓)","T-039 · CS Infra (READY)"],
      stats:{accountable:40, confirmed:2}},
     {name:"Adam G", role:"CMO · Planning Lead", email:"adam@DGL.dev", color:"blue",
@@ -501,7 +501,7 @@ const DASHBOARD_DATA = {
     {name:"Hammad", role:"CTO · Dev Lead", email:"hammad@DGL.dev", color:"purple",
      tasks:["T-014 · App Store Listing","T-027 · Onboarding (confirm single R)","T-033–037 · Full Data Science Stack"],
      stats:{responsible:8, savings:"$9K/mo"}, note:"✓ Payoneer: committed to $15K"},
-    {name:"Steve", role:"Operations Lead · ICS Owner", email:"steve@DGL.dev", color:"muted",
+    {name:"Steve", role:"COO · Operations Lead", email:"steve@DGL.dev", color:"muted",
      tasks:["T-023 · Ad Budget (R)","T-027 · Onboarding (R)","T-032 · Feature Announcement (R)"],
      stats:{responsible:3, dates:0}, warn:"⚠️ Populate all 40 ETAs from Adam's Gantt before Monday"},
     {name:"Mary", role:"Content Lead", email:"mary@DGL.dev", color:"green",
@@ -578,7 +578,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div class="section-label" style="margin-top:8px">Monday Meeting Agenda</div>
   <div id="cmd-monday-agenda"></div>
 
-  <div class="section-label" style="margin-top:8px">CFO + COO Assessment</div>
+  <div class="section-label" style="margin-top:8px">Founder + Executive Team Assessment</div>
   <div id="cmd-cfo-assessment"></div>
 </div>
 
@@ -1629,7 +1629,7 @@ function buildCFOAssessmentCard(){
     el.innerHTML=`<div class="card" style="margin-bottom:24px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
-          <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700">CFO + COO Assessment</div>
+          <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700">Founder + Executive Team Assessment</div>
           <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:3px">Launch Readiness — ${dateStr}</div>
         </div>
         <button id="cfo-generate-btn" onclick="generateAssessment()" style="padding:8px 20px;background:var(--gold);color:#0b0d10;border:none;border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:1px;display:${isFounder?'inline-block':'none'}">GENERATE ASSESSMENT</button>
@@ -1678,7 +1678,7 @@ ${gapLines}`;
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:1000,
-        system:'You are the CFO and COO of Digital Galactica Labs reviewing the easyChef Pro product launch status. Write with executive authority and direct honesty. Do not hedge or soften findings.',
+        system:'You are the founding executive team of Digital Galactica Labs (Founder: Taylor, COO: Steve, CTO: Hammad, CMO: Adam) reviewing the easyChef Pro product launch status. Write with executive authority and direct honesty. Do not hedge or soften findings.',
         messages:[{role:'user',content:`Current launch status:\n\n${context}\n\nWrite a 3-paragraph executive assessment: (1) overall launch readiness and what the health score reflects, (2) the most critical risks requiring resolution this week and why they block progress, (3) one specific actionable recommendation the team can execute at Monday's meeting. Paragraphs only — no bullet points or headers. Be direct and specific.`}]
       })
     });
@@ -2244,23 +2244,11 @@ function showDashboard(user, showPopup=false){
   const so=document.getElementById('sign-out-btn');
   const bell=document.getElementById('briefing-bell');
   if(badge){
-    if(role==='founder'){
-      badge.textContent='FOUNDER · '+user.toUpperCase();
-      badge.style.background='rgba(201,168,76,0.15)';
-      badge.style.color='var(--gold)';
-      badge.style.border='1px solid rgba(201,168,76,0.3)';
-    } else if(role==='member'){
-      const dn=USER_DISPLAY[user]||user;
-      badge.textContent='MEMBER · '+dn.toUpperCase();
-      badge.style.background='rgba(52,211,153,0.1)';
-      badge.style.color='var(--green)';
-      badge.style.border='1px solid rgba(52,211,153,0.25)';
-    } else {
-      badge.textContent='VIEW ONLY';
-      badge.style.background='rgba(107,114,128,0.1)';
-      badge.style.color='var(--muted)';
-      badge.style.border='1px solid var(--border)';
-    }
+    const t=getUserTitle(user);
+    badge.textContent=t.text;
+    badge.style.background=t.bg;
+    badge.style.color=t.color;
+    badge.style.border=t.border;
     badge.style.display='inline-block';
   }
   if(so) so.style.display='inline-block';
@@ -2284,6 +2272,19 @@ function applyViewOnly(){
 // ── Briefing system ─────────────────────────────────────────
 function getUserRole(user){
   return (user==='taylor'||user==='steve')?'founder':(user==='view')?'view':'member';
+}
+function getUserTitle(user){
+  const T={
+    'taylor':{text:'FOUNDER · TAYLOR',bg:'rgba(201,168,76,0.15)',  color:'var(--gold)',  border:'1px solid rgba(201,168,76,0.3)'},
+    'steve': {text:'COO · STEVE',     bg:'rgba(201,168,76,0.15)',  color:'var(--gold)',  border:'1px solid rgba(201,168,76,0.3)'},
+    'hammad':{text:'CTO · HAMMAD',    bg:'rgba(96,165,250,0.12)',  color:'#60a5fa',      border:'1px solid rgba(96,165,250,0.3)'},
+    'adam':  {text:'CMO · ADAM',      bg:'rgba(251,191,36,0.12)',  color:'var(--amber)', border:'1px solid rgba(251,191,36,0.3)'},
+    'mary':  {text:'TEAM · MARY',     bg:'rgba(52,211,153,0.1)',   color:'var(--green)', border:'1px solid rgba(52,211,153,0.25)'},
+    'jr':    {text:'TEAM · JR',       bg:'rgba(52,211,153,0.1)',   color:'var(--green)', border:'1px solid rgba(52,211,153,0.25)'},
+    'searah':{text:'TEAM · SEARAH',   bg:'rgba(52,211,153,0.1)',   color:'var(--green)', border:'1px solid rgba(52,211,153,0.25)'},
+    'sadee': {text:'TEAM · SADEE',    bg:'rgba(52,211,153,0.1)',   color:'var(--green)', border:'1px solid rgba(52,211,153,0.25)'},
+  };
+  return T[user]||{text:'VIEW ONLY',bg:'rgba(107,114,128,0.1)',color:'var(--muted)',border:'1px solid var(--border)'};
 }
 const USER_RACI_COL={
   'taylor':'Taylor','adam':'Adam','steve':'Steve','mary':'Mary',
