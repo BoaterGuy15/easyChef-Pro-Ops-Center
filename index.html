@@ -306,7 +306,7 @@ tr.hidden-row{display:none}
 .warn{color:var(--amber)}
 
 /* ── ROADMAP ── */
-.roadmap-wrap{overflow-x:auto;overflow-y:clip}
+.roadmap-wrap{overflow-x:auto}
 #roadmap-sticky-header{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7)}
 .roadmap-table{border-collapse:separate;border-spacing:0;min-width:900px;width:100%}
 .roadmap-table th{background:var(--surface);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:8px 10px;text-align:center;border:1px solid var(--border);border-left:none;border-top:none;white-space:nowrap;position:sticky;z-index:38}
@@ -945,7 +945,7 @@ function showPage(id){
   if(pg) pg.classList.add('active');
   sessionStorage.setItem('dgl_active_tab',id);
   if(id==='raci') setTimeout(_raciStickyThTop,50);
-  if(id==='roadmap'){ setTimeout(_roadmapStickyThTop,50); setTimeout(initRoadmapStickyCol,60); }
+  if(id==='roadmap') setTimeout(_roadmapStickyThTop,50);
 }
 function _roadmapStickyThTop(){
   const hdr=document.getElementById('roadmap-sticky-header');
@@ -959,21 +959,7 @@ function _roadmapStickyThTop(){
   const statusRow=document.getElementById('roadmap-status-row');
   if(statusRow) statusRow.querySelectorAll('th').forEach(th=>th.style.top=(topBase+row1H)+'px');
 }
-function initRoadmapStickyCol(){
-  const wrap=document.querySelector('.roadmap-wrap');
-  if(!wrap||wrap._stickyColBound) return;
-  wrap._stickyColBound=true;
-  function syncCol(){
-    const x=wrap.scrollLeft;
-    const shadow=x>0?'4px 0 8px rgba(0,0,0,0.4)':'none';
-    wrap.querySelectorAll('.roadmap-table .ws-col,.roadmap-table .ws-label').forEach(c=>{
-      c.style.transform='translateX('+x+'px)';
-      c.style.boxShadow=shadow;
-    });
-  }
-  wrap.addEventListener('scroll',syncCol,{passive:true});
-  syncCol();
-}
+
 function _raciStickyThTop(){
   const bar=document.getElementById('raci-filter-sticky');
   const ths=document.querySelectorAll('#raci-table thead th');
@@ -3427,7 +3413,7 @@ function masterRefresh(){
   buildCommandKPIs();
   buildGapList();
   buildRaciTable();
-  buildRoadmap(); initRoadmapStickyCol();
+  buildRoadmap();
   buildTeamGrid();
   buildAgenda();
   buildAgendaPage();
@@ -4366,7 +4352,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   buildGapList();
   buildMilestones();
   buildRaciTable();
-  buildRoadmap(); initRoadmapStickyCol();
+  buildRoadmap();
   renderBudget();
   buildTeamGrid();
   buildAgenda();
