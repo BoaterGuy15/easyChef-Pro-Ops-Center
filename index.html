@@ -1540,13 +1540,6 @@ function buildCapitalRunway(){
       monthMarks.push(`<div style="position:absolute;left:${p}%;transform:translateX(-50%);font-family:'DM Mono',monospace;font-size:7px;color:var(--muted)">${moNames[m]}${y!==2026?' '+String(y).slice(2):''}</div>`);
     }
   }
-  // Scenario buttons
-  const scenarios=[
-    {key:'pre-launch',label:'Pre-Launch'},
-    {key:'conservative',label:'Conservative'},
-    {key:'growth',label:'Growth'},
-  ];
-  const scBtns=scenarios.map(s=>`<button onclick="setRunwayScenario('${s.key}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:10px;border:1px solid ${sc===s.key?'var(--gold)':'var(--border)'};background:${sc===s.key?'var(--gold)':'transparent'};color:${sc===s.key?'#111':'var(--muted)'};cursor:pointer;transition:all 0.15s">${s.label}</button>`).join('');
   // Kill switch warning banner
   const killBanner=killDate
     ?`<div style="margin-top:10px;padding:7px 12px;background:rgba(239,68,68,0.12);border:1px solid var(--red);border-radius:7px;display:flex;align-items:center;gap:8px">
@@ -1570,9 +1563,8 @@ function buildCapitalRunway(){
         </div>
       </div>
       <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="margin-bottom:4px">
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">CAPITAL RUNWAY — ${barStart.toLocaleDateString('en-US',{month:'short',year:'numeric'})} → ${barEnd.toLocaleDateString('en-US',{month:'short',year:'numeric'})}</div>
-          <div style="display:flex;gap:5px">${scBtns}</div>
         </div>
         <div style="position:relative;margin:22px 0 8px">
           ${marks}
@@ -2570,11 +2562,7 @@ function saveCapital(inp){
   saveToLocal();
   renderBudget();
 }
-function setRunwayScenario(sc){
-  DASHBOARD_DATA.budget.runwayScenario=sc;
-  saveBudgetToLocal();
-  buildCapitalRunway();
-}
+
 function editRevenue(){
   const el=document.getElementById('revenue-display');
   if(!el) return;
@@ -2616,10 +2604,15 @@ function _mergeBudget(d){
     Object.keys(d.team).forEach(k=>{ if(k in b.team) b.team[k]=d.team[k]; });
 }
 function loadBudgetFromLocal(){
+  // remove legacy key from pre-simplification era
+  try{ localStorage.removeItem('dgl_budget_extra'); }catch(e){}
   try{
     const raw=localStorage.getItem('dgl_budget');
     if(!raw) return;
-    _mergeBudget(JSON.parse(raw));
+    const d=JSON.parse(raw);
+    // if saved data has old object-shaped payoneer, it predates the simplification — discard monthlyRevenue too
+    if(d.payoneer&&typeof d.payoneer==='object') d.monthlyRevenue=0;
+    _mergeBudget(d);
   }catch(e){}
 }
 function loadBudgetFromSheets(){
@@ -3465,11 +3458,12 @@ function triggerCelebration(){
 
 // ── What-If Scenario Playground ────────────────────────────
 const WHATIF_PRESETS = {
-  conservative: { adSpend: 5000,  revenue: 0,    payoneer: 15000, label: 'Conservative' },
-  moderate:     { adSpend: 15000, revenue: 2000,  payoneer: 15000, label: 'Moderate'     },
-  aggressive:   { adSpend: 30000, revenue: 5000,  payoneer: 10000, label: 'Aggressive'   },
+  prelaunch:    { adSpend:     0, revenue:     0, payoneer: 24000, label: 'Pre-Launch'  },
+  conservative: { adSpend:  5000, revenue:  2000, payoneer: 24000, label: 'Conservative'},
+  growth:       { adSpend: 20000, revenue:  8000, payoneer: 24000, label: 'Growth'      },
+  postlaunch:   { adSpend: 15000, revenue: 15000, payoneer: 24000, label: 'Post-Launch' },
 };
-let _wiState = { adSpend: 0, revenue: 0, payoneer: 15000, preset: null, expOpen: false, expenses: null };
+let _wiState = { adSpend: 0, revenue: 0, payoneer: 24000, preset: null, expOpen: false, expenses: null };
 
 function _wiInitExpenses(){
   const b = DASHBOARD_DATA.budget;
