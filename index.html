@@ -448,6 +448,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
   <div id="launch-health"></div>
   <div id="weekly-velocity"></div>
+  <div id="team-workload"></div>
   <div class="alert-banner" id="cmd-alert">⬤ &nbsp;<span id="gap-count">6</span> ACCOUNTABILITY GAPS · 0 START DATES LOCKED · MONDAY 11AM ET IS THE RESOLUTION DEADLINE</div>
   <div class="alert-banner green">⬤ &nbsp;T-022 + T-024 RESOLVED — SEARAH NAMED · T-039 + T-040 RESOLVED — SADEE ACTIVATED</div>
 
@@ -1377,6 +1378,49 @@ function buildWeeklyVelocity(){
   </div>`;
 }
 
+// ── Team Workload Balance ───────────────────────────────────
+function buildTeamWorkload(){
+  const el = document.getElementById('team-workload');
+  if(!el) return;
+  const tasks = DASHBOARD_DATA.tasks;
+  const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  _d.setHours(0,0,0,0);
+  const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const RACI_KEY = {
+    'Taylor Reasoner':'Taylor','Adam G':'Adam','Hammad':'Hammad',
+    'Steve':'Steve','Mary':'Mary','JR':'JR',
+    'Searah Teitgen':'Searah','Sadee Tison':'Sadee'
+  };
+  const members = DASHBOARD_DATA.team.map(m=>{
+    const key = RACI_KEY[m.name] || m.name;
+    const mine = tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
+    const open = mine.filter(t=>t.status!=='Done'&&t.status!=='Complete');
+    const highOpen = open.filter(t=>t.pri==='High').length;
+    const overdue = open.filter(t=>t.ed&&t.ed<today).length;
+    const score = (highOpen*2)+(overdue*3)+(open.length*1);
+    return {name:m.name.split(' ')[0], open:open.length, overdue, score};
+  }).filter(m=>m.open>0||m.overdue>0);
+  if(!members.length){ el.innerHTML=''; return; }
+  const maxScore = Math.max(...members.map(m=>m.score),1);
+  const rows = members.sort((a,b)=>b.score-a.score).map(m=>{
+    const pct = Math.round(m.score/maxScore*100);
+    const color = pct>=70?'var(--red)':pct>=40?'var(--amber)':'var(--green)';
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);width:56px;flex-shrink:0">${m.name}</div>
+      <div style="flex:1;background:var(--surface);border-radius:3px;height:8px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;width:80px;flex-shrink:0">
+        ${m.open} open${m.overdue?` · <span style="color:var(--red)">${m.overdue} overdue</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 28px;margin-bottom:20px">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:14px">TEAM WORKLOAD BALANCE</div>
+    ${rows}
+  </div>`;
+}
+
 // ── Command KPIs ────────────────────────────────────────────
 function buildCommandKPIs(){
   const tasks = DASHBOARD_DATA.tasks;
@@ -1402,6 +1446,7 @@ function buildCommandKPIs(){
   if(gc) gc.textContent = gaps;
   buildLaunchHealth();
   buildWeeklyVelocity();
+  buildTeamWorkload();
 }
 
 // ── Gap list ────────────────────────────────────────────────
