@@ -3600,7 +3600,7 @@ function loadFromSheets(){
       if(!rows.length) return;
       rows.forEach(s=>{
         const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
-        if(t){ _PERSIST_FIELDS.forEach(f=>{ if(s[f]!=null&&!(s[f]===''&&(f==='sd'||f==='ed'))) t[f]=s[f]; }); }
+        if(t){ _PERSIST_FIELDS.forEach(f=>{ if(s[f]!=null&&s[f]!=='') t[f]=s[f]; }); }
         else if(s.id){ DASHBOARD_DATA.tasks.push(s); }
       });
       masterRefresh();
@@ -3619,7 +3619,7 @@ function loadFromLocal(){
     JSON.parse(saved).forEach(s=>{
       const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
       if(!t) return;
-      _PERSIST_FIELDS.forEach(f=>{ if(s[f]!=null&&!(s[f]===''&&(f==='sd'||f==='ed'))) t[f]=s[f]; });
+      _PERSIST_FIELDS.forEach(f=>{ if(s[f]!=null&&s[f]!=='') t[f]=s[f]; });
     });
   }catch(e){}
   try{
@@ -4382,6 +4382,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   showPage(sessionStorage.getItem('dgl_active_tab')||'agenda');
   updateLiveDot();
   setInterval(masterRefresh, 60000);
+  setTimeout(saveToLocal, 2000);
 });
 </script>
 </body>
