@@ -447,6 +447,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 
   <div id="launch-health"></div>
+  <div id="weekly-velocity"></div>
   <div class="alert-banner" id="cmd-alert">⬤ &nbsp;<span id="gap-count">6</span> ACCOUNTABILITY GAPS · 0 START DATES LOCKED · MONDAY 11AM ET IS THE RESOLUTION DEADLINE</div>
   <div class="alert-banner green">⬤ &nbsp;T-022 + T-024 RESOLVED — SEARAH NAMED · T-039 + T-040 RESOLVED — SADEE ACTIVATED</div>
 
@@ -1316,6 +1317,66 @@ function buildLaunchHealth(){
   </div>`;
 }
 
+// ── Weekly Velocity ─────────────────────────────────────────
+function buildWeeklyVelocity(){
+  const el = document.getElementById('weekly-velocity');
+  if(!el) return;
+  const tasks = DASHBOARD_DATA.tasks;
+  const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  _d.setHours(0,0,0,0);
+  const pad = n=>String(n).padStart(2,'0');
+  const fmtD = d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const dow = (_d.getDay()+6)%7; // 0=Mon…6=Sun
+  const thisMonday = new Date(_d); thisMonday.setDate(_d.getDate()-dow);
+  const lastMondayD = new Date(thisMonday); lastMondayD.setDate(thisMonday.getDate()-7);
+  const lastSundayD = new Date(thisMonday); lastSundayD.setDate(thisMonday.getDate()-1);
+  const todayStr=fmtD(_d), thisMondayStr=fmtD(thisMonday);
+  const lastMondayStr=fmtD(lastMondayD), lastSundayStr=fmtD(lastSundayD);
+  const isDone = t=>t.status==='Done'||t.status==='Complete';
+  const inRange = (t,s,e)=>!!(t.lastStatusChange&&t.lastStatusChange>=s&&t.lastStatusChange<=e);
+  const thisWeekDone = tasks.filter(t=>isDone(t)&&inRange(t,thisMondayStr,todayStr)).length;
+  const lastWeekDone = tasks.filter(t=>isDone(t)&&inRange(t,lastMondayStr,lastSundayStr)).length;
+  const inProgThisWeek = tasks.filter(t=>['Started','In Progress'].includes(t.status)&&inRange(t,thisMondayStr,todayStr)).length;
+  const weeks = Array.from({length:4},(_,i)=>{
+    const wk=3-i;
+    const wStart=new Date(thisMonday); wStart.setDate(thisMonday.getDate()-wk*7);
+    const wEnd=wk===0?new Date(_d):new Date(wStart); if(wk>0) wEnd.setDate(wStart.getDate()+6);
+    return {label:wk===0?'now':`-${wk}w`, count:tasks.filter(t=>isDone(t)&&inRange(t,fmtD(wStart),fmtD(wEnd))).length};
+  });
+  const maxW = Math.max(...weeks.map(w=>w.count),1);
+  const trend = thisWeekDone>lastWeekDone?{a:'↑',c:'var(--green)'}:thisWeekDone<lastWeekDone?{a:'↓',c:'var(--red)'}:{a:'→',c:'var(--amber)'};
+  const bars = weeks.map(w=>{
+    const h=w.count?Math.max(4,Math.round(w.count/maxW*40)):0;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text);min-height:13px;text-align:center">${w.count||'—'}</div>
+      <div style="width:22px;background:var(--surface);border-radius:2px;height:40px;display:flex;align-items:flex-end">
+        <div style="width:100%;height:${h}px;background:rgba(201,168,76,0.5);border-radius:2px"></div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap">${w.label}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 28px;display:flex;align-items:center;gap:0;margin-bottom:20px">
+    <div style="flex:1">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:12px">WEEKLY VELOCITY — TASKS COMPLETED</div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;line-height:1;color:var(--text)">${thisWeekDone}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1px;color:var(--muted);margin-top:4px">THIS WEEK</div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:22px;color:${trend.c}">${trend.a}</div>
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;line-height:1;color:var(--muted)">${lastWeekDone}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1px;color:var(--muted);margin-top:4px">LAST WEEK</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px">${inProgThisWeek} task${inProgThisWeek!==1?'s':''} moved to in-progress this week</div>
+    </div>
+    <div style="border-left:1px solid var(--border);padding-left:24px;margin-left:24px;display:flex;gap:8px;align-items:flex-end">
+      ${bars}
+    </div>
+  </div>`;
+}
+
 // ── Command KPIs ────────────────────────────────────────────
 function buildCommandKPIs(){
   const tasks = DASHBOARD_DATA.tasks;
@@ -1340,6 +1401,7 @@ function buildCommandKPIs(){
   const gc = document.getElementById('gap-count');
   if(gc) gc.textContent = gaps;
   buildLaunchHealth();
+  buildWeeklyVelocity();
 }
 
 // ── Gap list ────────────────────────────────────────────────
