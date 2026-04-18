@@ -634,17 +634,27 @@ function taskProgress(t){
   const now = new Date(); now.setHours(0,0,0,0);
   const start = new Date(t.sd); start.setHours(0,0,0,0);
   const end = new Date(t.ed); end.setHours(0,0,0,0);
-  let pct = 0, color = 'var(--muted)';
-  if(now >= end){ pct = 100; color = 'var(--green)'; }
-  else if(now > start){ pct = Math.round((now-start)/(end-start)*100); color = 'var(--amber)'; }
+  const done = t.status==='Done'||t.status==='Complete';
   const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const fd = d => mo[d.getMonth()]+' '+d.getDate();
+  let pct, color, label;
+  if(now >= end){
+    pct = 100;
+    if(done){ color='var(--green)'; label='Complete'; }
+    else{ color='var(--red)'; const over=Math.round((now-end)/(1000*60*60*24)); label='OVERDUE +'+over+'d'; }
+  } else if(now > start){
+    pct = Math.round((now-start)/(end-start)*100);
+    color = 'var(--amber)';
+    label = pct+'%';
+  } else {
+    pct = 0; color = 'var(--muted)'; label = 'Not started';
+  }
   return `<td style="white-space:nowrap;min-width:96px">
     <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:4px">
       <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
     </div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${fd(start)} → ${fd(end)}</div>
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};margin-top:1px">${pct}%</div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};margin-top:1px">${label}</div>
   </td>`;
 }
 function buildRaciTable(){
