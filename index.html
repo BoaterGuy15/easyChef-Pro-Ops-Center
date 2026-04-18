@@ -299,7 +299,8 @@ const DASHBOARD_DATA = {
     betaLaunch: "May 11, 2026",
     milestoneDate: "2026-07-01",
     milestoneLabel: "Launch Day",
-    milestones: [{date:"2026-07-01", label:"Launch Day"}]
+    milestones: [{date:"2026-07-01", label:"Launch Day"}],
+    milestoneItems: []
   },
   budget: {
     capital: 200000,
@@ -449,6 +450,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="launch-health"></div>
   <div id="weekly-velocity"></div>
   <div id="team-workload"></div>
+  <div id="milestone-history"></div>
   <div class="alert-banner" id="cmd-alert">⬤ &nbsp;<span id="gap-count">6</span> ACCOUNTABILITY GAPS · 0 START DATES LOCKED · MONDAY 11AM ET IS THE RESOLUTION DEADLINE</div>
   <div class="alert-banner green">⬤ &nbsp;T-022 + T-024 RESOLVED — SEARAH NAMED · T-039 + T-040 RESOLVED — SADEE ACTIVATED</div>
 
@@ -1452,6 +1454,7 @@ function buildCommandKPIs(){
   buildLaunchHealth();
   buildWeeklyVelocity();
   buildTeamWorkload();
+  buildMilestoneHistory();
 }
 
 // ── Gap list ────────────────────────────────────────────────
@@ -2078,11 +2081,106 @@ function loadFromLocal(){
       _PERSIST_FIELDS.forEach(f=>{ if(s[f]!==undefined) t[f]=s[f]; });
     });
   }catch(e){}
+  try{
+    const savedMs=localStorage.getItem('dgl_milestone_items');
+    if(savedMs) DASHBOARD_DATA.meta.milestoneItems=JSON.parse(savedMs);
+  }catch(e){}
 }
 function resetToDefaults(){
   if(!confirm('Reset all changes to defaults? This cannot be undone.')) return;
   localStorage.removeItem('dgl_tasks');
   location.reload();
+}
+
+// ── Milestone History card ──────────────────────────────────
+function buildMilestoneHistory(){
+  const el = document.getElementById('milestone-history');
+  if(!el) return;
+  if(!DASHBOARD_DATA.meta.milestoneItems) DASHBOARD_DATA.meta.milestoneItems=[];
+  const items = DASHBOARD_DATA.meta.milestoneItems;
+  const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  _d.setHours(0,0,0,0);
+  const pad = n=>String(n).padStart(2,'0');
+  const today = _d.getFullYear()+'-'+pad(_d.getMonth()+1)+'-'+pad(_d.getDate());
+  const in14 = new Date(_d); in14.setDate(_d.getDate()+14);
+  const in14Str = in14.getFullYear()+'-'+pad(in14.getMonth()+1)+'-'+pad(in14.getDate());
+  const IS = 'width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box';
+  const focusBlur = `onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"`;
+  // Active milestone row
+  const aDate = DASHBOARD_DATA.meta.milestoneDate||'';
+  const aDotC = aDate===today?'var(--green)':aDate&&aDate<=in14Str&&aDate>=today?'var(--amber)':'var(--gold)';
+  const activeRow = `<div style="display:flex;gap:12px;padding-bottom:${items.length?'14':'0'}px">
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+      <div style="width:10px;height:10px;border-radius:50%;background:${aDotC};box-shadow:0 0 6px ${aDotC};flex-shrink:0"></div>
+      ${items.length?`<div style="width:1px;flex:1;background:var(--border);margin-top:3px;min-height:16px"></div>`:''}
+    </div>
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-weight:500;font-size:13px;color:var(--gold)">${DASHBOARD_DATA.meta.milestoneLabel||'Launch Day'}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${aDate}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(201,168,76,0.12);color:var(--gold);padding:1px 6px;border-radius:3px;letter-spacing:1px">ACTIVE</span>
+      </div>
+    </div>
+  </div>`;
+  // Item rows
+  const itemRows = items.map((m,i)=>{
+    const done=!!m.achievedDate;
+    const near=!done&&m.date&&m.date>=today&&m.date<=in14Str;
+    const dotC=done?'var(--green)':near?'var(--amber)':'var(--muted)';
+    const isLast=i===items.length-1;
+    const achBadge=done?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green)">✓ ${m.achievedDate}</span>`:'';
+    const markBtn=!done?`<button onclick="markMilestoneAchieved(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Mark achieved</button>`:'';
+    return `<div style="display:flex;gap:12px;padding-bottom:${isLast?'0':'14px'}">
+      <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+        <div style="width:10px;height:10px;border-radius:50%;background:${dotC};flex-shrink:0"></div>
+        ${!isLast?`<div style="width:1px;flex:1;background:var(--border);margin-top:3px;min-height:16px"></div>`:''}
+      </div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:500;font-size:13px;color:var(--text)">${m.label}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${m.date||'—'}</span>
+          ${achBadge}${markBtn}
+        </div>
+        ${m.note?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${m.note}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  const emptyMsg = !items.length?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);margin-top:4px">No milestones added yet</div>`:'';
+  const formHtml = `<div id="ms-item-form" style="display:none;padding-top:12px;border-top:1px solid var(--border);margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <input id="ms-item-label" type="text" placeholder="Milestone label" style="${IS}" ${focusBlur}>
+      <input id="ms-item-date" type="date" style="${IS}" ${focusBlur}>
+    </div>
+    <input id="ms-item-note" type="text" placeholder="Note (optional)" style="${IS}" ${focusBlur}>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button onclick="saveMilestoneItem()" style="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;padding:5px 14px;cursor:pointer">Add</button>
+      <button onclick="document.getElementById('ms-item-form').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:5px 14px;cursor:pointer">Cancel</button>
+    </div>
+  </div>`;
+  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 28px;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">MILESTONE HISTORY</div>
+      <button onclick="document.getElementById('ms-item-form').style.display='block'" style="background:transparent;border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:3px 10px;cursor:pointer" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ Add Milestone</button>
+    </div>
+    ${activeRow}${itemRows}${emptyMsg}${formHtml}
+  </div>`;
+}
+function markMilestoneAchieved(idx){
+  const _d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  const today=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  DASHBOARD_DATA.meta.milestoneItems[idx].achievedDate=today;
+  try{localStorage.setItem('dgl_milestone_items',JSON.stringify(DASHBOARD_DATA.meta.milestoneItems));}catch(e){}
+  triggerCelebration();
+  buildMilestoneHistory();
+}
+function saveMilestoneItem(){
+  const label=(document.getElementById('ms-item-label').value||'').trim();
+  if(!label) return;
+  const date=document.getElementById('ms-item-date').value||'';
+  const note=(document.getElementById('ms-item-note').value||'').trim();
+  DASHBOARD_DATA.meta.milestoneItems.push({label,date,note,achievedDate:null});
+  try{localStorage.setItem('dgl_milestone_items',JSON.stringify(DASHBOARD_DATA.meta.milestoneItems));}catch(e){}
+  buildMilestoneHistory();
 }
 
 // ── Fireworks celebration ───────────────────────────────────
