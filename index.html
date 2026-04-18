@@ -1055,7 +1055,7 @@ function applyRaciFilters(){
     if(raciSearchQuery&&show){
       const task=DASHBOARD_DATA.tasks.find(t=>t.id===tr.dataset.id);
       if(task){
-        const hay=[task.id,task.name,task.cat,task.owner,task.flag].join(' ').toLowerCase();
+        const hay=[task.id,task.name,task.cat,task.owner,task.flag,task.status,task.pri].join(' ').toLowerCase();
         if(!hay.includes(raciSearchQuery)) show=false;
       }
     }
