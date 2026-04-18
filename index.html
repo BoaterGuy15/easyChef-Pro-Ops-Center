@@ -3476,13 +3476,39 @@ function triggerCelebration(){
 }
 
 // ── What-If Scenario Playground ────────────────────────────
-const WHATIF_PRESETS = {
-  prelaunch:    { adSpend:     0, revenue:     0, payoneer: 24000, label: 'Pre-Launch'  },
-  conservative: { adSpend:  5000, revenue:  2000, payoneer: 15000, label: 'Conservative'},
-  growth:       { adSpend: 20000, revenue:  8000, payoneer: 15000, label: 'Growth'      },
-  postlaunch:   { adSpend: 15000, revenue: 15000, payoneer: 10000, label: 'Post-Launch' },
+const WI_DEFAULT_PRESETS = {
+  prelaunch:    { adSpend:     0, revenue:     0, payoneer: 24000, label: 'Pre-Launch'   },
+  conservative: { adSpend:  5000, revenue:  2000, payoneer: 15000, label: 'Conservative' },
+  growth:       { adSpend: 20000, revenue:  8000, payoneer: 15000, label: 'Growth'       },
+  postlaunch:   { adSpend: 15000, revenue: 15000, payoneer: 10000, label: 'Post-Launch'  },
 };
-let _wiState = { adSpend: 0, revenue: 0, preset: null, expOpen: false, expenses: null };
+const WI_DEFAULT_KEYS = new Set(Object.keys(WI_DEFAULT_PRESETS));
+let _wiPresets = null;
+let _wiState = { adSpend: 0, revenue: 0, preset: null, expOpen: false, expenses: null, editingPreset: null };
+function _getWiPresets(){
+  if(_wiPresets) return _wiPresets;
+  _wiPresets = {};
+  Object.entries(WI_DEFAULT_PRESETS).forEach(([k,p])=>{ _wiPresets[k]={...p}; });
+  try{
+    const saved=localStorage.getItem('dgl_wi_presets');
+    if(saved){ const c=JSON.parse(saved); Object.assign(_wiPresets,c); }
+  }catch(e){}
+  return _wiPresets;
+}
+function _saveWiPresets(){
+  const customs={};
+  Object.entries(_wiPresets).forEach(([k,p])=>{
+    const def=WI_DEFAULT_PRESETS[k];
+    if(!def||p.label!==def.label||p.adSpend!==def.adSpend||p.revenue!==def.revenue||p.payoneer!==def.payoneer)
+      customs[k]=p;
+  });
+  try{ localStorage.setItem('dgl_wi_presets',JSON.stringify(customs)); }catch(e){}
+}
+function fmtWi(n){
+  if(n>=1000000) return '$'+(n/1000000).toFixed(1).replace(/\.0$/,'')+'M';
+  if(n>=1000)    return '$'+(n/1000).toFixed(0)+'K';
+  return '$'+Math.round(n).toLocaleString();
+}
 
 function _wiInitExpenses(){
   const b = DASHBOARD_DATA.budget;
@@ -3513,19 +3539,15 @@ function renderWhatIf(){
   _wiState.revenue  = b.monthlyRevenue || 0;
   if(!_wiState.expenses) _wiState.expenses = _wiInitExpenses();
 
-  const presetBtns = Object.entries(WHATIF_PRESETS).map(([k,p])=>`
-    <button id="wi-preset-${k}" onclick="wiApplyPreset('${k}')"
-      style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:10px;
-             border:1px solid ${_wiState.preset===k?'var(--gold)':'var(--border)'};
-             background:${_wiState.preset===k?'var(--gold)':'transparent'};
-             color:${_wiState.preset===k?'#0b0d10':'var(--muted)'};cursor:pointer;transition:all 0.15s"
-    >${p.label}</button>`).join('');
   const ss = 'width:100%;accent-color:var(--gold);cursor:pointer;height:4px';
 
   card.innerHTML = `
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span>SANDBOX — CHANGES DO NOT AFFECT LIVE BUDGET UNTIL YOU CLICK APPLY</span>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${presetBtns}</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div id="wi-preset-row" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+      <div id="wi-preset-form-wrap"></div>
     </div>
 
     <div id="wi-exp-section" style="margin-bottom:18px">
@@ -3564,15 +3586,15 @@ function renderWhatIf(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">MONTHLY AD SPEND</div>
-        <div id="wi-adspend-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--red);margin-bottom:8px">${fmt(_wiState.adSpend)}</div>
-        <input id="wi-slider-adspend" type="range" min="0" max="50000" step="500" value="${_wiState.adSpend}" style="${ss}" oninput="wiUpdate('adSpend',+this.value)">
-        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$50K</span></div>
+        <div id="wi-adspend-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--red);margin-bottom:8px">${fmtWi(_wiState.adSpend)}</div>
+        <input id="wi-slider-adspend" type="range" min="0" max="100000" step="1000" value="${_wiState.adSpend}" style="${ss}" oninput="wiUpdate('adSpend',+this.value)">
+        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$100K</span></div>
       </div>
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">MONTHLY REVENUE</div>
-        <div id="wi-revenue-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--green);margin-bottom:8px">${fmt(_wiState.revenue)}</div>
-        <input id="wi-slider-revenue" type="range" min="0" max="20000" step="250" value="${_wiState.revenue}" style="${ss}" oninput="wiUpdate('revenue',+this.value)">
-        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$20K</span></div>
+        <div id="wi-revenue-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--green);margin-bottom:8px">${fmtWi(_wiState.revenue)}</div>
+        <input id="wi-slider-revenue" type="range" min="0" max="1000000" step="1000" value="${_wiState.revenue}" style="${ss}" oninput="wiUpdate('revenue',+this.value)">
+        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$1M</span></div>
       </div>
     </div>
 
@@ -3586,6 +3608,8 @@ function renderWhatIf(){
                font-family:'DM Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:0.5px">Apply to Budget</button>
     </div>`;
 
+  wiRenderPresetRow();
+  wiRenderPresetForm();
   wiCalc();
 }
 
@@ -3719,7 +3743,8 @@ function wiUpdate(field, val){
 }
 
 function wiApplyPreset(key){
-  const p = WHATIF_PRESETS[key];
+  const p = _getWiPresets()[key];
+  if(!p) return;
   _wiState.adSpend  = p.adSpend;
   _wiState.revenue  = p.revenue;
   _wiState.preset   = key;
@@ -3732,18 +3757,133 @@ function wiApplyPreset(key){
   if(sAd) sAd.value = p.adSpend;
   if(sRe) sRe.value = p.revenue;
   const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val');
-  if(adV) adV.textContent=fmt(p.adSpend);
-  if(reV) reV.textContent=fmt(p.revenue);
-  Object.keys(WHATIF_PRESETS).forEach(k=>{
-    const btn=document.getElementById('wi-preset-'+k); if(!btn) return;
-    const active=k===key;
-    btn.style.background  = active?'var(--gold)':'transparent';
-    btn.style.color       = active?'#0b0d10':'var(--muted)';
-    btn.style.borderColor = active?'var(--gold)':'var(--border)';
-  });
+  if(adV) adV.textContent=fmtWi(p.adSpend);
+  if(reV) reV.textContent=fmtWi(p.revenue);
+  wiRenderPresetRow();
   if(_wiState.expOpen) wiRenderExpRows();
   wiUpdateExpSummary();
   wiCalc();
+}
+
+function wiRenderPresetRow(){
+  const row = document.getElementById('wi-preset-row');
+  if(!row) return;
+  const presets = _getWiPresets();
+  const btnStyle = (k,active) =>
+    `font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;border-radius:10px;` +
+    `border:1px solid ${active?'var(--gold)':'var(--border)'};` +
+    `background:${active?'var(--gold)':'transparent'};` +
+    `color:${active?'#0b0d10':'var(--muted)'};cursor:pointer;transition:all 0.15s`;
+  const iconStyle = `opacity:0;transition:opacity 0.15s;cursor:pointer;font-size:9px;padding:1px 4px;` +
+    `border-radius:3px;border:1px solid var(--border);background:var(--surface);line-height:1.4`;
+  row.innerHTML = Object.entries(presets).map(([k,p])=>{
+    const active = _wiState.preset === k;
+    const isDef  = WI_DEFAULT_KEYS.has(k);
+    const delBtn = isDef ? '' :
+      `<span id="wi-pdel-${k}" onclick="event.stopPropagation();wiDeletePreset('${k}')"
+        style="${iconStyle};color:var(--muted)">×</span>`;
+    return `<div style="display:inline-flex;align-items:center;gap:2px"
+        onmouseover="wiShowPresetIcons('${k}',true)" onmouseout="wiShowPresetIcons('${k}',false)">
+      <button id="wi-preset-${k}" onclick="wiApplyPreset('${k}')" style="${btnStyle(k,active)}">${p.label}</button>
+      <span id="wi-pedit-${k}" onclick="event.stopPropagation();wiEditPreset('${k}')"
+        style="${iconStyle}" title="Edit preset">✏️</span>
+      ${delBtn}
+    </div>`;
+  }).join('') +
+  `<button onclick="wiNewPreset()"
+    style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;border-radius:10px;
+           border:1px dashed var(--border);background:transparent;color:var(--muted);cursor:pointer"
+    onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)'"
+    onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">+ New Preset</button>`;
+}
+
+function wiShowPresetIcons(k, show){
+  const e=document.getElementById('wi-pedit-'+k);
+  const d=document.getElementById('wi-pdel-'+k);
+  const v=show?'1':'0';
+  if(e) e.style.opacity=v;
+  if(d) d.style.opacity=v;
+}
+
+function wiRenderPresetForm(){
+  const wrap = document.getElementById('wi-preset-form-wrap');
+  if(!wrap) return;
+  const key = _wiState.editingPreset;
+  if(!key){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+  const isNew = key==='__new__';
+  const p = isNew ? {label:'',adSpend:0,revenue:0,payoneer:24000} : (_getWiPresets()[key]||{label:'',adSpend:0,revenue:0,payoneer:24000});
+  const inp = (id,val,type='number',ph='') =>
+    `<input id="${id}" type="${type}" value="${val}" placeholder="${ph}" min="0"
+      style="background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);
+             font-family:'DM Mono',monospace;font-size:11px;width:100%;padding:4px 7px;outline:none;box-sizing:border-box"
+      onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">`;
+  wrap.style.display='block';
+  wrap.innerHTML=`<div style="margin-top:8px;padding:14px 16px;border:1px solid var(--gold);border-radius:8px;background:var(--surface)">
+    <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1px;margin-bottom:12px">${isNew?'NEW PRESET':'EDIT PRESET — '+p.label}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">NAME</div>
+        ${inp('wi-pf-name',p.label,'text','')}
+      </div>
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">AD SPEND / MO</div>
+        ${inp('wi-pf-adspend',p.adSpend)}
+      </div>
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">MONTHLY REVENUE</div>
+        ${inp('wi-pf-revenue',p.revenue)}
+      </div>
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">PAYONEER COST</div>
+        ${inp('wi-pf-payoneer',p.payoneer)}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="wiSavePresetForm()"
+        style="background:var(--gold);border:none;color:#0b0d10;border-radius:5px;padding:5px 16px;
+               font-family:'DM Mono',monospace;font-size:10px;font-weight:600;cursor:pointer">Save</button>
+      <button onclick="wiCancelPresetForm()"
+        style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:5px 14px;
+               font-family:'DM Mono',monospace;font-size:10px;cursor:pointer"
+        onmouseover="this.style.borderColor='var(--muted)'" onmouseout="this.style.borderColor='var(--border)'">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function wiEditPreset(key){
+  _wiState.editingPreset = _wiState.editingPreset===key ? null : key;
+  wiRenderPresetForm();
+}
+function wiNewPreset(){
+  _wiState.editingPreset = '__new__';
+  wiRenderPresetForm();
+}
+function wiCancelPresetForm(){
+  _wiState.editingPreset = null;
+  const wrap=document.getElementById('wi-preset-form-wrap');
+  if(wrap){ wrap.style.display='none'; wrap.innerHTML=''; }
+}
+function wiSavePresetForm(){
+  const nameEl=document.getElementById('wi-pf-name');
+  const name=(nameEl?nameEl.value:'').trim();
+  if(!name){ nameEl&&(nameEl.style.borderColor='var(--red)'); return; }
+  const adSpend  = parseFloat((document.getElementById('wi-pf-adspend' )||{}).value)||0;
+  const revenue  = parseFloat((document.getElementById('wi-pf-revenue' )||{}).value)||0;
+  const payoneer = parseFloat((document.getElementById('wi-pf-payoneer')||{}).value)||0;
+  const isNew    = _wiState.editingPreset==='__new__';
+  const key      = isNew ? 'custom_'+Date.now() : _wiState.editingPreset;
+  _getWiPresets()[key] = { label:name, adSpend, revenue, payoneer };
+  _saveWiPresets();
+  _wiState.editingPreset = null;
+  wiCancelPresetForm();
+  wiRenderPresetRow();
+}
+function wiDeletePreset(key){
+  if(WI_DEFAULT_KEYS.has(key)) return;
+  delete _getWiPresets()[key];
+  _saveWiPresets();
+  if(_wiState.preset===key) _wiState.preset=null;
+  wiRenderPresetRow();
 }
 
 function wiCalc(){
@@ -3761,8 +3901,8 @@ function wiCalc(){
     : _wiState.revenue === 0 ? 'N/A (no revenue)' : 'N/A (static model)';
 
   const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val');
-  if(adV) adV.textContent=fmt(_wiState.adSpend);
-  if(reV) reV.textContent=fmt(_wiState.revenue);
+  if(adV) adV.textContent=fmtWi(_wiState.adSpend);
+  if(reV) reV.textContent=fmtWi(_wiState.revenue);
 
   const statsEl = document.getElementById('wi-stats');
   if(statsEl){
