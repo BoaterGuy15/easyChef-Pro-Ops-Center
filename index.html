@@ -2664,10 +2664,12 @@ function _phaseDate(offsetDays){
   return new Date(launch.getTime()+offsetDays*86400000);
 }
 function _phaseSD(p){
+  if(p.sd) return new Date(p.sd+'T00:00:00');
   if(p.sdOffset===null||p.sdOffset===undefined){const t=new Date();t.setHours(0,0,0,0);return t;}
   return _phaseDate(p.sdOffset);
 }
 function _phaseED(p){
+  if(p.ed) return new Date(p.ed+'T00:00:00');
   if(p.edOffset===null||p.edOffset===undefined) return null;
   return _phaseDate(p.edOffset);
 }
@@ -2853,14 +2855,86 @@ function saveMilestoneDate(){
   DASHBOARD_DATA.meta.milestoneLabel=labelVal;
   updateCountdown();
   closeMilestoneEditor();
-  renderAdPhases(); // phase date ranges shift with launch date
-  if(confirm('Launch date updated to '+dateVal+'.\n\nAdd a new budget phase for "'+labelVal+'"?')){
-    DASHBOARD_DATA.budget.adPhases.push({name:labelVal,sdOffset:null,edOffset:null,pct:0});
-    _normalizePhasePcts();
-    saveBudgetToLocal();
-    renderAdPhases();
-    showPage('budget');
-  }
+  renderAdPhases();
+  _offerAddBudgetPhase(labelVal, dateVal);
+}
+
+// ── Budget phase toast ─────────────────────────────────────
+let _toastPhaseLabel='', _toastPhaseDate='';
+function _showToast(html, ms=8000){
+  let t=document.getElementById('dgl-toast');
+  if(!t){ t=document.createElement('div'); t.id='dgl-toast'; document.body.appendChild(t); }
+  Object.assign(t.style,{
+    position:'fixed',bottom:'24px',right:'24px',zIndex:'9999',
+    background:'var(--card)',border:'1px solid var(--gold)',borderRadius:'12px',
+    padding:'16px 20px',maxWidth:'320px',minWidth:'260px',
+    fontFamily:"'DM Mono',monospace",fontSize:'12px',color:'var(--text)',
+    boxShadow:'0 8px 32px rgba(0,0,0,0.6)',opacity:'1',display:'block',
+    transition:'opacity 0.3s'
+  });
+  t.innerHTML=html;
+  clearTimeout(t._tid);
+  t._tid=setTimeout(_dismissToast, ms);
+}
+function _dismissToast(){
+  const t=document.getElementById('dgl-toast');
+  if(!t) return;
+  t.style.opacity='0';
+  setTimeout(()=>{ if(t.parentNode) t.parentNode.removeChild(t); }, 320);
+}
+function _offerAddBudgetPhase(label, date){
+  const exists=DASHBOARD_DATA.budget.adPhases.some(p=>p.name.toLowerCase()===label.toLowerCase());
+  if(exists) return;
+  _toastPhaseLabel=label; _toastPhaseDate=date;
+  _showToast(`
+    <div style="font-size:9px;color:var(--gold);letter-spacing:1.5px;margin-bottom:8px">BUDGET PHASE</div>
+    <div style="line-height:1.55;margin-bottom:12px">New milestone added — add a budget phase for <span style="color:var(--gold);font-weight:500">${label}</span>?</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="_toastConfirmAdd()"
+        style="flex:1;background:var(--gold);border:none;color:#0b0d10;border-radius:5px;padding:6px 0;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;cursor:pointer">Add Phase</button>
+      <button onclick="_dismissToast()"
+        style="flex:1;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:6px 0;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer">Skip</button>
+    </div>`);
+}
+function _offerRemoveBudgetPhase(label){
+  const exists=DASHBOARD_DATA.budget.adPhases.some(p=>p.name.toLowerCase()===label.toLowerCase());
+  if(!exists) return;
+  _toastPhaseLabel=label;
+  _showToast(`
+    <div style="font-size:9px;color:var(--gold);letter-spacing:1.5px;margin-bottom:8px">BUDGET PHASE</div>
+    <div style="line-height:1.55;margin-bottom:12px">Milestone complete — remove the <span style="color:var(--gold);font-weight:500">${label}</span> budget phase?</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="_toastConfirmRemove()"
+        style="flex:1;background:var(--red);border:none;color:#fff;border-radius:5px;padding:6px 0;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;cursor:pointer">Remove</button>
+      <button onclick="_dismissToast()"
+        style="flex:1;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:6px 0;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer">Keep</button>
+    </div>`);
+}
+function _toastConfirmAdd(){
+  const label=_toastPhaseLabel, date=_toastPhaseDate;
+  _dismissToast();
+  const _d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  const todayStr=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  DASHBOARD_DATA.budget.adPhases.push({
+    name: label,
+    desc: 'Budget allocation for '+label,
+    sd: todayStr,
+    ed: date,
+    sdOffset: null,
+    edOffset: null,
+    pct: 0
+  });
+  saveBudgetToLocal();
+  renderAdPhases();
+  showPage('budget');
+}
+function _toastConfirmRemove(){
+  const label=_toastPhaseLabel;
+  _dismissToast();
+  DASHBOARD_DATA.budget.adPhases=DASHBOARD_DATA.budget.adPhases
+    .filter(p=>p.name.toLowerCase()!==label.toLowerCase());
+  saveBudgetToLocal();
+  renderAdPhases();
 }
 
 // ── Auth ──────────────────────────────────────────────────
@@ -3338,10 +3412,12 @@ function buildMilestoneHistory(){
 function markMilestoneAchieved(idx){
   const _d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   const today=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
-  DASHBOARD_DATA.meta.milestoneItems[idx].achievedDate=today;
+  const item=DASHBOARD_DATA.meta.milestoneItems[idx];
+  item.achievedDate=today;
   try{localStorage.setItem('dgl_milestone_items',JSON.stringify(DASHBOARD_DATA.meta.milestoneItems));}catch(e){}
   triggerCelebration();
   buildMilestoneHistory();
+  _offerRemoveBudgetPhase(item.label);
 }
 function saveMilestoneItem(){
   const label=(document.getElementById('ms-item-label').value||'').trim();
