@@ -3219,10 +3219,25 @@ function _savePmfHistoryLocal(hist){
 }
 function syncPmfToSheets(btn){
   if(!CONFIG.sheetsUrl) return;
+  const allHist=_getPmfHistory();
+  if(!allHist.length){ alert('Record a reading first'); return; }
   if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
-  const _kc=_getKillCriteria();
-  const _pmfPayload={pmfHistory:_getPmfHistory(),killCriteria:{checkpointDate:_kc.checkpointDate,consequence:_kc.consequence,kpis:_kc.kpis.map(k=>({name:k.name,target:k.target,current:k.current}))}};
-  fetch(CONFIG.sheetsUrl+'?action=pmf_write&data='+encodeURIComponent(JSON.stringify(_pmfPayload)))
+  const r=allHist[allHist.length-1];
+  const url=CONFIG.sheetsUrl
+    +'?action=pmf_write'
+    +'&date='+encodeURIComponent(r.date||'')
+    +'&notes='+encodeURIComponent(r.notes||'')
+    +'&overall='+encodeURIComponent(r.overall_status||'')
+    +'&k1t='+encodeURIComponent(r.kpi1_target||'')
+    +'&k1c='+encodeURIComponent(r.kpi1_current||'')
+    +'&k1n='+encodeURIComponent(r.kpi1_name||'')
+    +'&k2t='+encodeURIComponent(r.kpi2_target||'')
+    +'&k2c='+encodeURIComponent(r.kpi2_current||'')
+    +'&k2n='+encodeURIComponent(r.kpi2_name||'')
+    +'&k3t='+encodeURIComponent(r.kpi3_target||'')
+    +'&k3c='+encodeURIComponent(r.kpi3_current||'')
+    +'&k3n='+encodeURIComponent(r.kpi3_name||'');
+  fetch(url)
   .then(r=>r.json())
   .then(()=>{
     if(btn){ btn.textContent='Synced ✓'; btn.style.color='var(--green)'; btn.style.borderColor='var(--green)';
