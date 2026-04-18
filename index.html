@@ -2528,6 +2528,26 @@ function deleteTeamMember(idx){
   buildRaciTable();
 }
 
+function _getTeamOrder(){ try{const r=localStorage.getItem('dgl_team_order');if(r)return JSON.parse(r);}catch(e){} return []; }
+function _saveTeamOrder(arr){ try{localStorage.setItem('dgl_team_order',JSON.stringify(arr));}catch(e){} }
+function _initTeamGridDnd(el){
+  let dragSrc=null;
+  el.querySelectorAll('[data-user-key]').forEach(card=>{
+    card.addEventListener('mouseenter',()=>{ const h=card.querySelector('.tc-drag-handle'); if(h) h.style.opacity='1'; });
+    card.addEventListener('mouseleave',()=>{ const h=card.querySelector('.tc-drag-handle'); if(h) h.style.opacity='0'; });
+    card.addEventListener('dragstart',e=>{ dragSrc=card; card.style.opacity='0.4'; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',card.dataset.userKey); });
+    card.addEventListener('dragend',()=>{ card.style.opacity=''; el.querySelectorAll('[data-user-key]').forEach(c=>{ c.style.outline=''; }); dragSrc=null; });
+    card.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; if(card!==dragSrc) card.style.outline='2px solid var(--gold)'; });
+    card.addEventListener('dragleave',()=>{ card.style.outline=''; });
+    card.addEventListener('drop',e=>{ e.preventDefault(); card.style.outline=''; if(!dragSrc||dragSrc===card) return;
+      const cards=Array.from(el.querySelectorAll('[data-user-key]'));
+      const fi=cards.indexOf(dragSrc), ti=cards.indexOf(card); if(fi<0||ti<0) return;
+      cards.splice(fi,1); cards.splice(ti,0,dragSrc);
+      _saveTeamOrder(cards.map(c=>c.dataset.userKey));
+      buildTeamGrid();
+    });
+  });
+}
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
@@ -2539,76 +2559,80 @@ function buildTeamGrid(){
     'Searah Teitgen':'Searah','Sadee Tison':'Sadee'
   };
   const _defEdits=_getDefaultTeamEdits();
-  el.innerHTML = DASHBOARD_DATA.team.map(m=>{
-    const key = RACI_KEY[m.name] || m.name;
+  const customMembers=_getCustomTeamMembers();
+  // Build unified map keyed by userKey
+  const allMap={};
+  DASHBOARD_DATA.team.forEach(m=>{
+    const key=RACI_KEY[m.name]||m.name;
     const defMeta=Object.values(DEFAULT_TEAM_MEMBERS).find(dm=>dm.raciKey===key);
     const userKey=defMeta?defMeta.user:key.toLowerCase();
-    const ed=_defEdits[userKey]||{};
-    const displayName=ed.name||m.name;
-    const displayRole=ed.role||m.role;
-    const myTasks = DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
-    const done = myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
-    const overdue = myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
-    const inProg = myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
-    const notStarted = myTasks.filter(t=>t.status==='Not Started').length;
-    const cls = m.isNew?'tc new-hire':m.isNewTeal?'tc new-teal':'tc';
-    const badgeHtml = m.isNew?'<span class="tc-badge">NEW · APR 20</span>':m.isNewTeal?'<span class="tc-badge teal">ACTIVATED</span>':'';
-    const tasksHtml = myTasks.slice(0,5).map(t=>{
-      const isWarn = t.flag&&(t.flag.startsWith('⛔')||t.flag.startsWith('⚠️'));
-      const isDone = t.status==='Done'||t.status==='Complete';
-      const color = isWarn?'var(--red)':isDone?'var(--green)':'var(--muted)';
-      const label = t.name.length>28 ? t.name.substring(0,26)+'…' : t.name;
-      return `<div class="tc-task"><span class="tc-task-name" style="color:${color}">${t.id}: ${label}</span></div>`;
-    }).join('');
-    const statsHtml = [
-      {k:'Total',v:myTasks.length},{k:'Done',v:done},
-      {k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}
-    ].map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
-    const warnHtml = m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
-    const noteHtml = m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
-    return `<div class="${cls}" style="position:relative">
-      <div style="position:absolute;top:10px;right:10px">
-        <button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>
-      </div>
-      <div class="tc-name">${displayName}${badgeHtml}</div>
-      <div class="tc-role">${displayRole}</div>
-      ${tasksHtml}
-      <div class="tc-stats">${statsHtml}</div>
-      ${warnHtml}${noteHtml}
-    </div>`;
+    allMap[userKey]={type:'default',userKey,m,key};
+  });
+  customMembers.forEach((cm,ci)=>{ allMap[cm.user]={type:'custom',userKey:cm.user,cm,ci}; });
+  // Apply saved order, append any new members not yet in saved order
+  const savedOrder=_getTeamOrder();
+  const ordered=[...savedOrder.filter(k=>allMap[k]).map(k=>allMap[k]),
+    ...Object.values(allMap).filter(e=>!savedOrder.includes(e.userKey))];
+  const dragHandle=`<span class="tc-drag-handle" style="position:absolute;top:10px;left:10px;color:var(--border);font-size:14px;cursor:grab;opacity:0;transition:opacity 0.15s;user-select:none" title="Drag to reorder">⠿</span>`;
+  el.innerHTML=ordered.map(entry=>{
+    if(entry.type==='default'){
+      const {m,key,userKey}=entry;
+      const ed=_defEdits[userKey]||{};
+      const displayName=ed.name||m.name, displayRole=ed.role||m.role;
+      const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
+      const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
+      const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
+      const inProg=myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
+      const notStarted=myTasks.filter(t=>t.status==='Not Started').length;
+      const cls=m.isNew?'tc new-hire':m.isNewTeal?'tc new-teal':'tc';
+      const badgeHtml=m.isNew?'<span class="tc-badge">NEW · APR 20</span>':m.isNewTeal?'<span class="tc-badge teal">ACTIVATED</span>':'';
+      const tasksHtml=myTasks.slice(0,5).map(t=>{
+        const isWarn=t.flag&&(t.flag.startsWith('⛔')||t.flag.startsWith('⚠️'));
+        const isDone=t.status==='Done'||t.status==='Complete';
+        const color=isWarn?'var(--red)':isDone?'var(--green)':'var(--muted)';
+        const label=t.name.length>28?t.name.substring(0,26)+'…':t.name;
+        return `<div class="tc-task"><span class="tc-task-name" style="color:${color}">${t.id}: ${label}</span></div>`;
+      }).join('');
+      const statsHtml=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
+        .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
+      const warnHtml=m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
+      const noteHtml=m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
+      return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
+        ${dragHandle}
+        <div style="position:absolute;top:10px;right:10px"><button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button></div>
+        <div class="tc-name">${displayName}${badgeHtml}</div>
+        <div class="tc-role">${displayRole}</div>
+        ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${warnHtml}${noteHtml}
+      </div>`;
+    } else {
+      const {cm,ci}=entry;
+      const key=cm.raciKey;
+      const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
+      const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
+      const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
+      const inProg=myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
+      const notStarted=myTasks.filter(t=>t.status==='Not Started').length;
+      const tasksHtml2=myTasks.slice(0,5).map(t=>{
+        const isWarn=t.flag&&(t.flag.startsWith('⛔')||t.flag.startsWith('⚠️'));
+        const isDone=t.status==='Done'||t.status==='Complete';
+        const col2=isWarn?'var(--red)':isDone?'var(--green)':'var(--muted)';
+        const label=t.name.length>28?t.name.substring(0,26)+'…':t.name;
+        return `<div class="tc-task"><span class="tc-task-name" style="color:${col2}">${t.id}: ${label}</span></div>`;
+      }).join('');
+      const statsHtml2=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
+        .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
+      const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
+      return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
+        ${dragHandle}
+        <div style="position:absolute;top:10px;right:10px"><button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button></div>
+        <div class="tc-name">${cm.name}${accessLabel}</div>
+        <div class="tc-role">${cm.role}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
+        ${tasksHtml2}<div class="tc-stats">${statsHtml2}</div>
+      </div>`;
+    }
   }).join('');
-  // Append custom team member cards
-  const customMembers=_getCustomTeamMembers();
-  el.innerHTML += customMembers.map((cm,i)=>{
-    const key=cm.raciKey;
-    const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
-    const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
-    const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
-    const inProg=myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
-    const notStarted=myTasks.filter(t=>t.status==='Not Started').length;
-    const tasksHtml2=myTasks.slice(0,5).map(t=>{
-      const isWarn=t.flag&&(t.flag.startsWith('⛔')||t.flag.startsWith('⚠️'));
-      const isDone=t.status==='Done'||t.status==='Complete';
-      const col2=isWarn?'var(--red)':isDone?'var(--green)':'var(--muted)';
-      const label=t.name.length>28?t.name.substring(0,26)+'…':t.name;
-      return `<div class="tc-task"><span class="tc-task-name" style="color:${col2}">${t.id}: ${label}</span></div>`;
-    }).join('');
-    const statsHtml2=[
-      {k:'Total',v:myTasks.length},{k:'Done',v:done},
-      {k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}
-    ].map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
-    const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
-    return `<div class="tc" style="position:relative">
-      <div style="position:absolute;top:10px;right:10px">
-        <button onclick="openTeamMemberModal(${i})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>
-      </div>
-      <div class="tc-name">${cm.name}${accessLabel}</div>
-      <div class="tc-role">${cm.role}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
-      ${tasksHtml2}
-      <div class="tc-stats">${statsHtml2}</div>
-    </div>`;
-  }).join('');
+  _initTeamGridDnd(el);
   const lbl=document.getElementById('team-section-label');
   const total=DASHBOARD_DATA.team.length+customMembers.length;
   if(lbl) lbl.textContent=`Team Responsibility Summary — ${total} Members`;
