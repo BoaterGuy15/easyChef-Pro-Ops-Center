@@ -2607,45 +2607,47 @@ function saveRevenue(inp){
 function saveBudgetToLocal(){
   try{
     const b=DASHBOARD_DATA.budget;
-    const payload={
-      capital:b.capital,
-      startingCapital:b.startingCapital,
-      adBudget:b.adBudget,
-      adPhases:b.adPhases,
-      payoneerActive:b.payoneer.active,
-      monthlyRevenue:b.monthlyRevenue||0,
-      runwayScenario:b.runwayScenario||'pre-launch',
-      minReserve:b.minReserve,
-      team:b.team,
-    };
-    localStorage.setItem('dgl_budget',JSON.stringify(payload));
-    // Fire-and-forget sync to Budget sheet
+    localStorage.setItem('dgl_budget',JSON.stringify(b));
     if(CONFIG.sheetsUrl){
       fetch(CONFIG.sheetsUrl,{
         method:'POST',mode:'no-cors',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'budget_write',budget:payload})
+        body:JSON.stringify({action:'budget_write',budget:b})
       }).catch(()=>{});
     }
   }catch(e){}
+}
+function _mergeBudget(d){
+  const b=DASHBOARD_DATA.budget;
+  if(d.capital!==undefined)         b.capital=d.capital;
+  if(d.startingCapital!==undefined) b.startingCapital=d.startingCapital;
+  if(d.adBudget!==undefined)        b.adBudget=d.adBudget;
+  if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length===b.adPhases.length)
+    b.adPhases=d.adPhases;
+  if(d.payoneer&&d.payoneer.active)  b.payoneer.active=d.payoneer.active;
+  if(d.monthlyRevenue!==undefined)  b.monthlyRevenue=d.monthlyRevenue;
+  if(d.runwayScenario)              b.runwayScenario=d.runwayScenario;
+  if(d.minReserve!==undefined)      b.minReserve=d.minReserve;
+  if(d.team&&typeof d.team==='object')
+    Object.keys(d.team).forEach(k=>{ if(k in b.team) b.team[k]=d.team[k]; });
 }
 function loadBudgetFromLocal(){
   try{
     const raw=localStorage.getItem('dgl_budget');
     if(!raw) return;
-    const d=JSON.parse(raw);
-    const b=DASHBOARD_DATA.budget;
-    if(d.capital!==undefined)        b.capital=d.capital;
-    if(d.startingCapital!==undefined) b.startingCapital=d.startingCapital;
-    if(d.adBudget!==undefined)       b.adBudget=d.adBudget;
-    if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length===b.adPhases.length)
-      b.adPhases=d.adPhases;
-    if(d.payoneerActive)             b.payoneer.active=d.payoneerActive;
-    if(d.monthlyRevenue!==undefined) b.monthlyRevenue=d.monthlyRevenue;
-    if(d.runwayScenario)             b.runwayScenario=d.runwayScenario;
-    if(d.minReserve!==undefined)     b.minReserve=d.minReserve;
-    if(d.team&&typeof d.team==='object') Object.keys(d.team).forEach(k=>{ if(k in b.team) b.team[k]=d.team[k]; });
+    _mergeBudget(JSON.parse(raw));
   }catch(e){}
+}
+function loadBudgetFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=budget_read',{mode:'cors'})
+    .then(r=>r.json())
+    .then(data=>{
+      if(!data.ok||!data.budget) return;
+      _mergeBudget(data.budget);
+      renderBudget();
+    })
+    .catch(()=>{});
 }
 
 function setAdBudget(){
@@ -3300,6 +3302,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadFromLocal();
   loadBudgetFromLocal();
   loadFromSheets();
+  loadBudgetFromSheets();
   buildCommandKPIs();
   buildGapList();
   buildMilestones();
