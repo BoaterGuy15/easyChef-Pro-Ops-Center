@@ -852,6 +852,9 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div class="section-label" style="margin-top:32px">Ad Budget Phase Allocation</div>
   <div class="card" id="ad-phase-card"></div>
 
+  <div class="section-label" style="margin-top:32px">PMF Kill Criteria — June 8 Checkpoint</div>
+  <div class="card" id="kill-criteria-card"></div>
+
   <div class="section-label" style="margin-top:32px">What-If Scenario Playground</div>
   <div class="card" id="whatif-card"></div>
 </div>
@@ -2719,7 +2722,12 @@ function renderAdPhases(){
       <td style="text-align:right">
         <span id="phase-daily-${i}" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)"></span>
       </td>
-      <td style="padding-left:10px;text-align:center">
+      <td style="padding-left:10px;text-align:right;white-space:nowrap">
+        <button onclick="phaseSetFromSandbox(${i})"
+          style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-right:6px"
+          onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)'"
+          onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'"
+          title="Set % from sandbox day proportion">Set from Sandbox</button>
         <span onclick="removePhase(${i})" title="Remove phase"
           style="cursor:pointer;color:var(--muted);font-size:15px;line-height:1;user-select:none"
           onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">×</span>
@@ -2757,6 +2765,20 @@ function renderAdPhases(){
               <span onclick="addPhase()" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;letter-spacing:0.5px;border:1px dashed var(--border);padding:4px 12px;border-radius:6px;display:inline-block;transition:all 0.15s"
                 onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)'"
                 onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">+ Add Phase</span>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="6" style="padding-top:10px">
+              <div style="display:flex;gap:8px">
+                <button id="phase-save-preset-btn" onclick="phaseSaveToPreset()"
+                  style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s"
+                  onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)'"
+                  onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Save to Sandbox Preset</button>
+                <button onclick="phaseLoadFromSandbox()"
+                  style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s"
+                  onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)'"
+                  onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Load from Sandbox</button>
+              </div>
             </td>
           </tr>
         </tfoot>
@@ -2821,6 +2843,175 @@ function removePhase(i){
   _normalizePhasePcts();
   saveBudgetToLocal();
   renderAdPhases();
+}
+
+function phaseSetFromSandbox(i){
+  const phases=DASHBOARD_DATA.budget.adPhases;
+  const totalDays=phases.reduce((a,p)=>a+(_phaseDaysCount(p)||0),0);
+  if(!totalDays) return;
+  const thisDays=_phaseDaysCount(phases[i])||0;
+  const newPct=Math.round(thisDays/totalDays*100);
+  const otherSum=phases.reduce((a,p,j)=>j!==i?a+p.pct:a,0);
+  const remaining=100-newPct;
+  phases[i].pct=newPct;
+  if(otherSum>0){
+    phases.forEach((p,j)=>{ if(j!==i) p.pct=Math.round(p.pct/otherSum*remaining); });
+  } else {
+    const share=phases.length>1?Math.floor(remaining/(phases.length-1)):0;
+    phases.forEach((p,j)=>{ if(j!==i) p.pct=share; });
+  }
+  const sum=phases.reduce((a,p)=>a+p.pct,0);
+  const diff=100-sum;
+  if(diff!==0){ const fi=phases.findIndex((_,j)=>j!==i); if(fi>=0) phases[fi].pct+=diff; }
+  saveBudgetToLocal();
+  renderAdPhases();
+}
+function phaseSaveToPreset(){
+  const b=DASHBOARD_DATA.budget;
+  const label='Phase Alloc — '+(DASHBOARD_DATA.meta.milestoneLabel||DASHBOARD_DATA.meta.milestoneDate||'Launch');
+  _getWiPresets()['phase_'+Date.now()]={label,adSpend:b.adBudget,revenue:b.monthlyRevenue||0};
+  _saveWiPresets();
+  const btn=document.getElementById('phase-save-preset-btn');
+  if(btn){btn.textContent='Saved ✓';btn.style.color='var(--green)';btn.style.borderColor='var(--green)';
+    setTimeout(()=>{btn.textContent='Save to Sandbox Preset';btn.style.color='';btn.style.borderColor='';},2000);}
+}
+function phaseLoadFromSandbox(){
+  DASHBOARD_DATA.budget.adBudget=_wiState.adSpend||0;
+  saveBudgetToLocal();
+  renderBudget();
+  renderAdPhases();
+}
+
+// ── PMF Kill Criteria ─────────────────────────────────────
+const DEFAULT_KILL_CRITERIA={
+  checkpointDate:'2026-06-08',
+  consequence:'4-week delay if thresholds not met',
+  kpis:[
+    {name:'First Strike Rate',    target:'',   current:'',notes:''},
+    {name:'14-Day Retention',     target:'',   current:'',notes:''},
+    {name:'Sean Ellis PMF Score', target:'40', current:'',notes:''},
+  ]
+};
+let _killCriteria=null;
+function _getKillCriteria(){
+  if(_killCriteria) return _killCriteria;
+  _killCriteria=JSON.parse(JSON.stringify(DEFAULT_KILL_CRITERIA));
+  try{
+    const raw=localStorage.getItem('dgl_kill_criteria');
+    if(raw){
+      const d=JSON.parse(raw);
+      if(d.checkpointDate) _killCriteria.checkpointDate=d.checkpointDate;
+      if(d.consequence)    _killCriteria.consequence=d.consequence;
+      if(d.kpis&&Array.isArray(d.kpis)&&d.kpis.length>=3) _killCriteria.kpis=d.kpis;
+    }
+  }catch(e){}
+  return _killCriteria;
+}
+function saveKillCriteria(){
+  const kc=_getKillCriteria();
+  try{localStorage.setItem('dgl_kill_criteria',JSON.stringify(kc));}catch(e){}
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'kill_criteria_write',killCriteria:kc})
+    }).catch(()=>{});
+  }
+}
+function _kpiStatus(kpi){
+  if(!kpi.target||kpi.target===''||kpi.current===''||kpi.current===undefined) return 'pending';
+  const t=parseFloat(kpi.target), c=parseFloat(kpi.current);
+  if(isNaN(t)||isNaN(c)) return 'pending';
+  if(c>=t)       return 'met';
+  if(c>=t*0.8)   return 'risk';
+  return 'notmet';
+}
+function renderKillCriteria(){
+  const card=document.getElementById('kill-criteria-card');
+  if(!card) return;
+  const kc=_getKillCriteria();
+  const statuses=kc.kpis.map(_kpiStatus);
+  const anyPending=statuses.includes('pending');
+  const anyNotMet =statuses.includes('notmet');
+  const allMet    =statuses.every(s=>s==='met');
+  const cpDate=new Date(kc.checkpointDate+'T00:00:00');
+  cpDate.setDate(cpDate.getDate()+28);
+  const delayDate=cpDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  let banner;
+  if(anyPending)
+    banner=`<div style="padding:8px 14px;background:rgba(245,158,11,0.1);border:1px solid var(--amber);border-radius:7px;font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);letter-spacing:0.5px">⏳ PENDING — Set thresholds Monday</div>`;
+  else if(anyNotMet)
+    banner=`<div style="padding:8px 14px;background:rgba(239,68,68,0.12);border:1px solid var(--red);border-radius:7px">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);letter-spacing:0.5px;font-weight:600">⛔ KILL SWITCH TRIGGERED</div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:3px">Delay launch 4 weeks — new date: <span style="color:var(--amber)">${delayDate}</span></div>
+    </div>`;
+  else if(allMet)
+    banner=`<div style="padding:8px 14px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:7px;font-family:'DM Mono',monospace;font-size:9px;color:var(--green);letter-spacing:0.5px;font-weight:600">✓ ALL KPIs MET — LAUNCH CONFIRMED</div>`;
+  else
+    banner=`<div style="padding:8px 14px;background:rgba(245,158,11,0.08);border:1px solid var(--amber);border-radius:7px;font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);letter-spacing:0.5px">⚠️ AT RISK — Monitor closely</div>`;
+  const sIcon={met:'✓',risk:'⚠️',notmet:'⛔',pending:'—'};
+  const sCol ={met:'var(--green)',risk:'var(--amber)',notmet:'var(--red)',pending:'var(--muted)'};
+  const sLabel={met:'Met',risk:'At Risk',notmet:'Not Met',pending:'Pending'};
+  const iSt=`background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:3px 7px;outline:none`;
+  const fo=`onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"`;
+  const kpiRows=kc.kpis.map((k,i)=>{
+    const st=statuses[i];
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px 10px;min-width:140px">
+        <input type="text" value="${k.name}" style="${iSt};width:160px" ${fo}
+          onchange="updateKillKpi(${i},'name',this.value)">
+      </td>
+      <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+        <input type="number" value="${k.target}" placeholder="—" min="0" max="100" style="${iSt};width:58px;text-align:right" ${fo}
+          onchange="updateKillKpi(${i},'target',this.value)"><span style="color:var(--muted);font-size:11px;margin-left:2px">%</span>
+      </td>
+      <td style="padding:8px 10px;text-align:center;white-space:nowrap">
+        <input type="number" value="${k.current}" placeholder="—" min="0" max="100" style="${iSt};width:58px;text-align:right" ${fo}
+          oninput="updateKillKpi(${i},'current',this.value)"><span style="color:var(--muted);font-size:11px;margin-left:2px">%</span>
+      </td>
+      <td style="padding:8px 12px;text-align:center">
+        <span style="color:${sCol[st]};font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${sIcon[st]} ${sLabel[st]}</span>
+      </td>
+      <td style="padding:8px 10px;width:100%">
+        <input type="text" value="${k.notes||''}" placeholder="Notes…" style="${iSt};width:100%;box-sizing:border-box" ${fo}
+          onchange="updateKillKpi(${i},'notes',this.value)">
+      </td>
+    </tr>`;
+  }).join('');
+  card.innerHTML=`
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:14px">PMF KILL CRITERIA — THRESHOLD CHECK BEFORE LAUNCH COMMITMENT</div>
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;flex-wrap:wrap">
+      <div>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-right:8px">CHECKPOINT DATE</span>
+        <input type="date" value="${kc.checkpointDate}" style="${iSt}" ${fo} onchange="updateKillField('checkpointDate',this.value)">
+      </div>
+      <div>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-right:8px">CONSEQUENCE</span>
+        <input type="text" value="${kc.consequence}" style="${iSt};width:280px" ${fo} onchange="updateKillField('consequence',this.value)">
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-bottom:14px">
+      <table>
+        <thead><tr>
+          <th>KPI</th>
+          <th style="text-align:center">Target</th>
+          <th style="text-align:center">Current</th>
+          <th style="text-align:center">Status</th>
+          <th>Notes</th>
+        </tr></thead>
+        <tbody>${kpiRows}</tbody>
+      </table>
+    </div>
+    ${banner}`;
+}
+function updateKillKpi(i,field,val){
+  _getKillCriteria().kpis[i][field]=val;
+  saveKillCriteria();
+  renderKillCriteria();
+}
+function updateKillField(field,val){
+  _getKillCriteria()[field]=val;
+  saveKillCriteria();
+  renderKillCriteria();
 }
 
 // ── Milestone editor ────────────────────────────────────────
@@ -4068,6 +4259,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   buildAgendaPage();
   renderSpendLog();
   renderAdPhases();
+  renderKillCriteria();
   renderWhatIf();
   initFlagToolbar();
   initRaciPopover();
