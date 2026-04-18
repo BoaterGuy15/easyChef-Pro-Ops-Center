@@ -2416,6 +2416,8 @@ function openProfileModal(userKey){
   const tz=p.timezone||'America/Los_Angeles';
   document.getElementById('profile-modal-name').textContent=(info.name||userKey).toUpperCase();
   document.getElementById('profile-modal-role').textContent=info.role||'';
+  const _viewer=window._DGL_USER||'';
+  const canWrite=['taylor','steve'].includes(_viewer)||_viewer===userKey;
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;box-sizing:border-box`;
   const fRow=(lbl,val)=>`<div style="margin-bottom:10px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:3px">${lbl}</div><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${val||'<span style="color:var(--border)">—</span>'}</div></div>`;
   const logItems=(p.log||[]).slice(-10).reverse();
@@ -2436,12 +2438,12 @@ function openProfileModal(userKey){
     </div>
     <div>
       <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">NOTES</div>
-      <textarea id="profile-notes" rows="4" style="${iSt};resize:vertical;margin-bottom:8px" placeholder="Private notes about this team member…">${p.notes||''}</textarea>
-      <button onclick="saveProfileNote('${userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;margin-bottom:18px">Save Note</button>
+      <textarea id="profile-notes" rows="4" style="${iSt};resize:vertical;margin-bottom:8px${canWrite?'':';opacity:0.7'}" placeholder="Private notes about this team member…"${canWrite?'':' readonly'}>${p.notes||''}</textarea>
+      ${canWrite?`<button onclick="saveProfileNote('${userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;margin-bottom:18px">Save Note</button>`:''}
       <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:8px">COMMUNICATION LOG</div>
       <div style="display:flex;gap:6px;margin-bottom:10px">
-        <input type="text" id="profile-log-input" style="${iSt};flex:1" placeholder="Log an interaction…">
-        <button onclick="addProfileLog('${userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap">+ Add</button>
+        <input type="text" id="profile-log-input" style="${iSt};flex:1${canWrite?'':';opacity:0.7'}" placeholder="${canWrite?'Log an interaction…':'View only'}"${canWrite?'':' readonly'}>
+        ${canWrite?`<button onclick="addProfileLog('${userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap">+ Add</button>`:''}
       </div>
       <div id="profile-log-list" style="max-height:180px;overflow-y:auto">${logHtml}</div>
     </div>`;
@@ -2491,35 +2493,39 @@ function openDefaultTeamMemberModal(user){
   const ed=(_getDefaultTeamEdits()[user])||{};
   const cur={...def,...ed};
   const p=(_getProfiles()[user])||{};
+  const _dv=window._DGL_USER||'';
+  const canWrite=['taylor','steve'].includes(_dv)||_dv===user;
   const title=document.getElementById('tmm-title');
   if(title) title.textContent='EDIT TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
   const roSt=iSt+';opacity:0.5';
+  const fSt=canWrite?iSt:iSt+';opacity:0.7';
+  const ro=canWrite?'':' readonly';
   const colorOpts=['gold','blue','purple','green','teal','amber','muted'].map(c=>`<option value="${c}"${cur.color===c?' selected':''}>${c}</option>`).join('');
   const levelOpts=['Founder','Executive','Member','View Only'].map(l=>`<option value="${l}"${cur.accessLevel===l?' selected':''}>${l}</option>`).join('');
   document.getElementById('tmm-modal-body').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cur.name||''}" style="${iSt}"></div>
-      <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cur.role||''}" style="${iSt}"></div>
-      <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cur.email||''}" style="${iSt}"></div>
-      <div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep" style="${iSt}"></div>
+      <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cur.name||''}" style="${fSt}"${ro}></div>
+      <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cur.role||''}" style="${fSt}"${ro}></div>
+      <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cur.email||''}" style="${fSt}"${ro}></div>
+      <div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep" style="${fSt}"${ro}></div>
       <div class="modal-field"><label>RACI Column Name</label><input type="text" value="${cur.raciKey||''}" readonly style="${roSt}"></div>
       <div class="modal-field"><label>Login Key</label><input type="text" value="${cur.user||''}" readonly style="${roSt}"></div>
-      <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${iSt}">${levelOpts}</select></div>
-      <div class="modal-field"><label>Badge Color</label><select id="tmm-color" style="${iSt}">${colorOpts}</select></div>
+      <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${fSt}"${canWrite?'':' disabled'}>${levelOpts}</select></div>
+      <div class="modal-field"><label>Badge Color</label><select id="tmm-color" style="${fSt}"${canWrite?'':' disabled'}>${colorOpts}</select></div>
     </div>
     <div style="margin-top:18px">
       <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">PROFILE DETAILS</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="modal-field"><label>Phone</label><input type="text" id="tmm-phone" value="${p.phone||''}" placeholder="+1 555 000 0000" style="${iSt}"></div>
-        <div class="modal-field"><label>Slack Username</label><input type="text" id="tmm-slack" value="${p.slack||''}" placeholder="@username" style="${iSt}"></div>
-        <div class="modal-field"><label>Slack Channels</label><input type="text" id="tmm-channels" value="${p.channels||''}" placeholder="#general, #product" style="${iSt}"></div>
-        <div class="modal-field"><label>GitHub Username</label><input type="text" id="tmm-github" value="${p.github||''}" placeholder="username" style="${iSt}"></div>
-        <div class="modal-field" style="grid-column:span 2"><label>Timezone</label><input type="text" id="tmm-timezone" value="${p.timezone||''}" placeholder="America/Los_Angeles" style="${iSt}"></div>
+        <div class="modal-field"><label>Phone</label><input type="text" id="tmm-phone" value="${p.phone||''}" placeholder="+1 555 000 0000" style="${fSt}"${ro}></div>
+        <div class="modal-field"><label>Slack Username</label><input type="text" id="tmm-slack" value="${p.slack||''}" placeholder="@username" style="${fSt}"${ro}></div>
+        <div class="modal-field"><label>Slack Channels</label><input type="text" id="tmm-channels" value="${p.channels||''}" placeholder="#general, #product" style="${fSt}"${ro}></div>
+        <div class="modal-field"><label>GitHub Username</label><input type="text" id="tmm-github" value="${p.github||''}" placeholder="username" style="${fSt}"${ro}></div>
+        <div class="modal-field" style="grid-column:span 2"><label>Timezone</label><input type="text" id="tmm-timezone" value="${p.timezone||''}" placeholder="America/Los_Angeles" style="${fSt}"${ro}></div>
       </div>
     </div>
     <div class="modal-actions" style="justify-content:flex-end;margin-top:20px;gap:10px">
-      <button class="btn-primary" onclick="saveDefaultTeamMember('${user}')">Save</button>
+      ${canWrite?`<button class="btn-primary" onclick="saveDefaultTeamMember('${user}')">Save</button>`:''}
       <button class="btn-secondary" onclick="closeTeamMemberModal()">Cancel</button>
     </div>`;
   overlay.classList.add('open');
@@ -2579,36 +2585,40 @@ function openTeamMemberModal(idx){
   const arr=_getCustomTeamMembers();
   const cm=idx>=0?arr[idx]:null;
   const p=cm?(_getProfiles()[cm.user]||{}):{};
+  const _dv2=window._DGL_USER||'';
+  const canWrite2=['taylor','steve'].includes(_dv2)||(cm&&_dv2===cm.user);
   const title=document.getElementById('tmm-title');
   if(title) title.textContent=cm?'EDIT TEAM MEMBER':'ADD TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
+  const fSt2=canWrite2?iSt:iSt+';opacity:0.7';
+  const ro2=canWrite2?'':' readonly';
   const colorOpts=['gold','blue','purple','green','teal','amber','muted'].map(c=>`<option value="${c}"${cm&&cm.color===c?' selected':''}>${c}</option>`).join('');
   const levelOpts=['Founder','Executive','Member','View Only'].map(l=>`<option value="${l}"${(cm?cm.accessLevel:l)==='Member'&&l==='Member'?' selected':cm&&cm.accessLevel===l?' selected':''}>${l}</option>`).join('');
   document.getElementById('tmm-modal-body').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cm?cm.name:''}" placeholder="Alice Smith" style="${iSt}"></div>
-      <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cm?cm.role:''}" placeholder="Marketing Associate" style="${iSt}"></div>
-      <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cm?cm.email:''}" placeholder="alice@DGL.dev" style="${iSt}"></div>
-      <div class="modal-field"><label>Password ${cm?'(blank = keep current)':''}</label><input type="password" id="tmm-password" placeholder="${cm?'Leave blank to keep':'Set password'}" style="${iSt}"></div>
-      <div class="modal-field"><label>RACI Column Name (no spaces)</label><input type="text" id="tmm-raci" value="${cm?cm.raciKey:''}" placeholder="Alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+iSt+'"'}></div>
-      <div class="modal-field"><label>Login Key (lowercase, no spaces)</label><input type="text" id="tmm-user" value="${cm?cm.user:''}" placeholder="alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+iSt+'"'}></div>
-      <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${iSt}">${levelOpts}</select></div>
-      <div class="modal-field"><label>Badge Color</label><select id="tmm-color" style="${iSt}">${colorOpts}</select></div>
+      <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cm?cm.name:''}" placeholder="Alice Smith" style="${fSt2}"${ro2}></div>
+      <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cm?cm.role:''}" placeholder="Marketing Associate" style="${fSt2}"${ro2}></div>
+      <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cm?cm.email:''}" placeholder="alice@DGL.dev" style="${fSt2}"${ro2}></div>
+      <div class="modal-field"><label>Password ${cm?'(blank = keep current)':''}</label><input type="password" id="tmm-password" placeholder="${cm?'Leave blank to keep':'Set password'}" style="${fSt2}"${ro2}></div>
+      <div class="modal-field"><label>RACI Column Name (no spaces)</label><input type="text" id="tmm-raci" value="${cm?cm.raciKey:''}" placeholder="Alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+fSt2+'"'+ro2}></div>
+      <div class="modal-field"><label>Login Key (lowercase, no spaces)</label><input type="text" id="tmm-user" value="${cm?cm.user:''}" placeholder="alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+fSt2+'"'+ro2}></div>
+      <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${fSt2}"${canWrite2?'':' disabled'}>${levelOpts}</select></div>
+      <div class="modal-field"><label>Badge Color</label><select id="tmm-color" style="${fSt2}"${canWrite2?'':' disabled'}>${colorOpts}</select></div>
     </div>
     <div style="margin-top:18px">
       <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">PROFILE DETAILS</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="modal-field"><label>Phone</label><input type="text" id="tmm-phone" value="${p.phone||''}" placeholder="+1 555 000 0000" style="${iSt}"></div>
-        <div class="modal-field"><label>Slack Username</label><input type="text" id="tmm-slack" value="${p.slack||''}" placeholder="@username" style="${iSt}"></div>
-        <div class="modal-field"><label>Slack Channels</label><input type="text" id="tmm-channels" value="${p.channels||''}" placeholder="#general, #product" style="${iSt}"></div>
-        <div class="modal-field"><label>GitHub Username</label><input type="text" id="tmm-github" value="${p.github||''}" placeholder="username" style="${iSt}"></div>
-        <div class="modal-field" style="grid-column:span 2"><label>Timezone</label><input type="text" id="tmm-timezone" value="${p.timezone||''}" placeholder="America/Los_Angeles" style="${iSt}"></div>
+        <div class="modal-field"><label>Phone</label><input type="text" id="tmm-phone" value="${p.phone||''}" placeholder="+1 555 000 0000" style="${fSt2}"${ro2}></div>
+        <div class="modal-field"><label>Slack Username</label><input type="text" id="tmm-slack" value="${p.slack||''}" placeholder="@username" style="${fSt2}"${ro2}></div>
+        <div class="modal-field"><label>Slack Channels</label><input type="text" id="tmm-channels" value="${p.channels||''}" placeholder="#general, #product" style="${fSt2}"${ro2}></div>
+        <div class="modal-field"><label>GitHub Username</label><input type="text" id="tmm-github" value="${p.github||''}" placeholder="username" style="${fSt2}"${ro2}></div>
+        <div class="modal-field" style="grid-column:span 2"><label>Timezone</label><input type="text" id="tmm-timezone" value="${p.timezone||''}" placeholder="America/Los_Angeles" style="${fSt2}"${ro2}></div>
       </div>
     </div>
     <div class="modal-actions" style="justify-content:space-between;margin-top:20px">
-      ${idx>=0?`<button onclick="deleteTeamMember(${idx})" style="background:none;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;padding:0">Delete Member</button>`:'<span></span>'}
+      ${idx>=0&&canWrite2?`<button onclick="deleteTeamMember(${idx})" style="background:none;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;padding:0">Delete Member</button>`:'<span></span>'}
       <div style="display:flex;gap:10px">
-        <button class="btn-primary" onclick="saveTeamMember(${idx})">Save</button>
+        ${canWrite2?`<button class="btn-primary" onclick="saveTeamMember(${idx})">Save</button>`:''}
         <button class="btn-secondary" onclick="closeTeamMemberModal()">Cancel</button>
       </div>
     </div>`;
@@ -2736,9 +2746,11 @@ function buildTeamGrid(){
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const warnHtml=m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
       const noteHtml=m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
+      const canEdit=['taylor','steve'].includes(window._DGL_USER)||window._DGL_USER===userKey;
+      const editBtnHtml=canEdit?`<button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>`:'';
       return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
         ${dragHandle}
-        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button><button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button></div>
+        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnHtml}</div>
         <div class="tc-name">${displayName}${badgeHtml}</div>
         <div class="tc-role">${displayRole}</div>
         ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${warnHtml}${noteHtml}
@@ -2761,9 +2773,11 @@ function buildTeamGrid(){
       const statsHtml2=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
+      const canEdit2=['taylor','steve'].includes(window._DGL_USER)||window._DGL_USER===cm.user;
+      const editBtnHtml2=canEdit2?`<button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>`:'';
       return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
         ${dragHandle}
-        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button><button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button></div>
+        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnHtml2}</div>
         <div class="tc-name">${cm.name}${accessLabel}</div>
         <div class="tc-role">${cm.role}</div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
