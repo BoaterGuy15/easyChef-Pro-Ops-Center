@@ -1,3 +1,69 @@
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  GOOGLE APPS SCRIPT — Code.gs                                       ║
+  ║  Deploy: Extensions → Apps Script → Deploy → New deployment         ║
+  ║    Execute as: Me  |  Who has access: Anyone                        ║
+  ║  Paste the Web App URL into CONFIG.sheetsUrl below.                 ║
+  ║  Sheet must be named exactly: Tasks                                 ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+
+  const SHEET_NAME = 'Tasks';
+  const FIELDS = [
+    'id','name','cat','pri','status','owner','deps','notes',
+    'Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',
+    'flag','flagColor','sd','ed','lastStatusChange'
+  ];
+
+  function doGet(e) {
+    try {
+      return respond({ ok: true, tasks: getTasks() });
+    } catch(err) {
+      return respond({ ok: false, error: err.message });
+    }
+  }
+
+  function doPost(e) {
+    try {
+      const tasks = JSON.parse(e.postData.contents);
+      setTasks(tasks);
+      return respond({ ok: true });
+    } catch(err) {
+      return respond({ ok: false, error: err.message });
+    }
+  }
+
+  function getTasks() {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    if (!sheet) return [];
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return [];
+    const header = rows[0];
+    return rows.slice(1).map(row => {
+      const obj = {};
+      header.forEach((col, i) => { obj[col] = (row[i] == null) ? '' : String(row[i]); });
+      return obj;
+    });
+  }
+
+  function setTasks(tasks) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+    sheet.clearContents();
+    const rows = [FIELDS, ...tasks.map(t => FIELDS.map(f => t[f] !== undefined ? t[f] : ''))];
+    sheet.getRange(1, 1, rows.length, FIELDS.length).setValues(rows);
+  }
+
+  function respond(data) {
+    return ContentService
+      .createTextOutput(JSON.stringify(data))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // CORS NOTE: Apps Script includes CORS headers for GET automatically.
+  // POST from the browser uses mode:'no-cors' (fire-and-forget). The sync
+  // indicator shows 'Synced ✓' optimistically once the request completes.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -307,6 +373,7 @@ tr.hidden-row{display:none}
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
     <div id="user-badge"></div>
     <button id="sign-out-btn" onclick="doSignOut()">Sign out</button>
+    <span id="sync-status" style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;display:none"></span>
     <button id="briefing-bell" onclick="showBriefing()" title="Open daily briefing">🔔<span id="bell-dot"></span></button>
     <div class="live-dot" id="live-dot" title="Live data"></div>
   </div>
@@ -317,9 +384,14 @@ tr.hidden-row{display:none}
      ══════════════════════════════════════════════ -->
 <script>
 // ─────────────────────────────────────────────────────────────
+// CONFIG — paste your Apps Script Web App URL to enable sync
+// ─────────────────────────────────────────────────────────────
+const CONFIG = {
+  sheetsUrl: '' // e.g. 'https://script.google.com/macros/s/YOUR_ID/exec'
+};
+
+// ─────────────────────────────────────────────────────────────
 // DASHBOARD_DATA — single source of truth
-// When connecting to Google Sheets, replace this with:
-//   const DASHBOARD_DATA = await fetchFromGoogleSheets(SHEET_ID);
 // ─────────────────────────────────────────────────────────────
 const DASHBOARD_DATA = {
   meta: {
@@ -2216,8 +2288,55 @@ function saveTaskModal(taskId){
 
 // ── localStorage persistence ────────────────────────────────
 const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','sd','ed','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+
+// ── Google Sheets sync ──────────────────────────────────────
+function updateSyncStatus(state){
+  const el=document.getElementById('sync-status');
+  if(!el) return;
+  if(state==='syncing'){
+    el.textContent='Syncing...'; el.style.color='var(--muted)'; el.style.display='inline';
+  } else if(state==='ok'){
+    el.textContent='Synced ✓'; el.style.color='var(--green)'; el.style.display='inline';
+    setTimeout(()=>{ el.style.display='none'; }, 3000);
+  } else {
+    el.textContent='Sync failed ✗'; el.style.color='var(--red)'; el.style.display='inline';
+  }
+}
+let _sheetsDebounce=null;
+function saveToSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  clearTimeout(_sheetsDebounce);
+  _sheetsDebounce=setTimeout(()=>{
+    updateSyncStatus('syncing');
+    fetch(CONFIG.sheetsUrl,{
+      method:'POST',
+      mode:'no-cors',
+      body:JSON.stringify(DASHBOARD_DATA.tasks)
+    })
+    .then(()=>updateSyncStatus('ok'))
+    .catch(()=>updateSyncStatus('fail'));
+  }, 2000);
+}
+function loadFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  updateSyncStatus('syncing');
+  fetch(CONFIG.sheetsUrl)
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.tasks||[]);
+      if(!rows.length) return;
+      rows.forEach(s=>{
+        const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
+        if(t) _PERSIST_FIELDS.forEach(f=>{ if(s[f]!==undefined) t[f]=s[f]; });
+      });
+      masterRefresh();
+      updateSyncStatus('ok');
+    })
+    .catch(()=>updateSyncStatus('fail'));
+}
 function saveToLocal(){
   try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
+  saveToSheets();
 }
 function loadFromLocal(){
   try{
@@ -2385,6 +2504,7 @@ function triggerCelebration(){
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
   loadFromLocal();
+  loadFromSheets();
   buildCommandKPIs();
   buildGapList();
   buildMilestones();
