@@ -308,12 +308,13 @@ tr.hidden-row{display:none}
 /* ── ROADMAP ── */
 .roadmap-wrap{overflow-x:auto;overflow-y:clip}
 #roadmap-sticky-header{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7)}
-.roadmap-table{border-collapse:collapse;min-width:900px;width:100%}
-.roadmap-table th{background:var(--surface);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:8px 10px;text-align:center;border:1px solid var(--border);white-space:nowrap;position:sticky;z-index:38}
-.roadmap-table th.ws-col{text-align:left;min-width:160px;left:0;z-index:42}
+.roadmap-table{border-collapse:separate;border-spacing:0;min-width:900px;width:100%}
+.roadmap-table th{background:var(--surface);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:8px 10px;text-align:center;border:1px solid var(--border);border-left:none;border-top:none;white-space:nowrap;position:sticky;z-index:38}
+.roadmap-table thead tr:first-child th{border-top:1px solid var(--border)}
+.roadmap-table th.ws-col{text-align:left;min-width:160px;left:0;z-index:42;border-left:1px solid var(--border)}
 .roadmap-table th.launch-col{background:rgba(52,211,153,0.06);color:var(--green)}
-.roadmap-table td{border:1px solid var(--border);padding:6px 8px;font-size:11px;vertical-align:top}
-.roadmap-table td.ws-label{font-size:12px;color:var(--text);font-weight:500;background:var(--surface);white-space:nowrap;position:sticky;left:0;z-index:2}
+.roadmap-table td{border:1px solid var(--border);border-left:none;border-top:none;padding:6px 8px;font-size:11px;vertical-align:top}
+.roadmap-table td.ws-label{font-size:12px;color:var(--text);font-weight:500;background:var(--surface);white-space:nowrap;position:sticky;left:0;z-index:2;border-left:1px solid var(--border)}
 .rm-cell{background:var(--card);border-radius:4px;padding:4px 6px;font-size:10px;color:var(--muted);line-height:1.4}
 .rm-cell.active{background:rgba(201,168,76,0.08);color:var(--gold-light);border-left:2px solid var(--gold)}
 .rm-cell.milestone{background:rgba(52,211,153,0.08);color:var(--green);border-left:2px solid var(--green);font-weight:500}
