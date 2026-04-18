@@ -467,7 +467,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <!-- ══ PAGE: RACI ══ -->
 <div id="page-raci" class="page">
   <div class="section-label">RACI Workflow Tracker — 40 Tasks</div>
-  <div class="filter-bar">
+  <div class="filter-bar" id="raci-person-filter-bar">
     <span class="filter-label">Filter by person:</span>
     <button class="filter-btn active" onclick="filterRaci('all',this)">All</button>
     <button class="filter-btn" onclick="filterRaci('Taylor',this)">Taylor</button>
@@ -1106,9 +1106,17 @@ function raciSearch(val){
   applyRaciFilters();
 }
 function filterRaci(person, btn){
-  raciPersonFilter = person;
-  document.querySelectorAll('.filter-bar:first-of-type .filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  const allBtns = document.querySelectorAll('#raci-person-filter-bar .filter-btn');
+  const allBtn = document.querySelector('#raci-person-filter-bar .filter-btn');
+  if(person !== 'all' && raciPersonFilter === person){
+    raciPersonFilter = 'all';
+    allBtns.forEach(b=>b.classList.remove('active'));
+    if(allBtn) allBtn.classList.add('active');
+  } else {
+    raciPersonFilter = person;
+    allBtns.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  }
   applyRaciFilters();
 }
 function filterStatus(status, btn){
