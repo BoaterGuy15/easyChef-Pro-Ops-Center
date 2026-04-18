@@ -1037,16 +1037,16 @@ function applyRaciFilters(){
       if(!val||val==='I') show=false;
     }
     if(raciStatusFilter!=='all'&&show){
+      const task=DASHBOARD_DATA.tasks.find(t=>t.id===tr.dataset.id);
       if(raciStatusFilter==='overdue'){
-        const task=DASHBOARD_DATA.tasks.find(t=>t.id===tr.dataset.id);
         const now=getPSTDate();
         const end=task&&task.ed?new Date(task.ed):null; if(end) end.setHours(0,0,0,0);
-        const done=tr.dataset.status==='Done'||tr.dataset.status==='Complete';
+        const done=task&&(task.status==='Done'||task.status==='Complete');
         const selfOverdue=end&&now>end&&!done;
         const depBlocked=task&&getBlockingDeps(task).length>0;
         if(!selfOverdue&&!depBlocked) show=false;
       } else {
-        if(tr.dataset.status!==raciStatusFilter) show=false;
+        if(!task||task.status!==raciStatusFilter) show=false;
       }
     }
     if(raciPriFilter!=='all'&&show){
