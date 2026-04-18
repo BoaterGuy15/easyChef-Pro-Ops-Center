@@ -3075,7 +3075,7 @@ function renderKillCriteria(){
           onchange="updateKillKpi(${i},'target',this.value)"><span style="color:var(--muted);font-size:11px;margin-left:2px">%</span>
       </td>
       <td style="padding:8px 10px;text-align:center;white-space:nowrap">
-        <input type="number" value="${k.current}" placeholder="—" min="0" max="100" style="${iSt};width:58px;text-align:right" ${fo}
+        <input id="pmf-cur-${i}" type="number" value="${k.current}" placeholder="—" min="0" max="100" style="${iSt};width:58px;text-align:right" ${fo}
           oninput="updateKillKpi(${i},'current',this.value)"><span style="color:var(--muted);font-size:11px;margin-left:2px">%</span>
       </td>
       <td style="padding:8px 12px;text-align:center">
@@ -3220,9 +3220,10 @@ function _savePmfHistoryLocal(hist){
 function syncPmfToSheets(btn){
   if(!CONFIG.sheetsUrl) return;
   if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
+  const _pmfPayload={action:'pmf_write',pmfHistory:_getPmfHistory(),killCriteria:_getKillCriteria()};
   fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'pmf_write',pmfHistory:_getPmfHistory(),killCriteria:_getKillCriteria()})
+    body:JSON.stringify(_pmfPayload)
   }).then(()=>{
     if(btn){ btn.textContent='Synced ✓'; btn.style.color='var(--green)'; btn.style.borderColor='var(--green)';
       setTimeout(()=>{ btn.textContent='Sync to Sheets ↑'; btn.style.color=''; btn.style.borderColor=''; btn.disabled=false; },2000); }
@@ -3233,6 +3234,7 @@ function syncPmfToSheets(btn){
 function recordPmfReading(){
   const notesEl=document.getElementById('pmf-reading-notes');
   const notes=notesEl?notesEl.value.trim():'';
+  [0,1,2].forEach(i=>{ const el=document.getElementById('pmf-cur-'+i); if(el) updateKillKpi(i,'current',el.value); });
   const kc=_getKillCriteria();
   const statuses=kc.kpis.map(_kpiStatus);
   const overall=statuses.includes('notmet')?'notmet':statuses.every(s=>s==='met')?'met':statuses.includes('risk')?'risk':'pending';
@@ -3240,9 +3242,9 @@ function recordPmfReading(){
   const date=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
   const entry={
     date, notes, overall_status:overall,
-    kpi1_target:kc.kpis[0]?.target||'', kpi1_current:kc.kpis[0]?.current||'',
-    kpi2_target:kc.kpis[1]?.target||'', kpi2_current:kc.kpis[1]?.current||'',
-    kpi3_target:kc.kpis[2]?.target||'', kpi3_current:kc.kpis[2]?.current||''
+    kpi1_name:kc.kpis[0]?.name??'', kpi1_target:kc.kpis[0]?.target??'', kpi1_current:kc.kpis[0]?.current??'',
+    kpi2_name:kc.kpis[1]?.name??'', kpi2_target:kc.kpis[1]?.target??'', kpi2_current:kc.kpis[1]?.current??'',
+    kpi3_name:kc.kpis[2]?.name??'', kpi3_target:kc.kpis[2]?.target??'', kpi3_current:kc.kpis[2]?.current??''
   };
   const hist=_getPmfHistory();
   hist.push(entry);
