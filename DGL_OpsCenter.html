@@ -103,6 +103,11 @@ tr.hidden-row{display:none}
 .flag-edit{font-size:10px;min-width:120px;max-width:200px;outline:none;cursor:text;border-bottom:1px solid transparent;transition:border-color 0.15s;white-space:pre-wrap;word-break:break-word;line-height:1.5}
 .flag-edit:focus{border-bottom-color:var(--border)}
 .flag-edit:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none;font-style:italic}
+#flag-toolbar{position:fixed;z-index:500;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;box-shadow:0 6px 24px rgba(0,0,0,0.5);flex-direction:column;gap:4px;display:none}
+#flag-toolbar button{font-size:15px;background:transparent;border:none;cursor:pointer;padding:2px 3px;border-radius:4px;line-height:1;opacity:0.75;transition:opacity 0.1s,background 0.1s}
+#flag-toolbar button:hover{opacity:1;background:rgba(255,255,255,0.08)}
+.flag-swatch{width:14px;height:14px;border-radius:50%;cursor:pointer;border:1px solid transparent;transition:transform 0.12s,border-color 0.12s;flex-shrink:0}
+.flag-swatch:hover{transform:scale(1.3);border-color:rgba(255,255,255,0.4)}
 /* ── RACI table — no scroll, compact fit ── */
 #page-raci .table-wrap{overflow-x:visible}
 #page-raci table th{padding:6px 6px}
@@ -779,10 +784,65 @@ function applyFlagStyle(el, text){
   el.style.color = flagColor(text);
 }
 function setTaskFlag(id, el){
-  const task = DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
-  const text = el.innerText.trim();
-  task.flag = text;
-  applyFlagStyle(el, text);
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
+  const text=el.innerText.trim();
+  task.flag=text;
+  if(!task.flagColor) applyFlagStyle(el,text);
+}
+// ── Flag toolbar ──────────────────────────────────────────────
+let _ftId=null,_ftEl=null,_ftHide=null;
+function showFlagToolbar(el,id){
+  clearTimeout(_ftHide);
+  _ftId=id; _ftEl=el;
+  const tb=document.getElementById('flag-toolbar');
+  if(!tb) return;
+  tb.style.display='flex';
+  requestAnimationFrame(()=>{
+    const r=el.getBoundingClientRect();
+    tb.style.top=(r.top-tb.offsetHeight-6)+'px';
+    tb.style.left=Math.max(4,r.left)+'px';
+  });
+}
+function hideFlagToolbarSoon(){
+  _ftHide=setTimeout(()=>{
+    const tb=document.getElementById('flag-toolbar');
+    if(tb) tb.style.display='none';
+    _ftId=null; _ftEl=null;
+  },200);
+}
+function prependFlagIcon(icon){
+  if(!_ftEl) return;
+  const clean=_ftEl.innerText.trim().replace(/^[^\p{L}\p{N}]+\s*/u,'');
+  const next=icon+(clean?' '+clean:'');
+  _ftEl.innerText=next;
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===_ftId);
+  if(task){ task.flag=next; if(!task.flagColor) applyFlagStyle(_ftEl,next); }
+}
+function setFlagColor(color){
+  if(!_ftEl||!_ftId) return;
+  _ftEl.style.color=color;
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===_ftId);
+  if(task) task.flagColor=color;
+}
+function initFlagToolbar(){
+  const icons=['✓','⚠️','⛔','🔴','🟡','🟢','📌','🚀'];
+  const swatches=[
+    {c:'var(--text)',tip:'Default'},{c:'var(--green)',tip:'Green'},
+    {c:'var(--amber)',tip:'Amber'},{c:'var(--red)',tip:'Red'},
+    {c:'var(--gold)',tip:'Gold'},{c:'var(--muted)',tip:'Muted'},
+    {c:'#60a5fa',tip:'Blue'},{c:'#c084fc',tip:'Purple'}
+  ];
+  const tb=document.createElement('div');
+  tb.id='flag-toolbar';
+  tb.onmousedown=e=>{e.preventDefault();clearTimeout(_ftHide);};
+  tb.innerHTML=`
+    <div style="display:flex;gap:2px;align-items:center">
+      ${icons.map(i=>`<button onclick="prependFlagIcon('${i}')" title="${i}">${i}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:5px;align-items:center;padding-top:4px">
+      ${swatches.map(s=>`<div class="flag-swatch" style="background:${s.c}" title="${s.tip}" onclick="setFlagColor('${s.c}')"></div>`).join('')}
+    </div>`;
+  document.body.appendChild(tb);
 }
 function buildRaciTable(){
   const tbody = document.getElementById('raci-body');
@@ -811,7 +871,7 @@ function buildRaciTable(){
       <td>${ownerSelect(t)}</td>
       ${raciCell(t.Taylor)}${raciCell(t.Steve)}${raciCell(t.Adam)}${raciCell(t.Mary)}${raciCell(t.JR)}${raciCell(t.Hammad)}${raciCell(t.Searah)}${raciCell(t.Sadee)}
       ${taskProgress(t)}
-      <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${flagColor(t.flag)}" onblur="setTaskFlag('${t.id}',this)">${t.flag||''}</div></td>
+      <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()">${t.flag||''}</div></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1434,6 +1494,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   buildAgenda();
   renderSpendLog();
   renderAdPhases();
+  initFlagToolbar();
 });
 </script>
 </body>
