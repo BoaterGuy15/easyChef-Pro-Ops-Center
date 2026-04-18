@@ -505,11 +505,12 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <input id="raci-search" type="text" placeholder="Search tasks, owners, notes..." oninput="raciSearch(this.value)">
       <button id="raci-search-clear" onclick="raciSearch('');document.getElementById('raci-search').value=''" title="Clear">×</button>
     </div>
+    <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:5px 12px;white-space:nowrap;flex-shrink:0" onclick="showTaskModal(null)">+ New Task</button>
   </div>
   <div class="table-wrap">
     <table id="raci-table">
       <thead><tr>
-        <th>ID</th><th>Task</th><th>Category</th><th>Pri</th><th>Status</th><th>Owner</th>
+        <th style="width:28px;padding:4px 2px"></th><th>ID</th><th>Task</th><th>Category</th><th>Pri</th><th>Status</th><th>Owner</th>
         <th class="raci-person-col">Tay</th><th class="raci-person-col">Stv</th><th class="raci-person-col">Adm</th><th class="raci-person-col">Mry</th><th class="raci-person-col">JR</th><th class="raci-person-col">Hmd</th><th class="raci-person-col">Sea</th><th class="raci-person-col">Sde</th>
         <th>Timeline</th><th>ICS Flags / Notes</th>
       </tr></thead>
@@ -1026,6 +1027,7 @@ function buildRaciTable(){
     tr.dataset.pri = t.pri;
     tr.dataset.flag = t.flag;
     tr.innerHTML = `
+      <td style="padding:4px 2px;text-align:center;width:28px"><span style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span></td>
       <td class="tid">${t.id}</td>
       <td class="task-name">${t.name}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
       <td>${catSelect(t)}</td>
@@ -1858,6 +1860,101 @@ function masterRefresh(){
   buildAgenda();
   if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
   saveToLocal();
+}
+
+// ── Task modal (new + edit) ─────────────────────────────────
+function nextTaskId(){
+  const nums = DASHBOARD_DATA.tasks.map(t=>parseInt(t.id.replace('T-',''))||0);
+  return 'T-'+String(Math.max(...nums)+1).padStart(3,'0');
+}
+function showTaskModal(taskId){
+  const task = taskId ? DASHBOARD_DATA.tasks.find(t=>t.id===taskId) : null;
+  const isNew = !task;
+  const esc = s=>(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const id = isNew ? nextTaskId() : task.id;
+  const statuses = ['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'];
+  const owners = ['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
+  const catOpts = Object.keys(CAT_LABELS).map(o=>`<option value="${o}"${!isNew&&task.cat===o?' selected':''}>${CAT_LABELS[o]}</option>`).join('');
+  const statusOpts = statuses.map(o=>`<option${(!isNew&&task.status===o)||(isNew&&o==='Not Started')?' selected':''}>${o}</option>`).join('');
+  const ownerOpts = owners.map(o=>`<option${(!isNew&&task.owner===o)||(isNew&&o==='TBD')?' selected':''}>${o}</option>`).join('');
+  const priOpts = ['High','Medium','Low'].map(o=>`<option${(!isNew&&task.pri===o)||(isNew&&o==='Medium')?' selected':''}>${o}</option>`).join('');
+  document.getElementById('modal-content').innerHTML = `
+    <h3>${isNew?'New Task':'Edit Task'}</h3>
+    <div class="modal-sub">${isNew?'ADD TO RACI TRACKER':'EDIT · '+esc(task.id)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+      <div class="modal-field" style="grid-column:1/3">
+        <label>Task Name</label>
+        <input type="text" id="tm-name" value="${isNew?'':esc(task.name)}" placeholder="e.g. Email Campaign Setup">
+      </div>
+      <div class="modal-field">
+        <label>Task ID</label>
+        <input type="text" id="tm-id" value="${esc(id)}"${!isNew?' readonly style="opacity:0.5;pointer-events:none"':''}>
+      </div>
+      <div class="modal-field">
+        <label>Priority</label>
+        <select id="tm-pri">${priOpts}</select>
+      </div>
+      <div class="modal-field">
+        <label>Category</label>
+        <select id="tm-cat">${catOpts}</select>
+      </div>
+      <div class="modal-field">
+        <label>Status</label>
+        <select id="tm-status">${statusOpts}</select>
+      </div>
+      <div class="modal-field">
+        <label>Owner</label>
+        <select id="tm-owner">${ownerOpts}</select>
+      </div>
+      <div class="modal-field">
+        <label>Start Date</label>
+        <input type="date" id="tm-sd" value="${isNew?'':esc(task.sd||'')}">
+      </div>
+      <div class="modal-field">
+        <label>End Date</label>
+        <input type="date" id="tm-ed" value="${isNew?'':esc(task.ed||'')}">
+      </div>
+      <div class="modal-field" style="grid-column:1/3">
+        <label>Dependencies (comma-separated IDs)</label>
+        <input type="text" id="tm-deps" value="${isNew?'':esc(task.deps||'')}" placeholder="e.g. T-001, T-003">
+      </div>
+      <div class="modal-field" style="grid-column:1/3">
+        <label>Notes</label>
+        <textarea id="tm-notes">${isNew?'':esc(task.notes||'')}</textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveTaskModal('${isNew?'':taskId}')">${isNew?'Add Task':'Save Changes'}</button>
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function saveTaskModal(taskId){
+  const isNew = !taskId;
+  const name = (document.getElementById('tm-name').value||'').trim();
+  if(!name){ alert('Task name is required.'); return; }
+  const id = isNew ? (document.getElementById('tm-id').value||nextTaskId()).trim() : taskId;
+  const cat = document.getElementById('tm-cat').value;
+  const pri = document.getElementById('tm-pri').value;
+  const status = document.getElementById('tm-status').value;
+  const owner = document.getElementById('tm-owner').value;
+  const sd = document.getElementById('tm-sd').value;
+  const ed = document.getElementById('tm-ed').value;
+  const deps = (document.getElementById('tm-deps').value||'').trim();
+  const notes = (document.getElementById('tm-notes').value||'').trim();
+  if(isNew){
+    DASHBOARD_DATA.tasks.push({
+      id, name, cat, pri, status, owner, deps, notes,
+      Taylor:'', Steve:'', Adam:'', Mary:'', JR:'', Hammad:'', Searah:'', Sadee:'',
+      flag:'', flagColor:'', sd, ed
+    });
+  } else {
+    const task = DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
+    if(!task) return;
+    Object.assign(task, {name, cat, pri, status, owner, deps, notes, sd, ed});
+  }
+  closeModal();
+  masterRefresh();
 }
 
 // ── localStorage persistence ────────────────────────────────
