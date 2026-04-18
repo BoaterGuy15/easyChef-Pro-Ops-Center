@@ -3082,8 +3082,9 @@ function renderKillCriteria(){
         <span style="color:${sCol[st]};font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${sIcon[st]} ${sLabel[st]}</span>
       </td>
       <td style="padding:8px 10px;width:100%">
-        <input type="text" value="${k.notes||''}" placeholder="Notes…" style="${iSt};width:100%;box-sizing:border-box" ${fo}
-          onchange="updateKillKpi(${i},'notes',this.value)">
+        <textarea placeholder="Notes…" rows="1" style="${iSt};width:100%;box-sizing:border-box;resize:none;overflow:hidden;line-height:1.4;vertical-align:top" ${fo}
+          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+          onchange="updateKillKpi(${i},'notes',this.value)">${k.notes||''}</textarea>
       </td>
     </tr>`;
   }).join('');
@@ -3113,9 +3114,10 @@ function renderKillCriteria(){
     </div>
     ${banner}
     <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <input type="text" id="pmf-reading-notes" placeholder="Notes — e.g. Week 1 check-in…"
-        style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;outline:none;flex:1;min-width:180px"
-        onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+      <textarea id="pmf-reading-notes" placeholder="Notes — e.g. Week 1 check-in…" rows="1"
+        style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;outline:none;flex:1;min-width:180px;resize:none;overflow:hidden;line-height:1.4;vertical-align:top;box-sizing:border-box"
+        onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
       <button onclick="recordPmfReading()"
         style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap"
         onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">Record Reading</button>
