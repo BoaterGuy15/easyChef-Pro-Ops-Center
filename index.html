@@ -3220,11 +3220,11 @@ function _savePmfHistoryLocal(hist){
 function syncPmfToSheets(btn){
   if(!CONFIG.sheetsUrl) return;
   if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
-  const _pmfPayload={action:'pmf_write',pmfHistory:_getPmfHistory(),killCriteria:_getKillCriteria()};
-  fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(_pmfPayload)
-  }).then(()=>{
+  const _kc=_getKillCriteria();
+  const _pmfPayload={pmfHistory:_getPmfHistory(),killCriteria:{checkpointDate:_kc.checkpointDate,consequence:_kc.consequence,kpis:_kc.kpis.map(k=>({name:k.name,target:k.target,current:k.current}))}};
+  fetch(CONFIG.sheetsUrl+'?action=pmf_write&data='+encodeURIComponent(JSON.stringify(_pmfPayload)))
+  .then(r=>r.json())
+  .then(()=>{
     if(btn){ btn.textContent='Synced ✓'; btn.style.color='var(--green)'; btn.style.borderColor='var(--green)';
       setTimeout(()=>{ btn.textContent='Sync to Sheets ↑'; btn.style.color=''; btn.style.borderColor=''; btn.disabled=false; },2000); }
   }).catch(()=>{
