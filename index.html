@@ -518,7 +518,7 @@ const DASHBOARD_DATA = {
     capital: 93000,
     startingCapital: 93000,
     minReserve: 20000,
-    payoneer: { current: 24000, conservative: 15000, aggressive: 10000, active: "conservative" },
+    payoneer: 24000,
     fixedMonthly: {
       "RankAndBeyond SEO": 11857,
       "OpenAI API": 2653,
@@ -632,11 +632,7 @@ const DASHBOARD_DATA = {
 
 // ── Computed budget values ──────────────────────────────────
 function getPayoneer() {
-  const b = DASHBOARD_DATA.budget;
-  const sc = b.payoneer.active;
-  return sc === "current" ? b.payoneer.current
-       : sc === "conservative" ? b.payoneer.conservative
-       : b.payoneer.aggressive;
+  return DASHBOARD_DATA.budget.payoneer || 24000;
 }
 function getFixedTotal() {
   return Object.values(DASHBOARD_DATA.budget.fixedMonthly).reduce((a,v)=>a+v,0);
@@ -773,15 +769,6 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <!-- ══ PAGE: BUDGET ══ -->
 <div id="page-budget" class="page">
   <div class="section-label">Budget & Burn Rate</div>
-
-  <div style="margin-bottom:16px">
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;text-transform:uppercase">Payoneer scenario (Hammad controls)</div>
-    <div class="scenario-tabs">
-      <button class="sc-tab" onclick="setScenario('current',this)">Current $24K/mo</button>
-      <button class="sc-tab active" onclick="setScenario('conservative',this)">Conservative $15K/mo ← Active</button>
-      <button class="sc-tab" onclick="setScenario('aggressive',this)">Aggressive $10K/mo</button>
-    </div>
-  </div>
 
   <div id="capital-runway-card"></div>
   <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)" id="budget-kpis"></div>
@@ -1614,13 +1601,7 @@ function buildCapitalRunway(){
     </div>
   </div>`;
 }
-function setScenario(sc, btn){
-  DASHBOARD_DATA.budget.payoneer.active = sc;
-  document.querySelectorAll('.sc-tab').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  saveBudgetToLocal();
-  renderBudget();
-}
+
 function renderBudget(){
   const b = DASHBOARD_DATA.budget;
   const payoneer = getPayoneer();
@@ -1647,7 +1628,7 @@ function renderBudget(){
   // Burn breakdown
   const bd = document.getElementById('burn-breakdown');
   if(bd){
-    let html = `<div class="b-row"><span class="b-label">Payoneer (active scenario)</span><span class="b-val red">${fmt(payoneer)}</span></div>`;
+    let html = `<div class="b-row"><span class="b-label">Payoneer</span><span class="b-val red">${fmt(payoneer)}</span></div>`;
     Object.entries(b.fixedMonthly).forEach(([k,v])=>{
       html+=`<div class="b-row"><span class="b-label">${k}</span><span class="b-val">${fmt(v)}</span></div>`;
     });
@@ -2627,7 +2608,7 @@ function _mergeBudget(d){
   if(d.adBudget!==undefined)        b.adBudget=d.adBudget;
   if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length>0&&'sdOffset' in d.adPhases[0])
     b.adPhases=d.adPhases;
-  if(d.payoneer&&d.payoneer.active)  b.payoneer.active=d.payoneer.active;
+  if(typeof d.payoneer==='number')   b.payoneer=d.payoneer;
   if(d.monthlyRevenue!==undefined)  b.monthlyRevenue=d.monthlyRevenue;
   if(d.runwayScenario)              b.runwayScenario=d.runwayScenario;
   if(d.minReserve!==undefined)      b.minReserve=d.minReserve;
@@ -3493,7 +3474,7 @@ let _wiState = { adSpend: 0, revenue: 0, payoneer: 15000, preset: null, expOpen:
 function _wiInitExpenses(){
   const b = DASHBOARD_DATA.budget;
   const exps = [];
-  exps.push({ name:'Payoneer', amount: b.payoneer[b.payoneer.active]||15000, active:true, source:'payoneer', custom:false });
+  exps.push({ name:'Payoneer', amount: b.payoneer||24000, active:true, source:'payoneer', custom:false });
   Object.entries(b.fixedMonthly).forEach(([name,amt])=>
     exps.push({ name, amount:amt, active:true, source:'fixed', custom:false }));
   Object.entries(b.team).forEach(([name,amt])=>
@@ -3517,7 +3498,7 @@ function renderWhatIf(){
   const b = DASHBOARD_DATA.budget;
   _wiState.adSpend  = b.adBudget || 0;
   _wiState.revenue  = b.monthlyRevenue || 0;
-  _wiState.payoneer = b.payoneer[b.payoneer.active] || 15000;
+  _wiState.payoneer = b.payoneer || 24000;
   if(!_wiState.expenses) _wiState.expenses = _wiInitExpenses();
 
   const presetBtns = Object.entries(WHATIF_PRESETS).map(([k,p])=>`
@@ -3870,8 +3851,7 @@ function wiApplyToLive(){
   const b = DASHBOARD_DATA.budget;
   b.adBudget = _wiState.adSpend;
   b.monthlyRevenue = _wiState.revenue;
-  const pMap={current:b.payoneer.current,conservative:b.payoneer.conservative,aggressive:b.payoneer.aggressive};
-  b.payoneer.active=Object.entries(pMap).sort((a,c)=>Math.abs(a[1]-_wiState.payoneer)-Math.abs(c[1]-_wiState.payoneer))[0][0];
+  b.payoneer = _wiState.payoneer;
   // apply sandbox expenses to live budget
   if(_wiState.expenses){
     _wiState.expenses.forEach(e=>{
