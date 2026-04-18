@@ -363,12 +363,12 @@ tr.hidden-row{display:none}
     <div class="topbar-name">easyChef Pro</div>
   </div>
   <div class="nav-tabs">
-    <div class="nav-tab active" onclick="showPage('command')">Command</div>
+    <div class="nav-tab active" onclick="showPage('agenda')">Agenda</div>
+    <div class="nav-tab" onclick="showPage('command')">Command</div>
     <div class="nav-tab" onclick="showPage('raci')">RACI &amp; Workflow</div>
     <div class="nav-tab" onclick="showPage('roadmap')">Roadmap</div>
     <div class="nav-tab" onclick="showPage('budget')">Budget &amp; Burn</div>
     <div class="nav-tab" onclick="showPage('team')">Team</div>
-    <div class="nav-tab" onclick="showPage('agenda')">Agenda</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -545,7 +545,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 </script>
 
 <!-- ══ PAGE: COMMAND ══ -->
-<div id="page-command" class="page active">
+<div id="page-command" class="page">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
     <div>
       <h1 style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900">easyChef Pro <span style="color:var(--gold)">Ops Center</span></h1>
@@ -763,7 +763,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 </div>
 
 <!-- ══ PAGE: AGENDA ══ -->
-<div id="page-agenda" class="page">
+<div id="page-agenda" class="page active">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
     <div>
       <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900">Monday Meeting <span style="color:var(--gold)">Agenda</span></h2>

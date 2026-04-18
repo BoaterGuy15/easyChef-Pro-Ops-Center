@@ -23,12 +23,12 @@ Open `index.html` directly in a browser, or access the live GitHub Pages URL. No
 All dashboard data lives in the `DASHBOARD_DATA` JavaScript object at the top of the `<script>` section in `index.html`. This is the single source of truth for everything rendered on screen.
 
 The UI is organized into six nav tabs — do not rename or remove them:
-1. **Command** — high-level status and KPIs
-2. **RACI & Workflow** — task ownership matrix
-3. **Roadmap** — 10-week launch timeline
-4. **Budget & Burn** — budget tracking and burn rate
-5. **Team** — team member responsibilities
-6. **Agenda** — Monday meeting agenda (items + checkboxes), executive AI assessment, and meeting notes
+1. **Agenda** — Monday meeting agenda (items + checkboxes), executive AI assessment, and meeting notes
+2. **Command** — high-level status and KPIs
+3. **RACI & Workflow** — task ownership matrix
+4. **Roadmap** — 10-week launch timeline
+5. **Budget & Burn** — budget tracking and burn rate
+6. **Team** — team member responsibilities
 
 ## Edit Rules
 
