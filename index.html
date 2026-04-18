@@ -299,6 +299,8 @@ tr.hidden-row{display:none}
 #page-raci table td{padding:5px 6px}
 .raci-person-col{width:26px;max-width:30px;text-align:center!important;padding:5px 2px!important}
 #page-raci .flag-cell{max-width:none;min-width:100px}
+#raci-filter-sticky{position:sticky;top:56px;z-index:50;background:var(--bg);padding-bottom:4px;box-shadow:0 4px 16px rgba(0,0,0,0.7)}
+#raci-table thead th{position:sticky;background:var(--surface);z-index:40;box-shadow:inset 0 -1px 0 var(--border)}
 .blocked-row td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 .owner-cell{font-size:11px;color:var(--text);max-width:130px}
 .warn{color:var(--amber)}
@@ -688,6 +690,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <!-- ══ PAGE: RACI ══ -->
 <div id="page-raci" class="page">
   <div class="section-label">RACI Workflow Tracker — 40 Tasks</div>
+  <div id="raci-filter-sticky">
   <div class="filter-bar" id="raci-person-filter-bar">
     <span class="filter-label">Filter by person:</span>
     <button class="filter-btn active" onclick="filterRaci('all',this)">All</button>
@@ -723,6 +726,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <button id="raci-search-clear" onclick="raciSearch('');document.getElementById('raci-search').value=''" title="Clear">×</button>
     </div>
     <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:5px 12px;white-space:nowrap;flex-shrink:0" onclick="showTaskModal(null)">+ New Task</button>
+  </div>
   </div>
   <div class="table-wrap">
     <table id="raci-table">
@@ -936,6 +940,14 @@ function showPage(id){
   const pg=document.getElementById('page-'+id);
   if(pg) pg.classList.add('active');
   sessionStorage.setItem('dgl_active_tab',id);
+  if(id==='raci') setTimeout(_raciStickyThTop,50);
+}
+function _raciStickyThTop(){
+  const bar=document.getElementById('raci-filter-sticky');
+  const ths=document.querySelectorAll('#raci-table thead th');
+  if(!bar||!ths.length) return;
+  const top=(56+bar.offsetHeight)+'px';
+  ths.forEach(th=>th.style.top=top);
 }
 
 // ── RACI table ─────────────────────────────────────────────
