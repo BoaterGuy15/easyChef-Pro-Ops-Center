@@ -1696,29 +1696,111 @@ async function generateAssessment(){
   const contentEl=document.getElementById('cfo-assessment-content');
   if(!contentEl) return;
   const tasks=DASHBOARD_DATA.tasks;
+  const meta=DASHBOARD_DATA.meta;
   const today=getPSTDate();
+
+  // ── Core stats ──
+  const total=tasks.length;
   const complete=tasks.filter(t=>t.status==='Complete').length;
   const inProg=tasks.filter(t=>['Started','In Progress','In Review','Ready'].includes(t.status)).length;
   const notStarted=tasks.filter(t=>t.status==='Not Started').length;
-  const overdue=tasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length;
   const blocked=tasks.filter(t=>t.status==='Blocked').length;
+  const overdueTasks=tasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today);
+  const overdue=overdueTasks.length;
   const missed=tasks.filter(t=>t.status==='Not Started'&&t.sd&&new Date(t.sd)<today).length;
+  const highNotStarted=tasks.filter(t=>t.priority==='High'&&t.status==='Not Started'&&t.sd&&new Date(t.sd)<today);
   const gaps=tasks.filter(t=>t.flag&&(t.flag.startsWith('⚠️')||t.flag.startsWith('⛔')));
-  const daysToLaunch=Math.max(0,Math.ceil((DASHBOARD_DATA.meta.launchDate-today)/86400000));
+  const daysToLaunch=Math.max(0,Math.ceil((meta.launchDate-today)/86400000));
   const healthScore=Math.max(0,Math.min(100,100-(overdue*5)-(blocked*3)-(missed*2)+(complete*2)));
-  const gapLines=gaps.map(t=>`- ${t.id} (${t.name}): ${t.flag}`).join('\n')||'None';
-  const context=`Product: easyChef Pro | Target launch: July 1, 2026 (${daysToLaunch} days away)
-Tasks: ${tasks.length} total | Complete: ${complete} | In Progress: ${inProg} | Not Started: ${notStarted} | Overdue: ${overdue} | Blocked: ${blocked}
-Launch health score: ${healthScore}/100
 
-Open accountability gaps (${gaps.length}):
-${gapLines}`;
-  const prompt=`Current launch status:\n\n${context}\n\nWrite a 3-paragraph executive assessment: (1) overall launch readiness and what the health score reflects, (2) the most critical risks requiring resolution this week and why they block progress, (3) one specific actionable recommendation the team can execute at Monday's meeting. Paragraphs only — no bullet points or headers. Be direct and specific.`;
+  // ── Phase ──
+  const phase=daysToLaunch>60?'Pre-Beta':daysToLaunch>30?'Beta':daysToLaunch>0?'Final Sprint':'Post-Launch';
+
+  // ── Category breakdown ──
+  const catMap={};
+  tasks.forEach(t=>{
+    if(!catMap[t.cat]) catMap[t.cat]={total:0,complete:0};
+    catMap[t.cat].total++;
+    if(t.status==='Complete') catMap[t.cat].complete++;
+  });
+  const catLines=Object.entries(catMap).sort((a,b)=>b[1].total-a[1].total)
+    .map(([cat,v])=>`  ${cat}: ${v.complete}/${v.total} complete (${v.total?Math.round(v.complete/v.total*100):0}%)`).join('\n');
+
+  // ── Team workload ──
+  const people=['Taylor','Adam','Steve','Hammad','Mary','JR','Searah','Sadee'];
+  const teamLines=people.map(p=>{
+    const mine=tasks.filter(t=>t[p]==='R'||t[p]==='A/R');
+    const done=mine.filter(t=>t.status==='Complete').length;
+    const od=mine.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length;
+    return `  ${p}: ${mine.length} tasks (${done} complete, ${od} overdue)`;
+  }).join('\n');
+
+  // ── Upcoming milestones ──
+  const upcomingMilestones=[
+    {date:'May 11, 2026',label:'Beta Launch — 50 Real Families'},
+    {date:'Jun 8, 2026', label:'Kill Criteria Checkpoint'},
+    {date:'Jul 1, 2026', label:'Public Launch'},
+    ...(meta.milestones||[]).filter(m=>m.date&&new Date(m.date)>today).slice(0,3)
+  ].slice(0,3);
+  const milestoneLines=upcomingMilestones.map(m=>`  ${m.date}: ${m.label}`).join('\n');
+
+  // ── Gap detail ──
+  const gapLines=gaps.map(t=>`  ${t.id} | ${t.name} | Owner: ${t.owner||'Unassigned'} | ${t.flag}`).join('\n')||'  None';
+
+  // ── Overdue detail ──
+  const overdueLines=overdueTasks.map(t=>{
+    const days=Math.ceil((today-new Date(t.ed))/86400000);
+    return `  ${t.id} | ${t.name} | Owner: ${t.owner||'—'} | ${days}d overdue`;
+  }).join('\n')||'  None';
+
+  // ── Blocked detail ──
+  const blockedTasks=tasks.filter(t=>t.status==='Blocked');
+  const blockedLines=blockedTasks.map(t=>`  ${t.id} | ${t.name} | ${t.flag||t.notes||'No detail recorded'}`).join('\n')||'  None';
+
+  // ── High priority not started ──
+  const hnsLines=highNotStarted.map(t=>`  ${t.id} | ${t.name} | Owner: ${t.owner||'—'} | Started: ${t.sd}`).join('\n')||'  None';
+
+  const context=`=== easyChef Pro Launch Status — ${today.toISOString().slice(0,10)} ===
+
+PRODUCT: easyChef Pro | TARGET LAUNCH: July 1, 2026 | DAYS REMAINING: ${daysToLaunch} | PHASE: ${phase}
+
+--- 1. TASK SUMMARY ---
+Total: ${total} | Complete: ${complete} | In Progress: ${inProg} | Not Started: ${notStarted} | Overdue: ${overdue} | Blocked: ${blocked} | High Priority Not Started: ${highNotStarted.length}
+
+--- 2. HEALTH SCORE ---
+Score: ${healthScore}/100
+Drivers: -${overdue*5} from overdue tasks, -${blocked*3} from blocked tasks, -${missed*2} from missed start dates, +${complete*2} from completed tasks
+
+--- 3. ACCOUNTABILITY GAPS (${gaps.length}) ---
+${gapLines}
+
+--- 4. OVERDUE TASKS (${overdue}) ---
+${overdueLines}
+
+--- 5. BLOCKED TASKS (${blockedTasks.length}) ---
+${blockedLines}
+
+--- 6. HIGH PRIORITY NOT STARTED (${highNotStarted.length}) ---
+${hnsLines}
+
+--- 7. CATEGORY BREAKDOWN ---
+${catLines}
+
+--- 8. TEAM WORKLOAD ---
+${teamLines}
+
+--- 9. UPCOMING MILESTONES ---
+${milestoneLines}`;
+
+  const systemPrompt=`You are the board advisor to Digital Galactica Labs reviewing the easyChef Pro product launch. You have been given detailed operational data. Write an honest, direct, and specific assessment — no platitudes, no generic advice. Speak as if you are in the room with the founding team. Use exact numbers from the data.`;
+
+  const userPrompt=`Current launch data:\n\n${context}\n\nWrite a detailed 5-paragraph executive assessment:\n- Paragraph 1: Overall launch readiness verdict with specific numbers from the data — what the health score actually means given the breakdown\n- Paragraph 2: The single most critical blocker right now, why it matters, and its downstream impact on the July 1 date\n- Paragraph 3: Team execution analysis — who is on track, who has the most exposure, where ownership is unclear\n- Paragraph 4: Financial and timeline risk — given days remaining and current velocity, is July 1 realistic or is a slip likely\n- Paragraph 5: Three specific actions in priority order for Monday's meeting, each named to a person\n\nParagraphs only — no bullet points, no headers, no numbered lists. Be direct, specific, and use the actual names and task IDs from the data.`;
+
   contentEl.innerHTML=`<span style="color:var(--muted);font-style:italic">Generating assessment…</span>`;
   const btn=document.getElementById('cfo-generate-btn');
   if(btn){btn.disabled=true;btn.style.opacity='0.55';}
   try{
-    const resp=await fetch(CONFIG.sheetsUrl+'?action=anthropic&prompt='+encodeURIComponent(prompt));
+    const resp=await fetch(CONFIG.sheetsUrl+'?action=anthropic&prompt='+encodeURIComponent(userPrompt)+'&system='+encodeURIComponent(systemPrompt));
     const data=await resp.json();
     if(data.text){
       const html=data.text.split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="margin-bottom:14px;line-height:1.8;color:#c5c8d0;font-family:'DM Sans',sans-serif;font-size:13px">${p.trim()}</p>`).join('');
