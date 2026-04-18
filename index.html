@@ -1910,9 +1910,10 @@ function buildTaskStatusSummary(){
   tasks.forEach(t=>{ catMap[t.cat]=(catMap[t.cat]||0)+1; });
   const cats=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
   el.innerHTML=`<div class="card" style="margin-bottom:24px">
+  <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-bottom:18px">Task Status — <span style="color:var(--gold)">${total} Total</span></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
     <div>
-      <div class="section-label" style="margin-bottom:12px">Task Status</div>
+      <div class="section-label" style="margin-bottom:12px">By Status</div>
       ${statusRows.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:7px;height:7px;border-radius:50%;background:${r.color};flex-shrink:0"></div>
@@ -1926,13 +1927,13 @@ function buildTaskStatusSummary(){
     </div>
     <div>
       <div class="section-label" style="margin-bottom:12px">By Category</div>
-      ${cats.map(([cat,count])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
-        <span style="font-size:11px;color:var(--muted)">${cat}</span>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${count}</span>
-          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);width:30px;text-align:right">${total?Math.round(count/total*100):0}%</span>
+      ${cats.map(([cat,count])=>{const pct=total?Math.round(count/total*100):0;return`<div style="padding:5px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:11px;color:var(--muted)">${cat}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${count} <span style="color:var(--muted);font-size:9px">${pct}%</span></span>
         </div>
-      </div>`).join('')}
+        <div style="background:var(--border);border-radius:2px;height:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px"></div></div>
+      </div>`;}).join('')}
     </div>
   </div>
 </div>`;
@@ -1992,6 +1993,7 @@ function buildGapList(){
     const overdue=t.ed&&new Date(t.ed)<today;
     const rec=t.flag.replace(/^[⚠️⛔]\s*/u,'').trim();
     const desc=(t.notes||'').substring(0,90)+((t.notes||'').length>90?'…':'');
+    const decision=(t.Taylor==='A'||t.Taylor==='A/R')?'Decision: Taylor':(t.Adam==='R'||t.Adam==='A/R')?'Output: named person in RACI before Monday EOD':t.owner?'Decision: '+t.owner:'Decision: Team';
     return `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${borderColor};border-radius:8px;padding:14px 16px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:6px">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -2006,8 +2008,12 @@ function buildGapList(){
       </div>
       <div style="font-size:13px;font-weight:600;margin-bottom:3px;color:var(--text)">${t.name}</div>
       ${desc?`<div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">${desc}</div>`:''}
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px">Owner: ${t.owner||'—'}</div>
-      <div style="font-size:11px;color:${badgeColor};line-height:1.6;border-top:1px solid rgba(37,42,53,0.3);padding-top:8px">↳ ${rec}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:4px">Owner: ${t.owner||'—'}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px">${decision}</div>
+      <div style="border-top:1px solid rgba(37,42,53,0.3);padding-top:8px">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-bottom:3px">RECOMMENDED</div>
+        <div style="font-size:11px;color:var(--muted);font-style:italic;line-height:1.6">${rec}</div>
+      </div>
     </div>`;
   }).join('');
 }
