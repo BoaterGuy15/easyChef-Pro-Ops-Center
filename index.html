@@ -485,7 +485,10 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <tbody id="raci-body"></tbody>
     </table>
   </div>
-  <div class="data-note">DATA SOURCE: Assumptions tab → Google Sheets (connection pending) · Last updated: <span id="raci-updated"></span></div>
+  <div class="data-note" style="display:flex;justify-content:space-between;align-items:center">
+    <span>DATA SOURCE: Assumptions tab → Google Sheets (connection pending) · Last updated: <span id="raci-updated"></span></span>
+    <button onclick="resetToDefaults()" style="background:transparent;border:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--border);cursor:pointer;padding:0;letter-spacing:1px" onmouseover="this.style.color='var(--muted)'" onmouseout="this.style.color='var(--border)'">RESET TO DEFAULTS</button>
+  </div>
 </div>
 
 <!-- ══ PAGE: ROADMAP ══ -->
@@ -748,6 +751,7 @@ function setTaskStatus(id,val,el){
   buildCommandKPIs();
   buildAgenda();
   if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
+  saveToLocal();
 }
 function setTaskDate(id,field,val){
   if(!val) return;
@@ -766,6 +770,7 @@ function setTaskDate(id,field,val){
     }
   }
   buildCommandKPIs();
+  saveToLocal();
 }
 function getCatColors(cat){
   if(cat.includes('Marketing Strategy')) return {bg:'rgba(79,142,247,0.12)',  color:'#82b0ff'};
@@ -821,11 +826,13 @@ function setTaskPri(id,val,el){
   el.style.color=val==='High'?'var(--red)':val==='Medium'?'var(--amber)':'var(--green)';
   const tr=el.closest('tr'); if(tr) tr.dataset.pri=val;
   buildCommandKPIs();
+  saveToLocal();
 }
 function setTaskCat(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
   task.cat=val;
   const c=getCatColors(val); el.style.background=c.bg; el.style.color=c.color;
+  saveToLocal();
 }
 function setTaskOwner(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
@@ -833,6 +840,7 @@ function setTaskOwner(id,val,el){
   el.style.color=ownerColor(val);
   buildCommandKPIs();
   buildTeamGrid();
+  saveToLocal();
 }
 function getPSTDate(){
   const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
@@ -887,7 +895,7 @@ function taskProgress(t){
     <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:4px">
       <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
     </div>
-    <div style="display:flex;align-items:center;gap:2px"><input type="date" class="date-input-inline" value="${t.sd}" onchange="setTaskDate('${t.id}','sd',this.value)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">→</span><input type="date" class="date-input-inline" value="${t.ed}" onchange="setTaskDate('${t.id}','ed',this.value)"></div>
+    <div style="display:flex;align-items:center;gap:2px"><input type="date" class="date-input-inline" value="${t.sd}" onblur="setTaskDate('${t.id}','sd',this.value)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">→</span><input type="date" class="date-input-inline" value="${t.ed}" onblur="setTaskDate('${t.id}','ed',this.value)"></div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:${color};margin-top:1px">${label}</div>
     ${tisHtml}${blockHtml}
   </td>`;
@@ -907,6 +915,7 @@ function setTaskFlag(id, el){
   const text=el.innerText.trim();
   task.flag=text;
   if(!task.flagColor) applyFlagStyle(el,text);
+  saveToLocal();
 }
 // ── Flag toolbar ──────────────────────────────────────────────
 let _ftId=null,_ftEl=null,_ftHide=null;
@@ -994,6 +1003,7 @@ function setRaciValue(val){
   const newTd=wrap.querySelector('td');
   if(newTd) _rpCellEl.parentNode.replaceChild(newTd,_rpCellEl);
   buildCommandKPIs();
+  saveToLocal();
   hideRaciPopover();
 }
 function initRaciPopover(){
@@ -1726,8 +1736,31 @@ function saveMilestoneDate(){
   closeMilestoneEditor();
 }
 
+// ── localStorage persistence ────────────────────────────────
+const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','sd','ed','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+function saveToLocal(){
+  try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
+}
+function loadFromLocal(){
+  try{
+    const saved=localStorage.getItem('dgl_tasks');
+    if(!saved) return;
+    JSON.parse(saved).forEach(s=>{
+      const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
+      if(!t) return;
+      _PERSIST_FIELDS.forEach(f=>{ if(s[f]!==undefined) t[f]=s[f]; });
+    });
+  }catch(e){}
+}
+function resetToDefaults(){
+  if(!confirm('Reset all changes to defaults? This cannot be undone.')) return;
+  localStorage.removeItem('dgl_tasks');
+  location.reload();
+}
+
 // ── Init all ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
+  loadFromLocal();
   buildCommandKPIs();
   buildGapList();
   buildMilestones();
