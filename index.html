@@ -1509,6 +1509,7 @@ function setScenario(sc, btn){
   DASHBOARD_DATA.budget.payoneer.active = sc;
   document.querySelectorAll('.sc-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  saveBudgetToLocal();
   renderBudget();
 }
 function renderBudget(){
@@ -2475,13 +2476,13 @@ function saveCapital(inp){
   const val=parseFloat(inp.value)||0;
   DASHBOARD_DATA.budget.capital=val;
   DASHBOARD_DATA.budget.startingCapital=val;
-  saveBudgetLocal();
+  saveBudgetToLocal();
   saveToLocal();
   renderBudget();
 }
 function setRunwayScenario(sc){
   DASHBOARD_DATA.budget.runwayScenario=sc;
-  saveBudgetLocal();
+  saveBudgetToLocal();
   buildCapitalRunway();
 }
 function editRevenue(){
@@ -2494,30 +2495,48 @@ function editRevenue(){
 function saveRevenue(inp){
   const val=parseFloat(inp.value)||0;
   DASHBOARD_DATA.budget.monthlyRevenue=val;
-  saveBudgetLocal();
+  saveBudgetToLocal();
   buildCapitalRunway();
 }
-function saveBudgetLocal(){
+function saveBudgetToLocal(){
   try{
-    localStorage.setItem('dgl_budget_extra',JSON.stringify({
-      monthlyRevenue:DASHBOARD_DATA.budget.monthlyRevenue||0,
-      runwayScenario:DASHBOARD_DATA.budget.runwayScenario||'pre-launch',
+    const b=DASHBOARD_DATA.budget;
+    localStorage.setItem('dgl_budget',JSON.stringify({
+      capital:b.capital,
+      startingCapital:b.startingCapital,
+      adBudget:b.adBudget,
+      adPhases:b.adPhases,
+      payoneerActive:b.payoneer.active,
+      monthlyRevenue:b.monthlyRevenue||0,
+      runwayScenario:b.runwayScenario||'pre-launch',
+      minReserve:b.minReserve,
+      team:b.team,
     }));
   }catch(e){}
 }
-function loadBudgetLocal(){
+function loadBudgetFromLocal(){
   try{
-    const raw=localStorage.getItem('dgl_budget_extra');
+    const raw=localStorage.getItem('dgl_budget');
     if(!raw) return;
     const d=JSON.parse(raw);
-    if(d.monthlyRevenue!==undefined) DASHBOARD_DATA.budget.monthlyRevenue=d.monthlyRevenue;
-    if(d.runwayScenario) DASHBOARD_DATA.budget.runwayScenario=d.runwayScenario;
+    const b=DASHBOARD_DATA.budget;
+    if(d.capital!==undefined)        b.capital=d.capital;
+    if(d.startingCapital!==undefined) b.startingCapital=d.startingCapital;
+    if(d.adBudget!==undefined)       b.adBudget=d.adBudget;
+    if(d.adPhases&&Array.isArray(d.adPhases)&&d.adPhases.length===b.adPhases.length)
+      b.adPhases=d.adPhases;
+    if(d.payoneerActive)             b.payoneer.active=d.payoneerActive;
+    if(d.monthlyRevenue!==undefined) b.monthlyRevenue=d.monthlyRevenue;
+    if(d.runwayScenario)             b.runwayScenario=d.runwayScenario;
+    if(d.minReserve!==undefined)     b.minReserve=d.minReserve;
+    if(d.team&&typeof d.team==='object') Object.keys(d.team).forEach(k=>{ if(k in b.team) b.team[k]=d.team[k]; });
   }catch(e){}
 }
 
 function setAdBudget(){
   const val = parseFloat(document.getElementById('m-adbudget').value)||0;
   DASHBOARD_DATA.budget.adBudget=val;
+  saveBudgetToLocal();
   closeModal();
   renderBudget();
 }
@@ -2569,6 +2588,7 @@ function renderAdPhases(){
 
 function updatePhase(i, val){
   DASHBOARD_DATA.budget.adPhases[i].pct = parseFloat(val)||0;
+  saveBudgetToLocal();
   updateAdPhaseAmounts();
 }
 
@@ -3163,7 +3183,7 @@ function triggerCelebration(){
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
   loadFromLocal();
-  loadBudgetLocal();
+  loadBudgetFromLocal();
   loadFromSheets();
   buildCommandKPIs();
   buildGapList();
