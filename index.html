@@ -3130,7 +3130,7 @@ function renderKillCriteria(){
       <button onclick="recordPmfReading()"
         style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap"
         onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">Record Reading</button>
-      <button onclick="syncPmfToSheets()"
+      <button onclick="syncPmfToSheets(this)"
         style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap"
         onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--muted)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Sync to Sheets ↑</button>
     </div>
@@ -3217,12 +3217,18 @@ function _getPmfHistory(){
 function _savePmfHistoryLocal(hist){
   try{ localStorage.setItem('dgl_pmf_history',JSON.stringify(hist)); }catch(e){}
 }
-function syncPmfToSheets(){
+function syncPmfToSheets(btn){
   if(!CONFIG.sheetsUrl) return;
+  if(btn){ btn.textContent='Syncing…'; btn.disabled=true; }
   fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'pmf_write',pmfHistory:_getPmfHistory()})
-  }).catch(()=>{});
+    body:JSON.stringify({action:'pmf_write',pmfHistory:_getPmfHistory(),killCriteria:_getKillCriteria()})
+  }).then(()=>{
+    if(btn){ btn.textContent='Synced ✓'; btn.style.color='var(--green)'; btn.style.borderColor='var(--green)';
+      setTimeout(()=>{ btn.textContent='Sync to Sheets ↑'; btn.style.color=''; btn.style.borderColor=''; btn.disabled=false; },2000); }
+  }).catch(()=>{
+    if(btn){ btn.textContent='Sync to Sheets ↑'; btn.style.color=''; btn.style.borderColor=''; btn.disabled=false; }
+  });
 }
 function recordPmfReading(){
   const notesEl=document.getElementById('pmf-reading-notes');
