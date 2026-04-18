@@ -863,6 +863,9 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
   <div class="section-label" style="margin-top:32px">Ad Budget Phase Allocation</div>
   <div class="card" id="ad-phase-card"></div>
+
+  <div class="section-label" style="margin-top:32px">What-If Scenario Playground</div>
+  <div class="card" id="whatif-card"></div>
 </div>
 
 <!-- ══ PAGE: TEAM ══ -->
@@ -3479,6 +3482,268 @@ function triggerCelebration(){
   raf=requestAnimationFrame(tick);
 }
 
+// ── What-If Scenario Playground ────────────────────────────
+const WHATIF_PRESETS = {
+  conservative: { adSpend: 5000,  revenue: 0,    payoneer: 15000, label: 'Conservative' },
+  moderate:     { adSpend: 15000, revenue: 2000,  payoneer: 15000, label: 'Moderate'     },
+  aggressive:   { adSpend: 30000, revenue: 5000,  payoneer: 10000, label: 'Aggressive'   },
+};
+let _wiState = { adSpend: 0, revenue: 0, payoneer: 15000, preset: null };
+
+function renderWhatIf(){
+  const card = document.getElementById('whatif-card');
+  if(!card) return;
+  const b = DASHBOARD_DATA.budget;
+  _wiState.adSpend  = b.adBudget  || 0;
+  _wiState.revenue  = b.monthlyRevenue || 0;
+  _wiState.payoneer = b.payoneer[b.payoneer.active] || 15000;
+
+  const fixedOps = getFixedTotal() + getTeamTotal();
+  const launchDate = new Date((DASHBOARD_DATA.meta.milestoneDate||'2026-07-01')+'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const monthsToLaunch = (launchDate - today) / (30*86400000);
+
+  const presetBtns = Object.entries(WHATIF_PRESETS).map(([k,p])=>`
+    <button id="wi-preset-${k}" onclick="wiApplyPreset('${k}')"
+      style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:10px;
+             border:1px solid ${_wiState.preset===k?'var(--gold)':'var(--border)'};
+             background:${_wiState.preset===k?'var(--gold)':'transparent'};
+             color:${_wiState.preset===k?'#0b0d10':'var(--muted)'};cursor:pointer;transition:all 0.15s"
+      onmouseover="if('${k}'!==window._wiState?.preset){this.style.borderColor='var(--gold)';this.style.color='var(--text)'}"
+      onmouseout="if('${k}'!==window._wiState?.preset){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}"
+    >${p.label}</button>`).join('');
+
+  const sliderStyle = 'width:100%;accent-color:var(--gold);cursor:pointer;height:4px';
+
+  card.innerHTML = `
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>SANDBOX — CHANGES DO NOT AFFECT LIVE BUDGET UNTIL YOU CLICK APPLY</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${presetBtns}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:24px">
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">MONTHLY AD SPEND</div>
+        <div id="wi-adspend-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--red);margin-bottom:8px">${fmt(_wiState.adSpend)}</div>
+        <input type="range" min="0" max="50000" step="500" value="${_wiState.adSpend}" style="${sliderStyle}"
+          oninput="wiUpdate('adSpend',+this.value)">
+        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$50K</span></div>
+      </div>
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">MONTHLY REVENUE</div>
+        <div id="wi-revenue-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--green);margin-bottom:8px">${fmt(_wiState.revenue)}</div>
+        <input type="range" min="0" max="20000" step="250" value="${_wiState.revenue}" style="${sliderStyle}"
+          oninput="wiUpdate('revenue',+this.value)">
+        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$20K</span></div>
+      </div>
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">PAYONEER COST / MO</div>
+        <div id="wi-payoneer-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--amber);margin-bottom:8px">${fmt(_wiState.payoneer)}</div>
+        <input type="range" min="10000" max="24000" step="1000" value="${_wiState.payoneer}" style="${sliderStyle}"
+          oninput="wiUpdate('payoneer',+this.value)">
+        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$10K</span><span>$24K</span></div>
+      </div>
+    </div>
+
+    <div id="wi-bar-wrap" style="margin-bottom:20px"></div>
+
+    <div id="wi-stats" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px"></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.5px">
+        Sandbox changes do not save until you click Apply
+      </div>
+      <button id="wi-apply-btn" onclick="wiApplyToLive()"
+        style="background:var(--gold);border:none;color:#0b0d10;border-radius:7px;padding:8px 22px;
+               font-family:'DM Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;
+               letter-spacing:0.5px;transition:opacity 0.2s">Apply to Budget</button>
+    </div>`;
+
+  wiCalc();
+}
+
+function wiUpdate(field, val){
+  if(field==='adSpend')  _wiState.adSpend  = val;
+  if(field==='revenue')  _wiState.revenue  = val;
+  if(field==='payoneer') _wiState.payoneer = val;
+  _wiState.preset = null;
+  document.querySelectorAll('[id^="wi-preset-"]').forEach(b=>{
+    b.style.background='transparent'; b.style.color='var(--muted)'; b.style.borderColor='var(--border)';
+  });
+  wiCalc();
+}
+
+function wiApplyPreset(key){
+  const p = WHATIF_PRESETS[key];
+  _wiState.adSpend  = p.adSpend;
+  _wiState.revenue  = p.revenue;
+  _wiState.payoneer = p.payoneer;
+  _wiState.preset   = key;
+  // sync slider values
+  ['adSpend','revenue','payoneer'].forEach((f,i)=>{
+    const sliders = document.querySelectorAll('#whatif-card input[type=range]');
+    if(sliders[i]) sliders[i].value = _wiState[f];
+  });
+  // update display values
+  const adV = document.getElementById('wi-adspend-val');
+  const reV = document.getElementById('wi-revenue-val');
+  const paV = document.getElementById('wi-payoneer-val');
+  if(adV) adV.textContent = fmt(p.adSpend);
+  if(reV) reV.textContent = fmt(p.revenue);
+  if(paV) paV.textContent = fmt(p.payoneer);
+  // highlight active preset
+  Object.keys(WHATIF_PRESETS).forEach(k=>{
+    const btn = document.getElementById('wi-preset-'+k);
+    if(!btn) return;
+    const active = k===key;
+    btn.style.background    = active ? 'var(--gold)' : 'transparent';
+    btn.style.color         = active ? '#0b0d10'     : 'var(--muted)';
+    btn.style.borderColor   = active ? 'var(--gold)' : 'var(--border)';
+  });
+  wiCalc();
+}
+
+function wiCalc(){
+  const b          = DASHBOARD_DATA.budget;
+  const fixedOps   = getFixedTotal() + getTeamTotal();
+  const totalBurn  = fixedOps + _wiState.payoneer + _wiState.adSpend;
+  const netBurn    = Math.max(0, totalBurn - _wiState.revenue);
+  const capital    = b.capital;
+  const minReserve = b.minReserve;
+  const launchDate = new Date((DASHBOARD_DATA.meta.milestoneDate||'2026-07-01')+'T00:00:00');
+  const today      = new Date(); today.setHours(0,0,0,0);
+  const moToLaunch = (launchDate - today) / (30*86400000);
+  const launchRes  = capital - totalBurn * moToLaunch;
+  const runway     = netBurn > 0 ? (capital - minReserve) / netBurn : 99;
+  // post-launch survival (months after launch before hitting minReserve)
+  const postSurv   = netBurn > 0 ? Math.max(0, (launchRes - minReserve) / netBurn) : 99;
+  // break-even date
+  let breakEvenDate = null;
+  if(_wiState.revenue > 0 && _wiState.revenue < totalBurn){
+    const moToBreakEven = (totalBurn - _wiState.revenue) / (_wiState.revenue > 0 ? 1 : 0.001);
+    // break-even = when revenue covers burn — if slider revenue is fixed, never changes; show N/A unless revenue > 0
+    breakEvenDate = null; // static revenue model — no growth curve, so break-even needs growth
+  }
+  const breakEvenStr = _wiState.revenue >= totalBurn
+    ? 'Already profitable'
+    : _wiState.revenue === 0 ? 'N/A (no revenue)'
+    : 'N/A (static model)';
+
+  // update live value displays
+  const adV = document.getElementById('wi-adspend-val');
+  const reV = document.getElementById('wi-revenue-val');
+  const paV = document.getElementById('wi-payoneer-val');
+  if(adV) adV.textContent = fmt(_wiState.adSpend);
+  if(reV) reV.textContent = fmt(_wiState.revenue);
+  if(paV) paV.textContent = fmt(_wiState.payoneer);
+
+  // stats grid
+  const statsEl = document.getElementById('wi-stats');
+  if(statsEl){
+    const stats = [
+      { label:'NET BURN / MO', val: fmt(netBurn),   col: netBurn>totalBurn*0.8?'var(--red)':'var(--amber)' },
+      { label:'RUNWAY',        val: runway>99?'∞':runway.toFixed(1)+' mo', col: runway>6?'var(--green)':runway>3?'var(--amber)':'var(--red)' },
+      { label:'LAUNCH RESERVE',val: fmt(launchRes), col: launchRes>minReserve?'var(--green)':launchRes>0?'var(--amber)':'var(--red)' },
+      { label:'POST-LAUNCH SURVIVAL', val: postSurv>99?'∞':postSurv.toFixed(1)+' mo', col: postSurv>6?'var(--green)':postSurv>3?'var(--amber)':'var(--red)' },
+      { label:'BREAK-EVEN',    val: breakEvenStr,   col: _wiState.revenue>=totalBurn?'var(--green)':'var(--muted)' },
+    ];
+    statsEl.innerHTML = stats.map(s=>`
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${s.label}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:${s.col}">${s.val}</div>
+      </div>`).join('');
+  }
+
+  // runway bar
+  wiDrawBar(capital, totalBurn, _wiState.revenue, netBurn, minReserve, launchDate, today);
+}
+
+function wiDrawBar(capital, totalBurn, revenue, netBurn, minReserve, launchDate, today){
+  const wrap = document.getElementById('wi-bar-wrap');
+  if(!wrap) return;
+  const barStart = today;
+  const barEnd   = new Date(launchDate.getTime() + 12*30*86400000);
+  const barDays  = (barEnd - barStart) / 86400000;
+  function pct(d){ return Math.max(0, Math.min(100, (d-barStart)/86400000/barDays*100)); }
+  function balAt(d){
+    const moSinceStart = (d - barStart) / (30*86400000);
+    if(d <= launchDate){
+      return capital - totalBurn * moSinceStart;
+    } else {
+      const preCost  = totalBurn * (launchDate - barStart) / (30*86400000);
+      const postMo   = (d - launchDate) / (30*86400000);
+      return capital - preCost - netBurn * postMo;
+    }
+  }
+  // segments every month
+  const segs = [];
+  let prev = barStart;
+  for(let m = 1; m <= 18; m++){
+    const next = new Date(barStart.getTime() + m*30*86400000);
+    if(next > barEnd) break;
+    const p0 = pct(prev), p1 = pct(next), w = p1 - p0;
+    if(w < 0.1){ prev = next; continue; }
+    const bal = balAt(next);
+    const isPost = prev >= launchDate;
+    const col = bal > minReserve*1.5  ? 'var(--green)'
+               : bal > minReserve     ? 'var(--amber)'
+               : 'var(--red)';
+    const op = prev <= today ? '0.3' : '0.85';
+    segs.push(`<div style="width:${w}%;height:100%;background:${col};opacity:${op}"></div>`);
+    prev = next;
+  }
+  // markers
+  const betaDate = new Date('2026-05-11T00:00:00');
+  const markers = [
+    { label:'Today',  d: today,     col:'var(--text)' },
+    { label:'Beta',   d: betaDate,  col:'var(--amber)' },
+    { label:'Launch', d: launchDate,col:'var(--green)' },
+  ].filter(m => m.d >= barStart && m.d <= barEnd).map(m=>{
+    const p = pct(m.d);
+    return `<div style="position:absolute;left:${p}%;top:-18px;transform:translateX(-50%);text-align:center;pointer-events:none">
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:${m.col};white-space:nowrap">${m.label}</div>
+      <div style="width:1px;height:12px;background:${m.col};opacity:0.6;margin:2px auto 0"></div>
+    </div>`;
+  }).join('');
+  // month labels
+  const moNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const moLabels = [];
+  for(let y = today.getFullYear(); y <= barEnd.getFullYear(); y++){
+    for(let mo = 0; mo <= 11; mo++){
+      const d = new Date(y, mo, 1);
+      if(d < barStart || d > barEnd) continue;
+      const p = pct(d);
+      moLabels.push(`<div style="position:absolute;left:${p}%;transform:translateX(-50%);font-family:'DM Mono',monospace;font-size:7px;color:var(--muted)">${moNames[mo]}${y!==2026?' '+String(y).slice(2):''}</div>`);
+    }
+  }
+  wrap.innerHTML = `
+    <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:20px">SANDBOX RUNWAY — TODAY → 12 MO POST-LAUNCH</div>
+    <div style="position:relative;margin-bottom:8px">
+      ${markers}
+      <div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden;display:flex">${segs.join('')}</div>
+    </div>
+    <div style="position:relative;height:14px">${moLabels.join('')}</div>`;
+}
+
+function wiApplyToLive(){
+  const b = DASHBOARD_DATA.budget;
+  b.adBudget = _wiState.adSpend;
+  b.monthlyRevenue = _wiState.revenue;
+  // map payoneer value to nearest scenario
+  const pMap = { current: b.payoneer.current, conservative: b.payoneer.conservative, aggressive: b.payoneer.aggressive };
+  const closest = Object.entries(pMap).sort((a,b)=>Math.abs(a[1]-_wiState.payoneer)-Math.abs(b[1]-_wiState.payoneer))[0][0];
+  b.payoneer.active = closest;
+  saveBudgetToLocal();
+  renderBudget();
+  renderAdPhases();
+  const btn = document.getElementById('wi-apply-btn');
+  if(btn){
+    btn.textContent='Applied ✓';
+    btn.style.background='var(--green)';
+    setTimeout(()=>{ btn.textContent='Apply to Budget'; btn.style.background='var(--gold)'; }, 2000);
+  }
+}
+
 // ── Init all ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
@@ -3497,6 +3762,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   buildAgendaPage();
   renderSpendLog();
   renderAdPhases();
+  renderWhatIf();
   initFlagToolbar();
   initRaciPopover();
   document.addEventListener('click',e=>{
