@@ -540,8 +540,10 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         <th>W8<br><small>Jun 8–14</small></th>
         <th>W9<br><small>Jun 15–21</small></th>
         <th>W10<br><small>Jun 22–28</small></th>
-        <th class="launch-col">LAUNCH<br><small>Jul 1</small></th>
-      </tr></thead>
+        <th class="launch-col" id="roadmap-launch-th">LAUNCH<br><small>Jul 1</small></th>
+      </tr>
+      <tr id="roadmap-status-row"></tr>
+      </thead>
       <tbody id="roadmap-body"></tbody>
     </table>
   </div>
@@ -1143,6 +1145,42 @@ function buildRoadmap(){
   ];
   const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+
+  // ── Launch column header countdown ──
+  const launchTh = document.getElementById('roadmap-launch-th');
+  if(launchTh){
+    const meta = DASHBOARD_DATA.meta;
+    const ld = new Date((meta.milestoneDate||'2026-07-01')+'T00:00:00');
+    _d.setHours(0,0,0,0); ld.setHours(0,0,0,0);
+    const diff = Math.round((ld - _d)/(1000*60*60*24));
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][ld.getMonth()];
+    const dateLabel = mo+' '+ld.getDate();
+    let cdColor, cdText;
+    if(diff < 0){ cdColor='var(--muted)'; cdText=Math.abs(diff)+'d ago'; }
+    else if(diff <= 7){ cdColor='var(--red)'; cdText=diff+'d away'; }
+    else if(diff <= 14){ cdColor='var(--amber)'; cdText=diff+'d away'; }
+    else { cdColor='var(--green)'; cdText=diff+'d away'; }
+    launchTh.innerHTML = `LAUNCH<br><small>${dateLabel}</small><br><small style="color:${cdColor};font-size:9px">${cdText}</small>`;
+  }
+
+  // ── Week status indicator row ──
+  const statusRow = document.getElementById('roadmap-status-row');
+  if(statusRow){
+    let sHtml = '<th class="ws-col" style="padding:3px 10px;font-size:8px;color:var(--muted);letter-spacing:1px">STATUS</th>';
+    WEEKS.forEach(w=>{
+      const wt = DASHBOARD_DATA.tasks.filter(t=>t.sd&&t.ed&&t.sd<=w.end&&t.ed>=w.start);
+      let dot, color;
+      if(!wt.length){ dot='·'; color='var(--border)'; }
+      else if(wt.every(t=>t.status==='Done'||t.status==='Complete')){ dot='✓'; color='var(--green)'; }
+      else if(wt.some(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today)){ dot='⛔'; color='var(--red)'; }
+      else if(wt.some(t=>['Started','In Progress','In Review','Ready'].includes(t.status))){ dot='●'; color='var(--amber)'; }
+      else{ dot='○'; color='var(--muted)'; }
+      const isLaunch = w.label==='LAUNCH';
+      sHtml += `<th style="padding:3px 8px;text-align:center;${isLaunch?'background:rgba(52,211,153,0.06)':''}"><span style="font-size:11px;color:${color};line-height:1">${dot}</span></th>`;
+    });
+    statusRow.innerHTML = sHtml;
+  }
+
   const cats = {};
   DASHBOARD_DATA.tasks.forEach(t=>{ if(!cats[t.cat]) cats[t.cat]=[]; cats[t.cat].push(t); });
   tbody.innerHTML = '';
