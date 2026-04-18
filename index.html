@@ -555,6 +555,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="weekly-velocity"></div>
   <div id="team-workload"></div>
   <div id="milestone-history"></div>
+  <div id="task-status-summary"></div>
   <div class="alert-banner" id="cmd-alert">⬤ &nbsp;<span id="gap-count">6</span> ACCOUNTABILITY GAPS · 0 START DATES LOCKED · MONDAY 11AM ET IS THE RESOLUTION DEADLINE</div>
   <div class="alert-banner green">⬤ &nbsp;T-022 + T-024 RESOLVED — SEARAH NAMED · T-039 + T-040 RESOLVED — SADEE ACTIVATED</div>
 
@@ -565,6 +566,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <div>
       <div class="section-label">Open Accountability Gaps</div>
       <div id="gap-list"></div>
+      <div id="resolved-banner"></div>
     </div>
     <div>
       <div class="section-label">Key Milestones</div>
@@ -1559,22 +1561,112 @@ function buildCommandKPIs(){
   buildWeeklyVelocity();
   buildTeamWorkload();
   buildMilestoneHistory();
+  buildTaskStatusSummary();
+  buildResolvedBanner();
+}
+
+// ── Task Status Summary ─────────────────────────────────────
+function buildTaskStatusSummary(){
+  const el=document.getElementById('task-status-summary');
+  if(!el) return;
+  const tasks=DASHBOARD_DATA.tasks;
+  const today=getPSTDate();
+  const total=tasks.length;
+  const statusRows=[
+    {label:'Not Started', count:tasks.filter(t=>t.status==='Not Started').length,                                        color:'var(--muted)'},
+    {label:'In Progress',  count:tasks.filter(t=>['Started','In Progress','In Review','Ready'].includes(t.status)).length, color:'var(--accent)'},
+    {label:'Complete',     count:tasks.filter(t=>t.status==='Complete').length,                                           color:'var(--green)'},
+    {label:'Blocked',      count:tasks.filter(t=>t.status==='Blocked').length,                                            color:'var(--red)'},
+    {label:'Overdue',      count:tasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length,               color:'var(--red)'},
+  ];
+  const catMap={};
+  tasks.forEach(t=>{ catMap[t.cat]=(catMap[t.cat]||0)+1; });
+  const cats=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  el.innerHTML=`<div class="card" style="margin-bottom:24px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
+    <div>
+      <div class="section-label" style="margin-bottom:12px">Task Status</div>
+      ${statusRows.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:7px;height:7px;border-radius:50%;background:${r.color};flex-shrink:0"></div>
+          <span style="font-size:12px;color:var(--text)">${r.label}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:${r.color}">${r.count}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);width:30px;text-align:right">${total?Math.round(r.count/total*100):0}%</span>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div>
+      <div class="section-label" style="margin-bottom:12px">By Category</div>
+      ${cats.map(([cat,count])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
+        <span style="font-size:11px;color:var(--muted)">${cat}</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${count}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);width:30px;text-align:right">${total?Math.round(count/total*100):0}%</span>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>
+</div>`;
+}
+
+// ── Resolved banner ─────────────────────────────────────────
+function buildResolvedBanner(){
+  const el=document.getElementById('resolved-banner');
+  if(!el) return;
+  const ids=new Set(); const items=[];
+  DASHBOARD_DATA.tasks.forEach(t=>{
+    const flagged=t.flag&&t.flag.startsWith('✓');
+    const complete=t.status==='Complete';
+    if((flagged||complete)&&!ids.has(t.id)){ ids.add(t.id); items.push(t); }
+  });
+  if(!items.length){ el.innerHTML=''; return; }
+  const text=items.map(t=>`${t.id} – ${t.name}`).join(' &nbsp;·&nbsp; ');
+  el.innerHTML=`<div class="alert-banner green" style="margin-top:12px;flex-wrap:wrap;gap:6px">⬤ &nbsp;<strong>RESOLVED / COMPLETE</strong> — <span style="opacity:0.85">${text}</span></div>`;
 }
 
 // ── Gap list ────────────────────────────────────────────────
+function gapType(flag){
+  if(flag.startsWith('⛔')) return 'BLOCKER';
+  const f=flag.toUpperCase();
+  if(f.includes('NO OWNER')) return 'NO OWNER';
+  if(/\d\s*OWNER/.test(f)) return '4 OWNERS';
+  if(f.includes("'+'") || f.includes('UNNAMED') || f.includes('STILL NEEDS') || f.includes('NEEDS NAMING')) return 'UNNAMED';
+  if(f.includes('SINGLE R') || (f.includes('ALL')&&f.includes('= R'))) return 'ALL = R';
+  return 'UNRESOLVED';
+}
 function buildGapList(){
   const el = document.getElementById('gap-list');
   if(!el) return;
+  const today = getPSTDate();
   const flagged = DASHBOARD_DATA.tasks.filter(t=>t.flag&&(t.flag.startsWith('⚠️')||t.flag.startsWith('⛔')));
-  el.innerHTML = flagged.map(t=>`
-    <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:8px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">${t.id}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);background:rgba(248,113,113,0.1);padding:2px 7px;border-radius:3px">GAP</span>
+  if(!flagged.length){
+    el.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--green);padding:12px 0">No open accountability gaps — all clear.</div>`;
+    return;
+  }
+  el.innerHTML = flagged.map(t=>{
+    const isBlocker=t.flag.startsWith('⛔');
+    const borderColor=isBlocker?'var(--red)':'var(--amber)';
+    const badgeColor=isBlocker?'var(--red)':'var(--amber)';
+    const badgeBg=isBlocker?'rgba(248,113,113,0.1)':'rgba(251,191,36,0.1)';
+    const severity=isBlocker?'CRITICAL':'HIGH';
+    const type=gapType(t.flag);
+    const overdue=t.ed&&new Date(t.ed)<today;
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${borderColor};border-radius:8px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);border-radius:3px;padding:1px 6px">${t.id}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:${badgeColor};background:${badgeBg};padding:2px 7px;border-radius:3px;letter-spacing:0.5px">${type}</span>
+          ${overdue?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);background:rgba(248,113,113,0.08);padding:2px 7px;border-radius:3px">OVERDUE</span>`:''}
+        </div>
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:${badgeColor};letter-spacing:1px;text-transform:uppercase">${severity}</span>
       </div>
-      <div style="font-size:13px;font-weight:500;margin-bottom:4px">${t.name}</div>
-      <div style="font-size:11px;color:var(--muted)">${t.flag}</div>
-    </div>`).join('');
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px;color:var(--text)">${t.name}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px">Owner: ${t.owner||'—'}</div>
+      <div style="font-size:11px;color:var(--text);line-height:1.5;border-top:1px solid rgba(37,42,53,0.4);padding-top:6px">${t.flag}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── Milestone list ─────────────────────────────────────────
