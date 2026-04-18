@@ -387,7 +387,8 @@ tr.hidden-row{display:none}
 // CONFIG — paste your Apps Script Web App URL to enable sync
 // ─────────────────────────────────────────────────────────────
 const CONFIG = {
-  sheetsUrl: 'https://script.google.com/macros/s/AKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw/exec'
+  sheetsUrl: 'https://script.google.com/macros/s/AKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw/exec',
+  anthropicKey: '' // paste your Anthropic API key here
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -573,6 +574,12 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <div id="milestone-list"></div>
     </div>
   </div>
+
+  <div class="section-label" style="margin-top:8px">Monday Meeting Agenda</div>
+  <div id="cmd-monday-agenda"></div>
+
+  <div class="section-label" style="margin-top:8px">CFO + COO Assessment</div>
+  <div id="cmd-cfo-assessment"></div>
 </div>
 
 <!-- ══ PAGE: RACI ══ -->
@@ -1563,6 +1570,129 @@ function buildCommandKPIs(){
   buildMilestoneHistory();
   buildTaskStatusSummary();
   buildResolvedBanner();
+  buildMondayAgenda();
+  buildCFOAssessmentCard();
+}
+
+// ── Monday Agenda ───────────────────────────────────────────
+const _AGENDA_ITEMS=[
+  {n:'01',title:'Set Advertising Ceiling — Give Adam a Number',detail:'Adam cannot build responsible campaigns without a budget ceiling. Based on the $15K Payoneer scenario, max possible ad budget is auto-calculated in the Budget tab. Taylor sets the ceiling. Adam builds to it.',decision:'Decision: Taylor · Output: committed dollar ceiling in writing'},
+  {n:'02',title:'Name "Adam +" on 4 Remaining Tasks',detail:'T-013 (Video), T-018 (SEM — Taylor YES), T-019 (App Store Ads), T-021 (Retargeting — Taylor YES). Likely 1–2 people cover all four. Taylor has confirmed readiness on T-018 and T-021 — now just needs the operator named.',decision:'Decision: Adam + Taylor · Output: named person(s) in RACI before Monday EOD'},
+  {n:'03',title:'Assign T-038 + Resolve T-032',detail:'T-038 (Influencer Partnership) → assign JR. T-032 (Feature Launch Announcement) → noted "Strategy: Adam, JR, Mary" — single R must be Adam. Five-minute decisions.',decision:'Decision: Taylor + JR · Output: both tasks assigned before Monday EOD'},
+  {n:'04',title:'Define 3 PMF Kill Criteria KPIs for June 8',detail:'First Strike rate threshold, 14-day retention %, Sean Ellis "very disappointed" score (benchmark: 40%). Written. Agreed. Non-negotiable. If not hit by Jun 8 → delay 4 weeks.',decision:'Decision: All hands · Output: 3 KPIs with thresholds written before EOD'},
+  {n:'05',title:'T-027 Onboarding — Single R + May 11 Confirmed',detail:'Hammad = R (builds). Adam = R (strategy). Taylor = A. Steve = I. The <3 minute Aha moment must be confirmed achievable by May 11. If Hammad cannot commit — beta launch date moves.',decision:'Decision: Hammad + Adam · Output: May 11 confirmed or rescheduled'},
+  {n:'06',title:'Hammad: Confirm Payoneer Scenario — $15K or $10K?',detail:'$15K frees ~$94K for advertising. $10K frees ~$107K. This decision shapes every campaign. Hammad confirms which floor he can sustain for 75 days without affecting operations.',decision:'Decision: Hammad + Taylor · Output: confirmed scenario locked'},
+  {n:'07',title:'Searah W1 Check — Logins + Designer Intro Confirmed',detail:'Searah starts Monday AM. Taylor hands her all platform logins and makes the designer intro by EOD. Her W1 deliverable: platform access + first designer conversation by Friday Apr 25.',decision:'Action: Taylor · Output: confirmed before EOD Monday'},
+  {n:'08',title:'Sadee: Campaign Email Names + Zendesk This Week',detail:'Sadee needs campaign email names to create the Alpha/Beta addresses. Zendesk + support@easyChefPro.com must be live before May 11.',decision:'Action: Taylor / Sadee · Deadline: May 10'},
+];
+function buildMondayAgenda(){
+  const el=document.getElementById('cmd-monday-agenda');
+  if(!el) return;
+  const isFounder=getUserRole(window._DGL_USER||'view')==='founder';
+  let checks={};
+  try{checks=JSON.parse(localStorage.getItem('dgl_agenda_checks')||'{}');}catch(e){}
+  el.innerHTML=`<div class="card" style="margin-bottom:24px">
+    ${_AGENDA_ITEMS.map((it,i)=>{
+      const done=!!checks[i];
+      const check=isFounder
+        ?`<div onclick="toggleAgendaItem(${i})" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
+        :`<div style="width:18px;height:18px;flex-shrink:0"></div>`;
+      return `<div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:${done?'0.42':'1'};transition:opacity 0.2s">
+        ${check}
+        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:26px;line-height:1.1">${it.n}</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:500;margin-bottom:5px;color:${done?'var(--muted)':'var(--text)'}">${it.title}</div>
+          <div style="font-size:12px;color:#9ca3af;line-height:1.7;margin-bottom:6px">${it.detail}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'}">${it.decision}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+function toggleAgendaItem(i){
+  if(getUserRole(window._DGL_USER||'view')!=='founder') return;
+  let checks={};
+  try{checks=JSON.parse(localStorage.getItem('dgl_agenda_checks')||'{}');}catch(e){}
+  checks[i]=!checks[i];
+  localStorage.setItem('dgl_agenda_checks',JSON.stringify(checks));
+  buildMondayAgenda();
+}
+
+// ── CFO / COO Assessment ────────────────────────────────────
+function buildCFOAssessmentCard(){
+  const el=document.getElementById('cmd-cfo-assessment');
+  if(!el) return;
+  const isFounder=getUserRole(window._DGL_USER||'view')==='founder';
+  // Build structure once — preserve generated content across refreshes
+  if(!document.getElementById('cfo-assessment-content')){
+    const dateStr=new Date().toLocaleDateString('en-US',{timeZone:'America/Los_Angeles',month:'long',day:'numeric',year:'numeric'});
+    el.innerHTML=`<div class="card" style="margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700">CFO + COO Assessment</div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:3px">Launch Readiness — ${dateStr}</div>
+        </div>
+        <button id="cfo-generate-btn" onclick="generateAssessment()" style="padding:8px 20px;background:var(--gold);color:#0b0d10;border:none;border-radius:6px;font-family:'DM Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:1px;display:${isFounder?'inline-block':'none'}">GENERATE ASSESSMENT</button>
+      </div>
+      <div id="cfo-assessment-content" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7">Click "Generate Assessment" to run a live AI analysis of current launch status.</div>
+    </div>`;
+  } else {
+    // Update button visibility only — content is preserved
+    const btn=document.getElementById('cfo-generate-btn');
+    if(btn) btn.style.display=isFounder?'inline-block':'none';
+  }
+}
+async function generateAssessment(){
+  if(getUserRole(window._DGL_USER||'view')!=='founder') return;
+  const contentEl=document.getElementById('cfo-assessment-content');
+  if(!contentEl) return;
+  if(!CONFIG.anthropicKey){
+    contentEl.innerHTML='<span style="color:var(--amber)">Add your Anthropic API key to CONFIG.anthropicKey to enable AI assessment.</span>';
+    return;
+  }
+  const tasks=DASHBOARD_DATA.tasks;
+  const today=getPSTDate();
+  const complete=tasks.filter(t=>t.status==='Complete').length;
+  const inProg=tasks.filter(t=>['Started','In Progress','In Review','Ready'].includes(t.status)).length;
+  const notStarted=tasks.filter(t=>t.status==='Not Started').length;
+  const overdue=tasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length;
+  const blocked=tasks.filter(t=>t.status==='Blocked').length;
+  const missed=tasks.filter(t=>t.status==='Not Started'&&t.sd&&new Date(t.sd)<today).length;
+  const gaps=tasks.filter(t=>t.flag&&(t.flag.startsWith('⚠️')||t.flag.startsWith('⛔')));
+  const daysToLaunch=Math.max(0,Math.ceil((DASHBOARD_DATA.meta.launchDate-today)/86400000));
+  const healthScore=Math.max(0,Math.min(100,100-(overdue*5)-(blocked*3)-(missed*2)+(complete*2)));
+  const gapLines=gaps.map(t=>`- ${t.id} (${t.name}): ${t.flag}`).join('\n')||'None';
+  const context=`Product: easyChef Pro | Target launch: July 1, 2026 (${daysToLaunch} days away)
+Tasks: ${tasks.length} total | Complete: ${complete} | In Progress: ${inProg} | Not Started: ${notStarted} | Overdue: ${overdue} | Blocked: ${blocked}
+Launch health score: ${healthScore}/100
+
+Open accountability gaps (${gaps.length}):
+${gapLines}`;
+  contentEl.innerHTML=`<span style="color:var(--muted);font-style:italic">Generating assessment…</span>`;
+  const btn=document.getElementById('cfo-generate-btn');
+  if(btn){btn.disabled=true;btn.style.opacity='0.55';}
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':CONFIG.anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-cors':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:'You are the CFO and COO of Digital Galactica Labs reviewing the easyChef Pro product launch status. Write with executive authority and direct honesty. Do not hedge or soften findings.',
+        messages:[{role:'user',content:`Current launch status:\n\n${context}\n\nWrite a 3-paragraph executive assessment: (1) overall launch readiness and what the health score reflects, (2) the most critical risks requiring resolution this week and why they block progress, (3) one specific actionable recommendation the team can execute at Monday's meeting. Paragraphs only — no bullet points or headers. Be direct and specific.`}]
+      })
+    });
+    const data=await resp.json();
+    if(data.content&&data.content[0]&&data.content[0].text){
+      contentEl.innerHTML=data.content[0].text.split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="margin-bottom:14px;line-height:1.8;color:#c5c8d0;font-family:'DM Sans',sans-serif;font-size:13px">${p.trim()}</p>`).join('');
+    } else {
+      contentEl.innerHTML=`<span style="color:var(--red)">API error: ${data.error?data.error.message:JSON.stringify(data)}</span>`;
+    }
+  }catch(err){
+    contentEl.innerHTML=`<span style="color:var(--red)">Request failed: ${err.message}</span>`;
+  }finally{
+    if(btn){btn.disabled=false;btn.style.opacity='1';}
+  }
 }
 
 // ── Task Status Summary ─────────────────────────────────────
