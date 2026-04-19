@@ -1552,17 +1552,19 @@ function _expandCommentSetColor(taskId,color){
   el.style.color=color;
 }
 function _raciExpandLoadChannels(taskId){
-  if(!CONFIG.sheetsUrl) return;
   const linked=_getTaskSlackLink(taskId);
+  function _populate(chs){
+    requestAnimationFrame(()=>{
+      const sel=document.getElementById('raci-expand-slack-'+taskId); if(!sel) return;
+      sel.innerHTML='<option value="">— No linked channel —</option>'+chs.map(c=>`<option value="${c.id}"${linked.channelId===c.id?' selected':''}>#${c.name} (${c.member_count||0})</option>`).join('');
+    });
+  }
+  if(_slackChannelsCache){ _populate(_slackChannelsCache); return; }
+  if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{
-      const sel=document.getElementById('raci-expand-slack-'+taskId);
-      if(!sel) return;
-      const chs=data.channels||[];
-      sel.innerHTML='<option value="">— No linked channel —</option>'+chs.map(c=>`<option value="${c.id}"${linked.channelId===c.id?' selected':''}>#${c.name} (${c.member_count||0})</option>`).join('');
-    })
-    .catch(()=>{ const sel=document.getElementById('raci-expand-slack-'+taskId); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; });
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _populate(chs); })
+    .catch(()=>{ requestAnimationFrame(()=>{ const sel=document.getElementById('raci-expand-slack-'+taskId); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; }); });
 }
 function raciLinkSlack(taskId,sel){
   const channelId=sel.value;
@@ -2641,16 +2643,19 @@ function _buildAgendaExpandHtml(id){
 function _agendaExpandNoteSetColor(id,color){ const el=document.getElementById('agenda-expand-notes-'+id); if(el) el.style.color=color; }
 function _agendaExpandCommentSetColor(id,color){ const el=document.getElementById('agenda-expand-comment-input-'+id); if(el) el.style.color=color; }
 function _agendaExpandLoadChannels(id){
-  if(!CONFIG.sheetsUrl) return;
   const linked=_getTaskSlackLink('agenda_'+id);
+  function _populate(chs){
+    requestAnimationFrame(()=>{
+      const sel=document.getElementById('agenda-expand-slack-'+id); if(!sel) return;
+      sel.innerHTML='<option value="">— No linked channel —</option>'+chs.map(c=>`<option value="${c.id}"${linked.channelId===c.id?' selected':''}>#${c.name} (${c.member_count||0})</option>`).join('');
+    });
+  }
+  if(_slackChannelsCache){ _populate(_slackChannelsCache); return; }
+  if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{
-      const sel=document.getElementById('agenda-expand-slack-'+id); if(!sel) return;
-      const chs=data.channels||[];
-      sel.innerHTML='<option value="">— No linked channel —</option>'+chs.map(c=>`<option value="${c.id}"${linked.channelId===c.id?' selected':''}>#${c.name} (${c.member_count||0})</option>`).join('');
-    })
-    .catch(()=>{ const sel=document.getElementById('agenda-expand-slack-'+id); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; });
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _populate(chs); })
+    .catch(()=>{ requestAnimationFrame(()=>{ const sel=document.getElementById('agenda-expand-slack-'+id); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; }); });
 }
 function agendaLinkSlack(id,sel){
   const channelId=sel.value;
@@ -6192,6 +6197,7 @@ function wiApplyToLive(){
 // ── Init all ───────────────────────────────────────────────
 // ── Slack Card ───────────────────────────────────────────────
 let _slackChannelId = null;
+let _slackChannelsCache = null;
 const _SLACK_FOUNDERS = ['taylor','steve','hammad','adam'];
 function _slackCanSend(){ return _SLACK_FOUNDERS.includes(window._DGL_USER||''); }
 
@@ -6277,6 +6283,7 @@ function _slackLoadChannels(){
       if(!sel) return;
       if(data.error){ sel.innerHTML=`<option value="">Error: ${data.error}</option>`; return; }
       const chs=data.channels||[];
+      _slackChannelsCache=chs;
       sel.innerHTML='<option value="">— Select channel —</option>'+
         chs.map(c=>`<option value="${c.id}">#${c.name} (${c.member_count||0})</option>`).join('');
       if(_slackChannelId){
