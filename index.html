@@ -1591,6 +1591,8 @@ function _buildTaskExpandHtml(taskId){
         ${canAdmin?`<textarea id="raci-task-decision-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Record a decision made about this task — syncs to the linked agenda item" onblur="saveTaskDecision('${taskId}')">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
         <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="(function(){const t=DASHBOARD_DATA.tasks.find(x=>x.id==='${taskId}');if(t){t.actionPlan=document.getElementById('raci-task-actionplan-${taskId}').value;saveToLocal();}})()">${(t.actionPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+        ${lbl('TASK PLAN')}
+        <div style="border-left:3px solid #4a9eff;border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="raci-task-plan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="Write the execution plan for this task — steps, timeline, resources needed" onblur="(function(){const t=DASHBOARD_DATA.tasks.find(x=>x.id==='${taskId}');if(t){t.taskPlan=document.getElementById('raci-task-plan-${taskId}').value;saveToLocal();}})()">${(t.taskPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
         ${lbl('DEPENDENCIES')}
         <div>${depsHtml}</div>
         ${lbl('DATES')}
@@ -2551,14 +2553,14 @@ function loadAgendaFromSheets(){
       const metaRow=rows.find(r=>r.id==='__meta__');
       if(metaRow){ const _mc=_getMeetingMeta(); const _md=metaRow.detail||''; const _cleanDate=_md?_excelSerialToDate(_md):_mc.date; const _newMeta={..._mc,title:metaRow.title||_mc.title,date:_cleanDate||_mc.date,time:metaRow.owner||_mc.time}; _saveMeetingMeta(_newMeta); if(_md&&_cleanDate!==_md) _saveMeetingMetaToSheets(_newMeta); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
-      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',actionPlan:r.actionPlan||''})); }
+      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',actionPlan:r.actionPlan||'',taskPlan:r.taskPlan||''})); }
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
 }
 function saveAgendaItemToSheets(item){
   if(!CONFIG.sheetsUrl||!item||!item.id) return;
-  const payload=JSON.stringify({action:'agenda_write',id:item.id||'',title:item.title||'',detail:item.detail||'',decision:item.decision||'',checked:String(!!item.checked),owner:item.owner||'',deadline:item.deadline||'',category:item.category||'Manual',taskId:item.taskId||'',flag:item.flag||'',actionPlan:item.actionPlan||''});
+  const payload=JSON.stringify({action:'agenda_write',id:item.id||'',title:item.title||'',detail:item.detail||'',decision:item.decision||'',checked:String(!!item.checked),owner:item.owner||'',deadline:item.deadline||'',category:item.category||'Manual',taskId:item.taskId||'',flag:item.flag||'',actionPlan:item.actionPlan||'',taskPlan:item.taskPlan||''});
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload}).catch(()=>{});
 }
 // Code.gs — add doPost handler for agenda_write:
@@ -2951,6 +2953,10 @@ function _buildAgendaExpandHtml(id){
         ${canAdmin?`<textarea id="agenda-expand-decision-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Record the decision made on this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','decision',this.value)">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
         <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="agenda-expand-actionplan-${id}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="updateAgendaField('${id}','actionPlan',this.value)">${(it.actionPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+        ${lbl('TASK PLAN')}
+        ${linkedTask
+          ?`<div style="border-left:3px solid #4a9eff;border-radius:0 6px 6px 0;padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-bottom:4px"><span style="font-size:9px;color:#4a9eff;border:1px solid #4a9eff;border-radius:3px;padding:1px 4px;margin-right:6px">${linkedTask.id}</span>${(linkedTask.taskPlan||'— no task plan set —').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`
+          :`<div style="border-left:3px solid #4a9eff;border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="agenda-task-plan-${id}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="Write the execution plan for this task — steps, timeline, resources needed" onblur="updateAgendaField('${id}','taskPlan',this.value)">${(it.taskPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>`}
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
