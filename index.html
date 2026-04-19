@@ -2494,9 +2494,9 @@ function loadAgendaFromSheets(){
     .catch(()=>{});
 }
 function saveAgendaItemToSheets(item){
-  if(!CONFIG.sheetsUrl||!item) return;
-  console.log('saving agenda item:',item.id,'flag:',item.flag);
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'action=agenda_write&id='+encodeURIComponent(item.id||'')+'&title='+encodeURIComponent(item.title||'')+'&detail='+encodeURIComponent(item.detail||'')+'&decision='+encodeURIComponent(item.decision||'')+'&checked='+encodeURIComponent(String(!!item.checked))+'&owner='+encodeURIComponent(item.owner||'')+'&deadline='+encodeURIComponent(item.deadline||'')+'&category='+encodeURIComponent(item.category||'Manual')+'&taskId='+encodeURIComponent(item.taskId||'')+'&flag='+encodeURIComponent(item.flag||'')}).catch(()=>{});
+  if(!CONFIG.sheetsUrl||!item||!item.id) return;
+  const payload={action:'agenda_write',id:item.id||'',title:item.title||'',detail:item.detail||'',decision:item.decision||'',checked:String(!!item.checked),owner:item.owner||'',deadline:item.deadline||'',category:item.category||'Manual',taskId:item.taskId||'',flag:item.flag||''};
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(()=>{});
 }
 // Code.gs — add doPost handler for agenda_write:
 // function doPost(e){
