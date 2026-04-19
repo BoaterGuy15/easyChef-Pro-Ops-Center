@@ -963,7 +963,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div class="modal" id="agenda-edit-modal-inner" style="padding:0;max-width:500px;width:90%">
     <div id="aem-drag-handle" style="cursor:move;user-select:none;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px 12px;border-bottom:1px solid var(--border);border-radius:14px 14px 0 0;background:var(--card)">
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">EDIT AGENDA ITEM ✦ drag to move</span>
-      <button onclick="closeAgendaEditModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;line-height:1">✕</button>
+      <button onclick="event.stopPropagation();closeAgendaEditModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
     <div id="aem-body" style="flex:1;overflow-y:auto;padding:16px 20px 20px">
     <div class="modal-field" style="margin-bottom:12px">
@@ -5777,7 +5777,7 @@ function showTaskModal(taskId){
         <h3 style="margin:0 0 2px 0">${isNew?'New Task':'Edit Task'}</h3>
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px">${isNew?'ADD TO RACI TRACKER ✦ drag to move':'EDIT · '+esc(task.id)+' ✦ drag to move'}</div>
       </div>
-      <span onclick="closeModal()" style="cursor:pointer;font-size:16px;color:var(--muted);line-height:1;padding:2px 4px;flex-shrink:0;pointer-events:auto" title="Close">✕</span>
+      <button onclick="event.stopPropagation();closeModal()" style="cursor:pointer;font-size:16px;color:var(--muted);line-height:1;padding:2px 4px;flex-shrink:0;background:transparent;border:none" title="Close">✕</button>
     </div>
     <div style="padding:20px 24px 24px;flex:1;overflow-y:auto;box-sizing:border-box">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
