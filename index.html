@@ -1442,6 +1442,56 @@ function _loadCommentsFromSheets(storageKey,sheetsTaskId,onUpdate){
       if(merged.length!==local.length){ _saveTaskComments(storageKey,merged); if(typeof onUpdate==='function') onUpdate(merged); }
     }).catch(()=>{});
 }
+function _getNotes(taskId){ try{const r=localStorage.getItem('dgl_notes_'+taskId);if(r)return JSON.parse(r);}catch(e){} return []; }
+function _saveNotes(taskId,entries){ try{localStorage.setItem('dgl_notes_'+taskId,JSON.stringify(entries));}catch(e){} }
+function _appendNote(taskId,text){
+  if(!text) return;
+  const user=window._DGL_USER||'anonymous';
+  const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
+  const name=(info.name||user).split(' ')[0];
+  const ts=new Date().toISOString();
+  const entries=_getNotes(taskId);
+  entries.push({ts,user,name,text});
+  _saveNotes(taskId,entries);
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=comments_write&taskId='+encodeURIComponent(taskId)+'&user='+encodeURIComponent(user)+'&name='+encodeURIComponent(name)+'&ts='+encodeURIComponent(ts)+'&text='+encodeURIComponent(text)+'&type=note').catch(()=>{});
+}
+function _noteEntryHtml(e){ const d=(e.ts||'').slice(0,10); return `<div style="padding:5px 0;border-bottom:1px solid rgba(37,42,53,0.4)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${d} · </span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);font-weight:600">${(e.name||e.user||'').replace(/</g,'&lt;')}</span><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word;margin-top:2px">${(e.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`; }
+function _notesInputSetColor(cid,color){ const el=document.getElementById('nl-input-'+cid); if(el) el.style.color=color; }
+function _submitNote(taskId,cid){
+  const inp=document.getElementById('nl-input-'+cid);
+  const text=(inp?inp.value:'').trim(); if(!text) return;
+  _appendNote(taskId,text);
+  if(inp) inp.value='';
+  const entries=_getNotes(taskId);
+  const log=document.getElementById(cid+'-entries');
+  if(log){ log.innerHTML=entries.length?entries.map(_noteEntryHtml).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No notes yet.</div>'; log.scrollTop=log.scrollHeight; }
+}
+function _renderNotesLog(taskId,cid,canAdd){
+  const entries=_getNotes(taskId);
+  const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
+  const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
+  const _swSt2="width:11px;height:11px;border-radius:50%;cursor:pointer;border:none;padding:0;flex-shrink:0";
+  const _barSt="display:flex;gap:2px;align-items:center;padding:3px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;flex-wrap:wrap";
+  const _eicons=['✓','⚠️','⛔','🔵','💡','🎯'];
+  const _esw=[{c:'var(--text)',t:'Default'},{c:'var(--green)',t:'Green'},{c:'var(--amber)',t:'Amber'},{c:'var(--red)',t:'Red'},{c:'var(--gold)',t:'Gold'},{c:'var(--muted)',t:'Muted'},{c:'#60a5fa',t:'Blue'},{c:'#c084fc',t:'Purple'}];
+  const _ebar=`<div style="${_barSt}">${_eicons.map(i=>`<button style="${_eSt2}" onclick="_insertAtCursor('nl-input-${cid}','${i}')">${i}</button>`).join('')}<span style="width:1px;height:12px;background:var(--border);margin:0 3px;display:inline-block"></span>${_esw.map(s=>`<button style="${_swSt2};background:${s.c}" onclick="_notesInputSetColor('${cid}','${s.c}')" title="${s.t}"></button>`).join('')}</div>`;
+  const logHtml=entries.length?entries.map(_noteEntryHtml).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No notes yet.</div>';
+  const addHtml=canAdd?`<div style="margin-top:8px">${_ebar}<textarea id="nl-input-${cid}" rows="2" style="${iSt};resize:vertical" placeholder="Add a note…"></textarea><button onclick="_submitNote('${taskId}','${cid}')" style="margin-top:5px;font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Add Note</button></div>`:'';
+  if(CONFIG.sheetsUrl) setTimeout(()=>{
+    fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(taskId)+'&type=note')
+      .then(r=>r.json()).then(data=>{
+        const rows=Array.isArray(data)?data:(data.comments||[]);
+        if(!rows.length) return;
+        const local=_getNotes(taskId);
+        const seen=new Set(local.map(n=>(n.ts||'')+'|'+(n.user||'')));
+        const merged=[...local];
+        rows.forEach(r=>{ const k=(r.ts||r.timestamp||'')+'|'+(r.user||''); if(!seen.has(k)){ merged.push({user:r.user||'',name:r.name||r.user||'',ts:r.ts||r.timestamp||'',text:r.text||''}); seen.add(k); } });
+        merged.sort((a,b)=>(a.ts||'')<(b.ts||'')?-1:1);
+        if(merged.length!==local.length){ _saveNotes(taskId,merged); const log=document.getElementById(cid+'-entries'); if(log) log.innerHTML=merged.map(_noteEntryHtml).join(''); }
+      }).catch(()=>{});
+  },250);
+  return `<div id="${cid}-entries" style="max-height:180px;overflow-y:auto">${logHtml}</div>${addHtml}`;
+}
 function _getTaskSlackLink(id){ try{const r=localStorage.getItem('dgl_task_slack_'+id);if(r)return JSON.parse(r);}catch(e){} return {}; }
 function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
 function toggleTaskExpand(taskId,trEl){
@@ -1514,8 +1564,7 @@ function _buildTaskExpandHtml(taskId){
         ${fRow('Status',t.status)}
         ${fRow('Owner',t.owner||'—')}
         ${lbl('NOTES')}
-        ${_ebar(`raci-expand-notes-${taskId}`,'_expandNoteSetColor')}
-        <textarea id="raci-expand-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add notes…" onblur="saveTaskExpandNotes('${taskId}')">${(t.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        ${_renderNotesLog(taskId,'raci-expand-notes-'+taskId,canAdmin)}
         ${lbl('DEPENDENCIES')}
         <div>${depsHtml}</div>
         ${lbl('DATES')}
@@ -2725,8 +2774,7 @@ function _buildAgendaExpandHtml(id){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
       <div>
         ${lbl('NOTES')}
-        ${_ebar(`agenda-expand-notes-${id}`,'_agendaExpandNoteSetColor')}
-        <textarea id="agenda-expand-notes-${id}" rows="4" style="${iSt};resize:vertical" placeholder="Add notes…" onblur="updateAgendaField('${id}','detail',this.value)">${(it.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        ${_renderNotesLog(it.taskId||'agenda_'+id,'agenda-expand-notes-'+id,canAdmin)}
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
