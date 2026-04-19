@@ -1523,7 +1523,7 @@ function addTaskComment(taskId){
   if(!text) return;
   const user=window._DGL_USER||'anonymous';
   const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
-  const name=info.name||user;
+  const name=(info.name||user).split(' ')[0];
   const comments=_getTaskComments(taskId);
   comments.push({user,name,ts:new Date().toISOString(),text});
   _saveTaskComments(taskId,comments);
@@ -1592,7 +1592,7 @@ function buildRaciTable(){
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()">${t.flag||''}</div></td>
     `;
     tr.style.cursor='pointer';
-    tr.addEventListener('click',e=>{ if(e.target.closest('.raci-no-expand,select,input,button,a,[contenteditable="true"]')) return; toggleTaskExpand(t.id,tr); });
+    tr.addEventListener('click',e=>{ if(e.target.closest('.raci-no-expand,.raci-expand-row,select,input,button,a,[contenteditable="true"]')) return; toggleTaskExpand(t.id,tr); });
     if(getBlockingDeps(t).length>0){ tr.classList.add('blocked-row'); tr.dataset.blocked='true'; }
     tbody.appendChild(tr);
   });
