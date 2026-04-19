@@ -3261,7 +3261,7 @@ function _openCreateTaskWithData(taskData){
     if(taskData&&taskData.cat){const el=g('tm-cat');if(el)el.value=taskData.cat;}
     if(taskData&&taskData.sd){const el=g('tm-sd');if(el)el.value=taskData.sd;}
     if(taskData&&taskData.ed){const el=g('tm-ed');if(el)el.value=taskData.ed;}
-    if(taskData&&taskData.notes){const el=g('tm-notes');if(el)el.value=taskData.notes;}
+    if(taskData&&taskData.notes){const el=g('tm-notes');if(el){el.value=taskData.notes;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,400)+'px';}}
     if(taskData&&taskData.deps){const el=g('tm-deps');if(el)el.value=taskData.deps;}
     if(taskData&&taskData.owner&&taskData.owner!=='TBD'&&typeof _tmOwners!=='undefined'){_tmOwners=[taskData.owner];if(typeof _renderTmOwnerChips==='function')_renderTmOwnerChips();}
     const mc=document.getElementById('modal-content');
@@ -5825,7 +5825,7 @@ function showTaskModal(taskId){
       </div>
       <button onclick="event.stopPropagation();closeModal()" style="cursor:pointer;font-size:16px;color:var(--muted);line-height:1;padding:2px 4px;flex-shrink:0;background:transparent;border:none" title="Close">✕</button>
     </div>
-    <div style="padding:20px 24px 24px;flex:1;overflow-y:auto;box-sizing:border-box">
+    <div style="padding:16px 24px 24px;flex:1;overflow-y:auto;box-sizing:border-box">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
         <div class="modal-field" style="grid-column:1/3">
           <label>Task Name</label>
@@ -5865,7 +5865,7 @@ function showTaskModal(taskId){
         </div>
         <div class="modal-field" style="grid-column:1/3">
           <label>Notes</label>
-          <textarea id="tm-notes" rows="6" style="width:100%;box-sizing:border-box;white-space:pre-wrap;word-break:break-word">${isNew?'':esc(task.notes||'')}</textarea>
+          <textarea id="tm-notes" rows="10" style="width:100%;box-sizing:border-box;min-height:200px;height:auto;resize:vertical;white-space:pre-wrap;word-break:break-word;overflow-y:auto;font-family:'DM Mono',monospace;font-size:11px;line-height:1.5">${isNew?'':esc(task.notes||'')}</textarea>
         </div>
       </div>
       <div class="modal-actions" style="justify-content:space-between">
