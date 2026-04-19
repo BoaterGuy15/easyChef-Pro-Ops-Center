@@ -380,7 +380,8 @@ tr.hidden-row{display:none}
 /* ── MODAL ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:680px;width:min(680px,90vw);max-height:85vh;overflow-y:auto;min-width:320px;box-sizing:border-box}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:680px;width:min(680px,90vw);max-height:85vh;overflow-y:auto;min-width:320px;box-sizing:border-box;position:relative}
+.modal::after{content:'';position:absolute;bottom:0;right:0;width:16px;height:16px;background:linear-gradient(135deg,transparent 55%,rgba(201,168,76,0.22) 55%);border-radius:0 0 14px 0;pointer-events:none}
 .modal h3{font-family:'Playfair Display',serif;font-size:18px;margin-bottom:4px}
 .modal-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:20px}
 .modal-field{margin-bottom:14px}
@@ -5759,14 +5760,14 @@ function showTaskModal(taskId){
   const statusOpts = statuses.map(o=>`<option${(!isNew&&task.status===o)||(isNew&&o==='Not Started')?' selected':''}>${o}</option>`).join('');
   const priOpts = ['High','Medium','Low'].map(o=>`<option${(!isNew&&task.pri===o)||(isNew&&o==='Medium')?' selected':''}>${o}</option>`).join('');
   document.getElementById('modal-content').innerHTML = `
-    <div id="tm-drag-handle" style="cursor:move;padding:16px 24px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;user-select:none;position:sticky;top:0;z-index:1;background:var(--card);border-radius:14px 14px 0 0">
+    <div id="tm-drag-handle" style="cursor:move;padding:16px 24px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;user-select:none;flex-shrink:0;background:var(--card);border-radius:14px 14px 0 0">
       <div>
         <h3 style="margin:0 0 2px 0">${isNew?'New Task':'Edit Task'}</h3>
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px">${isNew?'ADD TO RACI TRACKER ✦ drag to move':'EDIT · '+esc(task.id)+' ✦ drag to move'}</div>
       </div>
       <span onclick="closeModal()" style="cursor:pointer;font-size:16px;color:var(--muted);line-height:1;padding:2px 4px;flex-shrink:0;pointer-events:auto" title="Close">✕</span>
     </div>
-    <div style="padding:20px 24px 24px">
+    <div style="padding:20px 24px 24px;flex:1;overflow-y:auto;box-sizing:border-box">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
         <div class="modal-field" style="grid-column:1/3">
           <label>Task Name</label>
@@ -5819,7 +5820,7 @@ function showTaskModal(taskId){
     </div>`;
   _renderTmOwnerChips();
   const _mc=document.getElementById('modal-content');
-  Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',minWidth:'400px',minHeight:'300px'});
+  Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',minWidth:'400px',minHeight:'300px',maxHeight:'85vh',display:'flex',flexDirection:'column',overflow:'hidden'});
   document.getElementById('modal-overlay').classList.add('open');
   _makeDraggable(_mc, document.getElementById('tm-drag-handle'));
 }
