@@ -1546,6 +1546,8 @@ function _buildTaskExpandHtml(taskId){
   const daysCol=daysLeft===null?'var(--muted)':daysLeft<0?'var(--red)':daysLeft<=3?'var(--amber,#d4a017)':'var(--green)';
   const daysStr=daysLeft===null?'—':daysLeft<0?Math.abs(daysLeft)+' overdue':daysLeft===0?'Due today':daysLeft+' days';
   const canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
+  const _agDecItem=AGENDA_DATA.find(a=>a.taskId===taskId);
+  if(!t.decision&&_agDecItem&&_agDecItem.decision) t.decision=_agDecItem.decision;
   const commentsHtml=_buildTaskCommentsHtml(taskId,_getTaskComments(taskId),canAdmin);
   const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
   const _swSt2="width:11px;height:11px;border-radius:50%;cursor:pointer;border:none;padding:0;flex-shrink:0";
@@ -1571,6 +1573,8 @@ function _buildTaskExpandHtml(taskId){
         <textarea id="raci-flag-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Add a flag if this task needs attention — ⛔ blocker, ⚠️ at risk, ✓ resolved" onblur="saveTaskExpandNotes('${taskId}')">${(t.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
         ${lbl('TASK NOTES')}
         <textarea id="raci-task-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note — visible to all team members and readable by AI" onblur="saveTaskNotes('${taskId}')">${(t.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        ${lbl('DECISION')}
+        ${canAdmin?`<textarea id="raci-task-decision-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Record a decision made about this task — syncs to the linked agenda item" onblur="saveTaskDecision('${taskId}')">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('DEPENDENCIES')}
         <div>${depsHtml}</div>
         ${lbl('DATES')}
@@ -1622,6 +1626,17 @@ function saveTaskNotes(taskId){
   saveToLocal();
   const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
   if(agItem){ agItem.detail=t.notes; saveAgendaItemToSheets(agItem); }
+}
+function saveTaskDecision(taskId){
+  const el=document.getElementById('raci-task-decision-'+taskId);
+  if(!el) return;
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  t.decision=el.value;
+  saveToLocal();
+  // decision field lives in Agenda sheet, not Tasks sheet
+  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
+  if(agItem){ agItem.decision=t.decision; saveAgendaItemToSheets(agItem); }
 }
 function _insertAtCursor(elId,ch){
   const el=document.getElementById(elId); if(!el) return;
@@ -3059,8 +3074,8 @@ function _buildDGLContext(){
   const people=['Taylor','Adam','Steve','Hammad','Mary','JR','Searah','Sadee'];
   const teamLines=people.map(p=>{ const mine=tasks.filter(t=>t[p]==='R'||t[p]==='A/R'); const od=mine.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length; return `  ${p}: ${mine.length} tasks, ${mine.filter(t=>t.status==='Complete').length} done, ${od} overdue`; }).join('\n');
   const agendaOpen=AGENDA_DATA.filter(x=>!x.checked).slice(0,5).map(x=>`  [${x.owner||'?'}] ${x.title}`).join('\n')||'  None';
-  const notesTasks=tasks.filter(t=>(t.flag&&t.flag.length>3)||(t.notes&&t.notes.length>3));
-  const taskNoteLines=notesTasks.slice(0,10).map(t=>`  ${t.id}|${t.name}|${t.owner||'—'}${t.notes?' notes:'+t.notes:''}${t.flag&&t.flag.length>3?' flag:'+t.flag:''}`).join('\n')||'  None';
+  const notesTasks=tasks.filter(t=>(t.flag&&t.flag.length>3)||(t.notes&&t.notes.length>3)||(t.decision&&t.decision.length>3));
+  const taskNoteLines=notesTasks.slice(0,10).map(t=>`  ${t.id}|${t.name}|${t.owner||'—'}${t.notes?' notes:'+t.notes:''}${t.flag&&t.flag.length>3?' flag:'+t.flag:''}${t.decision&&t.decision.length>3?' decision:'+t.decision:''}`).join('\n')||'  None';
   return `easyChef Pro | ${today.toISOString().slice(0,10)} | ${daysToLaunch}d to launch\nTasks: ${tasks.length} total | ${complete} done | ${inProg} active | ${blocked} blocked | ${overdue} overdue\nBudget: $${(b.capital||0).toLocaleString()} capital | $${(b.adBudget||0).toLocaleString()} ad | $${(b.payoneer||0).toLocaleString()} Payoneer | $${(b.monthlyRevenue||0).toLocaleString()}/mo revenue\nGaps (${gaps.length}):\n${gapLines}\nTeam:\n${teamLines}\nTask Notes (${notesTasks.length}):\n${taskNoteLines}\nOpen Agenda:\n${agendaOpen}`;
 }
 function _renderSuperAiBtn(id, type, title, status, owner){
