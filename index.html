@@ -3220,7 +3220,7 @@ function runSuperAi(id, type, btn){
 function _renderSuperAiResult(id, type, text, ts){
   const resultEl=document.getElementById('super-ai-result-'+id); if(!resultEl) return;
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
-  resultEl.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">⚡ SUPER AI ACTION PLAN</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${ts}</div><div id="super-ai-text-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="var _sat=document.getElementById('super-ai-text-${id}');_openCreateTaskWithData(_extractTaskFromAI(_sat?_sat.textContent:'','${id}','${type==='agenda'?'agenda':'task'}'));if(this){this.textContent='✓ Opened';this.disabled=true;setTimeout(()=>{this.textContent='📋 Create Task';this.disabled=false;},1500)}" style="${_bSt}">📋 Create Task</button><button onclick="_superAiAddToAgenda('${id}',this)" style="${_bSt}">📅 Add to Agenda</button><button onclick="_superAiPostToSlack('${id}','${type}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="_superAiSave('${id}','${type}',this)" style="${_bSt}">💾 Save</button></div>`;
+  resultEl.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">⚡ SUPER AI ACTION PLAN</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${ts}</div><div id="super-ai-text-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="_superAiAddToAgenda('${id}',this)" style="${_bSt}">📅 Add to Agenda</button><button onclick="_superAiPostToSlack('${id}','${type}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="_superAiSave('${id}','${type}',this)" style="${_bSt}">💾 Save</button></div>`;
 }
 function _superAiRestore(id, type){
   const saved=localStorage.getItem('dgl_superai_'+id); if(!saved) return;
@@ -3466,55 +3466,96 @@ function _addTaskPlanToRaci(id,type,idx,btn){
   _openCreateTaskWithData({name:p.title,owner:p.owner||'TBD',priority:p.priority||'High',notes:p.description||'',cat:'Launch Ops',sd,ed,flag:'',deps:'',decision:'',actionPlan:p.description||'',_sourceAgendaId:type==='agenda'?id:''});
   if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Add to RACI'; btn.disabled=false; },1500); }
 }
+function _bcpUpdateCount(){
+  const plans=window._bulkModalPlans||[];
+  const n=plans.filter((_,i)=>{const c=document.getElementById('bcp-chk-'+i);return c&&c.checked;}).length;
+  const btn=document.getElementById('bcp-create-btn'); if(btn) btn.textContent='✦ Create Selected ('+n+')';
+}
 function _showBulkCreateModal(id,type){
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src||!src.taskPlans||!src.taskPlans.length){ alert('No task plans to create. Click "✦ Generate Task Plans from AI" first.'); return; }
   const selected=src.taskPlans.filter(p=>p.selected!==false);
   if(!selected.length){ alert('No plans selected. Check at least one plan card first.'); return; }
   window._bulkModalPlans=selected;
+  window._bulkModalSrc={id,type};
+  const _stopWords=new Set(['with','this','that','from','will','have','been','they','their','your','when','what','into','task','plan','action']);
+  const _keyWords=t=>t.toLowerCase().split(/\s+/).filter(w=>w.length>4&&!_stopWords.has(w));
+  const _dupCheck=title=>{
+    const kw=_keyWords(title); if(kw.length<2) return null;
+    return DASHBOARD_DATA.tasks.find(t=>{const tw=_keyWords(t.name||'');return kw.filter(w=>tw.some(x=>x.includes(w)||w.includes(x))).length>=2;})||null;
+  };
   const _bSt2="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";
   const _owners=['Taylor','Adam','Steve','Hammad','JR','Mary','Searah','Sadee','TBD'];
-  const rows=selected.map((p,i)=>`<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
-    <input type="checkbox" id="bcp-chk-${i}" checked style="flex-shrink:0;accent-color:#4a9eff">
-    <input type="text" id="bcp-name-${i}" value="${p.title.replace(/"/g,'&quot;').replace(/</g,'&lt;')}" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 7px;border-radius:4px;outline:none;box-sizing:border-box">
-    <select id="bcp-owner-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none">${_owners.map(o=>`<option value="${o}"${o===(p.owner||'TBD')?'selected':''}>${o}</option>`).join('')}</select>
-    <input type="date" id="bcp-date-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none;width:130px">
-    <span id="bcp-result-${i}" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);white-space:nowrap;min-width:56px"></span>
-  </div>`).join('');
+  const _pris=['High','Medium','Low'];
+  const srcTaskId=type==='task'?id:(src.taskId||'');
+  const srcTask=srcTaskId?DASHBOARD_DATA.tasks.find(t=>t.id===srcTaskId):null;
+  const depLine=srcTaskId?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:10px">Will depend on: <span style="color:var(--gold)">${srcTaskId}</span>${srcTask?' · '+srcTask.name:''}</div>`:'';
+  const rows=selected.map((p,i)=>{
+    const dup=_dupCheck(p.title);
+    const isChecked=!dup;
+    const secPri=p.section==='week'?'Medium':'High';
+    const depRef=p.title.match(/\b(T-\d{3})\b/);
+    return `<div style="padding:8px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="bcp-chk-${i}" ${isChecked?'checked':''} onchange="_bcpUpdateCount()" style="flex-shrink:0;accent-color:#4a9eff">
+        <input type="text" id="bcp-name-${i}" value="${p.title.replace(/"/g,'&quot;').replace(/</g,'&lt;')}" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 7px;border-radius:4px;outline:none;box-sizing:border-box">
+        <select id="bcp-owner-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none">${_owners.map(o=>`<option value="${o}"${o===(p.owner||'TBD')?'selected':''}>${o}</option>`).join('')}</select>
+        <select id="bcp-pri-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none">${_pris.map(pr=>`<option value="${pr}"${pr===secPri?'selected':''}>${pr}</option>`).join('')}</select>
+        <input type="date" id="bcp-date-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none;width:120px">
+        <span id="bcp-result-${i}" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);white-space:nowrap;min-width:60px"></span>
+      </div>
+      ${dup?`<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--red);margin-top:3px;padding-left:24px">⚠️ Similar to ${dup.id} · ${dup.name.slice(0,50).replace(/</g,'&lt;')}</div>`:''}
+      ${depRef?`<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;padding-left:24px">Links to: ${depRef[1]}</div>`:''}
+    </div>`;
+  }).join('');
+  const initCount=selected.filter((_,i)=>!_dupCheck(selected[i]?.title||'')).length||selected.length;
   let ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove();
   ov=document.createElement('div'); ov.id='bulk-create-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;display:flex;align-items:center;justify-content:center';
-  ov.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;width:min(700px,95vw);max-height:82vh;overflow-y:auto;position:relative">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">✦ CREATE ${selected.length} TASKS FROM ACTION PLAN</span>
+  ov.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;width:min(760px,96vw);max-height:84vh;overflow-y:auto;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">✦ CREATE TASKS FROM ACTION PLAN</span>
       <button onclick="document.getElementById('bulk-create-overlay').remove()" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:10px">Review each task. Uncheck any you don't want to create. Names are editable.</div>
+    ${depLine}
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:10px">Review each task. Uncheck to skip. Names, owner, priority and date are editable. Duplicates pre-unchecked.</div>
     ${rows}
     <div id="bulk-create-progress" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);margin-top:12px;min-height:18px"></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
       <button onclick="document.getElementById('bulk-create-overlay').remove()" style="${_bSt2}">Cancel</button>
-      <button onclick="_bulkCreateTasks()" style="${_bSt2};border-color:#4a9eff;color:#4a9eff">✦ Create Selected</button>
+      <button id="bcp-create-btn" onclick="_bulkCreateTasks()" style="${_bSt2};border-color:#4a9eff;color:#4a9eff">✦ Create Selected (${initCount})</button>
     </div>
   </div>`;
   document.body.appendChild(ov);
 }
 function _bulkCreateTasks(){
   const plans=window._bulkModalPlans||[]; if(!plans.length) return;
+  const {id:srcId,type:srcType}=window._bulkModalSrc||{};
+  const srcTask=srcType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===srcId):null;
+  const srcCat=srcTask?srcTask.cat||'Launch Ops':'Launch Ops';
+  const srcDeps=srcId&&srcType==='task'?srcId:'';
+  const _raciKeys=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',..._getCustomTeamMembers().map(m=>m.raciKey)];
+  const _flagMap={risk:'⛔',week:'⚠️',today:'',decision:'',general:''};
   const prog=document.getElementById('bulk-create-progress');
   const _now=new Date(); const todayStr=_now.toISOString().slice(0,10);
-  const _ed14=new Date(_now); _ed14.setDate(_ed14.getDate()+14); const edDef=_ed14.toISOString().slice(0,10);
-  let createCount=0;
+  const _ed7=new Date(_now); _ed7.setDate(_ed7.getDate()+7); const edDef=_ed7.toISOString().slice(0,10);
+  let createCount=0; const createdIds=[];
   for(let i=0;i<plans.length;i++){
     const chk=document.getElementById('bcp-chk-'+i); if(!chk||!chk.checked) continue;
     const name=(document.getElementById('bcp-name-'+i)?.value||'').trim(); if(!name) continue;
-    const owner=document.getElementById('bcp-owner-'+i)?.value||'TBD';
+    const owner=document.getElementById('bcp-owner-'+i)?.value||srcTask?.owner||'TBD';
+    const pri=document.getElementById('bcp-pri-'+i)?.value||'High';
     const ed=document.getElementById('bcp-date-'+i)?.value||edDef;
     if(prog) prog.textContent='Creating '+(createCount+1)+'…';
-    const id=nextTaskId();
-    DASHBOARD_DATA.tasks.push({id,name,cat:'Launch Ops',pri:'High',status:'Not Started',owner,deps:'',notes:'',actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:'',flagColor:'',slackChannel:'',lastStatusChange:_now.toISOString().slice(0,16),Taylor:'',Steve:'',Adam:'',Mary:'',JR:'',Hammad:'',Searah:'',Sadee:''});
-    const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+id+' created';
-    createCount++;
+    const tid=nextTaskId();
+    const p=plans[i];
+    const raciCols={};
+    _raciKeys.forEach(k=>{ raciCols[k]=srcTask?srcTask[k]||'':''; });
+    const depRef=name.match(/\b(T-\d{3})\b/);
+    const deps=[srcDeps,depRef?depRef[1]:''].filter(Boolean).join(', ');
+    DASHBOARD_DATA.tasks.push({id:tid,name,cat:srcCat,pri,status:'Not Started',owner,deps,notes:p.description||'',actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:_flagMap[p.section]||'',flagColor:'',slackChannel:'',lastStatusChange:_now.toISOString().slice(0,16),...raciCols});
+    const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+tid;
+    createCount++; createdIds.push(tid);
   }
   saveToLocal(); masterRefresh();
   if(prog) prog.innerHTML=`<span style="color:var(--green)">✦ ${createCount} task${createCount===1?'':'s'} created</span>`;
