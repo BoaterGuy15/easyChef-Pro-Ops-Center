@@ -2800,9 +2800,9 @@ function openAgendaEditModal(id){
   el('aem-deadline').value=item.deadline||'';
   el('ag-category').value=item.category||'Manual';
   const sel=el('aem-taskid');
-  if(sel){ sel.innerHTML='<option value="">— No linked task —</option>'+DASHBOARD_DATA.tasks.map(t=>`<option value="${t.id}">${t.id} · ${t.name}</option>`).join(''); }
   const _agItemTaskId=item.taskId||'';
-  setTimeout(()=>{ const s=document.getElementById('aem-taskid'); if(s){ s.value=_agItemTaskId; agModalTaskLink(); } },50);
+  if(sel){ sel.innerHTML='<option value="">— No linked task —</option>'+DASHBOARD_DATA.tasks.map(t=>`<option value="${t.id}"${t.id===_agItemTaskId?' selected':''} >${t.id} · ${t.name}</option>`).join(''); sel.value=_agItemTaskId; }
+  setTimeout(()=>{ const s=document.getElementById('aem-taskid'); if(s){ s.value=_agItemTaskId; agModalTaskLink(); } },100);
   const btn=el('ag-checked-toggle');
   btn.textContent=_agChecked?'✓ Resolved — click to reopen':'Mark as Resolved';
   btn.style.borderColor=_agChecked?'var(--green)':'var(--border)';
