@@ -1622,7 +1622,7 @@ function raciAiFind(taskId){
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
       _raciAiSummaries[taskId]=text;
       const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
-      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiCreateTask('${taskId}',this)" style="${_bSt}">📋 Create Task</button><button onclick="raciAiAddFlag('${taskId}','blocker',this)" style="${_bSt}">⛔ Add Blocker</button><button onclick="raciAiAddFlag('${taskId}','gap',this)" style="${_bSt}">⚠️ Flag Gap</button><button onclick="raciAiUpdateStatus('${taskId}',this)" style="${_bSt}">✏️ Update Status</button><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="raciAiAddToAgenda('${taskId}',this)" style="${_bSt}">📅 Add to Agenda</button></div>`;
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiCreateTask('${taskId}',this)" style="${_bSt}">📋 Create Task</button><button onclick="raciAiAddFlag('${taskId}','blocker',this)" style="${_bSt}">⛔ Add Blocker</button><button onclick="raciAiAddFlag('${taskId}','gap',this)" style="${_bSt}">⚠️ Flag Gap</button><button onclick="raciAiUpdateStatus('${taskId}',this)" style="${_bSt}">✏️ Update Status</button><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="raciAiAddToAgenda('${taskId}',this)" style="${_bSt}">📅 Add to Agenda</button></div>`+_renderSuperAiBtn(taskId,'raci');
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
@@ -2735,7 +2735,7 @@ function agendaAiFind(id){
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
       _agendaAiSummaries[id]=text;
       const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
-      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="agenda-ai-actions-${id}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="agendaAiCreateTask('${id}',this)" style="${_bSt}">📋 Create Task</button><button onclick="agendaAiPostToSlack('${id}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="agendaAiMarkResolved('${id}',this)" style="${_bSt}">✓ Mark Resolved</button></div>`;
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="agenda-ai-actions-${id}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="agendaAiCreateTask('${id}',this)" style="${_bSt}">📋 Create Task</button><button onclick="agendaAiPostToSlack('${id}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="agendaAiMarkResolved('${id}',this)" style="${_bSt}">✓ Mark Resolved</button></div>`+_renderSuperAiBtn(id,'agenda');
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
@@ -2777,6 +2777,104 @@ function agendaAiMarkResolved(id,btn){
   const row=document.querySelector('.agenda-item-row[data-id="'+id+'"]');
   if(row) row.style.opacity=it.checked?'0.42':'1';
 }
+// ── Super AI ─────────────────────────────────────────────────
+const _slackAiSummaries={};
+function _buildDGLContext(){
+  const tasks=DASHBOARD_DATA.tasks; const meta=DASHBOARD_DATA.meta; const today=getPSTDate();
+  const complete=tasks.filter(t=>t.status==='Complete').length;
+  const inProg=tasks.filter(t=>['Started','In Progress','In Review','Ready'].includes(t.status)).length;
+  const blocked=tasks.filter(t=>t.status==='Blocked').length;
+  const overdue=tasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length;
+  const daysToLaunch=Math.max(0,Math.ceil((meta.launchDate-today)/86400000));
+  const b=DASHBOARD_DATA.budget;
+  const gaps=tasks.filter(t=>t.flag&&(t.flag.startsWith('⚠️')||t.flag.startsWith('⛔')));
+  const gapLines=gaps.slice(0,5).map(t=>`  ${t.id}|${t.name}|${t.owner||'—'}|${t.flag}`).join('\n')||'  None';
+  const people=['Taylor','Adam','Steve','Hammad','Mary','JR','Searah','Sadee'];
+  const teamLines=people.map(p=>{ const mine=tasks.filter(t=>t[p]==='R'||t[p]==='A/R'); const od=mine.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length; return `  ${p}: ${mine.length} tasks, ${mine.filter(t=>t.status==='Complete').length} done, ${od} overdue`; }).join('\n');
+  const agendaOpen=AGENDA_DATA.filter(x=>!x.checked).slice(0,5).map(x=>`  [${x.owner||'?'}] ${x.title}`).join('\n')||'  None';
+  return `easyChef Pro | ${today.toISOString().slice(0,10)} | ${daysToLaunch}d to launch\nTasks: ${tasks.length} total | ${complete} done | ${inProg} active | ${blocked} blocked | ${overdue} overdue\nBudget: $${(b.capital||0).toLocaleString()} capital | $${(b.adBudget||0).toLocaleString()} ad | $${(b.payoneer||0).toLocaleString()} Payoneer | $${(b.monthlyRevenue||0).toLocaleString()}/mo revenue\nGaps (${gaps.length}):\n${gapLines}\nTeam:\n${teamLines}\nOpen Agenda:\n${agendaOpen}`;
+}
+function _renderSuperAiBtn(id, type){
+  const saved=localStorage.getItem('dgl_superai_'+id);
+  const savedData=saved?JSON.parse(saved):null;
+  const lastPlan=savedData?`<div style="margin-top:5px"><button onclick="_superAiRestore('${id}','${type}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📋 Last plan: ${savedData.ts}</button></div>`:'';
+  return `<div id="super-ai-wrap-${id}" style="margin-top:10px">${lastPlan}<button id="super-ai-btn-${id}" onclick="runSuperAi('${id}','${type}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap;font-weight:600;letter-spacing:1px">⚡ Super AI — Get Action Plan</button><div id="super-ai-result-${id}"></div></div>`;
+}
+function runSuperAi(id, type, btn){
+  if(!CONFIG.sheetsUrl) return;
+  let summary='';
+  if(type==='raci') summary=_raciAiSummaries[id]||'';
+  else if(type==='agenda') summary=_agendaAiSummaries[id]||'';
+  else if(type==='slack') summary=_slackAiSummaries[id]||'';
+  btn.textContent='⚡ Generating action plan…'; btn.disabled=true;
+  const system='You are the Chief Operating Officer AI for DGL\'s easyChef Pro launch. You have complete visibility into the team\'s operational state. Be brutally specific: name exact people, exact task IDs, exact deadlines, exact dollar amounts. Never be vague. Never hedge.';
+  const ctx=_buildDGLContext().slice(0,3000);
+  const prompt=`Based on this operational context and analysis, produce a prioritized action plan:\n\n1. THE SINGLE MOST IMPORTANT ACTION TODAY — who does what by when\n2. THREE ACTIONS THIS WEEK — owner, action, deadline for each\n3. ONE RISK TO ESCALATE BEFORE MONDAY — what happens if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE — be specific\n\nAnalysis:\n${summary.slice(0,800)}\n\nOperational Context:\n${ctx}`;
+  const resultEl=document.getElementById('super-ai-result-'+id);
+  fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
+    .then(r=>r.json())
+    .then(data=>{
+      btn.textContent='⚡ Super AI — Get Action Plan'; btn.disabled=false;
+      const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
+      const ts=new Date().toLocaleString();
+      localStorage.setItem('dgl_superai_'+id, JSON.stringify({text, ts}));
+      _renderSuperAiResult(id, type, text, ts);
+    })
+    .catch(()=>{ btn.textContent='⚡ Super AI — Get Action Plan'; btn.disabled=false; if(resultEl) resultEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Super AI failed.</div>'; });
+}
+function _renderSuperAiResult(id, type, text, ts){
+  const resultEl=document.getElementById('super-ai-result-'+id); if(!resultEl) return;
+  const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
+  resultEl.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">⚡ SUPER AI ACTION PLAN</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${ts}</div><div id="super-ai-text-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="_superAiCreateTask('${id}',this)" style="${_bSt}">📋 Create Task</button><button onclick="_superAiAddToAgenda('${id}',this)" style="${_bSt}">📅 Add to Agenda</button><button onclick="_superAiPostToSlack('${id}','${type}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="_superAiSave('${id}',this)" style="${_bSt}">💾 Save</button></div>`;
+}
+function _superAiRestore(id, type){
+  const saved=localStorage.getItem('dgl_superai_'+id); if(!saved) return;
+  const {text,ts}=JSON.parse(saved);
+  _renderSuperAiResult(id, type, text, ts);
+}
+function _superAiCreateTask(id, btn){
+  const el=document.getElementById('super-ai-text-'+id);
+  const text=el?el.textContent:'';
+  const firstLine=text.split('\n').find(l=>l.trim())||'Super AI Action';
+  showTaskModal(null);
+  setTimeout(()=>{
+    const nameEl=document.getElementById('tm-name'); if(nameEl) nameEl.value=firstLine.replace(/^[\d.\-\s]+/,'').slice(0,80);
+    const notesEl=document.getElementById('tm-notes'); if(notesEl) notesEl.value=text;
+    const _tn=new Date(); const _ed7=new Date(_tn); _ed7.setDate(_ed7.getDate()+7);
+    const sdEl=document.getElementById('tm-sd'); if(sdEl&&!sdEl.value) sdEl.value=_tn.toISOString().slice(0,10);
+    const edEl=document.getElementById('tm-ed'); if(edEl&&!edEl.value) edEl.value=_ed7.toISOString().slice(0,10);
+  },0);
+  if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Create Task'; btn.disabled=false; },1500); }
+}
+function _superAiAddToAgenda(id, btn){
+  const el=document.getElementById('super-ai-text-'+id);
+  const text=el?el.textContent:'';
+  const riskLine=text.split('\n').find(l=>/escalate|risk/i.test(l))||text.split('\n').find(l=>l.trim())||'Super AI escalation';
+  _addAgendaItem('⚡ ESCALATE: '+riskLine.replace(/^[\d.\-\s]+/,'').slice(0,80), btn, '📅 Add to Agenda', 'Manual');
+}
+function _superAiPostToSlack(id, type, btn){
+  if(!CONFIG.sheetsUrl){ alert('No Sheets URL configured.'); return; }
+  let channelId='';
+  if(type==='raci'){ const lk=_getTaskSlackLink(id); channelId=lk.channelId; }
+  else if(type==='agenda'){ const lk=_getTaskSlackLink('agenda_'+id); channelId=lk.channelId; }
+  else channelId=_slackChannelId||'';
+  if(!channelId){ alert('Link a Slack channel first.'); return; }
+  const el=document.getElementById('super-ai-text-'+id);
+  const text=el?el.textContent:''; if(!text) return;
+  btn.textContent='Posting…'; btn.disabled=true;
+  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent('⚡ Super AI Action Plan:\n\n'+text)+'&user='+encodeURIComponent(window._DGL_USER||''))
+    .then(r=>r.json())
+    .then(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; })
+    .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
+}
+function _superAiSave(id, btn){
+  const el=document.getElementById('super-ai-text-'+id);
+  const text=el?el.textContent:''; if(!text) return;
+  const ts=new Date().toLocaleString();
+  localStorage.setItem('dgl_superai_'+id, JSON.stringify({text, ts}));
+  if(btn){ btn.textContent='💾 Saved ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='💾 Save'; btn.disabled=false; },1500); }
+}
+
 function buildMondayAgenda(){
   if(_agendaExpandedId) return;
   const el=document.getElementById('agenda-monday-list');
@@ -6269,8 +6367,9 @@ function slackAnalyzeThread(btn, slotId){
       const _chName=(document.getElementById('slack-channel-select')?.selectedOptions[0]?.text||'thread').replace(/\s*\(\d+\)$/,'');
       aiSlot.dataset.summary=text.slice(0,100);
       aiSlot.dataset.channel=_chName;
+      _slackAiSummaries[slotId]=text;
       const _agBtnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:6px";
-      aiSlot.innerHTML=`<div style="border:1px solid var(--gold);border-radius:6px;padding:10px;margin-top:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><button onclick="slackAddThreadToAgenda(this)" style="${_agBtnSt}">📅 Add to Agenda</button>`;
+      aiSlot.innerHTML=`<div style="border:1px solid var(--gold);border-radius:6px;padding:10px;margin-top:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><button onclick="slackAddThreadToAgenda(this)" style="${_agBtnSt}">📅 Add to Agenda</button>`+_renderSuperAiBtn(slotId,'slack');
     })
     .catch(()=>{ btn.textContent='✦ AI Analyze'; btn.disabled=false; aiSlot.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red)">AI analysis failed</div>'; });
 }
