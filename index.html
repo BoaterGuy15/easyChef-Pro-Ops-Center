@@ -996,6 +996,11 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         </select>
       </div>
     </div>
+    <div class="modal-field" style="margin-bottom:12px">
+      <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">LINKED TASK</label>
+      <select id="ag-taskId" onchange="agModalTaskLink()" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></select>
+      <div id="ag-task-info" style="margin-top:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);min-height:14px"></div>
+    </div>
     <div class="modal-field" style="margin-bottom:18px">
       <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:6px">STATUS</label>
       <button id="ag-checked-toggle" onclick="agToggleChecked()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text)">Mark as Resolved</button>
@@ -2414,14 +2419,14 @@ function loadAgendaFromSheets(){
       const metaRow=rows.find(r=>r.id==='__meta__');
       if(metaRow){ const _mc=_getMeetingMeta(); const _md=metaRow.detail||''; const _safeDate=(_md&&!_md.includes('GMT')&&!_md.includes('00:00:00'))?_md:_mc.date; _saveMeetingMeta({..._mc,title:metaRow.title||_mc.title,date:_safeDate,time:metaRow.owner||_mc.time}); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
-      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:r.deadline||'',category:r.category||'Manual'})); }
+      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:r.deadline||'',category:r.category||'Manual',taskId:r.taskId||''})); }
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
 }
 function saveAgendaItemToSheets(item){
   if(!CONFIG.sheetsUrl||!item) return;
-  fetch(CONFIG.sheetsUrl+'?action=agenda_write&id='+encodeURIComponent(item.id||'')+'&title='+encodeURIComponent(item.title||'')+'&detail='+encodeURIComponent(item.detail||'')+'&decision='+encodeURIComponent(item.decision||'')+'&checked='+encodeURIComponent(String(!!item.checked))+'&owner='+encodeURIComponent(item.owner||'')+'&deadline='+encodeURIComponent(item.deadline||'')+'&category='+encodeURIComponent(item.category||'Manual')).catch(()=>{});
+  fetch(CONFIG.sheetsUrl+'?action=agenda_write&id='+encodeURIComponent(item.id||'')+'&title='+encodeURIComponent(item.title||'')+'&detail='+encodeURIComponent(item.detail||'')+'&decision='+encodeURIComponent(item.decision||'')+'&checked='+encodeURIComponent(String(!!item.checked))+'&owner='+encodeURIComponent(item.owner||'')+'&deadline='+encodeURIComponent(item.deadline||'')+'&category='+encodeURIComponent(item.category||'Manual')+'&taskId='+encodeURIComponent(item.taskId||'')).catch(()=>{});
 }
 function deleteAgendaItemFromSheets(id){
   if(!CONFIG.sheetsUrl||!id) return;
@@ -2540,21 +2545,26 @@ function saveAgendaOrderToSheets(){
 }
 function _agendaItemHtml(it,i,canEdit){
   const done=!!it.checked;
+  const canFounder=['taylor','steve'].includes(window._DGL_USER||'');
   const catColor=it.category==='RACI'?'var(--gold)':it.category==='Slack'?'#60a5fa':'var(--muted)';
   const catBadge=it.category&&it.category!=='Manual'?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:${catColor};border:1px solid ${catColor};border-radius:3px;padding:1px 4px;margin-left:4px">${it.category}</span>`:'';
   const delBtn=canEdit?`<button onclick="deleteAgendaItem('${it.id}')" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'" title="Remove">✕</button>`:'';
   const editBtn=canEdit?`<button onclick="openAgendaEditModal('${it.id}')" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:9px;font-family:'DM Mono',monospace;cursor:pointer;padding:1px 5px;border-radius:3px;line-height:1.4;margin-left:4px" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'" title="Edit">Edit</button>`:'';
+  const linkedTask=it.taskId?DASHBOARD_DATA.tasks.find(t=>t.id===it.taskId):null;
+  const taskBadge=linkedTask?`<span class="ag-no-expand" style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:1px 5px;margin-left:4px;display:inline-flex;align-items:center;gap:3px">${linkedTask.id}${canFounder?`<span onclick="agLinkTask('${it.id}','')" style="cursor:pointer;font-size:10px;line-height:1;color:var(--gold);margin-left:1px" title="Unlink task">✕</span>`:''}</span>`:'';
+  const taskLinkSel=(!linkedTask&&canFounder)?`<select class="ag-no-expand" onchange="agLinkTask('${it.id}',this.value);this.value=''" style="background:transparent;border:none;border-bottom:1px dashed rgba(201,168,76,0.35);color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;cursor:pointer;outline:none;margin-left:4px"><option value="">＋ Link Task</option>${DASHBOARD_DATA.tasks.map(t=>`<option value="${t.id}">${t.id} · ${t.name}</option>`).join('')}</select>`:'';
   const chk=canEdit
     ?`<div class="ag-no-expand" onclick="toggleAgendaItem('${it.id}')" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
     :`<div style="width:18px;height:18px;flex-shrink:0"></div>`;
   const drag=canEdit?`<div class="ag-no-expand" style="color:var(--border);font-size:14px;cursor:grab;flex-shrink:0;padding-top:1px;user-select:none;line-height:1.2" title="Drag to reorder">⠿</div>`:'';
+  const deadlineDisabled=(!canEdit||!!linkedTask)?'disabled':'';
   return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" onclick="if(!event.target.closest('select,input,button,a,textarea,[contenteditable],.ag-no-expand'))toggleAgendaExpand('${it.id}',this)" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:${done?'0.42':'1'};transition:opacity 0.2s;cursor:pointer">
     ${drag}${chk}
     <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:24px;line-height:1.1">${String(i+1).padStart(2,'0')}</div>
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:2px;margin-bottom:4px">
         <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','title',this.innerText.trim())" style="font-size:14px;font-weight:500;color:${done?'var(--muted)':'var(--text)'};text-decoration:${done?'line-through':'none'};outline:none;word-break:break-word">${it.title}</div>
-        ${catBadge}${editBtn}${delBtn}
+        ${catBadge}${taskBadge}${taskLinkSel}${editBtn}${delBtn}
       </div>
       <textarea onblur="updateAgendaField('${it.id}','detail',this.value.trim())" onfocus="this.rows=4" rows="${it.detail?'2':'1'}" ${!canEdit?'readonly':''} placeholder="${canEdit?'Add detail…':''}" style="width:100%;background:transparent;border:none;border-bottom:${canEdit?'1px solid var(--border)':'none'};color:#9ca3af;font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.6;resize:none;outline:none;padding:1px 0;box-sizing:border-box;display:block;margin-bottom:${it.detail||canEdit?'4px':'0'}">${(it.detail||'').replace(/</g,'&lt;')}</textarea>
       <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','decision',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'};outline:none${!it.decision&&!canEdit?';display:none':''}">${it.decision||''}</div>
@@ -2562,7 +2572,7 @@ function _agendaItemHtml(it,i,canEdit){
         <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)">Owner</span>
         <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','owner',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);outline:none;min-width:16px">${it.owner||''}</div>
         <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border);margin-left:4px">Deadline</span>
-        <input type="date" value="${it.deadline||''}" onchange="updateAgendaField('${it.id}','deadline',this.value)" ${!canEdit?'disabled':''} style="background:transparent;border:none;border-bottom:1px solid ${it.deadline?'var(--amber)':'var(--border)'};color:${it.deadline?'var(--amber)':'var(--muted)'};font-family:'DM Mono',monospace;font-size:10px;outline:none;padding:1px 0">
+        <input type="date" value="${it.deadline||''}" onchange="updateAgendaField('${it.id}','deadline',this.value)" ${deadlineDisabled} style="background:transparent;border:none;border-bottom:1px solid ${it.deadline?'var(--amber)':'var(--border)'};color:${it.deadline?'var(--amber)':'var(--muted)'};font-family:'DM Mono',monospace;font-size:10px;outline:none;padding:1px 0">
       </div>
     </div>
   </div>`;
@@ -2592,6 +2602,17 @@ function agToggleChecked(){
   btn.style.color=_agChecked?'var(--green)':'var(--text)';
   btn.style.background=_agChecked?'rgba(52,211,153,0.08)':'transparent';
 }
+function agModalTaskLink(){
+  const sel=document.getElementById('ag-taskId'); if(!sel) return;
+  const info=document.getElementById('ag-task-info');
+  const dl=document.getElementById('ag-deadline');
+  const taskId=sel.value;
+  if(!taskId){ if(info) info.textContent=''; return; }
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
+  if(!task){ if(info) info.textContent=''; return; }
+  if(dl&&task.ed){ dl.value=task.ed; }
+  if(info) info.innerHTML=`<span style="color:var(--gold)">${task.id}</span> · ${task.name} &nbsp;<span style="color:var(--muted)">${task.status||''}</span> &nbsp;<span style="color:var(--border)">${task.owner||''}</span>`;
+}
 function openAgendaEditModal(id){
   if(!canEditAgenda()) return;
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
@@ -2604,6 +2625,8 @@ function openAgendaEditModal(id){
   el('ag-decision').value=item.decision||'';
   el('ag-deadline').value=item.deadline||'';
   el('ag-category').value=item.category||'Manual';
+  const sel=el('ag-taskId');
+  if(sel){ sel.innerHTML='<option value="">— none —</option>'+DASHBOARD_DATA.tasks.map(t=>`<option value="${t.id}">${t.id} · ${t.name}</option>`).join(''); sel.value=item.taskId||''; agModalTaskLink(); }
   const btn=el('ag-checked-toggle');
   btn.textContent=_agChecked?'✓ Resolved — click to reopen':'Mark as Resolved';
   btn.style.borderColor=_agChecked?'var(--green)':'var(--border)';
@@ -2626,6 +2649,7 @@ function saveAgendaEditModal(){
   AGENDA_DATA[idx].owner=_agOwners.join(', ');
   AGENDA_DATA[idx].deadline=el('ag-deadline').value;
   AGENDA_DATA[idx].category=el('ag-category').value;
+  AGENDA_DATA[idx].taskId=el('ag-taskId')?.value||'';
   AGENDA_DATA[idx].checked=_agChecked;
   saveAgendaItemToSheets(AGENDA_DATA[idx]);
   closeAgendaEditModal();
@@ -2636,6 +2660,16 @@ function agDeleteFromModal(){
   const id=_agEditId;
   closeAgendaEditModal();
   deleteAgendaItem(id);
+}
+function agLinkTask(agendaId, taskId){
+  const item=AGENDA_DATA.find(x=>x.id===agendaId); if(!item) return;
+  item.taskId=taskId||'';
+  if(taskId){
+    const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
+    if(task&&task.ed) item.deadline=task.ed;
+  }
+  saveAgendaItemToSheets(item);
+  buildMondayAgenda(); buildAgenda();
 }
 // ── Agenda expansion panel ──────────────────────────────────
 let _agendaExpandedId=null;
