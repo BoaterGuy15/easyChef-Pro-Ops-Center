@@ -6575,6 +6575,137 @@ window.addEventListener('DOMContentLoaded',()=>{
   setInterval(masterRefresh, 60000);
   setTimeout(saveToLocal, 2000);
 });
+
+// ── DGL Test Suite ──────────────────────────────────────────
+async function runDGLTests(){
+  let pass=0, fail=0;
+  const results=[];
+  function ok(label){ pass++; results.push({p:true,label}); }
+  function no(label,reason){ fail++; results.push({p:false,label,reason}); }
+  function check(label,cond,reason){cond?ok(label):no(label,reason||'assertion failed');}
+
+  console.group('DGL Test Suite');
+
+  // ── SECTION 1: DATA INTEGRITY ──────────────────────────────
+  console.group('Section 1 — Data Integrity');
+  const tasks=DASHBOARD_DATA&&DASHBOARD_DATA.tasks;
+  check('DASHBOARD_DATA.tasks has 40+ tasks', Array.isArray(tasks)&&tasks.length>=40, `found ${Array.isArray(tasks)?tasks.length:0}`);
+  if(Array.isArray(tasks)){
+    const badFields=tasks.filter(t=>!t.id||!t.name||!t.sd||!t.ed);
+    check('All tasks have id, name, sd, ed non-empty', badFields.length===0, `${badFields.length} tasks missing fields: ${badFields.slice(0,3).map(t=>t.id||'?').join(', ')}`);
+    const validStatuses=new Set(['Not Started','In Progress','Started','In Review','Ready','Complete','Done','Blocked','Cancelled']);
+    const badStatus=tasks.filter(t=>!validStatuses.has(t.status));
+    check('All tasks have valid status values', badStatus.length===0, `${badStatus.length} invalid: ${badStatus.slice(0,3).map(t=>t.id+':'+t.status).join(', ')}`);
+  } else { no('All tasks have id, name, sd, ed non-empty','tasks not array'); no('All tasks have valid status values','tasks not array'); }
+  check('AGENDA_DATA is loaded and has items', Array.isArray(AGENDA_DATA)&&AGENDA_DATA.length>0, `AGENDA_DATA has ${Array.isArray(AGENDA_DATA)?AGENDA_DATA.length:0} items`);
+  const budget=DASHBOARD_DATA&&DASHBOARD_DATA.budget;
+  check('DASHBOARD_DATA.budget.startingCapital > 0', budget&&parseFloat(budget.startingCapital)>0, `startingCapital=${budget&&budget.startingCapital}`);
+  try{
+    const kc=_getKillCriteria();
+    check('_getKillCriteria() returns 3 KPIs', Array.isArray(kc&&kc.kpis)&&kc.kpis.length===3, `kpis.length=${kc&&kc.kpis&&kc.kpis.length}`);
+  }catch(e){ no('_getKillCriteria() returns 3 KPIs', e.message); }
+  console.groupEnd();
+
+  // ── SECTION 2: LOCALSTORAGE ────────────────────────────────
+  console.group('Section 2 — localStorage');
+  try{
+    const raw=localStorage.getItem('dgl_tasks');
+    check('dgl_tasks exists', !!raw, 'key missing');
+    if(raw){ const parsed=JSON.parse(raw); check('dgl_tasks parses correctly', Array.isArray(parsed), 'not an array'); }
+  }catch(e){ no('dgl_tasks parses correctly', e.message); }
+  check('dgl_budget exists', !!localStorage.getItem('dgl_budget'), 'key missing');
+  try{
+    const raw=localStorage.getItem('dgl_profiles');
+    if(raw){ JSON.parse(raw); ok('dgl_profiles exists and parses'); } else { no('dgl_profiles exists and parses','key missing'); }
+  }catch(e){ no('dgl_profiles exists and parses', e.message); }
+  try{
+    const raw=localStorage.getItem('dgl_agenda_custom');
+    if(raw){ const parsed=JSON.parse(raw); check('dgl_agenda_custom not corrupting AGENDA_DATA', !Array.isArray(parsed)||parsed.every(x=>x&&typeof x==='object'&&x.id), 'malformed entries found'); }
+    else { ok('dgl_agenda_custom not corrupting AGENDA_DATA'); }
+  }catch(e){ no('dgl_agenda_custom not corrupting AGENDA_DATA', e.message); }
+  console.groupEnd();
+
+  // ── SECTION 3: CONFIG ──────────────────────────────────────
+  console.group('Section 3 — Config');
+  check('CONFIG.sheetsUrl is set', typeof CONFIG!=='undefined'&&!!CONFIG.sheetsUrl, 'CONFIG.sheetsUrl is empty or missing');
+  check('CONFIG.sheetsUrl is a valid Google Script URL', typeof CONFIG!=='undefined'&&typeof CONFIG.sheetsUrl==='string'&&CONFIG.sheetsUrl.includes('script.google.com'), `url: ${CONFIG&&CONFIG.sheetsUrl}`);
+  console.groupEnd();
+
+  // ── SECTION 4: GOOGLE SHEETS CONNECTIVITY ─────────────────
+  console.group('Section 4 — Google Sheets Connectivity');
+  if(CONFIG&&CONFIG.sheetsUrl){
+    const base=CONFIG.sheetsUrl;
+    const sheetTests=[
+      {label:'agenda_read returns ok:true and items array', url:base+'?action=agenda_read',  check:d=>d.ok!==false&&(Array.isArray(d)||Array.isArray(d.items))},
+      {label:'profile_read returns ok:true',               url:base+'?action=profile_read',  check:d=>d.ok!==false&&typeof d==='object'},
+      {label:'slack_channels returns ok:true and channels',url:base+'?action=slack_channels',check:d=>d.ok!==false&&Array.isArray(d.channels)&&d.channels.length>0},
+      {label:'budget_read returns ok:true',                url:base+'?action=budget_read',   check:d=>d.ok!==false&&typeof d==='object'},
+    ];
+    await Promise.all(sheetTests.map(async t=>{
+      try{
+        const r=await fetch(t.url);
+        const d=await r.json();
+        t.check(d)?ok(t.label):no(t.label,'response check failed: '+JSON.stringify(d).slice(0,120));
+      }catch(e){ no(t.label, e.message); }
+    }));
+  } else {
+    ['agenda_read','profile_read','slack_channels','budget_read'].forEach(a=>no('Sheets: '+a,'CONFIG.sheetsUrl not set'));
+  }
+  console.groupEnd();
+
+  // ── SECTION 5: UI ELEMENTS ─────────────────────────────────
+  console.group('Section 5 — UI Elements');
+  const expectedTabs=['agenda','command','raci','roadmap','budget','team','appdata','comms'];
+  const foundTabs=expectedTabs.filter(id=>!!document.getElementById('page-'+id));
+  check('All 8 nav tabs exist in DOM', foundTabs.length===8, `missing: ${expectedTabs.filter(id=>!document.getElementById('page-'+id)).join(', ')}`);
+  check('Login overlay exists', !!document.getElementById('login-overlay'), 'element missing');
+  check('RACI table has rows', (document.querySelectorAll('#raci-body tr').length)>0, 'no rows in #raci-body');
+  check('agenda-monday-list exists', !!document.getElementById('agenda-monday-list'), 'element missing');
+  check('slack-card exists', !!document.getElementById('slack-card'), 'element missing');
+  check('kill-criteria-card exists', !!document.getElementById('kill-criteria-card'), 'element missing');
+  console.groupEnd();
+
+  // ── SECTION 6: FUNCTIONS ───────────────────────────────────
+  console.group('Section 6 — Functions');
+  const criticalFns=['masterRefresh','buildRaciTable','buildTeamGrid','buildAgendaPage','renderKillCriteria','saveToLocal','loadFromSheets'];
+  criticalFns.forEach(fn=>check(`${fn} is defined`, typeof window[fn]==='function'||typeof eval(fn)==='function', 'not defined'));
+  try{
+    const hash=await sha256hex('dgl-test-2026');
+    check('sha256hex returns 64-char string', typeof hash==='string'&&hash.length===64, `got length ${hash&&hash.length}`);
+  }catch(e){ no('sha256hex returns 64-char string', e.message); }
+  try{
+    const ctx=_buildDGLContext();
+    check('_buildDGLContext() returns non-empty string >500 chars', typeof ctx==='string'&&ctx.length>500, `got length ${ctx&&ctx.length}`);
+  }catch(e){ no('_buildDGLContext() returns non-empty string >500 chars', e.message); }
+  check('runSuperAi is defined', typeof runSuperAi==='function', 'not defined');
+  console.groupEnd();
+
+  // ── SECTION 7: AUTH ────────────────────────────────────────
+  console.group('Section 7 — Auth');
+  const CREDS_LOCAL=[
+    {pw:'DGL-Taylor-2026',user:'taylor'},{pw:'DGL-Steve-2026',user:'steve'},
+    {pw:'DGL-Adam-2026',user:'adam'},{pw:'DGL-Mary-2026',user:'mary'},
+    {pw:'DGL-JR-2026',user:'jr'},{pw:'DGL-Hammad-2026',user:'hammad'},
+    {pw:'DGL-Searah-2026',user:'searah'},{pw:'DGL-Sadee-2026',user:'sadee'},
+  ];
+  check('CREDS array has 8 entries', CREDS_LOCAL.length===8, `found ${CREDS_LOCAL.length}`);
+  const badCreds=CREDS_LOCAL.filter(c=>!c.user||!c.pw);
+  check('Each CRED has user and pw fields', badCreds.length===0, `${badCreds.length} malformed entries`);
+  try{
+    const cm=_getCustomTeamMembers();
+    check('_getCustomTeamMembers() returns an array', Array.isArray(cm), `got ${typeof cm}`);
+  }catch(e){ no('_getCustomTeamMembers() returns an array', e.message); }
+  console.groupEnd();
+
+  // ── SUMMARY ────────────────────────────────────────────────
+  const total=pass+fail;
+  console.group(`%cSummary: ${pass}/${total} passed ${fail>0?'❌':'✅'}`, fail>0?'color:tomato;font-weight:bold':'color:#34d399;font-weight:bold');
+  results.forEach(r=>console.log(r.p?`  ✅ PASS  ${r.label}`:`  ❌ FAIL  ${r.label} — ${r.reason}`));
+  console.groupEnd();
+  console.groupEnd();
+  return {pass,fail,total};
+}
+window.runDGLTests=runDGLTests;
 </script>
 </body>
 </html>
