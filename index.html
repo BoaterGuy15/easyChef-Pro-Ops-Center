@@ -1585,7 +1585,8 @@ function _buildTaskExpandHtml(taskId){
           <option value="">Loading channels…</option>
         </select>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Messages from this channel appear here. Comments above are posted to this channel.</div>
-        <div id="raci-expand-slack-feed-${taskId}" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:6px;display:none"></div>
+        <div id="raci-expand-slack-feed-${taskId}" style="max-height:150px;overflow:hidden;transition:max-height 0.3s ease;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:2px;display:none"></div>
+        <div id="raci-expand-slack-feed-${taskId}-toggle" style="display:none;align-items:center;gap:8px;margin-bottom:6px"><button onclick="_toggleSlackFeed('raci-expand-slack-feed-${taskId}')" style="background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;cursor:pointer;padding:2px 0">↓ Show more messages</button><span id="raci-expand-slack-feed-${taskId}-count" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)"></span></div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
           <button onclick="raciAiFind('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
         </div>
@@ -1673,8 +1674,19 @@ function _raciExpandLoadSlackFeed(taskId,channelId){
       const msgs=data.messages||[];
       if(!msgs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border)">No messages</div>'; return; }
       el.innerHTML=msgs.map((m,i)=>`<div style="padding:4px 0;${i>0?'border-top:1px solid var(--surface)':''}"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);font-weight:600">${m.user||'bot'} </span><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)">${typeof _slackFmt==='function'?_slackFmt(m.ts):m.ts}</span><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(m.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+      const _tc=document.getElementById(el.id+'-count'); if(_tc) _tc.textContent=msgs.length+' messages';
+      const _tt=document.getElementById(el.id+'-toggle'); if(_tt) _tt.style.display='flex';
     })
     .catch(()=>{ const el=document.getElementById('raci-expand-slack-feed-'+taskId); if(el){ el.style.display='none'; } });
+}
+function _toggleSlackFeed(feedId){
+  const el=document.getElementById(feedId); if(!el) return;
+  const btn=document.querySelector('#'+feedId+'-toggle button');
+  const expanded=el.dataset.expanded==='1';
+  el.style.maxHeight=expanded?'150px':'500px';
+  el.style.overflow=expanded?'hidden':'auto';
+  el.dataset.expanded=expanded?'0':'1';
+  if(btn) btn.textContent=expanded?'↓ Show more messages':'↑ Show less';
 }
 function raciAiFind(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
@@ -2826,7 +2838,8 @@ function _buildAgendaExpandHtml(id){
           <option value="">Loading channels…</option>
         </select>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Messages from this channel appear here. Comments above are posted to this channel.</div>
-        <div id="agenda-expand-slack-feed-${id}" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:6px;display:none"></div>
+        <div id="agenda-expand-slack-feed-${id}" style="max-height:150px;overflow:hidden;transition:max-height 0.3s ease;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:2px;display:none"></div>
+        <div id="agenda-expand-slack-feed-${id}-toggle" style="display:none;align-items:center;gap:8px;margin-bottom:6px"><button onclick="_toggleSlackFeed('agenda-expand-slack-feed-${id}')" style="background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;cursor:pointer;padding:2px 0">↓ Show more messages</button><span id="agenda-expand-slack-feed-${id}-count" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)"></span></div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
           <button onclick="agendaAiFind('${id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
         </div>
@@ -2884,6 +2897,8 @@ function _agendaExpandLoadSlackFeed(id,channelId){
       const msgs=data.messages||[];
       if(!msgs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border)">No messages</div>'; return; }
       el.innerHTML=msgs.map((m,i)=>`<div style="padding:4px 0;${i>0?'border-top:1px solid var(--surface)':''}"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);font-weight:600">${m.user||'bot'} </span><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)">${typeof _slackFmt==='function'?_slackFmt(m.ts):m.ts}</span><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(m.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+      const _tc=document.getElementById(el.id+'-count'); if(_tc) _tc.textContent=msgs.length+' messages';
+      const _tt=document.getElementById(el.id+'-toggle'); if(_tt) _tt.style.display='flex';
     })
     .catch(()=>{ const el=document.getElementById('agenda-expand-slack-feed-'+id); if(el) el.style.display='none'; });
 }
