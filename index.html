@@ -1280,12 +1280,20 @@ function taskProgress(t){
     ${tisHtml}${blockHtml}
   </td>`;
 }
+const _FLAG_STATES=[
+  {emoji:'✓', label:'Resolved',   color:'var(--green)', bg:'rgba(52,211,153,0.12)'},
+  {emoji:'⚠️',label:'At Risk',    color:'var(--amber)', bg:'rgba(212,160,23,0.12)'},
+  {emoji:'⛔',label:'Blocker',    color:'var(--red)',   bg:'rgba(239,68,68,0.12)'},
+  {emoji:'🔵',label:'In Progress',color:'#4a9eff',     bg:'rgba(74,158,255,0.12)'},
+  {emoji:'💡',label:'Idea',       color:'#a78bfa',     bg:'rgba(167,139,250,0.12)'},
+  {emoji:'🎯',label:'On Target',  color:'var(--gold)', bg:'rgba(201,168,76,0.12)'}
+];
+function _getFlagState(flag){
+  if(!flag) return null;
+  return _FLAG_STATES.find(f=>flag===f.emoji||flag.startsWith(f.emoji))||null;
+}
 function flagColor(text){
-  if(!text) return 'var(--muted)';
-  if(text.startsWith('✓'))  return 'var(--green)';
-  if(text.startsWith('⛔'))  return 'var(--red)';
-  if(text.startsWith('⚠️')) return 'var(--amber)';
-  return 'var(--muted)';
+  const fs=_getFlagState(text); return fs?fs.color:'var(--muted)';
 }
 function applyFlagStyle(el, text){
   el.style.color = flagColor(text);
@@ -1555,9 +1563,12 @@ function _buildTaskExpandHtml(taskId){
   const _eicons=['✓','⚠️','⛔','🔵','💡','🎯'];
   const _esw=[{c:'var(--text)',t:'Default'},{c:'var(--green)',t:'Green'},{c:'var(--amber)',t:'Amber'},{c:'var(--red)',t:'Red'},{c:'var(--gold)',t:'Gold'},{c:'var(--muted)',t:'Muted'},{c:'#60a5fa',t:'Blue'},{c:'#c084fc',t:'Purple'}];
   const _ebar=(elId,colorFn)=>`<div style="${_barSt}">${_eicons.map(i=>`<button style="${_eSt2}" onclick="_insertAtCursor('${elId}','${i}')">${i}</button>`).join('')}<span style="width:1px;height:12px;background:var(--border);margin:0 3px;display:inline-block"></span>${_esw.map(s=>`<button style="${_swSt2};background:${s.c}" onclick="${colorFn}('${taskId}','${s.c}')" title="${s.t}"></button>`).join('')}</div>`;
-  return `<div class="raci-expand-inner" style="border-left:3px solid var(--gold);background:var(--card);padding:14px 20px">
+  const _fstPanel=_getFlagState(t.flag);
+  const _activeFlagEmoji=_fstPanel?_fstPanel.emoji:'';
+  const _fsBtnsHtml=_FLAG_STATES.map(f=>`<button data-emoji="${f.emoji}" class="flag-btn" onclick="setTaskFlagEmoji('${taskId}','${f.emoji}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;min-width:52px;background:${_activeFlagEmoji===f.emoji?f.bg:'var(--surface)'};border:2px solid ${_activeFlagEmoji===f.emoji?f.color:'var(--border)'};border-radius:6px;cursor:pointer;transition:all 0.1s"><span style="font-size:16px;line-height:1">${f.emoji}</span><span class="flag-btn-label" style="font-family:'DM Mono',monospace;font-size:8px;color:${_activeFlagEmoji===f.emoji?f.color:'var(--muted)'}">${f.label}</span></button>`).join('')+`<button onclick="setTaskFlagEmoji('${taskId}','')" style="align-self:center;padding:4px 8px;background:var(--surface);border:1px dashed var(--border);border-radius:5px;cursor:pointer;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">✕ Clear</button>`;
+  return `<div class="raci-expand-inner" style="border-left:3px solid ${_fstPanel?_fstPanel.color:'var(--gold)'};background:var(--card);padding:14px 20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${t.id} — TASK DETAILS</span>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:${_fstPanel?_fstPanel.color:'var(--gold)'};letter-spacing:2px">${t.id} — TASK DETAILS${_fstPanel?` <span class="task-flag-pill" style="font-size:8px;border:1px solid ${_fstPanel.color};border-radius:10px;padding:1px 6px;margin-left:6px;color:${_fstPanel.color}">${_fstPanel.emoji} ${_fstPanel.label}</span>`:' <span class="task-flag-pill" style="display:none"></span>'}</span>
       <button onclick="toggleTaskExpand('${taskId}',null)" style="background:transparent;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
@@ -1569,8 +1580,7 @@ function _buildTaskExpandHtml(taskId){
         ${fRow('Status',t.status)}
         ${fRow('Owner',t.owner||'—')}
         ${lbl('FLAG')}
-        ${_ebar(`raci-flag-${taskId}`,'_expandNoteSetColor')}
-        <textarea id="raci-flag-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Add a flag if this task needs attention — ⛔ blocker, ⚠️ at risk, ✓ resolved" onblur="saveTaskExpandNotes('${taskId}')">${(t.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        <div class="flag-btn-group" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${_fsBtnsHtml}</div>
         ${lbl('TASK NOTES')}
         <textarea id="raci-task-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note — visible to all team members and readable by AI" onblur="saveTaskNotes('${taskId}')">${(t.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
         ${_agDecItem&&_agDecItem.detail?`${lbl('AGENDA NOTES — from Monday Meeting')}<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-style:italic;padding:7px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.15);border-radius:6px;min-height:36px;white-space:pre-wrap"><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1px;font-style:normal">[${_agDecItem.id}] </span>${(_agDecItem.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`:''}
@@ -1617,6 +1627,33 @@ function saveTaskExpandNotes(taskId){
   if(flagEl) flagEl.textContent=t.flag;
   const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
   if(agItem){ agItem.flag=t.flag; saveAgendaItemToSheets(agItem); }
+}
+function setTaskFlagEmoji(taskId,emoji){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  t.flag=emoji; saveToLocal();
+  const fst=_getFlagState(emoji);
+  const tr=document.querySelector('#raci-body tr[data-id="'+taskId+'"]');
+  if(tr){
+    tr.style.borderLeft=fst?'3px solid '+fst.color:'';
+    const badge=tr.querySelector('.flag-emoji-badge');
+    if(badge){badge.textContent=emoji;badge.style.color=fst?fst.color:'';badge.style.display=emoji?'':'none';}
+    const flagDiv=tr.querySelector('.flag-cell .flag-edit');
+    if(flagDiv){flagDiv.textContent=emoji;flagDiv.style.color=fst?fst.color:'var(--muted)';}
+  }
+  const panelInner=document.querySelector('#raci-expand-row-'+taskId+' .raci-expand-inner');
+  if(panelInner) panelInner.style.borderLeftColor=fst?fst.color:'var(--gold)';
+  const pill=document.querySelector('#raci-expand-row-'+taskId+' .task-flag-pill');
+  if(pill){if(fst){pill.textContent=fst.emoji+' '+fst.label;pill.style.display='inline';pill.style.color=fst.color;pill.style.borderColor=fst.color;}else{pill.style.display='none';}}
+  document.querySelectorAll('#raci-expand-row-'+taskId+' .flag-btn').forEach(btn=>{
+    const active=btn.dataset.emoji===emoji;
+    const bfst=_getFlagState(btn.dataset.emoji);
+    btn.style.borderColor=active&&bfst?bfst.color:'var(--border)';
+    btn.style.background=active&&bfst?bfst.bg:'var(--surface)';
+    const lbl=btn.querySelector('.flag-btn-label');
+    if(lbl) lbl.style.color=active&&bfst?bfst.color:'var(--muted)';
+  });
+  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
+  if(agItem){agItem.flag=emoji;saveAgendaItemToSheets(agItem);}
 }
 function saveTaskNotes(taskId){
   const el=document.getElementById('raci-task-notes-'+taskId);
@@ -1897,10 +1934,13 @@ function buildRaciTable(){
     tr.dataset.status = t.status;
     tr.dataset.pri = t.pri;
     tr.dataset.flag = t.flag;
+    const _fstRow=_getFlagState(t.flag);
+    if(_fstRow) tr.style.borderLeft='3px solid '+_fstRow.color;
+    const _flagBadge=_fstRow?(' <span class="flag-emoji-badge" title="'+_fstRow.label+'" style="font-size:11px;color:'+_fstRow.color+';cursor:default">'+_fstRow.emoji+'</span>'):'';
     tr.innerHTML = `
       <td style="padding:4px 2px;text-align:center;width:28px"><span class="raci-no-expand" style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span></td>
       <td class="tid">${t.id}</td>
-      <td class="task-name">${t.name}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
+      <td class="task-name">${t.name}${_flagBadge}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
       <td>${catSelect(t)}</td>
       <td>${priSelect(t)}</td>
       <td>${statusSelect(t)}</td>
@@ -2686,7 +2726,8 @@ function _agendaItemHtml(it,i,canEdit){
   const deadlineDisplay=linkedTask
     ?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:${linkedTask.ed?'var(--amber)':'var(--muted)'}">${linkedTask.ed?_excelSerialToDate(linkedTask.ed):'—'}</span>`
     :`<input type="date" value="${it.deadline||''}" onchange="updateAgendaField('${it.id}','deadline',this.value)" ${canEdit?'':'disabled'} style="background:transparent;border:none;border-bottom:1px solid ${it.deadline?'var(--amber)':'var(--border)'};color:${it.deadline?'var(--amber)':'var(--muted)'};font-family:'DM Mono',monospace;font-size:10px;outline:none;padding:1px 0">`;
-  return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" onclick="if(!event.target.closest('select,input,button,a,textarea,[contenteditable],.ag-no-expand'))toggleAgendaExpand('${it.id}',this)" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:${done?'0.42':'1'};transition:opacity 0.2s;cursor:pointer">
+  const _agRowFst=_getFlagState(it.flag);
+  return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" onclick="if(!event.target.closest('select,input,button,a,textarea,[contenteditable],.ag-no-expand'))toggleAgendaExpand('${it.id}',this)" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);border-left:3px solid ${_agRowFst?_agRowFst.color:'transparent'};padding-left:${_agRowFst?'9px':'0'};opacity:${done?'0.42':'1'};transition:opacity 0.2s;cursor:pointer">
     ${drag}${chk}
     <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:24px;line-height:1.1">${String(i+1).padStart(2,'0')}</div>
     <div style="flex:1;min-width:0">
@@ -2863,9 +2904,12 @@ function _buildAgendaExpandHtml(id){
   const discussId=it.taskId||'agenda_'+id;
   const detailVal=it.detail||'';
   const flagVal=it.flag||(linkedTask?linkedTask.flag||'':'');
-  return `<div class="agenda-expand-inner" style="border-left:3px solid var(--gold);background:var(--card);padding:14px 20px;margin:0 0 2px 0">
+  const _fstAg=_getFlagState(flagVal);
+  const _activeAgEmoji=_fstAg?_fstAg.emoji:'';
+  const _agFsBtnsHtml=_FLAG_STATES.map(f=>`<button data-emoji="${f.emoji}" class="flag-btn" onclick="setAgendaFlagEmoji('${id}','${f.emoji}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;min-width:52px;background:${_activeAgEmoji===f.emoji?f.bg:'var(--surface)'};border:2px solid ${_activeAgEmoji===f.emoji?f.color:'var(--border)'};border-radius:6px;cursor:pointer;transition:all 0.1s"><span style="font-size:16px;line-height:1">${f.emoji}</span><span class="flag-btn-label" style="font-family:'DM Mono',monospace;font-size:8px;color:${_activeAgEmoji===f.emoji?f.color:'var(--muted)'}">${f.label}</span></button>`).join('')+`<button onclick="setAgendaFlagEmoji('${id}','')" style="align-self:center;padding:4px 8px;background:var(--surface);border:1px dashed var(--border);border-radius:5px;cursor:pointer;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">✕ Clear</button>`;
+  return `<div class="agenda-expand-inner" style="border-left:3px solid ${_fstAg?_fstAg.color:'var(--gold)'};background:var(--card);padding:14px 20px;margin:0 0 2px 0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${linkedTask?`[${linkedTask.id}] AGENDA ITEM — ${linkedTask.name}`:'AGENDA ITEM — '+(it.title||'').slice(0,40)+(it.title&&it.title.length>40?'…':'')}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:${_fstAg?_fstAg.color:'var(--gold)'};letter-spacing:2px">${linkedTask?`[${linkedTask.id}] AGENDA ITEM — ${linkedTask.name}`:'AGENDA ITEM — '+(it.title||'').slice(0,40)+(it.title&&it.title.length>40?'…':'')}${_fstAg?` <span class="agenda-flag-pill" style="font-size:8px;border:1px solid ${_fstAg.color};border-radius:10px;padding:1px 6px;margin-left:6px;color:${_fstAg.color}">${_fstAg.emoji} ${_fstAg.label}</span>`:' <span class="agenda-flag-pill" style="display:none"></span>'}</span>
       <button onclick="toggleAgendaExpand('${id}',null)" style="background:transparent;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
@@ -2878,7 +2922,7 @@ function _buildAgendaExpandHtml(id){
         ${fRow('Status',it.checked?'Resolved':'Open')}
         ${taskInfoHtml}
         ${lbl('FLAG')}
-        ${canEdit?`<div style="margin-bottom:6px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:3px">Quick Status</div><select onchange="var _ta=document.getElementById('agenda-flag-${id}');var _v=this.value;if(_ta)_ta.value=_v;if(_v)updateAgendaField('${id}','flag',_v)" style="${iSt}"><option value="">— Select status —</option><option value="✓ Resolved">✓ Resolved</option><option value="⚠️ At Risk">⚠️ At Risk</option><option value="⛔ Blocker — needs immediate attention">⛔ Blocker — needs immediate attention</option><option value="🔵 In Progress">🔵 In Progress</option><option value="💡 Idea / Suggestion">💡 Idea / Suggestion</option><option value="🎯 On Target">🎯 On Target</option><option value="🚀 Ready to Launch">🚀 Ready to Launch</option></select></div>${_ebar('agenda-flag-'+id,'_agendaFlagSetColor')}<textarea id="agenda-flag-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Add a flag if this agenda item needs attention — ⛔ blocker, ⚠️ at risk, ✓ resolved" onblur="updateAgendaField('${id}','flag',this.value)">${flagVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:${flagColor};padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:32px">${flagVal||'No flag set'}</div>`}
+        ${canEdit?`<div class="flag-btn-group" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${_agFsBtnsHtml}</div>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:${_fstAg?_fstAg.color:'var(--muted)'};padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:32px">${_fstAg?(_fstAg.emoji+' '+_fstAg.label):'No flag set'}</div>`}
         ${lbl('AGENDA NOTES')}
         ${canAdmin?`<textarea id="agenda-expand-detail-${id}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note about this agenda item — visible to team and AI" onblur="updateAgendaField('${id}','detail',this.value)">${detailVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:44px">${detailVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${linkedTask&&linkedTask.notes?`${lbl('TASK NOTES — from RACI')}<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-style:italic;padding:7px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.15);border-radius:6px;min-height:36px;white-space:pre-wrap"><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1px;font-style:normal">[${linkedTask.id}] </span>${(linkedTask.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`:''}
@@ -2908,6 +2952,27 @@ function saveAgendaFlag(id){
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
   item.flag=el.value;
   saveAgendaItemToSheets(item);
+}
+function setAgendaFlagEmoji(id,emoji){
+  const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
+  item.flag=emoji;
+  saveAgendaItemToSheets(item);
+  const fst=_getFlagState(emoji);
+  const row=document.querySelector('.agenda-item-row[data-id="'+id+'"]');
+  if(row){row.style.borderLeft=fst?'3px solid '+fst.color:'3px solid transparent';row.style.paddingLeft=fst?'9px':'0';}
+  const panelEl=document.getElementById('agenda-expand-'+id);
+  if(panelEl){const inner=panelEl.querySelector('.agenda-expand-inner');if(inner) inner.style.borderLeftColor=fst?fst.color:'var(--gold)';}
+  const pill=document.querySelector('#agenda-expand-'+id+' .agenda-flag-pill');
+  if(pill){if(fst){pill.textContent=fst.emoji+' '+fst.label;pill.style.display='inline';pill.style.color=fst.color;pill.style.borderColor=fst.color;}else{pill.style.display='none';}}
+  document.querySelectorAll('#agenda-expand-'+id+' .flag-btn').forEach(btn=>{
+    const active=btn.dataset.emoji===emoji;
+    const bfst=_getFlagState(btn.dataset.emoji);
+    btn.style.borderColor=active&&bfst?bfst.color:'var(--border)';
+    btn.style.background=active&&bfst?bfst.bg:'var(--surface)';
+    const lbl=btn.querySelector('.flag-btn-label');
+    if(lbl) lbl.style.color=active&&bfst?bfst.color:'var(--muted)';
+  });
+  if(item.taskId){const task=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId);if(task){task.flag=emoji;saveToLocal();}}
 }
 function _agendaFlagSetColor(id,color){ const el=document.getElementById('agenda-flag-'+id); if(el) el.style.color=color; }
 function _agendaExpandNoteSetColor(id,color){ const el=document.getElementById('agenda-expand-notes-'+id); if(el) el.style.color=color; }
