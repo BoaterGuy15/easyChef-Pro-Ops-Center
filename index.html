@@ -2354,12 +2354,83 @@ function deleteAgendaItem(id){
   deleteAgendaItemFromSheets(id);
   buildAgendaPage(); buildAgenda();
 }
+let _agendaDragId=null;
+function _agendaDragStart(e,id){ _agendaDragId=id; e.dataTransfer.effectAllowed='move'; }
+function _agendaDrop(e){
+  e.preventDefault();
+  if(!_agendaDragId) return;
+  const target=e.target.closest('.agenda-item-row');
+  if(!target||!target.dataset.id||target.dataset.id===_agendaDragId){ _agendaDragId=null; return; }
+  const fromIdx=AGENDA_DATA.findIndex(x=>x.id===_agendaDragId);
+  const toIdx=AGENDA_DATA.findIndex(x=>x.id===target.dataset.id);
+  if(fromIdx<0||toIdx<0){ _agendaDragId=null; return; }
+  const [moved]=AGENDA_DATA.splice(fromIdx,1);
+  AGENDA_DATA.splice(toIdx,0,moved);
+  _agendaDragId=null;
+  saveAgendaOrderToSheets();
+  buildMondayAgenda(); buildAgenda();
+}
+function saveAgendaOrderToSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=agenda_write_all&items='+encodeURIComponent(JSON.stringify(AGENDA_DATA))).catch(()=>{});
+}
+function _agendaItemHtml(it,i,canEdit){
+  const done=!!it.checked;
+  const catColor=it.category==='RACI'?'var(--gold)':it.category==='Slack'?'#60a5fa':'var(--muted)';
+  const catBadge=it.category&&it.category!=='Manual'?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:${catColor};border:1px solid ${catColor};border-radius:3px;padding:1px 4px;margin-left:4px">${it.category}</span>`:'';
+  const delBtn=canEdit?`<button onclick="deleteAgendaItem('${it.id}')" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'" title="Remove">✕</button>`:'';
+  const chk=canEdit
+    ?`<div onclick="toggleAgendaItem('${it.id}')" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
+    :`<div style="width:18px;height:18px;flex-shrink:0"></div>`;
+  const drag=canEdit?`<div style="color:var(--border);font-size:14px;cursor:grab;flex-shrink:0;padding-top:1px;user-select:none;line-height:1.2" title="Drag to reorder">⠿</div>`:'';
+  return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:${done?'0.42':'1'};transition:opacity 0.2s">
+    ${drag}${chk}
+    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:24px;line-height:1.1">${String(i+1).padStart(2,'0')}</div>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:2px;margin-bottom:4px">
+        <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','title',this.innerText.trim())" style="font-size:14px;font-weight:500;color:${done?'var(--muted)':'var(--text)'};text-decoration:${done?'line-through':'none'};outline:none;word-break:break-word">${it.title}</div>
+        ${catBadge}${delBtn}
+      </div>
+      <textarea onblur="updateAgendaField('${it.id}','detail',this.value.trim())" onfocus="this.rows=4" rows="${it.detail?'2':'1'}" ${!canEdit?'readonly':''} placeholder="${canEdit?'Add detail…':''}" style="width:100%;background:transparent;border:none;border-bottom:${canEdit?'1px solid var(--border)':'none'};color:#9ca3af;font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.6;resize:none;outline:none;padding:1px 0;box-sizing:border-box;display:block;margin-bottom:${it.detail||canEdit?'4px':'0'}">${(it.detail||'').replace(/</g,'&lt;')}</textarea>
+      <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','decision',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'};outline:none${!it.decision&&!canEdit?';display:none':''}">${it.decision||''}</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)">Owner</span>
+        <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','owner',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);outline:none;min-width:16px">${it.owner||''}</div>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border);margin-left:4px">Deadline</span>
+        <input type="date" value="${it.deadline||''}" onchange="updateAgendaField('${it.id}','deadline',this.value)" ${!canEdit?'disabled':''} style="background:transparent;border:none;border-bottom:1px solid ${it.deadline?'var(--amber)':'var(--border)'};color:${it.deadline?'var(--amber)':'var(--muted)'};font-family:'DM Mono',monospace;font-size:10px;outline:none;padding:1px 0">
+      </div>
+    </div>
+  </div>`;
+}
+function saveAgendaItemTeam(){
+  if(!canEditAgenda()) return;
+  const title=(document.getElementById('agenda-add-title-t')?.value||'').trim(); if(!title) return;
+  const item={id:_genAgendaId(),title,detail:(document.getElementById('agenda-add-detail-t')?.value||'').trim(),decision:(document.getElementById('agenda-add-decision-t')?.value||'').trim(),checked:false,owner:(document.getElementById('agenda-add-owner-t')?.value||'').trim(),deadline:(document.getElementById('agenda-add-deadline-t')?.value||'').trim(),category:'Manual'};
+  AGENDA_DATA.push(item); saveAgendaItemToSheets(item);
+  buildMondayAgenda(); buildAgenda();
+}
 function buildMondayAgenda(){
   const el=document.getElementById('agenda-monday-list');
   if(!el) return;
   const canEdit=canEditAgenda();
   const resolved=AGENDA_DATA.filter(x=>x.checked).length;
-  const catColor=c=>c==='RACI'?'var(--gold)':c==='Slack'?'#60a5fa':'var(--muted)';
+  const addFrm=canEdit?`<div id="agenda-add-form" style="display:none;margin-top:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;margin-bottom:12px">ADD AGENDA ITEM</div>
+    <div style="margin-bottom:9px"><input id="agenda-add-title" placeholder="Title" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
+    <div style="margin-bottom:9px"><textarea id="agenda-add-detail" placeholder="Description" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box;resize:vertical"></textarea></div>
+    <div style="margin-bottom:9px"><input id="agenda-add-decision" placeholder="Decision / Action required" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <input id="agenda-add-owner" placeholder="Owner" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+      <input id="agenda-add-deadline" type="date" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveAgendaItem()" class="btn-primary" style="font-size:11px;padding:7px 16px">Save Item</button>
+      <button onclick="document.getElementById('agenda-add-form').style.display='none'" class="btn-secondary" style="font-size:11px;padding:7px 16px">Cancel</button>
+    </div>
+  </div>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(37,42,53,0.3)">
+    <button onclick="document.getElementById('agenda-add-form').style.display=document.getElementById('agenda-add-form').style.display==='none'?'block':'none'" style="background:transparent;border:1px dashed var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:7px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ ADD AGENDA ITEM</button>
+  </div>`:'';
   el.innerHTML=`<div class="card" style="margin-bottom:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
       <div>
@@ -2369,48 +2440,8 @@ function buildMondayAgenda(){
       <span style="font-family:'DM Mono',monospace;font-size:10px;color:${resolved===AGENDA_DATA.length&&AGENDA_DATA.length>0?'var(--green)':'var(--muted)'}">${resolved}/${AGENDA_DATA.length} resolved</span>
     </div>
     <div style="height:1px;background:var(--border);margin:14px 0 4px"></div>
-    ${AGENDA_DATA.map((it,i)=>{
-      const done=!!it.checked;
-      const chk=canEdit
-        ?`<div onclick="toggleAgendaItem('${it.id}')" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
-        :`<div style="width:18px;height:18px;flex-shrink:0"></div>`;
-      const catBadge=it.category&&it.category!=='Manual'?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:${catColor(it.category)};border:1px solid ${catColor(it.category)};border-radius:3px;padding:1px 4px;margin-left:6px;vertical-align:middle">${it.category}</span>`:'';
-      const meta=[];
-      if(it.owner) meta.push(`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Owner: ${it.owner}</span>`);
-      if(it.deadline) meta.push(`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">⏱ ${it.deadline}</span>`);
-      const delBtn=canEdit?`<button onclick="deleteAgendaItem('${it.id}')" style="background:none;border:none;color:var(--border);font-size:11px;cursor:pointer;padding:0 2px;line-height:1;margin-left:4px" title="Remove" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'">✕</button>`:'';
-      return `<div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:${done?'0.42':'1'};transition:opacity 0.2s">
-        ${chk}
-        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:26px;line-height:1.1">${String(i+1).padStart(2,'0')}</div>
-        <div style="flex:1">
-          <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:5px">
-            <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','title',this.innerText.trim())" style="font-size:14px;font-weight:500;color:${done?'var(--muted)':'var(--text)'};text-decoration:${done?'line-through':'none'};outline:none">${it.title}</div>
-            ${catBadge}${delBtn}
-          </div>
-          ${it.detail?`<div style="font-size:12px;color:#9ca3af;line-height:1.7;margin-bottom:6px">${it.detail}</div>`:''}
-          ${it.decision?`<div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','decision',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'};outline:none">${it.decision}</div>`:''}
-          ${meta.length?`<div style="display:flex;gap:10px;margin-top:4px">${meta.join('')}</div>`:''}
-        </div>
-      </div>`;
-    }).join('')}
-    ${canEdit?`
-    <div id="agenda-add-form" style="display:none;margin-top:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;margin-bottom:12px">ADD AGENDA ITEM</div>
-      <div style="margin-bottom:9px"><input id="agenda-add-title" placeholder="Title" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
-      <div style="margin-bottom:9px"><input id="agenda-add-detail" placeholder="Description" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
-      <div style="margin-bottom:9px"><input id="agenda-add-decision" placeholder="Decision / Action required" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <input id="agenda-add-owner" placeholder="Owner" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
-        <input id="agenda-add-deadline" type="date" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
-      </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="saveAgendaItem()" class="btn-primary" style="font-size:11px;padding:7px 16px">Save Item</button>
-        <button onclick="document.getElementById('agenda-add-form').style.display='none'" class="btn-secondary" style="font-size:11px;padding:7px 16px">Cancel</button>
-      </div>
-    </div>
-    <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(37,42,53,0.3)">
-      <button onclick="document.getElementById('agenda-add-form').style.display=document.getElementById('agenda-add-form').style.display==='none'?'block':'none'" style="background:transparent;border:1px dashed var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:7px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ ADD AGENDA ITEM</button>
-    </div>`:''}
+    <div ondragover="event.preventDefault()" ondrop="_agendaDrop(event)">${AGENDA_DATA.map((it,i)=>_agendaItemHtml(it,i,canEdit)).join('')}</div>
+    ${addFrm}
   </div>`;
 }
 function toggleAgendaItem(id){
@@ -2418,7 +2449,7 @@ function toggleAgendaItem(id){
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
   item.checked=!item.checked;
   saveAgendaItemToSheets(item);
-  buildMondayAgenda();
+  buildMondayAgenda(); buildAgenda();
 }
 function saveAgendaItem(){
   if(!canEditAgenda()) return;
@@ -2431,7 +2462,7 @@ function saveAgendaItem(){
   const item={id:_genAgendaId(),title,detail,decision,checked:false,owner,deadline,category:'Manual'};
   AGENDA_DATA.push(item);
   saveAgendaItemToSheets(item);
-  buildMondayAgenda();
+  buildMondayAgenda(); buildAgenda();
 }
 
 // ── Executive Assessment (Agenda tab) ──────────────────────
@@ -3208,16 +3239,32 @@ function buildTeamGrid(){
 function buildAgenda(){
   const el = document.getElementById('agenda-list');
   if(!el) return;
+  const canEdit=canEditAgenda();
+  const resolved=AGENDA_DATA.filter(x=>x.checked).length;
   if(!AGENDA_DATA.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:12px">No agenda items.</div>'; return; }
-  el.innerHTML = AGENDA_DATA.map((it,i)=>`
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:10px;display:flex;gap:16px;opacity:${it.checked?'0.45':'1'}">
-      <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:28px;line-height:1">${String(i+1).padStart(2,'0')}</div>
-      <div style="flex:1">
-        <div style="font-size:14px;font-weight:500;margin-bottom:5px;text-decoration:${it.checked?'line-through':'none'}">${it.title}</div>
-        ${it.detail?`<div style="font-size:12px;color:#9ca3af;line-height:1.7;margin-bottom:6px">${it.detail}</div>`:''}
-        ${it.decision?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold)">${it.decision}</div>`:''}
-      </div>
-    </div>`).join('');
+  const addFrm=canEdit?`<div id="agenda-add-form-t" style="display:none;margin-top:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;margin-bottom:12px">ADD AGENDA ITEM</div>
+    <div style="margin-bottom:9px"><input id="agenda-add-title-t" placeholder="Title" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
+    <div style="margin-bottom:9px"><textarea id="agenda-add-detail-t" placeholder="Description" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box;resize:vertical"></textarea></div>
+    <div style="margin-bottom:9px"><input id="agenda-add-decision-t" placeholder="Decision / Action required" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <input id="agenda-add-owner-t" placeholder="Owner" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+      <input id="agenda-add-deadline-t" type="date" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveAgendaItemTeam()" class="btn-primary" style="font-size:11px;padding:7px 16px">Save Item</button>
+      <button onclick="document.getElementById('agenda-add-form-t').style.display='none'" class="btn-secondary" style="font-size:11px;padding:7px 16px">Cancel</button>
+    </div>
+  </div>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(37,42,53,0.3)">
+    <button onclick="document.getElementById('agenda-add-form-t').style.display=document.getElementById('agenda-add-form-t').style.display==='none'?'block':'none'" style="background:transparent;border:1px dashed var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:7px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ ADD AGENDA ITEM</button>
+  </div>`:'';
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--gold)">AGENDA</span>
+    <span style="font-family:'DM Mono',monospace;font-size:10px;color:${resolved===AGENDA_DATA.length&&AGENDA_DATA.length>0?'var(--green)':'var(--muted)'}">${resolved}/${AGENDA_DATA.length} resolved</span>
+  </div>
+  <div ondragover="event.preventDefault()" ondrop="_agendaDrop(event)">${AGENDA_DATA.map((it,i)=>_agendaItemHtml(it,i,canEdit)).join('')}</div>
+  ${addFrm}`;
 }
 
 // ── Spend log ───────────────────────────────────────────────
