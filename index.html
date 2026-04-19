@@ -932,7 +932,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 </div>
 
 <!-- ══ MODALS ══ -->
-<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this&&!_modalResizing)closeModal()">
   <div class="modal" id="modal-content"></div>
 </div>
 
@@ -959,7 +959,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
-<div class="modal-overlay" id="agenda-edit-modal-overlay" onclick="if(event.target===this)closeAgendaEditModal()">
+<div class="modal-overlay" id="agenda-edit-modal-overlay" onclick="if(event.target===this&&!_modalResizing)closeAgendaEditModal()">
   <div class="modal" id="agenda-edit-modal-inner" style="padding:0;max-width:500px;width:90%">
     <div id="aem-drag-handle" style="cursor:move;user-select:none;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px 12px;border-bottom:1px solid var(--border);border-radius:14px 14px 0 0;background:var(--card)">
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">EDIT AGENDA ITEM ✦ drag to move</span>
@@ -2808,7 +2808,7 @@ function openAgendaEditModal(id){
   document.getElementById('agenda-edit-modal-overlay').classList.add('open');
   const _aem=document.getElementById('agenda-edit-modal-inner');
   Object.assign(_aem.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',display:'flex',flexDirection:'column',boxSizing:'border-box'});
-  _aem.onmousedown = e => e.stopPropagation();
+  _aem.onmousedown = e => { e.stopPropagation(); const r=_aem.getBoundingClientRect(); if(e.clientX>r.right-20&&e.clientY>r.bottom-20) _modalResizing=true; };
   _aem.onclick = e => e.stopPropagation();
   _makeDraggableModal(_aem, document.getElementById('aem-drag-handle'));
 }
@@ -5740,6 +5740,9 @@ function tmRemoveOwner(name){
   _renderTmOwnerChips();
 }
 // ── Draggable modal (pointer capture) ───────────────────────
+let _modalResizing = false;
+document.addEventListener('mouseup', () => { _modalResizing = false; });
+
 function _makeDraggableModal(modal, handle){
   handle.addEventListener('pointerdown', e => {
     if(e.target.closest('button,input,select,textarea,a')) return;
@@ -5830,7 +5833,7 @@ function showTaskModal(taskId){
   _renderTmOwnerChips();
   const _mc=document.getElementById('modal-content');
   Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',width:'min(680px,90vw)',display:'flex',flexDirection:'column',boxSizing:'border-box'});
-  _mc.onmousedown = e => e.stopPropagation();
+  _mc.onmousedown = e => { e.stopPropagation(); const r=_mc.getBoundingClientRect(); if(e.clientX>r.right-20&&e.clientY>r.bottom-20) _modalResizing=true; };
   _mc.onclick = e => e.stopPropagation();
   document.getElementById('modal-overlay').classList.add('open');
   _makeDraggableModal(_mc, document.getElementById('tm-drag-handle'));
