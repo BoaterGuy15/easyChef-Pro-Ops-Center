@@ -932,7 +932,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 </div>
 
 <!-- ══ MODALS ══ -->
-<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal" id="modal-content"></div>
 </div>
 
@@ -2808,6 +2808,8 @@ function openAgendaEditModal(id){
   document.getElementById('agenda-edit-modal-overlay').classList.add('open');
   const _aem=document.getElementById('agenda-edit-modal-inner');
   Object.assign(_aem.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',display:'flex',flexDirection:'column',boxSizing:'border-box'});
+  _aem.onmousedown = e => e.stopPropagation();
+  _aem.onclick = e => e.stopPropagation();
   _makeDraggableModal(_aem, document.getElementById('aem-drag-handle'));
 }
 function closeAgendaEditModal(){
@@ -4408,9 +4410,8 @@ function importPdfTransactions(){
   closeModal();
 }
 
-function closeModal(e){
-  if(!e || e.target===document.getElementById('modal-overlay'))
-    document.getElementById('modal-overlay').classList.remove('open');
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
 }
 
 function editCapital(){
@@ -5829,6 +5830,8 @@ function showTaskModal(taskId){
   _renderTmOwnerChips();
   const _mc=document.getElementById('modal-content');
   Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',width:'min(680px,90vw)',display:'flex',flexDirection:'column',boxSizing:'border-box'});
+  _mc.onmousedown = e => e.stopPropagation();
+  _mc.onclick = e => e.stopPropagation();
   document.getElementById('modal-overlay').classList.add('open');
   _makeDraggableModal(_mc, document.getElementById('tm-drag-handle'));
 }
