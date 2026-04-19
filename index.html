@@ -5240,12 +5240,17 @@ const _SLACK_FOUNDERS = ['taylor','steve','hammad','adam'];
 function _slackCanSend(){ return _SLACK_FOUNDERS.includes(window._DGL_USER||''); }
 
 function _slackOAuthUrl(){
-  const clientId='';
-  const redirectUri=encodeURIComponent(CONFIG.sheetsUrl);
-  const scopes='chat:write';
-  const state=window._DGL_USER||'';
-  return `https://slack.com/oauth/v2/authorize?client_id=${clientId}&user_scope=${scopes}&redirect_uri=${redirectUri}&state=${state}`;
+  const clientId='6011668670116.10944470791062';
+  const redirectUri='https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2FAKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw%2Fexec';
+  const state=encodeURIComponent(window._DGL_USER||'');
+  return `https://slack.com/oauth/v2/authorize?client_id=${clientId}&user_scope=chat:write&redirect_uri=${redirectUri}&state=${state}`;
 }
+// Apps Script doGet routing — add to Code.gs:
+// } else if (action === 'slack_check_token') {
+//   var u = e.parameter.user || '';
+//   var tok = PropertiesService.getScriptProperties().getProperty('SLACK_USER_TOKEN_' + u);
+//   result = tok ? { connected: true } : { connected: false };
+// }
 function _slackCheckToken(){
   const user=window._DGL_USER;
   if(!user||!CONFIG.sheetsUrl) return;
@@ -5256,12 +5261,16 @@ function _slackCheckToken(){
       const btn=document.getElementById('slack-connect-btn');
       if(!badge||!btn) return;
       if(data.connected){
-        badge.textContent='✓ Connected'+(data.name?' as '+data.name:'');
+        badge.textContent='✓ Connected — messages send as you';
         badge.style.display='inline-block';
-        btn.style.display='none';
+        btn.textContent='Reconnect';
+        btn.style.border='1px solid var(--border)';
+        btn.style.color='var(--muted)';
       } else {
         badge.style.display='none';
-        btn.style.display='inline-block';
+        btn.textContent='Connect My Slack Account';
+        btn.style.border='1px solid var(--gold)';
+        btn.style.color='var(--gold)';
       }
     })
     .catch(()=>{});
@@ -5272,7 +5281,7 @@ function renderSlackCard(){
   const iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:12px;outline:none;box-sizing:border-box';
   el.innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <a id="slack-connect-btn" href="${_slackOAuthUrl()}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;text-decoration:none;white-space:nowrap">Connect My Slack</a>
+      <a id="slack-connect-btn" href="${_slackOAuthUrl()}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;text-decoration:none;white-space:nowrap">Connect My Slack Account</a>
       <span id="slack-connect-badge" style="display:none;font-family:'DM Mono',monospace;font-size:10px;color:var(--green);padding:3px 10px;border:1px solid var(--green);border-radius:5px;white-space:nowrap"></span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
