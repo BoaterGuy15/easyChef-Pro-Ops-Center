@@ -2612,7 +2612,6 @@ function loadPMFHistoryFromSheets(){
     .catch(()=>{});
 }
 function updateAgendaField(id,field,value){
-  console.log('agenda flag save called:',field,value);
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
   item[field]=field==='deadline'?_excelSerialToDate(value):value;
   saveAgendaItemToSheets(item);
