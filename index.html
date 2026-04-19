@@ -3346,6 +3346,21 @@ function _getDefaultTeamEdits(){ try{const r=localStorage.getItem('dgl_default_t
 function _saveDefaultTeamEdits(obj){ try{localStorage.setItem('dgl_default_team_edits',JSON.stringify(obj));}catch(e){} }
 function _getProfiles(){ try{const r=localStorage.getItem('dgl_profiles');if(r)return JSON.parse(r);}catch(e){} return {}; }
 function _saveProfiles(obj){ try{localStorage.setItem('dgl_profiles',JSON.stringify(obj));}catch(e){} }
+function loadProfilesFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=profile_read')
+    .then(r=>r.json()).then(data=>{
+      if(!data||typeof data!=='object') return;
+      const profiles=_getProfiles();
+      Object.assign(profiles,data);
+      _saveProfiles(profiles);
+      buildTeamGrid();
+    }).catch(()=>{});
+}
+function saveProfileToSheets(userKey,profileData){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=profile_write&user='+encodeURIComponent(userKey)+'&data='+encodeURIComponent(JSON.stringify(profileData))).catch(()=>{});
+}
 function _getMemberInfo(userKey){
   const defMeta=DEFAULT_TEAM_MEMBERS[userKey];
   const ed=(_getDefaultTeamEdits()[userKey])||{};
@@ -3410,6 +3425,7 @@ function saveProfileNote(userKey){
   if(!profiles[userKey]) profiles[userKey]={};
   profiles[userKey].notes=notes;
   _saveProfiles(profiles);
+  saveProfileToSheets(userKey,profiles[userKey]);
   const btn=event.target;
   const orig=btn.textContent;
   btn.textContent='Saved ✓';
@@ -3426,6 +3442,7 @@ function addProfileLog(userKey){
   if(!profiles[userKey].log) profiles[userKey].log=[];
   profiles[userKey].log.push({date,text});
   _saveProfiles(profiles);
+  saveProfileToSheets(userKey,profiles[userKey]);
   if(inp) inp.value='';
   const logItems=profiles[userKey].log.slice(-10).reverse();
   const logHtml=logItems.map(e=>`<div style="display:flex;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--surface)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;min-width:72px">${e.date}</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)">${e.text}</span></div>`).join('');
@@ -3454,7 +3471,7 @@ function openDefaultTeamMemberModal(user){
       <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cur.name||''}" style="${fSt}"${ro}></div>
       <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cur.role||''}" style="${fSt}"${ro}></div>
       <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cur.email||''}" style="${fSt}"${ro}></div>
-      <div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep" style="${fSt}"${ro}></div>
+      ${canWrite?`<div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep" style="${fSt}"></div>`:'<input type="hidden" id="tmm-password" value="">'}
       <div class="modal-field"><label>RACI Column Name</label><input type="text" value="${cur.raciKey||''}" readonly style="${roSt}"></div>
       <div class="modal-field"><label>Login Key</label><input type="text" value="${cur.user||''}" readonly style="${roSt}"></div>
       <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${fSt}"${canWrite?'':' disabled'}>${levelOpts}</select></div>
@@ -3499,6 +3516,8 @@ async function saveDefaultTeamMember(user){
   if(!profiles[user]) profiles[user]={};
   Object.assign(profiles[user],{phone,slack,channels,github,timezone});
   _saveProfiles(profiles);
+  saveProfileToSheets(user,profiles[user]);
+  if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
   closeTeamMemberModal();
   buildTeamGrid();
 }
@@ -3545,7 +3564,7 @@ function openTeamMemberModal(idx){
       <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cm?cm.name:''}" placeholder="Alice Smith" style="${fSt2}"${ro2}></div>
       <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cm?cm.role:''}" placeholder="Marketing Associate" style="${fSt2}"${ro2}></div>
       <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cm?cm.email:''}" placeholder="alice@DGL.dev" style="${fSt2}"${ro2}></div>
-      <div class="modal-field"><label>Password ${cm?'(blank = keep current)':''}</label><input type="password" id="tmm-password" placeholder="${cm?'Leave blank to keep':'Set password'}" style="${fSt2}"${ro2}></div>
+      ${canWrite2?`<div class="modal-field"><label>Password ${cm?'(blank = keep current)':''}</label><input type="password" id="tmm-password" placeholder="${cm?'Leave blank to keep':'Set password'}" style="${fSt2}"></div>`:'<input type="hidden" id="tmm-password" value="">'}
       <div class="modal-field"><label>RACI Column Name (no spaces)</label><input type="text" id="tmm-raci" value="${cm?cm.raciKey:''}" placeholder="Alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+fSt2+'"'+ro2}></div>
       <div class="modal-field"><label>Login Key (lowercase, no spaces)</label><input type="text" id="tmm-user" value="${cm?cm.user:''}" placeholder="alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+fSt2+'"'+ro2}></div>
       <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${fSt2}"${canWrite2?'':' disabled'}>${levelOpts}</select></div>
@@ -3601,6 +3620,8 @@ async function saveTeamMember(idx){
   if(!profiles[user]) profiles[user]={};
   Object.assign(profiles[user],{phone,slack,channels,github,timezone});
   _saveProfiles(profiles);
+  saveProfileToSheets(user,profiles[user]);
+  if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
   USER_RACI_COL[user]=raciKey;
   USER_DISPLAY[user]=raciKey;
   closeTeamMemberModal();
@@ -6425,6 +6446,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadAgendaFromSheets();
   loadBudgetHistoryFromSheets();
   loadPMFHistoryFromSheets();
+  loadProfilesFromSheets();
   _initCustomTeamExtensions();
   buildCommandKPIs();
   buildGapList();
