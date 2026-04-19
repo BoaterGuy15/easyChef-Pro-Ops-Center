@@ -2779,16 +2779,19 @@ function toggleAgendaExpand(id,el){
 }
 function _buildAgendaExpandHtml(id){
   const it=AGENDA_DATA.find(x=>x.id===id); if(!it) return '';
+  const linkedTask=it.taskId?DASHBOARD_DATA.tasks.find(t=>t.id===it.taskId):null;
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const lbl=s=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px;margin-top:14px">${s}</div>`;
+  const fRow=(k,v)=>`<div style="margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${k}: </span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)">${v||'—'}</span></div>`;
   const canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
-  const commentsHtml=_buildAgendaCommentsHtml(id,_getTaskComments('agenda_'+id),canAdmin);
   const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
   const _swSt2="width:11px;height:11px;border-radius:50%;cursor:pointer;border:none;padding:0;flex-shrink:0";
   const _barSt="display:flex;gap:2px;align-items:center;padding:3px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;flex-wrap:wrap";
   const _eicons=['✓','⚠️','⛔','🔵','💡','🎯'];
   const _esw=[{c:'var(--text)',t:'Default'},{c:'var(--green)',t:'Green'},{c:'var(--amber)',t:'Amber'},{c:'var(--red)',t:'Red'},{c:'var(--gold)',t:'Gold'},{c:'var(--muted)',t:'Muted'},{c:'#60a5fa',t:'Blue'},{c:'#c084fc',t:'Purple'}];
   const _ebar=(elId,colorFn)=>`<div style="${_barSt}">${_eicons.map(ic=>`<button style="${_eSt2}" onclick="_insertAtCursor('${elId}','${ic}')">${ic}</button>`).join('')}<span style="width:1px;height:12px;background:var(--border);margin:0 3px;display:inline-block"></span>${_esw.map(sw=>`<button style="${_swSt2};background:${sw.c}" onclick="${colorFn}('${id}','${sw.c}')" title="${sw.t}"></button>`).join('')}</div>`;
+  const taskInfoHtml=linkedTask?`<div style="margin-top:8px;padding:8px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:5px">${fRow('Task',linkedTask.id+' · '+linkedTask.name)}${fRow('Status',linkedTask.status)}${fRow('Owner',linkedTask.owner||'—')}${fRow('Due',_excelSerialToDate(linkedTask.ed)||'—')}</div>`:'';
+  const discussId=it.taskId||'agenda_'+id;
   return `<div class="agenda-expand-inner" style="border-left:3px solid var(--gold);background:var(--card);padding:14px 20px;margin:0 0 2px 0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${id} — AGENDA ITEM</span>
@@ -2796,32 +2799,43 @@ function _buildAgendaExpandHtml(id){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
       <div>
-        ${lbl('NOTES')}
-        ${_renderNotesLog(it.taskId||'agenda_'+id,'agenda-expand-notes-'+id,canAdmin,'Add a note about this agenda item — syncs to the linked task')}
+        ${lbl('DETAILS')}
+        ${fRow('Title',it.title)}
+        ${fRow('Category',linkedTask?linkedTask.cat:it.category)}
+        ${fRow('Owner',it.owner||'—')}
+        ${fRow('Deadline',it.deadline||'—')}
+        ${fRow('Status',it.checked?'Resolved':'Open')}
+        ${taskInfoHtml}
+        ${lbl('FLAG')}
+        ${_ebar(`agenda-flag-${id}`,'_agendaFlagSetColor')}
+        <textarea id="agenda-flag-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Add a flag if this agenda item needs attention — ⛔ blocker, ⚠️ at risk, ✓ resolved" onblur="saveAgendaFlag('${id}')">${(it.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        ${lbl('AGENDA NOTES')}
+        <textarea id="agenda-expand-detail-${id}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note about this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','detail',this.value)">${(it.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
-        <select id="agenda-expand-slack-${id}" style="${iSt};margin-bottom:8px" onchange="agendaLinkSlack('${id}',this)">
+        <select id="agenda-expand-slack-${id}" style="${iSt};margin-bottom:4px" onchange="agendaLinkSlack('${id}',this)">
           <option value="">Loading channels…</option>
         </select>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Messages from this channel appear here. Comments above are posted to this channel.</div>
         <div id="agenda-expand-slack-feed-${id}" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:6px;display:none"></div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
           <button onclick="agendaAiFind('${id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
         </div>
         <div id="agenda-expand-ai-${id}" style="margin-bottom:14px"></div>
-        ${lbl('TASK DISCUSSION')}
-        <div id="agenda-expand-comments-${id}" style="max-height:180px;overflow-y:auto;margin-bottom:8px">${commentsHtml}</div>
-        <div>
-          ${_ebar(`agenda-expand-comment-input-${id}`,'_agendaExpandCommentSetColor')}
-          <div style="display:flex;gap:6px">
-            <input type="text" id="agenda-expand-comment-input-${id}" style="${iSt};flex:1" placeholder="Add a comment — posts here and to the linked Slack channel" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addAgendaComment('${id}')}">
-            <button onclick="addAgendaComment('${id}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Reply</button>
-          </div>
-        </div>
+        ${lbl('TEAM DISCUSSION')}
+        ${_renderNotesLog(discussId,'agenda-discussion-'+id,canAdmin,'Add a comment — posts here and to the linked Slack channel')}
       </div>
     </div>
   </div>`;
 }
+function saveAgendaFlag(id){
+  const el=document.getElementById('agenda-flag-'+id); if(!el) return;
+  const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
+  item.flag=el.value;
+  saveAgendaItemToSheets(item);
+}
+function _agendaFlagSetColor(id,color){ const el=document.getElementById('agenda-flag-'+id); if(el) el.style.color=color; }
 function _agendaExpandNoteSetColor(id,color){ const el=document.getElementById('agenda-expand-notes-'+id); if(el) el.style.color=color; }
 function _agendaExpandCommentSetColor(id,color){ const el=document.getElementById('agenda-expand-comment-input-'+id); if(el) el.style.color=color; }
 function _agendaExpandLoadChannels(id){
