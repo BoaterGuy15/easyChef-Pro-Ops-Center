@@ -1585,6 +1585,10 @@ function raciAiCreateTask(taskId,btn){
     const priEl=document.getElementById('tm-pri'); if(priEl) priEl.value=t.pri;
     const catEl=document.getElementById('tm-cat'); if(catEl) catEl.value=t.cat;
     if(t.owner&&typeof _tmOwners!=='undefined'){ _tmOwners=t.owner.split('/').map(s=>s.trim()).filter(Boolean); if(typeof _renderTmOwnerChips==='function') _renderTmOwnerChips(); }
+    const _tn=new Date(); const _sdDef=_tn.toISOString().slice(0,10);
+    const _ed14=new Date(_tn); _ed14.setDate(_ed14.getDate()+14); const _edDef=_ed14.toISOString().slice(0,10);
+    const sdEl=document.getElementById('tm-sd'); if(sdEl&&!sdEl.value) sdEl.value=_sdDef;
+    const edEl=document.getElementById('tm-ed'); if(edEl&&!edEl.value) edEl.value=_edDef;
   },0);
   _raciConfirmBtn(btn,'📋 Create Task');
 }
@@ -4753,10 +4757,15 @@ function saveTaskModal(taskId){
   const deps = (document.getElementById('tm-deps').value||'').trim();
   const notes = (document.getElementById('tm-notes').value||'').trim();
   if(isNew){
+    const _now=new Date(); const _todayStr=_now.toISOString().slice(0,10);
+    const _ed14n=new Date(_now); _ed14n.setDate(_ed14n.getDate()+14);
     DASHBOARD_DATA.tasks.push({
       id, name, cat, pri, status, owner, deps, notes,
       Taylor:'', Steve:'', Adam:'', Mary:'', JR:'', Hammad:'', Searah:'', Sadee:'',
-      flag:'', flagColor:'', sd, ed
+      flag:'', flagColor:'',
+      sd: sd||_todayStr,
+      ed: ed||_ed14n.toISOString().slice(0,10),
+      lastStatusChange: _now.toISOString().slice(0,16)
     });
   } else {
     const task = DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
