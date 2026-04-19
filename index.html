@@ -1339,6 +1339,7 @@ function initRaciPopover(){
 }
 // ── RACI Task Expansion Panel ────────────────────────────────
 let _raciExpandedId=null;
+const _raciExpandCache={};
 function _raciInjectExpandStyles(){
   if(document.getElementById('raci-expand-styles')) return;
   const s=document.createElement('style');
@@ -1352,10 +1353,16 @@ function _getTaskSlackLink(id){ try{const r=localStorage.getItem('dgl_task_slack
 function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
 function toggleTaskExpand(taskId,trEl){
   _raciInjectExpandStyles();
-  const prevRow=document.getElementById('raci-expand-row-'+(_raciExpandedId||'__none__'));
-  if(prevRow) prevRow.remove();
-  document.querySelectorAll('#raci-body tr.raci-row-active').forEach(r=>r.classList.remove('raci-row-active'));
-  if(_raciExpandedId===taskId){ _raciExpandedId=null; return; }
+  const panelExists=!!document.getElementById('raci-expand-row-'+taskId);
+  // Collapse any other open panel
+  if(_raciExpandedId&&_raciExpandedId!==taskId){
+    const otherRow=document.getElementById('raci-expand-row-'+_raciExpandedId);
+    if(otherRow) otherRow.remove();
+    document.querySelectorAll('#raci-body tr.raci-row-active').forEach(r=>r.classList.remove('raci-row-active'));
+  }
+  // Toggle off: same task, panel is open
+  if(_raciExpandedId===taskId&&panelExists){ _raciExpandedId=null; const p=document.getElementById('raci-expand-row-'+taskId); if(p) p.remove(); document.querySelectorAll('#raci-body tr.raci-row-active').forEach(r=>r.classList.remove('raci-row-active')); return; }
+  // Open (new task, or restore after rebuild)
   _raciExpandedId=taskId;
   if(!trEl) trEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"]');
   if(!trEl) return;
@@ -1365,12 +1372,18 @@ function toggleTaskExpand(taskId,trEl){
   expandTr.className='raci-expand-row';
   const td=document.createElement('td');
   td.colSpan=30;
-  td.innerHTML=_buildTaskExpandHtml(taskId);
+  const cached=_raciExpandCache[taskId];
+  td.innerHTML=cached||_buildTaskExpandHtml(taskId);
   expandTr.appendChild(td);
   trEl.after(expandTr);
-  _raciExpandLoadChannels(taskId);
-  const linked=_getTaskSlackLink(taskId);
-  if(linked.channelId) _raciExpandLoadSlackFeed(taskId,linked.channelId);
+  if(!cached){
+    // Fresh open — load dynamic content
+    _raciExpandLoadChannels(taskId);
+    const linked=_getTaskSlackLink(taskId);
+    if(linked.channelId) _raciExpandLoadSlackFeed(taskId,linked.channelId);
+  }
+  // Save current HTML to cache after a tick so dynamic content is captured
+  setTimeout(()=>{ const row=document.getElementById('raci-expand-row-'+taskId); if(row) _raciExpandCache[taskId]=row.querySelector('td').innerHTML; },800);
 }
 function _buildTaskExpandHtml(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
@@ -1601,6 +1614,11 @@ function buildRaciTable(){
   const ru = document.getElementById('raci-updated');
   if(ru) ru.textContent = DASHBOARD_DATA.meta.updated;
   if(window._DGL_USER==='view') applyViewOnly();
+  // Restore expansion panel if one was open before the rebuild
+  if(_raciExpandedId){
+    const restoreTr=document.querySelector('#raci-body tr[data-id="'+_raciExpandedId+'"]');
+    if(restoreTr) toggleTaskExpand(_raciExpandedId,restoreTr);
+  }
 }
 function applyRaciFilters(){
   let visibleCount=0;
