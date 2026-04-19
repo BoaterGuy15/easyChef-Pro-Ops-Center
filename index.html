@@ -2830,10 +2830,10 @@ function _buildAgendaExpandHtml(id){
         ${fRow('Status',it.checked?'Resolved':'Open')}
         ${taskInfoHtml}
         ${lbl('FLAG')}
-        ${_ebar(`agenda-flag-${id}`,'_agendaFlagSetColor')}
-        <textarea id="agenda-flag-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Add a flag if this agenda item needs attention — ⛔ blocker, ⚠️ at risk, ✓ resolved" onblur="saveAgendaFlag('${id}')">${(it.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px">${[['✓','Resolved'],['⚠️','At Risk'],['⛔','Blocker'],['🔵','In Progress'],['💡','Idea'],['🎯','On Target']].map(([e,l])=>`<button onclick="updateAgendaField('${id}','flag','${e} ${l}');var _dv=document.getElementById('agenda-flag-val-${id}');if(_dv){_dv.textContent='${e} ${l}';_dv.style.color='var(--gold)'}" style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 7px;background:var(--surface);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-family:'DM Mono',monospace"><span style="font-size:14px;line-height:1">${e}</span><span style="font-size:8px;color:var(--muted)">${l}</span></button>`).join('')}</div>
+        <div id="agenda-flag-val-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:${it.flag?'var(--gold)':'var(--muted)'};min-height:16px;margin-bottom:4px">${it.flag||'No flag set'}</div>
         ${lbl('AGENDA NOTES')}
-        <textarea id="agenda-expand-detail-${id}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note about this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','detail',this.value)">${(it.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        ${canAdmin?`<textarea id="agenda-expand-detail-${id}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note about this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','detail',this.value)">${(it.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:44px">${(it.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
