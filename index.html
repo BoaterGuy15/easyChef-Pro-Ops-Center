@@ -2706,6 +2706,44 @@ function agendaAiFind(id){
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
+function agendaAiCreateTask(id,btn){
+  const it=AGENDA_DATA.find(x=>x.id===id); if(!it) return;
+  const summary=_agendaAiSummaries[id]||'';
+  showTaskModal(null);
+  setTimeout(()=>{
+    const nameEl=document.getElementById('tm-name'); if(nameEl) nameEl.value='Agenda: '+it.title;
+    const notesEl=document.getElementById('tm-notes'); if(notesEl) notesEl.value=summary||it.detail||'';
+    const _tn=new Date();
+    const sdEl=document.getElementById('tm-sd'); if(sdEl&&!sdEl.value) sdEl.value=_tn.toISOString().slice(0,10);
+    const _ed14=new Date(_tn); _ed14.setDate(_ed14.getDate()+14);
+    const edEl=document.getElementById('tm-ed'); if(edEl&&!edEl.value) edEl.value=_ed14.toISOString().slice(0,10);
+  },0);
+  if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Create Task'; btn.disabled=false; },1500); }
+}
+function agendaAiPostToSlack(id,btn){
+  const it=AGENDA_DATA.find(x=>x.id===id); if(!it) return;
+  const linked=_getTaskSlackLink('agenda_'+id);
+  if(!linked.channelId){ alert('Link a Slack channel first.'); return; }
+  const summary=_agendaAiSummaries[id]||'';
+  if(!summary){ alert('No AI summary to post.'); return; }
+  btn.textContent='Posting…'; btn.disabled=true;
+  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('🤖 AI Analysis for ['+it.title+']:\n\n'+summary)+'&user='+encodeURIComponent(window._DGL_USER||''))
+    .then(r=>r.json())
+    .then(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; })
+    .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
+}
+function agendaAiMarkResolved(id,btn){
+  const it=AGENDA_DATA.find(x=>x.id===id); if(!it) return;
+  it.checked=!it.checked;
+  saveAgendaItemToSheets(it);
+  if(btn){
+    btn.textContent=it.checked?'↩ Mark Open':'✓ Mark Resolved';
+    btn.style.color=it.checked?'var(--green)':'var(--gold)';
+    btn.style.borderColor=it.checked?'var(--green)':'var(--gold)';
+  }
+  const row=document.querySelector('.agenda-item-row[data-id="'+id+'"]');
+  if(row) row.style.opacity=it.checked?'0.42':'1';
+}
 function buildMondayAgenda(){
   const el=document.getElementById('agenda-monday-list');
   if(!el) return;
