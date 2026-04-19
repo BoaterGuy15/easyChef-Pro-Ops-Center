@@ -731,7 +731,8 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <input id="raci-search" type="text" placeholder="Search tasks, owners, notes..." oninput="raciSearch(this.value)">
       <button id="raci-search-clear" onclick="raciSearch('');document.getElementById('raci-search').value=''" title="Clear">×</button>
     </div>
-    <button class="btn-secondary" style="margin-left:auto;font-size:11px;padding:5px 12px;white-space:nowrap;flex-shrink:0" onclick="showTaskModal(null)">+ New Task</button>
+    <button id="raci-save-btn" style="margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0" onclick="raciManualSave(this)">💾 Save to Sheets</button>
+    <button class="btn-secondary" style="font-size:11px;padding:5px 12px;white-space:nowrap;flex-shrink:0" onclick="showTaskModal(null)">+ New Task</button>
   </div>
   </div>
   <div class="table-wrap">
@@ -4762,7 +4763,8 @@ function saveTaskModal(taskId){
     DASHBOARD_DATA.tasks.push({
       id, name, cat, pri, status, owner, deps, notes,
       Taylor:'', Steve:'', Adam:'', Mary:'', JR:'', Hammad:'', Searah:'', Sadee:'',
-      flag:'', flagColor:'',
+      ...(()=>{ const cf={}; _getCustomTeamMembers().forEach(cm=>{ cf[cm.raciKey]=''; }); return cf; })(),
+      flag:'', flagColor:'', slackChannel:'',
       sd: sd||_todayStr,
       ed: ed||_ed14n.toISOString().slice(0,10),
       lastStatusChange: _now.toISOString().slice(0,16)
@@ -4812,11 +4814,14 @@ function updateSyncStatus(state){
   }
 }
 let _sheetsDebounce=null;
+let _sheetsSyncLock=false;
 function saveToSheets(){
   if(!CONFIG.sheetsUrl) return;
   clearTimeout(_sheetsDebounce);
   _sheetsDebounce=setTimeout(()=>{
     updateSyncStatus('syncing');
+    _sheetsSyncLock=true;
+    setTimeout(()=>{ _sheetsSyncLock=false; },8000);
     fetch(CONFIG.sheetsUrl,{
       method:'POST',
       mode:'no-cors',
@@ -4828,6 +4833,7 @@ function saveToSheets(){
 }
 function loadFromSheets(){
   if(!CONFIG.sheetsUrl) return;
+  if(_sheetsSyncLock) return;
   updateSyncStatus('syncing');
   fetch(CONFIG.sheetsUrl)
     .then(r=>r.json())
@@ -4843,6 +4849,12 @@ function loadFromSheets(){
       updateSyncStatus('ok');
     })
     .catch(()=>updateSyncStatus('fail'));
+}
+function raciManualSave(btn){
+  btn.textContent='Saving…'; btn.disabled=true; btn.style.color='var(--gold)';
+  saveToSheets();
+  setTimeout(()=>{ btn.textContent='Saved ✓'; btn.style.color='var(--green)'; },2000);
+  setTimeout(()=>{ btn.textContent='💾 Save to Sheets'; btn.style.color=''; btn.disabled=false; },4000);
 }
 function saveToLocal(){
   try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
