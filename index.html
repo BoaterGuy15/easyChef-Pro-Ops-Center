@@ -380,14 +380,14 @@ tr.hidden-row{display:none}
 /* ── MODAL ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:680px;width:min(680px,90vw);max-height:85vh;overflow-y:auto;min-width:320px;box-sizing:border-box}
 .modal h3{font-family:'Playfair Display',serif;font-size:18px;margin-bottom:4px}
 .modal-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:20px}
 .modal-field{margin-bottom:14px}
 .modal-field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-family:'DM Mono',monospace;letter-spacing:0.5px;text-transform:uppercase}
-.modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;box-sizing:border-box}
 .modal-field input:focus,.modal-field select:focus{border-color:var(--gold)}
-.modal-field textarea{min-height:70px;resize:vertical}
+.modal-field textarea{min-height:120px;resize:vertical;white-space:pre-wrap;word-break:break-word}
 .modal-actions{display:flex;gap:10px;margin-top:20px}
 .btn-primary{padding:8px 20px;background:var(--gold);color:#0b0d10;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer}
 .btn-secondary{padding:8px 20px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer}
@@ -5732,6 +5732,22 @@ function tmRemoveOwner(name){
   _tmOwners=_tmOwners.filter(o=>o!==name);
   _renderTmOwnerChips();
 }
+// ── Draggable modal ─────────────────────────────────────────
+let _dragEl=null,_dragOx=0,_dragOy=0;
+document.addEventListener('mousemove',function(e){ if(!_dragEl) return; _dragEl.style.left=(e.clientX-_dragOx)+'px'; _dragEl.style.top=(e.clientY-_dragOy)+'px'; });
+document.addEventListener('mouseup',function(){ _dragEl=null; });
+function _makeDraggable(el,handle){
+  handle.addEventListener('mousedown',function(e){
+    if(e.target.closest('button,input,select,textarea,span[onclick]')) return;
+    const r=el.getBoundingClientRect();
+    el.style.transform='none';
+    el.style.left=r.left+'px';
+    el.style.top=r.top+'px';
+    _dragEl=el; _dragOx=e.clientX-r.left; _dragOy=e.clientY-r.top;
+    e.preventDefault();
+  });
+}
+
 function showTaskModal(taskId){
   const task = taskId ? DASHBOARD_DATA.tasks.find(t=>t.id===taskId) : null;
   const isNew = !task;
@@ -5743,59 +5759,69 @@ function showTaskModal(taskId){
   const statusOpts = statuses.map(o=>`<option${(!isNew&&task.status===o)||(isNew&&o==='Not Started')?' selected':''}>${o}</option>`).join('');
   const priOpts = ['High','Medium','Low'].map(o=>`<option${(!isNew&&task.pri===o)||(isNew&&o==='Medium')?' selected':''}>${o}</option>`).join('');
   document.getElementById('modal-content').innerHTML = `
-    <h3>${isNew?'New Task':'Edit Task'}</h3>
-    <div class="modal-sub">${isNew?'ADD TO RACI TRACKER':'EDIT · '+esc(task.id)}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
-      <div class="modal-field" style="grid-column:1/3">
-        <label>Task Name</label>
-        <input type="text" id="tm-name" value="${isNew?'':esc(task.name)}" placeholder="e.g. Email Campaign Setup">
+    <div id="tm-drag-handle" style="cursor:move;padding:16px 24px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;user-select:none;position:sticky;top:0;z-index:1;background:var(--card);border-radius:14px 14px 0 0">
+      <div>
+        <h3 style="margin:0 0 2px 0">${isNew?'New Task':'Edit Task'}</h3>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px">${isNew?'ADD TO RACI TRACKER ✦ drag to move':'EDIT · '+esc(task.id)+' ✦ drag to move'}</div>
       </div>
-      <div class="modal-field">
-        <label>Task ID</label>
-        <input type="text" id="tm-id" value="${esc(id)}"${!isNew?' readonly style="opacity:0.5;pointer-events:none"':''}>
-      </div>
-      <div class="modal-field">
-        <label>Priority</label>
-        <select id="tm-pri">${priOpts}</select>
-      </div>
-      <div class="modal-field">
-        <label>Category</label>
-        <select id="tm-cat">${catOpts}</select>
-      </div>
-      <div class="modal-field">
-        <label>Status</label>
-        <select id="tm-status">${statusOpts}</select>
-      </div>
-      <div class="modal-field" style="grid-column:1/3">
-        <label>Owner(s)</label>
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;min-height:36px" id="tm-owner-chips"></div>
-      </div>
-      <div class="modal-field">
-        <label>Start Date</label>
-        <input type="date" id="tm-sd" value="${isNew?'':esc(task.sd||'')}">
-      </div>
-      <div class="modal-field">
-        <label>End Date</label>
-        <input type="date" id="tm-ed" value="${isNew?'':esc(task.ed||'')}">
-      </div>
-      <div class="modal-field" style="grid-column:1/3">
-        <label>Dependencies (comma-separated IDs)</label>
-        <input type="text" id="tm-deps" value="${isNew?'':esc(task.deps||'')}" placeholder="e.g. T-001, T-003">
-      </div>
-      <div class="modal-field" style="grid-column:1/3">
-        <label>Notes</label>
-        <textarea id="tm-notes">${isNew?'':esc(task.notes||'')}</textarea>
-      </div>
+      <span onclick="closeModal()" style="cursor:pointer;font-size:16px;color:var(--muted);line-height:1;padding:2px 4px;flex-shrink:0;pointer-events:auto" title="Close">✕</span>
     </div>
-    <div class="modal-actions" style="justify-content:space-between">
-      ${!isNew&&['taylor','steve','hammad','adam'].includes(window._DGL_USER)?`<button onclick="deleteTask('${taskId}')" style="background:none;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;padding:0;opacity:0.8" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">Delete Task</button>`:'<span></span>'}
-      <div style="display:flex;gap:10px">
-        <button class="btn-primary" onclick="saveTaskModal('${isNew?'':taskId}')">${isNew?'Add Task':'Save Changes'}</button>
-        <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+    <div style="padding:20px 24px 24px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+        <div class="modal-field" style="grid-column:1/3">
+          <label>Task Name</label>
+          <input type="text" id="tm-name" value="${isNew?'':esc(task.name)}" placeholder="e.g. Email Campaign Setup">
+        </div>
+        <div class="modal-field">
+          <label>Task ID</label>
+          <input type="text" id="tm-id" value="${esc(id)}"${!isNew?' readonly style="opacity:0.5;pointer-events:none"':''}>
+        </div>
+        <div class="modal-field">
+          <label>Priority</label>
+          <select id="tm-pri">${priOpts}</select>
+        </div>
+        <div class="modal-field">
+          <label>Category</label>
+          <select id="tm-cat">${catOpts}</select>
+        </div>
+        <div class="modal-field">
+          <label>Status</label>
+          <select id="tm-status">${statusOpts}</select>
+        </div>
+        <div class="modal-field" style="grid-column:1/3">
+          <label>Owner(s)</label>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;min-height:36px" id="tm-owner-chips"></div>
+        </div>
+        <div class="modal-field">
+          <label>Start Date</label>
+          <input type="date" id="tm-sd" value="${isNew?'':esc(task.sd||'')}">
+        </div>
+        <div class="modal-field">
+          <label>End Date</label>
+          <input type="date" id="tm-ed" value="${isNew?'':esc(task.ed||'')}">
+        </div>
+        <div class="modal-field" style="grid-column:1/3">
+          <label>Dependencies (comma-separated IDs)</label>
+          <input type="text" id="tm-deps" value="${isNew?'':esc(task.deps||'')}" placeholder="e.g. T-001, T-003">
+        </div>
+        <div class="modal-field" style="grid-column:1/3">
+          <label>Notes</label>
+          <textarea id="tm-notes" rows="6" style="width:100%;box-sizing:border-box;white-space:pre-wrap;word-break:break-word">${isNew?'':esc(task.notes||'')}</textarea>
+        </div>
+      </div>
+      <div class="modal-actions" style="justify-content:space-between">
+        ${!isNew&&['taylor','steve','hammad','adam'].includes(window._DGL_USER)?`<button onclick="deleteTask('${taskId}')" style="background:none;border:none;color:var(--red);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;padding:0;opacity:0.8" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">Delete Task</button>`:'<span></span>'}
+        <div style="display:flex;gap:10px">
+          <button class="btn-primary" onclick="saveTaskModal('${isNew?'':taskId}')">${isNew?'Add Task':'Save Changes'}</button>
+          <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+        </div>
       </div>
     </div>`;
   _renderTmOwnerChips();
+  const _mc=document.getElementById('modal-content');
+  Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',minWidth:'400px',minHeight:'300px'});
   document.getElementById('modal-overlay').classList.add('open');
+  _makeDraggable(_mc, document.getElementById('tm-drag-handle'));
 }
 function saveTaskModal(taskId){
   const isNew = !taskId;
