@@ -2433,10 +2433,10 @@ function _agendaItemHtml(it,i,canEdit){
   const delBtn=canEdit?`<button onclick="deleteAgendaItem('${it.id}')" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'" title="Remove">✕</button>`:'';
   const editBtn=canEdit?`<button onclick="openAgendaEditModal('${it.id}')" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:9px;font-family:'DM Mono',monospace;cursor:pointer;padding:1px 5px;border-radius:3px;line-height:1.4;margin-left:4px" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'" title="Edit">Edit</button>`:'';
   const chk=canEdit
-    ?`<div onclick="toggleAgendaItem('${it.id}')" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
+    ?`<div class="ag-no-expand" onclick="toggleAgendaItem('${it.id}')" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
     :`<div style="width:18px;height:18px;flex-shrink:0"></div>`;
-  const drag=canEdit?`<div style="color:var(--border);font-size:14px;cursor:grab;flex-shrink:0;padding-top:1px;user-select:none;line-height:1.2" title="Drag to reorder">⠿</div>`:'';
-  return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:${done?'0.42':'1'};transition:opacity 0.2s">
+  const drag=canEdit?`<div class="ag-no-expand" style="color:var(--border);font-size:14px;cursor:grab;flex-shrink:0;padding-top:1px;user-select:none;line-height:1.2" title="Drag to reorder">⠿</div>`:'';
+  return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" onclick="toggleAgendaExpand('${it.id}',event)" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:${done?'0.42':'1'};transition:opacity 0.2s;cursor:pointer">
     ${drag}${chk}
     <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:24px;line-height:1.1">${String(i+1).padStart(2,'0')}</div>
     <div style="flex:1;min-width:0">
@@ -2524,6 +2524,242 @@ function agDeleteFromModal(){
   const id=_agEditId;
   closeAgendaEditModal();
   deleteAgendaItem(id);
+}
+// ── Agenda expansion panel ──────────────────────────────────
+let _agendaExpandedId=null;
+const _agendaExpandCache={};
+const _agendaAiSummaries={};
+function _getAgendaComments(id){ try{const r=localStorage.getItem('dgl_agenda_comments_'+id);if(r)return JSON.parse(r);}catch(e){} return []; }
+function _saveAgendaComments(id,arr){ try{localStorage.setItem('dgl_agenda_comments_'+id,JSON.stringify(arr));}catch(e){} }
+function _getAgendaSlackLink(id){ try{const r=localStorage.getItem('dgl_agenda_slack_'+id);if(r)return JSON.parse(r);}catch(e){} return {}; }
+function _saveAgendaSlackLink(id,obj){ try{localStorage.setItem('dgl_agenda_slack_'+id,JSON.stringify(obj));}catch(e){} }
+function _agendaInjectExpandStyles(){
+  if(document.getElementById('agenda-expand-styles')) return;
+  const s=document.createElement('style');
+  s.id='agenda-expand-styles';
+  s.textContent='@keyframes agendaExpandFade{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}} .agenda-expand-inner{animation:agendaExpandFade 0.18s ease} .agenda-item-row.agenda-row-active{background:rgba(201,168,76,0.06)!important;border-radius:4px}';
+  document.head.appendChild(s);
+}
+function toggleAgendaExpand(agId,event){
+  if(event&&event.target.closest('.ag-no-expand,select,input,button,a,[contenteditable="true"],textarea')) return;
+  _agendaInjectExpandStyles();
+  const clickedRow=event?event.target.closest('.agenda-item-row'):null;
+  const targetRow=clickedRow||document.querySelector('.agenda-item-row[data-id="'+agId+'"]');
+  if(!targetRow) return;
+  // Close any other open panel
+  if(_agendaExpandedId&&_agendaExpandedId!==agId){
+    document.querySelectorAll('[id^="agenda-expand-panel-'+_agendaExpandedId+'"]').forEach(p=>p.remove());
+    document.querySelectorAll('.agenda-item-row[data-id="'+_agendaExpandedId+'"]').forEach(r=>r.classList.remove('agenda-row-active'));
+  }
+  // Check if this row's panel is immediately after it
+  const existingPanel=targetRow.nextElementSibling&&(targetRow.nextElementSibling.id||'').startsWith('agenda-expand-panel-'+agId)?targetRow.nextElementSibling:null;
+  // Toggle off
+  if(_agendaExpandedId===agId&&existingPanel){
+    _agendaExpandedId=null;
+    existingPanel.remove();
+    document.querySelectorAll('.agenda-item-row[data-id="'+agId+'"]').forEach(r=>r.classList.remove('agenda-row-active'));
+    return;
+  }
+  // Open
+  _agendaExpandedId=agId;
+  document.querySelectorAll('.agenda-item-row[data-id="'+agId+'"]').forEach(r=>r.classList.add('agenda-row-active'));
+  const panel=document.createElement('div');
+  panel.id='agenda-expand-panel-'+agId;
+  panel.innerHTML=_buildAgendaExpandHtml(agId);
+  targetRow.after(panel);
+  _agendaExpandLoadChannels(agId);
+  const linked=_getAgendaSlackLink(agId);
+  if(linked.channelId) _agendaExpandLoadSlackFeed(agId,linked.channelId);
+}
+function closeAgendaExpand(agId){
+  document.querySelectorAll('[id="agenda-expand-panel-'+agId+'"]').forEach(p=>p.remove());
+  document.querySelectorAll('.agenda-item-row[data-id="'+agId+'"]').forEach(r=>r.classList.remove('agenda-row-active'));
+  if(_agendaExpandedId===agId) _agendaExpandedId=null;
+}
+function _buildAgendaExpandHtml(agId){
+  const it=AGENDA_DATA.find(x=>x.id===agId); if(!it) return '';
+  const linked=_getAgendaSlackLink(agId);
+  const iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box';
+  const lbl=s=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px;margin-top:14px">${s}</div>`;
+  const canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
+  const commentsHtml=_buildAgendaCommentsHtml(agId,_getAgendaComments(agId),canAdmin);
+  const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
+  const _swSt2="width:11px;height:11px;border-radius:50%;cursor:pointer;border:none;padding:0;flex-shrink:0";
+  const _barSt="display:flex;gap:2px;align-items:center;padding:3px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;flex-wrap:wrap";
+  const _eicons=['✓','⚠️','⛔','🔵','💡','🎯'];
+  const _esw=[{c:'var(--text)',t:'Default'},{c:'var(--green)',t:'Green'},{c:'var(--amber)',t:'Amber'},{c:'var(--red)',t:'Red'},{c:'var(--gold)',t:'Gold'},{c:'var(--muted)',t:'Muted'},{c:'#60a5fa',t:'Blue'},{c:'#c084fc',t:'Purple'}];
+  const _ebar=(elId,colorFn)=>`<div style="${_barSt}">${_eicons.map(ic=>`<button style="${_eSt2}" onclick="_insertAtCursor('${elId}','${ic}')">${ic}</button>`).join('')}<span style="width:1px;height:12px;background:var(--border);margin:0 3px;display:inline-block"></span>${_esw.map(sw=>`<button style="${_swSt2};background:${sw.c}" onclick="${colorFn}('${agId}','${sw.c}')" title="${sw.t}"></button>`).join('')}</div>`;
+  const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
+  const storedNotes=localStorage.getItem('dgl_agenda_notes_'+agId)||it.detail||'';
+  return `<div class="agenda-expand-inner" style="border-left:3px solid var(--gold);background:var(--card);padding:14px 20px;margin:0 0 2px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${agId} — AGENDA ITEM</span>
+      <button class="ag-no-expand" onclick="closeAgendaExpand('${agId}')" style="background:transparent;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
+      <div>
+        ${lbl('NOTES')}
+        ${_ebar(`agenda-expand-notes-${agId}`,'_agendaExpandNoteSetColor')}
+        <textarea id="agenda-expand-notes-${agId}" rows="4" style="${iSt};resize:vertical" placeholder="Add notes…" onblur="saveAgendaExpandNotes('${agId}')">${storedNotes.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+      </div>
+      <div>
+        ${lbl('LINKED SLACK CHANNEL')}
+        <select id="agenda-expand-slack-${agId}" style="${iSt};margin-bottom:8px" onchange="agendaLinkSlack('${agId}',this)">
+          <option value="">Loading channels…</option>
+        </select>
+        <div id="agenda-expand-slack-feed-${agId}" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:6px;display:none"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+          <button onclick="agendaAiFind('${agId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
+        </div>
+        <div id="agenda-expand-ai-${agId}" style="margin-bottom:14px"></div>
+        ${lbl('DISCUSSION')}
+        <div id="agenda-expand-comments-${agId}" style="max-height:180px;overflow-y:auto;margin-bottom:8px">${commentsHtml}</div>
+        <div>
+          ${_ebar(`agenda-expand-comment-input-${agId}`,'_agendaExpandCommentSetColor')}
+          <div style="display:flex;gap:6px">
+            <input type="text" id="agenda-expand-comment-input-${agId}" style="${iSt};flex:1" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addAgendaComment('${agId}')}">
+            <button onclick="addAgendaComment('${agId}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Reply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function _buildAgendaCommentsHtml(agId,comments,canAdmin){
+  if(!comments.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No comments yet.</div>';
+  return comments.map((c,i)=>`<div style="padding:6px 0;${i>0?'border-top:1px solid var(--surface)':''}"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600">${c.name||c.user}</span><div style="display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${(c.ts||'').slice(0,16).replace('T',' ')}</span>${canAdmin?`<button onclick="deleteAgendaComment('${agId}',${i})" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0;line-height:1" title="Delete">✕</button>`:''}</div></div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(c.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+}
+function saveAgendaExpandNotes(agId){
+  const el=document.getElementById('agenda-expand-notes-'+agId); if(!el) return;
+  const it=AGENDA_DATA.find(x=>x.id===agId); if(!it) return;
+  it.detail=el.value;
+  try{localStorage.setItem('dgl_agenda_notes_'+agId,el.value);}catch(e){}
+  saveAgendaItemToSheets(it);
+}
+function _agendaExpandNoteSetColor(agId,color){ const el=document.getElementById('agenda-expand-notes-'+agId); if(el) el.style.color=color; }
+function _agendaExpandCommentSetColor(agId,color){ const el=document.getElementById('agenda-expand-comment-input-'+agId); if(el) el.style.color=color; }
+function _agendaExpandLoadChannels(agId){
+  if(!CONFIG.sheetsUrl) return;
+  const linked=_getAgendaSlackLink(agId);
+  fetch(CONFIG.sheetsUrl+'?action=slack_channels')
+    .then(r=>r.json())
+    .then(data=>{
+      const sel=document.getElementById('agenda-expand-slack-'+agId); if(!sel) return;
+      const chs=data.channels||[];
+      sel.innerHTML='<option value="">— No linked channel —</option>'+chs.map(c=>`<option value="${c.id}"${linked.channelId===c.id?' selected':''}>#${c.name} (${c.member_count||0})</option>`).join('');
+    })
+    .catch(()=>{ const sel=document.getElementById('agenda-expand-slack-'+agId); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; });
+}
+function agendaLinkSlack(agId,sel){
+  const channelId=sel.value;
+  const opt=sel.options[sel.selectedIndex];
+  _saveAgendaSlackLink(agId,{channelId,channelName:opt?opt.text:''});
+  const feedEl=document.getElementById('agenda-expand-slack-feed-'+agId);
+  if(!channelId){ if(feedEl){ feedEl.style.display='none'; feedEl.innerHTML=''; } return; }
+  _agendaExpandLoadSlackFeed(agId,channelId);
+}
+function _agendaExpandLoadSlackFeed(agId,channelId){
+  const feedEl=document.getElementById('agenda-expand-slack-feed-'+agId);
+  if(!feedEl||!CONFIG.sheetsUrl) return;
+  feedEl.style.display='block';
+  feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Loading…</div>';
+  const _oldest30=Math.floor((Date.now()-30*24*60*60*1000)/1000);
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=50&oldest='+_oldest30)
+    .then(r=>r.json())
+    .then(data=>{
+      const el=document.getElementById('agenda-expand-slack-feed-'+agId); if(!el) return;
+      const msgs=data.messages||[];
+      if(!msgs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border)">No messages</div>'; return; }
+      el.innerHTML=msgs.map((m,i)=>`<div style="padding:4px 0;${i>0?'border-top:1px solid var(--surface)':''}"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);font-weight:600">${m.user||'bot'} </span><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)">${typeof _slackFmt==='function'?_slackFmt(m.ts):m.ts}</span><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(m.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+    })
+    .catch(()=>{ const el=document.getElementById('agenda-expand-slack-feed-'+agId); if(el) el.style.display='none'; });
+}
+function agendaAiFind(agId){
+  const it=AGENDA_DATA.find(x=>x.id===agId); if(!it||!CONFIG.sheetsUrl) return;
+  const btn=event.target;
+  const aiEl=document.getElementById('agenda-expand-ai-'+agId);
+  const linked=_getAgendaSlackLink(agId);
+  if(!linked.channelId){ if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">Link a Slack channel first to enable AI analysis.</div>'; return; }
+  if(btn){ btn.textContent='Fetching messages…'; btn.disabled=true; }
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(linked.channelId)+'&limit=20')
+    .then(r=>r.json())
+    .then(data=>{
+      if(btn) btn.textContent='Analyzing…';
+      const msgs=(data.messages||[]).reverse();
+      const msgText=msgs.map(m=>(m.user||'bot')+': '+(m.text||'')).join('\n');
+      const ch=(linked.channelName||'').replace(/^#/,'').split(' ')[0];
+      const agCtx=`Agenda Item: ${agId} — ${it.title}\nCategory: ${it.category} | Owner: ${it.owner||'—'}\nDetail: ${it.detail||'none'}`;
+      const base=`${agCtx}\n\nHere are the last ${msgs.length} messages from #${ch}:\n\n${msgText}\n\nYou are analyzing a Slack channel for the DGL easyChef Pro team. This is agenda item: ${it.title}. Identify relevant discussion, decisions, and action items.`;
+      const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const c=`${agCtx}\n\nRecent messages from #${ch}:\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions, and action items.`; if(c.length<=3000) return c; lines=lines.slice(1); } return `${agCtx}\n\n${lines.join('\n')}\n\nIdentify relevant discussion and action items.`; })():base;
+      const system='You are analyzing Slack activity for the DGL easyChef Pro team. Summarize relevant discussion for the given agenda item. Be specific and concise.';
+      return fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt));
+    })
+    .then(r=>r.json())
+    .then(data=>{
+      if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; }
+      const el=document.getElementById('agenda-expand-ai-'+agId); if(!el) return;
+      const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
+      _agendaAiSummaries[agId]=text;
+      const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="agendaAiCreateTask('${agId}',this)" style="${_bSt}">📋 Create Task</button><button onclick="agendaAiPostToSlack('${agId}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="agendaAiMarkResolved('${agId}',this)" style="${_bSt}">✓ Mark Resolved</button></div>`;
+    })
+    .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
+}
+function addAgendaComment(agId){
+  const inp=document.getElementById('agenda-expand-comment-input-'+agId);
+  const text=(inp?inp.value:'').trim(); if(!text) return;
+  const user=window._DGL_USER||'anonymous';
+  const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
+  const name=(info.name||user).split(' ')[0];
+  const comments=_getAgendaComments(agId);
+  comments.push({user,name,ts:new Date().toISOString(),text});
+  _saveAgendaComments(agId,comments);
+  if(inp) inp.value='';
+  const canAdmin=['taylor','steve','hammad','adam'].includes(user);
+  const el=document.getElementById('agenda-expand-comments-'+agId);
+  if(el) el.innerHTML=_buildAgendaCommentsHtml(agId,comments,canAdmin);
+  const linked=_getAgendaSlackLink(agId);
+  if(linked.channelId&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(text)+'&user='+encodeURIComponent(user)).catch(()=>{});
+}
+function deleteAgendaComment(agId,idx){
+  const comments=_getAgendaComments(agId);
+  comments.splice(idx,1);
+  _saveAgendaComments(agId,comments);
+  const el=document.getElementById('agenda-expand-comments-'+agId);
+  if(el) el.innerHTML=_buildAgendaCommentsHtml(agId,comments,['taylor','steve','hammad','adam'].includes(window._DGL_USER||''));
+}
+function agendaAiCreateTask(agId,btn){
+  const it=AGENDA_DATA.find(x=>x.id===agId); if(!it) return;
+  const summary=_agendaAiSummaries[agId]||'';
+  showTaskModal(null);
+  setTimeout(()=>{
+    const nameEl=document.getElementById('tm-name'); if(nameEl) nameEl.value='Agenda: '+it.title;
+    const notesEl=document.getElementById('tm-notes'); if(notesEl) notesEl.value=summary;
+    const _tn=new Date(); const _sdDef=_tn.toISOString().slice(0,10);
+    const _ed14=new Date(_tn); _ed14.setDate(_ed14.getDate()+14); const _edDef=_ed14.toISOString().slice(0,10);
+    const sdEl=document.getElementById('tm-sd'); if(sdEl&&!sdEl.value) sdEl.value=_sdDef;
+    const edEl=document.getElementById('tm-ed'); if(edEl&&!edEl.value) edEl.value=_edDef;
+  },0);
+  if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Create Task'; btn.disabled=false; },1500); }
+}
+function agendaAiPostToSlack(agId,btn){
+  const it=AGENDA_DATA.find(x=>x.id===agId); if(!it) return;
+  const linked=_getAgendaSlackLink(agId);
+  if(!linked.channelId){ alert('Link a Slack channel first.'); return; }
+  const summary=_agendaAiSummaries[agId]||'';
+  if(!summary){ alert('No AI summary to post.'); return; }
+  btn.textContent='Posting…'; btn.disabled=true;
+  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('🤖 AI Analysis for ['+agId+' '+it.title+']:\n\n'+summary)+'&user='+encodeURIComponent(window._DGL_USER||''))
+    .then(r=>r.json())
+    .then(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; })
+    .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
+}
+function agendaAiMarkResolved(agId,btn){
+  const it=AGENDA_DATA.find(x=>x.id===agId); if(!it) return;
+  it.checked=true;
+  saveAgendaItemToSheets(it);
+  if(btn){ btn.textContent='✓ Marked Resolved'; btn.disabled=true; btn.style.color='var(--green)'; btn.style.borderColor='var(--green)'; }
+  buildMondayAgenda(); buildAgenda();
 }
 function buildMondayAgenda(){
   const el=document.getElementById('agenda-monday-list');
