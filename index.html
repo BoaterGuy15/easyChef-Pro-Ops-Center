@@ -2394,11 +2394,11 @@ function buildCommandKPIs(){
 let BUDGET_HISTORY=[];
 let PMF_HISTORY=[];
 let AGENDA_DATA=[
+  {id:'ag-05',title:'T-027 Onboarding — Single R + May 11 Confirmed',detail:'Hammad = R (builds). Adam = R (strategy). Taylor = A. Steve = I. The <3 minute Aha moment must be confirmed achievable by May 11. If Hammad cannot commit — beta launch date moves.',decision:'Decision: Hammad + Adam · Output: May 11 confirmed or rescheduled',checked:false,owner:'Hammad',deadline:'2026-05-11',category:'Manual'},
   {id:'ag-01',title:'Set Advertising Ceiling — Give Adam a Number',detail:'Adam cannot build responsible campaigns without a budget ceiling. Based on the $15K Payoneer scenario, max possible ad budget is auto-calculated in the Budget tab. Taylor sets the ceiling. Adam builds to it.',decision:'Decision: Taylor · Output: committed dollar ceiling in writing',checked:false,owner:'Taylor',deadline:'',category:'Manual'},
   {id:'ag-02',title:'Name "Adam +" on 4 Remaining Tasks',detail:'T-013 (Video), T-018 (SEM — Taylor YES), T-019 (App Store Ads), T-021 (Retargeting — Taylor YES). Likely 1–2 people cover all four. Taylor has confirmed readiness on T-018 and T-021 — now just needs the operator named.',decision:'Decision: Adam + Taylor · Output: named person(s) in RACI before Monday EOD',checked:false,owner:'Adam',deadline:'',category:'Manual'},
   {id:'ag-03',title:'Assign T-038 + Resolve T-032',detail:'T-038 (Influencer Partnership) → assign JR. T-032 (Feature Launch Announcement) → noted "Strategy: Adam, JR, Mary" — single R must be Adam. Five-minute decisions.',decision:'Decision: Taylor + JR · Output: both tasks assigned before Monday EOD',checked:false,owner:'Taylor',deadline:'',category:'Manual'},
   {id:'ag-04',title:'Define 3 PMF Kill Criteria KPIs for June 8',detail:'First Strike rate threshold, 14-day retention %, Sean Ellis "very disappointed" score (benchmark: 40%). Written. Agreed. Non-negotiable. If not hit by Jun 8 → delay 4 weeks.',decision:'Decision: All hands · Output: 3 KPIs with thresholds written before EOD',checked:false,owner:'All',deadline:'2026-06-08',category:'Manual'},
-  {id:'ag-05',title:'T-027 Onboarding — Single R + May 11 Confirmed',detail:'Hammad = R (builds). Adam = R (strategy). Taylor = A. Steve = I. The <3 minute Aha moment must be confirmed achievable by May 11. If Hammad cannot commit — beta launch date moves.',decision:'Decision: Hammad + Adam · Output: May 11 confirmed or rescheduled',checked:false,owner:'Hammad',deadline:'2026-05-11',category:'Manual'},
   {id:'ag-06',title:'Hammad: Confirm Payoneer Scenario — $15K or $10K?',detail:'$15K frees ~$94K for advertising. $10K frees ~$107K. This decision shapes every campaign. Hammad confirms which floor he can sustain for 75 days without affecting operations.',decision:'Decision: Hammad + Taylor · Output: confirmed scenario locked',checked:false,owner:'Hammad',deadline:'',category:'Manual'},
   {id:'ag-07',title:'Searah W1 Check — Logins + Designer Intro Confirmed',detail:'Searah starts Monday AM. Taylor hands her all platform logins and makes the designer intro by EOD. Her W1 deliverable: platform access + first designer conversation by Friday Apr 25.',decision:'Action: Taylor · Output: confirmed before EOD Monday',checked:false,owner:'Taylor',deadline:'2026-04-25',category:'Manual'},
   {id:'ag-08',title:'Sadee: Campaign Email Names + Zendesk This Week',detail:'Sadee needs campaign email names to create the Alpha/Beta addresses. Zendesk + support@easyChefPro.com must be live before May 11.',decision:'Action: Taylor / Sadee · Deadline: May 10',checked:false,owner:'Taylor',deadline:'2026-05-10',category:'Manual'},
@@ -2412,7 +2412,7 @@ function loadAgendaFromSheets(){
     .then(data=>{
       const rows=Array.isArray(data)?data:(data.items||[]);
       const metaRow=rows.find(r=>r.id==='__meta__');
-      if(metaRow){ _saveMeetingMeta({..._getMeetingMeta(),title:metaRow.title||_getMeetingMeta().title,date:metaRow.detail||_getMeetingMeta().date,time:metaRow.owner||_getMeetingMeta().time}); _applyMeetingMetaToHeader(); }
+      if(metaRow){ const _mc=_getMeetingMeta(); const _md=metaRow.detail||''; const _safeDate=(_md&&!_md.includes('GMT')&&!_md.includes('00:00:00'))?_md:_mc.date; _saveMeetingMeta({..._mc,title:metaRow.title||_mc.title,date:_safeDate,time:metaRow.owner||_mc.time}); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
       if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:r.deadline||'',category:r.category||'Manual'})); }
       buildAgendaPage(); buildAgenda();
@@ -2438,18 +2438,20 @@ function _saveMeetingMetaToSheets(meta){
   fetch(CONFIG.sheetsUrl+'?action=agenda_write&id='+encodeURIComponent('__meta__')+'&title='+encodeURIComponent(meta.title||'')+'&detail='+encodeURIComponent(meta.date||'')+'&owner='+encodeURIComponent(meta.time||'')).catch(()=>{});
 }
 // Run in console: localStorage.removeItem('dgl_meeting_meta'); to reset bad stored date
+const _MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function _normalizeDateMeta(text){
   if(typeof text!=='string') return text;
   if(/^[A-Z][a-z]+ \d+, \d{4}$/.test(text.trim())) return text; // already clean
-  try{
-    const raw=/^\d{4}-\d{2}-\d{2}$/.test(text.trim())?text.trim()+'T12:00:00':text;
-    const d=new Date(raw);
-    if(!isNaN(d)) return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  }catch(_){}
+  if(/^\d{4}-\d{2}-\d{2}$/.test(text.trim())){
+    const p=text.trim().split('-');
+    return _MONTHS[parseInt(p[1])-1]+' '+parseInt(p[2])+', '+p[0];
+  }
+  try{ const d=new Date(text); if(!isNaN(d)) return _MONTHS[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }catch(_){}
   return text;
 }
 function _metaSpan(field,text,canEdit){
   if(field==='date') text=_normalizeDateMeta(text);
+  if(field==='date'&&canEdit){ const _dm=/^([A-Z][a-z]+) (\d+), (\d{4})$/.exec(text.trim()); if(_dm){ const _mi=_MONTHS.indexOf(_dm[1]); if(_mi>=0) text=_dm[3]+'-'+String(_mi+1).padStart(2,'0')+'-'+String(_dm[2]).padStart(2,'0'); } }
   if(!canEdit) return `<span>${text}</span>`;
   return `<span contenteditable="true" data-meta-field="${field}" style="outline:none;cursor:text;border-bottom:1px dashed rgba(201,168,76,0.45)" onblur="saveMeetingMetaField(this,'${field}')" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${text}</span>`;
 }
