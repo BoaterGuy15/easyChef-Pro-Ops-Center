@@ -3305,6 +3305,9 @@ function _superAiSave(id, btn){
   if(task){ task.actionPlan=text; saveToLocal(); }
   const agItem=AGENDA_DATA.find(a=>a.id===id);
   if(agItem){ agItem.actionPlan=text; saveAgendaItemToSheets(agItem); }
+  // update open panel textarea immediately without rebuilding
+  const apEl=document.getElementById('raci-task-actionplan-'+id)||document.getElementById('agenda-expand-actionplan-'+id);
+  if(apEl) apEl.value=text;
   if(btn){ btn.textContent='💾 Saved ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='💾 Save'; btn.disabled=false; },1500); }
 }
 
@@ -5728,8 +5731,8 @@ function masterRefresh(){
 
 // ── Task modal (new + edit) ─────────────────────────────────
 function nextTaskId(){
-  const nums = DASHBOARD_DATA.tasks.map(t=>parseInt(t.id.replace('T-',''))||0);
-  return 'T-'+String(Math.max(...nums)+1).padStart(3,'0');
+  const maxNum=DASHBOARD_DATA.tasks.map(t=>parseInt((t.id||'').replace('T-',''))||0).filter(n=>!isNaN(n)).reduce((a,b)=>Math.max(a,b),0);
+  return 'T-'+String(maxNum+1).padStart(3,'0');
 }
 let _tmOwners = [];
 function _renderTmOwnerChips(){
