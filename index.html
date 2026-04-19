@@ -932,7 +932,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 </div>
 
 <!-- ══ MODALS ══ -->
-<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this&&!_modalResizing)closeModal()">
+<div class="modal-overlay" id="modal-overlay">
   <div class="modal" id="modal-content"></div>
 </div>
 
@@ -959,7 +959,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
-<div class="modal-overlay" id="agenda-edit-modal-overlay" onclick="if(event.target===this&&!_modalResizing)closeAgendaEditModal()">
+<div class="modal-overlay" id="agenda-edit-modal-overlay">
   <div class="modal" id="agenda-edit-modal-inner" style="padding:0;max-width:500px;width:90%">
     <div id="aem-drag-handle" style="cursor:move;user-select:none;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px 12px;border-bottom:1px solid var(--border);border-radius:14px 14px 0 0;background:var(--card)">
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">EDIT AGENDA ITEM ✦ drag to move</span>
@@ -2806,12 +2806,7 @@ function openAgendaEditModal(id){
   btn.style.background=_agChecked?'rgba(52,211,153,0.08)':'transparent';
   _renderAgOwnerChips();
   document.getElementById('agenda-edit-modal-overlay').classList.add('open');
-  const _aem=document.getElementById('agenda-edit-modal-inner');
-  Object.assign(_aem.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',display:'flex',flexDirection:'column',boxSizing:'border-box'});
-  _aem.onmousedown = e => e.stopPropagation();
-  _aem.onclick = e => e.stopPropagation();
-  _makeDraggableModal(_aem, document.getElementById('aem-drag-handle'));
-  _addResizeHandles(_aem);
+  _initModal(document.getElementById('agenda-edit-modal-inner'), document.getElementById('aem-drag-handle'));
 }
 function closeAgendaEditModal(){
   document.getElementById('agenda-edit-modal-overlay').classList.remove('open');
@@ -4414,6 +4409,11 @@ function importPdfTransactions(){
 function closeModal(){
   document.getElementById('modal-overlay').classList.remove('open');
 }
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Escape') return;
+  if(document.getElementById('modal-overlay').classList.contains('open')){ closeModal(); return; }
+  if(document.getElementById('agenda-edit-modal-overlay').classList.contains('open')){ closeAgendaEditModal(); }
+});
 
 function editCapital(){
   const el=document.getElementById('capital-display');
@@ -5740,69 +5740,66 @@ function tmRemoveOwner(name){
   _tmOwners=_tmOwners.filter(o=>o!==name);
   _renderTmOwnerChips();
 }
-// ── Draggable + custom resize handles ───────────────────────
-let _modalResizing = false;
+// ── Modal drag + resize ──────────────────────────────────────
+function _initModal(modal, dragHandle){
+  // center modal
+  Object.assign(modal.style,{
+    position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',
+    width:'680px',minWidth:'340px',minHeight:'300px',maxWidth:'96vw',maxHeight:'92vh',
+    overflow:'hidden',display:'flex',flexDirection:'column',
+    zIndex:'202',boxSizing:'border-box'
+  });
 
-function _makeDraggableModal(modal, handle){
-  handle.addEventListener('pointerdown', e => {
+  // drag via header
+  dragHandle.addEventListener('pointerdown', e => {
     if(e.target.closest('button,input,select,textarea,a')) return;
     e.preventDefault();
-    handle.setPointerCapture(e.pointerId);
-    const rect = modal.getBoundingClientRect();
-    modal.style.transform = 'none';
-    modal.style.left = rect.left + 'px';
-    modal.style.top = rect.top + 'px';
-    const ox = e.clientX - rect.left;
-    const oy = e.clientY - rect.top;
-    const onMove = e => { modal.style.left=(e.clientX-ox)+'px'; modal.style.top=(e.clientY-oy)+'px'; };
-    const onUp = () => { handle.removeEventListener('pointermove',onMove); handle.removeEventListener('pointerup',onUp); };
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', onUp);
+    dragHandle.setPointerCapture(e.pointerId);
+    const r=modal.getBoundingClientRect();
+    modal.style.transform='none';
+    modal.style.left=r.left+'px'; modal.style.top=r.top+'px';
+    const ox=e.clientX-r.left, oy=e.clientY-r.top;
+    const onMove=e=>{ modal.style.left=(e.clientX-ox)+'px'; modal.style.top=(e.clientY-oy)+'px'; };
+    const onUp=()=>{ dragHandle.removeEventListener('pointermove',onMove); dragHandle.removeEventListener('pointerup',onUp); };
+    dragHandle.addEventListener('pointermove',onMove);
+    dragHandle.addEventListener('pointerup',onUp);
   });
-}
 
-function _addResizeHandles(modal){
-  // remove any previously added handles
+  // resize handles
   modal.querySelectorAll('._rh').forEach(h=>h.remove());
-  const MIN_W=380, MIN_H=300;
-  const handles=[
-    {id:'n', style:'top:-4px;left:8px;right:8px;height:8px;cursor:n-resize'},
-    {id:'s', style:'bottom:-4px;left:8px;right:8px;height:8px;cursor:s-resize'},
-    {id:'e', style:'right:-4px;top:8px;bottom:8px;width:8px;cursor:e-resize'},
-    {id:'w', style:'left:-4px;top:8px;bottom:8px;width:8px;cursor:w-resize'},
-    {id:'nw',style:'top:-6px;left:-6px;width:12px;height:12px;cursor:nw-resize'},
-    {id:'ne',style:'top:-6px;right:-6px;width:12px;height:12px;cursor:ne-resize'},
-    {id:'sw',style:'bottom:-6px;left:-6px;width:12px;height:12px;cursor:sw-resize'},
-    {id:'se',style:'bottom:-6px;right:-6px;width:12px;height:12px;cursor:se-resize'},
+  const MIN_W=340, MIN_H=300;
+  const defs=[
+    ['n', 'top:-5px;left:10px;right:10px;height:10px;cursor:n-resize'],
+    ['s', 'bottom:-5px;left:10px;right:10px;height:10px;cursor:s-resize'],
+    ['e', 'right:-5px;top:10px;bottom:10px;width:10px;cursor:e-resize'],
+    ['w', 'left:-5px;top:10px;bottom:10px;width:10px;cursor:w-resize'],
+    ['nw','top:-5px;left:-5px;width:14px;height:14px;cursor:nw-resize'],
+    ['ne','top:-5px;right:-5px;width:14px;height:14px;cursor:ne-resize'],
+    ['sw','bottom:-5px;left:-5px;width:14px;height:14px;cursor:sw-resize'],
+    ['se','bottom:-5px;right:-5px;width:14px;height:14px;cursor:se-resize'],
   ];
-  handles.forEach(({id,style})=>{
+  defs.forEach(([dir,css])=>{
     const h=document.createElement('div');
     h.className='_rh';
-    h.setAttribute('style','position:absolute;z-index:10;'+style);
-    h.addEventListener('pointerdown', e=>{
+    h.style.cssText='position:absolute;z-index:10;'+css;
+    h.addEventListener('pointerdown',e=>{
       e.preventDefault(); e.stopPropagation();
-      _modalResizing=true;
       h.setPointerCapture(e.pointerId);
       const r=modal.getBoundingClientRect();
-      const sx=e.clientX, sy=e.clientY;
-      const sL=r.left, sT=r.top, sW=r.width, sH=r.height;
       modal.style.transform='none';
-      modal.style.left=sL+'px'; modal.style.top=sT+'px';
+      modal.style.left=r.left+'px'; modal.style.top=r.top+'px';
+      const sx=e.clientX,sy=e.clientY,sL=r.left,sT=r.top,sW=r.width,sH=r.height;
       const onMove=e=>{
         const dx=e.clientX-sx, dy=e.clientY-sy;
         let nL=sL,nT=sT,nW=sW,nH=sH;
-        if(id.includes('e')) nW=Math.max(MIN_W,sW+dx);
-        if(id.includes('s')) nH=Math.max(MIN_H,sH+dy);
-        if(id.includes('w')){ nW=Math.max(MIN_W,sW-dx); nL=sL+sW-nW; }
-        if(id.includes('n')){ nH=Math.max(MIN_H,sH-dy); nT=sT+sH-nH; }
+        if(dir.includes('e')) nW=Math.max(MIN_W,sW+dx);
+        if(dir.includes('s')) nH=Math.max(MIN_H,sH+dy);
+        if(dir.includes('w')){ nW=Math.max(MIN_W,sW-dx); nL=sL+sW-nW; }
+        if(dir.includes('n')){ nH=Math.max(MIN_H,sH-dy); nT=sT+sH-nH; }
         modal.style.width=nW+'px'; modal.style.height=nH+'px';
         modal.style.left=nL+'px'; modal.style.top=nT+'px';
       };
-      const onUp=()=>{
-        _modalResizing=false;
-        h.removeEventListener('pointermove',onMove);
-        h.removeEventListener('pointerup',onUp);
-      };
+      const onUp=()=>{ h.removeEventListener('pointermove',onMove); h.removeEventListener('pointerup',onUp); };
       h.addEventListener('pointermove',onMove);
       h.addEventListener('pointerup',onUp);
     });
@@ -5880,13 +5877,8 @@ function showTaskModal(taskId){
       </div>
     </div>`;
   _renderTmOwnerChips();
-  const _mc=document.getElementById('modal-content');
-  Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',width:'min(680px,90vw)',display:'flex',flexDirection:'column',boxSizing:'border-box'});
-  _mc.onmousedown = e => e.stopPropagation();
-  _mc.onclick = e => e.stopPropagation();
   document.getElementById('modal-overlay').classList.add('open');
-  _makeDraggableModal(_mc, document.getElementById('tm-drag-handle'));
-  _addResizeHandles(_mc);
+  _initModal(document.getElementById('modal-content'), document.getElementById('tm-drag-handle'));
 }
 function saveTaskModal(taskId){
   const isNew = !taskId;
