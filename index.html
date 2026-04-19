@@ -2365,6 +2365,8 @@ function buildCommandKPIs(){
 }
 
 // ── Monday Agenda ───────────────────────────────────────────
+let BUDGET_HISTORY=[];
+let PMF_HISTORY=[];
 let AGENDA_DATA=[
   {id:'ag-01',title:'Set Advertising Ceiling — Give Adam a Number',detail:'Adam cannot build responsible campaigns without a budget ceiling. Based on the $15K Payoneer scenario, max possible ad budget is auto-calculated in the Budget tab. Taylor sets the ceiling. Adam builds to it.',decision:'Decision: Taylor · Output: committed dollar ceiling in writing',checked:false,owner:'Taylor',deadline:'',category:'Manual'},
   {id:'ag-02',title:'Name "Adam +" on 4 Remaining Tasks',detail:'T-013 (Video), T-018 (SEM — Taylor YES), T-019 (App Store Ads), T-021 (Retargeting — Taylor YES). Likely 1–2 people cover all four. Taylor has confirmed readiness on T-018 and T-021 — now just needs the operator named.',decision:'Decision: Adam + Taylor · Output: named person(s) in RACI before Monday EOD',checked:false,owner:'Adam',deadline:'',category:'Manual'},
@@ -2395,6 +2397,36 @@ function saveAgendaItemToSheets(item){
 function deleteAgendaItemFromSheets(id){
   if(!CONFIG.sheetsUrl||!id) return;
   fetch(CONFIG.sheetsUrl+'?action=agenda_delete&id='+encodeURIComponent(id)).catch(()=>{});
+}
+function loadBudgetHistoryFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=budget_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.history||data.rows||[]);
+      if(rows.length) BUDGET_HISTORY=rows;
+    })
+    .catch(()=>{});
+}
+// Code.gs snippet for pmf_read action:
+// case 'pmf_read': {
+//   const sheet=SpreadsheetApp.openById(SHEET_ID).getSheetByName('PMF_History');
+//   if(!sheet) return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+//   const rows=sheet.getDataRange().getValues();
+//   const headers=rows[0]; const out=rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
+//   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+// }
+function loadPMFHistoryFromSheets(){
+  const raw=localStorage.getItem('dgl_pmf_history');
+  if(raw){ try{ PMF_HISTORY=JSON.parse(raw)||[]; }catch(e){} }
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=pmf_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.history||data.rows||[]);
+      if(rows.length){ PMF_HISTORY=rows; localStorage.setItem('dgl_pmf_history',JSON.stringify(rows)); }
+    })
+    .catch(()=>{});
 }
 function updateAgendaField(id,field,value){
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
@@ -2926,7 +2958,31 @@ ${catLines}
 ${teamLines}
 
 --- 9. UPCOMING MILESTONES ---
-${milestoneLines}`;
+${milestoneLines}
+
+--- 10. BUDGET HISTORY (last 5 snapshots) ---
+${(()=>{
+  const b=DASHBOARD_DATA.budget;
+  const current=`  [CURRENT] Capital: $${(b.capital||0).toLocaleString()} | Ad Budget: $${(b.adBudget||0).toLocaleString()} | Payoneer: $${(b.payoneer||0).toLocaleString()} | Revenue: $${(b.monthlyRevenue||0).toLocaleString()}/mo | Runway: ${b.runwayScenario||'—'}`;
+  if(!BUDGET_HISTORY.length) return current+'\n  No historical snapshots loaded.';
+  const hist=BUDGET_HISTORY.slice(-5).map(h=>`  [${h.date||h.timestamp||'?'}] Capital: $${Number(h.capital||0).toLocaleString()} | Ad Budget: $${Number(h.adBudget||0).toLocaleString()} | Revenue: $${Number(h.monthlyRevenue||0).toLocaleString()}/mo`).join('\n');
+  const oldest=BUDGET_HISTORY[Math.max(0,BUDGET_HISTORY.length-5)];
+  const trend=(b.capital||0)-(oldest.capital||0);
+  return hist+'\n'+current+`\n  Trend: Capital ${trend>=0?'+':''}$${trend.toLocaleString()} since first snapshot`;
+})()}
+
+--- 11. PMF HISTORY (last 5 readings) ---
+${(()=>{
+  if(!PMF_HISTORY.length){
+    const kc=_getKillCriteria();
+    return `  [CURRENT] Checkpoint: ${kc.checkpointDate}\n`+kc.kpis.map(k=>`  ${k.name}: ${k.current||'—'} / target ${k.target} | ${k.notes||''}`).join('\n')+'\n  No historical readings loaded.';
+  }
+  return PMF_HISTORY.slice(-5).map(snap=>{
+    const d=snap.date||snap.timestamp||'?';
+    const kpis=Array.isArray(snap.kpis)?snap.kpis.map(k=>`    ${k.name}: ${k.current||'—'} / target ${k.target}`).join('\n'):'    (no KPI detail)';
+    return `  [${d}]\n${kpis}`;
+  }).join('\n');
+})()}`;
 
   const systemPrompt=`You are the board advisor to Digital Galactica Labs reviewing the easyChef Pro product launch. You have been given detailed operational data. Write an honest, direct, and specific assessment — no platitudes, no generic advice. Speak as if you are in the room with the founding team. Use exact numbers from the data.`;
 
@@ -6255,6 +6311,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadFromSheets();
   loadBudgetFromSheets();
   loadAgendaFromSheets();
+  loadBudgetHistoryFromSheets();
+  loadPMFHistoryFromSheets();
   _initCustomTeamExtensions();
   buildCommandKPIs();
   buildGapList();
