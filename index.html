@@ -1252,6 +1252,18 @@ function showFlagToolbar(el,id){
     tb.style.left=Math.max(4,r.left)+'px';
   });
 }
+function showFlagToolbarBelow(el,id){
+  clearTimeout(_ftHide);
+  _ftId=id; _ftEl=el;
+  const tb=document.getElementById('flag-toolbar');
+  if(!tb) return;
+  tb.style.display='flex';
+  requestAnimationFrame(()=>{
+    const r=el.getBoundingClientRect();
+    tb.style.top=(r.bottom+6)+'px';
+    tb.style.left=Math.max(4,r.left)+'px';
+  });
+}
 function hideFlagToolbarSoon(){
   _ftHide=setTimeout(()=>{
     const tb=document.getElementById('flag-toolbar');
@@ -1261,9 +1273,11 @@ function hideFlagToolbarSoon(){
 }
 function prependFlagIcon(icon){
   if(!_ftEl) return;
-  const clean=_ftEl.innerText.trim().replace(/^[^\p{L}\p{N}]+\s*/u,'');
+  const isTA=_ftEl.tagName==='TEXTAREA';
+  const raw=isTA?_ftEl.value:_ftEl.innerText;
+  const clean=raw.trim().replace(/^[^\p{L}\p{N}]+\s*/u,'');
   const next=icon+(clean?' '+clean:'');
-  _ftEl.innerText=next;
+  if(isTA){ _ftEl.value=next; } else { _ftEl.innerText=next; }
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===_ftId);
   if(task){ task.flag=next; if(!task.flagColor) applyFlagStyle(_ftEl,next); }
 }
@@ -1402,6 +1416,12 @@ function _buildTaskExpandHtml(taskId){
   const daysStr=daysLeft===null?'—':daysLeft<0?Math.abs(daysLeft)+' overdue':daysLeft===0?'Due today':daysLeft+' days';
   const canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
   const commentsHtml=_buildTaskCommentsHtml(taskId,_getTaskComments(taskId),canAdmin);
+  const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
+  const _swSt2="width:11px;height:11px;border-radius:50%;cursor:pointer;border:none;padding:0;flex-shrink:0";
+  const _barSt="display:flex;gap:2px;align-items:center;padding:3px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;flex-wrap:wrap";
+  const _eicons=['✓','⚠️','⛔','🔵','💡','🎯'];
+  const _esw=[{c:'var(--text)',t:'Default'},{c:'var(--green)',t:'Green'},{c:'var(--amber)',t:'Amber'},{c:'var(--red)',t:'Red'},{c:'var(--gold)',t:'Gold'},{c:'var(--muted)',t:'Muted'},{c:'#60a5fa',t:'Blue'},{c:'#c084fc',t:'Purple'}];
+  const _ebar=(elId,colorFn)=>`<div style="${_barSt}">${_eicons.map(i=>`<button style="${_eSt2}" onclick="_insertAtCursor('${elId}','${i}')">${i}</button>`).join('')}<span style="width:1px;height:12px;background:var(--border);margin:0 3px;display:inline-block"></span>${_esw.map(s=>`<button style="${_swSt2};background:${s.c}" onclick="${colorFn}('${taskId}','${s.c}')" title="${s.t}"></button>`).join('')}</div>`;
   return `<div class="raci-expand-inner" style="border-left:3px solid var(--gold);background:var(--card);padding:14px 20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${t.id} — TASK DETAILS</span>
@@ -1416,6 +1436,7 @@ function _buildTaskExpandHtml(taskId){
         ${fRow('Status',t.status)}
         ${fRow('Owner',t.owner||'—')}
         ${lbl('NOTES')}
+        ${_ebar(`raci-expand-notes-${taskId}`,'_expandNoteSetColor')}
         <textarea id="raci-expand-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add notes…" onblur="saveTaskExpandNotes('${taskId}')">${(t.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
         ${lbl('DEPENDENCIES')}
         <div>${depsHtml}</div>
@@ -1437,9 +1458,12 @@ function _buildTaskExpandHtml(taskId){
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
         ${lbl('TASK DISCUSSION')}
         <div id="raci-expand-comments-${taskId}" style="max-height:180px;overflow-y:auto;margin-bottom:8px">${commentsHtml}</div>
-        <div style="display:flex;gap:6px">
-          <input type="text" id="raci-expand-comment-input-${taskId}" style="${iSt};flex:1" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addTaskComment('${taskId}')}">
-          <button onclick="addTaskComment('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Reply</button>
+        <div>
+          ${_ebar(`raci-expand-comment-input-${taskId}`,'_expandCommentSetColor')}
+          <div style="display:flex;gap:6px">
+            <input type="text" id="raci-expand-comment-input-${taskId}" style="${iSt};flex:1" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addTaskComment('${taskId}')}">
+            <button onclick="addTaskComment('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Reply</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1458,6 +1482,21 @@ function saveTaskExpandNotes(taskId){
   saveToLocal();
   const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-edit');
   if(flagEl) flagEl.textContent=t.flag;
+}
+function _insertAtCursor(elId,ch){
+  const el=document.getElementById(elId); if(!el) return;
+  const s=el.selectionStart,e=el.selectionEnd;
+  el.value=el.value.substring(0,s)+ch+el.value.substring(e);
+  el.selectionStart=el.selectionEnd=s+ch.length;
+  el.focus();
+}
+function _expandNoteSetColor(taskId,color){
+  const el=document.getElementById('raci-expand-notes-'+taskId); if(!el) return;
+  el.style.color=color;
+}
+function _expandCommentSetColor(taskId,color){
+  const el=document.getElementById('raci-expand-comment-input-'+taskId); if(!el) return;
+  el.style.color=color;
 }
 function _raciExpandLoadChannels(taskId){
   if(!CONFIG.sheetsUrl) return;
@@ -1539,12 +1578,14 @@ function raciAiCreateTask(taskId,btn){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
   const summary=_raciAiSummaries[taskId]||'';
   showTaskModal(null);
-  const nameEl=document.getElementById('tm-name'); if(nameEl) nameEl.value='Follow-up: '+t.name;
-  const depsEl=document.getElementById('tm-deps'); if(depsEl) depsEl.value=taskId;
-  const notesEl=document.getElementById('tm-notes'); if(notesEl) notesEl.value=summary;
-  const priEl=document.getElementById('tm-pri'); if(priEl) priEl.value=t.pri;
-  const catEl=document.getElementById('tm-cat'); if(catEl) catEl.value=t.cat;
-  if(t.owner&&typeof _tmOwners!=='undefined'){ _tmOwners=t.owner.split('/').map(s=>s.trim()).filter(Boolean); if(typeof _renderTmOwnerChips==='function') _renderTmOwnerChips(); }
+  setTimeout(()=>{
+    const nameEl=document.getElementById('tm-name'); if(nameEl) nameEl.value='Follow-up: '+t.name;
+    const depsEl=document.getElementById('tm-deps'); if(depsEl) depsEl.value=taskId;
+    const notesEl=document.getElementById('tm-notes'); if(notesEl) notesEl.value=summary;
+    const priEl=document.getElementById('tm-pri'); if(priEl) priEl.value=t.pri;
+    const catEl=document.getElementById('tm-cat'); if(catEl) catEl.value=t.cat;
+    if(t.owner&&typeof _tmOwners!=='undefined'){ _tmOwners=t.owner.split('/').map(s=>s.trim()).filter(Boolean); if(typeof _renderTmOwnerChips==='function') _renderTmOwnerChips(); }
+  },0);
   _raciConfirmBtn(btn,'📋 Create Task');
 }
 function raciAiAddFlag(taskId,type,btn){
@@ -1567,6 +1608,7 @@ function raciAiFlagConfirm(taskId,type,confirmBtn){
   t.flag=prefix+(desc||(type==='blocker'?'Blocked':'Gap identified'));
   t.flagColor=color;
   saveToLocal();
+  masterRefresh();
   const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-edit');
   if(flagEl){ flagEl.textContent=t.flag; flagEl.style.color=color; }
   _raciConfirmBtn(confirmBtn,'Set');
