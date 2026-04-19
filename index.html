@@ -2619,11 +2619,12 @@ function updateAgendaField(id,field,value){
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
   item[field]=field==='deadline'?_excelSerialToDate(value):value;
   saveAgendaItemToSheets(item);
-  if(item.taskId&&(field==='flag'||field==='detail')){
+  if(item.taskId&&(field==='flag'||field==='detail'||field==='decision')){
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId);
     if(task){
       if(field==='flag') task.flag=value;
       if(field==='detail') task.notes=value;
+      if(field==='decision') task.notes=(task.notes?task.notes+'\n[DECISION] ':'[DECISION] ')+value;
       saveToLocal();
     }
   }
@@ -2848,6 +2849,7 @@ function _buildAgendaExpandHtml(id){
   const taskInfoHtml=linkedTask?`<div style="margin-top:8px;padding:8px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:5px">${fRow('Task',linkedTask.id+' · '+linkedTask.name)}${fRow('Status',linkedTask.status)}${fRow('Owner',linkedTask.owner||'—')}${fRow('Due',_excelSerialToDate(linkedTask.ed)||'—')}</div>`:'';
   const discussId=it.taskId||'agenda_'+id;
   const detailVal=it.detail||(linkedTask?linkedTask.notes||'':'');
+  const flagVal=it.flag||(linkedTask?linkedTask.flag||'':'');
   return `<div class="agenda-expand-inner" style="border-left:3px solid var(--gold);background:var(--card);padding:14px 20px;margin:0 0 2px 0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${linkedTask?`[${linkedTask.id}] AGENDA ITEM — ${linkedTask.name}`:'AGENDA ITEM — '+(it.title||'').slice(0,40)+(it.title&&it.title.length>40?'…':'')}</span>
@@ -2863,9 +2865,11 @@ function _buildAgendaExpandHtml(id){
         ${fRow('Status',it.checked?'Resolved':'Open')}
         ${taskInfoHtml}
         ${lbl('FLAG')}
-        ${canEdit?`<div style="margin-bottom:6px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:3px">Quick Status</div><select onchange="var _ta=document.getElementById('agenda-flag-${id}');var _v=this.value;if(_ta)_ta.value=_v;if(_v)updateAgendaField('${id}','flag',_v)" style="${iSt}"><option value="">— Select status —</option><option value="✓ Resolved">✓ Resolved</option><option value="⚠️ At Risk">⚠️ At Risk</option><option value="⛔ Blocker — needs immediate attention">⛔ Blocker — needs immediate attention</option><option value="🔵 In Progress">🔵 In Progress</option><option value="💡 Idea / Suggestion">💡 Idea / Suggestion</option><option value="🎯 On Target">🎯 On Target</option><option value="🚀 Ready to Launch">🚀 Ready to Launch</option></select></div>${_ebar('agenda-flag-'+id,'_agendaFlagSetColor')}<textarea id="agenda-flag-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Add a flag if this agenda item needs attention — ⛔ blocker, ⚠️ at risk, ✓ resolved" onblur="updateAgendaField('${id}','flag',this.value)">${(it.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:${flagColor};padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:32px">${it.flag||'No flag set'}</div>`}
+        ${canEdit?`<div style="margin-bottom:6px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:3px">Quick Status</div><select onchange="var _ta=document.getElementById('agenda-flag-${id}');var _v=this.value;if(_ta)_ta.value=_v;if(_v)updateAgendaField('${id}','flag',_v)" style="${iSt}"><option value="">— Select status —</option><option value="✓ Resolved">✓ Resolved</option><option value="⚠️ At Risk">⚠️ At Risk</option><option value="⛔ Blocker — needs immediate attention">⛔ Blocker — needs immediate attention</option><option value="🔵 In Progress">🔵 In Progress</option><option value="💡 Idea / Suggestion">💡 Idea / Suggestion</option><option value="🎯 On Target">🎯 On Target</option><option value="🚀 Ready to Launch">🚀 Ready to Launch</option></select></div>${_ebar('agenda-flag-'+id,'_agendaFlagSetColor')}<textarea id="agenda-flag-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Add a flag if this agenda item needs attention — ⛔ blocker, ⚠️ at risk, ✓ resolved" onblur="updateAgendaField('${id}','flag',this.value)">${flagVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:${flagColor};padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:32px">${flagVal||'No flag set'}</div>`}
         ${lbl('AGENDA NOTES')}
         ${canAdmin?`<textarea id="agenda-expand-detail-${id}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note about this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','detail',this.value)">${detailVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:44px">${detailVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
+        ${lbl('DECISION')}
+        ${canAdmin?`<textarea id="agenda-expand-decision-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Record the decision made on this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','decision',this.value)">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
