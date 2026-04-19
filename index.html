@@ -5250,6 +5250,11 @@ function _slackOAuthUrl(){
 //   var u = e.parameter.user || '';
 //   var tok = PropertiesService.getScriptProperties().getProperty('SLACK_USER_TOKEN_' + u);
 //   result = tok ? { connected: true } : { connected: false };
+// } else if (action === 'slack_send') {
+//   var channel = e.parameter.channel || '';
+//   var text    = e.parameter.text    || '';
+//   var user    = e.parameter.user    || '';
+//   result = sendSlackMessage(channel, text, user);
 // }
 function _slackCheckToken(){
   const user=window._DGL_USER;
@@ -5421,11 +5426,7 @@ function slackSend(){
   if(!text) return;
   const btn=inp.nextElementSibling;
   if(btn){ btn.textContent='Sending…'; btn.disabled=true; }
-  fetch(CONFIG.sheetsUrl,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'slack_send',channelId:_slackChannelId,text,dglUser:window._DGL_USER||''})
-  })
+  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(_slackChannelId)+'&text='+encodeURIComponent(text)+'&user='+encodeURIComponent(window._DGL_USER||''))
     .then(r=>r.json())
     .then(data=>{
       if(btn){ btn.disabled=false; }
