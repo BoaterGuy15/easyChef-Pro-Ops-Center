@@ -1622,7 +1622,7 @@ function raciAiFind(taskId){
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
       _raciAiSummaries[taskId]=text;
       const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
-      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiCreateTask('${taskId}',this)" style="${_bSt}">📋 Create Task</button><button onclick="raciAiAddFlag('${taskId}','blocker',this)" style="${_bSt}">⛔ Add Blocker</button><button onclick="raciAiAddFlag('${taskId}','gap',this)" style="${_bSt}">⚠️ Flag Gap</button><button onclick="raciAiUpdateStatus('${taskId}',this)" style="${_bSt}">✏️ Update Status</button><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="raciAiAddToAgenda('${taskId}',this)" style="${_bSt}">📅 Add to Agenda</button></div>`+_renderSuperAiBtn(taskId,'raci');
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiCreateTask('${taskId}',this)" style="${_bSt}">📋 Create Task</button><button onclick="raciAiAddFlag('${taskId}','blocker',this)" style="${_bSt}">⛔ Add Blocker</button><button onclick="raciAiAddFlag('${taskId}','gap',this)" style="${_bSt}">⚠️ Flag Gap</button><button onclick="raciAiUpdateStatus('${taskId}',this)" style="${_bSt}">✏️ Update Status</button><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="raciAiAddToAgenda('${taskId}',this)" style="${_bSt}">📅 Add to Agenda</button></div>`+_renderSuperAiBtn(taskId,'raci',t.name,t.status,t.owner||'—');
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
@@ -2735,7 +2735,7 @@ function agendaAiFind(id){
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
       _agendaAiSummaries[id]=text;
       const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
-      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="agenda-ai-actions-${id}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="agendaAiCreateTask('${id}',this)" style="${_bSt}">📋 Create Task</button><button onclick="agendaAiPostToSlack('${id}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="agendaAiMarkResolved('${id}',this)" style="${_bSt}">✓ Mark Resolved</button></div>`+_renderSuperAiBtn(id,'agenda');
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="agenda-ai-actions-${id}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="agendaAiCreateTask('${id}',this)" style="${_bSt}">📋 Create Task</button><button onclick="agendaAiPostToSlack('${id}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="agendaAiMarkResolved('${id}',this)" style="${_bSt}">✓ Mark Resolved</button></div>`+_renderSuperAiBtn(id,'agenda',it.title,it.category,it.owner||'—');
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
@@ -2794,11 +2794,14 @@ function _buildDGLContext(){
   const agendaOpen=AGENDA_DATA.filter(x=>!x.checked).slice(0,5).map(x=>`  [${x.owner||'?'}] ${x.title}`).join('\n')||'  None';
   return `easyChef Pro | ${today.toISOString().slice(0,10)} | ${daysToLaunch}d to launch\nTasks: ${tasks.length} total | ${complete} done | ${inProg} active | ${blocked} blocked | ${overdue} overdue\nBudget: $${(b.capital||0).toLocaleString()} capital | $${(b.adBudget||0).toLocaleString()} ad | $${(b.payoneer||0).toLocaleString()} Payoneer | $${(b.monthlyRevenue||0).toLocaleString()}/mo revenue\nGaps (${gaps.length}):\n${gapLines}\nTeam:\n${teamLines}\nOpen Agenda:\n${agendaOpen}`;
 }
-function _renderSuperAiBtn(id, type){
+function _renderSuperAiBtn(id, type, title, status, owner){
   const saved=localStorage.getItem('dgl_superai_'+id);
   const savedData=saved?JSON.parse(saved):null;
   const lastPlan=savedData?`<div style="margin-top:5px"><button onclick="_superAiRestore('${id}','${type}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📋 Last plan: ${savedData.ts}</button></div>`:'';
-  return `<div id="super-ai-wrap-${id}" style="margin-top:10px">${lastPlan}<button id="super-ai-btn-${id}" onclick="runSuperAi('${id}','${type}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap;font-weight:600;letter-spacing:1px">⚡ Super AI — Get Action Plan</button><div id="super-ai-result-${id}"></div></div>`;
+  const dTitle=(title||id).replace(/"/g,'&quot;');
+  const dStatus=(status||'—').replace(/"/g,'&quot;');
+  const dOwner=(owner||'—').replace(/"/g,'&quot;');
+  return `<div id="super-ai-wrap-${id}" style="margin-top:10px">${lastPlan}<button id="super-ai-btn-${id}" data-title="${dTitle}" data-status="${dStatus}" data-owner="${dOwner}" onclick="runSuperAi('${id}','${type}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap;font-weight:600;letter-spacing:1px">⚡ Super AI — Get Action Plan</button><div id="super-ai-result-${id}"></div></div>`;
 }
 function runSuperAi(id, type, btn){
   if(!CONFIG.sheetsUrl) return;
@@ -2806,10 +2809,13 @@ function runSuperAi(id, type, btn){
   if(type==='raci') summary=_raciAiSummaries[id]||'';
   else if(type==='agenda') summary=_agendaAiSummaries[id]||'';
   else if(type==='slack') summary=_slackAiSummaries[id]||'';
+  const title=btn.dataset.title||id;
+  const status=btn.dataset.status||'—';
+  const owner=btn.dataset.owner||'—';
   btn.textContent='⚡ Generating action plan…'; btn.disabled=true;
   const system='You are the Chief Operating Officer AI for DGL\'s easyChef Pro launch. You have complete visibility into the team\'s operational state. Be brutally specific: name exact people, exact task IDs, exact deadlines, exact dollar amounts. Never be vague. Never hedge.';
-  const ctx=_buildDGLContext().slice(0,3000);
-  const prompt=`Based on this operational context and analysis, produce a prioritized action plan:\n\n1. THE SINGLE MOST IMPORTANT ACTION TODAY — who does what by when\n2. THREE ACTIONS THIS WEEK — owner, action, deadline for each\n3. ONE RISK TO ESCALATE BEFORE MONDAY — what happens if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE — be specific\n\nAnalysis:\n${summary.slice(0,800)}\n\nOperational Context:\n${ctx}`;
+  const ctx=_buildDGLContext().slice(0,2000);
+  const prompt=`You are analyzing a SPECIFIC topic for the DGL easyChef Pro team. Stay focused on THIS topic only — do not give generic launch advice.\n\nSPECIFIC TOPIC: ${title}\nCURRENT STATUS: ${status} | Owner: ${owner}\nWHAT THE ANALYSIS FOUND: ${summary.slice(0,800)}\n\nUsing the operational context below ONLY to provide relevant supporting detail, produce a focused action plan for THIS SPECIFIC TOPIC:\n\n1. THE SINGLE MOST IMPORTANT ACTION FOR THIS TOPIC TODAY — who, what, by when, why it unblocks this specific item\n2. THREE ACTIONS THIS WEEK SPECIFIC TO THIS TOPIC — with owners and deadlines directly related to this item\n3. ONE RISK SPECIFIC TO THIS TOPIC — what happens to this item specifically if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE ABOUT THIS SPECIFIC TOPIC\n\nOperational Context (use only for supporting detail):\n${ctx}`;
   const resultEl=document.getElementById('super-ai-result-'+id);
   fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
     .then(r=>r.json())
@@ -6369,7 +6375,7 @@ function slackAnalyzeThread(btn, slotId){
       aiSlot.dataset.channel=_chName;
       _slackAiSummaries[slotId]=text;
       const _agBtnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:6px";
-      aiSlot.innerHTML=`<div style="border:1px solid var(--gold);border-radius:6px;padding:10px;margin-top:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><button onclick="slackAddThreadToAgenda(this)" style="${_agBtnSt}">📅 Add to Agenda</button>`+_renderSuperAiBtn(slotId,'slack');
+      aiSlot.innerHTML=`<div style="border:1px solid var(--gold);border-radius:6px;padding:10px;margin-top:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><button onclick="slackAddThreadToAgenda(this)" style="${_agBtnSt}">📅 Add to Agenda</button>`+_renderSuperAiBtn(slotId,'slack',_chName,'Slack thread','');
     })
     .catch(()=>{ btn.textContent='✦ AI Analyze'; btn.disabled=false; aiSlot.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red)">AI analysis failed</div>'; });
 }
