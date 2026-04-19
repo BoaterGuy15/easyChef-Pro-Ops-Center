@@ -1487,11 +1487,26 @@ function raciAiFind(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t||!CONFIG.sheetsUrl) return;
   const btn=event.target;
-  if(btn){ btn.textContent='Analyzing…'; btn.disabled=true; }
+  const aiEl=document.getElementById('raci-expand-ai-'+taskId);
   const linked=_getTaskSlackLink(taskId);
-  const prompt=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nLinked Slack channel: ${linked.channelName||'none'}\nNotes: ${t.flag||'none'}\n\nSummarize any relevant Slack discussion for this task. Identify decisions, blockers, and action items.`;
-  const system='You are analyzing Slack activity for the DGL easyChef Pro team. Summarize relevant discussion for the given task. Be specific and concise.';
-  fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
+  if(!linked.channelId){
+    if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">Link a Slack channel first to enable AI analysis.</div>';
+    return;
+  }
+  if(btn){ btn.textContent='Fetching messages…'; btn.disabled=true; }
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(linked.channelId)+'&limit=20')
+    .then(r=>r.json())
+    .then(data=>{
+      if(btn) btn.textContent='Analyzing…';
+      const msgs=(data.messages||[]).reverse();
+      const msgText=msgs.map(m=>(m.user||'bot')+': '+(m.text||'')).join('\n');
+      const taskCtx=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nNotes: ${t.flag||'none'}`;
+      let slackSection=`Here are the last ${msgs.length} messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${msgText}`;
+      const base=`${taskCtx}\n\n${slackSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`;
+      const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const candidate=`${taskCtx}\n\nHere are the most recent messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`; if(candidate.length<=3000) return candidate; lines=lines.slice(1); } return `${taskCtx}\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task.`; })():base;
+      const system='You are analyzing Slack activity for the DGL easyChef Pro team. Summarize relevant discussion for the given task. Be specific and concise.';
+      return fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt));
+    })
     .then(r=>r.json())
     .then(data=>{
       if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; }
@@ -1500,7 +1515,7 @@ function raciAiFind(taskId){
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
       el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
     })
-    .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } });
+    .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
 function addTaskComment(taskId){
   const inp=document.getElementById('raci-expand-comment-input-'+taskId);
