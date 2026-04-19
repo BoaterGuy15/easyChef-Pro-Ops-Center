@@ -1514,7 +1514,7 @@ function raciAiFind(taskId){
       const el=document.getElementById('raci-expand-ai-'+taskId);
       if(!el) return;
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
-      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
@@ -1593,7 +1593,7 @@ function buildRaciTable(){
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()">${t.flag||''}</div></td>
     `;
     tr.style.cursor='pointer';
-    tr.addEventListener('click',e=>{ if(e.target.closest('.raci-no-expand,.raci-expand-row,select,input,button,a,[contenteditable="true"]')) return; toggleTaskExpand(t.id,tr); });
+    tr.addEventListener('click',e=>{ if(e.target.closest('.raci-no-expand,select,input,button,a,[contenteditable="true"]')) return; if(_raciExpandedId===t.id&&e.target.closest('.raci-expand-inner')) return; toggleTaskExpand(t.id,tr); });
     if(getBlockingDeps(t).length>0){ tr.classList.add('blocked-row'); tr.dataset.blocked='true'; }
     tbody.appendChild(tr);
   });
