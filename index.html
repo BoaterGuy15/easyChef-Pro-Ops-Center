@@ -2784,7 +2784,7 @@ function agModalTaskLink(){
   if(!taskId){ if(info) info.textContent=''; return; }
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
   if(!task){ if(info) info.textContent=''; return; }
-  if(dl&&task.ed){ dl.value=task.ed; }
+  if(dl&&task.ed){ const readable=_excelSerialToDate(task.ed); dl.value=readable; }
   if(info) info.innerHTML=`<span style="color:var(--gold)">${task.id}</span> · ${task.name} &nbsp;<span style="color:var(--muted)">${task.status||''}</span> &nbsp;<span style="color:var(--border)">${task.owner||''}</span>`;
 }
 function openAgendaEditModal(id){
@@ -2797,10 +2797,11 @@ function openAgendaEditModal(id){
   el('aem-title').value=item.title||'';
   el('aem-detail').value=item.detail||'';
   el('aem-decision').value=item.decision||'';
-  el('aem-deadline').value=item.deadline||'';
+  el('aem-deadline').value=_excelSerialToDate(item.deadline)||item.deadline||'';
   el('ag-category').value=item.category||'Manual';
   const sel=el('aem-taskid');
   const _agItemTaskId=item.taskId||'';
+  console.log('Opening agenda edit for', id, '— taskId:', item.taskId, '— dropdown will be set to:', _agItemTaskId);
   if(sel){ sel.innerHTML='<option value="">— No linked task —</option>'+DASHBOARD_DATA.tasks.map(t=>`<option value="${t.id}"${t.id===_agItemTaskId?' selected':''} >${t.id} · ${t.name}</option>`).join(''); sel.value=_agItemTaskId; }
   setTimeout(()=>{ const s=document.getElementById('aem-taskid'); if(s){ s.value=_agItemTaskId; agModalTaskLink(); } },100);
   const btn=el('ag-checked-toggle');
