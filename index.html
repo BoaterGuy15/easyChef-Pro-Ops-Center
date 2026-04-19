@@ -1466,7 +1466,7 @@ function _submitNote(taskId,cid){
   const log=document.getElementById(cid+'-entries');
   if(log){ log.innerHTML=entries.length?entries.map(_noteEntryHtml).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No notes yet.</div>'; log.scrollTop=log.scrollHeight; }
 }
-function _renderNotesLog(taskId,cid,canAdd){
+function _renderNotesLog(taskId,cid,canAdd,placeholder){
   const entries=_getNotes(taskId);
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
@@ -1478,7 +1478,8 @@ function _renderNotesLog(taskId,cid,canAdd){
   let _flagHtml='';
   if(!entries.length){ const _ft=DASHBOARD_DATA.tasks.find(t=>t.id===taskId); if(_ft&&(_ft.flag||'').length>3){ const _fts=_ft.lastStatusChange||'Initial note'; _flagHtml=`<div style="padding:5px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:0.75"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${_fts} · </span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);font-style:italic">From task flag</span><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:pre-wrap;word-break:break-word;margin-top:2px;font-style:italic">${(_ft.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`; } }
   const logHtml=entries.length?entries.map(_noteEntryHtml).join(''):(_flagHtml||'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No notes yet.</div>');
-  const addHtml=canAdd?`<div style="margin-top:8px">${_ebar}<textarea id="nl-input-${cid}" rows="2" style="${iSt};resize:vertical" placeholder="Add a note…"></textarea><button onclick="_submitNote('${taskId}','${cid}')" style="margin-top:5px;font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Add Note</button></div>`:'';
+  const _ph=placeholder||'Add a note…';
+  const addHtml=canAdd?`<div style="margin-top:8px">${_ebar}<textarea id="nl-input-${cid}" rows="2" style="${iSt};resize:vertical" placeholder="${_ph}"></textarea><button onclick="_submitNote('${taskId}','${cid}')" style="margin-top:5px;font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Add Note</button></div>`:'';
   if(CONFIG.sheetsUrl) setTimeout(()=>{
     fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(taskId)+'&type=note')
       .then(r=>r.json()).then(data=>{
@@ -1567,9 +1568,9 @@ function _buildTaskExpandHtml(taskId){
         ${fRow('Owner',t.owner||'—')}
         ${lbl('FLAG')}
         ${_ebar(`raci-flag-${taskId}`,'_expandNoteSetColor')}
-        <textarea id="raci-flag-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Quick flag…" onblur="saveTaskExpandNotes('${taskId}')">${(t.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        <textarea id="raci-flag-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Add a flag if this task needs attention — ⛔ blocker, ⚠️ at risk, ✓ resolved" onblur="saveTaskExpandNotes('${taskId}')">${(t.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
         ${lbl('TASK NOTES')}
-        <textarea id="raci-task-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Task description / context…" onblur="saveTaskNotes('${taskId}')">${(t.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        <textarea id="raci-task-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note — visible to all team members and readable by AI" onblur="saveTaskNotes('${taskId}')">${(t.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
         ${lbl('DEPENDENCIES')}
         <div>${depsHtml}</div>
         ${lbl('DATES')}
@@ -1580,16 +1581,17 @@ function _buildTaskExpandHtml(taskId){
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
-        <select id="raci-expand-slack-${taskId}" style="${iSt};margin-bottom:8px" onchange="raciLinkSlack('${taskId}',this)">
+        <select id="raci-expand-slack-${taskId}" style="${iSt};margin-bottom:4px" onchange="raciLinkSlack('${taskId}',this)">
           <option value="">Loading channels…</option>
         </select>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Messages from this channel appear here. Comments above are posted to this channel.</div>
         <div id="raci-expand-slack-feed-${taskId}" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:6px;display:none"></div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
           <button onclick="raciAiFind('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
         </div>
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
         ${lbl('TEAM DISCUSSION')}
-        ${_renderNotesLog(taskId,'raci-discussion-'+taskId,canAdmin)}
+        ${_renderNotesLog(taskId,'raci-discussion-'+taskId,canAdmin,'Add a comment — posts here and to the linked Slack channel')}
       </div>
     </div>
   </div>`;
@@ -2795,7 +2797,7 @@ function _buildAgendaExpandHtml(id){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
       <div>
         ${lbl('NOTES')}
-        ${_renderNotesLog(it.taskId||'agenda_'+id,'agenda-expand-notes-'+id,canAdmin)}
+        ${_renderNotesLog(it.taskId||'agenda_'+id,'agenda-expand-notes-'+id,canAdmin,'Add a note about this agenda item — syncs to the linked task')}
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
@@ -2812,7 +2814,7 @@ function _buildAgendaExpandHtml(id){
         <div>
           ${_ebar(`agenda-expand-comment-input-${id}`,'_agendaExpandCommentSetColor')}
           <div style="display:flex;gap:6px">
-            <input type="text" id="agenda-expand-comment-input-${id}" style="${iSt};flex:1" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addAgendaComment('${id}')}">
+            <input type="text" id="agenda-expand-comment-input-${id}" style="${iSt};flex:1" placeholder="Add a comment — posts here and to the linked Slack channel" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addAgendaComment('${id}')}">
             <button onclick="addAgendaComment('${id}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Reply</button>
           </div>
         </div>
