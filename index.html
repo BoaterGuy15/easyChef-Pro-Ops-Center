@@ -2606,6 +2606,15 @@ function _excelSerialToDate(val){
   if(/^\d+$/.test(s)){ const n=parseInt(s); const d=new Date((n-25569)*86400*1000); return _MONTHS[d.getUTCMonth()]+' '+d.getUTCDate()+', '+d.getUTCFullYear(); }
   return s;
 }
+function _toInputDate(val){
+  if(!val) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(String(val))) return val;
+  const months={January:'01',February:'02',March:'03',April:'04',May:'05',June:'06',July:'07',August:'08',September:'09',October:'10',November:'11',December:'12'};
+  const m=String(val).match(/(\w+)\s+(\d+),\s+(\d{4})/);
+  if(m&&months[m[1]]) return m[3]+'-'+months[m[1]]+'-'+String(m[2]).padStart(2,'0');
+  try{ const d=new Date(val); if(!isNaN(d)) return d.toISOString().slice(0,10); }catch(_){}
+  return '';
+}
 function _normalizeDateMeta(text){
   if(typeof text!=='string') return text;
   if(/^[A-Z][a-z]+ \d+, \d{4}$/.test(text.trim())) return text; // already clean
@@ -2784,7 +2793,7 @@ function agModalTaskLink(){
   if(!taskId){ if(info) info.textContent=''; return; }
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
   if(!task){ if(info) info.textContent=''; return; }
-  if(dl&&task.ed){ const readable=_excelSerialToDate(task.ed); dl.value=readable; }
+  if(dl&&task.ed){ dl.value=_toInputDate(_excelSerialToDate(task.ed)); }
   if(info) info.innerHTML=`<span style="color:var(--gold)">${task.id}</span> · ${task.name} &nbsp;<span style="color:var(--muted)">${task.status||''}</span> &nbsp;<span style="color:var(--border)">${task.owner||''}</span>`;
 }
 function openAgendaEditModal(id){
@@ -2797,7 +2806,7 @@ function openAgendaEditModal(id){
   el('aem-title').value=item.title||'';
   el('aem-detail').value=item.detail||'';
   el('aem-decision').value=item.decision||'';
-  el('aem-deadline').value=_excelSerialToDate(item.deadline)||item.deadline||'';
+  el('aem-deadline').value=_toInputDate(_excelSerialToDate(item.deadline)||item.deadline||'');
   el('ag-category').value=item.category||'Manual';
   const sel=el('aem-taskid');
   const _agItemTaskId=item.taskId||'';
@@ -5924,7 +5933,7 @@ function saveTaskModal(taskId){
       const _ptd=window._pendingAiTaskData;
       const _newT=DASHBOARD_DATA.tasks.find(t=>t.id===id);
       if(_newT){if(_ptd.flag)_newT.flag=_ptd.flag;if(_ptd.decision)_newT.decision=_ptd.decision;}
-      if(_ptd._sourceAgendaId){const _agIt=AGENDA_DATA.find(a=>a.id===_ptd._sourceAgendaId);if(_agIt){_agIt.taskId=id;saveAgendaItemToSheets(_agIt);}}
+      if(_ptd._sourceAgendaId){const _agIt=AGENDA_DATA.find(a=>a.id===_ptd._sourceAgendaId);if(_agIt&&confirm('Link new task '+id+' to agenda item '+_ptd._sourceAgendaId+'?')){_agIt.taskId=id;saveAgendaItemToSheets(_agIt);}}
       window._pendingAiTaskData=null;
     }
   } else {
