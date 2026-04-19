@@ -5933,7 +5933,6 @@ function saveTaskModal(taskId){
       const _ptd=window._pendingAiTaskData;
       const _newT=DASHBOARD_DATA.tasks.find(t=>t.id===id);
       if(_newT){if(_ptd.flag)_newT.flag=_ptd.flag;if(_ptd.decision)_newT.decision=_ptd.decision;}
-      if(_ptd._sourceAgendaId){const _agIt=AGENDA_DATA.find(a=>a.id===_ptd._sourceAgendaId);if(_agIt&&confirm('Link new task '+id+' to agenda item '+_ptd._sourceAgendaId+'?')){_agIt.taskId=id;saveAgendaItemToSheets(_agIt);}}
       window._pendingAiTaskData=null;
     }
   } else {
