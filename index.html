@@ -3342,72 +3342,101 @@ function _superAiSave(id, type, btn){
 // ── Task Plan parsing & UI ─────────────────────────────────
 function _parseTaskPlansFromSuperAI(text){
   if(!text) return [];
-  const plans=[];
-  const lines=text.split('\n');
-  const _secKeys={TODAY:'today','THIS WEEK':'week',WEEK:'week',RISK:'risk','RISK ASSESSMENT':'risk','TAYLOR DECIDES':'decision',DECISIONS:'decision','KEY DECISIONS':'decision'};
-  const _secOwner={today:null,week:null,risk:'Taylor',decision:'Taylor'};
+  const clean=s=>s.replace(/\*\*/g,'').replace(/#{1,6}\s*/g,'').replace(/^(Action\s*\d+:?\s*)/i,'').replace(/^[-•*]\s+/,'').replace(/^\d+\.\s+/,'').trim();
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
   const _tms=['Taylor','Adam','Steve','Hammad','JR','Mary','Searah','Sadee'];
-  let section='';
-  let cur=null;
-  const flush=()=>{ if(cur&&cur.title){ plans.push(cur); cur=null; } };
+  const _owner=s=>_tms.find(m=>s.includes(m))||'TBD';
+  const _dl=s=>{const m=s.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}/i);return m?m[0]:'';};
+  const _uid=()=>'tp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
+  const _isHdr=l=>l.startsWith('**')||l.startsWith('#')||/^[🔴⚠️🎯📅—]/.test(l)||l.toUpperCase()===l.replace(/[^A-Z\s]/g,'').trim()&&l.length<50;
+  const _mk=(extra)=>({id:_uid(),priority:'High',done:false,selected:true,description:'',deadline:'',...extra});
+  // Find section start indices
+  const si={today:-1,week:-1,risk:-1,decision:-1};
   for(let i=0;i<lines.length;i++){
-    const raw=lines[i]; const l=raw.trim(); if(!l) continue;
-    // Detect section header
-    let found='';
-    for(const [k,v] of Object.entries(_secKeys)){
-      if(l.toUpperCase().includes(k)&&(l.startsWith('**')||l.startsWith('#')||l.startsWith('🔴')||l.startsWith('⚠️')||l.startsWith('🎯')||l.startsWith('📅')||l.startsWith('—')||l.length<70)){ found=v; break; }
-    }
-    if(found){ flush(); section=found; continue; }
-    if(!section) continue;
-    // Detect numbered / bullet / bold item
-    const nm=l.match(/^(\d+)\.\s+(.+)/);
-    const bm=l.match(/^[-•*]\s+(.+)/);
-    const bd=l.match(/^\*\*([^*:]+)\*\*:?\s*(.*)/);
-    if(nm||bm||bd){
-      flush();
-      const rawTitle=(nm?nm[2]:bm?bm[1]:bd[1]).replace(/\*\*/g,'').trim();
-      const desc=(bd&&bd[2])||'';
-      let owner=_secOwner[section]||'TBD';
-      for(const m of _tms){ if(rawTitle.includes(m)||desc.includes(m)){ owner=m; break; } }
-      const dm=rawTitle.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}/i);
-      cur={id:'tp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title:rawTitle.slice(0,80),owner,priority:'High',description:desc,section,done:false,deadline:dm?dm[0]:'',isRisk:section==='risk',isDecision:section==='decision'};
-    } else if(cur){ cur.description=(cur.description?cur.description+' ':'')+l.replace(/\*\*/g,'').trim(); }
+    const u=lines[i].toUpperCase();
+    if(si.today<0&&u.includes('TODAY')&&_isHdr(lines[i])) si.today=i;
+    else if(si.week<0&&(u.includes('THIS WEEK')||u.includes('WEEK'))&&_isHdr(lines[i])) si.week=i;
+    else if(si.risk<0&&u.includes('RISK')&&_isHdr(lines[i])) si.risk=i;
+    else if(si.decision<0&&(u.includes('DECIDES')||u.includes('DECISION'))&&_isHdr(lines[i])) si.decision=i;
   }
-  flush();
-  // Fallback: grab all numbered/bulleted items if section parsing found nothing
+  const bounds=Object.values(si).filter(v=>v>=0).sort((a,b)=>a-b);
+  const secEnd=start=>{const n=bounds.find(b=>b>start);return n!=null?n:lines.length;};
+  const secLines=start=>start<0?[]:lines.slice(start+1,secEnd(start));
+  const plans=[];
+  // TODAY: 1 task — first non-header content line
+  for(const l of secLines(si.today)){
+    const c=clean(l); if(c.length<5) continue;
+    plans.push(_mk({title:c.slice(0,80),owner:_owner(c),section:'today',isRisk:false,isDecision:false,deadline:_dl(c)})); break;
+  }
+  // THIS WEEK: only day-name lines or "Action N:" lines, max 3
+  const dayPat=/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Action\s*\d)/i;
+  for(const l of secLines(si.week)){
+    if(!dayPat.test(l)) continue;
+    const c=clean(l).slice(0,80); if(c.length<5) continue;
+    plans.push(_mk({title:c,owner:_owner(c),section:'week',isRisk:false,isDecision:false,deadline:_dl(c)}));
+    if(plans.filter(p=>p.section==='week').length>=3) break;
+  }
+  // RISK: 1 task — first content line
+  for(const l of secLines(si.risk)){
+    const c=clean(l); if(c.length<5) continue;
+    plans.push(_mk({title:c.slice(0,80),owner:'Taylor',section:'risk',isRisk:true,isDecision:false,deadline:_dl(c)})); break;
+  }
+  // TAYLOR DECIDES: 1 task — first bold question or first content line
+  const decLines=secLines(si.decision);
+  const decLine=decLines.find(l=>l.includes('?')||l.startsWith('**'))||decLines.find(l=>clean(l).length>=5);
+  if(decLine){const c=clean(decLine).slice(0,80);if(c.length>=5) plans.push(_mk({title:c,owner:'Taylor',section:'decision',isRisk:false,isDecision:true,deadline:_dl(c)}));}
+  // Fallback: numbered/bulleted items
   if(!plans.length){
     for(const l of lines){
-      const t=l.trim(); const m=t.match(/^(\d+)\.\s+(.+)/)||t.match(/^[-•]\s+(.+)/);
-      if(m){ const title=(m[2]||m[1]).replace(/\*\*/g,'').trim().slice(0,80); if(title) plans.push({id:'tp-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),title,owner:'TBD',priority:'High',description:'',section:'general',done:false,deadline:'',isRisk:false,isDecision:false}); }
+      const m=l.match(/^(\d+)\.\s+(.+)/)||l.match(/^[-•]\s+(.+)/);
+      if(m){const c=clean(m[2]||m[1]).slice(0,80);if(c.length>=5) plans.push(_mk({title:c,owner:'TBD',section:'general',isRisk:false,isDecision:false,deadline:_dl(c)}));}
+      if(plans.length>=6) break;
     }
   }
-  return plans.slice(0,20);
+  return plans.slice(0,6);
+}
+function _findDupTask(title){
+  const words=title.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+  if(words.length<2) return null;
+  return DASHBOARD_DATA.tasks.find(t=>{const tw=(t.name||'').toLowerCase().split(/\s+/);return words.filter(w=>tw.some(x=>x.includes(w)||w.includes(x))).length>=2;})||null;
+}
+function _onPlanCardCheck(sourceId,sourceType,idx,checked){
+  const src=sourceType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===sourceId):AGENDA_DATA.find(a=>a.id===sourceId);
+  if(src&&src.taskPlans&&src.taskPlans[idx]) src.taskPlans[idx].selected=checked;
+  const n=src&&src.taskPlans?src.taskPlans.filter(p=>p.selected!==false).length:0;
+  const btn=document.querySelector('[data-bulk-src="'+sourceId+'"]');
+  if(btn) btn.textContent='📋 Bulk Add to RACI ('+n+')';
 }
 function _renderTaskPlanCardsHtml(plans,sourceId,sourceType){
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
   const genBtn=`<button onclick="_generateTaskPlans('${sourceId}','${sourceType}')" style="${_bSt};border-color:#4a9eff;color:#4a9eff">✦ Generate Task Plans from AI</button>`;
-  if(!plans||!plans.length) return `<div style="padding:6px 0;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">${genBtn}</div>`;
-  const secColor={today:'var(--red)',week:'var(--amber)',risk:'var(--red)',decision:'var(--gold)',general:'#4a9eff'};
-  const secLabel={today:'TODAY',week:'THIS WEEK',risk:'RISK',decision:'DECIDES',general:'ACTION'};
+  if(!plans||!plans.length) return `<div style="padding:6px 0">${genBtn}</div>`;
+  const sc={today:'var(--red)',week:'var(--amber)',risk:'var(--red)',decision:'var(--gold)',general:'#4a9eff'};
+  const sl={today:'TODAY',week:'THIS WEEK',risk:'RISK',decision:'DECIDES',general:'ACTION'};
+  let selCount=0;
   const cards=plans.map((p,i)=>{
-    const sc=secColor[p.section]||'#4a9eff'; const sl=secLabel[p.section]||'ACTION';
-    return `<div style="border:1px solid var(--border);border-left:3px solid ${sc};border-radius:0 5px 5px 0;padding:7px 10px;margin-bottom:5px;background:var(--surface);${p.done?'opacity:0.5':''}">
+    const dup=_findDupTask(p.title);
+    if(dup&&p.selected!==false) p.selected=false;
+    if(p.selected!==false) selCount++;
+    const c=sc[p.section]||'#4a9eff'; const lb=sl[p.section]||'ACTION';
+    const chkId=`plan-check-${sourceId}-${i}`;
+    return `<div onclick="if(!event.target.matches('input,button,select,a')){const cb=document.getElementById('${chkId}');if(cb){cb.checked=!cb.checked;_onPlanCardCheck('${sourceId}','${sourceType}',${i},cb.checked);}}" style="border:1px solid var(--border);border-left:3px solid ${c};border-radius:0 5px 5px 0;padding:7px 10px;margin-bottom:5px;background:var(--surface);cursor:pointer;user-select:none">
       <div style="display:flex;align-items:flex-start;gap:6px">
-        <input type="checkbox" ${p.done?'checked':''} onchange="_toggleTaskPlan('${sourceId}','${sourceType}',${i},this.checked)" style="margin-top:3px;flex-shrink:0;accent-color:${sc}">
+        <input type="checkbox" id="${chkId}" ${p.selected!==false?'checked':''} onclick="event.stopPropagation()" onchange="_onPlanCardCheck('${sourceId}','${sourceType}',${i},this.checked)" style="margin-top:3px;flex-shrink:0;accent-color:${c}">
         <div style="flex:1;min-width:0">
-          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--text);word-break:break-word;${p.done?'text-decoration:line-through':''}">${p.title.replace(/</g,'&lt;')}</div>
-          ${p.description?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px;word-break:break-word">${p.description.slice(0,140).replace(/</g,'&lt;')}${p.description.length>140?'…':''}</div>`:''}
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--text);word-break:break-word">${p.title.replace(/</g,'&lt;')}</div>
+          ${dup?`<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--amber);margin-top:2px">⚠️ Similar: ${dup.id} ${dup.name.slice(0,40).replace(/</g,'&lt;')}</div>`:''}
           <div style="display:flex;gap:4px;align-items:center;margin-top:4px;flex-wrap:wrap">
-            <span style="font-family:'DM Mono',monospace;font-size:8px;color:${sc};border:1px solid ${sc};border-radius:3px;padding:0 4px">${sl}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:8px;color:${c};border:1px solid ${c};border-radius:3px;padding:0 4px">${lb}</span>
             ${p.owner&&p.owner!=='TBD'?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:0 4px">${p.owner}</span>`:''}
             ${p.deadline?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--amber)">${p.deadline}</span>`:''}
-            <button onclick="_addTaskPlanToRaci('${sourceId}','${sourceType}',${i},this)" style="${_bSt};font-size:8px;padding:1px 6px">📋 Add to RACI</button>
+            <button onclick="event.stopPropagation();_addTaskPlanToRaci('${sourceId}','${sourceType}',${i},this)" style="${_bSt};font-size:8px;padding:1px 6px">📋 Add to RACI</button>
           </div>
         </div>
       </div>
     </div>`;
   }).join('');
-  const bulkBtn=`<button onclick="_showBulkCreateModal('${sourceId}','${sourceType}')" style="${_bSt};border-color:#4a9eff;color:#4a9eff">📋 Bulk Add to RACI (${plans.length})</button>`;
+  const bulkBtn=`<button data-bulk-src="${sourceId}" onclick="_showBulkCreateModal('${sourceId}','${sourceType}')" style="${_bSt};border-color:#4a9eff;color:#4a9eff">📋 Bulk Add to RACI (${selCount})</button>`;
   return `<div>${cards}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${genBtn}${bulkBtn}</div></div>`;
 }
 function _generateTaskPlans(id,type){
@@ -3440,21 +3469,24 @@ function _addTaskPlanToRaci(id,type,idx,btn){
 function _showBulkCreateModal(id,type){
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src||!src.taskPlans||!src.taskPlans.length){ alert('No task plans to create. Click "✦ Generate Task Plans from AI" first.'); return; }
-  const plans=src.taskPlans;
+  const selected=src.taskPlans.filter(p=>p.selected!==false);
+  if(!selected.length){ alert('No plans selected. Check at least one plan card first.'); return; }
+  window._bulkModalPlans=selected;
   const _bSt2="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";
   const _owners=['Taylor','Adam','Steve','Hammad','JR','Mary','Searah','Sadee','TBD'];
-  const rows=plans.map((p,i)=>`<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
+  const rows=selected.map((p,i)=>`<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
     <input type="checkbox" id="bcp-chk-${i}" checked style="flex-shrink:0;accent-color:#4a9eff">
     <input type="text" id="bcp-name-${i}" value="${p.title.replace(/"/g,'&quot;').replace(/</g,'&lt;')}" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 7px;border-radius:4px;outline:none;box-sizing:border-box">
     <select id="bcp-owner-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none">${_owners.map(o=>`<option value="${o}"${o===(p.owner||'TBD')?'selected':''}>${o}</option>`).join('')}</select>
     <input type="date" id="bcp-date-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none;width:130px">
+    <span id="bcp-result-${i}" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);white-space:nowrap;min-width:56px"></span>
   </div>`).join('');
   let ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove();
   ov=document.createElement('div'); ov.id='bulk-create-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;display:flex;align-items:center;justify-content:center';
   ov.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;width:min(700px,95vw);max-height:82vh;overflow-y:auto;position:relative">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">✦ CREATE ${plans.length} TASKS FROM ACTION PLAN</span>
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">✦ CREATE ${selected.length} TASKS FROM ACTION PLAN</span>
       <button onclick="document.getElementById('bulk-create-overlay').remove()" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:10px">Review each task. Uncheck any you don't want to create. Names are editable.</div>
@@ -3462,27 +3494,30 @@ function _showBulkCreateModal(id,type){
     <div id="bulk-create-progress" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);margin-top:12px;min-height:18px"></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
       <button onclick="document.getElementById('bulk-create-overlay').remove()" style="${_bSt2}">Cancel</button>
-      <button onclick="_bulkCreateTasks('${id}','${type}',${plans.length})" style="${_bSt2};border-color:#4a9eff;color:#4a9eff">✦ Create Selected</button>
+      <button onclick="_bulkCreateTasks()" style="${_bSt2};border-color:#4a9eff;color:#4a9eff">✦ Create Selected</button>
     </div>
   </div>`;
   document.body.appendChild(ov);
 }
-function _bulkCreateTasks(sourceId,sourceType,count){
+function _bulkCreateTasks(){
+  const plans=window._bulkModalPlans||[]; if(!plans.length) return;
   const prog=document.getElementById('bulk-create-progress');
-  const created=[]; const _now=new Date(); const todayStr=_now.toISOString().slice(0,10);
+  const _now=new Date(); const todayStr=_now.toISOString().slice(0,10);
   const _ed14=new Date(_now); _ed14.setDate(_ed14.getDate()+14); const edDef=_ed14.toISOString().slice(0,10);
-  for(let i=0;i<count;i++){
+  let createCount=0;
+  for(let i=0;i<plans.length;i++){
     const chk=document.getElementById('bcp-chk-'+i); if(!chk||!chk.checked) continue;
     const name=(document.getElementById('bcp-name-'+i)?.value||'').trim(); if(!name) continue;
     const owner=document.getElementById('bcp-owner-'+i)?.value||'TBD';
     const ed=document.getElementById('bcp-date-'+i)?.value||edDef;
-    if(prog) prog.textContent='Creating '+(created.length+1)+' of '+count+'…';
+    if(prog) prog.textContent='Creating '+(createCount+1)+'…';
     const id=nextTaskId();
     DASHBOARD_DATA.tasks.push({id,name,cat:'Launch Ops',pri:'High',status:'Not Started',owner,deps:'',notes:'',actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:'',flagColor:'',slackChannel:'',lastStatusChange:_now.toISOString().slice(0,16),Taylor:'',Steve:'',Adam:'',Mary:'',JR:'',Hammad:'',Searah:'',Sadee:''});
-    created.push(id);
+    const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+id+' created';
+    createCount++;
   }
   saveToLocal(); masterRefresh();
-  if(prog) prog.innerHTML=`<span style="color:var(--green)">✦ ${created.length} task${created.length===1?'':'s'} created: ${created.join(', ')}</span>`;
+  if(prog) prog.innerHTML=`<span style="color:var(--green)">✦ ${createCount} task${createCount===1?'':'s'} created</span>`;
   setTimeout(()=>{ const ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove(); },3000);
 }
 // Code.gs: add 'taskPlans' column to AGENDA_HEADERS and TASK_FIELDS
