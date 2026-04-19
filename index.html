@@ -3214,7 +3214,7 @@ function runSuperAi(id, type, btn){
 function _renderSuperAiResult(id, type, text, ts){
   const resultEl=document.getElementById('super-ai-result-'+id); if(!resultEl) return;
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
-  resultEl.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">⚡ SUPER AI ACTION PLAN</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${ts}</div><div id="super-ai-text-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="var _sat=document.getElementById('super-ai-text-${id}');_openCreateTaskWithData(_extractTaskFromAI(_sat?_sat.textContent:'','${id}','${type==='agenda'?'agenda':'task'}'));if(this){this.textContent='✓ Opened';this.disabled=true;setTimeout(()=>{this.textContent='📋 Create Task';this.disabled=false;},1500)}" style="${_bSt}">📋 Create Task</button><button onclick="_superAiAddToAgenda('${id}',this)" style="${_bSt}">📅 Add to Agenda</button><button onclick="_superAiPostToSlack('${id}','${type}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="_superAiSave('${id}',this)" style="${_bSt}">💾 Save</button></div>`;
+  resultEl.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">⚡ SUPER AI ACTION PLAN</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${ts}</div><div id="super-ai-text-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="var _sat=document.getElementById('super-ai-text-${id}');_openCreateTaskWithData(_extractTaskFromAI(_sat?_sat.textContent:'','${id}','${type==='agenda'?'agenda':'task'}'));if(this){this.textContent='✓ Opened';this.disabled=true;setTimeout(()=>{this.textContent='📋 Create Task';this.disabled=false;},1500)}" style="${_bSt}">📋 Create Task</button><button onclick="_superAiAddToAgenda('${id}',this)" style="${_bSt}">📅 Add to Agenda</button><button onclick="_superAiPostToSlack('${id}','${type}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="_superAiSave('${id}','${type}',this)" style="${_bSt}">💾 Save</button></div>`;
 }
 function _superAiRestore(id, type){
   const saved=localStorage.getItem('dgl_superai_'+id); if(!saved) return;
@@ -3311,19 +3311,21 @@ function _superAiPostToSlack(id, type, btn){
     .then(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; })
     .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
 }
-function _superAiSave(id, btn){
+function _superAiSave(id, type, btn){
   const el=document.getElementById('super-ai-text-'+id);
   const text=el?el.textContent:''; if(!text) return;
   const ts=new Date().toLocaleString();
   localStorage.setItem('dgl_superai_'+id, JSON.stringify({text, ts}));
-  // persist to linked task or agenda item
-  const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
-  if(task){ task.actionPlan=text; saveToLocal(); }
-  const agItem=AGENDA_DATA.find(a=>a.id===id);
-  if(agItem){ agItem.actionPlan=text; saveAgendaItemToSheets(agItem); }
-  // update open panel textarea immediately without rebuilding
+  if(type==='task'||!type){
+    const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
+    if(task){ task.actionPlan=text; saveToLocal(); }
+  }
+  if(type==='agenda'||!type){
+    const agItem=AGENDA_DATA.find(a=>a.id===id);
+    if(agItem){ updateAgendaField(id,'actionPlan',text); }
+  }
   const apEl=document.getElementById('raci-task-actionplan-'+id)||document.getElementById('agenda-expand-actionplan-'+id);
-  if(apEl) apEl.value=text;
+  if(apEl){ apEl.value=text; apEl.style.height='auto'; apEl.style.height=Math.min(apEl.scrollHeight,400)+'px'; }
   if(btn){ btn.textContent='💾 Saved ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='💾 Save'; btn.disabled=false; },1500); }
 }
 
