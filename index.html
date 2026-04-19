@@ -1340,6 +1340,7 @@ function initRaciPopover(){
 // ── RACI Task Expansion Panel ────────────────────────────────
 let _raciExpandedId=null;
 const _raciExpandCache={};
+const _raciAiSummaries={};
 function _raciInjectExpandStyles(){
   if(document.getElementById('raci-expand-styles')) return;
   const s=document.createElement('style');
@@ -1527,9 +1528,80 @@ function raciAiFind(taskId){
       const el=document.getElementById('raci-expand-ai-'+taskId);
       if(!el) return;
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
-      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+      _raciAiSummaries[taskId]=text;
+      const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiCreateTask('${taskId}',this)" style="${_bSt}">📋 Create Task</button><button onclick="raciAiAddFlag('${taskId}','blocker',this)" style="${_bSt}">⛔ Add Blocker</button><button onclick="raciAiAddFlag('${taskId}','gap',this)" style="${_bSt}">⚠️ Flag Gap</button><button onclick="raciAiUpdateStatus('${taskId}',this)" style="${_bSt}">✏️ Update Status</button><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Slack</button></div>`;
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
+}
+function _raciConfirmBtn(btn,orig){ btn.textContent='✓ Done'; btn.disabled=true; setTimeout(()=>{ btn.textContent=orig; btn.disabled=false; },1500); }
+function raciAiCreateTask(taskId,btn){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const summary=_raciAiSummaries[taskId]||'';
+  showTaskModal(null);
+  const nameEl=document.getElementById('tm-name'); if(nameEl) nameEl.value='Follow-up: '+t.name;
+  const depsEl=document.getElementById('tm-deps'); if(depsEl) depsEl.value=taskId;
+  const notesEl=document.getElementById('tm-notes'); if(notesEl) notesEl.value=summary;
+  const priEl=document.getElementById('tm-pri'); if(priEl) priEl.value=t.pri;
+  const catEl=document.getElementById('tm-cat'); if(catEl) catEl.value=t.cat;
+  if(t.owner&&typeof _tmOwners!=='undefined'){ _tmOwners=t.owner.split('/').map(s=>s.trim()).filter(Boolean); if(typeof _renderTmOwnerChips==='function') _renderTmOwnerChips(); }
+  _raciConfirmBtn(btn,'📋 Create Task');
+}
+function raciAiAddFlag(taskId,type,btn){
+  const actBar=document.getElementById('raci-ai-actions-'+taskId); if(!actBar) return;
+  if(document.getElementById('raci-ai-flag-in-'+taskId)) return;
+  const color=type==='blocker'?'var(--red)':'var(--amber,#d4a017)';
+  const wrap=document.createElement('div');
+  wrap.id='raci-ai-flag-wrap-'+taskId;
+  wrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:6px;width:100%';
+  wrap.innerHTML=`<input id="raci-ai-flag-in-${taskId}" type="text" placeholder="Describe ${type}…" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;flex:1;min-width:0"><button onclick="raciAiFlagConfirm('${taskId}','${type}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid ${color};background:transparent;color:${color};cursor:pointer;white-space:nowrap">Set</button><button onclick="document.getElementById('raci-ai-flag-wrap-${taskId}').remove()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">✕</button>`;
+  actBar.appendChild(wrap);
+  document.getElementById('raci-ai-flag-in-'+taskId)?.focus();
+}
+function raciAiFlagConfirm(taskId,type,confirmBtn){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const prefix=type==='blocker'?'⛔ ':'⚠️ ';
+  const color=type==='blocker'?'var(--red)':'var(--amber,#d4a017)';
+  const inp=document.getElementById('raci-ai-flag-in-'+taskId);
+  const desc=inp?(inp.value.trim()):'';
+  t.flag=prefix+(desc||(type==='blocker'?'Blocked':'Gap identified'));
+  t.flagColor=color;
+  saveToLocal();
+  const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-edit');
+  if(flagEl){ flagEl.textContent=t.flag; flagEl.style.color=color; }
+  _raciConfirmBtn(confirmBtn,'Set');
+  setTimeout(()=>{ const w=document.getElementById('raci-ai-flag-wrap-'+taskId); if(w) w.remove(); },1600);
+}
+function raciAiUpdateStatus(taskId,btn){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const actBar=document.getElementById('raci-ai-actions-'+taskId); if(!actBar) return;
+  const wrapId='raci-ai-status-wrap-'+taskId;
+  if(document.getElementById(wrapId)) return;
+  const statuses=['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'];
+  const wrap=document.createElement('div');
+  wrap.id=wrapId;
+  wrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:6px;width:100%';
+  wrap.innerHTML=`<select id="raci-ai-status-sel-${taskId}" style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;flex:1">${statuses.map(s=>`<option${s===t.status?' selected':''}>${s}</option>`).join('')}</select><button onclick="raciAiStatusConfirm('${taskId}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Set</button><button onclick="document.getElementById('${wrapId}').remove()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">✕</button>`;
+  actBar.appendChild(wrap);
+}
+function raciAiStatusConfirm(taskId,btn){
+  const sel=document.getElementById('raci-ai-status-sel-'+taskId); if(!sel) return;
+  setTaskStatus(taskId,sel.value,sel);
+  _raciConfirmBtn(btn,'Set');
+  setTimeout(()=>{ const w=document.getElementById('raci-ai-status-wrap-'+taskId); if(w) w.remove(); },1600);
+}
+function raciAiPostToSlack(taskId,btn){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const linked=_getTaskSlackLink(taskId);
+  if(!linked.channelId){ alert('Link a Slack channel first.'); return; }
+  const summary=_raciAiSummaries[taskId]||'';
+  if(!summary){ alert('No AI summary to post.'); return; }
+  const text=`🤖 AI Analysis for [${t.id} ${t.name}]:\n\n${summary}`;
+  btn.textContent='Posting…'; btn.disabled=true;
+  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(text)+'&user='+encodeURIComponent(window._DGL_USER||''))
+    .then(r=>r.json())
+    .then(()=>{ _raciConfirmBtn(btn,'📤 Post to Slack'); })
+    .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
 }
 function addTaskComment(taskId){
   const inp=document.getElementById('raci-expand-comment-input-'+taskId);
