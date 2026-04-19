@@ -2996,6 +2996,7 @@ function setAgendaFlagEmoji(id,emoji){
     if(lbl) lbl.style.color=active&&bfst?bfst.color:'var(--muted)';
   });
   if(item.taskId){const task=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId);if(task){task.flag=emoji;saveToLocal();}}
+  if(!_agendaExpandedId){buildMondayAgenda();buildAgenda();}
 }
 function _agendaFlagSetColor(id,color){ const el=document.getElementById('agenda-flag-'+id); if(el) el.style.color=color; }
 function _agendaExpandNoteSetColor(id,color){ const el=document.getElementById('agenda-expand-notes-'+id); if(el) el.style.color=color; }
