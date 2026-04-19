@@ -1289,6 +1289,7 @@ function setTaskFlag(id, el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id); if(!task) return;
   const text=el.innerText.trim();
   task.flag=text;
+  saveToLocal();
   masterRefresh();
 }
 // ── Flag toolbar ──────────────────────────────────────────────
@@ -1417,6 +1418,25 @@ function _raciInjectExpandStyles(){
 }
 function _getTaskComments(id){ try{const r=localStorage.getItem('dgl_task_comments_'+id);if(r)return JSON.parse(r);}catch(e){} return []; }
 function _saveTaskComments(id,arr){ try{localStorage.setItem('dgl_task_comments_'+id,JSON.stringify(arr));}catch(e){} }
+function _mergeCommentArrays(local,remote){
+  const seen=new Set(local.map(c=>(c.ts||'')+'|'+(c.user||'')));
+  const merged=[...local];
+  remote.forEach(c=>{ const k=(c.ts||c.timestamp||'')+'|'+(c.user||''); if(!seen.has(k)){ merged.push({user:c.user||'',name:c.name||c.user||'',ts:c.ts||c.timestamp||'',text:c.text||''}); seen.add(k); } });
+  merged.sort((a,b)=>(a.ts||'')<(b.ts||'')?-1:1);
+  return merged;
+}
+function _loadCommentsFromSheets(storageKey,sheetsTaskId,onUpdate){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(sheetsTaskId))
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.comments||[]);
+      if(!rows.length) return;
+      const local=_getTaskComments(storageKey);
+      const merged=_mergeCommentArrays(local,rows);
+      if(merged.length!==local.length){ _saveTaskComments(storageKey,merged); if(typeof onUpdate==='function') onUpdate(merged); }
+    }).catch(()=>{});
+}
 function _getTaskSlackLink(id){ try{const r=localStorage.getItem('dgl_task_slack_'+id);if(r)return JSON.parse(r);}catch(e){} return {}; }
 function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
 function toggleTaskExpand(taskId,trEl){
@@ -1552,6 +1572,8 @@ function _expandCommentSetColor(taskId,color){
   el.style.color=color;
 }
 function _raciExpandLoadChannels(taskId){
+  const _canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
+  _loadCommentsFromSheets(taskId,taskId,merged=>{ const el=document.getElementById('raci-expand-comments-'+taskId); if(el) el.innerHTML=_buildTaskCommentsHtml(taskId,merged,_canAdmin); });
   const linked=_getTaskSlackLink(taskId);
   function _populate(chs){
     requestAnimationFrame(()=>{
@@ -1726,8 +1748,10 @@ function addTaskComment(taskId){
   const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
   const name=(info.name||user).split(' ')[0];
   const comments=_getTaskComments(taskId);
-  comments.push({user,name,ts:new Date().toISOString(),text});
+  const ts=new Date().toISOString();
+  comments.push({user,name,ts,text});
   _saveTaskComments(taskId,comments);
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=comments_write&taskId='+encodeURIComponent(taskId)+'&user='+encodeURIComponent(user)+'&name='+encodeURIComponent(name)+'&ts='+encodeURIComponent(ts)+'&text='+encodeURIComponent(text)+'&type=task').catch(()=>{});
   if(inp) inp.value='';
   const canAdmin=['taylor','steve','hammad','adam'].includes(user);
   const el=document.getElementById('raci-expand-comments-'+taskId);
@@ -2681,6 +2705,8 @@ function _buildAgendaExpandHtml(id){
 function _agendaExpandNoteSetColor(id,color){ const el=document.getElementById('agenda-expand-notes-'+id); if(el) el.style.color=color; }
 function _agendaExpandCommentSetColor(id,color){ const el=document.getElementById('agenda-expand-comment-input-'+id); if(el) el.style.color=color; }
 function _agendaExpandLoadChannels(id){
+  const _canAdminAg=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
+  _loadCommentsFromSheets('agenda_'+id,'agenda_'+id,merged=>{ const el=document.getElementById('agenda-expand-comments-'+id); if(el) el.innerHTML=_buildAgendaCommentsHtml(id,merged,_canAdminAg); });
   const linked=_getTaskSlackLink('agenda_'+id);
   function _populate(chs){
     requestAnimationFrame(()=>{
@@ -2727,8 +2753,10 @@ function addAgendaComment(id){
   const name=(info.name||user).split(' ')[0];
   const key='agenda_'+id;
   const comments=_getTaskComments(key);
-  comments.push({user,name,ts:new Date().toISOString(),text});
+  const ts=new Date().toISOString();
+  comments.push({user,name,ts,text});
   _saveTaskComments(key,comments);
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=comments_write&taskId='+encodeURIComponent(key)+'&user='+encodeURIComponent(user)+'&name='+encodeURIComponent(name)+'&ts='+encodeURIComponent(ts)+'&text='+encodeURIComponent(text)+'&type=agenda').catch(()=>{});
   if(inp) inp.value='';
   const canAdmin=['taylor','steve','hammad','adam'].includes(user);
   const el=document.getElementById('agenda-expand-comments-'+id);
@@ -4608,7 +4636,8 @@ function betaMetricAddRow(){
   _saveBetaMetrics(d); renderBetaMetrics();
 }
 function betaMetricDelRow(i){ const d=_getBetaMetrics(); d.rows.splice(i,1); _saveBetaMetrics(d); renderBetaMetrics(); }
-function betaMetricEdit(i,field,val){ const d=_getBetaMetrics(); d.rows[i][field]=val; _saveBetaMetrics(d); renderBetaMetrics(); }
+let _betaMetricsSyncTimer=null;
+function betaMetricEdit(i,field,val){ const d=_getBetaMetrics(); d.rows[i][field]=val; _saveBetaMetrics(d); renderBetaMetrics(); clearTimeout(_betaMetricsSyncTimer); _betaMetricsSyncTimer=setTimeout(()=>syncBetaMetricsToSheets(null),1500); }
 function syncBetaMetricsToSheets(btn){
   if(!CONFIG.sheetsUrl) return;
   if(btn){btn.textContent='Syncing…';btn.disabled=true;}
@@ -4663,11 +4692,12 @@ function renderAppAnalytics(){
     </div>
   </div>`;
 }
+let _analyticsSyncTimer=null;
 function appAnalyticsEdit(key,val){
   const d=_getAppAnalytics();
   d[key].prev=d[key].value; d[key].value=val;
   const now=new Date(); d[key].updated=now.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-  _saveAppAnalytics(d); renderAppAnalytics();
+  _saveAppAnalytics(d); renderAppAnalytics(); clearTimeout(_analyticsSyncTimer); _analyticsSyncTimer=setTimeout(()=>syncAppAnalyticsToSheets(null),1500);
 }
 function syncAppAnalyticsToSheets(btn){
   if(!CONFIG.sheetsUrl) return;
@@ -4677,6 +4707,27 @@ function syncAppAnalyticsToSheets(btn){
   fetch(url).then(r=>r.json()).then(()=>{
     if(btn){btn.textContent='Synced ✓';btn.style.color='var(--green)';btn.style.borderColor='var(--green)';setTimeout(()=>{btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;},2000);}
   }).catch(()=>{if(btn){btn.textContent='Sync to Sheets ↑';btn.style.color='';btn.style.borderColor='';btn.disabled=false;}});
+}
+function loadBetaMetricsFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=beta_metrics_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.rows||[]);
+      if(!rows.length) return;
+      const d=_getBetaMetrics(); d.rows=rows; _saveBetaMetrics(d); renderBetaMetrics();
+    }).catch(()=>{});
+}
+function loadAppAnalyticsFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=analytics_read')
+    .then(r=>r.json())
+    .then(data=>{
+      if(!data||typeof data!=='object') return;
+      const d=_getAppAnalytics();
+      ['dau','receipts','session'].forEach(k=>{ if(data[k]!=null&&data[k]!=='') d[k].value=String(data[k]); });
+      _saveAppAnalytics(d); renderAppAnalytics();
+    }).catch(()=>{});
 }
 
 // ── Survey Results ──────────────────────────────────────────
@@ -6490,6 +6541,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadBudgetHistoryFromSheets();
   loadPMFHistoryFromSheets();
   loadProfilesFromSheets();
+  loadBetaMetricsFromSheets();
+  loadAppAnalyticsFromSheets();
   _initCustomTeamExtensions();
   buildCommandKPIs();
   buildGapList();
