@@ -2564,7 +2564,7 @@ function _buildAgendaExpandHtml(id){
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const lbl=s=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px;margin-top:14px">${s}</div>`;
   const canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
-  const commentsHtml=_buildTaskCommentsHtml('agenda_'+id,_getTaskComments('agenda_'+id),canAdmin);
+  const commentsHtml=_buildAgendaCommentsHtml(id,_getTaskComments('agenda_'+id),canAdmin);
   const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
   const _swSt2="width:11px;height:11px;border-radius:50%;cursor:pointer;border:none;padding:0;flex-shrink:0";
   const _barSt="display:flex;gap:2px;align-items:center;padding:3px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;flex-wrap:wrap";
@@ -2656,11 +2656,56 @@ function addAgendaComment(id){
   if(inp) inp.value='';
   const canAdmin=['taylor','steve','hammad','adam'].includes(user);
   const el=document.getElementById('agenda-expand-comments-'+id);
-  if(el) el.innerHTML=_buildTaskCommentsHtml(key,comments,canAdmin);
+  if(el) el.innerHTML=_buildAgendaCommentsHtml(id,comments,canAdmin);
   const linked=_getTaskSlackLink(key);
   if(linked.channelId&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(text)+'&user='+encodeURIComponent(user)).catch(()=>{});
 }
-function agendaAiFind(id){ /* Part 2 */ }
+function _buildAgendaCommentsHtml(id,comments,canAdmin){
+  if(!comments.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No comments yet.</div>';
+  return comments.map((c,i)=>`<div style="padding:6px 0;${i>0?'border-top:1px solid var(--surface)':''}"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600">${c.name||c.user}</span><div style="display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${(c.ts||'').slice(0,16).replace('T',' ')}</span>${canAdmin?`<button onclick="deleteAgendaComment('${id}',${i})" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0;line-height:1" title="Delete">✕</button>`:''}</div></div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(c.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+}
+function deleteAgendaComment(id,idx){
+  const key='agenda_'+id;
+  const comments=_getTaskComments(key);
+  comments.splice(idx,1);
+  _saveTaskComments(key,comments);
+  const el=document.getElementById('agenda-expand-comments-'+id);
+  if(el) el.innerHTML=_buildAgendaCommentsHtml(id,comments,['taylor','steve','hammad','adam'].includes(window._DGL_USER||''));
+}
+function agendaAiFind(id){
+  const it=AGENDA_DATA.find(x=>x.id===id); if(!it||!CONFIG.sheetsUrl) return;
+  const btn=event.target;
+  const aiEl=document.getElementById('agenda-expand-ai-'+id);
+  const linked=_getTaskSlackLink('agenda_'+id);
+  if(!linked.channelId){
+    if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">Link a Slack channel first to enable AI analysis.</div>';
+    return;
+  }
+  if(btn){ btn.textContent='Fetching messages…'; btn.disabled=true; }
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(linked.channelId)+'&limit=20')
+    .then(r=>r.json())
+    .then(data=>{
+      if(btn) btn.textContent='Analyzing…';
+      const msgs=(data.messages||[]).reverse();
+      const msgText=msgs.map(m=>(m.user||'bot')+': '+(m.text||'')).join('\n');
+      const ch=(linked.channelName||'').replace(/^#/,'').split(' ')[0];
+      const ctx=`Agenda Item: ${id} — ${it.title}\nOwner: ${it.owner||'—'} | Category: ${it.category}\nDetail: ${it.detail||'none'}`;
+      const base=`${ctx}\n\nHere are the last ${msgs.length} messages from #${ch}:\n\n${msgText}\n\nYou are analyzing a Slack channel for the DGL easyChef Pro team. This is agenda item: ${it.title}. Identify relevant discussion, decisions, and action items.`;
+      const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const c=`${ctx}\n\nRecent messages from #${ch}:\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions, and action items.`; if(c.length<=3000) return c; lines=lines.slice(1); } return `${ctx}\n\n${lines.join('\n')}\n\nIdentify relevant discussion and action items.`; })():base;
+      const system='You are analyzing Slack activity for the DGL easyChef Pro team. Summarize relevant discussion for the given agenda item. Be specific and concise.';
+      return fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt));
+    })
+    .then(r=>r.json())
+    .then(data=>{
+      if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; }
+      const el=document.getElementById('agenda-expand-ai-'+id); if(!el) return;
+      const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
+      _agendaAiSummaries[id]=text;
+      const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="agenda-ai-actions-${id}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="agendaAiCreateTask('${id}',this)" style="${_bSt}">📋 Create Task</button><button onclick="agendaAiPostToSlack('${id}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="agendaAiMarkResolved('${id}',this)" style="${_bSt}">✓ Mark Resolved</button></div>`;
+    })
+    .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
+}
 function buildMondayAgenda(){
   const el=document.getElementById('agenda-monday-list');
   if(!el) return;
