@@ -2412,7 +2412,7 @@ function loadAgendaFromSheets(){
     .then(data=>{
       const rows=Array.isArray(data)?data:(data.items||[]);
       const metaRow=rows.find(r=>r.id==='__meta__');
-      if(metaRow){ const cur=_getMeetingMeta(); if(metaRow.title) cur.title=metaRow.title; if(metaRow.detail) cur.date=metaRow.detail; if(metaRow.owner) cur.time=metaRow.owner; _saveMeetingMeta(cur); }
+      if(metaRow){ _saveMeetingMeta({..._getMeetingMeta(),title:metaRow.title||_getMeetingMeta().title,date:metaRow.detail||_getMeetingMeta().date,time:metaRow.owner||_getMeetingMeta().time}); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
       if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:r.deadline||'',category:r.category||'Manual'})); }
       buildAgendaPage(); buildAgenda();
