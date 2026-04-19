@@ -910,7 +910,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <button onclick="openTeamMemberModal(-1)" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap" onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">+ Add Team Member</button>
   </div>
   <div class="team-grid" id="team-grid"></div>
-  <div class="section-label">Monday Meeting Agenda — 11AM ET / 8AM PT</div>
+  <div class="section-label" id="agenda-section-label">Monday Meeting Agenda — 11AM ET / 8AM PT</div>
   <div id="agenda-list"></div>
 </div>
 
@@ -918,11 +918,11 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <div id="page-agenda" class="page active">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
     <div>
-      <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900">Monday Meeting <span style="color:var(--gold)">Agenda</span></h2>
-      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px">April 21, 2026 · 11AM ET / 8AM PT</div>
+      <h2 id="agenda-page-title" style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900">Monday Meeting <span style="color:var(--gold)">Agenda</span></h2>
+      <div id="agenda-page-subtitle" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px">April 21, 2026 · 11AM ET / 8AM PT</div>
     </div>
   </div>
-  <div class="section-label">Agenda Items</div>
+  <div class="section-label" id="agenda-items-label">Agenda Items</div>
   <div id="agenda-monday-list"></div>
   <div class="section-label" style="margin-top:8px">Executive Assessment</div>
   <div id="agenda-assessment"></div>
@@ -2387,7 +2387,10 @@ function loadAgendaFromSheets(){
     .then(r=>r.json())
     .then(data=>{
       const rows=Array.isArray(data)?data:(data.items||[]);
-      if(rows.length){ AGENDA_DATA=rows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:r.deadline||'',category:r.category||'Manual'})); }
+      const metaRow=rows.find(r=>r.id==='__meta__');
+      if(metaRow){ const cur=_getMeetingMeta(); if(metaRow.title) cur.title=metaRow.title; if(metaRow.detail) cur.date=metaRow.detail; if(metaRow.owner) cur.time=metaRow.owner; _saveMeetingMeta(cur); }
+      const dataRows=rows.filter(r=>r.id!=='__meta__');
+      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:r.deadline||'',category:r.category||'Manual'})); }
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
@@ -2399,6 +2402,41 @@ function saveAgendaItemToSheets(item){
 function deleteAgendaItemFromSheets(id){
   if(!CONFIG.sheetsUrl||!id) return;
   fetch(CONFIG.sheetsUrl+'?action=agenda_delete&id='+encodeURIComponent(id)).catch(()=>{});
+}
+function _getMeetingMeta(){
+  const def={title:'Monday Meeting',date:'April 21, 2026',time:'11AM ET / 8AM PT',agendaLabel:'Agenda Items'};
+  try{const r=localStorage.getItem('dgl_meeting_meta');if(r) return {...def,...JSON.parse(r)};}catch(e){}
+  return def;
+}
+function _saveMeetingMeta(obj){ try{localStorage.setItem('dgl_meeting_meta',JSON.stringify(obj));}catch(e){} }
+function _saveMeetingMetaToSheets(meta){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=agenda_write&id='+encodeURIComponent('__meta__')+'&title='+encodeURIComponent(meta.title||'')+'&detail='+encodeURIComponent(meta.date||'')+'&owner='+encodeURIComponent(meta.time||'')).catch(()=>{});
+}
+function _metaSpan(field,text,canEdit){
+  if(!canEdit) return `<span>${text}</span>`;
+  return `<span contenteditable="true" data-meta-field="${field}" style="outline:none;cursor:text;border-bottom:1px dashed rgba(201,168,76,0.45)" onblur="saveMeetingMetaField(this,'${field}')" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${text}</span>`;
+}
+function saveMeetingMetaField(el,field){
+  const val=(el.textContent||'').trim();
+  const meta=_getMeetingMeta();
+  if(!val){el.textContent=meta[field];return;}
+  meta[field]=val;
+  _saveMeetingMeta(meta);
+  _saveMeetingMetaToSheets(meta);
+  _applyMeetingMetaToHeader();
+}
+function _applyMeetingMetaToHeader(){
+  const meta=_getMeetingMeta();
+  const canEdit=['taylor','steve'].includes(window._DGL_USER||'');
+  const sl=document.getElementById('agenda-section-label');
+  if(sl) sl.innerHTML=_metaSpan('title',meta.title,canEdit)+' Agenda — '+_metaSpan('time',meta.time,canEdit);
+  const pt=document.getElementById('agenda-page-title');
+  if(pt) pt.innerHTML=_metaSpan('title',meta.title,canEdit)+' <span style="color:var(--gold)">Agenda</span>';
+  const ps=document.getElementById('agenda-page-subtitle');
+  if(ps) ps.innerHTML=_metaSpan('date',meta.date,canEdit)+' · '+_metaSpan('time',meta.time,canEdit);
+  const al=document.getElementById('agenda-items-label');
+  if(al) al.innerHTML=_metaSpan('agendaLabel',meta.agendaLabel||'Agenda Items',canEdit);
 }
 function loadBudgetHistoryFromSheets(){
   if(!CONFIG.sheetsUrl) return;
@@ -2891,6 +2929,8 @@ function buildMondayAgenda(){
   const el=document.getElementById('agenda-monday-list');
   if(!el) return;
   const canEdit=canEditAgenda();
+  const meta=_getMeetingMeta();
+  const canEditMeta=['taylor','steve'].includes(window._DGL_USER||'');
   const resolved=AGENDA_DATA.filter(x=>x.checked).length;
   const addFrm=canEdit?`<div id="agenda-add-form" style="display:none;margin-top:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;margin-bottom:12px">ADD AGENDA ITEM</div>
@@ -2912,8 +2952,8 @@ function buildMondayAgenda(){
   el.innerHTML=`<div class="card" style="margin-bottom:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700">Monday Meeting · April 21, 2026</div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:1px">11AM ET / 8AM PT</div>
+        <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700">${_metaSpan('title',meta.title,canEditMeta)} · ${_metaSpan('date',meta.date,canEditMeta)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:1px">${_metaSpan('time',meta.time,canEditMeta)}</div>
       </div>
       <span style="font-family:'DM Mono',monospace;font-size:10px;color:${resolved===AGENDA_DATA.length&&AGENDA_DATA.length>0?'var(--green)':'var(--muted)'}">${resolved}/${AGENDA_DATA.length} resolved</span>
     </div>
@@ -2921,6 +2961,7 @@ function buildMondayAgenda(){
     <div ondragover="event.preventDefault()" ondrop="_agendaDrop(event)">${AGENDA_DATA.map((it,i)=>_agendaItemHtml(it,i,canEdit)).join('')}</div>
     ${addFrm}
   </div>`;
+  _applyMeetingMetaToHeader();
 }
 function toggleAgendaItem(id){
   if(!canEditAgenda()) return;
@@ -3789,6 +3830,7 @@ function buildAgenda(){
   </div>
   <div ondragover="event.preventDefault()" ondrop="_agendaDrop(event)">${AGENDA_DATA.map((it,i)=>_agendaItemHtml(it,i,canEdit)).join('')}</div>
   ${addFrm}`;
+  _applyMeetingMetaToHeader();
 }
 
 // ── Spend log ───────────────────────────────────────────────
@@ -5096,6 +5138,7 @@ function shakePwInput(){
 }
 function showDashboard(user, showPopup=false){
   window._DGL_USER=user;
+  _applyMeetingMetaToHeader();
   const role=getUserRole(user);
   const ov=document.getElementById('login-overlay');
   if(ov&&ov.style.display!=='none'){ ov.style.opacity='0'; setTimeout(()=>ov.style.display='none',400); }
