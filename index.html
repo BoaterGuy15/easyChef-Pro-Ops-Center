@@ -2551,7 +2551,7 @@ function loadAgendaFromSheets(){
       const metaRow=rows.find(r=>r.id==='__meta__');
       if(metaRow){ const _mc=_getMeetingMeta(); const _md=metaRow.detail||''; const _cleanDate=_md?_excelSerialToDate(_md):_mc.date; const _newMeta={..._mc,title:metaRow.title||_mc.title,date:_cleanDate||_mc.date,time:metaRow.owner||_mc.time}; _saveMeetingMeta(_newMeta); if(_md&&_cleanDate!==_md) _saveMeetingMetaToSheets(_newMeta); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
-      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:/^\d+$/.test(String(r.deadline||'').trim())?_excelSerialToDate(r.deadline):(r.deadline||''),category:r.category||'Manual',taskId:r.taskId||''})); }
+      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||''})); }
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
@@ -2739,7 +2739,7 @@ function _agendaItemHtml(it,i,canEdit){
   const drag=canEdit?`<div class="ag-no-expand" style="color:var(--border);font-size:14px;cursor:grab;flex-shrink:0;padding-top:1px;user-select:none;line-height:1.2" title="Drag to reorder">⠿</div>`:'';
   const deadlineDisplay=linkedTask
     ?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:${linkedTask.ed?'var(--amber)':'var(--muted)'}">${linkedTask.ed?_excelSerialToDate(linkedTask.ed):'—'}</span>`
-    :`<input type="date" value="${it.deadline||''}" onchange="updateAgendaField('${it.id}','deadline',this.value)" ${canEdit?'':'disabled'} style="background:transparent;border:none;border-bottom:1px solid ${it.deadline?'var(--amber)':'var(--border)'};color:${it.deadline?'var(--amber)':'var(--muted)'};font-family:'DM Mono',monospace;font-size:10px;outline:none;padding:1px 0">`;
+    :`<input type="date" value="${_toInputDate(it.deadline||'')}" onchange="updateAgendaField('${it.id}','deadline',this.value)" ${canEdit?'':'disabled'} style="background:transparent;border:none;border-bottom:1px solid ${it.deadline?'var(--amber)':'var(--border)'};color:${it.deadline?'var(--amber)':'var(--muted)'};font-family:'DM Mono',monospace;font-size:10px;outline:none;padding:1px 0">`;
   const _agRowFst=_getFlagState(it.flag);
   return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" onclick="if(!event.target.closest('select,input,button,a,textarea,[contenteditable],.ag-no-expand'))toggleAgendaExpand('${it.id}',this)" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);border-left:3px solid ${_agRowFst?_agRowFst.color:'transparent'};padding-left:${_agRowFst?'9px':'0'};opacity:${done?'0.42':'1'};transition:opacity 0.2s;cursor:pointer">
     ${drag}${chk}
