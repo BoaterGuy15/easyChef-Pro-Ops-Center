@@ -2551,7 +2551,7 @@ function loadAgendaFromSheets(){
       const metaRow=rows.find(r=>r.id==='__meta__');
       if(metaRow){ const _mc=_getMeetingMeta(); const _md=metaRow.detail||''; const _cleanDate=_md?_excelSerialToDate(_md):_mc.date; const _newMeta={..._mc,title:metaRow.title||_mc.title,date:_cleanDate||_mc.date,time:metaRow.owner||_mc.time}; _saveMeetingMeta(_newMeta); if(_md&&_cleanDate!==_md) _saveMeetingMetaToSheets(_newMeta); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
-      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||''})); }
+      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',actionPlan:r.actionPlan||''})); }
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
@@ -2743,7 +2743,10 @@ function _agendaItemHtml(it,i,canEdit){
   const _agRowFst=_getFlagState(it.flag);
   return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" onclick="if(!event.target.closest('select,input,button,a,textarea,[contenteditable],.ag-no-expand'))toggleAgendaExpand('${it.id}',this)" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);border-left:3px solid ${_agRowFst?_agRowFst.color:'transparent'};padding-left:${_agRowFst?'9px':'0'};opacity:${done?'0.42':'1'};transition:opacity 0.2s;cursor:pointer">
     ${drag}${chk}
-    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:24px;line-height:1.1">${String(i+1).padStart(2,'0')}</div>
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:24px;gap:2px">
+      <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);line-height:1.1">${String(i+1).padStart(2,'0')}</div>
+      ${_agRowFst?`<span style="font-size:10px;line-height:1" title="${_agRowFst.label}">${_agRowFst.emoji}</span>`:''}
+    </div>
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:2px;margin-bottom:4px">
         <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','title',this.innerText.trim())" style="font-size:14px;font-weight:500;color:${done?'var(--muted)':'var(--text)'};text-decoration:${done?'line-through':'none'};outline:none;word-break:break-word">${it.title}</div>
