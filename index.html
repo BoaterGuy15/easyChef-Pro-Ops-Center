@@ -2495,8 +2495,11 @@ function loadAgendaFromSheets(){
 }
 function saveAgendaItemToSheets(item){
   if(!CONFIG.sheetsUrl||!item) return;
-  fetch(CONFIG.sheetsUrl+'?action=agenda_write&id='+encodeURIComponent(item.id||'')+'&title='+encodeURIComponent(item.title||'')+'&detail='+encodeURIComponent(item.detail||'')+'&decision='+encodeURIComponent(item.decision||'')+'&checked='+encodeURIComponent(String(!!item.checked))+'&owner='+encodeURIComponent(item.owner||'')+'&deadline='+encodeURIComponent(item.deadline||'')+'&category='+encodeURIComponent(item.category||'Manual')+'&taskId='+encodeURIComponent(item.taskId||'')).catch(()=>{});
+  fetch(CONFIG.sheetsUrl+'?action=agenda_write&id='+encodeURIComponent(item.id||'')+'&title='+encodeURIComponent(item.title||'')+'&detail='+encodeURIComponent(item.detail||'')+'&decision='+encodeURIComponent(item.decision||'')+'&checked='+encodeURIComponent(String(!!item.checked))+'&owner='+encodeURIComponent(item.owner||'')+'&deadline='+encodeURIComponent(item.deadline||'')+'&category='+encodeURIComponent(item.category||'Manual')+'&taskId='+encodeURIComponent(item.taskId||'')+'&flag='+encodeURIComponent(item.flag||'')).catch(()=>{});
 }
+// Code.gs: update AGENDA_HEADERS to include flag as 10th column
+// Find:    const AGENDA_HEADERS = ['id','title','detail','decision','checked','owner','deadline','category','taskId'];
+// Replace: const AGENDA_HEADERS = ['id','title','detail','decision','checked','owner','deadline','category','taskId','flag'];
 function deleteAgendaItemFromSheets(id){
   if(!CONFIG.sheetsUrl||!id) return;
   fetch(CONFIG.sheetsUrl+'?action=agenda_delete&id='+encodeURIComponent(id)).catch(()=>{});
