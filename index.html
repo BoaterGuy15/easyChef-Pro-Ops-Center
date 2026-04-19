@@ -2437,14 +2437,27 @@ function _saveMeetingMetaToSheets(meta){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=agenda_write&id='+encodeURIComponent('__meta__')+'&title='+encodeURIComponent(meta.title||'')+'&detail='+encodeURIComponent(meta.date||'')+'&owner='+encodeURIComponent(meta.time||'')).catch(()=>{});
 }
+// Run in console: localStorage.removeItem('dgl_meeting_meta'); to reset bad stored date
+function _normalizeDateMeta(text){
+  if(typeof text!=='string') return text;
+  if(/^[A-Z][a-z]+ \d+, \d{4}$/.test(text.trim())) return text; // already clean
+  try{
+    const raw=/^\d{4}-\d{2}-\d{2}$/.test(text.trim())?text.trim()+'T12:00:00':text;
+    const d=new Date(raw);
+    if(!isNaN(d)) return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  }catch(_){}
+  return text;
+}
 function _metaSpan(field,text,canEdit){
+  if(field==='date') text=_normalizeDateMeta(text);
   if(!canEdit) return `<span>${text}</span>`;
   return `<span contenteditable="true" data-meta-field="${field}" style="outline:none;cursor:text;border-bottom:1px dashed rgba(201,168,76,0.45)" onblur="saveMeetingMetaField(this,'${field}')" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">${text}</span>`;
 }
 function saveMeetingMetaField(el,field){
-  const val=(el.textContent||'').trim();
+  let val=(el.textContent||'').trim();
   const meta=_getMeetingMeta();
   if(!val){el.textContent=meta[field];return;}
+  if(field==='date') val=_normalizeDateMeta(val);
   meta[field]=val;
   _saveMeetingMeta(meta);
   _saveMeetingMetaToSheets(meta);
