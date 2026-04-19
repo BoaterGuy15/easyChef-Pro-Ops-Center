@@ -1337,6 +1337,199 @@ function initRaciPopover(){
     if(!pop.contains(e.target)) hideRaciPopover();
   });
 }
+// ── RACI Task Expansion Panel ────────────────────────────────
+let _raciExpandedId=null;
+function _raciInjectExpandStyles(){
+  if(document.getElementById('raci-expand-styles')) return;
+  const s=document.createElement('style');
+  s.id='raci-expand-styles';
+  s.textContent='@keyframes raciExpandFade{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}} .raci-expand-row td{padding:0!important;border-top:none!important} .raci-expand-inner{animation:raciExpandFade 0.18s ease} tr.raci-row-active{background:rgba(201,168,76,0.06)!important}';
+  document.head.appendChild(s);
+}
+function _getTaskComments(id){ try{const r=localStorage.getItem('dgl_task_comments_'+id);if(r)return JSON.parse(r);}catch(e){} return []; }
+function _saveTaskComments(id,arr){ try{localStorage.setItem('dgl_task_comments_'+id,JSON.stringify(arr));}catch(e){} }
+function _getTaskSlackLink(id){ try{const r=localStorage.getItem('dgl_task_slack_'+id);if(r)return JSON.parse(r);}catch(e){} return {}; }
+function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
+function toggleTaskExpand(taskId,trEl){
+  _raciInjectExpandStyles();
+  const prevRow=document.getElementById('raci-expand-row-'+(_raciExpandedId||'__none__'));
+  if(prevRow) prevRow.remove();
+  document.querySelectorAll('#raci-body tr.raci-row-active').forEach(r=>r.classList.remove('raci-row-active'));
+  if(_raciExpandedId===taskId){ _raciExpandedId=null; return; }
+  _raciExpandedId=taskId;
+  if(!trEl) trEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"]');
+  if(!trEl) return;
+  trEl.classList.add('raci-row-active');
+  const expandTr=document.createElement('tr');
+  expandTr.id='raci-expand-row-'+taskId;
+  expandTr.className='raci-expand-row';
+  const td=document.createElement('td');
+  td.colSpan=30;
+  td.innerHTML=_buildTaskExpandHtml(taskId);
+  expandTr.appendChild(td);
+  trEl.after(expandTr);
+  _raciExpandLoadChannels(taskId);
+  const linked=_getTaskSlackLink(taskId);
+  if(linked.channelId) _raciExpandLoadSlackFeed(taskId,linked.channelId);
+}
+function _buildTaskExpandHtml(taskId){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return '';
+  const linked=_getTaskSlackLink(taskId);
+  const iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box';
+  const lbl=s=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px;margin-top:14px">${s}</div>`;
+  const fRow=(k,v)=>`<div style="margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${k}: </span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)">${v||'—'}</span></div>`;
+  const depIds=(t.deps||'').split(',').map(d=>d.trim()).filter(Boolean);
+  const depsHtml=depIds.length?depIds.map(d=>{ const dep=DASHBOARD_DATA.tasks.find(x=>x.id===d); const col=dep?(dep.status==='Done'||dep.status==='Complete'?'var(--green)':'var(--amber,#d4a017)'):'var(--muted)'; return `<span style="font-family:'DM Mono',monospace;font-size:10px;color:${col};margin-right:10px">${d}${dep?' · '+dep.status:' · ?'}</span>`; }).join(''):'<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border)">None</span>';
+  const today=getPSTDate(); today.setHours(0,0,0,0);
+  const ed=t.ed?new Date(t.ed):null;
+  const daysLeft=ed?Math.ceil((ed-today)/(1000*60*60*24)):null;
+  const daysCol=daysLeft===null?'var(--muted)':daysLeft<0?'var(--red)':daysLeft<=3?'var(--amber,#d4a017)':'var(--green)';
+  const daysStr=daysLeft===null?'—':daysLeft<0?Math.abs(daysLeft)+' overdue':daysLeft===0?'Due today':daysLeft+' days';
+  const canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
+  const commentsHtml=_buildTaskCommentsHtml(taskId,_getTaskComments(taskId),canAdmin);
+  return `<div class="raci-expand-inner" style="border-left:3px solid var(--gold);background:var(--card);padding:14px 20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${t.id} — TASK DETAILS</span>
+      <button onclick="toggleTaskExpand('${taskId}',null)" style="background:transparent;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
+      <div>
+        ${lbl('DETAILS')}
+        ${fRow('Name',t.name)}
+        ${fRow('Category',t.cat)}
+        ${fRow('Priority',t.pri)}
+        ${fRow('Status',t.status)}
+        ${fRow('Owner',t.owner||'—')}
+        ${lbl('NOTES')}
+        <textarea id="raci-expand-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add notes…" onblur="saveTaskExpandNotes('${taskId}')">${(t.flag||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        ${lbl('DEPENDENCIES')}
+        <div>${depsHtml}</div>
+        ${lbl('DATES')}
+        ${fRow('Start',t.sd||'—')}
+        ${fRow('End',t.ed||'—')}
+        ${fRow('Last status change',t.lastStatusChange||'—')}
+        <div style="margin-top:4px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Days remaining: </span><span style="font-family:'DM Mono',monospace;font-size:13px;color:${daysCol};font-weight:600">${daysStr}</span></div>
+      </div>
+      <div>
+        ${lbl('LINKED SLACK CHANNEL')}
+        <select id="raci-expand-slack-${taskId}" style="${iSt};margin-bottom:8px" onchange="raciLinkSlack('${taskId}',this)">
+          <option value="">Loading channels…</option>
+        </select>
+        <div id="raci-expand-slack-feed-${taskId}" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:6px;display:none"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+          <button onclick="raciAiFind('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
+        </div>
+        <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
+        ${lbl('TASK DISCUSSION')}
+        <div id="raci-expand-comments-${taskId}" style="max-height:180px;overflow-y:auto;margin-bottom:8px">${commentsHtml}</div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="raci-expand-comment-input-${taskId}" style="${iSt};flex:1" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addTaskComment('${taskId}')}">
+          <button onclick="addTaskComment('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Reply</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function _buildTaskCommentsHtml(taskId,comments,canAdmin){
+  if(!comments.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No comments yet.</div>';
+  return comments.map((c,i)=>`<div style="padding:6px 0;${i>0?'border-top:1px solid var(--surface)':''}"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600">${c.name||c.user}</span><div style="display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${(c.ts||'').slice(0,16).replace('T',' ')}</span>${canAdmin?`<button onclick="deleteTaskComment('${taskId}',${i})" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0;line-height:1" title="Delete">✕</button>`:''}</div></div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(c.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+}
+function saveTaskExpandNotes(taskId){
+  const el=document.getElementById('raci-expand-notes-'+taskId);
+  if(!el) return;
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  t.flag=el.value;
+  saveToLocal();
+  const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-edit');
+  if(flagEl) flagEl.textContent=t.flag;
+}
+function _raciExpandLoadChannels(taskId){
+  if(!CONFIG.sheetsUrl) return;
+  const linked=_getTaskSlackLink(taskId);
+  fetch(CONFIG.sheetsUrl+'?action=slack_channels')
+    .then(r=>r.json())
+    .then(data=>{
+      const sel=document.getElementById('raci-expand-slack-'+taskId);
+      if(!sel) return;
+      const chs=data.channels||[];
+      sel.innerHTML='<option value="">— No linked channel —</option>'+chs.map(c=>`<option value="${c.id}"${linked.channelId===c.id?' selected':''}>#${c.name} (${c.member_count||0})</option>`).join('');
+    })
+    .catch(()=>{ const sel=document.getElementById('raci-expand-slack-'+taskId); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; });
+}
+function raciLinkSlack(taskId,sel){
+  const channelId=sel.value;
+  const opt=sel.options[sel.selectedIndex];
+  const channelName=opt?opt.text:'';
+  _saveTaskSlackLink(taskId,{channelId,channelName});
+  const feedEl=document.getElementById('raci-expand-slack-feed-'+taskId);
+  if(!channelId){ if(feedEl){ feedEl.style.display='none'; feedEl.innerHTML=''; } return; }
+  _raciExpandLoadSlackFeed(taskId,channelId);
+}
+function _raciExpandLoadSlackFeed(taskId,channelId){
+  const feedEl=document.getElementById('raci-expand-slack-feed-'+taskId);
+  if(!feedEl||!CONFIG.sheetsUrl) return;
+  feedEl.style.display='block';
+  feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Loading…</div>';
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=5')
+    .then(r=>r.json())
+    .then(data=>{
+      const el=document.getElementById('raci-expand-slack-feed-'+taskId);
+      if(!el) return;
+      const msgs=data.messages||[];
+      if(!msgs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border)">No messages</div>'; return; }
+      el.innerHTML=msgs.map((m,i)=>`<div style="padding:4px 0;${i>0?'border-top:1px solid var(--surface)':''}"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);font-weight:600">${m.user||'bot'} </span><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)">${typeof _slackFmt==='function'?_slackFmt(m.ts):m.ts}</span><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(m.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+    })
+    .catch(()=>{ const el=document.getElementById('raci-expand-slack-feed-'+taskId); if(el){ el.style.display='none'; } });
+}
+function raciAiFind(taskId){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t||!CONFIG.sheetsUrl) return;
+  const btn=event.target;
+  if(btn){ btn.textContent='Analyzing…'; btn.disabled=true; }
+  const linked=_getTaskSlackLink(taskId);
+  const prompt=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nLinked Slack channel: ${linked.channelName||'none'}\nNotes: ${t.flag||'none'}\n\nSummarize any relevant Slack discussion for this task. Identify decisions, blockers, and action items.`;
+  const system='You are analyzing Slack activity for the DGL easyChef Pro team. Summarize relevant discussion for the given task. Be specific and concise.';
+  fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
+    .then(r=>r.json())
+    .then(data=>{
+      if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; }
+      const el=document.getElementById('raci-expand-ai-'+taskId);
+      if(!el) return;
+      const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+    })
+    .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } });
+}
+function addTaskComment(taskId){
+  const inp=document.getElementById('raci-expand-comment-input-'+taskId);
+  const text=(inp?inp.value:'').trim();
+  if(!text) return;
+  const user=window._DGL_USER||'anonymous';
+  const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
+  const name=info.name||user;
+  const comments=_getTaskComments(taskId);
+  comments.push({user,name,ts:new Date().toISOString(),text});
+  _saveTaskComments(taskId,comments);
+  if(inp) inp.value='';
+  const canAdmin=['taylor','steve','hammad','adam'].includes(user);
+  const el=document.getElementById('raci-expand-comments-'+taskId);
+  if(el) el.innerHTML=_buildTaskCommentsHtml(taskId,comments,canAdmin);
+  const linked=_getTaskSlackLink(taskId);
+  if(linked.channelId&&CONFIG.sheetsUrl){
+    const msg=`[${taskId}] [${name}]: ${text}`;
+    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(user)).catch(()=>{});
+  }
+}
+function deleteTaskComment(taskId,idx){
+  const comments=_getTaskComments(taskId);
+  comments.splice(idx,1);
+  _saveTaskComments(taskId,comments);
+  const el=document.getElementById('raci-expand-comments-'+taskId);
+  if(el) el.innerHTML=_buildTaskCommentsHtml(taskId,comments,['taylor','steve','hammad','adam'].includes(window._DGL_USER||''));
+}
+
 function buildRaciTable(){
   const tbody = document.getElementById('raci-body');
   tbody.innerHTML = '';
@@ -1372,7 +1565,7 @@ function buildRaciTable(){
     tr.dataset.pri = t.pri;
     tr.dataset.flag = t.flag;
     tr.innerHTML = `
-      <td style="padding:4px 2px;text-align:center;width:28px"><span style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span></td>
+      <td style="padding:4px 2px;text-align:center;width:28px"><span class="raci-no-expand" style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span></td>
       <td class="tid">${t.id}</td>
       <td class="task-name">${t.name}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
       <td>${catSelect(t)}</td>
@@ -1383,6 +1576,8 @@ function buildRaciTable(){
       ${taskProgress(t)}
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()">${t.flag||''}</div></td>
     `;
+    tr.style.cursor='pointer';
+    tr.addEventListener('click',e=>{ if(e.target.closest('.raci-no-expand,select,input,button,a,[contenteditable="true"]')) return; toggleTaskExpand(t.id,tr); });
     if(getBlockingDeps(t).length>0){ tr.classList.add('blocked-row'); tr.dataset.blocked='true'; }
     tbody.appendChild(tr);
   });
@@ -1394,6 +1589,7 @@ function buildRaciTable(){
 function applyRaciFilters(){
   let visibleCount=0;
   document.querySelectorAll('#raci-body tr:not(#raci-no-results)').forEach(tr=>{
+    if(tr.classList.contains('raci-expand-row')) return;
     let show=true;
     if(raciPersonFilter!=='all'){
       const val=tr.dataset[raciPersonFilter.toLowerCase()]||'';
