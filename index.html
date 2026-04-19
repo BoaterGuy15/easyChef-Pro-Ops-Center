@@ -1650,11 +1650,10 @@ function raciAiPostToSlack(taskId,btn){
     .then(()=>{ _raciConfirmBtn(btn,'📤 Post to Slack'); })
     .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
 }
-function _addAgendaItem(text,btn,origLabel){
-  let custom=[];
-  try{custom=JSON.parse(localStorage.getItem('dgl_agenda_custom')||'[]');}catch(e){}
-  custom.push({title:text,detail:'',decision:''});
-  localStorage.setItem('dgl_agenda_custom',JSON.stringify(custom));
+function _addAgendaItem(text,btn,origLabel,category){
+  const item={id:_genAgendaId(),title:text,detail:'',decision:'',checked:false,owner:'',deadline:'',category:category||'Manual'};
+  AGENDA_DATA.push(item);
+  saveAgendaItemToSheets(item);
   if(typeof buildAgendaPage==='function') buildAgendaPage();
   if(typeof buildAgenda==='function') buildAgenda();
   if(btn){ btn.textContent='✓ Added to Agenda'; btn.disabled=true; btn.style.color='var(--green)'; setTimeout(()=>{ btn.textContent=origLabel; btn.style.color=''; btn.disabled=false; },1500); }
@@ -1663,7 +1662,7 @@ function raciAiAddToAgenda(taskId,btn){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
   const summary=_raciAiSummaries[taskId]||'';
   const detail=summary?summary.slice(0,100):(t.status+' · Owner: '+(t.owner||'—'));
-  _addAgendaItem('DISCUSS: '+t.id+' '+t.name+' — '+detail,btn,'📅 Add to Agenda');
+  _addAgendaItem('DISCUSS: '+t.id+' '+t.name+' — '+detail,btn,'📅 Add to Agenda','RACI');
 }
 function addTaskComment(taskId){
   const inp=document.getElementById('raci-expand-comment-input-'+taskId);
@@ -2314,47 +2313,83 @@ function buildCommandKPIs(){
 }
 
 // ── Monday Agenda ───────────────────────────────────────────
-const _AGENDA_ITEMS=[
-  {n:'01',title:'Set Advertising Ceiling — Give Adam a Number',detail:'Adam cannot build responsible campaigns without a budget ceiling. Based on the $15K Payoneer scenario, max possible ad budget is auto-calculated in the Budget tab. Taylor sets the ceiling. Adam builds to it.',decision:'Decision: Taylor · Output: committed dollar ceiling in writing'},
-  {n:'02',title:'Name "Adam +" on 4 Remaining Tasks',detail:'T-013 (Video), T-018 (SEM — Taylor YES), T-019 (App Store Ads), T-021 (Retargeting — Taylor YES). Likely 1–2 people cover all four. Taylor has confirmed readiness on T-018 and T-021 — now just needs the operator named.',decision:'Decision: Adam + Taylor · Output: named person(s) in RACI before Monday EOD'},
-  {n:'03',title:'Assign T-038 + Resolve T-032',detail:'T-038 (Influencer Partnership) → assign JR. T-032 (Feature Launch Announcement) → noted "Strategy: Adam, JR, Mary" — single R must be Adam. Five-minute decisions.',decision:'Decision: Taylor + JR · Output: both tasks assigned before Monday EOD'},
-  {n:'04',title:'Define 3 PMF Kill Criteria KPIs for June 8',detail:'First Strike rate threshold, 14-day retention %, Sean Ellis "very disappointed" score (benchmark: 40%). Written. Agreed. Non-negotiable. If not hit by Jun 8 → delay 4 weeks.',decision:'Decision: All hands · Output: 3 KPIs with thresholds written before EOD'},
-  {n:'05',title:'T-027 Onboarding — Single R + May 11 Confirmed',detail:'Hammad = R (builds). Adam = R (strategy). Taylor = A. Steve = I. The <3 minute Aha moment must be confirmed achievable by May 11. If Hammad cannot commit — beta launch date moves.',decision:'Decision: Hammad + Adam · Output: May 11 confirmed or rescheduled'},
-  {n:'06',title:'Hammad: Confirm Payoneer Scenario — $15K or $10K?',detail:'$15K frees ~$94K for advertising. $10K frees ~$107K. This decision shapes every campaign. Hammad confirms which floor he can sustain for 75 days without affecting operations.',decision:'Decision: Hammad + Taylor · Output: confirmed scenario locked'},
-  {n:'07',title:'Searah W1 Check — Logins + Designer Intro Confirmed',detail:'Searah starts Monday AM. Taylor hands her all platform logins and makes the designer intro by EOD. Her W1 deliverable: platform access + first designer conversation by Friday Apr 25.',decision:'Action: Taylor · Output: confirmed before EOD Monday'},
-  {n:'08',title:'Sadee: Campaign Email Names + Zendesk This Week',detail:'Sadee needs campaign email names to create the Alpha/Beta addresses. Zendesk + support@easyChefPro.com must be live before May 11.',decision:'Action: Taylor / Sadee · Deadline: May 10'},
+let AGENDA_DATA=[
+  {id:'ag-01',title:'Set Advertising Ceiling — Give Adam a Number',detail:'Adam cannot build responsible campaigns without a budget ceiling. Based on the $15K Payoneer scenario, max possible ad budget is auto-calculated in the Budget tab. Taylor sets the ceiling. Adam builds to it.',decision:'Decision: Taylor · Output: committed dollar ceiling in writing',checked:false,owner:'Taylor',deadline:'',category:'Manual'},
+  {id:'ag-02',title:'Name "Adam +" on 4 Remaining Tasks',detail:'T-013 (Video), T-018 (SEM — Taylor YES), T-019 (App Store Ads), T-021 (Retargeting — Taylor YES). Likely 1–2 people cover all four. Taylor has confirmed readiness on T-018 and T-021 — now just needs the operator named.',decision:'Decision: Adam + Taylor · Output: named person(s) in RACI before Monday EOD',checked:false,owner:'Adam',deadline:'',category:'Manual'},
+  {id:'ag-03',title:'Assign T-038 + Resolve T-032',detail:'T-038 (Influencer Partnership) → assign JR. T-032 (Feature Launch Announcement) → noted "Strategy: Adam, JR, Mary" — single R must be Adam. Five-minute decisions.',decision:'Decision: Taylor + JR · Output: both tasks assigned before Monday EOD',checked:false,owner:'Taylor',deadline:'',category:'Manual'},
+  {id:'ag-04',title:'Define 3 PMF Kill Criteria KPIs for June 8',detail:'First Strike rate threshold, 14-day retention %, Sean Ellis "very disappointed" score (benchmark: 40%). Written. Agreed. Non-negotiable. If not hit by Jun 8 → delay 4 weeks.',decision:'Decision: All hands · Output: 3 KPIs with thresholds written before EOD',checked:false,owner:'All',deadline:'2026-06-08',category:'Manual'},
+  {id:'ag-05',title:'T-027 Onboarding — Single R + May 11 Confirmed',detail:'Hammad = R (builds). Adam = R (strategy). Taylor = A. Steve = I. The <3 minute Aha moment must be confirmed achievable by May 11. If Hammad cannot commit — beta launch date moves.',decision:'Decision: Hammad + Adam · Output: May 11 confirmed or rescheduled',checked:false,owner:'Hammad',deadline:'2026-05-11',category:'Manual'},
+  {id:'ag-06',title:'Hammad: Confirm Payoneer Scenario — $15K or $10K?',detail:'$15K frees ~$94K for advertising. $10K frees ~$107K. This decision shapes every campaign. Hammad confirms which floor he can sustain for 75 days without affecting operations.',decision:'Decision: Hammad + Taylor · Output: confirmed scenario locked',checked:false,owner:'Hammad',deadline:'',category:'Manual'},
+  {id:'ag-07',title:'Searah W1 Check — Logins + Designer Intro Confirmed',detail:'Searah starts Monday AM. Taylor hands her all platform logins and makes the designer intro by EOD. Her W1 deliverable: platform access + first designer conversation by Friday Apr 25.',decision:'Action: Taylor · Output: confirmed before EOD Monday',checked:false,owner:'Taylor',deadline:'2026-04-25',category:'Manual'},
+  {id:'ag-08',title:'Sadee: Campaign Email Names + Zendesk This Week',detail:'Sadee needs campaign email names to create the Alpha/Beta addresses. Zendesk + support@easyChefPro.com must be live before May 11.',decision:'Action: Taylor / Sadee · Deadline: May 10',checked:false,owner:'Taylor',deadline:'2026-05-10',category:'Manual'},
 ];
+function _genAgendaId(){ return 'ag-'+Date.now()+'-'+Math.random().toString(36).slice(2,6); }
+function loadAgendaFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=agenda_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.items||[]);
+      if(rows.length){ AGENDA_DATA=rows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:r.deadline||'',category:r.category||'Manual'})); }
+      buildAgendaPage(); buildAgenda();
+    })
+    .catch(()=>{});
+}
+function saveAgendaItemToSheets(item){
+  if(!CONFIG.sheetsUrl||!item) return;
+  fetch(CONFIG.sheetsUrl+'?action=agenda_write&id='+encodeURIComponent(item.id||'')+'&title='+encodeURIComponent(item.title||'')+'&detail='+encodeURIComponent(item.detail||'')+'&decision='+encodeURIComponent(item.decision||'')+'&checked='+encodeURIComponent(String(!!item.checked))+'&owner='+encodeURIComponent(item.owner||'')+'&deadline='+encodeURIComponent(item.deadline||'')+'&category='+encodeURIComponent(item.category||'Manual')).catch(()=>{});
+}
+function deleteAgendaItemFromSheets(id){
+  if(!CONFIG.sheetsUrl||!id) return;
+  fetch(CONFIG.sheetsUrl+'?action=agenda_delete&id='+encodeURIComponent(id)).catch(()=>{});
+}
+function updateAgendaField(id,field,value){
+  const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
+  item[field]=value; saveAgendaItemToSheets(item);
+}
+function deleteAgendaItem(id){
+  if(!canEditAgenda()) return;
+  if(!confirm('Remove this agenda item?')) return;
+  AGENDA_DATA=AGENDA_DATA.filter(x=>x.id!==id);
+  deleteAgendaItemFromSheets(id);
+  buildAgendaPage(); buildAgenda();
+}
 function buildMondayAgenda(){
   const el=document.getElementById('agenda-monday-list');
   if(!el) return;
   const canEdit=canEditAgenda();
-  let checks={};
-  try{checks=JSON.parse(localStorage.getItem('dgl_agenda_checks')||'{}');}catch(e){}
-  let custom=[];
-  try{custom=JSON.parse(localStorage.getItem('dgl_agenda_custom')||'[]');}catch(e){}
-  const allItems=[..._AGENDA_ITEMS,...custom.map((c,i)=>({n:String(9+i).padStart(2,'0'),...c}))];
-  const resolved=allItems.filter((_,i)=>!!checks[i]).length;
+  const resolved=AGENDA_DATA.filter(x=>x.checked).length;
+  const catColor=c=>c==='RACI'?'var(--gold)':c==='Slack'?'#60a5fa':'var(--muted)';
   el.innerHTML=`<div class="card" style="margin-bottom:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700">Monday Meeting · April 21, 2026</div>
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:1px">11AM ET / 8AM PT</div>
       </div>
-      <span style="font-family:'DM Mono',monospace;font-size:10px;color:${resolved===allItems.length?'var(--green)':'var(--muted)'}">${resolved}/${allItems.length} resolved</span>
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:${resolved===AGENDA_DATA.length&&AGENDA_DATA.length>0?'var(--green)':'var(--muted)'}">${resolved}/${AGENDA_DATA.length} resolved</span>
     </div>
     <div style="height:1px;background:var(--border);margin:14px 0 4px"></div>
-    ${allItems.map((it,i)=>{
-      const done=!!checks[i];
+    ${AGENDA_DATA.map((it,i)=>{
+      const done=!!it.checked;
       const chk=canEdit
-        ?`<div onclick="toggleAgendaItem(${i})" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
+        ?`<div onclick="toggleAgendaItem('${it.id}')" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
         :`<div style="width:18px;height:18px;flex-shrink:0"></div>`;
+      const catBadge=it.category&&it.category!=='Manual'?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:${catColor(it.category)};border:1px solid ${catColor(it.category)};border-radius:3px;padding:1px 4px;margin-left:6px;vertical-align:middle">${it.category}</span>`:'';
+      const meta=[];
+      if(it.owner) meta.push(`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Owner: ${it.owner}</span>`);
+      if(it.deadline) meta.push(`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">⏱ ${it.deadline}</span>`);
+      const delBtn=canEdit?`<button onclick="deleteAgendaItem('${it.id}')" style="background:none;border:none;color:var(--border);font-size:11px;cursor:pointer;padding:0 2px;line-height:1;margin-left:4px" title="Remove" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'">✕</button>`:'';
       return `<div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid rgba(37,42,53,0.4);opacity:${done?'0.42':'1'};transition:opacity 0.2s">
         ${chk}
-        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:26px;line-height:1.1">${it.n}</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:26px;line-height:1.1">${String(i+1).padStart(2,'0')}</div>
         <div style="flex:1">
-          <div style="font-size:14px;font-weight:500;margin-bottom:5px;color:${done?'var(--muted)':'var(--text)'};text-decoration:${done?'line-through':'none'}">${it.title}</div>
-          <div style="font-size:12px;color:#9ca3af;line-height:1.7;margin-bottom:6px">${it.detail}</div>
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'}">${it.decision}</div>
+          <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:5px">
+            <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','title',this.innerText.trim())" style="font-size:14px;font-weight:500;color:${done?'var(--muted)':'var(--text)'};text-decoration:${done?'line-through':'none'};outline:none">${it.title}</div>
+            ${catBadge}${delBtn}
+          </div>
+          ${it.detail?`<div style="font-size:12px;color:#9ca3af;line-height:1.7;margin-bottom:6px">${it.detail}</div>`:''}
+          ${it.decision?`<div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','decision',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'};outline:none">${it.decision}</div>`:''}
+          ${meta.length?`<div style="display:flex;gap:10px;margin-top:4px">${meta.join('')}</div>`:''}
         </div>
       </div>`;
     }).join('')}
@@ -2363,7 +2398,11 @@ function buildMondayAgenda(){
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;margin-bottom:12px">ADD AGENDA ITEM</div>
       <div style="margin-bottom:9px"><input id="agenda-add-title" placeholder="Title" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
       <div style="margin-bottom:9px"><input id="agenda-add-detail" placeholder="Description" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
-      <div style="margin-bottom:12px"><input id="agenda-add-decision" placeholder="Decision / Action required + Owner" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
+      <div style="margin-bottom:9px"><input id="agenda-add-decision" placeholder="Decision / Action required" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <input id="agenda-add-owner" placeholder="Owner" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+        <input id="agenda-add-deadline" type="date" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+      </div>
       <div style="display:flex;gap:8px">
         <button onclick="saveAgendaItem()" class="btn-primary" style="font-size:11px;padding:7px 16px">Save Item</button>
         <button onclick="document.getElementById('agenda-add-form').style.display='none'" class="btn-secondary" style="font-size:11px;padding:7px 16px">Cancel</button>
@@ -2374,12 +2413,11 @@ function buildMondayAgenda(){
     </div>`:''}
   </div>`;
 }
-function toggleAgendaItem(i){
+function toggleAgendaItem(id){
   if(!canEditAgenda()) return;
-  let checks={};
-  try{checks=JSON.parse(localStorage.getItem('dgl_agenda_checks')||'{}');}catch(e){}
-  checks[i]=!checks[i];
-  localStorage.setItem('dgl_agenda_checks',JSON.stringify(checks));
+  const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
+  item.checked=!item.checked;
+  saveAgendaItemToSheets(item);
   buildMondayAgenda();
 }
 function saveAgendaItem(){
@@ -2387,11 +2425,12 @@ function saveAgendaItem(){
   const title=(document.getElementById('agenda-add-title')?.value||'').trim();
   const detail=(document.getElementById('agenda-add-detail')?.value||'').trim();
   const decision=(document.getElementById('agenda-add-decision')?.value||'').trim();
+  const owner=(document.getElementById('agenda-add-owner')?.value||'').trim();
+  const deadline=(document.getElementById('agenda-add-deadline')?.value||'').trim();
   if(!title) return;
-  let custom=[];
-  try{custom=JSON.parse(localStorage.getItem('dgl_agenda_custom')||'[]');}catch(e){}
-  custom.push({title,detail,decision});
-  localStorage.setItem('dgl_agenda_custom',JSON.stringify(custom));
+  const item={id:_genAgendaId(),title,detail,decision,checked:false,owner,deadline,category:'Manual'};
+  AGENDA_DATA.push(item);
+  saveAgendaItemToSheets(item);
   buildMondayAgenda();
 }
 
@@ -3169,23 +3208,14 @@ function buildTeamGrid(){
 function buildAgenda(){
   const el = document.getElementById('agenda-list');
   if(!el) return;
-  const items = [
-    {n:'01',title:'Set Advertising Ceiling — Give Adam a Number',detail:'Adam cannot build responsible campaigns without a budget ceiling. Based on the $15K Payoneer scenario, max possible ad budget is auto-calculated in the Budget tab. Taylor sets the ceiling. Adam builds to it.',decision:'Decision: Taylor · Output: committed dollar ceiling in writing'},
-    {n:'02',title:'Name "Adam +" on 4 Remaining Tasks',detail:'T-013 (Video), T-018 (SEM — Taylor YES), T-019 (App Store Ads), T-021 (Retargeting — Taylor YES). Likely 1–2 people cover all four. Taylor has confirmed readiness on T-018 and T-021 — now just needs the operator named.',decision:'Decision: Adam + Taylor · Output: named person(s) in RACI before Monday EOD'},
-    {n:'03',title:'Assign T-038 + Resolve T-032',detail:'T-038 (Influencer Partnership) → assign JR. T-032 (Feature Launch Announcement) → noted "Strategy: Adam, JR, Mary" — single R must be Adam. Five-minute decisions.',decision:'Decision: Taylor + JR · Output: both tasks assigned before Monday EOD'},
-    {n:'04',title:'Define 3 PMF Kill Criteria KPIs for June 8',detail:'First Strike rate threshold, 14-day retention %, Sean Ellis "very disappointed" score (benchmark: 40%). Written. Agreed. Non-negotiable. If not hit by Jun 8 → delay 4 weeks.',decision:'Decision: All hands · Output: 3 KPIs with thresholds written before EOD'},
-    {n:'05',title:'T-027 Onboarding — Single R + May 11 Confirmed',detail:'Hammad = R (builds). Adam = R (strategy). Taylor = A. Steve = I. The <3 minute Aha moment must be confirmed achievable by May 11. If Hammad cannot commit — beta launch date moves.',decision:'Decision: Hammad + Adam · Output: May 11 confirmed or rescheduled'},
-    {n:'06',title:'Hammad: Confirm Payoneer Scenario — $15K or $10K?',detail:'$15K frees ~$94K for advertising. $10K frees ~$107K. This decision shapes every campaign. Hammad confirms which floor he can sustain for 75 days without affecting operations.',decision:'Decision: Hammad + Taylor · Output: confirmed scenario locked'},
-    {n:'07',title:'Searah W1 Check — Logins + Designer Intro Confirmed',detail:'Searah starts Monday AM. Taylor hands her all platform logins and makes the designer intro by EOD. Her W1 deliverable: platform access + first designer conversation by Friday Apr 25.',decision:'Action: Taylor · Output: confirmed before EOD Monday'},
-    {n:'08',title:'Sadee: Campaign Email Names + Zendesk This Week',detail:'Sadee needs campaign email names to create the Alpha/Beta addresses. Zendesk + support@easyChefPro.com must be live before May 11.',decision:'Action: Taylor / Sadee · Deadline: May 10'},
-  ];
-  el.innerHTML = items.map(it=>`
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:10px;display:flex;gap:16px">
-      <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:28px;line-height:1">${it.n}</div>
+  if(!AGENDA_DATA.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:12px">No agenda items.</div>'; return; }
+  el.innerHTML = AGENDA_DATA.map((it,i)=>`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:10px;display:flex;gap:16px;opacity:${it.checked?'0.45':'1'}">
+      <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold-dim);flex-shrink:0;width:28px;line-height:1">${String(i+1).padStart(2,'0')}</div>
       <div style="flex:1">
-        <div style="font-size:14px;font-weight:500;margin-bottom:5px">${it.title}</div>
-        <div style="font-size:12px;color:#9ca3af;line-height:1.7;margin-bottom:6px">${it.detail}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold)">${it.decision}</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:5px;text-decoration:${it.checked?'line-through':'none'}">${it.title}</div>
+        ${it.detail?`<div style="font-size:12px;color:#9ca3af;line-height:1.7;margin-bottom:6px">${it.detail}</div>`:''}
+        ${it.decision?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold)">${it.decision}</div>`:''}
       </div>
     </div>`).join('');
 }
@@ -5807,7 +5837,7 @@ function slackAddThreadToAgenda(btn){
   const aiSlot=btn.parentElement;
   const chName=aiSlot?.dataset.channel||'Slack thread';
   const summary=aiSlot?.dataset.summary||'';
-  _addAgendaItem('DISCUSS: '+chName+' thread — '+summary,btn,'📅 Add to Agenda');
+  _addAgendaItem('DISCUSS: '+chName+' thread — '+summary,btn,'📅 Add to Agenda','Slack');
 }
 
 function slackSend(){
@@ -5839,6 +5869,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadBudgetFromLocal();
   loadFromSheets();
   loadBudgetFromSheets();
+  loadAgendaFromSheets();
   _initCustomTeamExtensions();
   buildCommandKPIs();
   buildGapList();
