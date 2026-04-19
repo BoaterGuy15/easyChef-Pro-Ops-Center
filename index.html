@@ -1472,7 +1472,8 @@ function _raciExpandLoadSlackFeed(taskId,channelId){
   if(!feedEl||!CONFIG.sheetsUrl) return;
   feedEl.style.display='block';
   feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Loading…</div>';
-  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=5')
+  const _oldest30=Math.floor((Date.now()-30*24*60*60*1000)/1000);
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=50&oldest='+_oldest30)
     .then(r=>r.json())
     .then(data=>{
       const el=document.getElementById('raci-expand-slack-feed-'+taskId);
@@ -1533,7 +1534,7 @@ function addTaskComment(taskId){
   if(el) el.innerHTML=_buildTaskCommentsHtml(taskId,comments,canAdmin);
   const linked=_getTaskSlackLink(taskId);
   if(linked.channelId&&CONFIG.sheetsUrl){
-    const msg=`[${taskId}] [${name}]: ${text}`;
+    const msg=text;
     fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(user)).catch(()=>{});
   }
 }
