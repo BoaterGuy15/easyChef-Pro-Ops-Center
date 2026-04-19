@@ -960,11 +960,12 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 </div>
 
 <div class="modal-overlay" id="agenda-edit-modal-overlay" onclick="if(event.target===this)closeAgendaEditModal()">
-  <div class="modal" style="max-width:500px;width:90%">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">EDIT AGENDA ITEM</span>
+  <div class="modal" id="agenda-edit-modal-inner" style="padding:0;max-width:500px;width:90%">
+    <div id="aem-drag-handle" style="cursor:move;user-select:none;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px 12px;border-bottom:1px solid var(--border);border-radius:14px 14px 0 0;background:var(--card)">
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">EDIT AGENDA ITEM ✦ drag to move</span>
       <button onclick="closeAgendaEditModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
+    <div id="aem-body" style="flex:1;overflow-y:auto;padding:16px 20px 20px">
     <div class="modal-field" style="margin-bottom:12px">
       <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">TITLE</label>
       <input type="text" id="aem-title" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
@@ -1013,6 +1014,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         <button onclick="closeAgendaEditModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:7px 14px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)">Cancel</button>
       </div>
     </div>
+    </div><!-- /aem-body -->
   </div>
 </div>
 
@@ -2804,6 +2806,9 @@ function openAgendaEditModal(id){
   btn.style.background=_agChecked?'rgba(52,211,153,0.08)':'transparent';
   _renderAgOwnerChips();
   document.getElementById('agenda-edit-modal-overlay').classList.add('open');
+  const _aem=document.getElementById('agenda-edit-modal-inner');
+  Object.assign(_aem.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',display:'flex',flexDirection:'column',boxSizing:'border-box'});
+  _makeDraggableModal(_aem, document.getElementById('aem-drag-handle'));
 }
 function closeAgendaEditModal(){
   document.getElementById('agenda-edit-modal-overlay').classList.remove('open');
@@ -5733,19 +5738,22 @@ function tmRemoveOwner(name){
   _tmOwners=_tmOwners.filter(o=>o!==name);
   _renderTmOwnerChips();
 }
-// ── Draggable modal ─────────────────────────────────────────
-let _dragEl=null,_dragOx=0,_dragOy=0;
-document.addEventListener('mousemove',function(e){ if(!_dragEl) return; _dragEl.style.left=(e.clientX-_dragOx)+'px'; _dragEl.style.top=(e.clientY-_dragOy)+'px'; });
-document.addEventListener('mouseup',function(){ _dragEl=null; });
-function _makeDraggable(el,handle){
-  handle.addEventListener('mousedown',function(e){
-    if(e.target.closest('button,input,select,textarea,span[onclick]')) return;
-    const r=el.getBoundingClientRect();
-    el.style.transform='none';
-    el.style.left=r.left+'px';
-    el.style.top=r.top+'px';
-    _dragEl=el; _dragOx=e.clientX-r.left; _dragOy=e.clientY-r.top;
+// ── Draggable modal (pointer capture) ───────────────────────
+function _makeDraggableModal(modal, handle){
+  handle.addEventListener('pointerdown', e => {
+    if(e.target.closest('button,input,select,textarea,a')) return;
     e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    const rect = modal.getBoundingClientRect();
+    modal.style.transform = 'none';
+    modal.style.left = rect.left + 'px';
+    modal.style.top = rect.top + 'px';
+    const ox = e.clientX - rect.left;
+    const oy = e.clientY - rect.top;
+    const onMove = e => { modal.style.left=(e.clientX-ox)+'px'; modal.style.top=(e.clientY-oy)+'px'; };
+    const onUp = () => { handle.removeEventListener('pointermove',onMove); handle.removeEventListener('pointerup',onUp); };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
   });
 }
 
@@ -5820,9 +5828,9 @@ function showTaskModal(taskId){
     </div>`;
   _renderTmOwnerChips();
   const _mc=document.getElementById('modal-content');
-  Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',minWidth:'400px',minHeight:'300px',maxHeight:'85vh',display:'flex',flexDirection:'column',overflow:'hidden'});
+  Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',width:'min(680px,90vw)',display:'flex',flexDirection:'column',boxSizing:'border-box'});
   document.getElementById('modal-overlay').classList.add('open');
-  _makeDraggable(_mc, document.getElementById('tm-drag-handle'));
+  _makeDraggableModal(_mc, document.getElementById('tm-drag-handle'));
 }
 function saveTaskModal(taskId){
   const isNew = !taskId;
