@@ -2807,10 +2807,11 @@ function openAgendaEditModal(id){
   _renderAgOwnerChips();
   document.getElementById('agenda-edit-modal-overlay').classList.add('open');
   const _aem=document.getElementById('agenda-edit-modal-inner');
-  Object.assign(_aem.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',display:'flex',flexDirection:'column',boxSizing:'border-box'});
-  _aem.onmousedown = e => { e.stopPropagation(); const r=_aem.getBoundingClientRect(); if(e.clientX>r.right-20&&e.clientY>r.bottom-20) _modalResizing=true; };
+  Object.assign(_aem.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',display:'flex',flexDirection:'column',boxSizing:'border-box'});
+  _aem.onmousedown = e => e.stopPropagation();
   _aem.onclick = e => e.stopPropagation();
   _makeDraggableModal(_aem, document.getElementById('aem-drag-handle'));
+  _addResizeHandles(_aem);
 }
 function closeAgendaEditModal(){
   document.getElementById('agenda-edit-modal-overlay').classList.remove('open');
@@ -5739,9 +5740,8 @@ function tmRemoveOwner(name){
   _tmOwners=_tmOwners.filter(o=>o!==name);
   _renderTmOwnerChips();
 }
-// ── Draggable modal (pointer capture) ───────────────────────
+// ── Draggable + custom resize handles ───────────────────────
 let _modalResizing = false;
-document.addEventListener('mouseup', () => { _modalResizing = false; });
 
 function _makeDraggableModal(modal, handle){
   handle.addEventListener('pointerdown', e => {
@@ -5758,6 +5758,55 @@ function _makeDraggableModal(modal, handle){
     const onUp = () => { handle.removeEventListener('pointermove',onMove); handle.removeEventListener('pointerup',onUp); };
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onUp);
+  });
+}
+
+function _addResizeHandles(modal){
+  // remove any previously added handles
+  modal.querySelectorAll('._rh').forEach(h=>h.remove());
+  const MIN_W=380, MIN_H=300;
+  const handles=[
+    {id:'n', style:'top:-4px;left:8px;right:8px;height:8px;cursor:n-resize'},
+    {id:'s', style:'bottom:-4px;left:8px;right:8px;height:8px;cursor:s-resize'},
+    {id:'e', style:'right:-4px;top:8px;bottom:8px;width:8px;cursor:e-resize'},
+    {id:'w', style:'left:-4px;top:8px;bottom:8px;width:8px;cursor:w-resize'},
+    {id:'nw',style:'top:-6px;left:-6px;width:12px;height:12px;cursor:nw-resize'},
+    {id:'ne',style:'top:-6px;right:-6px;width:12px;height:12px;cursor:ne-resize'},
+    {id:'sw',style:'bottom:-6px;left:-6px;width:12px;height:12px;cursor:sw-resize'},
+    {id:'se',style:'bottom:-6px;right:-6px;width:12px;height:12px;cursor:se-resize'},
+  ];
+  handles.forEach(({id,style})=>{
+    const h=document.createElement('div');
+    h.className='_rh';
+    h.setAttribute('style','position:absolute;z-index:10;'+style);
+    h.addEventListener('pointerdown', e=>{
+      e.preventDefault(); e.stopPropagation();
+      _modalResizing=true;
+      h.setPointerCapture(e.pointerId);
+      const r=modal.getBoundingClientRect();
+      const sx=e.clientX, sy=e.clientY;
+      const sL=r.left, sT=r.top, sW=r.width, sH=r.height;
+      modal.style.transform='none';
+      modal.style.left=sL+'px'; modal.style.top=sT+'px';
+      const onMove=e=>{
+        const dx=e.clientX-sx, dy=e.clientY-sy;
+        let nL=sL,nT=sT,nW=sW,nH=sH;
+        if(id.includes('e')) nW=Math.max(MIN_W,sW+dx);
+        if(id.includes('s')) nH=Math.max(MIN_H,sH+dy);
+        if(id.includes('w')){ nW=Math.max(MIN_W,sW-dx); nL=sL+sW-nW; }
+        if(id.includes('n')){ nH=Math.max(MIN_H,sH-dy); nT=sT+sH-nH; }
+        modal.style.width=nW+'px'; modal.style.height=nH+'px';
+        modal.style.left=nL+'px'; modal.style.top=nT+'px';
+      };
+      const onUp=()=>{
+        _modalResizing=false;
+        h.removeEventListener('pointermove',onMove);
+        h.removeEventListener('pointerup',onUp);
+      };
+      h.addEventListener('pointermove',onMove);
+      h.addEventListener('pointerup',onUp);
+    });
+    modal.appendChild(h);
   });
 }
 
@@ -5832,11 +5881,12 @@ function showTaskModal(taskId){
     </div>`;
   _renderTmOwnerChips();
   const _mc=document.getElementById('modal-content');
-  Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',resize:'both',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',width:'min(680px,90vw)',display:'flex',flexDirection:'column',boxSizing:'border-box'});
-  _mc.onmousedown = e => { e.stopPropagation(); const r=_mc.getBoundingClientRect(); if(e.clientX>r.right-20&&e.clientY>r.bottom-20) _modalResizing=true; };
+  Object.assign(_mc.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',zIndex:'201',padding:'0',overflow:'auto',minWidth:'380px',minHeight:'400px',maxWidth:'95vw',maxHeight:'92vh',width:'min(680px,90vw)',display:'flex',flexDirection:'column',boxSizing:'border-box'});
+  _mc.onmousedown = e => e.stopPropagation();
   _mc.onclick = e => e.stopPropagation();
   document.getElementById('modal-overlay').classList.add('open');
   _makeDraggableModal(_mc, document.getElementById('tm-drag-handle'));
+  _addResizeHandles(_mc);
 }
 function saveTaskModal(taskId){
   const isNew = !taskId;
