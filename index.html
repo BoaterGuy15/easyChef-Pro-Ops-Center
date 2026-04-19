@@ -958,6 +958,58 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
+<div class="modal-overlay" id="agenda-edit-modal-overlay" onclick="if(event.target===this)closeAgendaEditModal()">
+  <div class="modal" style="max-width:500px;width:90%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">EDIT AGENDA ITEM</span>
+      <button onclick="closeAgendaEditModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div class="modal-field" style="margin-bottom:12px">
+      <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">TITLE</label>
+      <input type="text" id="ag-title" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+    </div>
+    <div class="modal-field" style="margin-bottom:12px">
+      <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">DETAIL</label>
+      <textarea id="ag-detail" rows="3" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box;resize:vertical"></textarea>
+    </div>
+    <div class="modal-field" style="margin-bottom:12px">
+      <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">DECISION / ACTION</label>
+      <input type="text" id="ag-decision" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+    </div>
+    <div class="modal-field" style="margin-bottom:12px">
+      <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">OWNER(S)</label>
+      <div id="ag-owner-chips" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px">
+      <div>
+        <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">DEADLINE</label>
+        <input type="date" id="ag-deadline" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">CATEGORY</label>
+        <select id="ag-category" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+          <option value="Manual">Manual</option>
+          <option value="RACI">RACI</option>
+          <option value="Slack">Slack</option>
+          <option value="Meeting">Meeting</option>
+          <option value="Action Item">Action Item</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-field" style="margin-bottom:18px">
+      <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:6px">STATUS</label>
+      <button id="ag-checked-toggle" onclick="agToggleChecked()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text)">Mark as Resolved</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--border)">
+      <button onclick="agDeleteFromModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:7px 14px;border-radius:5px;cursor:pointer;border:1px solid var(--red);background:transparent;color:var(--red)" onmouseover="this.style.background='rgba(239,68,68,0.08)'" onmouseout="this.style.background='transparent'">Delete Item</button>
+      <div style="display:flex;gap:10px">
+        <button onclick="saveAgendaEditModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:7px 16px;border-radius:5px;cursor:pointer;border:1px solid var(--gold);background:var(--gold);color:#000;font-weight:700">Save Changes</button>
+        <button onclick="closeAgendaEditModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:7px 14px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="milestone-editor" style="display:none;position:fixed;z-index:502;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:240px">
   <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Edit Milestone</div>
   <div style="margin-bottom:8px">
@@ -2379,6 +2431,7 @@ function _agendaItemHtml(it,i,canEdit){
   const catColor=it.category==='RACI'?'var(--gold)':it.category==='Slack'?'#60a5fa':'var(--muted)';
   const catBadge=it.category&&it.category!=='Manual'?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:${catColor};border:1px solid ${catColor};border-radius:3px;padding:1px 4px;margin-left:4px">${it.category}</span>`:'';
   const delBtn=canEdit?`<button onclick="deleteAgendaItem('${it.id}')" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'" title="Remove">✕</button>`:'';
+  const editBtn=canEdit?`<button onclick="openAgendaEditModal('${it.id}')" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:9px;font-family:'DM Mono',monospace;cursor:pointer;padding:1px 5px;border-radius:3px;line-height:1.4;margin-left:4px" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'" title="Edit">Edit</button>`:'';
   const chk=canEdit
     ?`<div onclick="toggleAgendaItem('${it.id}')" title="${done?'Mark open':'Mark resolved'}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${done?'var(--green)':'var(--border)'};background:${done?'rgba(52,211,153,0.12)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all 0.15s">${done?'<span style="color:var(--green);font-size:11px;line-height:1">✓</span>':''}</div>`
     :`<div style="width:18px;height:18px;flex-shrink:0"></div>`;
@@ -2389,7 +2442,7 @@ function _agendaItemHtml(it,i,canEdit){
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:2px;margin-bottom:4px">
         <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','title',this.innerText.trim())" style="font-size:14px;font-weight:500;color:${done?'var(--muted)':'var(--text)'};text-decoration:${done?'line-through':'none'};outline:none;word-break:break-word">${it.title}</div>
-        ${catBadge}${delBtn}
+        ${catBadge}${editBtn}${delBtn}
       </div>
       <textarea onblur="updateAgendaField('${it.id}','detail',this.value.trim())" onfocus="this.rows=4" rows="${it.detail?'2':'1'}" ${!canEdit?'readonly':''} placeholder="${canEdit?'Add detail…':''}" style="width:100%;background:transparent;border:none;border-bottom:${canEdit?'1px solid var(--border)':'none'};color:#9ca3af;font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.6;resize:none;outline:none;padding:1px 0;box-sizing:border-box;display:block;margin-bottom:${it.detail||canEdit?'4px':'0'}">${(it.detail||'').replace(/</g,'&lt;')}</textarea>
       <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','decision',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'};outline:none${!it.decision&&!canEdit?';display:none':''}">${it.decision||''}</div>
@@ -2408,6 +2461,69 @@ function saveAgendaItemTeam(){
   const item={id:_genAgendaId(),title,detail:(document.getElementById('agenda-add-detail-t')?.value||'').trim(),decision:(document.getElementById('agenda-add-decision-t')?.value||'').trim(),checked:false,owner:(document.getElementById('agenda-add-owner-t')?.value||'').trim(),deadline:(document.getElementById('agenda-add-deadline-t')?.value||'').trim(),category:'Manual'};
   AGENDA_DATA.push(item); saveAgendaItemToSheets(item);
   buildMondayAgenda(); buildAgenda();
+}
+let _agOwners=[], _agEditId=null, _agChecked=false;
+function _renderAgOwnerChips(){
+  const wrap=document.getElementById('ag-owner-chips'); if(!wrap) return;
+  const all=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
+  const chips=_agOwners.map(o=>`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(212,175,55,0.12);border:1px solid var(--gold);border-radius:4px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--gold)">${o}<span onclick="agRemoveOwner('${o}')" style="cursor:pointer;font-size:11px;line-height:1;color:var(--gold)">×</span></span>`).join('');
+  const addOpts=all.map(o=>`<option value="${o}"${_agOwners.includes(o)?' disabled':''}>${o}</option>`).join('');
+  wrap.innerHTML=chips+`<select onchange="agAddOwner(this.value);this.value=''" style="background:transparent;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;outline:none"><option value="">＋ add</option>${addOpts}</select>`;
+}
+function agAddOwner(name){ if(!name||_agOwners.includes(name)) return; _agOwners.push(name); _renderAgOwnerChips(); }
+function agRemoveOwner(name){ _agOwners=_agOwners.filter(o=>o!==name); _renderAgOwnerChips(); }
+function agToggleChecked(){
+  _agChecked=!_agChecked;
+  const btn=document.getElementById('ag-checked-toggle'); if(!btn) return;
+  btn.textContent=_agChecked?'✓ Resolved — click to reopen':'Mark as Resolved';
+  btn.style.borderColor=_agChecked?'var(--green)':'var(--border)';
+  btn.style.color=_agChecked?'var(--green)':'var(--text)';
+  btn.style.background=_agChecked?'rgba(52,211,153,0.08)':'transparent';
+}
+function openAgendaEditModal(id){
+  if(!canEditAgenda()) return;
+  const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
+  _agEditId=id;
+  _agChecked=!!item.checked;
+  _agOwners=(item.owner||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const el=f=>document.getElementById(f);
+  el('ag-title').value=item.title||'';
+  el('ag-detail').value=item.detail||'';
+  el('ag-decision').value=item.decision||'';
+  el('ag-deadline').value=item.deadline||'';
+  el('ag-category').value=item.category||'Manual';
+  const btn=el('ag-checked-toggle');
+  btn.textContent=_agChecked?'✓ Resolved — click to reopen':'Mark as Resolved';
+  btn.style.borderColor=_agChecked?'var(--green)':'var(--border)';
+  btn.style.color=_agChecked?'var(--green)':'var(--text)';
+  btn.style.background=_agChecked?'rgba(52,211,153,0.08)':'transparent';
+  _renderAgOwnerChips();
+  document.getElementById('agenda-edit-modal-overlay').classList.add('open');
+}
+function closeAgendaEditModal(){
+  document.getElementById('agenda-edit-modal-overlay').classList.remove('open');
+  _agEditId=null;
+}
+function saveAgendaEditModal(){
+  if(!_agEditId) return;
+  const idx=AGENDA_DATA.findIndex(x=>x.id===_agEditId); if(idx<0) return;
+  const el=f=>document.getElementById(f);
+  AGENDA_DATA[idx].title=el('ag-title').value.trim()||AGENDA_DATA[idx].title;
+  AGENDA_DATA[idx].detail=el('ag-detail').value.trim();
+  AGENDA_DATA[idx].decision=el('ag-decision').value.trim();
+  AGENDA_DATA[idx].owner=_agOwners.join(', ');
+  AGENDA_DATA[idx].deadline=el('ag-deadline').value;
+  AGENDA_DATA[idx].category=el('ag-category').value;
+  AGENDA_DATA[idx].checked=_agChecked;
+  saveAgendaItemToSheets(AGENDA_DATA[idx]);
+  closeAgendaEditModal();
+  buildMondayAgenda(); buildAgenda();
+}
+function agDeleteFromModal(){
+  if(!_agEditId) return;
+  const id=_agEditId;
+  closeAgendaEditModal();
+  deleteAgendaItem(id);
 }
 function buildMondayAgenda(){
   const el=document.getElementById('agenda-monday-list');
