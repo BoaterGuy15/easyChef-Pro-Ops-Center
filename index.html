@@ -2378,6 +2378,7 @@ let AGENDA_DATA=[
 function _genAgendaId(){ return 'ag-'+Date.now()+'-'+Math.random().toString(36).slice(2,6); }
 function loadAgendaFromSheets(){
   if(!CONFIG.sheetsUrl) return;
+  if(_agendaExpandedId) return;
   fetch(CONFIG.sheetsUrl+'?action=agenda_read')
     .then(r=>r.json())
     .then(data=>{
@@ -2745,6 +2746,7 @@ function agendaAiMarkResolved(id,btn){
   if(row) row.style.opacity=it.checked?'0.42':'1';
 }
 function buildMondayAgenda(){
+  if(_agendaExpandedId) return;
   const el=document.getElementById('agenda-monday-list');
   if(!el) return;
   const canEdit=canEditAgenda();
@@ -3572,6 +3574,7 @@ function buildTeamGrid(){
 
 // ── Agenda ──────────────────────────────────────────────────
 function buildAgenda(){
+  if(_agendaExpandedId) return;
   const el = document.getElementById('agenda-list');
   if(!el) return;
   const canEdit=canEditAgenda();
