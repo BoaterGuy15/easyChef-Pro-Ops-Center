@@ -966,24 +966,24 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     </div>
     <div class="modal-field" style="margin-bottom:12px">
       <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">TITLE</label>
-      <input type="text" id="ag-title" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+      <input type="text" id="aem-title" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
     </div>
     <div class="modal-field" style="margin-bottom:12px">
       <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">DETAIL</label>
-      <textarea id="ag-detail" rows="3" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box;resize:vertical"></textarea>
+      <textarea id="aem-detail" rows="3" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box;resize:vertical"></textarea>
     </div>
     <div class="modal-field" style="margin-bottom:12px">
       <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">DECISION / ACTION</label>
-      <input type="text" id="ag-decision" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+      <input type="text" id="aem-decision" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
     </div>
     <div class="modal-field" style="margin-bottom:12px">
       <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">OWNER(S)</label>
-      <div id="ag-owner-chips" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px"></div>
+      <div id="aem-owner" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px">
       <div>
         <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">DEADLINE</label>
-        <input type="date" id="ag-deadline" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
+        <input type="date" id="aem-deadline" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box">
       </div>
       <div>
         <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">CATEGORY</label>
@@ -998,7 +998,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     </div>
     <div class="modal-field" style="margin-bottom:12px">
       <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px">LINKED TASK</label>
-      <select id="ag-taskId" onchange="agModalTaskLink()" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></select>
+      <select id="aem-taskid" onchange="agModalTaskLink()" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;outline:none;box-sizing:border-box"></select>
       <div id="ag-task-info" style="margin-top:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);min-height:14px"></div>
     </div>
     <div class="modal-field" style="margin-bottom:18px">
@@ -2646,7 +2646,7 @@ function saveAgendaItemTeam(){
 }
 let _agOwners=[], _agEditId=null, _agChecked=false;
 function _renderAgOwnerChips(){
-  const wrap=document.getElementById('ag-owner-chips'); if(!wrap) return;
+  const wrap=document.getElementById('aem-owner'); if(!wrap) return;
   const all=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
   const chips=_agOwners.map(o=>`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(212,175,55,0.12);border:1px solid var(--gold);border-radius:4px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--gold)">${o}<span onclick="agRemoveOwner('${o}')" style="cursor:pointer;font-size:11px;line-height:1;color:var(--gold)">×</span></span>`).join('');
   const addOpts=all.map(o=>`<option value="${o}"${_agOwners.includes(o)?' disabled':''}>${o}</option>`).join('');
@@ -2663,9 +2663,9 @@ function agToggleChecked(){
   btn.style.background=_agChecked?'rgba(52,211,153,0.08)':'transparent';
 }
 function agModalTaskLink(){
-  const sel=document.getElementById('ag-taskId'); if(!sel) return;
+  const sel=document.getElementById('aem-taskid'); if(!sel) return;
   const info=document.getElementById('ag-task-info');
-  const dl=document.getElementById('ag-deadline');
+  const dl=document.getElementById('aem-deadline');
   const taskId=sel.value;
   if(!taskId){ if(info) info.textContent=''; return; }
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
@@ -2680,12 +2680,12 @@ function openAgendaEditModal(id){
   _agChecked=!!item.checked;
   _agOwners=(item.owner||'').split(',').map(s=>s.trim()).filter(Boolean);
   const el=f=>document.getElementById(f);
-  el('ag-title').value=item.title||'';
-  el('ag-detail').value=item.detail||'';
-  el('ag-decision').value=item.decision||'';
-  el('ag-deadline').value=item.deadline||'';
+  el('aem-title').value=item.title||'';
+  el('aem-detail').value=item.detail||'';
+  el('aem-decision').value=item.decision||'';
+  el('aem-deadline').value=item.deadline||'';
   el('ag-category').value=item.category||'Manual';
-  const sel=el('ag-taskId');
+  const sel=el('aem-taskid');
   if(sel){ sel.innerHTML='<option value="">— none —</option>'+DASHBOARD_DATA.tasks.map(t=>`<option value="${t.id}">${t.id} · ${t.name}</option>`).join(''); sel.value=item.taskId||''; agModalTaskLink(); }
   const btn=el('ag-checked-toggle');
   btn.textContent=_agChecked?'✓ Resolved — click to reopen':'Mark as Resolved';
@@ -2702,16 +2702,19 @@ function closeAgendaEditModal(){
 function saveAgendaEditModal(){
   if(!_agEditId) return;
   const idx=AGENDA_DATA.findIndex(x=>x.id===_agEditId); if(idx<0) return;
-  const el=f=>document.getElementById(f);
-  AGENDA_DATA[idx].title=el('ag-title').value.trim()||AGENDA_DATA[idx].title;
-  AGENDA_DATA[idx].detail=el('ag-detail').value.trim();
-  AGENDA_DATA[idx].decision=el('ag-decision').value.trim();
-  AGENDA_DATA[idx].owner=_agOwners.join(', ');
-  AGENDA_DATA[idx].deadline=el('ag-deadline').value;
-  AGENDA_DATA[idx].category=el('ag-category').value;
-  AGENDA_DATA[idx].taskId=el('ag-taskId')?.value||'';
-  AGENDA_DATA[idx].checked=_agChecked;
-  saveAgendaItemToSheets(AGENDA_DATA[idx]);
+  const item=AGENDA_DATA[idx];
+  const g=f=>document.getElementById(f);
+  const taskId=g('aem-taskid')?.value||'';
+  const task=taskId?DASHBOARD_DATA.tasks.find(t=>t.id===taskId):null;
+  item.title=g('aem-title').value.trim()||item.title;
+  item.detail=g('aem-detail').value.trim();
+  item.decision=g('aem-decision').value.trim();
+  item.owner=_agOwners.join(', ');
+  item.taskId=taskId;
+  item.deadline=task?(_excelSerialToDate(task.ed)||''):(g('aem-deadline').value||'');
+  item.category=g('ag-category').value;
+  item.checked=_agChecked;
+  saveAgendaItemToSheets(item);
   closeAgendaEditModal();
   buildMondayAgenda(); buildAgenda();
 }
