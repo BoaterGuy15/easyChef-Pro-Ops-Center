@@ -1610,6 +1610,8 @@ function saveTaskExpandNotes(taskId){
   saveToLocal();
   const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-edit');
   if(flagEl) flagEl.textContent=t.flag;
+  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
+  if(agItem){ agItem.flag=t.flag; saveAgendaItemToSheets(agItem); }
 }
 function saveTaskNotes(taskId){
   const el=document.getElementById('raci-task-notes-'+taskId);
@@ -1618,6 +1620,8 @@ function saveTaskNotes(taskId){
   if(!t) return;
   t.notes=el.value;
   saveToLocal();
+  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
+  if(agItem){ agItem.detail=t.notes; saveAgendaItemToSheets(agItem); }
 }
 function _insertAtCursor(elId,ch){
   const el=document.getElementById(elId); if(!el) return;
@@ -2615,6 +2619,14 @@ function updateAgendaField(id,field,value){
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
   item[field]=field==='deadline'?_excelSerialToDate(value):value;
   saveAgendaItemToSheets(item);
+  if(item.taskId&&(field==='flag'||field==='detail')){
+    const task=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId);
+    if(task){
+      if(field==='flag') task.flag=value;
+      if(field==='detail') task.notes=value;
+      saveToLocal();
+    }
+  }
 }
 function deleteAgendaItem(id){
   if(!canEditAgenda()) return;
