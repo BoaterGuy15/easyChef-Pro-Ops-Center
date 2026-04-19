@@ -1570,7 +1570,7 @@ function raciAiFind(taskId){
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
       _raciAiSummaries[taskId]=text;
       const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
-      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiCreateTask('${taskId}',this)" style="${_bSt}">📋 Create Task</button><button onclick="raciAiAddFlag('${taskId}','blocker',this)" style="${_bSt}">⛔ Add Blocker</button><button onclick="raciAiAddFlag('${taskId}','gap',this)" style="${_bSt}">⚠️ Flag Gap</button><button onclick="raciAiUpdateStatus('${taskId}',this)" style="${_bSt}">✏️ Update Status</button><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Slack</button></div>`;
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiCreateTask('${taskId}',this)" style="${_bSt}">📋 Create Task</button><button onclick="raciAiAddFlag('${taskId}','blocker',this)" style="${_bSt}">⛔ Add Blocker</button><button onclick="raciAiAddFlag('${taskId}','gap',this)" style="${_bSt}">⚠️ Flag Gap</button><button onclick="raciAiUpdateStatus('${taskId}',this)" style="${_bSt}">✏️ Update Status</button><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="raciAiAddToAgenda('${taskId}',this)" style="${_bSt}">📅 Add to Agenda</button></div>`;
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
@@ -1649,6 +1649,21 @@ function raciAiPostToSlack(taskId,btn){
     .then(r=>r.json())
     .then(()=>{ _raciConfirmBtn(btn,'📤 Post to Slack'); })
     .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
+}
+function _addAgendaItem(text,btn,origLabel){
+  let custom=[];
+  try{custom=JSON.parse(localStorage.getItem('dgl_agenda_custom')||'[]');}catch(e){}
+  custom.push({title:text,detail:'',decision:''});
+  localStorage.setItem('dgl_agenda_custom',JSON.stringify(custom));
+  if(typeof buildAgendaPage==='function') buildAgendaPage();
+  if(typeof buildAgenda==='function') buildAgenda();
+  if(btn){ btn.textContent='✓ Added to Agenda'; btn.disabled=true; btn.style.color='var(--green)'; setTimeout(()=>{ btn.textContent=origLabel; btn.style.color=''; btn.disabled=false; },1500); }
+}
+function raciAiAddToAgenda(taskId,btn){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const summary=_raciAiSummaries[taskId]||'';
+  const detail=summary?summary.slice(0,100):(t.status+' · Owner: '+(t.owner||'—'));
+  _addAgendaItem('DISCUSS: '+t.id+' '+t.name+' — '+detail,btn,'📅 Add to Agenda');
 }
 function addTaskComment(taskId){
   const inp=document.getElementById('raci-expand-comment-input-'+taskId);
@@ -5780,9 +5795,19 @@ function slackAnalyzeThread(btn, slotId){
     .then(data=>{
       btn.textContent='✦ AI Analyze'; btn.disabled=false;
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
-      aiSlot.innerHTML=`<div style="border:1px solid var(--gold);border-radius:6px;padding:10px;margin-top:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+      const _chName=(document.getElementById('slack-channel-select')?.selectedOptions[0]?.text||'thread').replace(/\s*\(\d+\)$/,'');
+      aiSlot.dataset.summary=text.slice(0,100);
+      aiSlot.dataset.channel=_chName;
+      const _agBtnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:6px";
+      aiSlot.innerHTML=`<div style="border:1px solid var(--gold);border-radius:6px;padding:10px;margin-top:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.6">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><button onclick="slackAddThreadToAgenda(this)" style="${_agBtnSt}">📅 Add to Agenda</button>`;
     })
     .catch(()=>{ btn.textContent='✦ AI Analyze'; btn.disabled=false; aiSlot.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red)">AI analysis failed</div>'; });
+}
+function slackAddThreadToAgenda(btn){
+  const aiSlot=btn.parentElement;
+  const chName=aiSlot?.dataset.channel||'Slack thread';
+  const summary=aiSlot?.dataset.summary||'';
+  _addAgendaItem('DISCUSS: '+chName+' thread — '+summary,btn,'📅 Add to Agenda');
 }
 
 function slackSend(){
