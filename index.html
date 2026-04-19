@@ -2738,10 +2738,18 @@ function agLinkTask(agendaId, taskId){
   item.taskId=taskId||'';
   if(taskId){
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
-    if(task&&task.ed) item.deadline=task.ed;
+    if(task){
+      if(task.ed) item.deadline=_excelSerialToDate(task.ed);
+      if(task.owner) item.owner=task.owner;
+    }
   }
   saveAgendaItemToSheets(item);
   buildMondayAgenda(); buildAgenda();
+  if(_agendaExpandedId===agendaId){
+    const panel=document.getElementById('agenda-expand-'+agendaId);
+    if(panel) panel.innerHTML=_buildAgendaExpandHtml(agendaId);
+    _agendaExpandLoadChannels(agendaId);
+  }
 }
 // ── Agenda expansion panel ──────────────────────────────────
 let _agendaExpandedId=null;
@@ -2794,7 +2802,7 @@ function _buildAgendaExpandHtml(id){
   const discussId=it.taskId||'agenda_'+id;
   return `<div class="agenda-expand-inner" style="border-left:3px solid var(--gold);background:var(--card);padding:14px 20px;margin:0 0 2px 0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${id} — AGENDA ITEM</span>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">${linkedTask?`[${linkedTask.id}] AGENDA ITEM — ${linkedTask.name}`:'AGENDA ITEM — '+(it.title||'').slice(0,40)+(it.title&&it.title.length>40?'…':'')}</span>
       <button onclick="toggleAgendaExpand('${id}',null)" style="background:transparent;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
