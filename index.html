@@ -3609,7 +3609,7 @@ function _superAiSave(id, type, btn){
   const apEl=document.getElementById('raci-task-actionplan-'+id)||document.getElementById('agenda-expand-actionplan-'+id);
   if(apEl){ apEl.value=text; apEl.style.height='auto'; apEl.style.height=Math.min(apEl.scrollHeight,400)+'px'; }
   const tpEl=document.getElementById('raci-task-plans-'+id)||document.getElementById('agenda-task-plans-'+id);
-  if(tpEl&&plans.length) tpEl.innerHTML=_renderTaskPlanCardsHtml(plans,id,type||'task');
+  if(tpEl&&plans.length) tpEl.innerHTML=_renderTaskPlanCardsHtml(plans,id,(type==='raci'?'task':type)||'task');
   if(btn){ btn.textContent='💾 Saved ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='💾 Save'; btn.disabled=false; },1500); }
 }
 
@@ -3718,16 +3718,18 @@ function _renderTaskPlanCardsHtml(plans,sourceId,sourceType){
 }
 function _generateTaskPlans(id,type){
   console.log('[DGL] _generateTaskPlans fired',id,type);
-  const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
+  const _normType=(type==='raci'?'task':type)||'task';
+  const src=_normType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src) return;
-  const text=src.actionPlan||'';
+  const _agLink=_normType==='task'?AGENDA_DATA.find(a=>a.taskId===id):null;
+  const text=(_agLink&&_agLink.actionPlan)||src.actionPlan||'';
   if(!text){ alert('No Action Plan found. Run Super AI first and save the result.'); return; }
   const plans=_parseTaskPlansFromSuperAI(text);
   if(!plans.length){ alert('Could not extract task plans from Action Plan text.'); return; }
   src.taskPlans=plans;
-  if(type==='task') saveToLocal(); else saveAgendaItemToSheets(src);
-  const el=document.getElementById(type==='task'?'raci-task-plans-'+id:'agenda-task-plans-'+id);
-  if(el) el.innerHTML=_renderTaskPlanCardsHtml(plans,id,type);
+  if(_normType==='task') saveToLocal(); else saveAgendaItemToSheets(src);
+  const el=document.getElementById(_normType==='task'?'raci-task-plans-'+id:'agenda-task-plans-'+id);
+  if(el) el.innerHTML=_renderTaskPlanCardsHtml(plans,id,_normType);
 }
 function _toggleTaskPlan(id,type,idx,done){
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
