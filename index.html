@@ -1529,6 +1529,86 @@ function _renderNotesLog(taskId,cid,canAdd,placeholder){
 }
 function _getTaskSlackLink(id){ const _stored=localStorage.getItem('dgl_task_slack_'+id); if(!_stored) return {}; try{ return JSON.parse(_stored); }catch(_){ return {channelId:_stored,channelName:''}; } }
 function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
+let _channelUnlockExpiry=0;
+function _isChannelUnlocked(){ return Date.now()<_channelUnlockExpiry; }
+function _showChannelAuthModal(onSuccess){
+  let ov=document.getElementById('channel-auth-overlay'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='channel-auth-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9998;display:flex;align-items:center;justify-content:center';
+  const _bSt="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";
+  ov.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;width:min(380px,90vw)">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">🔒 CONFIRM CHANNEL CHANGE</div>
+    <input id="cauth-pw" type="password" placeholder="Enter your DGL password to confirm"
+      style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:9px 12px;border-radius:6px;outline:none;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter')_submitChannelAuth()">
+    <div id="cauth-error" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:8px;min-height:14px"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button onclick="document.getElementById('channel-auth-overlay').remove()" style="${_bSt}">Cancel</button>
+      <button onclick="_submitChannelAuth()" style="${_bSt};border-color:var(--gold);color:var(--gold)">Confirm</button>
+    </div>
+  </div>`;
+  window._channelAuthCallback=onSuccess;
+  document.body.appendChild(ov);
+  setTimeout(()=>{ const p=document.getElementById('cauth-pw'); if(p) p.focus(); },50);
+}
+async function _submitChannelAuth(){
+  const pw=(document.getElementById('cauth-pw')?.value||'').trim(); if(!pw) return;
+  const h=await sha256hex(pw);
+  const errEl=document.getElementById('cauth-error');
+  if(window._dglPwHash&&h===window._dglPwHash){
+    _channelUnlockExpiry=Date.now()+5*60*1000;
+    document.getElementById('channel-auth-overlay')?.remove();
+    if(typeof window._channelAuthCallback==='function') window._channelAuthCallback();
+  } else {
+    if(errEl) errEl.textContent='Incorrect password';
+    console.warn('[DGL] Channel change auth failed for user',window._DGL_USER);
+    const inp=document.getElementById('cauth-pw'); if(inp){ inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; }
+  }
+}
+function _renderRaciChannelPicker(taskId){
+  const c=document.getElementById('raci-chpicker-'+taskId); if(!c) return;
+  const chs=_slackChannelsCache||[];
+  const linked=_getTaskSlackLink(taskId);
+  const chName=linked.channelName||linked.channelId||'Not linked';
+  const canEdit=['taylor','steve'].includes(window._DGL_USER);
+  const unlocked=_isChannelUnlocked();
+  const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
+  const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
+  if(canEdit&&unlocked&&chs.length){
+    const minsLeft=Math.max(1,Math.ceil((_channelUnlockExpiry-Date.now())/60000));
+    const opts='<option value="">— No linked channel —</option>'+chs.map(ch=>`<option value="${ch.id}"${linked.channelId===ch.id?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
+    c.innerHTML=`<select id="raci-expand-slack-${taskId}" style="${iSt};margin-bottom:4px" onchange="raciLinkSlack('${taskId}',this)">${opts}</select><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">🔓 Unlocked · ${minsLeft} min remaining</div>`;
+  } else {
+    const lockBtn=canEdit?`<button onclick="_showChannelAuthModal(()=>_renderRaciChannelPicker('${taskId}'))" style="${_bSt}">🔒 Change Channel</button>`:'';
+    c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);flex:1">${chName.replace(/</g,'&lt;')} 🔒</span>${lockBtn}</div>`;
+  }
+  _buildChannelHistory(taskId,'raci-ch-history-'+taskId);
+}
+function _renderAgendaChannelPicker(id){
+  const c=document.getElementById('agenda-chpicker-'+id); if(!c) return;
+  const chs=_slackChannelsCache||[];
+  const linked=_getTaskSlackLink('agenda_'+id);
+  const chName=linked.channelName||linked.channelId||'Not linked';
+  const canEdit=['taylor','steve'].includes(window._DGL_USER);
+  const unlocked=_isChannelUnlocked();
+  const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
+  const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
+  if(canEdit&&unlocked&&chs.length){
+    const minsLeft=Math.max(1,Math.ceil((_channelUnlockExpiry-Date.now())/60000));
+    const opts='<option value="">— No linked channel —</option>'+chs.map(ch=>`<option value="${ch.id}"${linked.channelId===ch.id?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
+    c.innerHTML=`<select id="agenda-expand-slack-${id}" style="${iSt};margin-bottom:4px" onchange="agendaLinkSlack('${id}',this)">${opts}</select><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">🔓 Unlocked · ${minsLeft} min remaining</div>`;
+  } else {
+    const lockBtn=canEdit?`<button onclick="_showChannelAuthModal(()=>_renderAgendaChannelPicker('${id}'))" style="${_bSt}">🔒 Change Channel</button>`:'';
+    c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);flex:1">${chName.replace(/</g,'&lt;')} 🔒</span>${lockBtn}</div>`;
+  }
+  _buildChannelHistory('agenda_'+id,'agenda-ch-history-'+id);
+}
+function _buildChannelHistory(taskId,containerId){
+  const el=document.getElementById(containerId); if(!el) return;
+  const entries=_getNotes(taskId).filter(e=>(e.text||'').includes('Channel changed')).slice(-3).reverse();
+  if(!entries.length){ el.innerHTML=''; return; }
+  el.innerHTML='<div style="margin-top:4px">'+entries.map(e=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:2px 0"><span style="color:var(--gold)">${(e.name||e.user||'').replace(/</g,'&lt;')}</span> · ${(e.ts||'').slice(0,10)} · ${(e.text||'').replace(/</g,'&lt;')}</div>`).join('')+'</div>';
+}
 function _getCategoryChannelMap(){
   try{ const s=localStorage.getItem('dgl_category_channel_map'); return s?{...CATEGORY_CHANNEL_MAP,...JSON.parse(s)}:{...CATEGORY_CHANNEL_MAP}; }catch(_){ return {...CATEGORY_CHANNEL_MAP}; }
 }
@@ -1701,9 +1781,8 @@ function _buildTaskExpandHtml(taskId){
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
-        <select id="raci-expand-slack-${taskId}" style="${iSt};margin-bottom:4px" onchange="raciLinkSlack('${taskId}',this)">
-          <option value="">Loading channels…</option>
-        </select>
+        <div id="raci-chpicker-${taskId}" style="margin-bottom:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Loading…</div></div>
+        <div id="raci-ch-history-${taskId}"></div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Messages from this channel appear here. Comments above are posted to this channel.</div>
         <div id="raci-expand-slack-feed-${taskId}" style="max-height:150px;overflow:hidden;transition:max-height 0.3s ease;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:2px;display:none"></div>
         <div id="raci-expand-slack-feed-${taskId}-toggle" style="display:none;align-items:center;gap:8px;margin-bottom:6px"><button onclick="_toggleSlackFeed('raci-expand-slack-feed-${taskId}')" style="background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;cursor:pointer;padding:2px 0">↓ Show more messages</button><span id="raci-expand-slack-feed-${taskId}-count" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)"></span></div>
@@ -1798,24 +1877,24 @@ function _raciExpandLoadChannels(taskId){
   const _canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
   _loadCommentsFromSheets(taskId,taskId,merged=>{ const el=document.getElementById('raci-expand-comments-'+taskId); if(el) el.innerHTML=_buildTaskCommentsHtml(taskId,merged,_canAdmin); });
   const linked=_getTaskSlackLink(taskId);
-  function _populate(chs){
-    requestAnimationFrame(()=>{
-      const sel=document.getElementById('raci-expand-slack-'+taskId); if(!sel) return;
-      sel.innerHTML='<option value="">— No linked channel —</option>'+chs.map(c=>`<option value="${c.id}"${linked.channelId===c.id?' selected':''}>#${c.name} (${c.member_count||0})</option>`).join('');
-    });
-  }
-  if(_slackChannelsCache){ _populate(_slackChannelsCache); return; }
+  function _populate(){ requestAnimationFrame(()=>_renderRaciChannelPicker(taskId)); }
+  if(_slackChannelsCache){ _populate(); return; }
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(chs); })
-    .catch(()=>{ requestAnimationFrame(()=>{ const sel=document.getElementById('raci-expand-slack-'+taskId); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; }); });
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(); })
+    .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('raci-chpicker-'+taskId); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
 }
 function raciLinkSlack(taskId,sel){
+  const oldLinked=_getTaskSlackLink(taskId);
   const channelId=sel.value;
   const opt=sel.options[sel.selectedIndex];
   const channelName=opt?opt.text:'';
   _saveTaskSlackLink(taskId,{channelId,channelName});
+  if(oldLinked.channelId!==channelId){
+    _appendNote(taskId,'Channel changed from '+(oldLinked.channelName||oldLinked.channelId||'none')+' to '+(channelName||'none'));
+    _buildChannelHistory(taskId,'raci-ch-history-'+taskId);
+  }
   const feedEl=document.getElementById('raci-expand-slack-feed-'+taskId);
   if(!channelId){ if(feedEl){ feedEl.style.display='none'; feedEl.innerHTML=''; } return; }
   _raciExpandLoadSlackFeed(taskId,channelId);
@@ -3058,9 +3137,8 @@ function _buildAgendaExpandHtml(id){
       </div>
       <div>
         ${lbl('LINKED SLACK CHANNEL')}
-        <select id="agenda-expand-slack-${id}" style="${iSt};margin-bottom:4px" onchange="agendaLinkSlack('${id}',this)">
-          <option value="">Loading channels…</option>
-        </select>
+        <div id="agenda-chpicker-${id}" style="margin-bottom:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Loading…</div></div>
+        <div id="agenda-ch-history-${id}"></div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Messages from this channel appear here. Comments above are posted to this channel.</div>
         <div id="agenda-expand-slack-feed-${id}" style="max-height:150px;overflow:hidden;transition:max-height 0.3s ease;border:1px solid var(--border);border-radius:5px;padding:6px;margin-bottom:2px;display:none"></div>
         <div id="agenda-expand-slack-feed-${id}-toggle" style="display:none;align-items:center;gap:8px;margin-bottom:6px"><button onclick="_toggleSlackFeed('agenda-expand-slack-feed-${id}')" style="background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;cursor:pointer;padding:2px 0">↓ Show more messages</button><span id="agenda-expand-slack-feed-${id}-count" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)"></span></div>
@@ -3109,23 +3187,24 @@ function _agendaExpandLoadChannels(id){
   const _canAdminAg=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
   _loadCommentsFromSheets('agenda_'+id,'agenda_'+id,merged=>{ const el=document.getElementById('agenda-expand-comments-'+id); if(el) el.innerHTML=_buildAgendaCommentsHtml(id,merged,_canAdminAg); });
   const linked=_getTaskSlackLink('agenda_'+id);
-  function _populate(chs){
-    requestAnimationFrame(()=>{
-      const sel=document.getElementById('agenda-expand-slack-'+id); if(!sel) return;
-      sel.innerHTML='<option value="">— No linked channel —</option>'+chs.map(c=>`<option value="${c.id}"${linked.channelId===c.id?' selected':''}>#${c.name} (${c.member_count||0})</option>`).join('');
-    });
-  }
-  if(_slackChannelsCache){ _populate(_slackChannelsCache); return; }
+  function _populate(){ requestAnimationFrame(()=>_renderAgendaChannelPicker(id)); }
+  if(_slackChannelsCache){ _populate(); return; }
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(chs); })
-    .catch(()=>{ requestAnimationFrame(()=>{ const sel=document.getElementById('agenda-expand-slack-'+id); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; }); });
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(); })
+    .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('agenda-chpicker-'+id); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
 }
 function agendaLinkSlack(id,sel){
+  const oldLinked=_getTaskSlackLink('agenda_'+id);
   const channelId=sel.value;
   const opt=sel.options[sel.selectedIndex];
-  _saveTaskSlackLink('agenda_'+id,{channelId,channelName:opt?opt.text:''});
+  const channelName=opt?opt.text:'';
+  _saveTaskSlackLink('agenda_'+id,{channelId,channelName});
+  if(oldLinked.channelId!==channelId){
+    _appendNote('agenda_'+id,'Channel changed from '+(oldLinked.channelName||oldLinked.channelId||'none')+' to '+(channelName||'none'));
+    _buildChannelHistory('agenda_'+id,'agenda-ch-history-'+id);
+  }
   const feedEl=document.getElementById('agenda-expand-slack-feed-'+id);
   if(!channelId){ if(feedEl){ feedEl.style.display='none'; feedEl.innerHTML=''; } return; }
   _agendaExpandLoadSlackFeed(id,channelId);
@@ -5912,6 +5991,7 @@ async function tryLogin(){
     {pw:'DGL-Searah-2026',user:'searah'},{pw:'DGL-Sadee-2026',user:'sadee'},
   ];
   const h=await sha256hex(val);
+  window._dglPwHash=h;
   // Check default member password overrides first
   for(const [_du,_de] of Object.entries(_getDefaultTeamEdits())){
     if(_de.passwordHash&&_de.passwordHash===h){ sessionStorage.setItem('dgl_user',_du); showDashboard(_du,true); return; }
