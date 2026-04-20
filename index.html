@@ -6057,12 +6057,16 @@ function renderKillCriteria(){
           onchange="updateKillKpi(${i},'name',this.value)">
       </td>
       <td style="padding:8px 10px;text-align:center;white-space:nowrap">
-        <input type="number" value="${k.target}" placeholder="—" min="0" max="100" style="${iSt};width:58px;text-align:right" ${fo}
-          onchange="updateKillKpi(${i},'target',this.value)"><span style="color:var(--muted);font-size:11px;margin-left:2px">%</span>
+        <input type="text" value="${k.target}" placeholder="—" inputmode="numeric" pattern="[0-9]*" style="${iSt};width:70px;text-align:right"
+          onfocus="this.style.borderColor='var(--gold)'"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+          onblur="this.style.borderColor='var(--border)';updateKillKpi(${i},'target',this.value)"><span style="color:var(--muted);font-size:11px;margin-left:2px">%</span>
       </td>
       <td style="padding:8px 10px;text-align:center;white-space:nowrap">
-        <input id="pmf-cur-${i}" type="number" value="${k.current}" placeholder="—" min="0" max="100" style="${iSt};width:58px;text-align:right" ${fo}
-          oninput="updateKillKpi(${i},'current',this.value)"><span style="color:var(--muted);font-size:11px;margin-left:2px">%</span>
+        <input id="pmf-cur-${i}" type="text" value="${k.current}" placeholder="—" inputmode="numeric" pattern="[0-9]*" style="${iSt};width:70px;text-align:right"
+          onfocus="this.style.borderColor='var(--gold)'"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+          onblur="this.style.borderColor='var(--border)';updateKillKpi(${i},'current',this.value)"><span style="color:var(--muted);font-size:11px;margin-left:2px">%</span>
       </td>
       <td style="padding:8px 12px;text-align:center">
         <span style="color:${sCol[st]};font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${sIcon[st]} ${sLabel[st]}</span>
