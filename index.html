@@ -1748,6 +1748,8 @@ function _buildTaskExpandHtml(taskId){
   const fRow=(k,v)=>`<div style="margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${k}: </span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)">${v||'—'}</span></div>`;
   const depIds=(t.deps||'').split(',').map(d=>d.trim()).filter(Boolean);
   const depsHtml=depIds.length?depIds.map(d=>{ const dep=DASHBOARD_DATA.tasks.find(x=>x.id===d); const col=dep?(dep.status==='Done'||dep.status==='Complete'?'var(--green)':'var(--amber,#d4a017)'):'var(--muted)'; return `<span style="font-family:'DM Mono',monospace;font-size:10px;color:${col};margin-right:10px">${d}${dep?' · '+dep.status:' · ?'}</span>`; }).join(''):'<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border)">None</span>';
+  const blockTasks=DASHBOARD_DATA.tasks.filter(x=>x.id!==taskId&&(x.deps||'').split(',').map(d=>d.trim()).filter(Boolean).includes(taskId));
+  const blocksHtml=blockTasks.length?blockTasks.map(x=>{ const col=x.status==='Complete'?'var(--green)':x.status==='Not Started'?'var(--muted)':'var(--amber,#d4a017)'; return `<span style="font-family:'DM Mono',monospace;font-size:10px;color:${col};margin-right:10px">${x.id} · ${x.status}</span>`; }).join(''):'<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border)">None</span>';
   const today=getPSTDate(); today.setHours(0,0,0,0);
   const ed=t.ed?new Date(t.ed):null;
   const daysLeft=ed?Math.ceil((ed-today)/(1000*60*60*24)):null;
@@ -1791,7 +1793,8 @@ function _buildTaskExpandHtml(taskId){
         ${lbl('TASK PLAN')}
         <div id="raci-task-plans-${taskId}">${_renderTaskPlanCardsHtml(t.taskPlans||[],taskId,'task')}</div>
         ${lbl('DEPENDENCIES')}
-        <div>${depsHtml}</div>
+        <div style="margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Depends on: </span>${depsHtml}</div>
+        <div><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Blocks: </span>${blocksHtml}</div>
         ${lbl('DATES')}
         ${fRow('Start',t.sd||'—')}
         ${fRow('End',t.ed||'—')}
@@ -3379,7 +3382,10 @@ function _buildDGLContext(){
   _noteKeys.forEach(k=>{ try{ const arr=JSON.parse(localStorage.getItem(k)||'[]'); if(Array.isArray(arr)) arr.forEach(n=>_allNotes.push(n)); }catch(e){} });
   _allNotes.sort((a,b)=>(b.ts||0)-(a.ts||0));
   const recentComments=_allNotes.slice(0,10).map(n=>`  [${n.author||'?'}|${n.taskId||'?'}] ${new Date((n.ts||0)).toISOString().slice(0,10)}: ${(n.text||'').slice(0,200)}`).join('\n')||'  None';
-  return `easyChef Pro | ${today.toISOString().slice(0,10)} | ${daysToLaunch}d to launch\nTasks: ${tasks.length} total | ${complete} done | ${inProg} active | ${blocked} blocked | ${overdue} overdue\nBudget: $${(b.capital||0).toLocaleString()} capital | $${(b.adBudget||0).toLocaleString()} ad | $${(b.payoneer||0).toLocaleString()} Payoneer | $${(b.monthlyRevenue||0).toLocaleString()}/mo revenue\nGaps (${gaps.length}):\n${gapLines}\nTeam:\n${teamLines}\nTask Notes (${notesTasks.length}):\n${taskNoteLines}\nOpen Agenda:\n${agendaOpen}\nAgenda Details (${AGENDA_DATA.filter(x=>!x.checked).length} open):\n${agendaDetails}\nTask Decisions (${decisionTasks.length}):\n${taskDecisionLines}\nRecent Team Comments:\n${recentComments}`;
+  // Section 13: Dependency Chain
+  const depChainTasks=tasks.filter(t=>(t.deps&&t.deps.trim())||tasks.some(x=>x.id!==t.id&&(x.deps||'').split(',').map(d=>d.trim()).includes(t.id)));
+  const depChainLines=depChainTasks.slice(0,20).map(t=>{ const blockedBy=(t.deps||'').split(',').map(d=>d.trim()).filter(Boolean); const blocks=tasks.filter(x=>x.id!==t.id&&(x.deps||'').split(',').map(d=>d.trim()).filter(Boolean).includes(t.id)).map(x=>x.id); return `  ${t.id} [${t.cat||'—'}] → depends on ${blockedBy.length?blockedBy.join(', '):'nothing'} → blocks ${blocks.length?blocks.join(', '):'nothing'}`; }).join('\n')||'  None';
+  return `easyChef Pro | ${today.toISOString().slice(0,10)} | ${daysToLaunch}d to launch\nTasks: ${tasks.length} total | ${complete} done | ${inProg} active | ${blocked} blocked | ${overdue} overdue\nBudget: $${(b.capital||0).toLocaleString()} capital | $${(b.adBudget||0).toLocaleString()} ad | $${(b.payoneer||0).toLocaleString()} Payoneer | $${(b.monthlyRevenue||0).toLocaleString()}/mo revenue\nGaps (${gaps.length}):\n${gapLines}\nTeam:\n${teamLines}\nTask Notes (${notesTasks.length}):\n${taskNoteLines}\nOpen Agenda:\n${agendaOpen}\nAgenda Details (${AGENDA_DATA.filter(x=>!x.checked).length} open):\n${agendaDetails}\nTask Decisions (${decisionTasks.length}):\n${taskDecisionLines}\nRecent Team Comments:\n${recentComments}\nDependency Chain (${depChainTasks.length} tasks with deps):\n${depChainLines}`;
 }
 function _renderSuperAiBtn(id, type, title, status, owner){
   const saved=localStorage.getItem('dgl_superai_'+id);
@@ -3669,7 +3675,10 @@ function _addTaskPlanToRaci(id,type,idx,btn){
   if(!ed){ const _srcEd=type==='task'?src:DASHBOARD_DATA.tasks.find(t=>t.id===src.taskId); if(_srcEd&&_srcEd.ed){ try{ const _raw=String(_srcEd.ed); const _d=new Date(_raw.includes('-')?_raw:(_excelSerialToDate(_raw)||'')); if(!isNaN(_d.getTime())&&_d.getFullYear()>2000) ed=_d.toISOString().slice(0,10); }catch(_){} } }
   if(!ed){ const _ed7=new Date(); _ed7.setDate(_ed7.getDate()+7); ed=_ed7.toISOString().slice(0,10); }
   const deps=type==='task'?id:(src.taskId||'');
-  _openCreateTaskWithData({name:p.title,owner:p.owner||'TBD',priority:p.priority||'High',notes:p.description||'',cat:'Launch Ops',sd,ed,flag:'',deps,decision:'',actionPlan:p.description||'',_sourceAgendaId:type==='agenda'?id:''});
+  const linkedTask=type==='agenda'&&src.taskId?DASHBOARD_DATA.tasks.find(t=>t.id===src.taskId):null;
+  const taskNotes=type==='agenda'?(src.detail||p.description||''):(p.description||'');
+  const taskCat=linkedTask?.cat||'Launch Ops';
+  _openCreateTaskWithData({name:p.title,owner:linkedTask?.owner||p.owner||'TBD',priority:p.priority||'High',notes:taskNotes,cat:taskCat,sd,ed,flag:'',deps,decision:'',actionPlan:p.description||'',_sourceAgendaId:type==='agenda'?id:''});
   if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Add to RACI'; btn.disabled=false; },1500); }
 }
 function _bcpUpdateCount(){
@@ -3750,32 +3759,56 @@ function _bulkCreateTasks(){
   const plans=window._bulkModalPlans||[]; if(!plans.length) return;
   const {id:srcId,type:srcType}=window._bulkModalSrc||{};
   const srcTask=srcType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===srcId):null;
-  const srcCat=srcTask?srcTask.cat||'Launch Ops':'Launch Ops';
-  const srcDeps=srcId&&srcType==='task'?srcId:'';
+  const srcAgenda=srcType==='agenda'?AGENDA_DATA.find(a=>a.id===srcId):null;
+  const srcLinkedTask=srcAgenda&&srcAgenda.taskId?DASHBOARD_DATA.tasks.find(t=>t.id===srcAgenda.taskId):null;
+  const srcCat=(srcTask||srcLinkedTask)?.cat||'Launch Ops';
   const _raciKeys=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',..._getCustomTeamMembers().map(m=>m.raciKey)];
   const _flagMap={risk:'⛔',week:'⚠️',today:'',decision:'',general:''};
   const prog=document.getElementById('bulk-create-progress');
   const _now=new Date(); const todayStr=_now.toISOString().slice(0,10);
   const _ed7=new Date(_now); _ed7.setDate(_ed7.getDate()+7); const edDef=_ed7.toISOString().slice(0,10);
-  let createCount=0; const createdIds=[];
+  let createCount=0; const createdIds=[]; let prevTaskId='';
   for(let i=0;i<plans.length;i++){
     const chk=document.getElementById('bcp-chk-'+i); if(!chk||!chk.checked) continue;
     const name=(document.getElementById('bcp-name-'+i)?.value||'').trim(); if(!name) continue;
-    const owner=document.getElementById('bcp-owner-'+i)?.value||srcTask?.owner||'TBD';
+    const owner=document.getElementById('bcp-owner-'+i)?.value||(srcTask||srcLinkedTask)?.owner||'TBD';
     const pri=document.getElementById('bcp-pri-'+i)?.value||'High';
     const ed=document.getElementById('bcp-date-'+i)?.value||edDef;
     if(prog) prog.textContent='Creating '+(createCount+1)+'…';
     const tid=nextTaskId();
     const p=plans[i];
     const raciCols={};
-    _raciKeys.forEach(k=>{ raciCols[k]=srcTask?srcTask[k]||'':''; });
-    const deps=document.getElementById('bcp-deps-'+i)?.value.trim()||srcDeps;
+    _raciKeys.forEach(k=>{ raciCols[k]=(srcTask||srcLinkedTask)?((srcTask||srcLinkedTask)[k]||''):''; });
+    // Sequential chain: first task deps on source, each subsequent deps on source + immediately preceding task
+    const manualDeps=document.getElementById('bcp-deps-'+i)?.value.trim();
+    let deps;
+    if(manualDeps){
+      deps=manualDeps;
+    } else if(srcId){
+      deps=createCount===0?srcId:(srcId+', '+prevTaskId);
+    } else {
+      deps=prevTaskId;
+    }
     DASHBOARD_DATA.tasks.push({id:tid,name,cat:srcCat,pri,status:'Not Started',owner,deps,notes:p.description||'',actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:_flagMap[p.section]||'',flagColor:'',slackChannel:'',lastStatusChange:_now.toISOString().slice(0,16),...raciCols});
     const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+tid;
-    createCount++; createdIds.push(tid);
+    createCount++; createdIds.push(tid); prevTaskId=tid;
   }
   saveToLocal(); masterRefresh();
   if(prog) prog.innerHTML=`<span style="color:var(--green)">✦ ${createCount} task${createCount===1?'':'s'} created</span>`;
+  // Append creation note to source
+  if(createdIds.length){
+    const dateStr=todayStr;
+    if(srcType==='task'&&srcTask){
+      srcTask.notes=(srcTask.notes||'')+'\n[Action Plan Tasks: '+createdIds.join(', ')+' created '+dateStr+']';
+      saveToLocal();
+      const agItem=AGENDA_DATA.find(a=>a.taskId===srcId);
+      if(agItem){ agItem.detail=(agItem.detail||'')+'\n[Action Plan Tasks: '+createdIds.join(', ')+' created '+dateStr+']'; saveAgendaItemToSheets(agItem); }
+    } else if(srcType==='agenda'&&srcAgenda){
+      srcAgenda.detail=(srcAgenda.detail||'')+'\n[Tasks created: '+createdIds.join(', ')+' on '+dateStr+']';
+      saveAgendaItemToSheets(srcAgenda);
+      if(srcLinkedTask){ srcLinkedTask.notes=(srcLinkedTask.notes||'')+'\n[Tasks created: '+createdIds.join(', ')+' on '+dateStr+']'; saveToLocal(); }
+    }
+  }
   setTimeout(()=>{ const ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove(); },3000);
 }
 function _bulkAddToAgenda(sourceId,sourceType){
@@ -3784,9 +3817,10 @@ function _bulkAddToAgenda(sourceId,sourceType){
   const selected=src.taskPlans.filter(p=>p.selected!==false);
   if(!selected.length){ alert('No plans selected. Check at least one plan card first.'); return; }
   const srcTaskId=sourceType==='task'?sourceId:(src.taskId||'');
+  const srcTask=srcTaskId?DASHBOARD_DATA.tasks.find(t=>t.id===srcTaskId):null;
   let added=0;
   for(const p of selected){
-    const item={id:_genAgendaId(),title:p.title,detail:p.description||'',decision:'',checked:false,owner:p.owner||'',deadline:p.deadline||'',category:'Action Item',taskId:srcTaskId};
+    const item={id:_genAgendaId(),title:p.title,detail:p.description||srcTask?.notes||'',decision:'',checked:false,owner:srcTask?.owner||p.owner||'',deadline:p.deadline||'',category:'Action Item',taskId:srcTaskId};
     AGENDA_DATA.push(item);
     saveAgendaItemToSheets(item);
     added++;
