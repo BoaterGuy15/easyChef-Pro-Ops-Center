@@ -509,7 +509,6 @@ tr.hidden-row{display:none}
     <div class="nav-tab" onclick="showPage('appdata')">App Data</div>
     <div class="nav-tab" onclick="showPage('comms')">Comms</div>
     <div class="nav-tab" onclick="showPage('actionplans')">Action Plans</div>
-    <div class="nav-tab" id="hr-nav-tab" onclick="showPage('hr')" style="display:none">HR</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -960,13 +959,26 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
 <!-- ══ PAGE: TEAM ══ -->
 <div id="page-team" class="page">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <div class="section-label" id="team-section-label" style="margin:0">Team Responsibility Summary</div>
-    <button id="add-team-member-btn" onclick="openTeamMemberModal(-1)" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap;display:none" onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">+ Add Team Member</button>
+  <div style="display:flex;gap:8px;margin-bottom:20px">
+    <button id="team-btn-team" onclick="showTeamSection('team')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 16px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer;letter-spacing:0.5px">👥 Team</button>
+    <button id="team-btn-hr" onclick="showTeamSection('hr')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:0.5px;display:none">🔒 HR</button>
   </div>
-  <div class="team-grid" id="team-grid"></div>
-  <div class="section-label" id="agenda-section-label">Monday Meeting Agenda — 11AM ET / 8AM PT</div>
-  <div id="agenda-list"></div>
+  <div id="team-section-team">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="section-label" id="team-section-label" style="margin:0">Team Responsibility Summary</div>
+      <button id="add-team-member-btn" onclick="openTeamMemberModal(-1)" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap;display:none" onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">+ Add Team Member</button>
+    </div>
+    <div class="team-grid" id="team-grid"></div>
+    <div class="section-label" id="agenda-section-label">Monday Meeting Agenda — 11AM ET / 8AM PT</div>
+    <div id="agenda-list"></div>
+  </div>
+  <div id="team-section-hr" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div class="section-label" style="margin:0">HR &amp; Team Management</div>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">🔒 CONFIDENTIAL — RESTRICTED ACCESS</span>
+    </div>
+    <div id="hr-body"></div>
+  </div>
 </div>
 
 <!-- ══ PAGE: AGENDA ══ -->
@@ -1112,14 +1124,6 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="actionplans-body" style="padding:16px 0"></div>
 </div>
 
-<!-- ══ PAGE: HR ══ -->
-<div id="page-hr" class="page">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-    <div class="section-label" style="margin:0">HR &amp; Team Management</div>
-    <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">🔒 CONFIDENTIAL — RESTRICTED ACCESS</span>
-  </div>
-  <div id="hr-body"></div>
-</div>
 
 <script>
 // ── Countdown ──────────────────────────────────────────────
@@ -1152,7 +1156,6 @@ function showPage(id){
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap') setTimeout(initRoadmapHeadSync,50);
   if(id==='actionplans') buildActionPlansPage();
-  if(id==='hr') buildHRPage();
 }
 function initRoadmapHeadSync(){
   const wrap=document.querySelector('.roadmap-wrap');
@@ -4867,11 +4870,33 @@ function _initTeamGridDnd(el){
     });
   });
 }
+function showTeamSection(section){
+  const secTeam=document.getElementById('team-section-team');
+  const secHR=document.getElementById('team-section-hr');
+  const btnTeam=document.getElementById('team-btn-team');
+  const btnHR=document.getElementById('team-btn-hr');
+  if(secTeam) secTeam.style.display=section==='team'?'':'none';
+  if(secHR) secHR.style.display=section==='hr'?'':'none';
+  if(btnTeam){
+    btnTeam.style.background=section==='team'?'var(--gold-dim)':'transparent';
+    btnTeam.style.borderColor=section==='team'?'var(--gold)':'var(--border)';
+    btnTeam.style.color=section==='team'?'var(--gold-light)':'var(--muted)';
+  }
+  if(btnHR){
+    btnHR.style.background=section==='hr'?'rgba(248,113,113,0.08)':'transparent';
+    btnHR.style.borderColor=section==='hr'?'var(--red)':'var(--border)';
+    btnHR.style.color=section==='hr'?'var(--red)':'var(--muted)';
+  }
+  if(section==='hr') buildHRPage();
+}
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
+  const _isAdmin=['taylor','steve'].includes(window._DGL_USER||'');
   const _addBtn=document.getElementById('add-team-member-btn');
-  if(_addBtn) _addBtn.style.display=['taylor','steve'].includes(window._DGL_USER||'')?'':'none';
+  if(_addBtn) _addBtn.style.display=_isAdmin?'':'none';
+  const _hrBtn2=document.getElementById('team-btn-hr');
+  if(_hrBtn2) _hrBtn2.style.display=_isAdmin?'':'none';
   const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
   const RACI_KEY = {
@@ -6350,8 +6375,8 @@ function showDashboard(user, showPopup=false){
   if(role==='member') applyViewOnly();
   if(bell&&user!=='view') bell.style.display='inline-block';
   updateBellDot();
-  const _hrTab=document.getElementById('hr-nav-tab');
-  if(_hrTab) _hrTab.style.display=['taylor','steve'].includes(user)?'':'none';
+  const _hrBtn=document.getElementById('team-btn-hr');
+  if(_hrBtn) _hrBtn.style.display=['taylor','steve'].includes(user)?'':'none';
   if(showPopup&&user!=='view') setTimeout(()=>showBriefing(), 500);
 }
 function doSignOut(){
