@@ -507,6 +507,24 @@ const CONFIG = {
   anthropicKey: '' // paste your Anthropic API key here
 };
 
+const CATEGORY_CHANNEL_MAP = {
+  'Marketing Strategy':'marketing-strategy',
+  'Mktg Strategy':'marketing-strategy',
+  'Brand':'brand-design',
+  'Content - Website':'content-website',
+  'Content/Web':'content-website',
+  'Digital Marketing':'digital-marketing',
+  'Digital Mktg':'digital-marketing',
+  'Social Media Marketing':'social-media',
+  'Social Media':'social-media',
+  'Email Marketing':'email-marketing',
+  'Product Marketing':'product-marketing',
+  'Product Mktg':'product-marketing',
+  'Data Science':'data-analytics',
+  'Partnerships':'partnerships',
+  'Launch Ops':'launch-ops'
+};
+
 // ─────────────────────────────────────────────────────────────
 // DASHBOARD_DATA — single source of truth
 // ─────────────────────────────────────────────────────────────
@@ -1508,6 +1526,18 @@ function _renderNotesLog(taskId,cid,canAdd,placeholder){
 }
 function _getTaskSlackLink(id){ try{const r=localStorage.getItem('dgl_task_slack_'+id);if(r)return JSON.parse(r);}catch(e){} return {}; }
 function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
+function _autoLinkTaskChannels(){
+  if(!_slackChannelsCache||!_slackChannelsCache.length) return;
+  let count=0;
+  for(const task of DASHBOARD_DATA.tasks){
+    if(localStorage.getItem('dgl_task_slack_'+task.id)) continue;
+    const target=CATEGORY_CHANNEL_MAP[task.cat||''];
+    if(!target) continue;
+    const ch=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes(target.toLowerCase()));
+    if(ch){ localStorage.setItem('dgl_task_slack_'+task.id,JSON.stringify({channelId:ch.id,channelName:'#'+ch.name})); count++; }
+  }
+  if(count) console.log('[DGL] Auto-linked',count,'tasks to Slack channels by category');
+}
 function toggleTaskExpand(taskId,trEl){
   _raciInjectExpandStyles();
   const panelExists=!!document.getElementById('raci-expand-row-'+taskId);
@@ -1710,7 +1740,7 @@ function _raciExpandLoadChannels(taskId){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _populate(chs); })
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _populate(chs); })
     .catch(()=>{ requestAnimationFrame(()=>{ const sel=document.getElementById('raci-expand-slack-'+taskId); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; }); });
 }
 function raciLinkSlack(taskId,sel){
@@ -1771,7 +1801,7 @@ function raciAiFind(taskId){
       let slackSection=`Here are the last ${msgs.length} messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${msgText}`;
       const base=`${taskCtx}\n\n${slackSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`;
       const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const candidate=`${taskCtx}\n\nHere are the most recent messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`; if(candidate.length<=3000) return candidate; lines=lines.slice(1); } return `${taskCtx}\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task.`; })():base;
-      const system='You are analyzing Slack activity for the DGL easyChef Pro team. Summarize relevant discussion for the given task. Be specific and concise.';
+      const system=`You are analyzing Slack messages ONLY for relevance to ${t.id} ${t.name} (${t.cat}). Filter ruthlessly — only surface messages directly related to this specific task's deliverable. Ignore messages about other tasks. Be specific and concise.`;
       return fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt));
     })
     .then(r=>r.json())
@@ -3021,7 +3051,7 @@ function _agendaExpandLoadChannels(id){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _populate(chs); })
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _populate(chs); })
     .catch(()=>{ requestAnimationFrame(()=>{ const sel=document.getElementById('agenda-expand-slack-'+id); if(sel) sel.innerHTML='<option value="">— Channels unavailable —</option>'; }); });
 }
 function agendaLinkSlack(id,sel){
@@ -7141,6 +7171,7 @@ function _slackLoadChannels(){
       if(data.error){ sel.innerHTML=`<option value="">Error: ${data.error}</option>`; return; }
       const chs=data.channels||[];
       _slackChannelsCache=chs;
+      _autoLinkTaskChannels();
       sel.innerHTML='<option value="">— Select channel —</option>'+
         chs.map(c=>`<option value="${c.id}">#${c.name} (${c.member_count||0})</option>`).join('');
       if(_slackChannelId){
