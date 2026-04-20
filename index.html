@@ -6560,6 +6560,10 @@ function showTaskModal(taskId){
           <label>Owner(s)</label>
           <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;min-height:36px" id="tm-owner-chips"></div>
         </div>
+        <div class="modal-field" style="grid-column:1/3">
+          <label>RACI Assignments</label>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['Taylor',task?.Taylor||''],['Steve',task?.Steve||''],['Adam',task?.Adam||''],['Mary',task?.Mary||''],['JR',task?.JR||''],['Hammad',task?.Hammad||''],['Searah',task?.Searah||''],['Sadee',task?.Sadee||'']].map(([name,val])=>`<div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">${name.toUpperCase()}</span><select id="tm-raci-${name.toLowerCase()}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 6px;border-radius:4px;outline:none"><option value=""${!val?' selected':''}>—</option><option value="R"${val==='R'?' selected':''}>R</option><option value="A"${val==='A'?' selected':''}>A</option><option value="A/R"${val==='A/R'?' selected':''}>A/R</option><option value="C"${val==='C'?' selected':''}>C</option><option value="I"${val==='I'?' selected':''}>I</option></select></div>`).join('')}</div>
+        </div>
         <div class="modal-field">
           <label>Start Date</label>
           <input type="date" id="tm-sd" value="${isNew?'':_toInputDate(task.sd||'')}">
@@ -6607,12 +6611,14 @@ function saveTaskModal(taskId){
   const deps = (document.getElementById('tm-deps').value||'').trim();
   const notes = (document.getElementById('tm-notes').value||'').trim();
   const actionPlan = (document.getElementById('tm-action-plan')?.value||'').trim();
+  const _rg=n=>document.getElementById('tm-raci-'+n.toLowerCase())?.value||'';
+  const raciFields={Taylor:_rg('Taylor'),Steve:_rg('Steve'),Adam:_rg('Adam'),Mary:_rg('Mary'),JR:_rg('JR'),Hammad:_rg('Hammad'),Searah:_rg('Searah'),Sadee:_rg('Sadee')};
   if(isNew){
     const _now=new Date(); const _todayStr=_now.toISOString().slice(0,10);
     const _ed14n=new Date(_now); _ed14n.setDate(_ed14n.getDate()+14);
     DASHBOARD_DATA.tasks.push({
       id, name, cat, pri, status, owner, deps, notes, actionPlan,
-      Taylor:'', Steve:'', Adam:'', Mary:'', JR:'', Hammad:'', Searah:'', Sadee:'',
+      ...raciFields,
       ...(()=>{ const cf={}; _getCustomTeamMembers().forEach(cm=>{ cf[cm.raciKey]=''; }); return cf; })(),
       flag:'', flagColor:'', slackChannel:'',
       sd: sd||_todayStr,
@@ -6628,7 +6634,7 @@ function saveTaskModal(taskId){
   } else {
     const task = DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
     if(!task) return;
-    Object.assign(task, {name, cat, pri, status, owner, deps, notes, actionPlan, sd, ed});
+    Object.assign(task, {name, cat, pri, status, owner, deps, notes, actionPlan, sd, ed, ...raciFields});
   }
   closeModal();
   masterRefresh();
