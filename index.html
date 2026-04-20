@@ -6012,20 +6012,20 @@ async function tryLogin(){
     {pw:'DGL-Searah-2026',user:'searah'},{pw:'DGL-Sadee-2026',user:'sadee'},
   ];
   const h=await sha256hex(val);
-  window._dglPwHash=h;
   // Check default member password overrides first
   for(const [_du,_de] of Object.entries(_getDefaultTeamEdits())){
-    if(_de.passwordHash&&_de.passwordHash===h){ sessionStorage.setItem('dgl_user',_du); showDashboard(_du,true); return; }
+    if(_de.passwordHash&&_de.passwordHash===h){ window._dglPwHash=h; sessionStorage.setItem('dgl_pw_hash',h); sessionStorage.setItem('dgl_user',_du); showDashboard(_du,true); return; }
   }
   const hashes=await Promise.all(CREDS.map(c=>sha256hex(c.pw)));
   const idx=hashes.indexOf(h);
   if(idx>=0){
+    window._dglPwHash=h; sessionStorage.setItem('dgl_pw_hash',h);
     sessionStorage.setItem('dgl_user',CREDS[idx].user);
     showDashboard(CREDS[idx].user, true);
   } else {
     let found=false;
     for(const cm of _getCustomTeamMembers()){
-      if(cm.passwordHash&&cm.passwordHash===h){ sessionStorage.setItem('dgl_user',cm.user); showDashboard(cm.user,true); found=true; break; }
+      if(cm.passwordHash&&cm.passwordHash===h){ window._dglPwHash=h; sessionStorage.setItem('dgl_pw_hash',h); sessionStorage.setItem('dgl_user',cm.user); showDashboard(cm.user,true); found=true; break; }
     }
     if(!found) shakePwInput();
   }
@@ -7475,6 +7475,7 @@ function slackSend(){
 
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
+  window._dglPwHash=sessionStorage.getItem('dgl_pw_hash')||'';
   loadFromLocal();
   loadBudgetFromLocal();
   loadFromSheets();
