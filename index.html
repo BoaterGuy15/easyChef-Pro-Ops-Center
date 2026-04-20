@@ -1581,15 +1581,30 @@ function _buildChannelMappingSection(){
 }
 function _autoLinkTaskChannels(){
   if(!_slackChannelsCache||!_slackChannelsCache.length) return;
-  let count=0;
-  for(const task of DASHBOARD_DATA.tasks){
-    if(localStorage.getItem('dgl_task_slack_'+task.id)) continue;
-    const target=_getCategoryChannelMap()[task.cat||''];
-    if(!target) continue;
+  const map=_getCategoryChannelMap();
+  const _link=(key,target)=>{
+    if(localStorage.getItem(key)) return false;
+    if(!target) return false;
     const ch=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes(target.toLowerCase()));
-    if(ch){ localStorage.setItem('dgl_task_slack_'+task.id,JSON.stringify({channelId:ch.id,channelName:'#'+ch.name})); count++; }
+    if(!ch) return false;
+    localStorage.setItem(key,JSON.stringify({channelId:ch.id,channelName:'#'+ch.name}));
+    return true;
+  };
+  let taskCount=0;
+  for(const task of DASHBOARD_DATA.tasks){
+    if(_link('dgl_task_slack_'+task.id, map[task.cat||''])) taskCount++;
   }
-  if(count) console.log('[DGL] Auto-linked',count,'tasks to Slack channels by category');
+  let agCount=0;
+  for(const item of AGENDA_DATA){
+    const key='dgl_task_slack_agenda_'+item.id;
+    if(item.taskId){
+      const lt=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId);
+      if(_link(key, lt?map[lt.cat||'']:null)) agCount++;
+    } else {
+      if(_link(key, map[item.category||''])) agCount++;
+    }
+  }
+  if(taskCount||agCount) console.log('[DGL] Auto-linked',taskCount,'tasks and',agCount,'agenda items to Slack channels');
 }
 function toggleTaskExpand(taskId,trEl){
   _raciInjectExpandStyles();
