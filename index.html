@@ -4904,17 +4904,18 @@ function openHRAuthModal(){
 }
 async function _submitHRAuth(){
   const pw=(document.getElementById('hrauth-pw')?.value||'').trim(); if(!pw) return;
-  const h=await sha256hex(pw);
   const errEl=document.getElementById('hrauth-error');
   const user=window._DGL_USER||'unknown';
   const ts=new Date().toISOString();
-  if(window._dglPwHash&&h===window._dglPwHash){
+  if(!window._dglPwHash){ if(errEl) errEl.textContent='Session expired — please sign in again'; return; }
+  const h=await sha256hex(pw);
+  if(h===window._dglPwHash){
     sessionStorage.setItem('dgl_hr_unlock',String(Date.now()+10*60*1000));
     document.getElementById('hr-auth-overlay')?.remove();
     if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'HR_ACCESS',channelId:'GRANTED',channelName:'hr_access',changedBy:user,changedAt:ts,oldChannel:'none'})}).catch(()=>{});
     showTeamSection('hr');
   } else {
-    if(errEl) errEl.textContent='Incorrect password';
+    if(errEl) errEl.textContent='Incorrect password — use your own login password';
     if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'HR_ACCESS',channelId:'FAILED',channelName:'hr_access',changedBy:user,changedAt:ts,oldChannel:'failed_attempt'})}).catch(()=>{});
     const inp=document.getElementById('hrauth-pw'); if(inp){ inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; }
   }
