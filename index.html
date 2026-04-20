@@ -1766,19 +1766,23 @@ function toggleTaskExpand(taskId,trEl){
   expandTr.className='raci-expand-row';
   const td=document.createElement('td');
   td.colSpan=30;
-  delete _raciExpandCache[taskId];
-  td.innerHTML=_buildTaskExpandHtml(taskId);
+  const cached=_raciExpandCache[taskId];
+  td.innerHTML=cached||_buildTaskExpandHtml(taskId);
   expandTr.appendChild(td);
   trEl.after(expandTr);
+  // Always overwrite action plan imperatively — cache may have stale value
   setTimeout(()=>{ const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _ag=AGENDA_DATA.find(a=>a.taskId===taskId); const _t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); const _apText=(_ag&&_ag.actionPlan)||(_t&&_t.actionPlan)||''; if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } else { setTimeout(()=>{ const _ap2=document.getElementById('raci-task-actionplan-'+taskId); const _ag2=AGENDA_DATA.find(a=>a.taskId===taskId); const _t2=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); const _apText2=(_ag2&&_ag2.actionPlan)||(_t2&&_t2.actionPlan)||''; if(_ap2&&_apText2){ _ap2.value=_apText2; _ap2.style.height='auto'; _ap2.style.height=Math.min(_ap2.scrollHeight,400)+'px'; } },3000); } },50);
-  // Always load dynamic content — cache disabled for fresh action plan
-  _raciExpandLoadChannels(taskId);
-  const linked=_getTaskSlackLink(taskId);
-  if(linked.channelId) _raciExpandLoadSlackFeed(taskId,linked.channelId);
-  // Migrate stale dgl_superai_ localStorage to task.actionPlan
-  const _mt=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
-  if(_mt&&!_mt.actionPlan){
-    try{ const _old=localStorage.getItem('dgl_superai_'+taskId); if(_old){ const {text}=JSON.parse(_old); if(text){ _mt.actionPlan=text; localStorage.removeItem('dgl_superai_'+taskId); _saveTasksNow(); const _apEl=document.getElementById('raci-task-actionplan-'+taskId); if(_apEl){ _apEl.value=text; _apEl.style.height='auto'; _apEl.style.height=Math.min(_apEl.scrollHeight,400)+'px'; } } } }catch(_){}
+  if(!cached){
+    // Fresh open — load dynamic content
+    _raciExpandLoadChannels(taskId);
+    const linked=_getTaskSlackLink(taskId);
+    if(linked.channelId) _raciExpandLoadSlackFeed(taskId,linked.channelId);
+    // Migrate stale dgl_superai_ localStorage to task.actionPlan
+    const _mt=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+    if(_mt&&!_mt.actionPlan){
+      try{ const _old=localStorage.getItem('dgl_superai_'+taskId); if(_old){ const {text}=JSON.parse(_old); if(text){ _mt.actionPlan=text; localStorage.removeItem('dgl_superai_'+taskId); _saveTasksNow(); const _apEl=document.getElementById('raci-task-actionplan-'+taskId); if(_apEl){ _apEl.value=text; _apEl.style.height='auto'; _apEl.style.height=Math.min(_apEl.scrollHeight,400)+'px'; } } } }catch(_){}
+    }
+    setTimeout(()=>{ const row=document.getElementById('raci-expand-row-'+taskId); if(row) _raciExpandCache[taskId]=row.querySelector('td').innerHTML; },800);
   }
 }
 function _buildTaskExpandHtml(taskId){
