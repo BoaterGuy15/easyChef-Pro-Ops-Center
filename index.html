@@ -3717,6 +3717,7 @@ function _renderTaskPlanCardsHtml(plans,sourceId,sourceType){
   return `<div>${cards}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${genBtn}${bulkBtn}${agendaBtn}</div></div>`;
 }
 function _generateTaskPlans(id,type){
+  console.log('[DGL] _generateTaskPlans fired',id,type);
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src) return;
   const text=src.actionPlan||'';
@@ -3735,6 +3736,7 @@ function _toggleTaskPlan(id,type,idx,done){
   if(type==='task') saveToLocal(); else saveAgendaItemToSheets(src);
 }
 function _addTaskPlanToRaci(id,type,idx,btn){
+  console.log('[DGL] _addTaskPlanToRaci fired',id,type,idx);
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src||!src.taskPlans||!src.taskPlans[idx]) return;
   const p=src.taskPlans[idx];
@@ -3755,6 +3757,7 @@ function _bcpUpdateCount(){
   const btn=document.getElementById('bcp-create-btn'); if(btn) btn.textContent='✦ Create Selected ('+n+')';
 }
 function _showBulkCreateModal(id,type){
+  console.log('[DGL] _showBulkCreateModal fired',id,type);
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src||!src.taskPlans||!src.taskPlans.length){ alert('No task plans to create. Click "✦ Generate Task Plans from AI" first.'); return; }
   const selected=src.taskPlans.filter(p=>p.selected!==false);
@@ -3883,6 +3886,7 @@ function _bulkCreateTasks(){
   setTimeout(()=>{ const ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove(); },3000);
 }
 function _bulkAddToAgenda(sourceId,sourceType){
+  console.log('[DGL] _bulkAddToAgenda fired',sourceId,sourceType);
   const src=sourceType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===sourceId):AGENDA_DATA.find(a=>a.id===sourceId);
   if(!src||!src.taskPlans||!src.taskPlans.length){ alert('No task plans to add. Click "✦ Generate Task Plans from AI" first.'); return; }
   const selected=src.taskPlans.filter(p=>p.selected!==false);
