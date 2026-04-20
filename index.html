@@ -2798,10 +2798,14 @@ function loadAgendaFromSheets(){
     })
     .catch(()=>{});
 }
+const _agendaSaveTimers={};
 function saveAgendaItemToSheets(item){
   if(!CONFIG.sheetsUrl||!item||!item.id) return;
-  const payload=JSON.stringify({action:'agenda_write',id:item.id||'',title:item.title||'',detail:item.detail||'',decision:item.decision||'',checked:String(!!item.checked),owner:item.owner||'',deadline:item.deadline||'',category:item.category||'Manual',taskId:item.taskId||'',flag:item.flag||'',actionPlan:item.actionPlan||'',taskPlan:item.taskPlan||'',taskPlans:JSON.stringify(item.taskPlans||[])});
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload}).catch(()=>{});
+  clearTimeout(_agendaSaveTimers[item.id]);
+  _agendaSaveTimers[item.id]=setTimeout(()=>{
+    const payload=JSON.stringify({action:'agenda_write',id:item.id||'',title:item.title||'',detail:item.detail||'',decision:item.decision||'',checked:String(!!item.checked),owner:item.owner||'',deadline:item.deadline||'',category:item.category||'Manual',taskId:item.taskId||'',flag:item.flag||'',actionPlan:item.actionPlan||'',taskPlan:item.taskPlan||'',taskPlans:JSON.stringify(item.taskPlans||[])});
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload}).catch(()=>{});
+  },1500);
 }
 // Code.gs — add doPost handler for agenda_write:
 // function doPost(e){
