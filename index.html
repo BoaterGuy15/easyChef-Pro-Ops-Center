@@ -3793,21 +3793,24 @@ function _bulkCreateTasks(){
     const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+tid;
     createCount++; createdIds.push(tid); prevTaskId=tid;
   }
-  saveToLocal(); masterRefresh();
+  try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
+  masterRefresh();
   if(prog) prog.innerHTML=`<span style="color:var(--green)">✦ ${createCount} task${createCount===1?'':'s'} created</span>`;
+  _saveTasksNow();
   // Append creation note to source
   if(createdIds.length){
     const dateStr=todayStr;
     if(srcType==='task'&&srcTask){
       srcTask.notes=(srcTask.notes||'')+'\n[Action Plan Tasks: '+createdIds.join(', ')+' created '+dateStr+']';
-      saveToLocal();
+      try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
       const agItem=AGENDA_DATA.find(a=>a.taskId===srcId);
       if(agItem){ agItem.detail=(agItem.detail||'')+'\n[Action Plan Tasks: '+createdIds.join(', ')+' created '+dateStr+']'; saveAgendaItemToSheets(agItem); }
     } else if(srcType==='agenda'&&srcAgenda){
       srcAgenda.detail=(srcAgenda.detail||'')+'\n[Tasks created: '+createdIds.join(', ')+' on '+dateStr+']';
       saveAgendaItemToSheets(srcAgenda);
-      if(srcLinkedTask){ srcLinkedTask.notes=(srcLinkedTask.notes||'')+'\n[Tasks created: '+createdIds.join(', ')+' on '+dateStr+']'; saveToLocal(); }
+      if(srcLinkedTask){ srcLinkedTask.notes=(srcLinkedTask.notes||'')+'\n[Tasks created: '+createdIds.join(', ')+' on '+dateStr+']'; try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){} }
     }
+    setTimeout(()=>_saveTasksNow(), 1000);
   }
   setTimeout(()=>{ const ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove(); },3000);
 }
@@ -6544,6 +6547,16 @@ function raciManualSave(btn){
 function saveToLocal(){
   try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
   saveToSheets();
+}
+function _saveTasksNow(){
+  if(!CONFIG.sheetsUrl) return;
+  clearTimeout(_sheetsDebounce);
+  updateSyncStatus('syncing');
+  _sheetsSyncLock=true;
+  setTimeout(()=>{ _sheetsSyncLock=false; },8000);
+  fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(DASHBOARD_DATA.tasks)})
+    .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets immediately ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
+    .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
 }
 function loadFromLocal(){
   try{
