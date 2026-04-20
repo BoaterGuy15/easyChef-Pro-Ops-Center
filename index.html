@@ -4648,6 +4648,7 @@ function openDefaultTeamMemberModal(user){
   const p=(_getProfiles()[user])||{};
   const _dv=window._DGL_USER||'';
   const canWrite=['taylor','steve'].includes(_dv)||_dv===user;
+  const canEditPw=['taylor','steve'].includes(_dv);
   const title=document.getElementById('tmm-title');
   if(title) title.textContent='EDIT TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
@@ -4661,7 +4662,7 @@ function openDefaultTeamMemberModal(user){
       <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cur.name||''}" style="${fSt}"${ro}></div>
       <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cur.role||''}" style="${fSt}"${ro}></div>
       <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cur.email||''}" style="${fSt}"${ro}></div>
-      ${canWrite?`<div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep" style="${fSt}"></div>`:'<input type="hidden" id="tmm-password" value="">'}
+      ${canEditPw?`<div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep" style="${fSt}"></div>`:'<input type="hidden" id="tmm-password" value="">'}
       <div class="modal-field"><label>RACI Column Name</label><input type="text" value="${cur.raciKey||''}" readonly style="${roSt}"></div>
       <div class="modal-field"><label>Login Key</label><input type="text" value="${cur.user||''}" readonly style="${roSt}"></div>
       <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${fSt}"${canWrite?'':' disabled'}>${levelOpts}</select></div>
@@ -4742,6 +4743,7 @@ function openTeamMemberModal(idx){
   const p=cm?(_getProfiles()[cm.user]||{}):{};
   const _dv2=window._DGL_USER||'';
   const canWrite2=['taylor','steve'].includes(_dv2)||(cm&&_dv2===cm.user);
+  const canEditPw2=['taylor','steve'].includes(_dv2)||!cm;
   const title=document.getElementById('tmm-title');
   if(title) title.textContent=cm?'EDIT TEAM MEMBER':'ADD TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
@@ -4754,7 +4756,7 @@ function openTeamMemberModal(idx){
       <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cm?cm.name:''}" placeholder="Alice Smith" style="${fSt2}"${ro2}></div>
       <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cm?cm.role:''}" placeholder="Marketing Associate" style="${fSt2}"${ro2}></div>
       <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cm?cm.email:''}" placeholder="alice@DGL.dev" style="${fSt2}"${ro2}></div>
-      ${canWrite2?`<div class="modal-field"><label>Password ${cm?'(blank = keep current)':''}</label><input type="password" id="tmm-password" placeholder="${cm?'Leave blank to keep':'Set password'}" style="${fSt2}"></div>`:'<input type="hidden" id="tmm-password" value="">'}
+      ${canEditPw2?`<div class="modal-field"><label>Password ${cm?'(blank = keep current)':''}</label><input type="password" id="tmm-password" placeholder="${cm?'Leave blank to keep':'Set password'}" style="${fSt2}"></div>`:'<input type="hidden" id="tmm-password" value="">'}
       <div class="modal-field"><label>RACI Column Name (no spaces)</label><input type="text" id="tmm-raci" value="${cm?cm.raciKey:''}" placeholder="Alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+fSt2+'"'+ro2}></div>
       <div class="modal-field"><label>Login Key (lowercase, no spaces)</label><input type="text" id="tmm-user" value="${cm?cm.user:''}" placeholder="alice" ${cm?'readonly style="opacity:0.5;'+iSt+'"':'style="'+fSt2+'"'+ro2}></div>
       <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${fSt2}"${canWrite2?'':' disabled'}>${levelOpts}</select></div>
@@ -4998,7 +5000,7 @@ function buildTeamGrid(){
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const warnHtml=m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
       const noteHtml=m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
-      const canAdmin=_hrIsUnlocked();
+      const canAdmin=['taylor','steve'].includes(window._DGL_USER||'')||window._DGL_USER===userKey;
       const adminBtnsHtml=canAdmin?`<div style="display:flex;gap:4px"><button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit">✏️</button></div>`:'';
       return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
         ${dragHandle}
@@ -5025,7 +5027,7 @@ function buildTeamGrid(){
       const statsHtml2=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
-      const canAdmin2=_hrIsUnlocked();
+      const canAdmin2=['taylor','steve'].includes(window._DGL_USER||'')||window._DGL_USER===cm.user;
       const adminBtnsHtml2=canAdmin2?`<div style="display:flex;gap:4px"><button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit">✏️</button></div>`:'';
       return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
         ${dragHandle}
