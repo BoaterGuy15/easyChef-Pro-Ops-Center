@@ -1770,7 +1770,7 @@ function toggleTaskExpand(taskId,trEl){
   td.innerHTML=cached||_buildTaskExpandHtml(taskId);
   expandTr.appendChild(td);
   trEl.after(expandTr);
-  setTimeout(()=>{ const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); const _ag=AGENDA_DATA.find(a=>a.taskId===taskId); const _apText=(_t&&_t.actionPlan)||(_ag&&_ag.actionPlan)||''; if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } else { setTimeout(()=>{ const _ap2=document.getElementById('raci-task-actionplan-'+taskId); const _t2=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); const _ag2=AGENDA_DATA.find(a=>a.taskId===taskId); const _apText2=(_t2&&_t2.actionPlan)||(_ag2&&_ag2.actionPlan)||''; if(_ap2&&_apText2){ _ap2.value=_apText2; _ap2.style.height='auto'; _ap2.style.height=Math.min(_ap2.scrollHeight,400)+'px'; } },3000); } },50);
+  setTimeout(()=>{ const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _ag=AGENDA_DATA.find(a=>a.taskId===taskId); const _apText=(_ag&&_ag.actionPlan)||''; if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } else { setTimeout(()=>{ const _ap2=document.getElementById('raci-task-actionplan-'+taskId); const _ag2=AGENDA_DATA.find(a=>a.taskId===taskId); const _apText2=(_ag2&&_ag2.actionPlan)||''; if(_ap2&&_apText2){ _ap2.value=_apText2; _ap2.style.height='auto'; _ap2.style.height=Math.min(_ap2.scrollHeight,400)+'px'; } },3000); } },50);
   if(!cached){
     // Fresh open — load dynamic content
     _raciExpandLoadChannels(taskId);
@@ -1835,7 +1835,7 @@ function _buildTaskExpandHtml(taskId){
         ${lbl('DECISION')}
         ${canAdmin?`<textarea id="raci-task-decision-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Record a decision made about this task — syncs to the linked agenda item" onblur="saveTaskDecision('${taskId}')">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
-        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="(function(){const t=DASHBOARD_DATA.tasks.find(x=>x.id==='${taskId}');if(t){t.actionPlan=document.getElementById('raci-task-actionplan-${taskId}').value;saveToLocal();}})()">${(t.actionPlan||(AGENDA_DATA.find(a=>a.taskId===taskId)||{}).actionPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="(function(){const _agI=AGENDA_DATA.find(a=>a.taskId==='${taskId}');if(_agI){_agI.actionPlan=document.getElementById('raci-task-actionplan-${taskId}').value;saveAgendaItemToSheets(_agI);}})()">${((AGENDA_DATA.find(a=>a.taskId===taskId)||{}).actionPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
         ${lbl('TASK PLAN')}
         <div id="raci-task-plans-${taskId}">${_renderTaskPlanCardsHtml(t.taskPlans||[],taskId,'task')}</div>
         ${lbl('DEPENDENCIES')}
@@ -1874,7 +1874,6 @@ function _syncTaskToAgenda(taskId){
   if(task.flag) item.flag=task.flag;
   if(task.notes) item.detail=task.notes;
   if(task.decision) item.decision=task.decision;
-  if(task.actionPlan) item.actionPlan=task.actionPlan;
   if(task.taskPlans&&task.taskPlans.length) item.taskPlans=task.taskPlans;
   saveAgendaItemToSheets(item);
 }
@@ -3590,7 +3589,9 @@ function _superAiSave(id, type, btn){
   const plans=_parseTaskPlansFromSuperAI(text);
   if(type==='task'||type==='raci'||!type){
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
-    if(task){ task.actionPlan=text; if(plans.length) task.taskPlans=plans; try{localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks));}catch(e){} _saveTasksNow(); _syncTaskToAgenda(id); }
+    if(task){ if(plans.length) task.taskPlans=plans; try{localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks));}catch(e){} _saveTasksNow(); _syncTaskToAgenda(id); }
+    const _agLink=AGENDA_DATA.find(a=>a.taskId===id);
+    if(_agLink){ _agLink.actionPlan=text; if(plans.length) _agLink.taskPlans=plans; saveAgendaItemToSheets(_agLink); }
   }
   if(type==='agenda'||!type){
     const agItem=AGENDA_DATA.find(a=>a.id===id);
@@ -6569,10 +6570,11 @@ function saveToSheets(){
     updateSyncStatus('syncing');
     _sheetsSyncLock=true;
     setTimeout(()=>{ _sheetsSyncLock=false; },8000);
+    const _tsPayload=DASHBOARD_DATA.tasks.map(({actionPlan,...r})=>r);
     fetch(CONFIG.sheetsUrl,{
       method:'POST',
       mode:'no-cors',
-      body:JSON.stringify(DASHBOARD_DATA.tasks)
+      body:JSON.stringify(_tsPayload)
     })
     .then(()=>updateSyncStatus('ok'))
     .catch(()=>updateSyncStatus('fail'));
@@ -6617,7 +6619,8 @@ function _saveTasksNow(){
     updateSyncStatus('syncing');
     _sheetsSyncLock=true;
     setTimeout(()=>{ _sheetsSyncLock=false; },8000);
-    fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(DASHBOARD_DATA.tasks)})
+    const _tPayload=DASHBOARD_DATA.tasks.map(({actionPlan,...r})=>r);
+    fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(_tPayload)})
       .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
       .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
   },1500);
