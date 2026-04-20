@@ -1601,16 +1601,19 @@ function _saveTaskSlackLink(id,obj){ _slackLinksCache['dgl_task_slack_'+id]=obj;
 function _isChannelUnlocked(taskId){ return Date.now()<(parseInt(sessionStorage.getItem('dgl_channel_unlock_'+(taskId||''))||'0')); }
 function _syncChannelToSheets(taskId,channelId,channelName,oldChannelName){
   if(!CONFIG.sheetsUrl) return;
-  const user=window._DGL_USER||'anonymous';
+  const user=window._DGL_USER||'system';
   const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
   const changedBy=(info.name||user).split(' ')[0];
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId,channelName:channelName||'',changedBy,oldChannel:oldChannelName||'none'})}).catch(()=>{});
+  const sessionHash=(user).slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId,channelName:channelName||'',changedBy,oldChannel:oldChannelName||'none',sessionHash})}).catch(()=>{});
 }
 function _batchSaveChannelsToSheets(){
   if(!CONFIG.sheetsUrl) return;
+  const user=window._DGL_USER||'system';
   Object.entries(_slackLinksCache).forEach(([key,obj])=>{
     const taskId=key.replace('dgl_task_slack_','');
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId:obj.channelId||'',channelName:obj.channelName||'',changedBy:'auto-link',oldChannel:'none'})}).catch(()=>{});
+    const sessionHash=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId:obj.channelId||'',channelName:obj.channelName||'',changedBy:user,oldChannel:'none',sessionHash})}).catch(()=>{});
   });
 }
 function _loadChannelAssignmentsFromSheets(){
@@ -4911,11 +4914,13 @@ async function _submitHRAuth(){
   if(h===window._dglPwHash){
     sessionStorage.setItem('dgl_hr_unlock',String(Date.now()+10*60*1000));
     document.getElementById('hr-auth-overlay')?.remove();
-    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'HR_ACCESS',channelId:'GRANTED',channelName:'hr_access',changedBy:user,changedAt:ts,oldChannel:'none'})}).catch(()=>{});
+    const _hrSessionHash=(user).slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'HR_ACCESS',channelId:'GRANTED',channelName:'hr_access',changedBy:user,changedAt:ts,oldChannel:'none',sessionHash:_hrSessionHash})}).catch(()=>{});
     showTeamSection('hr');
   } else {
     if(errEl) errEl.textContent='Incorrect password — use your own login password';
-    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'HR_ACCESS',channelId:'FAILED',channelName:'hr_access',changedBy:user,changedAt:ts,oldChannel:'failed_attempt'})}).catch(()=>{});
+    const _hrFailHash=(user).slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'FAILED_AUTH',channelId:'FAILED',channelName:'hr_access',changedBy:user,changedAt:ts,oldChannel:window.location.pathname,sessionHash:_hrFailHash})}).catch(()=>{});
     const inp=document.getElementById('hrauth-pw'); if(inp){ inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; }
   }
 }
