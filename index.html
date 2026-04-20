@@ -435,6 +435,30 @@ tr.hidden-row{display:none}
 .briefing-pulse-val{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--gold-light);line-height:1}
 .briefing-pulse-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
 .briefing-footer{display:flex;align-items:center;justify-content:space-between;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* ── HR MODULE ── */
+.hr-roster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
+@media(max-width:1000px){.hr-roster-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:680px){.hr-roster-grid{grid-template-columns:1fr}}
+.hr-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;position:relative}
+.hr-card.inactive{border-color:rgba(248,113,113,0.25);opacity:0.85}
+.hr-status-badge{display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:99px;letter-spacing:1px;text-transform:uppercase}
+.hr-status-active{background:rgba(52,211,153,0.12);color:var(--green);border:1px solid rgba(52,211,153,0.2)}
+.hr-status-inactive{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2)}
+.hr-score-ring{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;border:2px solid var(--border);flex-shrink:0}
+.hr-field-row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(37,42,53,0.35);font-size:11px}
+.hr-field-row:last-child{border-bottom:none}
+.hr-field-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.5px}
+.hr-field-val{font-family:'DM Mono',monospace;font-size:10px;color:var(--text)}
+.hr-note-item{padding:8px 0;border-bottom:1px solid var(--surface)}
+.hr-note-item:last-child{border-bottom:none}
+.hr-note-type{font-family:'DM Mono',monospace;font-size:8px;padding:1px 6px;border-radius:3px;letter-spacing:0.5px;text-transform:uppercase;margin-left:4px}
+.hr-nt-performance{background:rgba(79,142,247,0.12);color:#82b0ff}
+.hr-nt-retention{background:rgba(52,211,153,0.12);color:var(--green)}
+.hr-nt-termination{background:rgba(248,113,113,0.12);color:var(--red)}
+.hr-nt-contract{background:rgba(201,168,76,0.12);color:var(--gold)}
+.hr-nt-general{background:rgba(107,114,128,0.1);color:var(--muted)}
+.hr-nt-ai_analysis{background:rgba(201,168,76,0.15);color:var(--gold-light)}
 </style>
 </head>
 <body>
@@ -485,6 +509,7 @@ tr.hidden-row{display:none}
     <div class="nav-tab" onclick="showPage('appdata')">App Data</div>
     <div class="nav-tab" onclick="showPage('comms')">Comms</div>
     <div class="nav-tab" onclick="showPage('actionplans')">Action Plans</div>
+    <div class="nav-tab" id="hr-nav-tab" onclick="showPage('hr')" style="display:none">HR</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -1047,6 +1072,20 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
+<!-- ══ HR PROFILE MODAL ══ -->
+<div class="modal-overlay" id="hr-profile-modal-overlay" onclick="if(event.target===this)closeHRProfileModal()">
+  <div class="modal" style="max-width:600px;width:92%">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+      <div>
+        <div id="hr-profile-modal-title" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:3px">EDIT HR PROFILE</div>
+        <div id="hr-profile-modal-sub" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)"></div>
+      </div>
+      <button onclick="closeHRProfileModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div id="hr-profile-modal-body"></div>
+  </div>
+</div>
+
 <div id="milestone-editor" style="display:none;position:fixed;z-index:502;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:240px">
   <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Edit Milestone</div>
   <div style="margin-bottom:8px">
@@ -1071,6 +1110,15 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <div id="page-actionplans" class="page">
   <div class="section-label">Action Plans</div>
   <div id="actionplans-body" style="padding:16px 0"></div>
+</div>
+
+<!-- ══ PAGE: HR ══ -->
+<div id="page-hr" class="page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div class="section-label" style="margin:0">HR &amp; Team Management</div>
+    <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">🔒 CONFIDENTIAL — RESTRICTED ACCESS</span>
+  </div>
+  <div id="hr-body"></div>
 </div>
 
 <script>
@@ -1104,6 +1152,7 @@ function showPage(id){
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap') setTimeout(initRoadmapHeadSync,50);
   if(id==='actionplans') buildActionPlansPage();
+  if(id==='hr') buildHRPage();
 }
 function initRoadmapHeadSync(){
   const wrap=document.querySelector('.roadmap-wrap');
@@ -6301,6 +6350,8 @@ function showDashboard(user, showPopup=false){
   if(role==='member') applyViewOnly();
   if(bell&&user!=='view') bell.style.display='inline-block';
   updateBellDot();
+  const _hrTab=document.getElementById('hr-nav-tab');
+  if(_hrTab) _hrTab.style.display=['taylor','steve'].includes(user)?'':'none';
   if(showPopup&&user!=='view') setTimeout(()=>showBriefing(), 500);
 }
 function doSignOut(){
@@ -7537,6 +7588,68 @@ function _slackOAuthUrl(){
   const state=encodeURIComponent(window._DGL_USER||'');
   return `https://slack.com/oauth/v2/authorize?client_id=${clientId}&user_scope=chat:write&redirect_uri=${redirectUri}&state=${state}`;
 }
+// ── HR MODULE — add to Code.gs ─────────────────────────────────────────────
+// const HR_PROFILES_SHEET = 'HRProfiles';
+// const HR_NOTES_SHEET    = 'HRNotes';
+// const HR_PROFILES_FIELDS = ['userKey','name','role','status','startDate','contractType','payRate','payFrequency','notes','inactivationReason','reactivatable','createdAt'];
+// const HR_NOTES_FIELDS    = ['id','userKey','authorKey','authorName','timestamp','noteType','text','private'];
+//
+// doGet additions (insert inside the if/else chain in doGet):
+// } else if (action === 'hr_profiles_read') {
+//   return respond({ ok: true, profiles: getHRProfiles() });
+// } else if (action === 'hr_notes_read') {
+//   var uKey = e.parameter.userKey || '';
+//   return respond({ ok: true, notes: getHRNotes(uKey) });
+//
+// doPost additions (insert inside the action if/else chain in doPost):
+// } else if (action === 'hr_profiles_write') {
+//   setHRProfile(body);
+//   return respond({ ok: true });
+// } else if (action === 'hr_notes_write') {
+//   addHRNote(body);
+//   return respond({ ok: true });
+//
+// function getHRProfiles() {
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var sheet = ss.getSheetByName(HR_PROFILES_SHEET);
+//   if (!sheet) return [];
+//   var rows = sheet.getDataRange().getValues();
+//   if (rows.length < 2) return [];
+//   var header = rows[0];
+//   return rows.slice(1).map(function(row) {
+//     var obj = {}; header.forEach(function(col,i){ obj[col] = row[i]==null?'':String(row[i]); }); return obj;
+//   });
+// }
+// function setHRProfile(data) {
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var sheet = ss.getSheetByName(HR_PROFILES_SHEET);
+//   if (!sheet) { sheet = ss.insertSheet(HR_PROFILES_SHEET); sheet.getRange(1,1,1,HR_PROFILES_FIELDS.length).setValues([HR_PROFILES_FIELDS]); }
+//   var rows = sheet.getDataRange().getValues();
+//   var keyIdx = rows.slice(1).findIndex(function(r){ return r[0]===data.userKey; });
+//   var rowData = HR_PROFILES_FIELDS.map(function(f){ return data[f]!==undefined?String(data[f]):''; });
+//   if (keyIdx>=0) sheet.getRange(keyIdx+2,1,1,HR_PROFILES_FIELDS.length).setValues([rowData]);
+//   else sheet.appendRow(rowData);
+// }
+// function getHRNotes(userKey) {
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var sheet = ss.getSheetByName(HR_NOTES_SHEET);
+//   if (!sheet) return [];
+//   var rows = sheet.getDataRange().getValues();
+//   if (rows.length < 2) return [];
+//   var header = rows[0];
+//   var notes = rows.slice(1).map(function(row) {
+//     var obj = {}; header.forEach(function(col,i){ obj[col] = row[i]==null?'':String(row[i]); }); return obj;
+//   });
+//   return userKey ? notes.filter(function(n){ return n.userKey===userKey; }) : notes;
+// }
+// function addHRNote(data) {
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var sheet = ss.getSheetByName(HR_NOTES_SHEET);
+//   if (!sheet) { sheet = ss.insertSheet(HR_NOTES_SHEET); sheet.getRange(1,1,1,HR_NOTES_FIELDS.length).setValues([HR_NOTES_FIELDS]); }
+//   sheet.appendRow(HR_NOTES_FIELDS.map(function(f){ return data[f]!==undefined?String(data[f]):''; }));
+// }
+// ── END HR MODULE ───────────────────────────────────────────────────────────
+
 // Apps Script doGet routing — add to Code.gs:
 // } else if (action === 'slack_check_token') {
 //   var u = e.parameter.user || '';
@@ -7794,8 +7907,346 @@ window.addEventListener('DOMContentLoaded',()=>{
   showPage(sessionStorage.getItem('dgl_active_tab')||'agenda');
   updateLiveDot();
   loadActionPlansFromSheets();
+  loadHRFromSheets();
   setTimeout(saveToLocal, 2000);
 });
+
+// ── HR Module ──────────────────────────────────────────────
+let _hrProfilesCache={};
+let _hrNotesCache={};
+
+const _HR_DEFAULT_PROFILES={
+  taylor:{userKey:'taylor',name:'Taylor Reasoner',role:'Founder · CFO/COO',status:'active',startDate:'2023-01-01',contractType:'Founder',payRate:0,payFrequency:'Equity only',notes:'',inactivationReason:'',reactivatable:false,createdAt:'2023-01-01T00:00:00Z'},
+  steve: {userKey:'steve', name:'Steve',          role:'COO · Operations Lead',status:'active',startDate:'2023-01-01',contractType:'Founder',payRate:0,payFrequency:'Equity only',notes:'',inactivationReason:'',reactivatable:false,createdAt:'2023-01-01T00:00:00Z'},
+  adam:  {userKey:'adam',  name:'Adam G',          role:'CMO · Planning Lead',status:'active',startDate:'2024-01-01',contractType:'Employee',payRate:0,payFrequency:'Monthly',notes:'',inactivationReason:'',reactivatable:false,createdAt:'2024-01-01T00:00:00Z'},
+  hammad:{userKey:'hammad',name:'Hammad',          role:'CTO · Dev Lead',status:'active',startDate:'2024-01-01',contractType:'Contractor',payRate:15000,payFrequency:'Monthly',notes:'Payoneer: committed to $15K/mo',inactivationReason:'',reactivatable:false,createdAt:'2024-01-01T00:00:00Z'},
+  mary:  {userKey:'mary',  name:'Mary',            role:'Content Lead',status:'inactive',startDate:'2024-01-01',contractType:'Contractor',payRate:0,payFrequency:'Monthly',notes:'',inactivationReason:'Engagement paused — awaiting scope clarification',reactivatable:true,createdAt:'2024-01-01T00:00:00Z'},
+  jr:    {userKey:'jr',    name:'JR',              role:'Growth Strategist · Contract',status:'active',startDate:'2024-01-01',contractType:'Contractor',payRate:0,payFrequency:'Project',notes:'',inactivationReason:'',reactivatable:false,createdAt:'2024-01-01T00:00:00Z'},
+  searah:{userKey:'searah',name:'Searah Teitgen',  role:'Marketing Operations Associate',status:'active',startDate:'2026-04-20',contractType:'Contractor',payRate:1000,payFrequency:'Monthly',notes:'New hire Apr 20',inactivationReason:'',reactivatable:false,createdAt:'2026-04-20T00:00:00Z'},
+  sadee: {userKey:'sadee', name:'Sadee Tison',     role:'PA · Support & Beta Ops',status:'active',startDate:'2026-04-20',contractType:'Employee',payRate:0,payFrequency:'Monthly',notes:'Boho Beach Hut — no additional cost',inactivationReason:'',reactivatable:false,createdAt:'2026-04-20T00:00:00Z'}
+};
+
+const _HR_DEFAULT_EXPENSE_ASSOCS=[
+  {id:'hea-001',memberKey:'hammad',memberName:'Hammad',expenseLabel:'Payoneer',amount:15000,frequency:'Monthly',notes:'Via Payoneer platform'},
+  {id:'hea-002',memberKey:'hammad',memberName:'Hammad',expenseLabel:'RankAndBeyond SEO',amount:5928,frequency:'Monthly',notes:'Shared with Searah'},
+  {id:'hea-003',memberKey:'searah',memberName:'Searah',expenseLabel:'RankAndBeyond SEO',amount:5929,frequency:'Monthly',notes:'Shared with Hammad'},
+  {id:'hea-004',memberKey:'searah',memberName:'Searah',expenseLabel:'Direct Pay',amount:1000,frequency:'Monthly',notes:'Direct contractor payment'}
+];
+
+function _hEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _getHRProfile(k){ return {...(_HR_DEFAULT_PROFILES[k]||{userKey:k,name:k,role:'',status:'active',startDate:'',contractType:'Contractor',payRate:0,payFrequency:'Monthly',notes:'',inactivationReason:'',reactivatable:false,createdAt:new Date().toISOString()}),...(_hrProfilesCache[k]||{})}; }
+function _setHRProfile(k,data){ _hrProfilesCache[k]={...(_hrProfilesCache[k]||{}),...data}; if(!CONFIG.sheetsUrl) return; fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',...data,userKey:k})}).catch(()=>{}); }
+function _getHRNotes(k){ return _hrNotesCache[k]||[]; }
+function _addHRNoteLocal(k,note){ if(!_hrNotesCache[k]) _hrNotesCache[k]=[]; _hrNotesCache[k].push(note); if(!CONFIG.sheetsUrl) return; fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_notes_write',userKey:k,...note})}).catch(()=>{}); }
+function _getHRExpenseAssocs(){ try{const r=localStorage.getItem('dgl_hr_expense_assocs');if(r)return JSON.parse(r);}catch(e){} return _HR_DEFAULT_EXPENSE_ASSOCS.map(x=>({...x})); }
+function _saveHRExpenseAssocs(arr){ try{localStorage.setItem('dgl_hr_expense_assocs',JSON.stringify(arr));}catch(e){} }
+
+function loadHRFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=hr_profiles_read').then(r=>r.json()).then(data=>{
+    if(Array.isArray(data.profiles)) data.profiles.forEach(p=>{ if(p.userKey) _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p}; });
+  }).catch(()=>{});
+  fetch(CONFIG.sheetsUrl+'?action=hr_notes_read').then(r=>r.json()).then(data=>{
+    if(Array.isArray(data.notes)){ _hrNotesCache={}; data.notes.forEach(n=>{ if(!_hrNotesCache[n.userKey]) _hrNotesCache[n.userKey]=[]; _hrNotesCache[n.userKey].push(n); }); }
+  }).catch(()=>{});
+}
+
+function _hrAllMembers(){
+  const defaults=Object.values(DEFAULT_TEAM_MEMBERS).map(d=>({userKey:d.user,name:d.name,role:d.role}));
+  const customs=_getCustomTeamMembers().map(c=>({userKey:c.user,name:c.name,role:c.role}));
+  return [...defaults,...customs];
+}
+
+function _hrPerfScore(userKey){
+  const def=DEFAULT_TEAM_MEMBERS[userKey];
+  const raciKey=def?def.raciKey:(_getCustomTeamMembers().find(c=>c.user===userKey)||{}).raciKey;
+  if(!raciKey) return null;
+  const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[raciKey]==='R'||t[raciKey]==='A/R');
+  if(!myTasks.length) return null;
+  const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
+  return Math.round(done/myTasks.length*100);
+}
+
+function buildHRPage(){
+  const el=document.getElementById('hr-body');
+  if(!el) return;
+  if(!['taylor','steve'].includes(window._DGL_USER||'')){
+    el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted);padding:40px;text-align:center">HR module — restricted access</div>';
+    return;
+  }
+  const members=_hrAllMembers();
+  const expAssocs=_getHRExpenseAssocs();
+  el.innerHTML=
+    '<div class="section-label">Team Roster</div>'+
+    '<div class="hr-roster-grid">'+members.map(m=>_buildHRMemberCard(m,expAssocs)).join('')+'</div>'+
+    '<div class="section-label" style="margin-top:8px">Expense Associations</div>'+
+    _buildHRExpenseTable(members,expAssocs)+
+    '<div class="section-label" style="margin-top:8px">Private Notes Log</div>'+
+    _buildHRNotesSection(members);
+}
+
+function _buildHRMemberCard(m,expAssocs){
+  const p=_getHRProfile(m.userKey);
+  const score=_hrPerfScore(m.userKey);
+  const isActive=p.status!=='inactive';
+  const statusBadge=isActive
+    ?'<span class="hr-status-badge hr-status-active">🟢 Active</span>'
+    :'<span class="hr-status-badge hr-status-inactive">🔴 Inactive</span>';
+  const scoreColor=score===null?'var(--border)':score>=70?'var(--green)':score>=40?'var(--amber)':'var(--red)';
+  const scoreHtml=`<div class="hr-score-ring" style="border-color:${scoreColor};color:${scoreColor}" title="Task completion rate">${score!==null?score+'%':'—'}</div>`;
+  const myExpenses=expAssocs.filter(e=>e.memberKey===m.userKey);
+  const expHtml=myExpenses.length?'<div style="margin-bottom:8px">'+myExpenses.map(e=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:3px">💸 ${_hEsc(e.expenseLabel)} — $${Number(e.amount).toLocaleString()}/${e.frequency==='Monthly'?'mo':e.frequency}</div>`).join('')+'</div>':'';
+  const deactivateBtn=isActive
+    ?`<button onclick="hrDeactivateMember('${m.userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid rgba(248,113,113,0.35);background:transparent;color:var(--red);cursor:pointer">Deactivate</button>`
+    :(p.reactivatable?`<button onclick="hrReactivateMember('${m.userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid rgba(52,211,153,0.35);background:transparent;color:var(--green);cursor:pointer">Reactivate</button>`:'');
+  return `<div class="hr-card${isActive?'':' inactive'}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+      <div><div style="font-size:14px;font-weight:500;margin-bottom:3px">${_hEsc(m.name)}</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">${_hEsc(m.role)}</div></div>
+      ${scoreHtml}
+    </div>
+    <div style="margin-bottom:10px">${statusBadge}</div>
+    <div style="margin-bottom:10px">
+      <div class="hr-field-row"><span class="hr-field-label">Contract</span><span class="hr-field-val">${_hEsc(p.contractType)}</span></div>
+      <div class="hr-field-row"><span class="hr-field-label">Pay</span><span class="hr-field-val">${p.payRate?'$'+Number(p.payRate).toLocaleString()+' / '+p.payFrequency:_hEsc(p.payFrequency)}</span></div>
+      <div class="hr-field-row"><span class="hr-field-label">Start Date</span><span class="hr-field-val">${_hEsc(p.startDate)||'—'}</span></div>
+      ${!isActive&&p.inactivationReason?`<div class="hr-field-row"><span class="hr-field-label">Reason</span><span class="hr-field-val" style="color:var(--red);font-size:9px">${_hEsc(p.inactivationReason)}</span></div>`:''}
+    </div>
+    ${expHtml}
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <button onclick="openHRProfileModal('${m.userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">✏️ Edit</button>
+      ${deactivateBtn}
+      <button onclick="runHRAnalysis('${m.userKey}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🤖 Analyse</button>
+    </div>
+    <div id="hr-ai-result-${m.userKey}" style="margin-top:8px"></div>
+  </div>`;
+}
+
+function _buildHRExpenseTable(members,expAssocs){
+  const iSt="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
+  const thSt="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--muted);font-weight:400;padding:8px 10px;text-align:left";
+  const memberOpts=members.map(m=>`<option value="${m.userKey}">${_hEsc(m.name)}</option>`).join('');
+  const rows=expAssocs.map(e=>`<tr>
+    <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);padding:7px 10px">${_hEsc(e.memberName)}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);padding:7px 10px">${_hEsc(e.expenseLabel)}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);padding:7px 10px">$${Number(e.amount).toLocaleString()}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:7px 10px">${_hEsc(e.frequency)}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:7px 10px">${_hEsc(e.notes)}</td>
+    <td style="padding:7px 6px"><button onclick="hrDeleteExpense('${e.id}')" style="background:none;border:none;color:var(--border);font-size:11px;cursor:pointer;padding:0" title="Remove">✕</button></td>
+  </tr>`).join('');
+  return `<div style="overflow-x:auto;border-radius:8px;border:1px solid var(--border);margin-bottom:24px">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--surface)"><th style="${thSt}">MEMBER</th><th style="${thSt}">EXPENSE ITEM</th><th style="${thSt}">AMOUNT</th><th style="${thSt}">FREQ</th><th style="${thSt}">NOTES</th><th style="width:28px"></th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="6" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:12px 10px">No associations yet.</td></tr>'}</tbody>
+    </table>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:32px">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">ADD EXPENSE ASSOCIATION</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 100px 120px;gap:8px;margin-bottom:8px">
+      <select id="hr-exp-member" style="${iSt}"><option value="">— Member —</option>${memberOpts}</select>
+      <input id="hr-exp-label" type="text" placeholder="Expense label (e.g. Payoneer)" style="${iSt}">
+      <input id="hr-exp-amount" type="number" placeholder="Amount $" min="0" style="${iSt}">
+      <select id="hr-exp-freq" style="${iSt}"><option>Monthly</option><option>Weekly</option><option>Bi-weekly</option><option>Project</option></select>
+    </div>
+    <div style="display:flex;gap:8px">
+      <input id="hr-exp-notes" type="text" placeholder="Notes (optional)" style="${iSt};flex:1">
+      <button onclick="hrAddExpense()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 16px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">+ Add</button>
+    </div>
+  </div>`;
+}
+
+function _buildHRNotesSection(members){
+  const ntCls={performance:'hr-nt-performance',retention:'hr-nt-retention',termination:'hr-nt-termination',contract:'hr-nt-contract',general:'hr-nt-general',ai_analysis:'hr-nt-ai_analysis'};
+  const iSt="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box;width:100%";
+  return members.map(m=>{
+    const notes=_getHRNotes(m.userKey);
+    const _noteItems=ns=>ns.length?ns.slice().reverse().map(n=>`<div class="hr-note-item">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600">${_hEsc(n.authorName||n.authorKey||'Unknown')}</span>
+        <span class="hr-note-type ${ntCls[n.noteType]||'hr-nt-general'}">${_hEsc(n.noteType||'general')}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${(n.timestamp||'').slice(0,16).replace('T',' ')}</span>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.5">${_hEsc(n.text)}</div>
+    </div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:6px 0">No notes yet.</div>';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:12px">
+      <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none'">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:500">${_hEsc(m.name)}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${notes.length} note${notes.length!==1?'s':''} ▾</span>
+      </div>
+      <div style="display:none;padding:14px 16px;border-top:1px solid var(--border)">
+        <div id="hr-notes-list-${m.userKey}">${_noteItems(notes)}</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="display:grid;grid-template-columns:1fr 150px;gap:8px;margin-bottom:8px;align-items:start">
+            <textarea id="hr-note-text-${m.userKey}" rows="2" placeholder="Add a private note…" style="${iSt};resize:vertical"></textarea>
+            <select id="hr-note-type-${m.userKey}" style="${iSt}">
+              <option value="general">General</option><option value="performance">Performance</option>
+              <option value="retention">Retention</option><option value="contract">Contract</option>
+              <option value="termination">Termination</option>
+            </select>
+          </div>
+          <button onclick="addHRNoteFromUI('${m.userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Save Note</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function hrAddExpense(){
+  const memberKey=(document.getElementById('hr-exp-member')?.value||'').trim();
+  const label=(document.getElementById('hr-exp-label')?.value||'').trim();
+  const amount=parseFloat(document.getElementById('hr-exp-amount')?.value||'0')||0;
+  const frequency=document.getElementById('hr-exp-freq')?.value||'Monthly';
+  const notes=(document.getElementById('hr-exp-notes')?.value||'').trim();
+  if(!memberKey||!label){ alert('Select a team member and enter a label.'); return; }
+  const mem=_hrAllMembers().find(m=>m.userKey===memberKey);
+  const arr=_getHRExpenseAssocs();
+  arr.push({id:'hea-'+Date.now(),memberKey,memberName:mem?mem.name:memberKey,expenseLabel:label,amount,frequency,notes});
+  _saveHRExpenseAssocs(arr);
+  buildHRPage();
+}
+
+function hrDeleteExpense(id){
+  if(!confirm('Remove this expense association?')) return;
+  _saveHRExpenseAssocs(_getHRExpenseAssocs().filter(e=>e.id!==id));
+  buildHRPage();
+}
+
+function hrDeactivateMember(userKey){
+  const p=_getHRProfile(userKey);
+  const reason=prompt('Reason for deactivation (required):','');
+  if(reason===null) return;
+  if(!reason.trim()){ alert('Reason is required.'); return; }
+  _setHRProfile(userKey,{...p,status:'inactive',inactivationReason:reason.trim(),reactivatable:true});
+  buildHRPage();
+}
+
+function hrReactivateMember(userKey){
+  const p=_getHRProfile(userKey);
+  if(!confirm('Reactivate '+p.name+'?')) return;
+  _setHRProfile(userKey,{...p,status:'active',inactivationReason:''});
+  buildHRPage();
+}
+
+function addHRNoteFromUI(userKey){
+  const text=(document.getElementById('hr-note-text-'+userKey)?.value||'').trim();
+  const noteType=document.getElementById('hr-note-type-'+userKey)?.value||'general';
+  if(!text){ alert('Note cannot be empty.'); return; }
+  const ai=_getMemberInfo(window._DGL_USER||'');
+  const note={id:'hrn-'+Date.now(),authorKey:window._DGL_USER||'unknown',authorName:ai.name||(window._DGL_USER||'Unknown'),timestamp:new Date().toISOString(),noteType,text,private:true};
+  _addHRNoteLocal(userKey,note);
+  const ntCls={performance:'hr-nt-performance',retention:'hr-nt-retention',termination:'hr-nt-termination',contract:'hr-nt-contract',general:'hr-nt-general',ai_analysis:'hr-nt-ai_analysis'};
+  const listEl=document.getElementById('hr-notes-list-'+userKey);
+  if(listEl){
+    const notes=_getHRNotes(userKey);
+    listEl.innerHTML=notes.slice().reverse().map(n=>`<div class="hr-note-item">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600">${_hEsc(n.authorName||n.authorKey||'Unknown')}</span>
+        <span class="hr-note-type ${ntCls[n.noteType]||'hr-nt-general'}">${_hEsc(n.noteType||'general')}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${(n.timestamp||'').slice(0,16).replace('T',' ')}</span>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.5">${_hEsc(n.text)}</div>
+    </div>`).join('');
+  }
+  const inp=document.getElementById('hr-note-text-'+userKey); if(inp) inp.value='';
+}
+
+async function runHRAnalysis(userKey,btn){
+  const origText=btn?btn.textContent:'🤖 Analyse';
+  if(btn){ btn.textContent='Analysing…'; btn.disabled=true; }
+  const resultEl=document.getElementById('hr-ai-result-'+userKey);
+  if(resultEl) resultEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">Gathering data…</div>';
+  const p=_getHRProfile(userKey);
+  const def=DEFAULT_TEAM_MEMBERS[userKey];
+  const raciKey=def?def.raciKey:(_getCustomTeamMembers().find(c=>c.user===userKey)||{}).raciKey||userKey;
+  const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[raciKey]==='R'||t[raciKey]==='A/R');
+  const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
+  const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<new Date().toISOString().slice(0,10)).length;
+  const inProg=myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
+  const completionPct=myTasks.length?Math.round(done/myTasks.length*100):0;
+  // Try to gather Slack data from channels linked to this member's tasks
+  let slackContext='No Slack data available.';
+  if(CONFIG.sheetsUrl&&_slackChannelsCache&&_slackChannelsCache.length){
+    const chIds=new Set();
+    myTasks.forEach(t=>{ const lk=_slackLinksCache[t.id]; if(lk) chIds.add(lk.channelId); });
+    const ids=[...chIds].slice(0,3);
+    if(ids.length){
+      try{
+        const allMsgsArr=await Promise.all(ids.map(cid=>fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(cid)+'&limit=50').then(r=>r.json()).catch(()=>({messages:[]}))));
+        const firstName=(p.name||userKey).split(' ')[0].toLowerCase();
+        const relevant=allMsgsArr.flatMap(d=>(d.messages||[]).filter(m=>((m.user||m.username||'').toLowerCase().includes(firstName)||((m.text||'').toLowerCase().includes('@'+firstName))))).slice(0,50);
+        if(relevant.length) slackContext=relevant.map(m=>`${m.user||'user'}: ${(m.text||'').slice(0,200)}`).join('\n');
+      }catch(e){}
+    }
+  }
+  const taskCtx=`Assigned tasks: ${myTasks.length} | Done: ${done} (${completionPct}%) | In Progress: ${inProg} | Overdue: ${overdue}\n\nRecent tasks:\n${myTasks.slice(0,10).map(t=>`- [${t.status}] ${t.name} (${t.cat})`).join('\n')}`;
+  const priorNotes=_getHRNotes(userKey).filter(n=>n.noteType!=='ai_analysis').slice(-5).map(n=>`[${n.noteType}] ${n.text}`).join('\n')||'None';
+  const prompt=`Team member: ${p.name}\nRole: ${p.role}\nContract: ${p.contractType} | Pay frequency: ${p.payFrequency}\nStatus: ${p.status}\nStart date: ${p.startDate||'Unknown'}\n\nTask performance:\n${taskCtx}\n\nRecent Slack activity (filtered):\n${slackContext.slice(0,1500)}\n\nPrior HR notes:\n${priorNotes}`;
+  const system='You are an HR advisor analyzing a team member\'s performance for a startup founding team. Be direct, specific, and actionable. Provide: 1) Communication style and sentiment, 2) Work strengths, 3) Areas for improvement, 4) Retention risk assessment (Low/Medium/High with justification), 5) Specific recommendations for Taylor and Steve. Format with numbered sections.';
+  if(!CONFIG.sheetsUrl){ if(btn){btn.textContent=origText;btn.disabled=false;} if(resultEl) resultEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red)">Sheets URL not configured.</div>'; return; }
+  fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
+    .then(r=>r.json())
+    .then(data=>{
+      const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
+      if(resultEl) resultEl.innerHTML=`<div style="border:1px solid var(--gold);border-radius:6px;padding:12px;margin-top:6px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">AI HR ANALYSIS</div><div id="hr-ai-text-${userKey}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text;max-height:400px;overflow-y:auto">${_hEsc(text)}</div><button onclick="saveHRAnalysis('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;margin-top:8px">💾 Save to Notes</button></div>`;
+      if(btn){btn.textContent=origText;btn.disabled=false;}
+    })
+    .catch(()=>{ if(resultEl) resultEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; if(btn){btn.textContent=origText;btn.disabled=false;} });
+}
+
+function saveHRAnalysis(userKey){
+  const el=document.getElementById('hr-ai-text-'+userKey);
+  if(!el||!el.textContent) return;
+  const ai=_getMemberInfo(window._DGL_USER||'');
+  _addHRNoteLocal(userKey,{id:'hrn-'+Date.now(),authorKey:window._DGL_USER||'system',authorName:ai.name||(window._DGL_USER||'AI System'),timestamp:new Date().toISOString(),noteType:'ai_analysis',text:el.textContent,private:true});
+  const btn=el.closest('div[style*="border:1px solid var(--gold)"]')?.querySelector('button[onclick*="saveHRAnalysis"]');
+  if(btn){ btn.textContent='Saved ✓'; btn.disabled=true; }
+}
+
+function openHRProfileModal(userKey){
+  const ov=document.getElementById('hr-profile-modal-overlay');
+  if(!ov) return;
+  const p=_getHRProfile(userKey);
+  const m=_hrAllMembers().find(x=>x.userKey===userKey)||{name:userKey,role:''};
+  document.getElementById('hr-profile-modal-title').textContent=('EDIT — '+(m.name||userKey)).toUpperCase();
+  document.getElementById('hr-profile-modal-sub').textContent=m.role||'';
+  const iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:12px;outline:none;box-sizing:border-box';
+  const ctOpts=['Founder','Employee','Contractor','Advisor'].map(o=>`<option value="${o}"${p.contractType===o?' selected':''}>${o}</option>`).join('');
+  const fqOpts=['Monthly','Weekly','Bi-weekly','Project','Equity only'].map(o=>`<option value="${o}"${p.payFrequency===o?' selected':''}>${o}</option>`).join('');
+  document.getElementById('hr-profile-modal-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
+      <div class="modal-field"><label>Contract Type</label><select id="hrm-contract" style="${iSt}">${ctOpts}</select></div>
+      <div class="modal-field"><label>Status</label><select id="hrm-status" style="${iSt}"><option value="active"${p.status==='active'?' selected':''}>Active</option><option value="inactive"${p.status==='inactive'?' selected':''}>Inactive</option></select></div>
+      <div class="modal-field"><label>Pay Rate (monthly $)</label><input type="number" id="hrm-payrate" value="${p.payRate||0}" min="0" style="${iSt}"></div>
+      <div class="modal-field"><label>Pay Frequency</label><select id="hrm-payfreq" style="${iSt}">${fqOpts}</select></div>
+      <div class="modal-field"><label>Start Date</label><input type="date" id="hrm-startdate" value="${_hEsc(p.startDate||'')}" style="${iSt}"></div>
+      <div class="modal-field"><label>Reactivatable</label><select id="hrm-reactivatable" style="${iSt}"><option value="true"${p.reactivatable?' selected':''}>Yes</option><option value="false"${!p.reactivatable?' selected':''}>No</option></select></div>
+    </div>
+    <div class="modal-field"><label>Inactivation Reason</label><input type="text" id="hrm-inact-reason" value="${_hEsc(p.inactivationReason||'')}" placeholder="Leave blank if active" style="${iSt}"></div>
+    <div class="modal-field"><label>HR Notes (internal)</label><textarea id="hrm-notes" rows="3" style="${iSt};min-height:80px;resize:vertical">${_hEsc(p.notes||'')}</textarea></div>
+    <div class="modal-actions" style="justify-content:flex-end;gap:10px;margin-top:20px">
+      <button class="btn-primary" onclick="saveHRProfileModal('${userKey}')">Save</button>
+      <button class="btn-secondary" onclick="closeHRProfileModal()">Cancel</button>
+    </div>`;
+  ov.classList.add('open');
+}
+
+function closeHRProfileModal(){
+  const ov=document.getElementById('hr-profile-modal-overlay');
+  if(ov) ov.classList.remove('open');
+}
+
+function saveHRProfileModal(userKey){
+  const contractType=document.getElementById('hrm-contract').value;
+  const status=document.getElementById('hrm-status').value;
+  const payRate=parseFloat(document.getElementById('hrm-payrate').value)||0;
+  const payFrequency=document.getElementById('hrm-payfreq').value;
+  const startDate=document.getElementById('hrm-startdate').value;
+  const reactivatable=document.getElementById('hrm-reactivatable').value==='true';
+  const inactivationReason=(document.getElementById('hrm-inact-reason').value||'').trim();
+  const notes=(document.getElementById('hrm-notes').value||'').trim();
+  _setHRProfile(userKey,{userKey,contractType,status,payRate,payFrequency,startDate,reactivatable,inactivationReason,notes});
+  closeHRProfileModal();
+  buildHRPage();
+}
 
 // ── DGL Test Suite ──────────────────────────────────────────
 async function runDGLTests(){
