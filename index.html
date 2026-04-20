@@ -6440,6 +6440,7 @@ function showDashboard(user, showPopup=false){
   updateBellDot();
   const _hrBtn=document.getElementById('team-btn-hr');
   if(_hrBtn) _hrBtn.style.display=['taylor','steve'].includes(user)?'':'none';
+  buildTeamGrid();
   if(showPopup&&user!=='view') setTimeout(()=>showBriefing(), 500);
 }
 function doSignOut(){
