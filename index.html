@@ -966,7 +966,6 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="team-section-team">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <div class="section-label" id="team-section-label" style="margin:0">Team Responsibility Summary</div>
-      <button id="add-team-member-btn" onclick="openTeamMemberModal(-1)" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap;display:none" onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">+ Add Team Member</button>
     </div>
     <div class="team-grid" id="team-grid"></div>
     <div class="section-label" id="agenda-section-label">Monday Meeting Agenda — 11AM ET / 8AM PT</div>
@@ -4946,8 +4945,6 @@ function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
   const _isAdmin=['taylor','steve'].includes(window._DGL_USER||'');
-  const _addBtn=document.getElementById('add-team-member-btn');
-  if(_addBtn) _addBtn.style.display=_isAdmin?'':'none';
   const _hrBtn2=document.getElementById('team-btn-hr');
   if(_hrBtn2) _hrBtn2.style.display=_isAdmin?'':'none';
   const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
@@ -4996,7 +4993,7 @@ function buildTeamGrid(){
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const warnHtml=m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
       const noteHtml=m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
-      const canAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+      const canAdmin=_hrIsUnlocked();
       const adminBtnsHtml=canAdmin?`<div style="display:flex;gap:4px"><button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit">✏️</button><button onclick="deleteDefaultTeamMember('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Delete">🗑️</button></div>`:'';
       return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
         ${dragHandle}
@@ -5023,7 +5020,7 @@ function buildTeamGrid(){
       const statsHtml2=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
-      const canAdmin2=['taylor','steve'].includes(window._DGL_USER||'');
+      const canAdmin2=_hrIsUnlocked();
       const adminBtnsHtml2=canAdmin2?`<div style="display:flex;gap:4px"><button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit">✏️</button><button onclick="deleteTeamMember(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Delete">🗑️</button></div>`:'';
       return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
         ${dragHandle}
@@ -8054,8 +8051,9 @@ function buildHRPage(){
   }
   const members=_hrAllMembers();
   const expAssocs=_getHRExpenseAssocs();
+  const _addBtn='<button onclick="openTeamMemberModal(-1)" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap" onmouseover="this.style.background=\'rgba(201,168,76,0.18)\'" onmouseout="this.style.background=\'rgba(201,168,76,0.08)\'">+ Add Team Member</button>';
   el.innerHTML=
-    '<div class="section-label">Team Roster</div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div class="section-label" style="margin:0">Team Roster</div>'+_addBtn+'</div>'+
     '<div class="hr-roster-grid">'+members.map(m=>_buildHRMemberCard(m,expAssocs)).join('')+'</div>'+
     '<div class="section-label" style="margin-top:8px">Expense Associations</div>'+
     _buildHRExpenseTable(members,expAssocs)+
