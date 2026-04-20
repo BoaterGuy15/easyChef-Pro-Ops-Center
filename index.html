@@ -1770,7 +1770,7 @@ function toggleTaskExpand(taskId,trEl){
   td.innerHTML=cached||_buildTaskExpandHtml(taskId);
   expandTr.appendChild(td);
   trEl.after(expandTr);
-  setTimeout(()=>{ const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(_ap){ const _t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(_t&&_t.actionPlan){ _ap.value=_t.actionPlan; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } } },50);
+  setTimeout(()=>{ const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(_t&&_t.actionPlan){ _ap.value=_t.actionPlan; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } else { setTimeout(()=>{ const _t2=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(_t2&&_t2.actionPlan&&_ap){ _ap.value=_t2.actionPlan; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } },3000); } },50);
   if(!cached){
     // Fresh open — load dynamic content
     _raciExpandLoadChannels(taskId);
@@ -6593,6 +6593,7 @@ function loadFromSheets(){
         if(t){ _mergeTask(t,s); }
         else if(s.id&&s.name){ DASHBOARD_DATA.tasks.push(s); }
       });
+      Object.keys(_raciExpandCache).forEach(k=>{ delete _raciExpandCache[k]; });
       masterRefresh();
       updateSyncStatus('ok');
     })
