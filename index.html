@@ -1453,8 +1453,9 @@ function _raciInjectExpandStyles(){
   s.textContent='@keyframes raciExpandFade{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}} .raci-expand-row td{padding:0!important;border-top:none!important} .raci-expand-inner{animation:raciExpandFade 0.18s ease} tr.raci-row-active{background:rgba(201,168,76,0.06)!important}';
   document.head.appendChild(s);
 }
-function _getTaskComments(id){ try{const r=localStorage.getItem('dgl_task_comments_'+id);if(r)return JSON.parse(r);}catch(e){} return []; }
-function _saveTaskComments(id,arr){ try{localStorage.setItem('dgl_task_comments_'+id,JSON.stringify(arr));}catch(e){} }
+const _commentsCache={};
+function _getTaskComments(id){ return _commentsCache[id]||[]; }
+function _saveTaskComments(id,arr){ _commentsCache[id]=arr; }
 function _mergeCommentArrays(local,remote){
   const seen=new Set(local.map(c=>(c.ts||'')+'|'+(c.user||'')));
   const merged=[...local];
@@ -1474,8 +1475,9 @@ function _loadCommentsFromSheets(storageKey,sheetsTaskId,onUpdate){
       if(merged.length!==local.length){ _saveTaskComments(storageKey,merged); if(typeof onUpdate==='function') onUpdate(merged); }
     }).catch(()=>{});
 }
-function _getNotes(taskId){ try{const r=localStorage.getItem('dgl_notes_'+taskId);if(r)return JSON.parse(r);}catch(e){} return []; }
-function _saveNotes(taskId,entries){ try{localStorage.setItem('dgl_notes_'+taskId,JSON.stringify(entries));}catch(e){} }
+const _notesCache={};
+function _getNotes(taskId){ return _notesCache[taskId]||[]; }
+function _saveNotes(taskId,entries){ _notesCache[taskId]=entries; }
 function _appendNote(taskId,text,type='note'){
   if(!text) return;
   const user=window._DGL_USER||'anonymous';
@@ -1527,8 +1529,9 @@ function _renderNotesLog(taskId,cid,canAdd,placeholder){
   },250);
   return `<div id="${cid}-entries" style="max-height:180px;overflow-y:auto">${logHtml}</div>${addHtml}`;
 }
-function _getTaskSlackLink(id){ const _stored=localStorage.getItem('dgl_task_slack_'+id); if(!_stored) return {}; try{ return JSON.parse(_stored); }catch(_){ return {channelId:_stored,channelName:''}; } }
-function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
+const _slackLinksCache={};
+function _getTaskSlackLink(id){ return _slackLinksCache['dgl_task_slack_'+id]||{}; }
+function _saveTaskSlackLink(id,obj){ _slackLinksCache['dgl_task_slack_'+id]=obj; }
 function _isChannelUnlocked(taskId){ return Date.now()<(parseInt(sessionStorage.getItem('dgl_channel_unlock_'+(taskId||''))||'0')); }
 function _syncChannelToSheets(taskId,channelId,channelName,oldChannelName){
   if(!CONFIG.sheetsUrl) return;
@@ -1536,6 +1539,23 @@ function _syncChannelToSheets(taskId,channelId,channelName,oldChannelName){
   const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
   const changedBy=(info.name||user).split(' ')[0];
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId,channelName:channelName||'',changedBy,oldChannel:oldChannelName||'none'})}).catch(()=>{});
+}
+function _batchSaveChannelsToSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  Object.entries(_slackLinksCache).forEach(([key,obj])=>{
+    const taskId=key.replace('dgl_task_slack_','');
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId:obj.channelId||'',channelName:obj.channelName||'',changedBy:'auto-link',oldChannel:'none'})}).catch(()=>{});
+  });
+}
+function _loadChannelAssignmentsFromSheets(){
+  // Code.gs doGet: case 'channel_map_read' — read LockLogs sheet, return latest assignment per taskId as JSON array [{taskId, channelId, channelName}]
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=channel_map_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.assignments||[]);
+      rows.forEach(r=>{ if(r.taskId&&r.channelId) _slackLinksCache['dgl_task_slack_'+r.taskId]={channelId:r.channelId,channelName:r.channelName||''}; });
+    }).catch(()=>{});
 }
 function _showChannelAuthModal(taskId,onSuccess){
   let ov=document.getElementById('channel-auth-overlay'); if(ov) ov.remove();
@@ -1642,8 +1662,9 @@ function _addCategoryChannel(){
   _buildChannelMappingSection();
 }
 function _relinkAllTasks(){
-  Object.keys(localStorage).filter(k=>k.startsWith('dgl_task_slack_')).forEach(k=>localStorage.removeItem(k));
+  Object.keys(_slackLinksCache).forEach(k=>{ delete _slackLinksCache[k]; });
   _autoLinkTaskChannels();
+  _batchSaveChannelsToSheets();
   const btn=document.getElementById('ccm-relink-btn');
   if(btn){ btn.textContent='↺ Linked ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='↺ Re-link All Tasks'; btn.disabled=false; },1500); }
 }
@@ -1682,11 +1703,11 @@ function _autoLinkTaskChannels(){
   if(!_slackChannelsCache||!_slackChannelsCache.length) return;
   const map=_getCategoryChannelMap();
   const _link=(key,target)=>{
-    if(localStorage.getItem(key)) return false;
+    if(_slackLinksCache[key]) return false;
     if(!target) return false;
     const ch=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes(target.toLowerCase()));
     if(!ch) return false;
-    localStorage.setItem(key,JSON.stringify({channelId:ch.id,channelName:'#'+ch.name}));
+    _slackLinksCache[key]={channelId:ch.id,channelName:'#'+ch.name};
     return true;
   };
   let taskCount=0;
@@ -1904,7 +1925,7 @@ function _raciExpandLoadChannels(taskId){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(); })
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); _populate(); })
     .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('raci-chpicker-'+taskId); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
 }
 function raciLinkSlack(taskId,sel){
@@ -3215,7 +3236,7 @@ function _agendaExpandLoadChannels(id){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(); })
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); _populate(); })
     .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('agenda-chpicker-'+id); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
 }
 function agendaLinkSlack(id,sel){
@@ -3377,9 +3398,8 @@ function _buildDGLContext(){
   const decisionTasks=tasks.filter(t=>t.decision&&t.decision.length>3);
   const taskDecisionLines=decisionTasks.slice(0,15).map(t=>`  ${t.id} [${t.name}]: ${t.decision.slice(0,300)}`).join('\n')||'  None';
   // Section 12: Recent Team Comments
-  const _noteKeys=Object.keys(localStorage).filter(k=>k.startsWith('dgl_notes_'));
   const _allNotes=[];
-  _noteKeys.forEach(k=>{ try{ const arr=JSON.parse(localStorage.getItem(k)||'[]'); if(Array.isArray(arr)) arr.forEach(n=>_allNotes.push(n)); }catch(e){} });
+  Object.values(_notesCache).forEach(arr=>{ if(Array.isArray(arr)) arr.forEach(n=>_allNotes.push(n)); });
   _allNotes.sort((a,b)=>(b.ts||0)-(a.ts||0));
   const recentComments=_allNotes.slice(0,10).map(n=>`  [${n.author||'?'}|${n.taskId||'?'}] ${new Date((n.ts||0)).toISOString().slice(0,10)}: ${(n.text||'').slice(0,200)}`).join('\n')||'  None';
   // Section 13: Dependency Chain
@@ -3388,9 +3408,10 @@ function _buildDGLContext(){
   return `easyChef Pro | ${today.toISOString().slice(0,10)} | ${daysToLaunch}d to launch\nTasks: ${tasks.length} total | ${complete} done | ${inProg} active | ${blocked} blocked | ${overdue} overdue\nBudget: $${(b.capital||0).toLocaleString()} capital | $${(b.adBudget||0).toLocaleString()} ad | $${(b.payoneer||0).toLocaleString()} Payoneer | $${(b.monthlyRevenue||0).toLocaleString()}/mo revenue\nGaps (${gaps.length}):\n${gapLines}\nTeam:\n${teamLines}\nTask Notes (${notesTasks.length}):\n${taskNoteLines}\nOpen Agenda:\n${agendaOpen}\nAgenda Details (${AGENDA_DATA.filter(x=>!x.checked).length} open):\n${agendaDetails}\nTask Decisions (${decisionTasks.length}):\n${taskDecisionLines}\nRecent Team Comments:\n${recentComments}\nDependency Chain (${depChainTasks.length} tasks with deps):\n${depChainLines}`;
 }
 function _renderSuperAiBtn(id, type, title, status, owner){
-  const saved=localStorage.getItem('dgl_superai_'+id);
-  const savedData=saved?JSON.parse(saved):null;
-  const lastPlan=savedData?`<div style="margin-top:5px"><button onclick="_superAiRestore('${id}','${type}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📋 Last plan: ${savedData.ts}</button></div>`:'';
+  const _saTask=DASHBOARD_DATA.tasks.find(t=>t.id===id);
+  const _saAgItem=AGENDA_DATA.find(a=>a.id===id);
+  const _saHasPlan=(_saTask&&_saTask.actionPlan)||(_saAgItem&&_saAgItem.actionPlan);
+  const lastPlan=_saHasPlan?`<div style="margin-top:5px"><button onclick="_superAiRestore('${id}','${type}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📋 Restore saved plan</button></div>`:'';
   const dTitle=(title||id).replace(/"/g,'&quot;');
   const dStatus=(status||'—').replace(/"/g,'&quot;');
   const dOwner=(owner||'—').replace(/"/g,'&quot;');
@@ -3416,7 +3437,6 @@ function runSuperAi(id, type, btn){
       btn.textContent='⚡ Super AI — Get Action Plan'; btn.disabled=false;
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
       const ts=new Date().toLocaleString();
-      localStorage.setItem('dgl_superai_'+id, JSON.stringify({text, ts}));
       _renderSuperAiResult(id, type, text, ts);
     })
     .catch(()=>{ btn.textContent='⚡ Super AI — Get Action Plan'; btn.disabled=false; if(resultEl) resultEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Super AI failed.</div>'; });
@@ -3427,9 +3447,11 @@ function _renderSuperAiResult(id, type, text, ts){
   resultEl.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">⚡ SUPER AI ACTION PLAN</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${ts}</div><div id="super-ai-text-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="_superAiPostToSlack('${id}','${type}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="_superAiSave('${id}','${type}',this)" style="${_bSt}">💾 Save</button></div>`;
 }
 function _superAiRestore(id, type){
-  const saved=localStorage.getItem('dgl_superai_'+id); if(!saved) return;
-  const {text,ts}=JSON.parse(saved);
-  _renderSuperAiResult(id, type, text, ts);
+  const _srTask=DASHBOARD_DATA.tasks.find(t=>t.id===id);
+  const _srAgItem=AGENDA_DATA.find(a=>a.id===id);
+  const text=(_srTask&&_srTask.actionPlan)||(_srAgItem&&_srAgItem.actionPlan)||'';
+  if(!text) return;
+  _renderSuperAiResult(id, type, text, new Date().toLocaleString());
 }
 function _superAiCreateTask(id, btn){
   const el=document.getElementById('super-ai-text-'+id);
@@ -3527,8 +3549,6 @@ function _superAiPostToSlack(id, type, btn){
 function _superAiSave(id, type, btn){
   const el=document.getElementById('super-ai-text-'+id);
   const text=el?el.textContent:''; if(!text) return;
-  const ts=new Date().toLocaleString();
-  localStorage.setItem('dgl_superai_'+id, JSON.stringify({text, ts}));
   const plans=_parseTaskPlansFromSuperAI(text);
   if(type==='task'||!type){
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
@@ -4300,8 +4320,9 @@ const DEFAULT_TEAM_MEMBERS={
 };
 function _getDefaultTeamEdits(){ try{const r=localStorage.getItem('dgl_default_team_edits');if(r)return JSON.parse(r);}catch(e){} return {}; }
 function _saveDefaultTeamEdits(obj){ try{localStorage.setItem('dgl_default_team_edits',JSON.stringify(obj));}catch(e){} }
-function _getProfiles(){ try{const r=localStorage.getItem('dgl_profiles');if(r)return JSON.parse(r);}catch(e){} return {}; }
-function _saveProfiles(obj){ try{localStorage.setItem('dgl_profiles',JSON.stringify(obj));}catch(e){} }
+let _profilesCache={};
+function _getProfiles(){ return _profilesCache; }
+function _saveProfiles(obj){ _profilesCache=obj; }
 function loadProfilesFromSheets(){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=profile_read')
@@ -7387,7 +7408,7 @@ function _slackLoadChannels(){
       if(data.error){ sel.innerHTML=`<option value="">Error: ${data.error}</option>`; return; }
       const chs=data.channels||[];
       _slackChannelsCache=chs;
-      _autoLinkTaskChannels(); _buildChannelMappingSection();
+      _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection();
       sel.innerHTML='<option value="">— Select channel —</option>'+
         chs.map(c=>`<option value="${c.id}">#${c.name} (${c.member_count||0})</option>`).join('');
       if(_slackChannelId){
@@ -7523,6 +7544,7 @@ function slackSend(){
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
   window._dglPwHash=sessionStorage.getItem('dgl_pw_hash')||'';
+  _loadChannelAssignmentsFromSheets();
   loadFromLocal();
   loadBudgetFromLocal();
   loadFromSheets();
