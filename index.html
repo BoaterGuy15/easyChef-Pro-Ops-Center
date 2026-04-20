@@ -2815,7 +2815,7 @@ function loadAgendaFromSheets(){
       const metaRow=rows.find(r=>r.id==='__meta__');
       if(metaRow){ const _mc=_getMeetingMeta(); const _md=metaRow.detail||''; const _cleanDate=_md?_excelSerialToDate(_md):_mc.date; const _newMeta={..._mc,title:metaRow.title||_mc.title,date:_cleanDate||_mc.date,time:metaRow.owner||_mc.time}; _saveMeetingMeta(_newMeta); if(_md&&_cleanDate!==_md) _saveMeetingMetaToSheets(_newMeta); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
-      if(dataRows.length){ const _mapped=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',actionPlan:r.actionPlan||'',taskPlan:r.taskPlan||'',taskPlans:(()=>{ try{ return r.taskPlans?JSON.parse(r.taskPlans):[]; }catch(_){ return []; } })()})); _mapped.forEach(inc=>{ const ex=AGENDA_DATA.find(a=>a.id===inc.id); if(ex&&!inc.actionPlan&&ex.actionPlan) inc.actionPlan=ex.actionPlan; }); AGENDA_DATA=_mapped; }
+      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>{ const _ex=AGENDA_DATA.find(a=>a.id===r.id); return {id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',actionPlan:r.actionPlan||(_ex&&_ex.actionPlan)||'',taskPlan:r.taskPlan||'',taskPlans:(()=>{ try{ return r.taskPlans?JSON.parse(r.taskPlans):[]; }catch(_){ return []; } })()}; }); }
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
@@ -6555,6 +6555,7 @@ function _mergeTask(t,s){
     if(PROTECTED_DATE_FIELDS.has(f)&&t[f]&&t[f].length===10) return;
     t[f]=incoming;
   });
+  if(s.actionPlan) t.actionPlan=s.actionPlan;
 }
 
 // ── Google Sheets sync ──────────────────────────────────────
