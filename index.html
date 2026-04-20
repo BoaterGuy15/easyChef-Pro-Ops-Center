@@ -4708,6 +4708,7 @@ async function saveDefaultTeamMember(user){
   Object.assign(profiles[user],{phone,slack,channels,github,timezone});
   _saveProfiles(profiles);
   saveProfileToSheets(user,profiles[user]);
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel})}).catch(()=>{});
   if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
   closeTeamMemberModal();
   buildTeamGrid();
@@ -4813,6 +4814,7 @@ async function saveTeamMember(idx){
   Object.assign(profiles[user],{phone,slack,channels,github,timezone});
   _saveProfiles(profiles);
   saveProfileToSheets(user,profiles[user]);
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel})}).catch(()=>{});
   if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
   USER_RACI_COL[user]=raciKey;
   USER_DISPLAY[user]=raciKey;
