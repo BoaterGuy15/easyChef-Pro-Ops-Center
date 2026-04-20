@@ -1835,7 +1835,7 @@ function _buildTaskExpandHtml(taskId){
         ${lbl('DECISION')}
         ${canAdmin?`<textarea id="raci-task-decision-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Record a decision made about this task — syncs to the linked agenda item" onblur="saveTaskDecision('${taskId}')">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
-        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="(function(){const _agI=AGENDA_DATA.find(a=>a.taskId==='${taskId}');if(_agI){_agI.actionPlan=document.getElementById('raci-task-actionplan-${taskId}').value;saveAgendaItemToSheets(_agI);}})()">${((AGENDA_DATA.find(a=>a.taskId===taskId)||{}).actionPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${((AGENDA_DATA.find(a=>a.taskId===taskId)||{}).actionPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
         ${lbl('TASK PLAN')}
         <div id="raci-task-plans-${taskId}">${_renderTaskPlanCardsHtml(t.taskPlans||[],taskId,'task')}</div>
         ${lbl('DEPENDENCIES')}
@@ -2819,6 +2819,12 @@ function loadAgendaFromSheets(){
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
+}
+function saveTaskActionPlan(taskId){
+  const el=document.getElementById('raci-task-actionplan-'+taskId); if(!el) return;
+  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId); if(!agItem) return;
+  agItem.actionPlan=el.value;
+  saveAgendaItemToSheets(agItem);
 }
 const _agendaSaveTimers={};
 function saveAgendaItemToSheets(item){
