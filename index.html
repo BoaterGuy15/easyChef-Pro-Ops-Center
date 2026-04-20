@@ -1753,6 +1753,13 @@ function _autoLinkTaskChannels(){
   }
   if(taskCount||agCount) console.log('[DGL] Auto-linked',taskCount,'tasks and',agCount,'agenda items to Slack channels');
 }
+function _jumpToTask(taskId){
+  showPage('raci');
+  setTimeout(()=>{
+    const tr=document.querySelector('#raci-body tr[data-id="'+taskId+'"]');
+    if(tr){ tr.scrollIntoView({behavior:'smooth',block:'center'}); toggleTaskExpand(taskId,tr); }
+  },100);
+}
 function toggleTaskExpand(taskId,trEl){
   _raciInjectExpandStyles();
   const panelExists=!!document.getElementById('raci-expand-row-'+taskId);
@@ -3946,26 +3953,32 @@ function _bulkCreateTasks(){
   }
   try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
   masterRefresh();
-  const _sumCreated=createdIds.length?'✦ Created: '+createdIds.join(', '):'✦ No tasks created';
-  const _sumSkipped=skippedCount?` | ⚠️ Skipped: ${skippedCount} duplicate${skippedCount===1?'':'s'}`:'';
-  if(prog) prog.innerHTML=`<span style="color:var(--green)">${_sumCreated}</span>${skippedCount?`<span style="color:var(--amber)">${_sumSkipped}</span>`:''}`;
-  _saveTasksNow();
-  // Append creation note to source
+  // Action plan breadcrumb per created task + clickable summary
+  const srcAgendaId=(srcType==='agenda'?srcId:'')|| (srcTask?AGENDA_DATA.find(a=>a.taskId===srcId)?.id:'') || '';
+  const srcApText=_getActionPlanText(srcId);
+  const _lnkSt="color:var(--gold);cursor:pointer;text-decoration:underline;font-family:'DM Mono',monospace;font-size:10px";
+  const createdLinks=createdIds.map(tid=>{ const t=DASHBOARD_DATA.tasks.find(x=>x.id===tid); return `<span style="${_lnkSt}" onclick="document.getElementById('bulk-create-overlay')?.remove();_jumpToTask('${tid}')">${tid}${t?' · '+(t.name||'').slice(0,30):''}</span>`; }).join('<br>');
+  const _sumCreated=createdIds.length?'✦ Created:<br>'+createdLinks:'✦ No tasks created';
+  const _sumSkipped=skippedCount?`<span style="color:var(--amber)"> | ⚠️ Skipped: ${skippedCount} duplicate${skippedCount===1?'':'s'}</span>`:'';
+  if(prog) prog.innerHTML=`<span style="color:var(--green)">${_sumCreated}</span>${_sumSkipped}`;
   if(createdIds.length){
-    const dateStr=todayStr;
-    if(srcType==='task'&&srcTask){
-      srcTask.notes=(srcTask.notes||'')+'\n[Action Plan Tasks: '+createdIds.join(', ')+' created '+dateStr+']';
+    // Save action plan breadcrumb for each new task
+    createdIds.forEach(tid=>{ if(srcApText) _saveActionPlan(tid,srcType,srcApText,tid,srcAgendaId); });
+    // Update source notes/detail
+    const _noteStr='\n[Sub-tasks created: '+createdIds.join(', ')+' on '+todayStr+']';
+    if((srcType==='task'||srcType==='raci')&&srcTask){
+      srcTask.notes=(srcTask.notes||'')+_noteStr;
       try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
-      const agItem=AGENDA_DATA.find(a=>a.taskId===srcId);
-      if(agItem){ agItem.detail=(agItem.detail||'')+'\n[Action Plan Tasks: '+createdIds.join(', ')+' created '+dateStr+']'; saveAgendaItemToSheets(agItem); }
+      const _agSrc=AGENDA_DATA.find(a=>a.taskId===srcId);
+      if(_agSrc){ _agSrc.detail=(_agSrc.detail||'')+_noteStr; saveAgendaItemToSheets(_agSrc); }
     } else if(srcType==='agenda'&&srcAgenda){
-      srcAgenda.detail=(srcAgenda.detail||'')+'\n[Tasks created: '+createdIds.join(', ')+' on '+dateStr+']';
+      srcAgenda.detail=(srcAgenda.detail||'')+_noteStr;
       saveAgendaItemToSheets(srcAgenda);
-      if(srcLinkedTask){ srcLinkedTask.notes=(srcLinkedTask.notes||'')+'\n[Tasks created: '+createdIds.join(', ')+' on '+dateStr+']'; try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){} }
+      if(srcLinkedTask){ srcLinkedTask.notes=(srcLinkedTask.notes||'')+_noteStr; try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){} }
     }
-    setTimeout(()=>_saveTasksNow(), 1000);
+    setTimeout(()=>_saveTasksNow(),1000);
   }
-  setTimeout(()=>{ const ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove(); },3000);
+  setTimeout(()=>{ const ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove(); },5000);
 }
 function _bulkAddToAgenda(sourceId,sourceType){
   console.log('[DGL] _bulkAddToAgenda fired',sourceId,sourceType);
