@@ -4983,7 +4983,8 @@ function buildTeamGrid(){
     if(entry.type==='default'){
       const {m,key,userKey}=entry;
       const ed=_defEdits[userKey]||{};
-      const displayName=ed.name||m.name, displayRole=ed.role||m.role;
+      const _hrP=_hrProfilesCache[userKey]||{};
+      const displayName=_hrP.name||ed.name||m.name, displayRole=_hrP.role||ed.role||m.role;
       const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
       const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
       const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
@@ -8048,8 +8049,9 @@ function loadHRProfilesFromSheets(){
     .then(data=>{
       if(Array.isArray(data.profiles)) data.profiles.forEach(p=>{ if(p.userKey) _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p}; });
       buildHRPage();
+      buildTeamGrid();
     })
-    .catch(()=>{ buildHRPage(); });
+    .catch(()=>{ buildHRPage(); buildTeamGrid(); });
 }
 function loadHRNotesFromSheets(userKey){
   if(!CONFIG.sheetsUrl) return;
