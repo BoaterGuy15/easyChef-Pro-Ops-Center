@@ -8192,40 +8192,119 @@ function _buildHRExpenseTable(members,expAssocs){
   </div>`;
 }
 
+function _renderHRMarkdown(text){
+  return (text||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^## (.+)$/gm,'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;margin:10px 0 4px;font-weight:600">$1</div>')
+    .replace(/^### (.+)$/gm,'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);margin:8px 0 3px;font-weight:600">$1</div>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
+}
+function _parseHRStatsSnap(noteText){
+  const m='---STATS_SNAPSHOT---';
+  const i=(noteText||'').indexOf(m); if(i===-1) return null;
+  try{ return JSON.parse(noteText.slice(i+m.length).trim()); }catch(e){ return null; }
+}
+function _hrNoteMainText(noteText){
+  const m='---STATS_SNAPSHOT---';
+  const i=(noteText||'').indexOf(m); return i===-1?(noteText||''):noteText.slice(0,i).trim();
+}
+function _hrNotesTabSwitch(tab){
+  ['all','ai','perf','gen'].forEach(t=>{
+    const v=document.getElementById('hr-notes-view-'+t);
+    const b=document.getElementById('hr-notes-tab-'+t);
+    if(v) v.style.display=t===tab?'':'none';
+    if(b){
+      b.style.background=t===tab?'var(--gold-dim)':'transparent';
+      b.style.color=t===tab?'var(--gold-light)':'var(--muted)';
+      b.style.borderColor=t===tab?'var(--gold)':'var(--border)';
+    }
+  });
+}
+function hrDeleteHRNote(userKey,noteId){
+  if(!['taylor','steve'].includes(window._DGL_USER||'')) return;
+  if(!confirm('Delete this note? This cannot be undone.')) return;
+  if(_hrNotesCache[userKey]) _hrNotesCache[userKey]=_hrNotesCache[userKey].filter(n=>n.id!==noteId);
+  buildHRPage();
+}
+function _hrShareAnalysis(userKey,noteId){
+  const note=(_hrNotesCache[userKey]||[]).find(n=>n.id===noteId);
+  if(!note){ alert('Note not found.'); return; }
+  if(!CONFIG.sheetsUrl){ alert('Sheets URL not configured.'); return; }
+  const slkStats=_getTeamSlackStats(userKey);
+  if(!slkStats.linkedChannels){ alert('No Slack channels linked to this member\'s tasks.'); return; }
+  const memberName=(DEFAULT_TEAM_MEMBERS[userKey]||{}).name||userKey;
+  const mainText=_hrNoteMainText(note.text);
+  const summary='[AI HR ANALYSIS — '+memberName+']\n'+mainText.slice(0,800)+(mainText.length>800?'\n…(truncated)':'');
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'slack_send',channel:slkStats.channelNames[0],text:summary,changedBy:window._DGL_USER||'hr'})}).catch(()=>{});
+  alert('Analysis summary posted to #'+slkStats.channelNames[0]);
+}
+function _hrCompareAnalysis(userKey,noteId){
+  const panelId='hr-compare-'+noteId;
+  const existing=document.getElementById(panelId); if(existing){ existing.remove(); return; }
+  const notes=(_hrNotesCache[userKey]||[]).filter(n=>n.noteType==='ai_analysis').sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+  const idx=notes.findIndex(n=>n.id===noteId);
+  const curr=notes[idx]; const prev=idx>0?notes[idx-1]:null;
+  const fmtDate=t=>(t||'').slice(0,16).replace('T',' ');
+  const panel=document.createElement('div');
+  panel.id=panelId;
+  panel.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;padding:12px;background:var(--surface);border-radius:6px;border:1px solid var(--border)';
+  panel.innerHTML=
+    '<div><div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--gold);margin-bottom:6px">PREVIOUS — '+fmtDate(prev?prev.timestamp:'')+'</div>'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);line-height:1.6;max-height:300px;overflow-y:auto">'+(prev?_renderHRMarkdown(_hrNoteMainText(prev.text)):'<span style="color:var(--border)">No previous analysis.</span>')+'</div></div>'+
+    '<div><div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--gold);margin-bottom:6px">CURRENT — '+fmtDate(curr?curr.timestamp:'')+'</div>'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);line-height:1.6;max-height:300px;overflow-y:auto">'+(curr?_renderHRMarkdown(_hrNoteMainText(curr.text)):'')+'</div></div>';
+  const btn=document.getElementById('hr-compare-btn-'+noteId);
+  if(btn) btn.closest('div[style*="border:1px solid var(--border)"]')?.appendChild(panel);
+}
 function _buildHRNotesSection(members){
   const ntCls={performance:'hr-nt-performance',retention:'hr-nt-retention',termination:'hr-nt-termination',contract:'hr-nt-contract',general:'hr-nt-general',ai_analysis:'hr-nt-ai_analysis'};
   const iSt="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box;width:100%";
-  return members.map(m=>{
-    const notes=_getHRNotes(m.userKey);
-    const _noteItems=ns=>ns.length?ns.slice().reverse().map(n=>`<div class="hr-note-item">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600">${_hEsc(n.authorName||n.authorKey||'Unknown')}</span>
-        <span class="hr-note-type ${ntCls[n.noteType]||'hr-nt-general'}">${_hEsc(n.noteType||'general')}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${(n.timestamp||'').slice(0,16).replace('T',' ')}</span>
-      </div>
-      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.5">${_hEsc(n.text)}</div>
-    </div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:6px 0">No notes yet.</div>';
-    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:12px">
-      <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none'">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:500">${_hEsc(m.name)}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${notes.length} note${notes.length!==1?'s':''} ▾</span>
-      </div>
-      <div style="display:none;padding:14px 16px;border-top:1px solid var(--border)">
-        <div id="hr-notes-list-${m.userKey}">${_noteItems(notes)}</div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-          <div style="display:grid;grid-template-columns:1fr 150px;gap:8px;margin-bottom:8px;align-items:start">
-            <textarea id="hr-note-text-${m.userKey}" rows="2" placeholder="Add a private note…" style="${iSt};resize:vertical"></textarea>
-            <select id="hr-note-type-${m.userKey}" style="${iSt}">
-              <option value="general">General</option><option value="performance">Performance</option>
-              <option value="retention">Retention</option><option value="contract">Contract</option>
-              <option value="termination">Termination</option>
-            </select>
-          </div>
-          <button onclick="addHRNoteFromUI('${m.userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Save Note</button>
-        </div>
-      </div>
-    </div>`;
+  const canAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+  const _tBtnSt=(id,active)=>`id="hr-notes-tab-${id}" onclick="_hrNotesTabSwitch('${id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap"`;
+  const tabBar=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"><button ${_tBtnSt('all',true)}>📝 All Notes</button><button ${_tBtnSt('ai',false)}>🤖 AI Evaluations</button><button ${_tBtnSt('perf',false)}>⚠️ Performance</button><button ${_tBtnSt('gen',false)}>📋 General</button></div>`;
+  const _noteItem=(m,n)=>`<div class="hr-note-item">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600">${_hEsc(n.authorName||n.authorKey||'Unknown')}</span>
+      <span class="hr-note-type ${ntCls[n.noteType]||'hr-nt-general'}">${_hEsc(n.noteType||'general')}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${(n.timestamp||'').slice(0,16).replace('T',' ')}</span>
+      ${canAdmin?`<button onclick="hrDeleteHRNote('${m.userKey}','${n.id}')" style="margin-left:auto;background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0" title="Delete">🗑️</button>`:''}
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;line-height:1.5">${_hEsc(_hrNoteMainText(n.text))}</div>
+  </div>`;
+  const _filterNotes=(notes,group)=>{
+    if(group==='ai') return notes.filter(n=>n.noteType==='ai_analysis');
+    if(group==='perf') return notes.filter(n=>['performance','retention','termination'].includes(n.noteType));
+    if(group==='gen') return notes.filter(n=>['general','contract'].includes(n.noteType));
+    return notes;
+  };
+  const _buildAccordion=(group)=>members.map(m=>{
+    const allNotes=_getHRNotes(m.userKey);
+    const filtered=_filterNotes(allNotes,group);
+    const items=filtered.length?filtered.slice().reverse().map(n=>_noteItem(m,n)).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:6px 0">No notes.</div>';
+    const addForm=group==='all'?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="display:grid;grid-template-columns:1fr 150px;gap:8px;margin-bottom:8px;align-items:start"><textarea id="hr-note-text-${m.userKey}" rows="2" placeholder="Add a private note…" style="${iSt};resize:vertical"></textarea><select id="hr-note-type-${m.userKey}" style="${iSt}"><option value="general">General</option><option value="performance">Performance</option><option value="retention">Retention</option><option value="contract">Contract</option><option value="termination">Termination</option></select></div><button onclick="addHRNoteFromUI('${m.userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Save Note</button></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:12px"><div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none'"><span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:500">${_hEsc(m.name)}</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${filtered.length} note${filtered.length!==1?'s':''} ▾</span></div><div style="display:none;padding:14px 16px;border-top:1px solid var(--border)"><div id="hr-notes-list-${m.userKey}">${items}</div>${addForm}</div></div>`;
   }).join('');
+  const _buildAIView=()=>{
+    const allAI=[];
+    members.forEach(m=>(_getHRNotes(m.userKey).filter(n=>n.noteType==='ai_analysis')).forEach(n=>allAI.push({m,n})));
+    allAI.sort((a,b)=>b.n.timestamp.localeCompare(a.n.timestamp));
+    if(!allAI.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:20px">No AI evaluations saved yet. Run 🤖 Analyse from a roster card and save it.</div>';
+    return allAI.map(({m,n})=>{
+      const snap=_parseHRStatsSnap(n.text);
+      const mainText=_hrNoteMainText(n.text);
+      const rateVal=snap?parseInt(snap.taskStats?.completionRate||'0'):0;
+      const rateColor=snap?(rateVal>=70?'var(--green)':rateVal>=40?'var(--amber)':'var(--red)'):'var(--muted)';
+      const overdueColor=snap&&(snap.taskStats?.overdue||0)>0?'var(--red)':'var(--muted)';
+      const snapHtml=snap?`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;padding:8px 10px;background:var(--surface);border-radius:6px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">✅ Rate: <strong style="color:${rateColor}">${snap.taskStats?.completionRate||'—'}</strong></span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">⚠️ Overdue: <strong style="color:${overdueColor}">${snap.taskStats?.overdue??'—'}</strong></span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">💬 Channels: <strong style="color:var(--text)">${snap.slackStats?.linkedChannels??'—'}</strong></span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">📅 Snapshot: <strong style="color:var(--text)">${(snap.generatedAt||'').slice(0,10)||'—'}</strong></span></div>`:'';
+      return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:6px"><div><div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--text)">${_hEsc(m.name)}</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">${(n.timestamp||'').slice(0,16).replace('T',' ')} · by ${_hEsc(n.authorName||n.authorKey||'AI')}</div></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button id="hr-compare-btn-${n.id}" onclick="_hrCompareAnalysis('${m.userKey}','${n.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📊 Compare</button><button onclick="_hrShareAnalysis('${m.userKey}','${n.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📤 Share</button>${canAdmin?`<button onclick="hrDeleteHRNote('${m.userKey}','${n.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid rgba(248,113,113,0.35);background:transparent;color:var(--red);cursor:pointer">🗑️ Delete</button>`:''}</div></div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.6;max-height:400px;overflow-y:auto">${_renderHRMarkdown(mainText)}</div>${snapHtml}</div>`;
+    }).join('');
+  };
+  return tabBar+
+    '<div id="hr-notes-view-all">'+_buildAccordion('all')+'</div>'+
+    '<div id="hr-notes-view-ai" style="display:none">'+_buildAIView()+'</div>'+
+    '<div id="hr-notes-view-perf" style="display:none">'+_buildAccordion('perf')+'</div>'+
+    '<div id="hr-notes-view-gen" style="display:none">'+_buildAccordion('gen')+'</div>';
 }
 
 function hrAddExpense(){
