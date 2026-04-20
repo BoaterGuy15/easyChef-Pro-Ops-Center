@@ -961,7 +961,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <div id="page-team" class="page">
   <div style="display:flex;gap:8px;margin-bottom:20px">
     <button id="team-btn-team" onclick="showTeamSection('team')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 16px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer;letter-spacing:0.5px">👥 Team</button>
-    <button id="team-btn-hr" onclick="showTeamSection('hr')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:0.5px;display:none">🔒 HR</button>
+    <button id="team-btn-hr" onclick="openHRAuthModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:0.5px;display:none">🔒 HR</button>
   </div>
   <div id="team-section-team">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -975,7 +975,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="team-section-hr" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
       <div class="section-label" style="margin:0">HR &amp; Team Management</div>
-      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">🔒 CONFIDENTIAL — RESTRICTED ACCESS</span>
+      <div id="hr-unlock-indicator" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);letter-spacing:1px"></div>
     </div>
     <div id="hr-body"></div>
   </div>
@@ -4870,7 +4870,57 @@ function _initTeamGridDnd(el){
     });
   });
 }
+function _hrIsUnlocked(){
+  const exp=sessionStorage.getItem('dgl_hr_unlock');
+  return !!exp&&Date.now()<parseInt(exp,10);
+}
+function _updateHRUnlockIndicator(){
+  const el=document.getElementById('hr-unlock-indicator');
+  if(!el) return;
+  const exp=parseInt(sessionStorage.getItem('dgl_hr_unlock')||'0',10);
+  const remaining=Math.max(0,Math.ceil((exp-Date.now())/60000));
+  el.textContent=remaining>0?'🔓 HR Unlocked · '+remaining+'min remaining':'';
+}
+function openHRAuthModal(){
+  if(_hrIsUnlocked()){ showTeamSection('hr'); return; }
+  let ov=document.getElementById('hr-auth-overlay'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='hr-auth-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9998;display:flex;align-items:center;justify-content:center';
+  const _bSt="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";
+  ov.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;width:min(380px,90vw)">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">🔒 HR ACCESS — CONFIRM IDENTITY</div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:16px;letter-spacing:0.5px">Session unlocks for 10 minutes</div>
+    <input id="hrauth-pw" type="password" placeholder="Enter your DGL password"
+      style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:9px 12px;border-radius:6px;outline:none;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter')_submitHRAuth()">
+    <div id="hrauth-error" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:8px;min-height:14px"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button onclick="document.getElementById('hr-auth-overlay').remove()" style="${_bSt}">Cancel</button>
+      <button onclick="_submitHRAuth()" style="${_bSt};border-color:var(--gold);color:var(--gold)">Unlock</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>{ const p=document.getElementById('hrauth-pw'); if(p) p.focus(); },50);
+}
+async function _submitHRAuth(){
+  const pw=(document.getElementById('hrauth-pw')?.value||'').trim(); if(!pw) return;
+  const h=await sha256hex(pw);
+  const errEl=document.getElementById('hrauth-error');
+  const user=window._DGL_USER||'unknown';
+  const ts=new Date().toISOString();
+  if(window._dglPwHash&&h===window._dglPwHash){
+    sessionStorage.setItem('dgl_hr_unlock',String(Date.now()+10*60*1000));
+    document.getElementById('hr-auth-overlay')?.remove();
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'HR_ACCESS',channelId:'GRANTED',channelName:'hr_access',changedBy:user,changedAt:ts,oldChannel:'none'})}).catch(()=>{});
+    showTeamSection('hr');
+  } else {
+    if(errEl) errEl.textContent='Incorrect password';
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'HR_ACCESS',channelId:'FAILED',channelName:'hr_access',changedBy:user,changedAt:ts,oldChannel:'failed_attempt'})}).catch(()=>{});
+    const inp=document.getElementById('hrauth-pw'); if(inp){ inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; }
+  }
+}
 function showTeamSection(section){
+  if(section==='hr'&&!_hrIsUnlocked()){ openHRAuthModal(); return; }
   const secTeam=document.getElementById('team-section-team');
   const secHR=document.getElementById('team-section-hr');
   const btnTeam=document.getElementById('team-btn-team');
@@ -4883,11 +4933,13 @@ function showTeamSection(section){
     btnTeam.style.color=section==='team'?'var(--gold-light)':'var(--muted)';
   }
   if(btnHR){
+    const unlocked=_hrIsUnlocked();
+    btnHR.textContent=unlocked?'📋 HR':'🔒 HR';
     btnHR.style.background=section==='hr'?'rgba(248,113,113,0.08)':'transparent';
     btnHR.style.borderColor=section==='hr'?'var(--red)':'var(--border)';
     btnHR.style.color=section==='hr'?'var(--red)':'var(--muted)';
   }
-  if(section==='hr') buildHRPage();
+  if(section==='hr'){ _updateHRUnlockIndicator(); buildHRPage(); }
 }
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
