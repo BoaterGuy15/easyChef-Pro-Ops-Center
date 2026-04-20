@@ -3612,7 +3612,13 @@ function _extractTaskFromAI(summaryText,sourceId,sourceType){
   else if(sourceType==='agenda') srcObj=AGENDA_DATA.find(a=>a.id===sourceId);
   const flagEmoji=srcObj?srcObj.flag||'':'';
   const priority=flagEmoji.startsWith('⛔')?'High':flagEmoji.startsWith('⚠️')?'Medium':'High';
-  const notes=text.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/^#{1,6}\s+/gm,'').replace(/\*/g,'').trim().slice(0,600);
+  const _dm=text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i);
+  const notes=[
+    text.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/^#{1,6}\s+/gm,'').replace(/\*/g,'').trim().slice(0,500),
+    sourceId?'[Source: '+sourceId+' — '+(sourceType||'task')+' action plan]':'',
+    _dm?'[Target: '+_dm[0]+']':'',
+    owner&&owner!=='TBD'?'[Suggested owner: '+owner+']':''
+  ].filter(Boolean).join('\n');
   let cat='Launch Ops';
   if(sourceType==='agenda'&&srcObj&&srcObj.taskId){ const lt=DASHBOARD_DATA.tasks.find(t=>t.id===srcObj.taskId); if(lt&&lt.cat) cat=lt.cat; }
   else if(sourceType==='task'&&srcObj&&srcObj.cat) cat=srcObj.cat;
@@ -3641,7 +3647,7 @@ function _openCreateTaskWithData(taskData){
     if(taskData&&taskData.cat){const el=g('tm-cat');if(el)el.value=taskData.cat;}
     if(taskData&&taskData.sd){const el=g('tm-sd');if(el)el.value=_toInputDate(taskData.sd);}
     if(taskData&&taskData.ed){const el=g('tm-ed');if(el)el.value=_toInputDate(taskData.ed);}
-    if(taskData&&taskData.notes){const el=g('tm-notes');if(el){el.value=taskData.notes;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,400)+'px';}}
+    if(taskData&&taskData.notes){const el=g('tm-notes');if(el){el.value=taskData.notes;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,300)+'px';}}
     if(taskData&&taskData.deps){const el=g('tm-deps');if(el)el.value=taskData.deps;}
     if(taskData&&taskData.actionPlan){const el=g('tm-action-plan');if(el){el.value=taskData.actionPlan;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,300)+'px';}}
     if(taskData&&taskData.owner&&taskData.owner!=='TBD'&&typeof _tmOwners!=='undefined'){_tmOwners=[taskData.owner];if(typeof _renderTmOwnerChips==='function')_renderTmOwnerChips();}
@@ -3829,7 +3835,8 @@ function _addTaskPlanToRaci(id,type,idx,btn){
   if(!ed){ const _ed7=new Date(); _ed7.setDate(_ed7.getDate()+7); ed=_ed7.toISOString().slice(0,10); }
   const deps=type==='task'?id:(src.taskId||'');
   const linkedTask=type==='agenda'&&src.taskId?DASHBOARD_DATA.tasks.find(t=>t.id===src.taskId):null;
-  const taskNotes=type==='agenda'?(src.detail||p.description||''):(p.description||'');
+  const _baseNotes=type==='agenda'?(src.detail||p.description||''):(p.description||'');
+  const taskNotes=[_baseNotes,'[From: '+id+' action plan]',p.deadline?'[Target: '+p.deadline+']':'',p.owner&&p.owner!=='TBD'?'[Suggested owner: '+p.owner+']':''].filter(Boolean).join('\n');
   const taskCat=linkedTask?.cat||'Launch Ops';
   _openCreateTaskWithData({name:p.title,owner:linkedTask?.owner||p.owner||'TBD',priority:p.priority||'High',notes:taskNotes,cat:taskCat,sd,ed,flag:'',deps,decision:'',actionPlan:p.description||'',_sourceAgendaId:type==='agenda'?id:''});
   if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Add to RACI'; btn.disabled=false; },1500); }
