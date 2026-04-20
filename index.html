@@ -1718,19 +1718,30 @@ function _autoLinkTaskChannels(){
     if(_link('dgl_task_slack_'+task.id, map[task.cat||''])) taskCount++;
   }
   let agCount=0;
-  // Pass 2: link agenda items WITH taskId by copying from now-complete task cache
+  // Pass 2: link agenda items WITH taskId — cache copy → task category → launch-ops fallback
   for(const item of AGENDA_DATA){
     if(!item.taskId) continue;
     const key='dgl_task_slack_agenda_'+item.id;
     if(_slackLinksCache[key]) continue;
+    // (a) copy from already-linked task cache entry
     const taskLink=_slackLinksCache['dgl_task_slack_'+item.taskId];
-    if(taskLink&&taskLink.channelId){ _slackLinksCache[key]={...taskLink}; agCount++; }
+    if(taskLink&&taskLink.channelId){ _slackLinksCache[key]={...taskLink}; agCount++; continue; }
+    // (b) look up task category directly
+    const lt=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId);
+    const catSlug=lt?map[lt.cat||'']:null;
+    if(catSlug){ const ch=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes(catSlug.toLowerCase())); if(ch){ _slackLinksCache[key]={channelId:ch.id,channelName:'#'+ch.name}; agCount++; continue; } }
+    // (c) launch-ops fallback
+    const fallback=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes('launch-ops'));
+    if(fallback){ _slackLinksCache[key]={channelId:fallback.id,channelName:'#'+fallback.name}; agCount++; }
   }
-  // Pass 3: link remaining agenda items (no taskId, or taskId had no channel) by category
+  // Pass 3: link remaining agenda items (no taskId) by category → launch-ops fallback
   for(const item of AGENDA_DATA){
     const key='dgl_task_slack_agenda_'+item.id;
     if(_slackLinksCache[key]) continue;
-    if(_link(key, map[item.category||''])) agCount++;
+    const catSlug=map[item.category||''];
+    if(catSlug&&_link(key,catSlug)){ agCount++; continue; }
+    const fallback=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes('launch-ops'));
+    if(fallback){ _slackLinksCache[key]={channelId:fallback.id,channelName:'#'+fallback.name}; agCount++; }
   }
   if(taskCount||agCount) console.log('[DGL] Auto-linked',taskCount,'tasks and',agCount,'agenda items to Slack channels');
 }
