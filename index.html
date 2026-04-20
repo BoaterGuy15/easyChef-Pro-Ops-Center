@@ -508,6 +508,11 @@ const CONFIG = {
   anthropicKey: '' // paste your Anthropic API key here
 };
 
+const _USER_RACI_MAP = {
+  'taylor':'Taylor','steve':'Steve','adam':'Adam','mary':'Mary',
+  'jr':'JR','hammad':'Hammad','searah':'Searah','sadee':'Sadee'
+};
+
 const CATEGORY_CHANNEL_MAP = {
   'Marketing Strategy':'marketing-strategy',
   'Mktg Strategy':'marketing-strategy',
@@ -6354,12 +6359,16 @@ function closeBriefing(){
   const ov=document.getElementById('briefing-overlay');
   if(ov) ov.classList.remove('open');
 }
-function briefingGoToRaci(name){
-  closeBriefing();
-  showPage('raci');
+function setRaciFilter(name){
   const bar=document.getElementById('raci-person-filter-bar');
   if(!bar) return;
   bar.querySelectorAll('.filter-btn').forEach(b=>{if(b.textContent.trim()===name) filterRaci(name,b);});
+}
+function briefingGoToRaci(name){
+  closeBriefing();
+  showPage('raci');
+  const raciName=name||_USER_RACI_MAP[window._DGL_USER||'']||'';
+  if(raciName) setTimeout(()=>setRaciFilter(raciName),200);
 }
 function buildBriefingHTML(user){
   const col=USER_RACI_COL[user];
@@ -6408,7 +6417,7 @@ function buildBriefingHTML(user){
   if(blocked.length){h+=`<div class="briefing-section"><div class="briefing-section-title">⚠️ Blocked by dependency</div>`;blocked.forEach(t=>{const bIds=t.deps.split(',').map(d=>d.trim()).filter(id=>{const dep=taskMap[id];return dep&&dep.status!=='Complete'&&dep.ed&&new Date(dep.ed)<today;});const bNames=bIds.map(id=>taskMap[id]?taskMap[id].name:id).join(', ');h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--amber);padding-left:8px">${t.name}</div><div class="briefing-row-meta" style="color:var(--amber)">blocked by: ${bNames}</div></div>`;});h+=`</div>`;}
   if(nextWeek.length){h+=`<div class="briefing-section"><div class="briefing-section-title">Coming up next week</div>`;nextWeek.forEach(t=>{h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--accent);padding-left:8px">${t.name}</div><div class="briefing-row-meta">${sbadge(t.status)}<span>starts ${fmtDate(t.sd)}</span></div></div>`;});h+=`</div>`;}
   h+=`<div class="briefing-section"><div class="briefing-section-title">Team pulse</div><div class="briefing-pulse"><div class="briefing-pulse-item"><div class="briefing-pulse-val">${totalComplete}</div><div class="briefing-pulse-label">Tasks complete</div></div><div class="briefing-pulse-item"><div class="briefing-pulse-val">${healthScore}</div><div class="briefing-pulse-label">Health score</div></div><div class="briefing-pulse-item"><div class="briefing-pulse-val">${daysToLaunch}</div><div class="briefing-pulse-label">Days to launch</div></div></div></div>`;
-  h+=`<div class="briefing-footer"><button class="btn-primary" onclick="closeBriefing()">Let's go →</button><a href="#" onclick="briefingGoToRaci('${name}');return false;" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:1px">View full RACI →</a></div>`;
+  h+=`<div class="briefing-footer"><button class="btn-primary" onclick="closeBriefing()">Let's go →</button><a href="#" onclick="closeBriefing();showPage('raci');const _rn=_USER_RACI_MAP[window._DGL_USER||'']||'';if(_rn)setTimeout(()=>setRaciFilter(_rn),200);return false;" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:1px">View full RACI →</a></div>`;
   return h;
 }
 
