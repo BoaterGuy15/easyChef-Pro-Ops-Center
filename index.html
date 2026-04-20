@@ -484,6 +484,7 @@ tr.hidden-row{display:none}
     <div class="nav-tab" onclick="showPage('team')">Team</div>
     <div class="nav-tab" onclick="showPage('appdata')">App Data</div>
     <div class="nav-tab" onclick="showPage('comms')">Comms</div>
+    <div class="nav-tab" onclick="showPage('actionplans')">Action Plans</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -1061,6 +1062,12 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
+<!-- ══ PAGE: ACTION PLANS ══ -->
+<div id="page-actionplans" class="page">
+  <div class="section-label">Action Plans</div>
+  <div id="actionplans-body" style="padding:16px 0"></div>
+</div>
+
 <script>
 // ── Countdown ──────────────────────────────────────────────
 function updateCountdown(){
@@ -1091,6 +1098,7 @@ function showPage(id){
   sessionStorage.setItem('dgl_active_tab',id);
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap') setTimeout(initRoadmapHeadSync,50);
+  if(id==='actionplans') buildActionPlansPage();
 }
 function initRoadmapHeadSync(){
   const wrap=document.querySelector('.roadmap-wrap');
@@ -1770,8 +1778,8 @@ function toggleTaskExpand(taskId,trEl){
   td.innerHTML=cached||_buildTaskExpandHtml(taskId);
   expandTr.appendChild(td);
   trEl.after(expandTr);
-  // Always overwrite action plan imperatively — cache may have stale value
-  setTimeout(()=>{ const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _ag=AGENDA_DATA.find(a=>a.taskId===taskId); const _t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); const _apText=(_ag&&_ag.actionPlan)||(_t&&_t.actionPlan)||''; if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } else { setTimeout(()=>{ const _ap2=document.getElementById('raci-task-actionplan-'+taskId); const _ag2=AGENDA_DATA.find(a=>a.taskId===taskId); const _t2=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); const _apText2=(_ag2&&_ag2.actionPlan)||(_t2&&_t2.actionPlan)||''; if(_ap2&&_apText2){ _ap2.value=_apText2; _ap2.style.height='auto'; _ap2.style.height=Math.min(_ap2.scrollHeight,400)+'px'; } },3000); } },50);
+  // Fill action plan from cache first, then fetch latest from Sheets
+  setTimeout(()=>{ const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _apText=_getActionPlanText(taskId); if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } _fetchActionPlan(taskId,t=>{ const el=document.getElementById('raci-task-actionplan-'+taskId); if(el&&t){ el.value=t; el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,400)+'px'; } }); },50);
   if(!cached){
     // Fresh open — load dynamic content
     _raciExpandLoadChannels(taskId);
@@ -1835,7 +1843,7 @@ function _buildTaskExpandHtml(taskId){
         ${lbl('DECISION')}
         ${canAdmin?`<textarea id="raci-task-decision-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Record a decision made about this task — syncs to the linked agenda item" onblur="saveTaskDecision('${taskId}')">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
-        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${((AGENDA_DATA.find(a=>a.taskId===taskId)||{}).actionPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_getActionPlanText(taskId).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
         ${lbl('TASK PLAN')}
         <div id="raci-task-plans-${taskId}">${_renderTaskPlanCardsHtml(t.taskPlans||[],taskId,'task')}</div>
         ${lbl('DEPENDENCIES')}
@@ -2815,25 +2823,86 @@ function loadAgendaFromSheets(){
       const metaRow=rows.find(r=>r.id==='__meta__');
       if(metaRow){ const _mc=_getMeetingMeta(); const _md=metaRow.detail||''; const _cleanDate=_md?_excelSerialToDate(_md):_mc.date; const _newMeta={..._mc,title:metaRow.title||_mc.title,date:_cleanDate||_mc.date,time:metaRow.owner||_mc.time}; _saveMeetingMeta(_newMeta); if(_md&&_cleanDate!==_md) _saveMeetingMetaToSheets(_newMeta); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
-      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>{ const _ex=AGENDA_DATA.find(a=>a.id===r.id); return {id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',actionPlan:r.actionPlan||(_ex&&_ex.actionPlan)||'',taskPlan:r.taskPlan||'',taskPlans:(()=>{ try{ return r.taskPlans?JSON.parse(r.taskPlans):[]; }catch(_){ return []; } })()}; }); }
+      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',taskPlan:r.taskPlan||'',taskPlans:(()=>{ try{ return r.taskPlans?JSON.parse(r.taskPlans):[]; }catch(_){ return []; } })()})); }
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
 }
+// ── Action Plans system ─────────────────────────────────────
+const _actionPlansCache={}; // sourceId → {id,text,sourceType,createdBy,createdAt,linkedTaskId,linkedAgendaId}
+function _getActionPlanText(sourceId){
+  if(_actionPlansCache[sourceId]) return _actionPlansCache[sourceId].text||'';
+  const _ag=AGENDA_DATA.find(a=>a.id===sourceId); if(_ag&&_ag.actionPlan) return _ag.actionPlan;
+  const _agT=AGENDA_DATA.find(a=>a.taskId===sourceId); if(_agT&&_agT.actionPlan) return _agT.actionPlan;
+  return '';
+}
+function _saveActionPlan(sourceId,sourceType,text,linkedTaskId,linkedAgendaId){
+  const plan={id:'ap-'+Date.now(),text,sourceType,createdBy:(window._DGL_USER||'Unknown'),createdAt:new Date().toISOString(),linkedTaskId:linkedTaskId||'',linkedAgendaId:linkedAgendaId||''};
+  _actionPlansCache[sourceId]=plan;
+  if(!CONFIG.sheetsUrl) return;
+  const payload=JSON.stringify({action:'action_plans_write',sourceId,...plan});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload}).catch(()=>{});
+}
+function _fetchActionPlan(sourceId,onSuccess){
+  if(!CONFIG.sheetsUrl){if(onSuccess)onSuccess(_getActionPlanText(sourceId));return;}
+  if(_actionPlansCache[sourceId]){if(onSuccess)onSuccess(_actionPlansCache[sourceId].text||'');return;}
+  fetch(CONFIG.sheetsUrl+'?action=action_plans_read&sourceId='+encodeURIComponent(sourceId))
+    .then(r=>r.json())
+    .then(data=>{
+      const plans=Array.isArray(data)?data:(data.plans||[]);
+      if(plans.length){
+        const latest=plans[plans.length-1];
+        _actionPlansCache[sourceId]={text:latest.text||'',sourceType:latest.sourceType||'',createdBy:latest.createdBy||'',createdAt:latest.createdAt||'',linkedTaskId:latest.linkedTaskId||'',linkedAgendaId:latest.linkedAgendaId||''};
+        if(onSuccess) onSuccess(_actionPlansCache[sourceId].text);
+      } else { if(onSuccess) onSuccess(_getActionPlanText(sourceId)); }
+    })
+    .catch(()=>{ if(onSuccess) onSuccess(_getActionPlanText(sourceId)); });
+}
+function loadActionPlansFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=action_plans_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const plans=Array.isArray(data)?data:(data.plans||[]);
+      const bySource={};
+      plans.forEach(p=>{ if(p.sourceId){ if(!bySource[p.sourceId]||p.createdAt>bySource[p.sourceId].createdAt) bySource[p.sourceId]=p; } });
+      Object.assign(_actionPlansCache,bySource);
+      console.log('[DGL] Action plans loaded: '+Object.keys(bySource).length+' sources');
+    })
+    .catch(()=>{});
+}
+function buildActionPlansPage(){
+  const el=document.getElementById('actionplans-body'); if(!el) return;
+  const entries=Object.entries(_actionPlansCache);
+  if(!entries.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:24px 0">No action plans saved yet. Use Super AI in a task or agenda panel to generate one.</div>'; return; }
+  const cSt='background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;border-left:3px solid var(--gold)';
+  const cards=entries.sort((a,b)=>(b[1].createdAt||'').localeCompare(a[1].createdAt||'')).map(([sourceId,plan])=>{
+    const task=DASHBOARD_DATA.tasks.find(t=>t.id===sourceId);
+    const agItem=AGENDA_DATA.find(a=>a.id===sourceId);
+    const title=task?task.name:agItem?agItem.title:sourceId;
+    const preview=(plan.text||'').slice(0,300).replace(/</g,'&lt;');
+    return `<div style="${cSt}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--gold)">${sourceId} · ${(title||'').replace(/</g,'&lt;').slice(0,60)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);text-align:right">${(plan.createdAt||'').slice(0,10)}<br>${plan.createdBy||''}</div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5">${preview}${(plan.text||'').length>300?'…':''}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=cards;
+}
 function saveTaskActionPlan(taskId){
   const el=document.getElementById('raci-task-actionplan-'+taskId); if(!el) return;
-  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId); if(!agItem) return;
-  agItem.actionPlan=el.value;
-  saveAgendaItemToSheets(agItem);
-  const agEl=document.getElementById('agenda-expand-actionplan-'+agItem.id);
-  if(agEl){ agEl.value=el.value; agEl.style.height='auto'; agEl.style.height=Math.min(agEl.scrollHeight,400)+'px'; }
+  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
+  _saveActionPlan(taskId,'raci',el.value,taskId,agItem?agItem.id:'');
+  if(agItem){ const agEl=document.getElementById('agenda-expand-actionplan-'+agItem.id); if(agEl){ agEl.value=el.value; agEl.style.height='auto'; agEl.style.height=Math.min(agEl.scrollHeight,400)+'px'; } }
 }
 const _agendaSaveTimers={};
 function saveAgendaItemToSheets(item){
   if(!CONFIG.sheetsUrl||!item||!item.id) return;
   clearTimeout(_agendaSaveTimers[item.id]);
   _agendaSaveTimers[item.id]=setTimeout(()=>{
-    const payload=JSON.stringify({action:'agenda_write',id:item.id||'',title:item.title||'',detail:item.detail||'',decision:item.decision||'',checked:String(!!item.checked),owner:item.owner||'',deadline:item.deadline||'',category:item.category||'Manual',taskId:item.taskId||'',flag:item.flag||'',actionPlan:item.actionPlan||'',taskPlan:item.taskPlan||'',taskPlans:JSON.stringify(item.taskPlans||[])});
+    const payload=JSON.stringify({action:'agenda_write',id:item.id||'',title:item.title||'',detail:item.detail||'',decision:item.decision||'',checked:String(!!item.checked),owner:item.owner||'',deadline:item.deadline||'',category:item.category||'Manual',taskId:item.taskId||'',flag:item.flag||'',taskPlan:item.taskPlan||'',taskPlans:JSON.stringify(item.taskPlans||[])});
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload}).catch(()=>{});
   },1500);
 }
@@ -2961,10 +3030,14 @@ function loadPMFHistoryFromSheets(){
 }
 function updateAgendaField(id,field,value){
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
+  if(field==='actionPlan'){
+    _saveActionPlan(id,'agenda',value,item.taskId||'',id);
+    if(item.taskId){ const taskEl=document.getElementById('raci-task-actionplan-'+item.taskId); if(taskEl){ taskEl.value=value; taskEl.style.height='auto'; taskEl.style.height=Math.min(taskEl.scrollHeight,400)+'px'; } }
+    return;
+  }
   item[field]=field==='deadline'?_excelSerialToDate(value):value;
   saveAgendaItemToSheets(item);
-  if(item.taskId&&(field==='flag'||field==='detail'||field==='decision'||field==='actionPlan'||field==='taskPlans')) _syncAgendaToTask(id);
-  if(field==='actionPlan'&&item.taskId){ const taskEl=document.getElementById('raci-task-actionplan-'+item.taskId); if(taskEl){ taskEl.value=value; taskEl.style.height='auto'; taskEl.style.height=Math.min(taskEl.scrollHeight,400)+'px'; } }
+  if(item.taskId&&(field==='flag'||field==='detail'||field==='decision'||field==='taskPlans')) _syncAgendaToTask(id);
 }
 function deleteAgendaItem(id){
   if(!canEditAgenda()) return;
@@ -3172,7 +3245,7 @@ function toggleAgendaExpand(id,el){
   newPanel.id='agenda-expand-'+id;
   newPanel.innerHTML=_buildAgendaExpandHtml(id);
   el.after(newPanel);
-  setTimeout(()=>{ const _ap=document.getElementById('agenda-expand-actionplan-'+id); if(_ap&&_ap.value){ _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } },50);
+  setTimeout(()=>{ const _ap=document.getElementById('agenda-expand-actionplan-'+id); if(!_ap) return; const _apText=_getActionPlanText(id); if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } _fetchActionPlan(id,t=>{ const el=document.getElementById('agenda-expand-actionplan-'+id); if(el&&t){ el.value=t; el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,400)+'px'; } }); },50);
   _agendaExpandLoadChannels(id);
   const linked=_getTaskSlackLink('agenda_'+id);
   if(linked.channelId) _agendaExpandLoadSlackFeed(id,linked.channelId);
@@ -3221,7 +3294,7 @@ function _buildAgendaExpandHtml(id){
         ${lbl('DECISION')}
         ${canAdmin?`<textarea id="agenda-expand-decision-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Record the decision made on this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','decision',this.value)">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
-        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="agenda-expand-actionplan-${id}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="updateAgendaField('${id}','actionPlan',this.value)">${(it.actionPlan||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="agenda-expand-actionplan-${id}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="updateAgendaField('${id}','actionPlan',this.value)">${_getActionPlanText(id).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
         ${lbl('TASK PLAN')}
         <div id="agenda-task-plans-${id}">${_renderTaskPlanCardsHtml(it.taskPlans||[],id,'agenda')}</div>
       </div>
@@ -3598,13 +3671,15 @@ function _superAiSave(id, type, btn){
   const plans=_parseTaskPlansFromSuperAI(text);
   if(type==='task'||type==='raci'||!type){
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
-    if(task){ if(plans.length) task.taskPlans=plans; try{localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks));}catch(e){} _saveTasksNow(); _syncTaskToAgenda(id); }
     const _agLink=AGENDA_DATA.find(a=>a.taskId===id);
-    if(_agLink){ _agLink.actionPlan=text; if(plans.length) _agLink.taskPlans=plans; saveAgendaItemToSheets(_agLink); }
+    if(task){ if(plans.length) task.taskPlans=plans; try{localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks));}catch(e){} _saveTasksNow(); _syncTaskToAgenda(id); }
+    if(_agLink&&plans.length){ _agLink.taskPlans=plans; saveAgendaItemToSheets(_agLink); }
+    _saveActionPlan(id,'raci',text,id,_agLink?_agLink.id:'');
   }
   if(type==='agenda'||!type){
     const agItem=AGENDA_DATA.find(a=>a.id===id);
-    if(agItem){ agItem.actionPlan=text; if(plans.length) agItem.taskPlans=plans; updateAgendaField(id,'actionPlan',text); }
+    if(agItem){ if(plans.length) agItem.taskPlans=plans; saveAgendaItemToSheets(agItem); }
+    _saveActionPlan(id,'agenda',text,agItem?agItem.taskId:'',id);
   }
   const apEl=document.getElementById('raci-task-actionplan-'+id)||document.getElementById('agenda-expand-actionplan-'+id);
   if(apEl){ apEl.value=text; apEl.style.height='auto'; apEl.style.height=Math.min(apEl.scrollHeight,400)+'px'; }
@@ -3721,8 +3796,7 @@ function _generateTaskPlans(id,type){
   const _normType=(type==='raci'?'task':type)||'task';
   const src=_normType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src) return;
-  const _agLink=_normType==='task'?AGENDA_DATA.find(a=>a.taskId===id):null;
-  const text=(_agLink&&_agLink.actionPlan)||src.actionPlan||'';
+  const text=_getActionPlanText(id)||'';
   if(!text){ alert('No Action Plan found. Run Super AI first and save the result.'); return; }
   const plans=_parseTaskPlansFromSuperAI(text);
   if(!plans.length){ alert('Could not extract task plans from Action Plan text.'); return; }
@@ -6567,7 +6641,6 @@ function _mergeTask(t,s){
     if(PROTECTED_DATE_FIELDS.has(f)&&t[f]&&t[f].length===10) return;
     t[f]=incoming;
   });
-  if(s.actionPlan) t.actionPlan=s.actionPlan;
 }
 
 // ── Google Sheets sync ──────────────────────────────────────
@@ -7655,6 +7728,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(window._DGL_USER) showDashboard(window._DGL_USER);
   showPage(sessionStorage.getItem('dgl_active_tab')||'agenda');
   updateLiveDot();
+  loadActionPlansFromSheets();
   setTimeout(saveToLocal, 2000);
 });
 
