@@ -3805,7 +3805,7 @@ function _showBulkCreateModal(id,type){
         <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)">Deps:</span>
         <input type="text" id="bcp-deps-${i}" value="${depInit.replace(/"/g,'&quot;')}" placeholder="T-XXX, T-YYY" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;border-radius:3px;outline:none;width:150px">
       </div>
-      ${dup?`<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--red);margin-top:3px;padding-left:24px">⚠️ Similar to ${dup.id} · ${dup.name.slice(0,50).replace(/</g,'&lt;')}</div>`:''}
+      ${dup?`<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--amber);margin-top:3px;padding-left:24px">⚠️ Similar to ${dup.id} · ${dup.name.slice(0,50).replace(/</g,'&lt;')}</div>`:''}
     </div>`;
   }).join('');
   const initCount=selected.filter((_,i)=>!_dupCheck(selected[i]?.title||'')).length||selected.length;
@@ -3840,7 +3840,7 @@ function _bulkCreateTasks(){
   const prog=document.getElementById('bulk-create-progress');
   const _now=new Date(); const todayStr=_now.toISOString().slice(0,10);
   const _ed7=new Date(_now); _ed7.setDate(_ed7.getDate()+7); const edDef=_ed7.toISOString().slice(0,10);
-  let createCount=0; const createdIds=[]; let prevTaskId='';
+  let createCount=0; const createdIds=[]; let prevTaskId=''; let skippedCount=0;
   for(let i=0;i<plans.length;i++){
     const chk=document.getElementById('bcp-chk-'+i); if(!chk||!chk.checked) continue;
     const name=(document.getElementById('bcp-name-'+i)?.value||'').trim(); if(!name) continue;
@@ -3848,6 +3848,9 @@ function _bulkCreateTasks(){
     const pri=document.getElementById('bcp-pri-'+i)?.value||'High';
     const ed=document.getElementById('bcp-date-'+i)?.value||edDef;
     if(prog) prog.textContent='Creating '+(createCount+1)+'…';
+    // Skip if duplicate exists in current task list
+    const _dup=_findDupTask(name);
+    if(_dup){ const res=document.getElementById('bcp-result-'+i); if(res) res.innerHTML='<span style="color:var(--amber)">⏭ Skipped · '+_dup.id+'</span>'; skippedCount++; continue; }
     const tid=nextTaskId();
     const p=plans[i];
     const raciCols={};
@@ -3862,13 +3865,16 @@ function _bulkCreateTasks(){
     } else {
       deps=prevTaskId;
     }
-    DASHBOARD_DATA.tasks.push({id:tid,name,cat:srcCat,pri,status:'Not Started',owner,deps,notes:p.description||'',actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:_flagMap[p.section]||'',flagColor:'',slackChannel:'',lastStatusChange:_now.toISOString().slice(0,16),...raciCols});
+    const breadcrumb='\n[From: '+srcId+' action plan, created '+todayStr+']';
+    DASHBOARD_DATA.tasks.push({id:tid,name,cat:srcCat,pri,status:'Not Started',owner,deps,notes:(p.description||'')+breadcrumb,actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:_flagMap[p.section]||'',flagColor:'',slackChannel:'',lastStatusChange:_now.toISOString().slice(0,16),...raciCols});
     const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+tid;
     createCount++; createdIds.push(tid); prevTaskId=tid;
   }
   try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
   masterRefresh();
-  if(prog) prog.innerHTML=`<span style="color:var(--green)">✦ ${createCount} task${createCount===1?'':'s'} created</span>`;
+  const _sumCreated=createdIds.length?'✦ Created: '+createdIds.join(', '):'✦ No tasks created';
+  const _sumSkipped=skippedCount?` | ⚠️ Skipped: ${skippedCount} duplicate${skippedCount===1?'':'s'}`:'';
+  if(prog) prog.innerHTML=`<span style="color:var(--green)">${_sumCreated}</span>${skippedCount?`<span style="color:var(--amber)">${_sumSkipped}</span>`:''}`;
   _saveTasksNow();
   // Append creation note to source
   if(createdIds.length){
