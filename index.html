@@ -2825,6 +2825,8 @@ function saveTaskActionPlan(taskId){
   const agItem=AGENDA_DATA.find(a=>a.taskId===taskId); if(!agItem) return;
   agItem.actionPlan=el.value;
   saveAgendaItemToSheets(agItem);
+  const agEl=document.getElementById('agenda-expand-actionplan-'+agItem.id);
+  if(agEl){ agEl.value=el.value; agEl.style.height='auto'; agEl.style.height=Math.min(agEl.scrollHeight,400)+'px'; }
 }
 const _agendaSaveTimers={};
 function saveAgendaItemToSheets(item){
@@ -2962,6 +2964,7 @@ function updateAgendaField(id,field,value){
   item[field]=field==='deadline'?_excelSerialToDate(value):value;
   saveAgendaItemToSheets(item);
   if(item.taskId&&(field==='flag'||field==='detail'||field==='decision'||field==='actionPlan'||field==='taskPlans')) _syncAgendaToTask(id);
+  if(field==='actionPlan'&&item.taskId){ const taskEl=document.getElementById('raci-task-actionplan-'+item.taskId); if(taskEl){ taskEl.value=value; taskEl.style.height='auto'; taskEl.style.height=Math.min(taskEl.scrollHeight,400)+'px'; } }
 }
 function deleteAgendaItem(id){
   if(!canEditAgenda()) return;
