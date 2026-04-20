@@ -1712,21 +1712,25 @@ function _autoLinkTaskChannels(){
     _slackLinksCache[key]={channelId:ch.id,channelName:'#'+ch.name};
     return true;
   };
+  // Pass 1: link all tasks by category — fully populates task entries in _slackLinksCache
   let taskCount=0;
   for(const task of DASHBOARD_DATA.tasks){
     if(_link('dgl_task_slack_'+task.id, map[task.cat||''])) taskCount++;
   }
   let agCount=0;
+  // Pass 2: link agenda items WITH taskId by copying from now-complete task cache
+  for(const item of AGENDA_DATA){
+    if(!item.taskId) continue;
+    const key='dgl_task_slack_agenda_'+item.id;
+    if(_slackLinksCache[key]) continue;
+    const taskLink=_slackLinksCache['dgl_task_slack_'+item.taskId];
+    if(taskLink&&taskLink.channelId){ _slackLinksCache[key]={...taskLink}; agCount++; }
+  }
+  // Pass 3: link remaining agenda items (no taskId, or taskId had no channel) by category
   for(const item of AGENDA_DATA){
     const key='dgl_task_slack_agenda_'+item.id;
     if(_slackLinksCache[key]) continue;
-    if(item.taskId){
-      const taskLink=_slackLinksCache['dgl_task_slack_'+item.taskId];
-      if(taskLink&&taskLink.channelId){ _slackLinksCache[key]={...taskLink}; agCount++; }
-      else { const lt=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId); if(_link(key, lt?map[lt.cat||'']:null)) agCount++; }
-    } else {
-      if(_link(key, map[item.category||''])) agCount++;
-    }
+    if(_link(key, map[item.category||''])) agCount++;
   }
   if(taskCount||agCount) console.log('[DGL] Auto-linked',taskCount,'tasks and',agCount,'agenda items to Slack channels');
 }
