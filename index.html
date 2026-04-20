@@ -6634,9 +6634,10 @@ function saveTaskModal(taskId){
     const _ed14n=new Date(_now); _ed14n.setDate(_ed14n.getDate()+14);
     DASHBOARD_DATA.tasks.push({
       id, name, cat, pri, status, owner, deps, notes, actionPlan, flag, flagNotes,
+      flagColor:_getFlagState(flag)?.color||'',
       ...raciFields,
       ...(()=>{ const cf={}; _getCustomTeamMembers().forEach(cm=>{ cf[cm.raciKey]=''; }); return cf; })(),
-      flag:'', flagColor:'', slackChannel:'',
+      slackChannel:'',
       sd: sd||_todayStr,
       ed: ed||_ed14n.toISOString().slice(0,10),
       lastStatusChange: _now.toISOString().slice(0,16)
@@ -6650,7 +6651,7 @@ function saveTaskModal(taskId){
   } else {
     const task = DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
     if(!task) return;
-    Object.assign(task, {name, cat, pri, status, owner, deps, notes, actionPlan, flag, flagNotes, sd, ed, ...raciFields});
+    Object.assign(task, {name, cat, pri, status, owner, deps, notes, actionPlan, flag, flagNotes, flagColor:_getFlagState(flag)?.color||'', sd, ed, ...raciFields});
   }
   closeModal();
   masterRefresh();
