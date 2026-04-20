@@ -1476,16 +1476,16 @@ function _loadCommentsFromSheets(storageKey,sheetsTaskId,onUpdate){
 }
 function _getNotes(taskId){ try{const r=localStorage.getItem('dgl_notes_'+taskId);if(r)return JSON.parse(r);}catch(e){} return []; }
 function _saveNotes(taskId,entries){ try{localStorage.setItem('dgl_notes_'+taskId,JSON.stringify(entries));}catch(e){} }
-function _appendNote(taskId,text){
+function _appendNote(taskId,text,type='note'){
   if(!text) return;
   const user=window._DGL_USER||'anonymous';
   const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
   const name=(info.name||user).split(' ')[0];
   const ts=new Date().toISOString();
   const entries=_getNotes(taskId);
-  entries.push({ts,user,name,text});
+  entries.push({ts,user,name,text,type});
   _saveNotes(taskId,entries);
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=comments_write&taskId='+encodeURIComponent(taskId)+'&user='+encodeURIComponent(user)+'&name='+encodeURIComponent(name)+'&ts='+encodeURIComponent(ts)+'&text='+encodeURIComponent(text)+'&type=note').catch(()=>{});
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=comments_write&taskId='+encodeURIComponent(taskId)+'&user='+encodeURIComponent(user)+'&name='+encodeURIComponent(name)+'&ts='+encodeURIComponent(ts)+'&text='+encodeURIComponent(text)+'&type='+encodeURIComponent(type)).catch(()=>{});
 }
 function _noteEntryHtml(e){ const d=(e.ts||'').slice(0,10); return `<div style="padding:5px 0;border-bottom:1px solid rgba(37,42,53,0.4)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${d} · </span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);font-weight:600">${(e.name||e.user||'').replace(/</g,'&lt;')}</span><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word;margin-top:2px">${(e.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`; }
 function _notesInputSetColor(cid,color){ const el=document.getElementById('nl-input-'+cid); if(el) el.style.color=color; }
@@ -1529,8 +1529,31 @@ function _renderNotesLog(taskId,cid,canAdd,placeholder){
 }
 function _getTaskSlackLink(id){ const _stored=localStorage.getItem('dgl_task_slack_'+id); if(!_stored) return {}; try{ return JSON.parse(_stored); }catch(_){ return {channelId:_stored,channelName:''}; } }
 function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
-let _channelUnlockExpiry=0;
-function _isChannelUnlocked(){ return Date.now()<_channelUnlockExpiry; }
+function _isChannelUnlocked(){ return Date.now()<(parseInt(sessionStorage.getItem('dgl_ch_unlock')||'0')); }
+function _syncChannelToSheets(taskId,channelId,channelName){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId,channelName:channelName||''})}).catch(()=>{});
+}
+function _loadChannelAssignmentsFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=channel_map_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.mappings||[]);
+      let loaded=0;
+      for(const r of rows){
+        if(!r.taskId||!r.channelId) continue;
+        if(!localStorage.getItem('dgl_task_slack_'+r.taskId)){
+          localStorage.setItem('dgl_task_slack_'+r.taskId,JSON.stringify({channelId:r.channelId,channelName:r.channelName||''}));
+          loaded++;
+        }
+      }
+      if(loaded) console.log('[DGL] Loaded',loaded,'channel assignments from Sheets');
+    }).catch(()=>{});
+  // Code.gs additions needed:
+  // action=channel_map_write: write {taskId,channelId,channelName} row to ChannelMap sheet
+  // action=channel_map_read:  return all rows as [{taskId,channelId,channelName}]
+}
 function _showChannelAuthModal(onSuccess){
   let ov=document.getElementById('channel-auth-overlay'); if(ov) ov.remove();
   ov=document.createElement('div'); ov.id='channel-auth-overlay';
@@ -1556,7 +1579,7 @@ async function _submitChannelAuth(){
   const h=await sha256hex(pw);
   const errEl=document.getElementById('cauth-error');
   if(window._dglPwHash&&h===window._dglPwHash){
-    _channelUnlockExpiry=Date.now()+5*60*1000;
+    sessionStorage.setItem('dgl_ch_unlock',String(Date.now()+5*60*1000));
     document.getElementById('channel-auth-overlay')?.remove();
     if(typeof window._channelAuthCallback==='function') window._channelAuthCallback();
   } else {
@@ -1575,7 +1598,7 @@ function _renderRaciChannelPicker(taskId){
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
   if(canEdit&&unlocked&&chs.length){
-    const minsLeft=Math.max(1,Math.ceil((_channelUnlockExpiry-Date.now())/60000));
+    const minsLeft=Math.max(1,Math.ceil((parseInt(sessionStorage.getItem('dgl_ch_unlock')||'0')-Date.now())/60000));
     const opts='<option value="">— No linked channel —</option>'+chs.map(ch=>`<option value="${ch.id}"${linked.channelId===ch.id?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
     c.innerHTML=`<select id="raci-expand-slack-${taskId}" style="${iSt};margin-bottom:4px" onchange="raciLinkSlack('${taskId}',this)">${opts}</select><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">🔓 Unlocked · ${minsLeft} min remaining</div>`;
   } else {
@@ -1594,7 +1617,7 @@ function _renderAgendaChannelPicker(id){
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
   if(canEdit&&unlocked&&chs.length){
-    const minsLeft=Math.max(1,Math.ceil((_channelUnlockExpiry-Date.now())/60000));
+    const minsLeft=Math.max(1,Math.ceil((parseInt(sessionStorage.getItem('dgl_ch_unlock')||'0')-Date.now())/60000));
     const opts='<option value="">— No linked channel —</option>'+chs.map(ch=>`<option value="${ch.id}"${linked.channelId===ch.id?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
     c.innerHTML=`<select id="agenda-expand-slack-${id}" style="${iSt};margin-bottom:4px" onchange="agendaLinkSlack('${id}',this)">${opts}</select><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">🔓 Unlocked · ${minsLeft} min remaining</div>`;
   } else {
@@ -1605,9 +1628,18 @@ function _renderAgendaChannelPicker(id){
 }
 function _buildChannelHistory(taskId,containerId){
   const el=document.getElementById(containerId); if(!el) return;
-  const entries=_getNotes(taskId).filter(e=>(e.text||'').includes('Channel changed')).slice(-3).reverse();
-  if(!entries.length){ el.innerHTML=''; return; }
-  el.innerHTML='<div style="margin-top:4px">'+entries.map(e=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:2px 0"><span style="color:var(--gold)">${(e.name||e.user||'').replace(/</g,'&lt;')}</span> · ${(e.ts||'').slice(0,10)} · ${(e.text||'').replace(/</g,'&lt;')}</div>`).join('')+'</div>';
+  const _renderEntries=entries=>{
+    if(!entries.length){ el.innerHTML=''; return; }
+    el.innerHTML='<div style="margin-top:4px">'+entries.map(e=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:2px 0"><span style="color:var(--gold)">${(e.name||e.user||'').replace(/</g,'&lt;')}</span> · ${(e.ts||'').slice(0,10)} · ${(e.text||'').replace(/</g,'&lt;')}</div>`).join('')+'</div>';
+  };
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(taskId))
+      .then(r=>r.json())
+      .then(data=>{ const rows=(Array.isArray(data)?data:(data.comments||[])).filter(e=>e.type==='channel_change').slice(-3).reverse(); _renderEntries(rows); })
+      .catch(()=>{ _renderEntries(_getNotes(taskId).filter(e=>(e.text||'').includes('Channel changed')).slice(-3).reverse()); });
+  } else {
+    _renderEntries(_getNotes(taskId).filter(e=>(e.text||'').includes('Channel changed')).slice(-3).reverse());
+  }
 }
 function _getCategoryChannelMap(){
   try{ const s=localStorage.getItem('dgl_category_channel_map'); return s?{...CATEGORY_CHANNEL_MAP,...JSON.parse(s)}:{...CATEGORY_CHANNEL_MAP}; }catch(_){ return {...CATEGORY_CHANNEL_MAP}; }
@@ -1892,7 +1924,8 @@ function raciLinkSlack(taskId,sel){
   const channelName=opt?opt.text:'';
   _saveTaskSlackLink(taskId,{channelId,channelName});
   if(oldLinked.channelId!==channelId){
-    _appendNote(taskId,'Channel changed from '+(oldLinked.channelName||oldLinked.channelId||'none')+' to '+(channelName||'none'));
+    _appendNote(taskId,'Channel changed from '+(oldLinked.channelName||oldLinked.channelId||'none')+' to '+(channelName||'none'),'channel_change');
+    _syncChannelToSheets(taskId,channelId,channelName);
     _buildChannelHistory(taskId,'raci-ch-history-'+taskId);
   }
   const feedEl=document.getElementById('raci-expand-slack-feed-'+taskId);
@@ -3202,7 +3235,8 @@ function agendaLinkSlack(id,sel){
   const channelName=opt?opt.text:'';
   _saveTaskSlackLink('agenda_'+id,{channelId,channelName});
   if(oldLinked.channelId!==channelId){
-    _appendNote('agenda_'+id,'Channel changed from '+(oldLinked.channelName||oldLinked.channelId||'none')+' to '+(channelName||'none'));
+    _appendNote('agenda_'+id,'Channel changed from '+(oldLinked.channelName||oldLinked.channelId||'none')+' to '+(channelName||'none'),'channel_change');
+    _syncChannelToSheets('agenda_'+id,channelId,channelName);
     _buildChannelHistory('agenda_'+id,'agenda-ch-history-'+id);
   }
   const feedEl=document.getElementById('agenda-expand-slack-feed-'+id);
@@ -7478,6 +7512,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderAdPhases();
   renderSlackCard();
   _buildChannelMappingSection();
+  _loadChannelAssignmentsFromSheets();
   renderBetaFamilies();
   renderBetaMetrics();
   renderAppAnalytics();
