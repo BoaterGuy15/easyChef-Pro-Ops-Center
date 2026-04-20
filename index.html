@@ -3269,6 +3269,8 @@ function _extractTaskFromAI(summaryText,sourceId,sourceType){
   let ed=null;
   const dm=text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})(?:,?\s+(\d{4}))?/i);
   if(dm){ const mo=_moMap[dm[1].toLowerCase()]; const day=dm[2].padStart(2,'0'); const yr=dm[3]||new Date().getFullYear().toString(); ed=yr+'-'+mo+'-'+day; }
+  if(!ed){ const _dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']; const _dm2=text.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/i); if(_dm2){ const _tod=new Date().getDay(); const _tar=_dayNames.findIndex(d=>d.toLowerCase()===_dm2[1].toLowerCase()); let _diff=_tar-_tod; if(_diff<=0)_diff+=7; const _nd=new Date(); _nd.setDate(_nd.getDate()+_diff); ed=_nd.toISOString().slice(0,10); } }
+  if(!ed&&srcObj&&srcObj.ed){ try{ const _raw=String(srcObj.ed); const _d=new Date(_raw.includes('-')?_raw:(_excelSerialToDate(_raw)||'')); if(!isNaN(_d.getTime())&&_d.getFullYear()>2000) ed=_d.toISOString().slice(0,10); }catch(_){} }
   if(!ed){ const _ed7=new Date(); _ed7.setDate(_ed7.getDate()+7); ed=_ed7.toISOString().slice(0,10); }
   const flag=(_getFlagState(flagEmoji)||{}).emoji||'';
   let deps='';
@@ -3292,7 +3294,7 @@ function _openCreateTaskWithData(taskData){
     if(taskData&&taskData.actionPlan){const el=g('tm-action-plan');if(el){el.value=taskData.actionPlan;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,300)+'px';}}
     if(taskData&&taskData.owner&&taskData.owner!=='TBD'&&typeof _tmOwners!=='undefined'){_tmOwners=[taskData.owner];if(typeof _renderTmOwnerChips==='function')_renderTmOwnerChips();}
     const mc=document.getElementById('modal-content');
-    if(mc){const ban=document.createElement('div');ban.style.cssText="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:5px;padding:6px 10px;font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1px;margin-bottom:12px";ban.textContent='✦ Pre-filled from AI analysis — review and confirm';mc.insertBefore(ban,mc.firstChild);}
+    if(mc){const ban=document.createElement('div');ban.style.cssText="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:5px;padding:6px 10px;font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1px;margin-bottom:12px";ban.textContent=taskData&&taskData.deps?'✦ Depends on: '+taskData.deps+' — inherited from AI action plan':'✦ Pre-filled from AI analysis — review and confirm';mc.insertBefore(ban,mc.firstChild);}
     const saveBtn=document.querySelector('#modal-content .btn-primary');
     if(saveBtn) saveBtn.textContent='✦ Create AI Task';
   },0);
@@ -3406,6 +3408,8 @@ function _onPlanCardCheck(sourceId,sourceType,idx,checked){
   const n=src&&src.taskPlans?src.taskPlans.filter(p=>p.selected!==false).length:0;
   const btn=document.querySelector('[data-bulk-src="'+sourceId+'"]');
   if(btn) btn.textContent='📋 Bulk Add to RACI ('+n+')';
+  const agBtn=document.querySelector('[data-agenda-src="'+sourceId+'"]');
+  if(agBtn) agBtn.textContent='📅 Add to Agenda ('+n+')';
 }
 function _renderTaskPlanCardsHtml(plans,sourceId,sourceType){
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
@@ -3437,7 +3441,8 @@ function _renderTaskPlanCardsHtml(plans,sourceId,sourceType){
     </div>`;
   }).join('');
   const bulkBtn=`<button data-bulk-src="${sourceId}" onclick="_showBulkCreateModal('${sourceId}','${sourceType}')" style="${_bSt};border-color:#4a9eff;color:#4a9eff">📋 Bulk Add to RACI (${selCount})</button>`;
-  return `<div>${cards}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${genBtn}${bulkBtn}</div></div>`;
+  const agendaBtn=`<button data-agenda-src="${sourceId}" onclick="_bulkAddToAgenda('${sourceId}','${sourceType}')" style="${_bSt};border-color:var(--amber);color:var(--amber)">📅 Add to Agenda (${selCount})</button>`;
+  return `<div>${cards}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${genBtn}${bulkBtn}${agendaBtn}</div></div>`;
 }
 function _generateTaskPlans(id,type){
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
@@ -3462,8 +3467,11 @@ function _addTaskPlanToRaci(id,type,idx,btn){
   if(!src||!src.taskPlans||!src.taskPlans[idx]) return;
   const p=src.taskPlans[idx];
   const sd=new Date().toISOString().slice(0,10);
-  let ed=''; if(p.deadline){ try{ const d=new Date(p.deadline+' 2026'); if(!isNaN(d)) ed=d.toISOString().slice(0,10); }catch(_){} }
-  _openCreateTaskWithData({name:p.title,owner:p.owner||'TBD',priority:p.priority||'High',notes:p.description||'',cat:'Launch Ops',sd,ed,flag:'',deps:'',decision:'',actionPlan:p.description||'',_sourceAgendaId:type==='agenda'?id:''});
+  let ed=''; if(p.deadline){ try{ const d=new Date(p.deadline+' '+new Date().getFullYear()); if(!isNaN(d.getTime())) ed=d.toISOString().slice(0,10); }catch(_){} }
+  if(!ed){ const _srcEd=type==='task'?src:DASHBOARD_DATA.tasks.find(t=>t.id===src.taskId); if(_srcEd&&_srcEd.ed){ try{ const _raw=String(_srcEd.ed); const _d=new Date(_raw.includes('-')?_raw:(_excelSerialToDate(_raw)||'')); if(!isNaN(_d.getTime())&&_d.getFullYear()>2000) ed=_d.toISOString().slice(0,10); }catch(_){} } }
+  if(!ed){ const _ed7=new Date(); _ed7.setDate(_ed7.getDate()+7); ed=_ed7.toISOString().slice(0,10); }
+  const deps=type==='task'?id:(src.taskId||'');
+  _openCreateTaskWithData({name:p.title,owner:p.owner||'TBD',priority:p.priority||'High',notes:p.description||'',cat:'Launch Ops',sd,ed,flag:'',deps,decision:'',actionPlan:p.description||'',_sourceAgendaId:type==='agenda'?id:''});
   if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Add to RACI'; btn.disabled=false; },1500); }
 }
 function _bcpUpdateCount(){
@@ -3490,22 +3498,34 @@ function _showBulkCreateModal(id,type){
   const srcTaskId=type==='task'?id:(src.taskId||'');
   const srcTask=srcTaskId?DASHBOARD_DATA.tasks.find(t=>t.id===srcTaskId):null;
   const depLine=srcTaskId?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:10px">Will depend on: <span style="color:var(--gold)">${srcTaskId}</span>${srcTask?' · '+srcTask.name:''}</div>`:'';
+  const _now2=new Date(); const _ed7m=new Date(_now2); _ed7m.setDate(_ed7m.getDate()+7); const edDef=_ed7m.toISOString().slice(0,10);
+  const _moMap2={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+  const _planEdVal=p=>{
+    if(p.deadline){ const m=p.deadline.match(/([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})/i); if(m){ const mo=_moMap2[m[1].toLowerCase().slice(0,3)]; if(mo) return new Date().getFullYear()+'-'+mo+'-'+m[2].padStart(2,'0'); } }
+    if(srcTask&&srcTask.ed){ try{ const _raw=String(srcTask.ed); const _d=new Date(_raw.includes('-')?_raw:(_excelSerialToDate(_raw)||'')); if(!isNaN(_d.getTime())&&_d.getFullYear()>2000) return _d.toISOString().slice(0,10); }catch(_){} }
+    return edDef;
+  };
   const rows=selected.map((p,i)=>{
     const dup=_dupCheck(p.title);
     const isChecked=!dup;
     const secPri=p.section==='week'?'Medium':'High';
     const depRef=p.title.match(/\b(T-\d{3})\b/);
+    const depInit=[srcTaskId,depRef&&depRef[1]!==srcTaskId?depRef[1]:''].filter(Boolean).join(', ');
+    const planEd=_planEdVal(p);
     return `<div style="padding:8px 0;border-bottom:1px solid rgba(37,42,53,0.4)">
       <div style="display:flex;gap:8px;align-items:center">
         <input type="checkbox" id="bcp-chk-${i}" ${isChecked?'checked':''} onchange="_bcpUpdateCount()" style="flex-shrink:0;accent-color:#4a9eff">
         <input type="text" id="bcp-name-${i}" value="${p.title.replace(/"/g,'&quot;').replace(/</g,'&lt;')}" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 7px;border-radius:4px;outline:none;box-sizing:border-box">
         <select id="bcp-owner-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none">${_owners.map(o=>`<option value="${o}"${o===(p.owner||'TBD')?'selected':''}>${o}</option>`).join('')}</select>
         <select id="bcp-pri-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none">${_pris.map(pr=>`<option value="${pr}"${pr===secPri?'selected':''}>${pr}</option>`).join('')}</select>
-        <input type="date" id="bcp-date-${i}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none;width:120px">
+        <input type="date" id="bcp-date-${i}" value="${planEd}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px;border-radius:4px;outline:none;width:120px">
         <span id="bcp-result-${i}" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);white-space:nowrap;min-width:60px"></span>
       </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:4px;padding-left:24px">
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)">Deps:</span>
+        <input type="text" id="bcp-deps-${i}" value="${depInit.replace(/"/g,'&quot;')}" placeholder="T-XXX, T-YYY" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;border-radius:3px;outline:none;width:150px">
+      </div>
       ${dup?`<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--red);margin-top:3px;padding-left:24px">⚠️ Similar to ${dup.id} · ${dup.name.slice(0,50).replace(/</g,'&lt;')}</div>`:''}
-      ${depRef?`<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;padding-left:24px">Links to: ${depRef[1]}</div>`:''}
     </div>`;
   }).join('');
   const initCount=selected.filter((_,i)=>!_dupCheck(selected[i]?.title||'')).length||selected.length;
@@ -3551,8 +3571,7 @@ function _bulkCreateTasks(){
     const p=plans[i];
     const raciCols={};
     _raciKeys.forEach(k=>{ raciCols[k]=srcTask?srcTask[k]||'':''; });
-    const depRef=name.match(/\b(T-\d{3})\b/);
-    const deps=[srcDeps,depRef?depRef[1]:''].filter(Boolean).join(', ');
+    const deps=document.getElementById('bcp-deps-'+i)?.value.trim()||srcDeps;
     DASHBOARD_DATA.tasks.push({id:tid,name,cat:srcCat,pri,status:'Not Started',owner,deps,notes:p.description||'',actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:_flagMap[p.section]||'',flagColor:'',slackChannel:'',lastStatusChange:_now.toISOString().slice(0,16),...raciCols});
     const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+tid;
     createCount++; createdIds.push(tid);
@@ -3560,6 +3579,24 @@ function _bulkCreateTasks(){
   saveToLocal(); masterRefresh();
   if(prog) prog.innerHTML=`<span style="color:var(--green)">✦ ${createCount} task${createCount===1?'':'s'} created</span>`;
   setTimeout(()=>{ const ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove(); },3000);
+}
+function _bulkAddToAgenda(sourceId,sourceType){
+  const src=sourceType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===sourceId):AGENDA_DATA.find(a=>a.id===sourceId);
+  if(!src||!src.taskPlans||!src.taskPlans.length){ alert('No task plans to add. Click "✦ Generate Task Plans from AI" first.'); return; }
+  const selected=src.taskPlans.filter(p=>p.selected!==false);
+  if(!selected.length){ alert('No plans selected. Check at least one plan card first.'); return; }
+  const srcTaskId=sourceType==='task'?sourceId:(src.taskId||'');
+  let added=0;
+  for(const p of selected){
+    const item={id:_genAgendaId(),title:p.title,detail:p.description||'',decision:'',checked:false,owner:p.owner||'',deadline:p.deadline||'',category:'Action Item',taskId:srcTaskId};
+    AGENDA_DATA.push(item);
+    saveAgendaItemToSheets(item);
+    added++;
+  }
+  if(typeof buildAgendaPage==='function') buildAgendaPage();
+  if(typeof buildAgenda==='function') buildAgenda();
+  const agBtn=document.querySelector('[data-agenda-src="'+sourceId+'"]');
+  if(agBtn){ const lbl='📅 Add to Agenda ('+selected.length+')'; agBtn.textContent='✓ Added '+added+' item'+(added===1?'':'s'); agBtn.disabled=true; setTimeout(()=>{ agBtn.textContent=lbl; agBtn.disabled=false; },2000); }
 }
 // Code.gs: add 'taskPlans' column to AGENDA_HEADERS and TASK_FIELDS
 // AGENDA_HEADERS: [...existing..., 'taskPlans']  — stored as JSON string
