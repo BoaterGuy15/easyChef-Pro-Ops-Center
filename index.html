@@ -937,7 +937,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <div id="page-team" class="page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <div class="section-label" id="team-section-label" style="margin:0">Team Responsibility Summary</div>
-    <button onclick="openTeamMemberModal(-1)" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap" onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">+ Add Team Member</button>
+    <button id="add-team-member-btn" onclick="openTeamMemberModal(-1)" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap;display:none" onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">+ Add Team Member</button>
   </div>
   <div class="team-grid" id="team-grid"></div>
   <div class="section-label" id="agenda-section-label">Monday Meeting Agenda — 11AM ET / 8AM PT</div>
@@ -4769,7 +4769,7 @@ function deleteTeamMember(idx){
   const arr=_getCustomTeamMembers();
   const m=arr[idx];
   if(!m) return;
-  if(!confirm('Delete '+m.name+'? This cannot be undone.')) return;
+  if(!confirm('Remove '+m.name+' from the team? This cannot be undone.')) return;
   arr.splice(idx,1);
   _saveCustomTeamMembers(arr);
   delete USER_RACI_COL[m.user];
@@ -4780,6 +4780,24 @@ function deleteTeamMember(idx){
   buildRaciTable();
 }
 
+function deleteDefaultTeamMember(userKey){
+  const def=DEFAULT_TEAM_MEMBERS[userKey];
+  const name=(def&&def.name)||userKey;
+  if(!confirm('Remove '+name+' from the team? This cannot be undone.')) return;
+  const _RK={'Taylor Reasoner':'Taylor','Adam G':'Adam','Hammad':'Hammad','Steve':'Steve','Mary':'Mary','JR':'JR','Searah Teitgen':'Searah','Sadee Tison':'Sadee'};
+  const idx=DASHBOARD_DATA.team.findIndex(m=>{
+    const k=_RK[m.name]||m.name;
+    const dm=Object.values(DEFAULT_TEAM_MEMBERS).find(d=>d.raciKey===k);
+    return (dm?dm.user:k.toLowerCase())===userKey;
+  });
+  if(idx>=0) DASHBOARD_DATA.team.splice(idx,1);
+  const edits=_getDefaultTeamEdits(); delete edits[userKey]; _saveDefaultTeamEdits(edits);
+  delete USER_RACI_COL[userKey]; delete USER_DISPLAY[userKey];
+  saveToLocal();
+  buildTeamGrid();
+  _rebuildRaciPersonFilter();
+  buildRaciTable();
+}
 function _getTeamOrder(){ try{const r=localStorage.getItem('dgl_team_order');if(r)return JSON.parse(r);}catch(e){} return []; }
 function _saveTeamOrder(arr){ try{localStorage.setItem('dgl_team_order',JSON.stringify(arr));}catch(e){} }
 function _initTeamGridDnd(el){
@@ -4803,6 +4821,8 @@ function _initTeamGridDnd(el){
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
+  const _addBtn=document.getElementById('add-team-member-btn');
+  if(_addBtn) _addBtn.style.display=['taylor','steve'].includes(window._DGL_USER||'')?'':'none';
   const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
   const RACI_KEY = {
@@ -4849,14 +4869,14 @@ function buildTeamGrid(){
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const warnHtml=m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
       const noteHtml=m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
-      const canEdit=['taylor','steve'].includes(window._DGL_USER)||window._DGL_USER===userKey;
-      const editBtnHtml=canEdit?`<button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>`:'';
+      const canAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+      const adminBtnsHtml=canAdmin?`<div style="display:flex;gap:4px"><button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit">✏️</button><button onclick="deleteDefaultTeamMember('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Delete">🗑️</button></div>`:'';
       return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
         ${dragHandle}
         <div class="tc-name">${displayName}${badgeHtml}</div>
         <div class="tc-role">${displayRole}</div>
         ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${warnHtml}${noteHtml}
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnHtml}</div>
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${adminBtnsHtml}</div>
       </div>`;
     } else {
       const {cm,ci}=entry;
@@ -4876,15 +4896,15 @@ function buildTeamGrid(){
       const statsHtml2=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
-      const canEdit2=['taylor','steve'].includes(window._DGL_USER)||window._DGL_USER===cm.user;
-      const editBtnHtml2=canEdit2?`<button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Edit</button>`:'';
+      const canAdmin2=['taylor','steve'].includes(window._DGL_USER||'');
+      const adminBtnsHtml2=canAdmin2?`<div style="display:flex;gap:4px"><button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit">✏️</button><button onclick="deleteTeamMember(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Delete">🗑️</button></div>`:'';
       return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
         ${dragHandle}
         <div class="tc-name">${cm.name}${accessLabel}</div>
         <div class="tc-role">${cm.role}</div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
         ${tasksHtml2}<div class="tc-stats">${statsHtml2}</div>
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnHtml2}</div>
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${adminBtnsHtml2}</div>
       </div>`;
     }
   }).join('');
