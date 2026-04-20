@@ -4944,7 +4944,7 @@ function showTeamSection(section){
     btnHR.style.borderColor=section==='hr'?'var(--red)':'var(--border)';
     btnHR.style.color=section==='hr'?'var(--red)':'var(--muted)';
   }
-  if(section==='hr'){ _updateHRUnlockIndicator(); buildHRPage(); }
+  if(section==='hr'){ _updateHRUnlockIndicator(); loadHRProfilesFromSheets(); }
 }
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
@@ -8030,6 +8030,25 @@ function loadHRFromSheets(){
     if(Array.isArray(data.notes)){ _hrNotesCache={}; data.notes.forEach(n=>{ if(!_hrNotesCache[n.userKey]) _hrNotesCache[n.userKey]=[]; _hrNotesCache[n.userKey].push(n); }); }
   }).catch(()=>{});
 }
+function loadHRProfilesFromSheets(){
+  if(!CONFIG.sheetsUrl){ buildHRPage(); return; }
+  const el=document.getElementById('hr-body');
+  if(el) el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:32px;text-align:center">Loading HR data…</div>';
+  fetch(CONFIG.sheetsUrl+'?action=hr_profiles_read')
+    .then(r=>r.json())
+    .then(data=>{
+      if(Array.isArray(data.profiles)) data.profiles.forEach(p=>{ if(p.userKey) _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p}; });
+      buildHRPage();
+    })
+    .catch(()=>{ buildHRPage(); });
+}
+function loadHRNotesFromSheets(userKey){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=hr_notes_read&userKey='+encodeURIComponent(userKey))
+    .then(r=>r.json())
+    .then(data=>{ if(Array.isArray(data.notes)) _hrNotesCache[userKey]=data.notes; })
+    .catch(()=>{});
+}
 
 function _hrAllMembers(){
   const defaults=Object.values(DEFAULT_TEAM_MEMBERS).map(d=>({userKey:d.user,name:d.name,role:d.role}));
@@ -8054,7 +8073,10 @@ function buildHRPage(){
     el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted);padding:40px;text-align:center">HR module — restricted access</div>';
     return;
   }
-  const members=_hrAllMembers();
+  const _cacheKeys=Object.keys(_hrProfilesCache);
+  const members=_cacheKeys.length
+    ? _cacheKeys.map(k=>{ const p=_hrProfilesCache[k]; const def=DEFAULT_TEAM_MEMBERS[k]; return {userKey:k,name:p.name||_USER_RACI_MAP[k]||k,role:p.role||(def?def.role:'')}; })
+    : (Object.keys(_USER_RACI_MAP).length ? Object.keys(_USER_RACI_MAP).map(k=>({userKey:k,name:_USER_RACI_MAP[k]||k,role:DEFAULT_TEAM_MEMBERS[k]?DEFAULT_TEAM_MEMBERS[k].role:''})) : _hrAllMembers());
   const expAssocs=_getHRExpenseAssocs();
   const _addBtn='<button onclick="openTeamMemberModal(-1)" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap" onmouseover="this.style.background=\'rgba(201,168,76,0.18)\'" onmouseout="this.style.background=\'rgba(201,168,76,0.08)\'">+ Add Team Member</button>';
   el.innerHTML=
