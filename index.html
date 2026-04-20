@@ -1525,7 +1525,7 @@ function _renderNotesLog(taskId,cid,canAdd,placeholder){
   },250);
   return `<div id="${cid}-entries" style="max-height:180px;overflow-y:auto">${logHtml}</div>${addHtml}`;
 }
-function _getTaskSlackLink(id){ try{const r=localStorage.getItem('dgl_task_slack_'+id);if(r)return JSON.parse(r);}catch(e){} return {}; }
+function _getTaskSlackLink(id){ const _stored=localStorage.getItem('dgl_task_slack_'+id); if(!_stored) return {}; try{ return JSON.parse(_stored); }catch(_){ return {channelId:_stored,channelName:''}; } }
 function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
 function _getCategoryChannelMap(){
   try{ const s=localStorage.getItem('dgl_category_channel_map'); return s?{...CATEGORY_CHANNEL_MAP,...JSON.parse(s)}:{...CATEGORY_CHANNEL_MAP}; }catch(_){ return {...CATEGORY_CHANNEL_MAP}; }
