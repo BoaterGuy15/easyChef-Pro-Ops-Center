@@ -7544,6 +7544,8 @@ function slackSend(){
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
   window._dglPwHash=sessionStorage.getItem('dgl_pw_hash')||'';
+  const _staleKeys=['dgl_superai_','dgl_task_comments_','dgl_notes_','dgl_task_slack_','dgl_agenda_slack_','dgl_profiles','dgl_assessment'];
+  Object.keys(localStorage).forEach(k=>{ if(_staleKeys.some(p=>k.startsWith(p)||k===p)) localStorage.removeItem(k); });
   _loadChannelAssignmentsFromSheets();
   loadFromLocal();
   loadBudgetFromLocal();
