@@ -3550,7 +3550,7 @@ function _superAiSave(id, type, btn){
   const el=document.getElementById('super-ai-text-'+id);
   const text=el?el.textContent:''; if(!text) return;
   const plans=_parseTaskPlansFromSuperAI(text);
-  if(type==='task'||!type){
+  if(type==='task'||type==='raci'||!type){
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
     if(task){ task.actionPlan=text; if(plans.length) task.taskPlans=plans; try{localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks));}catch(e){} _saveTasksNow(); }
   }
