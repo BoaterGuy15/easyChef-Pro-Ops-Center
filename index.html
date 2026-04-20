@@ -1867,6 +1867,26 @@ function _buildTaskCommentsHtml(taskId,comments,canAdmin){
   if(!comments.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No comments yet.</div>';
   return comments.map((c,i)=>`<div style="padding:6px 0;${i>0?'border-top:1px solid var(--surface)':''}"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600">${c.name||c.user}</span><div style="display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${(c.ts||'').slice(0,16).replace('T',' ')}</span>${canAdmin?`<button onclick="deleteTaskComment('${taskId}',${i})" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0;line-height:1" title="Delete">✕</button>`:''}</div></div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word">${(c.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
 }
+function _syncTaskToAgenda(taskId){
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId); if(!task) return;
+  const item=AGENDA_DATA.find(a=>a.taskId===taskId); if(!item) return;
+  item.flag=task.flag||'';
+  item.detail=task.notes||'';
+  item.decision=task.decision||'';
+  item.actionPlan=task.actionPlan||'';
+  item.taskPlans=task.taskPlans||[];
+  saveAgendaItemToSheets(item);
+}
+function _syncAgendaToTask(agendaId){
+  const item=AGENDA_DATA.find(a=>a.id===agendaId); if(!item||!item.taskId) return;
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId); if(!task) return;
+  task.flag=item.flag||'';
+  task.notes=item.detail||'';
+  task.decision=item.decision||'';
+  task.actionPlan=item.actionPlan||'';
+  task.taskPlans=item.taskPlans||[];
+  _saveTasksNow();
+}
 function saveTaskExpandNotes(taskId){
   const el=document.getElementById('raci-flag-'+taskId);
   if(!el) return;
@@ -1876,8 +1896,7 @@ function saveTaskExpandNotes(taskId){
   saveToLocal();
   const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-edit');
   if(flagEl) flagEl.textContent=t.flag;
-  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
-  if(agItem){ agItem.flag=t.flag; saveAgendaItemToSheets(agItem); }
+  _syncTaskToAgenda(taskId);
 }
 function setTaskFlagEmoji(taskId,emoji){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
@@ -1913,6 +1932,7 @@ function saveTaskNotes(taskId){
   if(!t) return;
   t.notes=el.value;
   saveToLocal();
+  _syncTaskToAgenda(taskId);
 }
 function saveTaskDecision(taskId){
   const el=document.getElementById('raci-task-decision-'+taskId);
@@ -1921,9 +1941,7 @@ function saveTaskDecision(taskId){
   if(!t) return;
   t.decision=el.value;
   saveToLocal();
-  // decision field lives in Agenda sheet, not Tasks sheet
-  const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
-  if(agItem){ agItem.decision=t.decision; saveAgendaItemToSheets(agItem); }
+  _syncTaskToAgenda(taskId);
 }
 function _insertAtCursor(elId,ch){
   const el=document.getElementById(elId); if(!el) return;
@@ -2938,14 +2956,7 @@ function updateAgendaField(id,field,value){
   const item=AGENDA_DATA.find(x=>x.id===id); if(!item) return;
   item[field]=field==='deadline'?_excelSerialToDate(value):value;
   saveAgendaItemToSheets(item);
-  if(item.taskId&&(field==='flag'||field==='detail'||field==='decision')){
-    const task=DASHBOARD_DATA.tasks.find(t=>t.id===item.taskId);
-    if(task){
-      if(field==='flag') task.flag=value;
-      if(field==='decision') task.notes=(task.notes?task.notes+'\n[DECISION] ':'[DECISION] ')+value;
-      saveToLocal();
-    }
-  }
+  if(item.taskId&&(field==='flag'||field==='detail'||field==='decision'||field==='actionPlan'||field==='taskPlans')) _syncAgendaToTask(id);
 }
 function deleteAgendaItem(id){
   if(!canEditAgenda()) return;
@@ -3578,7 +3589,7 @@ function _superAiSave(id, type, btn){
   const plans=_parseTaskPlansFromSuperAI(text);
   if(type==='task'||type==='raci'||!type){
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
-    if(task){ task.actionPlan=text; if(plans.length) task.taskPlans=plans; try{localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks));}catch(e){} _saveTasksNow(); }
+    if(task){ task.actionPlan=text; if(plans.length) task.taskPlans=plans; try{localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks));}catch(e){} _saveTasksNow(); _syncTaskToAgenda(id); }
   }
   if(type==='agenda'||!type){
     const agItem=AGENDA_DATA.find(a=>a.id===id);
