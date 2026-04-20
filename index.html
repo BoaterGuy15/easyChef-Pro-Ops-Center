@@ -1529,32 +1529,15 @@ function _renderNotesLog(taskId,cid,canAdd,placeholder){
 }
 function _getTaskSlackLink(id){ const _stored=localStorage.getItem('dgl_task_slack_'+id); if(!_stored) return {}; try{ return JSON.parse(_stored); }catch(_){ return {channelId:_stored,channelName:''}; } }
 function _saveTaskSlackLink(id,obj){ try{localStorage.setItem('dgl_task_slack_'+id,JSON.stringify(obj));}catch(e){} }
-function _isChannelUnlocked(){ return Date.now()<(parseInt(sessionStorage.getItem('dgl_ch_unlock')||'0')); }
-function _syncChannelToSheets(taskId,channelId,channelName){
+function _isChannelUnlocked(taskId){ return Date.now()<(parseInt(sessionStorage.getItem('dgl_channel_unlock_'+(taskId||''))||'0')); }
+function _syncChannelToSheets(taskId,channelId,channelName,oldChannelName){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId,channelName:channelName||''})}).catch(()=>{});
+  const user=window._DGL_USER||'anonymous';
+  const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
+  const changedBy=(info.name||user).split(' ')[0];
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId,channelName:channelName||'',changedBy,oldChannel:oldChannelName||'none'})}).catch(()=>{});
 }
-function _loadChannelAssignmentsFromSheets(){
-  if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl+'?action=channel_map_read')
-    .then(r=>r.json())
-    .then(data=>{
-      const rows=Array.isArray(data)?data:(data.mappings||[]);
-      let loaded=0;
-      for(const r of rows){
-        if(!r.taskId||!r.channelId) continue;
-        if(!localStorage.getItem('dgl_task_slack_'+r.taskId)){
-          localStorage.setItem('dgl_task_slack_'+r.taskId,JSON.stringify({channelId:r.channelId,channelName:r.channelName||''}));
-          loaded++;
-        }
-      }
-      if(loaded) console.log('[DGL] Loaded',loaded,'channel assignments from Sheets');
-    }).catch(()=>{});
-  // Code.gs additions needed:
-  // action=channel_map_write: write {taskId,channelId,channelName} row to ChannelMap sheet
-  // action=channel_map_read:  return all rows as [{taskId,channelId,channelName}]
-}
-function _showChannelAuthModal(onSuccess){
+function _showChannelAuthModal(taskId,onSuccess){
   let ov=document.getElementById('channel-auth-overlay'); if(ov) ov.remove();
   ov=document.createElement('div'); ov.id='channel-auth-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9998;display:flex;align-items:center;justify-content:center';
@@ -1571,6 +1554,7 @@ function _showChannelAuthModal(onSuccess){
     </div>
   </div>`;
   window._channelAuthCallback=onSuccess;
+  window._channelAuthTaskId=taskId;
   document.body.appendChild(ov);
   setTimeout(()=>{ const p=document.getElementById('cauth-pw'); if(p) p.focus(); },50);
 }
@@ -1578,13 +1562,15 @@ async function _submitChannelAuth(){
   const pw=(document.getElementById('cauth-pw')?.value||'').trim(); if(!pw) return;
   const h=await sha256hex(pw);
   const errEl=document.getElementById('cauth-error');
+  const tid=window._channelAuthTaskId||'';
   if(window._dglPwHash&&h===window._dglPwHash){
-    sessionStorage.setItem('dgl_ch_unlock',String(Date.now()+5*60*1000));
+    sessionStorage.setItem('dgl_channel_unlock_'+tid,String(Date.now()+5*60*1000));
     document.getElementById('channel-auth-overlay')?.remove();
     if(typeof window._channelAuthCallback==='function') window._channelAuthCallback();
   } else {
     if(errEl) errEl.textContent='Incorrect password';
     console.warn('[DGL] Channel change auth failed for user',window._DGL_USER);
+    if(CONFIG.sheetsUrl) _appendNote(tid,'Failed channel unlock attempt by '+(window._DGL_USER||'unknown'),'security');
     const inp=document.getElementById('cauth-pw'); if(inp){ inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; }
   }
 }
@@ -1594,15 +1580,15 @@ function _renderRaciChannelPicker(taskId){
   const linked=_getTaskSlackLink(taskId);
   const chName=linked.channelName||linked.channelId||'Not linked';
   const canEdit=['taylor','steve'].includes(window._DGL_USER);
-  const unlocked=_isChannelUnlocked();
+  const unlocked=_isChannelUnlocked(taskId);
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
   if(canEdit&&unlocked&&chs.length){
-    const minsLeft=Math.max(1,Math.ceil((parseInt(sessionStorage.getItem('dgl_ch_unlock')||'0')-Date.now())/60000));
+    const minsLeft=Math.max(1,Math.ceil((parseInt(sessionStorage.getItem('dgl_channel_unlock_'+taskId)||'0')-Date.now())/60000));
     const opts='<option value="">— No linked channel —</option>'+chs.map(ch=>`<option value="${ch.id}"${linked.channelId===ch.id?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
     c.innerHTML=`<select id="raci-expand-slack-${taskId}" style="${iSt};margin-bottom:4px" onchange="raciLinkSlack('${taskId}',this)">${opts}</select><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">🔓 Unlocked · ${minsLeft} min remaining</div>`;
   } else {
-    const lockBtn=canEdit?`<button onclick="_showChannelAuthModal(()=>_renderRaciChannelPicker('${taskId}'))" style="${_bSt}">🔒 Change Channel</button>`:'';
+    const lockBtn=canEdit?`<button onclick="_showChannelAuthModal('${taskId}',()=>_renderRaciChannelPicker('${taskId}'))" style="${_bSt}">🔒 Change Channel</button>`:'';
     c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);flex:1">${chName.replace(/</g,'&lt;')} 🔒</span>${lockBtn}</div>`;
   }
   _buildChannelHistory(taskId,'raci-ch-history-'+taskId);
@@ -1613,15 +1599,16 @@ function _renderAgendaChannelPicker(id){
   const linked=_getTaskSlackLink('agenda_'+id);
   const chName=linked.channelName||linked.channelId||'Not linked';
   const canEdit=['taylor','steve'].includes(window._DGL_USER);
-  const unlocked=_isChannelUnlocked();
+  const _agTid='agenda_'+id;
+  const unlocked=_isChannelUnlocked(_agTid);
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
   if(canEdit&&unlocked&&chs.length){
-    const minsLeft=Math.max(1,Math.ceil((parseInt(sessionStorage.getItem('dgl_ch_unlock')||'0')-Date.now())/60000));
+    const minsLeft=Math.max(1,Math.ceil((parseInt(sessionStorage.getItem('dgl_channel_unlock_'+_agTid)||'0')-Date.now())/60000));
     const opts='<option value="">— No linked channel —</option>'+chs.map(ch=>`<option value="${ch.id}"${linked.channelId===ch.id?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
     c.innerHTML=`<select id="agenda-expand-slack-${id}" style="${iSt};margin-bottom:4px" onchange="agendaLinkSlack('${id}',this)">${opts}</select><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">🔓 Unlocked · ${minsLeft} min remaining</div>`;
   } else {
-    const lockBtn=canEdit?`<button onclick="_showChannelAuthModal(()=>_renderAgendaChannelPicker('${id}'))" style="${_bSt}">🔒 Change Channel</button>`:'';
+    const lockBtn=canEdit?`<button onclick="_showChannelAuthModal('${_agTid}',()=>_renderAgendaChannelPicker('${id}'))" style="${_bSt}">🔒 Change Channel</button>`:'';
     c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);flex:1">${chName.replace(/</g,'&lt;')} 🔒</span>${lockBtn}</div>`;
   }
   _buildChannelHistory('agenda_'+id,'agenda-ch-history-'+id);
@@ -1925,7 +1912,7 @@ function raciLinkSlack(taskId,sel){
   _saveTaskSlackLink(taskId,{channelId,channelName});
   if(oldLinked.channelId!==channelId){
     _appendNote(taskId,'Channel changed from '+(oldLinked.channelName||oldLinked.channelId||'none')+' to '+(channelName||'none'),'channel_change');
-    _syncChannelToSheets(taskId,channelId,channelName);
+    _syncChannelToSheets(taskId,channelId,channelName,oldLinked.channelName||oldLinked.channelId||'none');
     _buildChannelHistory(taskId,'raci-ch-history-'+taskId);
   }
   const feedEl=document.getElementById('raci-expand-slack-feed-'+taskId);
@@ -3236,7 +3223,7 @@ function agendaLinkSlack(id,sel){
   _saveTaskSlackLink('agenda_'+id,{channelId,channelName});
   if(oldLinked.channelId!==channelId){
     _appendNote('agenda_'+id,'Channel changed from '+(oldLinked.channelName||oldLinked.channelId||'none')+' to '+(channelName||'none'),'channel_change');
-    _syncChannelToSheets('agenda_'+id,channelId,channelName);
+    _syncChannelToSheets('agenda_'+id,channelId,channelName,oldLinked.channelName||oldLinked.channelId||'none');
     _buildChannelHistory('agenda_'+id,'agenda-ch-history-'+id);
   }
   const feedEl=document.getElementById('agenda-expand-slack-feed-'+id);
@@ -7512,7 +7499,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderAdPhases();
   renderSlackCard();
   _buildChannelMappingSection();
-  _loadChannelAssignmentsFromSheets();
   renderBetaFamilies();
   renderBetaMetrics();
   renderAppAnalytics();
