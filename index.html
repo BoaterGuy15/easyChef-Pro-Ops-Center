@@ -920,6 +920,9 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
   <div class="section-label" style="margin-top:32px">Slack</div>
   <div class="card" id="slack-card"></div>
+
+  <div class="section-label" style="margin-top:32px">Channel Mapping</div>
+  <div id="channel-mapping-section"></div>
 </div>
 
 <!-- ══ PAGE: TEAM ══ -->
@@ -929,7 +932,6 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <button onclick="openTeamMemberModal(-1)" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap" onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='rgba(201,168,76,0.08)'">+ Add Team Member</button>
   </div>
   <div class="team-grid" id="team-grid"></div>
-  <div id="channel-mapping-section" style="margin-top:24px"></div>
   <div class="section-label" id="agenda-section-label">Monday Meeting Agenda — 11AM ET / 8AM PT</div>
   <div id="agenda-list"></div>
 </div>
@@ -1540,29 +1542,38 @@ function _addCategoryChannel(){
   _saveCategoryChannel(cat,slug);
   _buildChannelMappingSection();
 }
+function _relinkAllTasks(){
+  Object.keys(localStorage).filter(k=>k.startsWith('dgl_task_slack_')).forEach(k=>localStorage.removeItem(k));
+  _autoLinkTaskChannels();
+  const btn=document.getElementById('ccm-relink-btn');
+  if(btn){ btn.textContent='↺ Linked ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='↺ Re-link All Tasks'; btn.disabled=false; },1500); }
+}
 function _buildChannelMappingSection(){
   const el=document.getElementById('channel-mapping-section'); if(!el) return;
   const canEdit=['taylor','steve'].includes(window._DGL_USER);
   const map=_getCategoryChannelMap();
   const chs=_slackChannelsCache||[];
-  const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer";
+  const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
   const _selSt="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;outline:none";
   const _chOpts=cur=>'<option value="">— none —</option>'+chs.map(c=>`<option value="${c.name}"${c.name===cur?' selected':''}>#${c.name}</option>`).join('');
-  const noChannels=!chs.length?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Channels load when Slack tab is opened. Dropdowns will populate then.</div>`:'';
+  const noChannels=!chs.length?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Channels load when the Slack section is open. Dropdowns will populate automatically.</div>`:'';
   const rows=Object.entries(map).map(([cat,slug])=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(37,42,53,0.3)">
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);min-width:200px;flex-shrink:0">${cat.replace(/</g,'&lt;')}</div>
       ${canEdit
         ?`<select data-cat="${cat.replace(/"/g,'&quot;')}" onchange="_saveCategoryChannel(this.dataset.cat,this.value)" style="${_selSt}">${_chOpts(slug)}</select>`
         :`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${slug?'#'+slug:'—'}</span>`}
     </div>`).join('');
-  const addBtn=canEdit?`<div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+  const addBtn=canEdit?`<div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <input id="ccm-new-cat" placeholder="New category name" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 8px;border-radius:4px;outline:none;width:200px">
     <select id="ccm-new-ch" style="${_selSt}">${_chOpts('')}</select>
     <button onclick="_addCategoryChannel()" style="${_bSt}">+ Add Category</button>
   </div>`:'';
-  el.innerHTML=`<div style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px">
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">CATEGORY → SLACK CHANNEL MAPPING</div>
+  el.innerHTML=`<div class="card" style="padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">CATEGORY → SLACK CHANNEL MAPPING</div>
+      <button id="ccm-relink-btn" onclick="_relinkAllTasks()" style="${_bSt}">↺ Re-link All Tasks</button>
+    </div>
     ${!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">View only — Taylor or Steve can edit.</div>`:''}
     ${noChannels}${rows||`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No mappings defined.</div>`}
     ${addBtn}
@@ -4549,7 +4560,6 @@ function buildTeamGrid(){
   const lbl=document.getElementById('team-section-label');
   const total=DASHBOARD_DATA.team.length+customMembers.length;
   if(lbl) lbl.textContent=`Team Responsibility Summary — ${total} Members`;
-  _buildChannelMappingSection();
 }
 
 // ── Agenda ──────────────────────────────────────────────────
@@ -7372,6 +7382,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderSpendLog();
   renderAdPhases();
   renderSlackCard();
+  _buildChannelMappingSection();
   renderBetaFamilies();
   renderBetaMetrics();
   renderAppAnalytics();
