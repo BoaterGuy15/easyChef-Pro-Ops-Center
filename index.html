@@ -1775,6 +1775,11 @@ function toggleTaskExpand(taskId,trEl){
     _raciExpandLoadChannels(taskId);
     const linked=_getTaskSlackLink(taskId);
     if(linked.channelId) _raciExpandLoadSlackFeed(taskId,linked.channelId);
+    // Migrate stale dgl_superai_ localStorage to task.actionPlan
+    const _mt=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+    if(_mt&&!_mt.actionPlan){
+      try{ const _old=localStorage.getItem('dgl_superai_'+taskId); if(_old){ const {text}=JSON.parse(_old); if(text){ _mt.actionPlan=text; localStorage.removeItem('dgl_superai_'+taskId); _saveTasksNow(); const _apEl=document.getElementById('raci-task-actionplan-'+taskId); if(_apEl){ _apEl.value=text; _apEl.style.height='auto'; _apEl.style.height=Math.min(_apEl.scrollHeight,400)+'px'; } } } }catch(_){}
+    }
   }
   // Save current HTML to cache after a tick so dynamic content is captured
   setTimeout(()=>{ const row=document.getElementById('raci-expand-row-'+taskId); if(row) _raciExpandCache[taskId]=row.querySelector('td').innerHTML; },800);
@@ -6590,15 +6595,19 @@ function saveToLocal(){
   try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
   saveToSheets();
 }
+let _saveTasksNowTimer=null;
 function _saveTasksNow(){
   if(!CONFIG.sheetsUrl) return;
+  clearTimeout(_saveTasksNowTimer);
   clearTimeout(_sheetsDebounce);
-  updateSyncStatus('syncing');
-  _sheetsSyncLock=true;
-  setTimeout(()=>{ _sheetsSyncLock=false; },8000);
-  fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(DASHBOARD_DATA.tasks)})
-    .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets immediately ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
-    .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
+  _saveTasksNowTimer=setTimeout(()=>{
+    updateSyncStatus('syncing');
+    _sheetsSyncLock=true;
+    setTimeout(()=>{ _sheetsSyncLock=false; },8000);
+    fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(DASHBOARD_DATA.tasks)})
+      .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
+      .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
+  },1500);
 }
 function loadFromLocal(){
   try{
