@@ -8136,6 +8136,8 @@ function buildHRPage(){
   const members=_cacheKeys.length
     ? _cacheKeys.map(k=>{ const p=_hrProfilesCache[k]; const def=DEFAULT_TEAM_MEMBERS[k]; return {userKey:k,name:p.name||_USER_RACI_MAP[k]||k,role:p.role||(def?def.role:'')}; })
     : (Object.keys(_USER_RACI_MAP).length ? Object.keys(_USER_RACI_MAP).map(k=>({userKey:k,name:_USER_RACI_MAP[k]||k,role:DEFAULT_TEAM_MEMBERS[k]?DEFAULT_TEAM_MEMBERS[k].role:''})) : _hrAllMembers());
+  const _hrSavedOrder=(()=>{ try{ return JSON.parse(localStorage.getItem('dgl_hr_order')||'null')||[]; }catch(e){ return []; } })();
+  if(_hrSavedOrder.length) members.sort((a,b)=>{ const ai=_hrSavedOrder.indexOf(a.userKey); const bi=_hrSavedOrder.indexOf(b.userKey); return (ai===-1?9999:ai)-(bi===-1?9999:bi); });
   const expAssocs=_getHRExpenseAssocs();
   const _addBtn='<button onclick="openTeamMemberModal(-1)" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);cursor:pointer;white-space:nowrap" onmouseover="this.style.background=\'rgba(201,168,76,0.18)\'" onmouseout="this.style.background=\'rgba(201,168,76,0.08)\'">+ Add Team Member</button>';
   el.innerHTML=
@@ -8195,7 +8197,7 @@ function _buildHRMemberCard(m,expAssocs){
   const deactivateBtn=isActive
     ?`<button onclick="hrDeactivateMember('${m.userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid rgba(248,113,113,0.35);background:transparent;color:var(--red);cursor:pointer">Deactivate</button>`
     :(p.reactivatable?`<button onclick="hrReactivateMember('${m.userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid rgba(52,211,153,0.35);background:transparent;color:var(--green);cursor:pointer">Reactivate</button>`:'');
-  return `<div class="hr-card${isActive?'':' inactive'}">
+  return `<div class="hr-card${isActive?'':' inactive'}" data-hr-key="${m.userKey}" draggable="true" ondragstart="_hrDragStart(event,this)" ondragover="_hrDragOver(event,this)" ondragleave="_hrDragLeave(event,this)" ondrop="_hrDrop(event,this)" ondragend="_hrDragEnd(event,this)">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
       <div><div style="font-size:14px;font-weight:500;margin-bottom:3px">${_hEsc(m.name)}</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">${_hEsc(m.role)}</div></div>
       ${scoreHtml}
@@ -8403,6 +8405,22 @@ function hrReactivateMember(userKey){
   buildHRPage();
   buildTeamGrid();
 }
+let _hrDragSrc=null;
+function _hrDragStart(e,el){ _hrDragSrc=el; e.dataTransfer.effectAllowed='move'; setTimeout(()=>{ el.style.opacity='0.4'; },0); }
+function _hrDragOver(e,el){ e.preventDefault(); e.dataTransfer.dropEffect='move'; if(el!==_hrDragSrc) el.style.outline='2px solid var(--gold)'; }
+function _hrDragLeave(e,el){ el.style.outline=''; }
+function _hrDragEnd(e,el){ el.style.opacity=''; document.querySelectorAll('.hr-roster-grid .hr-card').forEach(c=>c.style.outline=''); _hrDragSrc=null; }
+function _hrDrop(e,el){
+  e.preventDefault();
+  if(!_hrDragSrc||_hrDragSrc===el) return;
+  const grid=el.closest('.hr-roster-grid');
+  if(!grid) return;
+  const all=[...grid.children];
+  const srcIdx=all.indexOf(_hrDragSrc), tgtIdx=all.indexOf(el);
+  if(srcIdx<tgtIdx) grid.insertBefore(_hrDragSrc,el.nextSibling); else grid.insertBefore(_hrDragSrc,el);
+  _saveHROrder();
+}
+function _saveHROrder(){ const order=[...document.querySelectorAll('.hr-roster-grid .hr-card')].map(c=>c.dataset.hrKey).filter(Boolean); localStorage.setItem('dgl_hr_order',JSON.stringify(order)); }
 
 function addHRNoteFromUI(userKey){
   const text=(document.getElementById('hr-note-text-'+userKey)?.value||'').trim();
