@@ -7746,6 +7746,9 @@ function loadFromSheets(){
         if(t){ _mergeTask(t,s); }
         else if(s.id&&s.name){ DASHBOARD_DATA.tasks.push(s); }
       });
+      window._lastSheetsSnapshot={};
+      rows.forEach(s=>{ if(s.id) window._lastSheetsSnapshot[s.id]=Object.assign({},s); });
+      _lastSheetsLoadTime=Date.now();
       Object.keys(_raciExpandCache).forEach(k=>{ delete _raciExpandCache[k]; });
       masterRefresh();
       window._sheetsLoaded=true;
@@ -7762,6 +7765,27 @@ function raciManualSave(btn){
 function saveToLocal(){
   saveToSheets();
 }
+let _lastSheetsLoadTime=0;
+function _mergeFreshSheets(sheetsRows){
+  sheetsRows.forEach(s=>{
+    const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(!t) return;
+    const snap=(window._lastSheetsSnapshot||{})[s.id]||{};
+    _PERSIST_FIELDS.forEach(f=>{
+      const sv=s[f]; if(sv==null||sv==='') return;
+      // Sheets changed this field AND we haven't changed it locally → accept the Sheets value
+      if(sv!==snap[f]&&t[f]===snap[f]) t[f]=sv;
+    });
+  });
+}
+function _doSave(){
+  updateSyncStatus('syncing');
+  _sheetsSyncLock=true;
+  setTimeout(()=>{ _sheetsSyncLock=false; },8000);
+  const _tPayload=DASHBOARD_DATA.tasks.map(({actionPlan,...r})=>r);
+  fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(_tPayload)})
+    .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
+    .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
+}
 let _saveTasksNowTimer=null;
 function _saveTasksNow(){
   if(!window._sheetsLoaded){ console.warn('[DGL] Blocked premature task save'); return; }
@@ -7769,13 +7793,19 @@ function _saveTasksNow(){
   clearTimeout(_saveTasksNowTimer);
   clearTimeout(_sheetsDebounce);
   _saveTasksNowTimer=setTimeout(()=>{
-    updateSyncStatus('syncing');
-    _sheetsSyncLock=true;
-    setTimeout(()=>{ _sheetsSyncLock=false; },8000);
-    const _tPayload=DASHBOARD_DATA.tasks.map(({actionPlan,...r})=>r);
-    fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(_tPayload)})
-      .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
-      .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
+    const age=Date.now()-(_lastSheetsLoadTime||0);
+    if(age>5*60*1000){
+      // Stale — fetch fresh, merge without overwriting local changes, then save
+      fetch(CONFIG.sheetsUrl)
+        .then(r=>r.json())
+        .then(data=>{
+          const rows=Array.isArray(data)?data:(data.tasks||[]);
+          if(rows.length){ _mergeFreshSheets(rows); _lastSheetsLoadTime=Date.now(); }
+          _doSave();
+        }).catch(()=>_doSave());
+    } else {
+      _doSave();
+    }
   },1500);
 }
 function loadFromLocal(){
