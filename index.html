@@ -500,15 +500,15 @@ tr.hidden-row{display:none}
     <div class="topbar-name">easyChef Pro</div>
   </div>
   <div class="nav-tabs">
-    <div class="nav-tab active" onclick="showPage('agenda')">Agenda</div>
-    <div class="nav-tab" onclick="showPage('command')">Command</div>
-    <div class="nav-tab" onclick="showPage('raci')">RACI &amp; Workflow</div>
-    <div class="nav-tab" onclick="showPage('roadmap')">Roadmap</div>
-    <div class="nav-tab" onclick="showPage('budget')">Budget &amp; Burn</div>
-    <div class="nav-tab" onclick="showPage('team')">Team</div>
-    <div class="nav-tab" onclick="showPage('appdata')">App Data</div>
-    <div class="nav-tab" onclick="showPage('comms')">Comms</div>
-    <div class="nav-tab" onclick="showPage('actionplans')">Action Plans</div>
+    <div class="nav-tab active" data-tab-id="agenda" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('agenda')">Agenda</div>
+    <div class="nav-tab" data-tab-id="command" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('command')">Command</div>
+    <div class="nav-tab" data-tab-id="raci" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')">RACI &amp; Workflow</div>
+    <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')">Roadmap</div>
+    <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')">Budget &amp; Burn</div>
+    <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')">Team</div>
+    <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')">App Data</div>
+    <div class="nav-tab" data-tab-id="comms" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('comms')">Comms</div>
+    <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')">Action Plans</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -1155,6 +1155,34 @@ function showPage(id){
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap') setTimeout(initRoadmapHeadSync,50);
   if(id==='actionplans') buildActionPlansPage();
+}
+let _navDragSrc=null;
+function _navDragStart(e,el){ _navDragSrc=el; e.dataTransfer.effectAllowed='move'; setTimeout(()=>{ el.style.opacity='0.4'; },0); }
+function _navDragOver(e,el){ e.preventDefault(); e.dataTransfer.dropEffect='move'; if(el!==_navDragSrc) el.style.borderBottom='2px solid var(--gold)'; }
+function _navDragLeave(e,el){ el.style.borderBottom=''; }
+function _navDragEnd(e,el){ el.style.opacity=''; document.querySelectorAll('.nav-tab').forEach(t=>t.style.borderBottom=''); _navDragSrc=null; }
+function _navDrop(e,el){
+  e.preventDefault();
+  if(!_navDragSrc||_navDragSrc===el) return;
+  const tabs=document.querySelector('.nav-tabs');
+  const all=[...tabs.children];
+  const srcIdx=all.indexOf(_navDragSrc), tgtIdx=all.indexOf(el);
+  if(srcIdx<tgtIdx) tabs.insertBefore(_navDragSrc,el.nextSibling); else tabs.insertBefore(_navDragSrc,el);
+  _saveNavOrder();
+}
+function _saveNavOrder(){
+  const user=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
+  if(!user) return;
+  const order=[...document.querySelectorAll('.nav-tab')].map(t=>t.dataset.tabId).filter(Boolean);
+  localStorage.setItem('dgl_nav_order_'+user,JSON.stringify(order));
+}
+function _restoreNavOrder(user){
+  if(!user) return;
+  let order; try{ order=JSON.parse(localStorage.getItem('dgl_nav_order_'+user)||'null'); }catch(e){ return; }
+  if(!Array.isArray(order)||!order.length) return;
+  const tabs=document.querySelector('.nav-tabs');
+  if(!tabs) return;
+  order.forEach(id=>{ const el=tabs.querySelector('[data-tab-id="'+id+'"]'); if(el) tabs.appendChild(el); });
 }
 function initRoadmapHeadSync(){
   const wrap=document.querySelector('.roadmap-wrap');
@@ -6428,6 +6456,7 @@ function shakePwInput(){
 }
 function showDashboard(user, showPopup=false){
   window._DGL_USER=user;
+  _restoreNavOrder(user);
   _applyMeetingMetaToHeader();
   const role=getUserRole(user);
   const ov=document.getElementById('login-overlay');
