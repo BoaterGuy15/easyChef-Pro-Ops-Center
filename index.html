@@ -1902,7 +1902,9 @@ function toggleTaskExpand(taskId,trEl){
 // function uploadFileToDrive(filename,mimeType,base64data,sourceType,sourceId,sourceName){
 //   const root=DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
 //   const typeFolder=getOrCreateFolder(root,sourceType==='task'?'Tasks':'Agenda');
-//   const label=(sourceName||sourceId).replace(/[\/\\:*?"<>|]/g,'_').substring(0,80);
+//   // Use task/agenda name as folder name; fall back to sourceId only if name is empty.
+//   // getOrCreateFolder finds existing folder by exact name — no duplicates created.
+//   const label=(sourceName||sourceId).replace(/[\/\\:*?"<>|]/g,'').trim().substring(0,80)||sourceId;
 //   const subfolder=getOrCreateFolder(typeFolder,label);
 //   const blob=Utilities.newBlob(Utilities.base64Decode(base64data),mimeType,filename);
 //   const file=subfolder.createFile(blob);
@@ -1954,35 +1956,41 @@ function loadDocsForSource(sourceType,sourceId,callback){
     .then(r=>r.json()).then(data=>{ if(Array.isArray(data.docs)) _docsCache[key]=data.docs; _renderDocsList(sourceType,sourceId); if(callback) callback(); })
     .catch(()=>{ _renderDocsList(sourceType,sourceId); if(callback) callback(); });
 }
-function _renderDocsList(sourceType,sourceId){
-  const el=document.getElementById('docs-list-'+sourceType+'-'+sourceId);
-  const key=sourceType+'_'+sourceId;
-  const docs=_docsCache[key]||[];
-  console.log('[DGL] renderDocsList container:',el?el.id:'NOT FOUND','docs:',docs.length);
-  if(!el) return;
+function _buildDocsListHtml(cacheKey){
+  const sep=cacheKey.indexOf('_');
+  const sourceType=cacheKey.slice(0,sep);
+  const sourceId=cacheKey.slice(sep+1);
+  const docs=_docsCache[cacheKey]||[];
   const cu=window._DGL_USER||'';
   const isAdmin=['taylor','steve'].includes(cu);
+  if(!docs.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border);padding:4px 0">No documents attached.</div>';
+  return docs.map(d=>{
+    const isUploaded=!!(d.driveFileId);
+    const badge=isUploaded
+      ? `<span style="font-family:'DM Mono',monospace;font-size:8px;color:#22c55e;border:1px solid #22c55e;border-radius:3px;padding:0 4px;flex-shrink:0">🔒 Shared</span>`
+      : `<span title="Invite required" style="font-family:'DM Mono',monospace;font-size:8px;color:#d4a017;border:1px solid #d4a017;border-radius:3px;padding:0 4px;flex-shrink:0">⚠️ External</span>`;
+    return `<div style="border-bottom:1px solid var(--surface);padding:5px 0">
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:13px;flex-shrink:0">${_docFileIcon(d.name||d.filename||'')}</span>
+        <a href="${d.url||'#'}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name||d.filename||'Untitled'}</a>
+        ${d.previewUrl?`<button onclick="_toggleDocPreview('${d.id}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;color:var(--muted)" title="Preview">👁️</button>`:''}
+        ${badge}
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap;flex-shrink:0">${(d.addedAt||'').slice(0,10)} · ${d.addedBy||''}</span>
+        ${(isAdmin||d.addedBy===cu)?`<button onclick="deleteDoc('${d.id}','${sourceType}','${sourceId}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;line-height:1;color:var(--border)" title="Remove">🗑️</button>`:''}
+      </div>
+      ${d.previewUrl?`<div id="doc-preview-${d.id}" style="display:none;margin-top:4px"><iframe src="${d.previewUrl}" style="width:100%;height:400px;border:1px solid var(--border);border-radius:4px" frameborder="0" loading="lazy"></iframe></div>`:''}
+    </div>`;
+  }).join('');
+}
+function _renderDocsList(sourceType,sourceId){
+  const key=sourceType+'_'+sourceId;
+  const docs=_docsCache[key]||[];
+  const el=document.getElementById('docs-list-'+sourceType+'-'+sourceId);
+  console.log('[DGL] renderDocsList container:',el?el.id:'NOT FOUND','docs:',docs.length);
+  if(!el) return;
   const folderBtn=document.getElementById('docs-folder-btn-'+sourceType+'-'+sourceId);
   if(folderBtn){ const fu=(docs.find(d=>d.folderUrl)||{}).folderUrl; if(fu){ folderBtn.href=fu; folderBtn.style.display='inline-block'; } else { folderBtn.style.display='none'; } }
-  el.innerHTML=docs.length
-    ? docs.map(d=>{
-        const isUploaded=!!(d.driveFileId);
-        const badge=isUploaded
-          ? `<span style="font-family:'DM Mono',monospace;font-size:8px;color:#22c55e;border:1px solid #22c55e;border-radius:3px;padding:0 4px;flex-shrink:0">🔒 Shared</span>`
-          : `<span title="Invite required" style="font-family:'DM Mono',monospace;font-size:8px;color:#d4a017;border:1px solid #d4a017;border-radius:3px;padding:0 4px;flex-shrink:0">⚠️ External</span>`;
-        return `<div style="border-bottom:1px solid var(--surface);padding:5px 0">
-          <div style="display:flex;gap:6px;align-items:center">
-            <span style="font-size:13px;flex-shrink:0">${_docFileIcon(d.name||d.filename||'')}</span>
-            <a href="${d.url||'#'}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name||d.filename||'Untitled'}</a>
-            ${d.previewUrl?`<button onclick="_toggleDocPreview('${d.id}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;color:var(--muted)" title="Preview">👁️</button>`:''}
-            ${badge}
-            <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap;flex-shrink:0">${(d.addedAt||'').slice(0,10)} · ${d.addedBy||''}</span>
-            ${(isAdmin||d.addedBy===cu)?`<button onclick="deleteDoc('${d.id}','${sourceType}','${sourceId}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;line-height:1;color:var(--border)" title="Remove">🗑️</button>`:''}
-          </div>
-          ${d.previewUrl?`<div id="doc-preview-${d.id}" style="display:none;margin-top:4px"><iframe src="${d.previewUrl}" style="width:100%;height:400px;border:1px solid var(--border);border-radius:4px" frameborder="0" loading="lazy"></iframe></div>`:''}
-        </div>`;
-      }).join('')
-    : '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border);padding:4px 0">No documents attached.</div>';
+  el.innerHTML=_buildDocsListHtml(key);
   _updateDocReviewBadges();
 }
 function _toggleDocPreview(docId){ const el=document.getElementById('doc-preview-'+docId); if(el) el.style.display=el.style.display==='none'?'block':'none'; }
@@ -2046,7 +2054,24 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       if(!CONFIG.sheetsUrl){ _uploadNext(); return; }
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
         .then(r=>r.json()).then(data=>{
-          if(data.doc){ const key=sourceType+'_'+sourceId; if(!_docsCache[key]) _docsCache[key]=[]; _docsCache[key].push(data.doc); console.log('[DGL] Doc uploaded, rendering list for',sourceType,sourceId,'cache:',_docsCache[key].length); _renderDocsList(sourceType,sourceId); }
+          const cacheKey=sourceType+'_'+sourceId;
+          if(!_docsCache[cacheKey]) _docsCache[cacheKey]=[];
+          _docsCache[cacheKey].push({
+            id:'doc-'+Date.now(),
+            name:file.name,
+            url:data.url||'',
+            previewUrl:data.previewUrl||'',
+            folderUrl:data.folderUrl||'',
+            driveFileId:data.id||'',
+            mimeType:file.type,
+            addedBy:window._DGL_USER||'unknown',
+            addedAt:new Date().toISOString()
+          });
+          console.log('[DGL] Doc uploaded, rendering list for',sourceType,sourceId,'cache:',_docsCache[cacheKey].length);
+          const container=document.getElementById('docs-list-'+sourceType+'-'+sourceId);
+          if(container) container.innerHTML=_buildDocsListHtml(cacheKey);
+          const folderBtn=document.getElementById('docs-folder-btn-'+sourceType+'-'+sourceId);
+          if(folderBtn&&data.folderUrl){ folderBtn.href=data.folderUrl; folderBtn.style.display='inline-block'; }
           _uploadNext();
         })
         .catch(()=>{ if(dz){ dz.textContent='❌ Failed: '+file.name; dz.style.color='var(--red)'; } setTimeout(_uploadNext,1500); });
