@@ -9448,7 +9448,7 @@ async function runDGLTests(){
   // ── SECTION 2: LOCALSTORAGE ────────────────────────────────
   console.group('Section 2 — localStorage');
   check('dgl_tasks not in localStorage (Sheets-only)', !localStorage.getItem('dgl_tasks'), 'stale dgl_tasks key found — stale cleanup may have failed');
-  check('dgl_budget exists', !!localStorage.getItem('dgl_budget'), 'key missing');
+  check('Budget data loaded', DASHBOARD_DATA.budget&&DASHBOARD_DATA.budget.startingCapital>0, 'budget not loaded from Sheets');
   check('Profiles loaded from Sheets or cache', typeof _profilesCache==='object'&&_profilesCache!==null, 'in-memory _profilesCache not an object');
   try{
     const raw=localStorage.getItem('dgl_agenda_custom');
