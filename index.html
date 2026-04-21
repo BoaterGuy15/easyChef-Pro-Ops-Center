@@ -7715,6 +7715,7 @@ function updateSyncStatus(state){
 let _sheetsDebounce=null;
 let _sheetsSyncLock=false;
 function saveToSheets(){
+  if(!window._sheetsLoaded){ console.warn('[DGL] Blocked premature sheets save'); return; }
   if(!CONFIG.sheetsUrl) return;
   clearTimeout(_sheetsDebounce);
   _sheetsDebounce=setTimeout(()=>{
@@ -7747,6 +7748,7 @@ function loadFromSheets(){
       });
       Object.keys(_raciExpandCache).forEach(k=>{ delete _raciExpandCache[k]; });
       masterRefresh();
+      window._sheetsLoaded=true;
       updateSyncStatus('ok');
     })
     .catch(()=>updateSyncStatus('fail'));
@@ -7762,6 +7764,7 @@ function saveToLocal(){
 }
 let _saveTasksNowTimer=null;
 function _saveTasksNow(){
+  if(!window._sheetsLoaded){ console.warn('[DGL] Blocked premature task save'); return; }
   if(!CONFIG.sheetsUrl) return;
   clearTimeout(_saveTasksNowTimer);
   clearTimeout(_sheetsDebounce);
