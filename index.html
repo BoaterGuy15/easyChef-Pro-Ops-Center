@@ -4549,7 +4549,8 @@ function loadProfilesFromSheets(){
 }
 function saveProfileToSheets(userKey,profileData){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl+'?action=profile_write&user='+encodeURIComponent(userKey)+'&data='+encodeURIComponent(JSON.stringify(profileData))).catch(()=>{});
+  console.log('[DGL] saveProfileToSheets called, userKey:',userKey,'data:',JSON.stringify(profileData));
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'profile_write',user:userKey,data:profileData})}).catch(()=>{});
 }
 function _getMemberInfo(userKey){
   const defMeta=DEFAULT_TEAM_MEMBERS[userKey];
@@ -4696,6 +4697,7 @@ async function saveDefaultTeamMember(user){
   const channels=(document.getElementById('tmm-channels')?.value||'').trim();
   const github=(document.getElementById('tmm-github')?.value||'').trim();
   const timezone=(document.getElementById('tmm-timezone')?.value||'').trim();
+  console.log('[DGL] saveDefaultTeamMember called, user:',window._DGL_USER,'data:',{phone,slack,timezone});
   if(!name||!role||!email){ alert('Name, role, and email are required.'); return; }
   const edits=_getDefaultTeamEdits();
   const existing=edits[user]||{};
