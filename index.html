@@ -1955,9 +1955,11 @@ function loadDocsForSource(sourceType,sourceId,callback){
     .catch(()=>{ _renderDocsList(sourceType,sourceId); if(callback) callback(); });
 }
 function _renderDocsList(sourceType,sourceId){
-  const el=document.getElementById('docs-list-'+sourceType+'-'+sourceId); if(!el) return;
+  const el=document.getElementById('docs-list-'+sourceType+'-'+sourceId);
   const key=sourceType+'_'+sourceId;
   const docs=_docsCache[key]||[];
+  console.log('[DGL] renderDocsList container:',el?el.id:'NOT FOUND','docs:',docs.length);
+  if(!el) return;
   const cu=window._DGL_USER||'';
   const isAdmin=['taylor','steve'].includes(cu);
   const folderBtn=document.getElementById('docs-folder-btn-'+sourceType+'-'+sourceId);
@@ -2044,7 +2046,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       if(!CONFIG.sheetsUrl){ _uploadNext(); return; }
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
         .then(r=>r.json()).then(data=>{
-          if(data.doc){ const key=sourceType+'_'+sourceId; if(!_docsCache[key]) _docsCache[key]=[]; _docsCache[key].push(data.doc); _renderDocsList(sourceType,sourceId); }
+          if(data.doc){ const key=sourceType+'_'+sourceId; if(!_docsCache[key]) _docsCache[key]=[]; _docsCache[key].push(data.doc); console.log('[DGL] Doc uploaded, rendering list for',sourceType,sourceId,'cache:',_docsCache[key].length); _renderDocsList(sourceType,sourceId); }
           _uploadNext();
         })
         .catch(()=>{ if(dz){ dz.textContent='❌ Failed: '+file.name; dz.style.color='var(--red)'; } setTimeout(_uploadNext,1500); });
