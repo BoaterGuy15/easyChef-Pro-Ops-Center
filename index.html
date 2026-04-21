@@ -3945,27 +3945,92 @@ async function _buildDocContext(id, type){
 async function runSuperAi(id, type, btn){
   console.log('[DGL] runSuperAi called', id, type);
   if(!CONFIG.sheetsUrl) return;
-  let summary='';
-  if(type==='raci') summary=_raciAiSummaries[id]||'';
-  else if(type==='agenda') summary=_agendaAiSummaries[id]||'';
-  else if(type==='slack') summary=_slackAiSummaries[id]||'';
-  const title=btn.dataset.title||id;
-  const status=btn.dataset.status||'—';
-  const owner=btn.dataset.owner||'—';
   btn.textContent='⚡ Generating action plan…'; btn.disabled=true;
-  const system='You are the Chief Operating Officer AI for DGL\'s easyChef Pro launch. You have complete visibility into the team\'s operational state. Be brutally specific: name exact people, exact task IDs, exact deadlines, exact dollar amounts. Never be vague. Never hedge. Format your response as plain text only. No markdown symbols like ##, ###, **, *, or ---. Use ALL CAPS for section headers instead. Use numbered lists with plain numbers. Keep formatting clean for Slack. Task status values: Not Started, Ready, Started, In Progress, In Review, Complete, Blocked. If status is Complete or flag is Resolved — acknowledge the completion and ask if follow-up is needed rather than creating new action items.';
-  const ctx=_buildDGLContext().slice(0,2000);
-  let docCtx='';
-  try{ docCtx=await _buildDocContext(id,type); }catch(e){ docCtx=''; }
+  const resultEl=document.getElementById('super-ai-result-'+id);
+  const system='You are the executive AI advisor for DGL easyChef Pro. You have been given complete context about a specific task including team discussions, Slack messages, attached documents, dependency chains, and action plan history. Analyze ALL provided context to give a highly specific, actionable plan. Follow the breadcrumbs — understand the flow of work from dependencies through to downstream tasks. Reference specific people, dates, and discussions in your analysis. Format your response as plain text only. No markdown symbols like ##, ###, **, *, or ---. Use ALL CAPS for section headers. Use numbered lists with plain numbers. Keep formatting clean for Slack. Task status values: Not Started, Ready, Started, In Progress, In Review, Complete, Blocked. If status is Complete or flag is Resolved — acknowledge the completion and ask if follow-up is needed rather than creating new action items.';
+  // ── 1. Task record ──────────────────────────────────────────
   const _t=DASHBOARD_DATA.tasks.find(x=>x.id===id);
   const _ag=AGENDA_DATA.find(x=>x.id===id);
+  const taskName=(_t&&_t.name)||(_ag&&_ag.title)||btn.dataset.title||id;
+  const status=(_t&&_t.status)||btn.dataset.status||'—';
+  const owner=(_t&&_t.owner)||btn.dataset.owner||'—';
   const taskFlag=(_t&&_t.flag)||(_ag&&_ag.flag)||'';
   const taskNotes=(_t&&_t.notes)||'';
+  const taskDecision=(_t&&_t.decision)||'';
   const lastChange=(_t&&_t.lastStatusChange)||'';
+  const taskCat=(_t&&_t.cat)||'';
+  const taskPri=(_t&&_t.pri)||'';
+  const taskSd=(_t&&_t.sd)||'';
+  const taskEd=(_t&&_t.ed)||'';
+  const today=getPSTDate();
+  const edDate=taskEd?new Date(taskEd):null;
+  const daysLeft=edDate?Math.ceil((edDate-today)/(1000*60*60*24)):null;
+  const daysStr=daysLeft===null?'—':daysLeft<0?'OVERDUE by '+Math.abs(daysLeft)+'d':daysLeft+'d remaining';
+  // ── 2. RACI ─────────────────────────────────────────────────
+  const _raciPeople=['Taylor','Adam','Steve','Hammad','Mary','JR','Searah','Sadee'];
+  const raciLines=_t?_raciPeople.map(p=>{ const r=_t[p]; return r?`${p}=${r}`:null; }).filter(Boolean).join(', '):'—';
+  // ── 3. Dependency chain ──────────────────────────────────────
+  const depIds=_t?(_t.deps||'').split(',').map(d=>d.trim()).filter(Boolean):[];
+  const depDetails=depIds.map(did=>{ const d=DASHBOARD_DATA.tasks.find(x=>x.id===did); return d?`${did} "${d.name}" (${d.status}, owner:${d.owner||'—'}${d.flag&&d.flag.length>2?', flag:'+d.flag:''})`:`${did} (not found)`; }).join('\n  ')||'None';
+  const blocksTasks=DASHBOARD_DATA.tasks.filter(x=>x.id!==id&&(x.deps||'').split(',').map(d=>d.trim()).filter(Boolean).includes(id));
+  const blocksDetails=blocksTasks.map(x=>`${x.id} "${x.name}" (${x.status}, owner:${x.owner||'—'})`).join('\n  ')||'None';
+  // ── 4. Linked agenda item ───────────────────────────────────
+  const linkedAg=AGENDA_DATA.find(a=>a.taskId===id);
+  const agendaCtx=linkedAg?`Title: ${linkedAg.title}\nDetail: ${(linkedAg.detail||'').slice(0,400)}\nDecision: ${linkedAg.decision||'—'}\nOwner: ${linkedAg.owner||'—'}\nDeadline: ${linkedAg.deadline||'—'}`:'None';
+  // ── 5. Team discussion ──────────────────────────────────────
+  const _tNotes=_notesCache[id]||[];
+  const commentsCtx=_tNotes.length?_tNotes.slice(-10).map(n=>`[${(n.ts||'').slice(0,10)}] ${n.name||n.user||'?'}: ${(n.text||'').slice(0,300)}`).join('\n'):'No discussion notes.';
+  // ── 6. Slack context ─────────────────────────────────────────
+  const slackSummary=(type==='raci'?_raciAiSummaries[id]:type==='agenda'?_agendaAiSummaries[id]:'')||'';
+  const feedEl=document.getElementById('raci-expand-slack-feed-'+id)||document.getElementById('agenda-expand-slack-feed-'+id);
+  const rawSlack=feedEl?feedEl.innerText.slice(0,1500):'';
+  const slackCtx=slackSummary?slackSummary.slice(0,1000):(rawSlack||'Not loaded — open the Slack feed first.');
+  // ── 7. Action plan history ───────────────────────────────────
+  const prevPlan=_getActionPlanText(id);
+  const apCtx=prevPlan?prevPlan.slice(0,600):'No previous action plan saved.';
+  // ── 8. Document context ──────────────────────────────────────
+  let docCtx='None attached.';
+  try{ const _dc=await _buildDocContext(id,type); if(_dc) docCtx=_dc; }catch(e){}
+  // ── 9. Completion flag ───────────────────────────────────────
   const isComplete=status==='Complete'||status==='Done'||taskFlag==='✓ Resolved'||taskFlag==='✓ Closed';
   const completionNote=isComplete?'\n\nNOTE: THIS TASK IS MARKED COMPLETE/RESOLVED — confirm with the team if any follow-up is still needed before generating new action items.':'';
-  const prompt=`You are analyzing a SPECIFIC topic for the DGL easyChef Pro team. Stay focused on THIS topic only — do not give generic launch advice.\n\nSPECIFIC TOPIC: ${title}\nCURRENT STATUS: ${status} | Owner: ${owner}${taskFlag?` | Flag: ${taskFlag}`:''}${lastChange?` | Last changed: ${lastChange}`:''}${taskNotes?`\nTASK NOTES: ${taskNotes.slice(0,400)}`:''}${completionNote}\nWHAT THE ANALYSIS FOUND: ${summary.slice(0,800)}\n\nUsing the operational context below ONLY to provide relevant supporting detail, produce a focused action plan for THIS SPECIFIC TOPIC:\n\n1. THE SINGLE MOST IMPORTANT ACTION FOR THIS TOPIC TODAY — who, what, by when, why it unblocks this specific item\n2. THREE ACTIONS THIS WEEK SPECIFIC TO THIS TOPIC — with owners and deadlines directly related to this item\n3. ONE RISK SPECIFIC TO THIS TOPIC — what happens to this item specifically if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE ABOUT THIS SPECIFIC TOPIC\n\nOperational Context (use only for supporting detail):\n${ctx}${docCtx}`;
-  const resultEl=document.getElementById('super-ai-result-'+id);
+  // ── 10. Global summary ───────────────────────────────────────
+  const globalCtx=_buildDGLContext().slice(0,1500);
+  const fullContext=`TASK: ${id} — ${taskName}
+CATEGORY: ${taskCat} | PRIORITY: ${taskPri} | STATUS: ${status} | OWNER: ${owner}
+DATES: Start ${taskSd||'—'} | End ${taskEd||'—'} | ${daysStr}
+RACI: ${raciLines}
+FLAG: ${taskFlag||'None'} | Last changed: ${lastChange||'—'}${completionNote}
+
+TASK NOTES:
+${taskNotes||'None'}
+
+DECISION FIELD:
+${taskDecision||'None'}
+
+DEPENDENCY CHAIN — this task depends on:
+  ${depDetails}
+This task blocks:
+  ${blocksDetails}
+
+LINKED AGENDA ITEM:
+${agendaCtx}
+
+TEAM DISCUSSION (last 10 notes):
+${commentsCtx}
+
+SLACK CONTEXT:
+${slackCtx}
+
+ATTACHED DOCUMENTS:
+${docCtx}
+
+PREVIOUS ACTION PLAN:
+${apCtx}
+
+ALL TASKS SUMMARY (cross-task breadcrumb context):
+${globalCtx}`;
+  const prompt=`Analyze this specific task for the DGL easyChef Pro team. Use ALL provided context — do not give generic advice. Be specific to this exact task, the people assigned, the discussions that have happened, and the documents attached.\n\n${fullContext}\n\nProduce a focused action plan:\n\n1. THE SINGLE MOST IMPORTANT ACTION TODAY — who exactly, what exactly, by when, why it unblocks this item\n2. THREE ACTIONS THIS WEEK — with named owners and specific deadlines\n3. ONE RISK — what happens to this specific task if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE\n5. DEPENDENCY ALERT — if any blocking tasks are not Complete, flag them with owner and status`;
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})})
     .then(r=>r.json())
     .then(data=>{
