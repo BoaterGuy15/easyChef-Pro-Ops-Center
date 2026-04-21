@@ -1696,19 +1696,33 @@ function _submitDM(sourceId,cid){
   }
 }
 const _dmEntryHtml=(name,ts,text)=>`<div style="border-left:3px solid var(--accent);padding:6px 10px;margin-bottom:6px;background:var(--surface);border-radius:0 5px 5px 0"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--accent);margin-bottom:2px">${name} · ${new Date(ts).toLocaleString()}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap">${String(text).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+const _slackEntryHtml=(ts,text)=>`<div style="border-left:3px solid #60a5fa;padding:6px 10px;margin-bottom:6px;background:var(--surface);border-radius:0 5px 5px 0"><div style="font-family:'DM Mono',monospace;font-size:9px;color:#60a5fa;margin-bottom:2px">↩️ Slack reply · ${new Date(ts).toLocaleString()}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap">${String(text).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+const _dmFeedTimers={};
+function _loadDMFeed(sourceId,cid){
+  const feed=document.getElementById('dm-feed-'+cid); if(!feed||!CONFIG.sheetsUrl) return;
+  const toKey=(document.getElementById('dm-to-'+cid)||{}).value||'';
+  const channelId=toKey?_getDMChannelId(toKey):'';
+  const p1=fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(sourceId)+'&type=dm').then(r=>r.json()).catch(()=>[]);
+  const p2=channelId?fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=10').then(r=>r.json()).catch(()=>[]):Promise.resolve([]);
+  Promise.all([p1,p2]).then(([d1,d2])=>{
+    if(!document.getElementById('dm-feed-'+cid)) return;
+    const dms=(Array.isArray(d1)?d1:(d1.comments||[])).filter(d=>d.type==='dm'||!d.type).map(d=>({_ts:new Date(d.ts||d.timestamp||0).getTime(),_html:_dmEntryHtml(d.name||'DM',d.ts||d.timestamp||0,d.text||'')}));
+    const slacks=(Array.isArray(d2)?d2:(d2.messages||[])).map(m=>({_ts:parseFloat(m.ts||0)*1000,_html:_slackEntryHtml(parseFloat(m.ts||0)*1000,m.text||'')}));
+    const all=[...dms,...slacks].sort((a,b)=>b._ts-a._ts).slice(0,10);
+    feed.innerHTML=all.length?all.map(e=>e._html).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No messages yet.</div>';
+  });
+}
+function _startDMFeedRefresh(sourceId,cid){
+  _stopDMFeedRefresh(cid);
+  _loadDMFeed(sourceId,cid);
+  _dmFeedTimers[cid]=setInterval(()=>{ if(!document.getElementById('dm-feed-'+cid)){ _stopDMFeedRefresh(cid); return; } _loadDMFeed(sourceId,cid); },30000);
+}
+function _stopDMFeedRefresh(cid){ clearInterval(_dmFeedTimers[cid]); delete _dmFeedTimers[cid]; }
 function _renderDMSection(sourceId,cid){
   const _iSt="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const _opts=_DM_MEMBERS.filter(m=>!_isDMInactive(m.key)).map(m=>`<option value="${m.key}">${m.name}</option>`).join('');
-  if(CONFIG.sheetsUrl) setTimeout(()=>{
-    fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(sourceId)+'&type=dm')
-      .then(r=>r.json())
-      .then(data=>{
-        const feed=document.getElementById('dm-feed-'+cid); if(!feed) return;
-        const items=(Array.isArray(data)?data:(data.comments||[])).filter(d=>d.type==='dm'||!d.type).slice(-10).reverse();
-        feed.innerHTML=items.length?items.map(d=>_dmEntryHtml(d.name||'DM',d.ts||d.timestamp||0,d.text||'')).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No messages yet.</div>';
-      }).catch(()=>{ const feed=document.getElementById('dm-feed-'+cid); if(feed) feed.innerHTML=''; });
-  },200);
-  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px"><select id="dm-to-${cid}" style="${_iSt};flex:0 0 auto;width:auto"><option value="">— Select recipient —</option>${_opts}</select><input id="dm-input-${cid}" type="text" placeholder="Send a direct message…" style="${_iSt};flex:1;min-width:160px" onkeydown="if(event.key==='Enter')_submitDM('${sourceId}','${cid}')"><button id="dm-btn-${cid}" onclick="_submitDM('${sourceId}','${cid}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap">📤 Message Team Member</button></div><div id="dm-feed-${cid}" style="margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">Loading…</div></div>`;
+  if(CONFIG.sheetsUrl) setTimeout(()=>_startDMFeedRefresh(sourceId,cid),200);
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px"><select id="dm-to-${cid}" style="${_iSt};flex:0 0 auto;width:auto" onchange="_loadDMFeed('${sourceId}','${cid}')"><option value="">— Select recipient —</option>${_opts}</select><input id="dm-input-${cid}" type="text" placeholder="Send a direct message…" style="${_iSt};flex:1;min-width:160px" onkeydown="if(event.key==='Enter')_submitDM('${sourceId}','${cid}')"><button id="dm-btn-${cid}" onclick="_submitDM('${sourceId}','${cid}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap">📤 Message Team Member</button></div><div id="dm-feed-${cid}" style="margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">Loading…</div></div>`;
 }
 function _renderNotesLog(taskId,cid,canAdd,placeholder){
   const entries=_getNotes(taskId);
