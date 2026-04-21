@@ -1775,7 +1775,12 @@ function loadChannelMapsFromSheets(){
   fetch(CONFIG.sheetsUrl+'?action=channel_maps_read')
     .then(r=>r.json())
     .then(maps=>{
-      if(maps.category&&typeof maps.category==='object') Object.assign(_categoryChannelMapOverrides,maps.category);
+      if(maps.category&&typeof maps.category==='object'){
+        Object.entries(maps.category).forEach(([key,val])=>{
+          const slug=(val&&typeof val==='object'?val.channelName:val||'').replace('#','');
+          if(slug){ _categoryChannelMapOverrides[key]=slug; CATEGORY_CHANNEL_MAP[key]=slug; }
+        });
+      }
       if(maps.dm&&typeof maps.dm==='object') Object.assign(_DM_CHANNEL_MAP,maps.dm);
       _buildChannelMappingSection();
     }).catch(()=>{});
@@ -1893,6 +1898,19 @@ function _addCategoryChannel(){
   _saveCategoryChannel(cat,slug);
   _buildChannelMappingSection();
 }
+function _saveAllCategoryMappings(btn){
+  const chs=_slackChannelsCache||[];
+  const sels=document.querySelectorAll('#channel-mapping-section select[data-cat]');
+  if(!sels.length){ _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted)">No mappings to save.</div>',1800); return; }
+  const user=window._DGL_USER||'unknown';
+  sels.forEach(sel=>{
+    const cat=sel.dataset.cat; const slug=sel.value; if(!cat) return;
+    _categoryChannelMapOverrides[cat]=slug;
+    const ch=chs.find(c=>c.name===slug);
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'category',key:cat,channelId:ch?ch.id:slug,channelName:ch?'#'+ch.name:slug,changedBy:user})}).catch(()=>{});
+  });
+  if(btn){ const orig=btn.textContent; btn.textContent='✅ Saved'; btn.disabled=true; setTimeout(()=>{ btn.textContent=orig; btn.disabled=false; },1800); }
+}
 function _relinkAllTasks(){
   Object.keys(_slackLinksCache).forEach(k=>{ delete _slackLinksCache[k]; });
   _autoLinkTaskChannels();
@@ -1930,7 +1948,7 @@ function _buildChannelMappingSection(){
   el.innerHTML=`<div class="card" style="padding:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">CATEGORY → SLACK CHANNEL MAPPING</div>${lockIcon}${unlockedBadge}</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${unlockBtn}<button id="ccm-relink-btn" onclick="_relinkAllTasks()" style="${_bSt}">↺ Re-link All Tasks</button></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${unlockBtn}${canEdit?`<button onclick="_saveAllCategoryMappings(this)" style="${_bSt}">💾 Save Mappings</button>`:''}<button id="ccm-relink-btn" onclick="_relinkAllTasks()" style="${_bSt}">↺ Re-link All Tasks</button></div>
     </div>
     ${subhead}${noChannels}${rows||`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No mappings defined.</div>`}
     ${addBtn}
