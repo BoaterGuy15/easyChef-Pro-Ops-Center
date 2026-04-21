@@ -2096,11 +2096,15 @@ function _buildDocsSection(sourceType,sourceId,sourceName){
   const tabActSt="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:none;border:none;border-bottom:2px solid var(--gold);color:var(--gold);cursor:pointer";
   const tabInaSt="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer";
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 9px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:6px";
+  const _ck=sourceType+'_'+sourceId;
+  const _firstDoc=(_docsCache[_ck]||[])[0];
+  const _taskFolderUrl=(_firstDoc&&_firstDoc.folderUrl)||CONFIG.sharedDriveUrl||'#';
   return `<div style="margin-top:14px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">📎 DOCUMENTS</span>
     <div style="display:flex;gap:6px">
-      <a id="docs-folder-btn-${sourceType}-${sourceId}" href="${CONFIG.sharedDriveUrl||'#'}" target="_blank" rel="noopener" style="${btnSt}">📁 ${sourceId} — ${sourceName||sourceId}</a>
+      <a id="docs-folder-btn-${sourceType}-${sourceId}" href="${_taskFolderUrl}" target="_blank" rel="noopener" style="${btnSt}">📁 ${sourceId} — ${sourceName||sourceId}</a>
+      <a href="${CONFIG.sharedDriveUrl||'#'}" target="_blank" rel="noopener" style="${btnSt}">📁 RACI-WorkFlow</a>
     </div>
   </div>
   <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:8px">
