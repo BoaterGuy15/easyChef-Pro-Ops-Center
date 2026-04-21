@@ -1158,6 +1158,7 @@ function showPage(id){
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap') setTimeout(initRoadmapHeadSync,50);
   if(id==='actionplans') buildActionPlansPage();
+  if(id==='budget') loadBudgetFromSheets();
 }
 let _navDragSrc=null;
 function _navDragStart(e,el){ _navDragSrc=el; e.dataTransfer.effectAllowed='move'; setTimeout(()=>{ el.style.opacity='0.4'; },0); }
@@ -6240,12 +6241,18 @@ function loadBudgetFromLocal(){
 }
 function loadBudgetFromSheets(){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl+'?action=budget_read',{mode:'cors'})
+  fetch(CONFIG.sheetsUrl+'?action=budget_read')
     .then(r=>r.json())
     .then(data=>{
-      if(!data.ok||!data.budget) return;
-      _mergeBudget(data.budget);
+      // budget_read returns array (history, newest first) or {budget:{...}}
+      let b = null;
+      if(Array.isArray(data) && data.length) b = data[0];
+      else if(data && data.budget) b = data.budget;
+      if(!b) return;
+      _mergeBudget(b);
+      try{ localStorage.setItem('dgl_budget', JSON.stringify(DASHBOARD_DATA.budget)); }catch(e){}
       renderBudget();
+      renderWhatIf();
     })
     .catch(()=>{});
 }
