@@ -4538,19 +4538,21 @@ function _getProfiles(){ return _profilesCache; }
 function _saveProfiles(obj){ _profilesCache=obj; }
 function loadProfilesFromSheets(){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl+'?action=profile_read')
+  fetch(CONFIG.sheetsUrl+'?action=hr_profiles_read')
     .then(r=>r.json()).then(data=>{
-      if(!data||typeof data!=='object') return;
-      const profiles=_getProfiles();
-      Object.assign(profiles,data);
-      _saveProfiles(profiles);
+      if(!Array.isArray(data.profiles)) return;
+      data.profiles.forEach(p=>{
+        if(!p.userKey) return;
+        _profilesCache[p.userKey]={phone:p.phone,slack:p.slack,timezone:p.timezone,github:p.github,channels:p.channels};
+        _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p};
+      });
       buildTeamGrid();
     }).catch(()=>{});
 }
 function saveProfileToSheets(userKey,profileData){
   if(!CONFIG.sheetsUrl) return;
   console.log('[DGL] saveProfileToSheets called, userKey:',userKey,'data:',JSON.stringify(profileData));
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'profile_write',user:userKey,data:profileData})}).catch(()=>{});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey,...profileData})}).catch(()=>{});
 }
 function _getMemberInfo(userKey){
   const defMeta=DEFAULT_TEAM_MEMBERS[userKey];
@@ -4709,9 +4711,9 @@ async function saveDefaultTeamMember(user){
   if(!profiles[user]) profiles[user]={};
   Object.assign(profiles[user],{phone,slack,channels,github,timezone});
   _saveProfiles(profiles);
-  saveProfileToSheets(user,profiles[user]);
-  console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(profiles[user]));
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel})}).catch(()=>{});
+  const _hrPayload={action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel,phone,slack,channels,github,timezone};
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_hrPayload)}).catch(()=>{});
+  console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload));
   if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
   closeTeamMemberModal();
   buildTeamGrid();
@@ -4816,9 +4818,9 @@ async function saveTeamMember(idx){
   if(!profiles[user]) profiles[user]={};
   Object.assign(profiles[user],{phone,slack,channels,github,timezone});
   _saveProfiles(profiles);
-  saveProfileToSheets(user,profiles[user]);
-  console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(profiles[user]));
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel})}).catch(()=>{});
+  const _hrPayload2={action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel,phone,slack,channels,github,timezone};
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_hrPayload2)}).catch(()=>{});
+  console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload2));
   if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
   USER_RACI_COL[user]=raciKey;
   USER_DISPLAY[user]=raciKey;
@@ -8493,7 +8495,6 @@ function saveHRProfileModal(userKey){
   if(!profiles[userKey]) profiles[userKey]={};
   Object.assign(profiles[userKey],{contractType,payRate,payFrequency,startDate,notes});
   _saveProfiles(profiles);
-  saveProfileToSheets(userKey,profiles[userKey]);
   closeHRProfileModal();
   buildHRPage();
   buildTeamGrid();
@@ -8557,7 +8558,7 @@ async function runDGLTests(){
     const base=CONFIG.sheetsUrl;
     const sheetTests=[
       {label:'agenda_read returns ok:true and items array', url:base+'?action=agenda_read',  check:d=>d.ok!==false&&(Array.isArray(d)||Array.isArray(d.items))},
-      {label:'profile_read returns ok:true',               url:base+'?action=profile_read',  check:d=>d.ok!==false&&typeof d==='object'},
+      {label:'hr_profiles_read returns profiles array',      url:base+'?action=hr_profiles_read',check:d=>d.ok!==false&&Array.isArray(d.profiles)},
       {label:'slack_channels returns ok:true and channels',url:base+'?action=slack_channels',check:d=>d.ok!==false&&Array.isArray(d.channels)&&d.channels.length>0},
       {label:'budget_read returns ok:true',                url:base+'?action=budget_read',   check:d=>d.ok!==false&&typeof d==='object'},
     ];
@@ -8569,7 +8570,7 @@ async function runDGLTests(){
       }catch(e){ no(t.label, e.message); }
     }));
   } else {
-    ['agenda_read','profile_read','slack_channels','budget_read'].forEach(a=>no('Sheets: '+a,'CONFIG.sheetsUrl not set'));
+    ['agenda_read','hr_profiles_read','slack_channels','budget_read'].forEach(a=>no('Sheets: '+a,'CONFIG.sheetsUrl not set'));
   }
   console.groupEnd();
 
