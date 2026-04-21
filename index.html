@@ -1961,7 +1961,7 @@ function _renderDocsList(sourceType,sourceId){
   const cu=window._DGL_USER||'';
   const isAdmin=['taylor','steve'].includes(cu);
   const folderBtn=document.getElementById('docs-folder-btn-'+sourceType+'-'+sourceId);
-  if(folderBtn){ const fu=(docs.find(d=>d.folderUrl)||{}).folderUrl; if(fu) folderBtn.href=fu; }
+  if(folderBtn){ const fu=(docs.find(d=>d.folderUrl)||{}).folderUrl; if(fu){ folderBtn.href=fu; folderBtn.style.display='inline-block'; } else { folderBtn.style.display='none'; } }
   el.innerHTML=docs.length
     ? docs.map(d=>{
         const isUploaded=!!(d.driveFileId);
@@ -2072,7 +2072,7 @@ function _buildDocsSection(sourceType,sourceId,sourceName){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">📎 DOCUMENTS</span>
     <div style="display:flex;gap:6px">
-      <a id="docs-folder-btn-${sourceType}-${sourceId}" href="${CONFIG.sharedDriveUrl||'#'}" target="_blank" rel="noopener" style="${btnSt}">📁 Open Task Folder</a>
+      <a id="docs-folder-btn-${sourceType}-${sourceId}" href="#" target="_blank" rel="noopener" style="${btnSt};display:none">📁 Task Folder</a>
       <a href="${CONFIG.sharedDriveUrl||'#'}" target="_blank" rel="noopener" style="${btnSt}">📁 Shared Drive</a>
     </div>
   </div>
