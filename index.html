@@ -1605,6 +1605,44 @@ function _submitNote(taskId,cid){
     fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(user)).catch(()=>{});
   }
 }
+const _DM_MEMBERS=[{key:'taylor',name:'Taylor'},{key:'steve',name:'Steve'},{key:'adam',name:'Adam'},{key:'mary',name:'Mary'},{key:'jr',name:'JR'},{key:'hammad',name:'Hammad'},{key:'searah',name:'Searah'},{key:'sadee',name:'Sadee'}];
+const _DM_NAME_MAP={taylor:'Taylor',steve:'Steve',adam:'Adam',mary:'Mary',jr:'JR',hammad:'Hammad',searah:'Searah',sadee:'Sadee'};
+function _submitDM(sourceId,cid){
+  const toEl=document.getElementById('dm-to-'+cid);
+  const inpEl=document.getElementById('dm-input-'+cid);
+  const toKey=toEl?toEl.value:'';
+  const text=(inpEl?inpEl.value:'').trim();
+  if(!toKey||!text){ if(!toKey) alert('Select a recipient.'); return; }
+  const sender=window._DGL_USER||'unknown';
+  const toName=_DM_NAME_MAP[toKey]||toKey;
+  const fromName=_DM_NAME_MAP[sender]||sender;
+  const btn=inpEl&&inpEl.parentElement&&inpEl.parentElement.querySelector('button[onclick*="_submitDM"]');
+  if(btn){ if(btn._dglSubmitting) return; btn._dglSubmitting=true; setTimeout(()=>{ btn._dglSubmitting=false; },2000); }
+  const feed=document.getElementById('dm-feed-'+cid);
+  const _dmEntryHtml=(fn,tn,ts,msg)=>`<div style="border-left:3px solid #60a5fa;padding:6px 10px;margin-bottom:6px;background:var(--surface);border-radius:0 5px 5px 0"><div style="font-family:'DM Mono',monospace;font-size:9px;color:#60a5fa;margin-bottom:2px">${fn} → ${tn} · ${ts}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap">${msg.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+  if(feed){ const prev=(feed.innerHTML.includes('No direct')||feed.innerHTML.includes('Loading'))?'':feed.innerHTML; feed.innerHTML=_dmEntryHtml(fromName,toName,new Date().toLocaleString(),text)+prev; }
+  if(inpEl) inpEl.value='';
+  const slackMsg=`[${sourceId}] DM from ${fromName} to ${toName}: ${text}`;
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'slack_dm',toUser:toKey,fromUser:sender,text:slackMsg})}).catch(()=>{});
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:sourceId,type:'dm',user:sender,name:fromName,recipient:toName,text:slackMsg,ts:new Date().toISOString()})}).catch(()=>{});
+  }
+}
+function _renderDMSection(sourceId,cid){
+  const iSt2="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
+  const _opts=_DM_MEMBERS.map(m=>`<option value="${m.key}">${m.name}</option>`).join('');
+  if(CONFIG.sheetsUrl) setTimeout(()=>{
+    fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(sourceId)+'&type=dm')
+      .then(r=>r.json())
+      .then(data=>{
+        const feed=document.getElementById('dm-feed-'+cid); if(!feed) return;
+        const items=Array.isArray(data)?data:(data.comments||[]);
+        if(!items.length){ feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No direct messages yet.</div>'; return; }
+        feed.innerHTML=items.map(dm=>`<div style="border-left:3px solid #60a5fa;padding:6px 10px;margin-bottom:6px;background:var(--surface);border-radius:0 5px 5px 0"><div style="font-family:'DM Mono',monospace;font-size:9px;color:#60a5fa;margin-bottom:2px">${(dm.name||dm.user||'?')} → ${dm.recipient||'?'} · ${new Date(dm.ts||dm.timestamp||0).toLocaleString()}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap">${(dm.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+      }).catch(()=>{ const feed=document.getElementById('dm-feed-'+cid); if(feed) feed.innerHTML=''; });
+  },200);
+  return `<div style="margin-top:4px"><div id="dm-feed-${cid}" style="margin-bottom:8px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">Loading…</div></div><select id="dm-to-${cid}" style="${iSt2};margin-bottom:4px"><option value="">— Select recipient —</option>${_opts}</select><textarea id="dm-input-${cid}" rows="2" style="${iSt2};resize:vertical;margin-bottom:4px" placeholder="Send a direct message to this team member about this task…"></textarea><button onclick="_submitDM('${sourceId}','${cid}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid #60a5fa;background:transparent;color:#60a5fa;cursor:pointer">📤 Send DM</button></div>`;
+}
 function _renderNotesLog(taskId,cid,canAdd,placeholder){
   const entries=_getNotes(taskId);
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
@@ -2244,6 +2282,8 @@ function _buildTaskExpandHtml(taskId){
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
         ${lbl('TEAM DISCUSSION')}
         ${_renderNotesLog(taskId,'raci-discussion-'+taskId,canAdmin,'Add a comment — posts here and to the linked Slack channel')}
+        ${lbl('💬 DIRECT MESSAGE')}
+        ${_renderDMSection(taskId,'raci-dm-'+taskId)}
         ${_buildDocsSection('task',taskId,t.name)}
       </div>
     </div>
@@ -3262,6 +3302,18 @@ function loadActionPlansFromSheets(){
     .catch(()=>{});
 }
 // Operations.gs — add to doPost handler:
+// case 'slack_dm':
+//   var dmCh=openSlackDM(body.toUser); return json(dmCh.ok?sendSlackMsg(dmCh.channel.id,body.text,body.fromUser):{error:'DM channel failed'});
+//
+// function openSlackDM(userKey){
+//   var tok=PropertiesService.getScriptProperties().getProperty('SLACK_BOT_TOKEN');
+//   // Map userKey to Slack user ID — add to script properties as SLACK_USERID_taylor, etc.
+//   var uid=PropertiesService.getScriptProperties().getProperty('SLACK_USERID_'+userKey)||'';
+//   if(!uid) return {ok:false,error:'No Slack user ID for '+userKey};
+//   var resp=UrlFetchApp.fetch('https://slack.com/api/conversations.open',{method:'post',contentType:'application/json',payload:JSON.stringify({users:uid}),headers:{Authorization:'Bearer '+tok}});
+//   return JSON.parse(resp.getContentText());
+// }
+//
 // case 'action_plans_complete':
 //   completeActionPlan(body.id); return json({ok:true});
 //
@@ -3759,6 +3811,8 @@ function _buildAgendaExpandHtml(id){
         <div id="agenda-expand-ai-${id}" style="margin-bottom:14px"></div>
         ${lbl('TEAM DISCUSSION')}
         ${_renderNotesLog(discussId,'agenda-discussion-'+id,canAdmin,'Add a comment — posts here and to the linked Slack channel')}
+        ${lbl('💬 DIRECT MESSAGE')}
+        ${_renderDMSection(id,'agenda-dm-'+id)}
         ${_buildDocsSection('agenda',id,it.title)}
       </div>
     </div>
