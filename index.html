@@ -4988,6 +4988,44 @@ function showTeamSection(section){
   }
   if(section==='hr'){ _updateHRUnlockIndicator(); loadHRProfilesFromSheets(); }
 }
+function _toggleWorkSummary(userKey){
+  const el=document.getElementById('work-sum-'+userKey);
+  const btn=document.getElementById('wsum-btn-'+userKey);
+  if(!el) return;
+  const open=el.style.display==='none';
+  el.style.display=open?'block':'none';
+  if(btn) btn.textContent='📊 This Week '+(open?'▲':'▼');
+  sessionStorage.setItem('dgl_wsum_'+userKey,open?'1':'0');
+}
+function _buildWorkSummaryHtml(userKey,raciKey,myTasks){
+  const _d=new Date(); const _dow=_d.getDay();
+  const _mon=new Date(_d); _mon.setDate(_d.getDate()-(_dow===0?6:_dow-1));
+  const _sun=new Date(_mon); _sun.setDate(_mon.getDate()+6);
+  const _fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const wkS=_fmt(_mon), wkE=_fmt(_sun);
+  const wkTasks=myTasks.filter(t=>(t.sd&&t.sd>=wkS&&t.sd<=wkE)||(t.ed&&t.ed>=wkS&&t.ed<=wkE));
+  const sColor=s=>s==='Done'||s==='Complete'?'var(--green)':s==='Blocked'?'var(--red)':s==='In Progress'||s==='Started'?'var(--gold)':'var(--muted)';
+  const weekHtml=wkTasks.length?wkTasks.map(t=>`<div style="display:flex;gap:5px;margin-bottom:3px;align-items:baseline"><span style="font-family:'DM Mono',monospace;font-size:8px;color:${sColor(t.status)};white-space:nowrap">[${t.status||'—'}]</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text)">${t.name.length>28?t.name.slice(0,26)+'…':t.name}</span>${t.ed?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap;margin-left:auto">${t.ed}</span>`:''}</div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">No tasks due this week</div>';
+  const agItems=AGENDA_DATA.filter(a=>a.owner===raciKey&&!a.checked);
+  const agHtml=agItems.length?agItems.slice(0,5).map(a=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text);margin-bottom:3px">☐ ${a.title.length>36?a.title.slice(0,34)+'…':a.title}${a.deadline?`<span style="color:var(--muted)"> · ${a.deadline}</span>`:''}</div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">No open agenda items</div>';
+  const taskIds=new Set(myTasks.map(t=>t.id));
+  const apEntries=Object.values(_actionPlansCache).filter(p=>p.createdBy===userKey||(p.linkedTaskId&&taskIds.has(p.linkedTaskId)));
+  apEntries.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const apHtml=apEntries.length?apEntries.slice(0,2).map(p=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text);margin-bottom:3px">📋 ${(p.text||'').replace(/\n/g,' ').slice(0,40)||'Action Plan'}${p.createdAt?`<span style="color:var(--muted)"> · ${p.createdAt.slice(0,10)}</span>`:''}</div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">No action plans</div>';
+  const chans=new Map(); myTasks.forEach(t=>{ const lk=_slackLinksCache['dgl_task_slack_'+t.id]; if(lk&&lk.channelId) chans.set(lk.channelId,lk.channelName||lk.channelId); });
+  const slackHtml=chans.size?[...chans.entries()].map(([id,name])=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);cursor:pointer;margin-bottom:2px" onclick="showPage('comms')">💬 ${name}</div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">No linked channels</div>';
+  const open=sessionStorage.getItem('dgl_wsum_'+userKey)==='1';
+  const lbl='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);letter-spacing:1.5px;margin-bottom:5px';
+  return `<div style="margin-top:8px">
+    <button id="wsum-btn-${userKey}" onclick="_toggleWorkSummary('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;width:100%;text-align:left">📊 This Week ${open?'▲':'▼'}</button>
+    <div id="work-sum-${userKey}" style="display:${open?'block':'none'};margin-top:6px;padding:10px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">
+      <div style="${lbl}">THIS WEEK'S TASKS</div>${weekHtml}
+      <div style="${lbl};margin-top:8px">AGENDA ITEMS</div>${agHtml}
+      <div style="${lbl};margin-top:8px">ACTION PLANS</div>${apHtml}
+      <div style="${lbl};margin-top:8px">LINKED SLACK</div>${slackHtml}
+    </div>
+  </div>`;
+}
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
@@ -5051,6 +5089,7 @@ function buildTeamGrid(){
         <div class="tc-role">${displayRole}</div>
         ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${warnHtml}${noteHtml}
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnDefault?`<div style="display:flex;gap:4px">${editBtnDefault}</div>`:''}</div>
+        ${_buildWorkSummaryHtml(userKey,key,myTasks)}
       </div>`;
     } else {
       const {cm,ci}=entry;
@@ -5082,6 +5121,7 @@ function buildTeamGrid(){
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
         ${tasksHtml2}<div class="tc-stats">${statsHtml2}</div>
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnCustom?`<div style="display:flex;gap:4px">${editBtnCustom}</div>`:''}</div>
+        ${_buildWorkSummaryHtml(cm.user,key,myTasks)}
       </div>`;
     }
   }).join('');
