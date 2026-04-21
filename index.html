@@ -2033,6 +2033,7 @@ function _saveDocLink(url,name,sourceType,sourceId){
   _docLinkUrlCheck(sourceType,sourceId);
 }
 function _handleDocUpload(files,sourceType,sourceId,sourceName){
+  console.log('[DGL] Doc upload sourceName:',sourceName,'sourceType:',sourceType,'sourceId:',sourceId);
   if(!files||!files.length) return;
   const dz=document.getElementById('docs-dz-'+sourceType+'-'+sourceId);
   const fileArr=Array.from(files);
@@ -2048,6 +2049,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
     reader.onload=ev=>{
       const b64=ev.target.result.split(',')[1];
       const _sn=sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===sourceId)||{}).title||'';
+      console.log('[DGL] Resolved _sn from data:',_sn);
       const payload={action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,
         taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',
         sourceType:sourceType,sourceId:sourceId,sourceName:_sn,addedBy:window._DGL_USER||'unknown'};
