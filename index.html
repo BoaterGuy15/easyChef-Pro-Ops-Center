@@ -538,6 +538,7 @@ const _USER_RACI_MAP = {
   'jr':'JR','hammad':'Hammad','searah':'Searah','sadee':'Sadee'
 };
 
+let _categoryChannelMapOverrides = {};
 const CATEGORY_CHANNEL_MAP = {
   'Marketing Strategy':'marketing-strategy',
   'Mktg Strategy':'marketing-strategy',
@@ -1612,10 +1613,9 @@ const _DM_CHANNEL_MAP={taylor:'raci-taylor',steve:'leadership',adam:'raci-adam',
 function _isDMInactive(key){ return (_hrProfilesCache[key]||{}).status==='inactive'||key==='mary'; }
 function _getDMChannelId(personKey){
   const chs=_slackChannelsCache||[];
-  try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s){ const m=JSON.parse(s); if(m[personKey]){ const ch=chs.find(c=>c.name===m[personKey]); if(ch) return ch.id; } } }catch(_){}
   const target=_DM_CHANNEL_MAP[personKey]||'';
   if(!target) return '';
-  const ch=chs.find(c=>(c.name||'').toLowerCase().includes(target.toLowerCase()));
+  const ch=chs.find(c=>(c.name||'').toLowerCase()===target.toLowerCase())||chs.find(c=>(c.name||'').toLowerCase().includes(target.toLowerCase()));
   return ch?ch.id:'';
 }
 function _saveDMMembersToStorage(){ try{ localStorage.setItem('dgl_dm_members',JSON.stringify(_DM_MEMBERS)); }catch(_){} }
@@ -1628,13 +1628,13 @@ function _deleteDMPerson(key){
   if(!confirm('Remove '+name+' from DM mapping?')) return;
   const idx=_DM_MEMBERS.findIndex(m=>m.key===key); if(idx>=0) _DM_MEMBERS.splice(idx,1);
   delete _DM_NAME_MAP[key]; delete _DM_CHANNEL_MAP[key];
-  try{ const s=localStorage.getItem('dgl_dm_channel_map'); const m=s?JSON.parse(s):{}; delete m[key]; localStorage.setItem('dgl_dm_channel_map',JSON.stringify(m)); }catch(_){}
+  if(CONFIG.sheetsUrl){ const user=window._DGL_USER||'unknown'; fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'dm',key,channelId:'',channelName:'',changedBy:user})}).catch(()=>{}); }
   _saveDMMembersToStorage(); _buildDMChannelMappingSection(); _refreshDMDropdowns();
 }
 function _editDMRow(key){
   const row=document.getElementById('dm-row-'+key); if(!row) return;
   const chs=_slackChannelsCache||[];
-  const mapped=(()=>{ try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s){ const m=JSON.parse(s); if(m[key]) return m[key]; } }catch(_){} return _DM_CHANNEL_MAP[key]||''; })();
+  const mapped=_DM_CHANNEL_MAP[key]||'';
   const _s="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;outline:none";
   const _b="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid;background:transparent;cursor:pointer";
   const chOpts='<option value="">— None —</option>'+chs.map(c=>`<option value="${c.name}"${c.name===mapped?' selected':''}>#${c.name}</option>`).join('');
@@ -1648,7 +1648,7 @@ function _saveDMRow(key){
   const newCh=chEl?chEl.value:'';
   const mem=_DM_MEMBERS.find(m=>m.key===key); if(mem) mem.name=newName;
   _DM_NAME_MAP[key]=newName; if(newCh) _DM_CHANNEL_MAP[key]=newCh;
-  try{ const s=localStorage.getItem('dgl_dm_channel_map'); const m=s?JSON.parse(s):{}; if(newCh) m[key]=newCh; else delete m[key]; localStorage.setItem('dgl_dm_channel_map',JSON.stringify(m)); }catch(_){}
+  if(CONFIG.sheetsUrl){ const user=window._DGL_USER||'unknown'; fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'dm',key,channelId:newCh||'',channelName:newCh||'',changedBy:user})}).catch(()=>{}); }
   _saveDMMembersToStorage(); _buildDMChannelMappingSection(); _refreshDMDropdowns();
 }
 function _showAddDMPerson(){
@@ -1668,7 +1668,7 @@ function _saveNewDMPerson(){
   if(!name||!key){ alert('Name and key are required.'); return; }
   if(_DM_MEMBERS.find(m=>m.key===key)){ alert('Key "'+key+'" already exists.'); return; }
   _DM_MEMBERS.push({key,name}); _DM_NAME_MAP[key]=name; if(ch) _DM_CHANNEL_MAP[key]=ch;
-  try{ const s=localStorage.getItem('dgl_dm_channel_map'); const m=s?JSON.parse(s):{}; if(ch) m[key]=ch; localStorage.setItem('dgl_dm_channel_map',JSON.stringify(m)); }catch(_){}
+  if(CONFIG.sheetsUrl&&ch){ const user=window._DGL_USER||'unknown'; fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'dm',key,channelId:ch,channelName:ch,changedBy:user})}).catch(()=>{}); }
   _saveDMMembersToStorage(); _buildDMChannelMappingSection(); _refreshDMDropdowns();
 }
 function _submitDM(sourceId,cid){
@@ -1770,6 +1770,16 @@ function _loadChannelAssignmentsFromSheets(){
       rows.forEach(r=>{ if(r.taskId&&r.channelId) _slackLinksCache['dgl_task_slack_'+r.taskId]={channelId:r.channelId,channelName:r.channelName||''}; });
     }).catch(()=>{});
 }
+function loadChannelMapsFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=channel_maps_read')
+    .then(r=>r.json())
+    .then(maps=>{
+      if(maps.category&&typeof maps.category==='object') Object.assign(_categoryChannelMapOverrides,maps.category);
+      if(maps.dm&&typeof maps.dm==='object') Object.assign(_DM_CHANNEL_MAP,maps.dm);
+      _buildChannelMappingSection();
+    }).catch(()=>{});
+}
 function _showChannelAuthModal(taskId,onSuccess){
   let ov=document.getElementById('channel-auth-overlay'); if(ov) ov.remove();
   ov=document.createElement('div'); ov.id='channel-auth-overlay';
@@ -1862,15 +1872,18 @@ function _buildChannelHistory(taskId,containerId){
   }
 }
 function _getCategoryChannelMap(){
-  try{ const s=localStorage.getItem('dgl_category_channel_map'); return s?{...CATEGORY_CHANNEL_MAP,...JSON.parse(s)}:{...CATEGORY_CHANNEL_MAP}; }catch(_){ return {...CATEGORY_CHANNEL_MAP}; }
+  return {...CATEGORY_CHANNEL_MAP,..._categoryChannelMapOverrides};
 }
 function _saveCategoryChannel(cat,slug){
   const oldSlug=(_getCategoryChannelMap()[cat])||'none';
-  try{ const s=localStorage.getItem('dgl_category_channel_map'); const m=s?JSON.parse(s):{}; m[cat]=slug; localStorage.setItem('dgl_category_channel_map',JSON.stringify(m)); }catch(_){}
-  if(CONFIG.sheetsUrl&&_commsIsUnlocked()){
+  _categoryChannelMapOverrides[cat]=slug;
+  if(CONFIG.sheetsUrl){
     const user=window._DGL_USER||'unknown';
-    const _sh=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'CAT_MAP_CHANGE',channelId:slug||'none',channelName:cat,changedBy:user,oldChannel:oldSlug,sessionHash:_sh})}).catch(()=>{});
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'category',key:cat,channelId:slug||'',channelName:slug||'',changedBy:user})}).catch(()=>{});
+    if(_commsIsUnlocked()){
+      const _sh=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'CAT_MAP_CHANGE',channelId:slug||'none',channelName:cat,changedBy:user,oldChannel:oldSlug,sessionHash:_sh})}).catch(()=>{});
+    }
   }
 }
 function _addCategoryChannel(){
@@ -1925,7 +1938,6 @@ function _buildChannelMappingSection(){
   _buildDMChannelMappingSection();
 }
 function _loadDMChannelMap(){
-  try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s){ Object.assign(_DM_CHANNEL_MAP,JSON.parse(s)); } }catch(_){}
   try{
     const ms=localStorage.getItem('dgl_dm_members'); if(ms){
       const saved=JSON.parse(ms);
@@ -1937,21 +1949,20 @@ function _loadDMChannelMap(){
 }
 function _saveDMChannelMap(){
   try{
-    const oldMap={}; try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s) Object.assign(oldMap,JSON.parse(s)); }catch(_){}
     const m={};
     _DM_MEMBERS.forEach(mem=>{ const sel=document.getElementById('dm-chmap-'+mem.key); if(sel&&sel.value) m[mem.key]=sel.value; });
-    localStorage.setItem('dgl_dm_channel_map',JSON.stringify(m));
-    Object.assign(_DM_CHANNEL_MAP,m);
-    if(CONFIG.sheetsUrl&&_commsIsUnlocked()){
-      const user=window._DGL_USER||'unknown';
-      Object.entries(m).forEach(([k,v])=>{
-        const old=oldMap[k]||'none';
-        if(v!==old){
+    const user=window._DGL_USER||'unknown';
+    Object.entries(m).forEach(([k,v])=>{
+      const old=_DM_CHANNEL_MAP[k]||'none';
+      _DM_CHANNEL_MAP[k]=v;
+      if(CONFIG.sheetsUrl){
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'dm',key:k,channelId:v,channelName:v,changedBy:user})}).catch(()=>{});
+        if(_commsIsUnlocked()&&v!==old){
           const _sh=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
           fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'DM_MAP_CHANGE',channelId:v,channelName:_DM_NAME_MAP[k]||k,changedBy:user,oldChannel:old,sessionHash:_sh})}).catch(()=>{});
         }
-      });
-    }
+      }
+    });
     _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ DM channel mapping saved</div>',2500);
   }catch(_){}
 }
@@ -1974,13 +1985,12 @@ function _buildDMChannelMappingSection(){
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap";
   const _selSt="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;outline:none;width:100%";
   const _memberColors={taylor:'var(--gold)',steve:'var(--muted)',adam:'var(--accent)',mary:'#22c55e',jr:'#2dd4bf',hammad:'#c084fc',searah:'#f59e0b',sadee:'#2dd4bf'};
-  const currentMap={}; try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s) Object.assign(currentMap,JSON.parse(s)); }catch(_){}
   const rows=_DM_MEMBERS.map(m=>{
     const inactive=_isDMInactive(m.key);
     const rowStyle=inactive?'opacity:0.45;':'';
     const dot=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${inactive?'#6b7280':(_memberColors[m.key]||'var(--muted)')};margin-right:6px;flex-shrink:0;vertical-align:middle"></span>`;
     const inactiveBadge=inactive?` <span style="font-family:'DM Mono',monospace;font-size:8px;color:#ef4444;margin-left:4px">🔴 INACTIVE</span>`:'';
-    const mapped=currentMap[m.key]||_DM_CHANNEL_MAP[m.key]||'';
+    const mapped=_DM_CHANNEL_MAP[m.key]||'';
     if(canEdit){
       const opts='<option value="">— None —</option>'+chs.map(c=>`<option value="${c.name}"${c.name===mapped?' selected':''} >#${c.name}</option>`).join('');
       const editBtn=`<button onclick="_editDMRow('${m.key}')" style="${_bSt};margin-right:4px">✏️</button>`;
@@ -8768,6 +8778,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   Object.keys(localStorage).forEach(k=>{ if(_staleKeys.some(p=>k.startsWith(p)||k===p)) localStorage.removeItem(k); });
   _loadChannelAssignmentsFromSheets();
   _loadDMChannelMap();
+  loadChannelMapsFromSheets();
   loadFromLocal();
   loadBudgetFromLocal();
   loadFromSheets();
