@@ -3894,7 +3894,7 @@ function _renderSuperAiBtn(id, type, title, status, owner){
   const dTitle=(title||id).replace(/"/g,'&quot;');
   const dStatus=(status||'—').replace(/"/g,'&quot;');
   const dOwner=(owner||'—').replace(/"/g,'&quot;');
-  return `<div id="super-ai-wrap-${id}" style="margin-top:10px">${lastPlan}<button id="super-ai-btn-${id}" data-title="${dTitle}" data-status="${dStatus}" data-owner="${dOwner}" onclick="runSuperAi('${id}','${type}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap;font-weight:600;letter-spacing:1px">⚡ Super AI — Get Action Plan</button><div id="super-ai-result-${id}"></div></div>`;
+  return `<div id="super-ai-wrap-${id}" style="margin-top:10px">${lastPlan}<button id="super-ai-btn-${id}" data-title="${dTitle}" data-status="${dStatus}" data-owner="${dOwner}" onclick="runSuperAi('${id}','${type}',this).catch(e=>{const el=document.getElementById('super-ai-result-${id}');if(el)el.textContent='Error: '+e.message;})" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap;font-weight:600;letter-spacing:1px">⚡ Super AI — Get Action Plan</button><div id="super-ai-result-${id}"></div></div>`;
 }
 function _stripMarkdown(text){
   return (text||'')
@@ -3928,6 +3928,7 @@ async function _buildDocContext(id, type){
   return ctx;
 }
 async function runSuperAi(id, type, btn){
+  console.log('[DGL] runSuperAi called', id, type);
   if(!CONFIG.sheetsUrl) return;
   let summary='';
   if(type==='raci') summary=_raciAiSummaries[id]||'';
@@ -3939,7 +3940,8 @@ async function runSuperAi(id, type, btn){
   btn.textContent='⚡ Generating action plan…'; btn.disabled=true;
   const system='You are the Chief Operating Officer AI for DGL\'s easyChef Pro launch. You have complete visibility into the team\'s operational state. Be brutally specific: name exact people, exact task IDs, exact deadlines, exact dollar amounts. Never be vague. Never hedge. Format your response as plain text only. No markdown symbols like ##, ###, **, *, or ---. Use ALL CAPS for section headers instead. Use numbered lists with plain numbers. Keep formatting clean for Slack.';
   const ctx=_buildDGLContext().slice(0,2000);
-  const docCtx=await _buildDocContext(id,type);
+  let docCtx='';
+  try{ docCtx=await _buildDocContext(id,type); }catch(e){ docCtx=''; }
   const prompt=`You are analyzing a SPECIFIC topic for the DGL easyChef Pro team. Stay focused on THIS topic only — do not give generic launch advice.\n\nSPECIFIC TOPIC: ${title}\nCURRENT STATUS: ${status} | Owner: ${owner}\nWHAT THE ANALYSIS FOUND: ${summary.slice(0,800)}\n\nUsing the operational context below ONLY to provide relevant supporting detail, produce a focused action plan for THIS SPECIFIC TOPIC:\n\n1. THE SINGLE MOST IMPORTANT ACTION FOR THIS TOPIC TODAY — who, what, by when, why it unblocks this specific item\n2. THREE ACTIONS THIS WEEK SPECIFIC TO THIS TOPIC — with owners and deadlines directly related to this item\n3. ONE RISK SPECIFIC TO THIS TOPIC — what happens to this item specifically if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE ABOUT THIS SPECIFIC TOPIC\n\nOperational Context (use only for supporting detail):\n${ctx}${docCtx}`;
   const resultEl=document.getElementById('super-ai-result-'+id);
   fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
