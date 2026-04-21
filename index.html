@@ -8483,11 +8483,11 @@ function wiCalc(){
   const moToLaunch = (launchDate - today) / (30*86400000);
 
   // App revenue model — additive with manual revenue input
-  const appPrice   = _wiState.appPrice    || 15;
-  const appUsers   = _wiState.userScale   || 0;
-  const appFeeRate = (_wiState.platformFee || 15) / 100;
+  const appPrice   = (_wiState.appPrice   != null ? _wiState.appPrice   : 15);
+  const appUsers   = (_wiState.userScale  != null ? _wiState.userScale  : 0);
+  const appFeeRate = (_wiState.platformFee != null ? _wiState.platformFee : 15) / 100;
   const appNetRev  = appUsers * appPrice * (1 - appFeeRate);
-  const totalRevenue      = _wiState.revenue + appNetRev;
+  const totalRevenue      = (_wiState.revenue || 0) + appNetRev;
   const netBurnCombined   = Math.max(0, totalBurn - totalRevenue);
   const profitable        = totalRevenue > totalBurn;
   const netProfit         = profitable ? totalRevenue - totalBurn : 0;
@@ -8496,10 +8496,9 @@ function wiCalc(){
   const runway     = netBurnCombined > 0 ? (capital - minReserve) / netBurnCombined : 99;
   const postSurv   = netBurnCombined > 0 ? Math.max(0, (launchRes - minReserve) / netBurnCombined) : 99;
 
-  // Break-even users: app users needed to cover burn remaining after manual revenue
+  // Break-even users: app subscribers needed so app revenue alone covers all monthly burn
   const netPerUser         = appPrice * (1 - appFeeRate);
-  const remainingBurn      = Math.max(0, totalBurn - _wiState.revenue);
-  const appBreakEvenUsers  = netPerUser > 0 && remainingBurn > 0 ? Math.ceil(remainingBurn / netPerUser) : 0;
+  const appBreakEvenUsers  = netPerUser > 0 ? Math.ceil(totalBurn / netPerUser) : 0;
 
   const adV=document.getElementById('wi-adspend-val');
   if(adV) adV.textContent=fmtWi(_wiState.adSpend);
@@ -8559,16 +8558,15 @@ function wiCalc(){
 }
 
 function wiCalcApp(){
-  const price    = _wiState.appPrice    || 15;
-  const users    = _wiState.userScale   || 0;
-  const feeRate  = (_wiState.platformFee || 15) / 100;
+  const price    = (_wiState.appPrice   != null ? _wiState.appPrice   : 15);
+  const users    = (_wiState.userScale  != null ? _wiState.userScale  : 0);
+  const feeRate  = (_wiState.platformFee != null ? _wiState.platformFee : 15) / 100;
   const gross    = users * price;
   const feeAmt   = gross * feeRate;
   const net      = gross - feeAmt;
   const { totalBurn } = _wiTotals();
   const netPerUser    = price * (1 - feeRate);
-  const _remainingBurnForApp = Math.max(0, totalBurn - (_wiState.revenue || 0));
-  const breakEven     = netPerUser > 0 && _remainingBurnForApp > 0 ? Math.ceil(_remainingBurnForApp / netPerUser) : 0;
+  const breakEven     = netPerUser > 0 ? Math.ceil(totalBurn / netPerUser) : 0;
   const beReached     = users >= breakEven && breakEven > 0;
 
   const prV = document.getElementById('wi-appprice-val');
