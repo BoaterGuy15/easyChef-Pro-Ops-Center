@@ -2210,7 +2210,7 @@ function _buildTaskExpandHtml(taskId){
         ${lbl('DECISION')}
         ${canAdmin?`<textarea id="raci-task-decision-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Record a decision made about this task — syncs to the linked agenda item" onblur="saveTaskDecision('${taskId}')">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
-        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_getActionPlanText(taskId).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+        ${(_actionPlansCache[taskId]&&_actionPlansCache[taskId].status==='complete')?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:#22c55e;padding:8px 12px;border:1px solid #22c55e;border-radius:6px;margin-bottom:4px">✅ Action Plan Completed on ${(_actionPlansCache[taskId].completedAt||'').slice(0,10)||'—'}</div>`:`<div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_getActionPlanText(taskId).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>`}
         ${lbl('TASK PLAN')}
         <div id="raci-task-plans-${taskId}">${_renderTaskPlanCardsHtml(t.taskPlans||[],taskId,'task')}</div>
         ${lbl('DEPENDENCIES')}
@@ -3239,22 +3239,61 @@ function loadActionPlansFromSheets(){
     })
     .catch(()=>{});
 }
+// Operations.gs — add to doPost handler:
+// case 'action_plans_complete':
+//   completeActionPlan(body.id); return json({ok:true});
+//
+// function completeActionPlan(id){
+//   const sh=getSheet(ACTION_PLANS_SHEET);
+//   const rows=sh.getDataRange().getValues();
+//   const hdr=rows[0]; const idCol=hdr.indexOf('id');
+//   const statCol=hdr.indexOf('status')||hdr.length; const tsCol=hdr.indexOf('completedAt')||hdr.length+1;
+//   for(var i=1;i<rows.length;i++){
+//     if(rows[i][idCol]===id){
+//       sh.getRange(i+1,statCol+1).setValue('complete');
+//       sh.getRange(i+1,tsCol+1).setValue(new Date().toISOString());
+//       break;
+//     }
+//   }
+// }
+// Add 'status','completedAt' to ACTION_PLAN_HEADERS if not already present.
+function _completeActionPlan(sourceId, planId){
+  // Remove from cache
+  if(_actionPlansCache[sourceId]) delete _actionPlansCache[sourceId];
+  // POST to Sheets
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_plans_complete',id:planId,sourceId})}).catch(()=>{});
+  // Remove card from DOM immediately
+  const card=document.getElementById('ap-card-'+planId||'ap-card-'+sourceId);
+  if(card) card.remove();
+  // Rebuild the page to reflect removal
+  buildActionPlansPage();
+  // Update linked task status if not already complete
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===sourceId);
+  if(task&&task.status!=='Complete'){ task.status='Complete'; _saveTasksNow(); }
+}
 function buildActionPlansPage(){
   const el=document.getElementById('actionplans-body'); if(!el) return;
-  const entries=Object.entries(_actionPlansCache);
-  if(!entries.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:24px 0">No action plans saved yet. Use Super AI in a task or agenda panel to generate one.</div>'; return; }
+  const entries=Object.entries(_actionPlansCache).filter(([,p])=>p.status!=='complete'&&p.completedAt==='');
+  const allEntries=Object.entries(_actionPlansCache);
+  const activeEntries=allEntries.filter(([,p])=>!p.status||p.status!=='complete');
+  if(!activeEntries.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:24px 0">No active action plans. Use Super AI in a task or agenda panel to generate one.</div>'; return; }
   const cSt='background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;border-left:3px solid var(--gold)';
-  const cards=entries.sort((a,b)=>(b[1].createdAt||'').localeCompare(a[1].createdAt||'')).map(([sourceId,plan])=>{
+  const btnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid #22c55e;background:transparent;color:#22c55e;cursor:pointer";
+  const cards=activeEntries.sort((a,b)=>(b[1].createdAt||'').localeCompare(a[1].createdAt||'')).map(([sourceId,plan])=>{
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===sourceId);
     const agItem=AGENDA_DATA.find(a=>a.id===sourceId);
     const title=task?task.name:agItem?agItem.title:sourceId;
-    const preview=(plan.text||'').slice(0,300).replace(/</g,'&lt;');
-    return `<div style="${cSt}">
+    const cardId='ap-card-'+(plan.id||sourceId);
+    const fullText=(plan.text||'').replace(/</g,'&lt;');
+    return `<div id="${cardId}" style="${cSt}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--gold)">${sourceId} · ${(title||'').replace(/</g,'&lt;').slice(0,60)}</div>
         <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);text-align:right">${(plan.createdAt||'').slice(0,10)}<br>${plan.createdBy||''}</div>
       </div>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5">${preview}${(plan.text||'').length>300?'…':''}</div>
+      <div style="max-height:400px;overflow-y:auto;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;margin-bottom:10px">${fullText}</div>
+      <div style="display:flex;justify-content:flex-end">
+        <button onclick="_completeActionPlan('${sourceId}','${plan.id||''}')" style="${btnSt}">✅ Mark Complete</button>
+      </div>
     </div>`;
   }).join('');
   el.innerHTML=cards;
