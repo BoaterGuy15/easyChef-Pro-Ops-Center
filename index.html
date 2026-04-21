@@ -8122,10 +8122,11 @@ function renderWhatIf(){
         <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$100K</span></div>
       </div>
       <div>
-        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">MONTHLY REVENUE <span id="wi-rev-source" style="font-size:8px;margin-left:4px"></span></div>
-        <div id="wi-revenue-val" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--green);margin-bottom:8px">${fmtWi(_wiState.revenue)}</div>
-        <input id="wi-slider-revenue" type="range" min="0" max="1000000" step="1000" value="${_wiState.revenue}" style="${ss}" oninput="wiUpdate('revenue',+this.value)">
-        <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:3px"><span>$0</span><span>$1M+</span></div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">MONTHLY REVENUE <span style="font-size:8px;opacity:0.6">(manual entry)</span></div>
+        <input type="number" id="wi-monthly-revenue" min="0" step="100" value="${_wiState.revenue}"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--green);font-family:'DM Mono',monospace;font-size:20px;font-weight:600;width:100%;padding:6px 10px;outline:none;margin-bottom:4px;box-sizing:border-box"
+          oninput="wiUpdate('revenue',+this.value||0)">
+        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px">Actual or projected monthly revenue — adds to app model</div>
       </div>
     </div>
 
@@ -8297,17 +8298,6 @@ function wiUpdate(field, val){
   if(field==='appPrice')    _wiState.appPrice    = val;
   if(field==='userScale')   _wiState.userScale   = val;
   if(field==='platformFee') _wiState.platformFee = val;
-  // App sliders are the primary revenue driver — sync net revenue to MONTHLY REVENUE
-  if(field==='appPrice'||field==='userScale'||field==='platformFee'){
-    const _nr=(_wiState.userScale||0)*(_wiState.appPrice||15)*(1-(_wiState.platformFee||15)/100);
-    _wiState.revenue=_nr;
-    _wiState.revenueIsFromApp=true;
-    const _sl=document.getElementById('wi-slider-revenue');
-    const _dv=document.getElementById('wi-revenue-val');
-    if(_sl){ _sl.max=Math.max(1000000,Math.ceil(_nr/1000)*1000); _sl.value=_nr; }
-    if(_dv) _dv.textContent=fmtWi(_nr);
-  }
-  if(field==='revenue') _wiState.revenueIsFromApp=false;
   if(_wiState.editingPreset){
     const pfAd=document.getElementById('wi-pf-adspend');
     const pfRe=document.getElementById('wi-pf-revenue');
@@ -8325,10 +8315,8 @@ function wiUpdate(field, val){
 function wiFormFieldUpdate(field, val){
   if(field==='adSpend') _wiState.adSpend=val;
   if(field==='revenue') _wiState.revenue=val;
-  const sl=document.getElementById(field==='adSpend'?'wi-slider-adspend':'wi-slider-revenue');
-  const dv=document.getElementById(field==='adSpend'?'wi-adspend-val':'wi-revenue-val');
-  if(sl) sl.value=val;
-  if(dv) dv.textContent=fmtWi(val);
+  if(field==='adSpend'){ const sl=document.getElementById('wi-slider-adspend'); if(sl) sl.value=val; const dv=document.getElementById('wi-adspend-val'); if(dv) dv.textContent=fmtWi(val); }
+  if(field==='revenue'){ const inp=document.getElementById('wi-monthly-revenue'); if(inp) inp.value=val; }
   wiUpdatePresetFormTotals();
   wiCalc();
 }
@@ -8357,12 +8345,11 @@ function wiApplyPreset(key){
   if(p.expenses && Array.isArray(p.expenses) && p.expenses.length > 0)
     _wiState.expenses = JSON.parse(JSON.stringify(p.expenses));
   const sAd = document.getElementById('wi-slider-adspend');
-  const sRe = document.getElementById('wi-slider-revenue');
   if(sAd) sAd.value = p.adSpend;
-  if(sRe) sRe.value = p.revenue;
-  const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val');
+  const adV=document.getElementById('wi-adspend-val');
   if(adV) adV.textContent=fmtWi(p.adSpend);
-  if(reV) reV.textContent=fmtWi(p.revenue);
+  const reInp=document.getElementById('wi-monthly-revenue');
+  if(reInp) reInp.value=p.revenue;
   wiRenderPresetRow();
   if(_wiState.expOpen) wiRenderExpRows();
   wiUpdateExpSummary();
@@ -8495,11 +8482,12 @@ function wiCalc(){
   const today      = new Date(); today.setHours(0,0,0,0);
   const moToLaunch = (launchDate - today) / (30*86400000);
 
-  // App revenue model — User Scale drives _wiState.revenue (synced via wiUpdate)
+  // App revenue model — additive with manual revenue input
   const appPrice   = _wiState.appPrice    || 15;
   const appUsers   = _wiState.userScale   || 0;
   const appFeeRate = (_wiState.platformFee || 15) / 100;
-  const totalRevenue      = _wiState.revenue;
+  const appNetRev  = appUsers * appPrice * (1 - appFeeRate);
+  const totalRevenue      = _wiState.revenue + appNetRev;
   const netBurnCombined   = Math.max(0, totalBurn - totalRevenue);
   const profitable        = totalRevenue > totalBurn;
   const netProfit         = profitable ? totalRevenue - totalBurn : 0;
@@ -8508,13 +8496,13 @@ function wiCalc(){
   const runway     = netBurnCombined > 0 ? (capital - minReserve) / netBurnCombined : 99;
   const postSurv   = netBurnCombined > 0 ? Math.max(0, (launchRes - minReserve) / netBurnCombined) : 99;
 
-  // Break-even users: how many users needed so app revenue covers all monthly burn
+  // Break-even users: app users needed to cover burn remaining after manual revenue
   const netPerUser         = appPrice * (1 - appFeeRate);
-  const appBreakEvenUsers  = netPerUser > 0 ? Math.ceil(totalBurn / netPerUser) : 0;
+  const remainingBurn      = Math.max(0, totalBurn - _wiState.revenue);
+  const appBreakEvenUsers  = netPerUser > 0 && remainingBurn > 0 ? Math.ceil(remainingBurn / netPerUser) : 0;
 
-  const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val');
+  const adV=document.getElementById('wi-adspend-val');
   if(adV) adV.textContent=fmtWi(_wiState.adSpend);
-  if(reV) reV.textContent=fmtWi(_wiState.revenue);
 
   const statsEl = document.getElementById('wi-stats');
   if(statsEl){
@@ -8579,7 +8567,8 @@ function wiCalcApp(){
   const net      = gross - feeAmt;
   const { totalBurn } = _wiTotals();
   const netPerUser    = price * (1 - feeRate);
-  const breakEven     = netPerUser > 0 ? Math.ceil(totalBurn / netPerUser) : 0;
+  const _remainingBurnForApp = Math.max(0, totalBurn - (_wiState.revenue || 0));
+  const breakEven     = netPerUser > 0 && _remainingBurnForApp > 0 ? Math.ceil(_remainingBurnForApp / netPerUser) : 0;
   const beReached     = users >= breakEven && breakEven > 0;
 
   const prV = document.getElementById('wi-appprice-val');
@@ -8602,20 +8591,6 @@ function wiCalcApp(){
         col: beReached ? 'var(--green)' : 'var(--amber)' },
     ];
     resEl.innerHTML = stats.map(s => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px"><div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${s.label}</div><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:${s.col}">${s.val}</div></div>`).join('');
-  }
-
-  // Source badge on MONTHLY REVENUE label
-  const srcEl = document.getElementById('wi-rev-source');
-  if(srcEl){
-    if(_wiState.revenueIsFromApp){
-      srcEl.textContent = '· from app model';
-      srcEl.style.color = 'var(--gold)';
-    } else if(_wiState.revenue > 0){
-      srcEl.textContent = '· manual override';
-      srcEl.style.color = 'var(--amber)';
-    } else {
-      srcEl.textContent = '';
-    }
   }
 
   // Revenue Projection summary
