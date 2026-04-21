@@ -2029,7 +2029,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
   let idx=0;
   function _uploadNext(){
     if(idx>=fileArr.length){
-      if(dz){ dz.textContent='✅ All uploaded'; dz.style.color='var(--green)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to browse'; dz.style.color=''; },1800); }
+      if(dz){ dz.textContent='✅ All uploaded'; dz.style.color='var(--green)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to upload'; dz.style.color=''; },1800); }
       return;
     }
     const file=fileArr[idx++];
@@ -2087,7 +2087,7 @@ function _buildDocsSection(sourceType,sourceId,sourceName){
       ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
       ondragleave="this.style.borderColor=''"
       ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'${sourceType}','${sourceId}','${sn}')">
-      📎 Drop files here or click to browse
+      📎 Drop files here or click to upload
     </div>
     <input id="${fiId}" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'${sourceType}','${sourceId}','${sn}');this.value=''">
   </div>
