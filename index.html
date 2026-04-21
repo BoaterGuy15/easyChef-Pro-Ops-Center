@@ -3243,6 +3243,7 @@ function loadActionPlansFromSheets(){
         if(!p.sourceId) return;
         if(p.status==='complete'){
           if(!window._completedPlansCache[p.sourceId]||p.completedAt>window._completedPlansCache[p.sourceId].completedAt) window._completedPlansCache[p.sourceId]=p;
+          delete _actionPlansCache[p.sourceId];
         } else {
           if(!_actionPlansCache[p.sourceId]||p.createdAt>_actionPlansCache[p.sourceId].createdAt) _actionPlansCache[p.sourceId]=p;
         }
@@ -3276,18 +3277,16 @@ function loadActionPlansFromSheets(){
 function _completeActionPlan(sourceId, planId){
   const now=new Date().toISOString();
   const existing=_actionPlansCache[sourceId]||{};
-  _completedPlansCache[sourceId]=Object.assign({},existing,{status:'complete',completedAt:now});
+  window._completedPlansCache[sourceId]=Object.assign({},existing,{status:'complete',completedAt:now});
   delete _actionPlansCache[sourceId];
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_plans_complete',id:planId,sourceId})}).catch(()=>{});
-  const card=document.getElementById('ap-card-'+(planId||sourceId));
-  if(card) card.remove();
   buildActionPlansPage();
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===sourceId);
   if(task&&task.status!=='Complete'){ task.status='Complete'; _saveTasksNow(); }
 }
 function buildActionPlansPage(){
   const el=document.getElementById('actionplans-body'); if(!el) return;
-  const activeEntries=Object.entries(_actionPlansCache).filter(([k,v])=>v.status!=='complete');
+  const activeEntries=Object.entries(_actionPlansCache).filter(([k,v])=>v.status!=='complete'&&!window._completedPlansCache[k]);
   if(!activeEntries.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:24px 0">No active action plans. Use Super AI in a task or agenda panel to generate one.</div>'; return; }
   const cSt='background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;border-left:3px solid var(--gold)';
   const btnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid #22c55e;background:transparent;color:#22c55e;cursor:pointer";
