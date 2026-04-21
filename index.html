@@ -1890,18 +1890,51 @@ function toggleTaskExpand(taskId,trEl){
   }
 }
 // ── Documents system ───────────────────────────────────────
-// Operations.gs additions needed:
+// ── Files.gs — paste this into your Apps Script project ────
 // const DOCS_SHEET='Documents';
-// const DOCS_HEADERS=['id','taskId','agendaId','name','url','type','previewUrl','reviewNeeded','addedBy','addedAt'];
-// doGet: case 'docs_read': const tId=e.p.taskId||'',agId=e.p.agendaId||'';
+// const DOCS_HEADERS=['id','taskId','agendaId','name','url','type','previewUrl','driveFileId','folderUrl','reviewNeeded','addedBy','addedAt'];
+//
+// function getOrCreateFolder(parent,name){
+//   const found=parent.getFoldersByName(name);
+//   return found.hasNext()?found.next():parent.createFolder(name);
+// }
+//
+// function uploadFileToDrive(filename,mimeType,base64data,sourceType,sourceId,sourceName){
+//   const root=DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
+//   const typeFolder=getOrCreateFolder(root,sourceType==='task'?'Tasks':'Agenda');
+//   const label=(sourceName||sourceId).replace(/[\/\\:*?"<>|]/g,'_').substring(0,80);
+//   const subfolder=getOrCreateFolder(typeFolder,label);
+//   const blob=Utilities.newBlob(Utilities.base64Decode(base64data),mimeType,filename);
+//   const file=subfolder.createFile(blob);
+//   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
+//   const fileId=file.getId();
+//   return {id:fileId,url:'https://drive.google.com/file/d/'+fileId+'/view',
+//     previewUrl:'https://drive.google.com/file/d/'+fileId+'/preview',
+//     folderUrl:subfolder.getUrl()};
+// }
+//
+// doGet: case 'docs_read':
+//   const tId=e.parameter.taskId||'',agId=e.parameter.agendaId||'';
 //   const rows=getSheet(DOCS_SHEET).filter(r=>(!tId||r.taskId===tId)&&(!agId||r.agendaId===agId));
 //   return json({docs:rows});
-// doPost: case 'file_upload': const f=uploadToDrive(body.base64data,body.filename,body.mimeType,FOLDER_ID);
-//   const doc={id:'doc-'+Date.now(),taskId:body.taskId||'',agendaId:body.agendaId||'',name:body.filename,
-//     url:f.getUrl(),previewUrl:f.getUrl().replace('/view','/preview'),type:body.mimeType,
-//     reviewNeeded:false,addedBy:body.addedBy,addedAt:new Date().toISOString()};
+//
+// doPost: case 'file_upload':
+//   const f=uploadFileToDrive(body.filename,body.mimeType,body.base64data,
+//     body.taskId?'task':'agenda',body.taskId||body.agendaId,body.sourceName||'');
+//   const doc={id:'doc-'+Date.now(),taskId:body.taskId||'',agendaId:body.agendaId||'',
+//     name:body.filename,url:f.url,previewUrl:f.previewUrl,type:body.mimeType,
+//     driveFileId:f.id,folderUrl:f.folderUrl,reviewNeeded:false,
+//     addedBy:body.addedBy,addedAt:new Date().toISOString()};
 //   appendRow(DOCS_SHEET,DOCS_HEADERS,doc); return json({doc});
-//   case 'docs_delete': deleteRowWhere(DOCS_SHEET,'id',body.id); return json({ok:true});
+//
+// case 'docs_write':
+//   const lDoc={id:body.id||('doc-'+Date.now()),taskId:body.taskId||'',agendaId:body.agendaId||'',
+//     name:body.name||'',url:body.url||'',previewUrl:body.previewUrl||'',type:'link',
+//     driveFileId:body.driveFileId||'',folderUrl:'',reviewNeeded:false,
+//     addedBy:body.addedBy||'',addedAt:body.addedAt||new Date().toISOString()};
+//   appendRow(DOCS_SHEET,DOCS_HEADERS,lDoc); return json({doc:lDoc});
+//
+// case 'docs_delete': deleteRowWhere(DOCS_SHEET,'id',body.id); return json({ok:true});
 const _docsCache={};
 function _docFileIcon(name){
   const ext=(name||'').split('.').pop().toLowerCase();
@@ -1927,49 +1960,97 @@ function _renderDocsList(sourceType,sourceId){
   const docs=_docsCache[key]||[];
   const cu=window._DGL_USER||'';
   const isAdmin=['taylor','steve'].includes(cu);
+  const folderBtn=document.getElementById('docs-folder-btn-'+sourceType+'-'+sourceId);
+  if(folderBtn){ const fu=(docs.find(d=>d.folderUrl)||{}).folderUrl; if(fu) folderBtn.href=fu; }
   el.innerHTML=docs.length
-    ? docs.map(d=>`<div style="border-bottom:1px solid var(--surface);padding:5px 0">
-        <div style="display:flex;gap:6px;align-items:center">
-          <span style="font-size:13px;flex-shrink:0">${_docFileIcon(d.name||d.filename||'')}</span>
-          <a href="${d.url||'#'}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name||d.filename||'Untitled'}</a>
-          ${d.previewUrl?`<button onclick="_toggleDocPreview('${d.id}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;color:var(--muted)" title="Preview">👁️</button>`:''}
-          <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap;flex-shrink:0">${(d.addedAt||'').slice(0,10)} · ${d.addedBy||''}</span>
-          ${(isAdmin||d.addedBy===cu)?`<button onclick="deleteDoc('${d.id}','${sourceType}','${sourceId}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;line-height:1;color:var(--border)" title="Remove">🗑️</button>`:''}
-        </div>
-        ${d.previewUrl?`<div id="doc-preview-${d.id}" style="display:none;margin-top:4px"><iframe src="${d.previewUrl}" style="width:100%;height:400px;border:1px solid var(--border);border-radius:4px" frameborder="0" loading="lazy"></iframe></div>`:''}
-      </div>`).join('')
+    ? docs.map(d=>{
+        const isUploaded=!!(d.driveFileId);
+        const badge=isUploaded
+          ? `<span style="font-family:'DM Mono',monospace;font-size:8px;color:#22c55e;border:1px solid #22c55e;border-radius:3px;padding:0 4px;flex-shrink:0">🔒 Shared</span>`
+          : `<span title="Invite required" style="font-family:'DM Mono',monospace;font-size:8px;color:#d4a017;border:1px solid #d4a017;border-radius:3px;padding:0 4px;flex-shrink:0">⚠️ External</span>`;
+        return `<div style="border-bottom:1px solid var(--surface);padding:5px 0">
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:13px;flex-shrink:0">${_docFileIcon(d.name||d.filename||'')}</span>
+            <a href="${d.url||'#'}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name||d.filename||'Untitled'}</a>
+            ${d.previewUrl?`<button onclick="_toggleDocPreview('${d.id}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;color:var(--muted)" title="Preview">👁️</button>`:''}
+            ${badge}
+            <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap;flex-shrink:0">${(d.addedAt||'').slice(0,10)} · ${d.addedBy||''}</span>
+            ${(isAdmin||d.addedBy===cu)?`<button onclick="deleteDoc('${d.id}','${sourceType}','${sourceId}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;line-height:1;color:var(--border)" title="Remove">🗑️</button>`:''}
+          </div>
+          ${d.previewUrl?`<div id="doc-preview-${d.id}" style="display:none;margin-top:4px"><iframe src="${d.previewUrl}" style="width:100%;height:400px;border:1px solid var(--border);border-radius:4px" frameborder="0" loading="lazy"></iframe></div>`:''}
+        </div>`;
+      }).join('')
     : '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border);padding:4px 0">No documents attached.</div>';
   _updateDocReviewBadges();
 }
 function _toggleDocPreview(docId){ const el=document.getElementById('doc-preview-'+docId); if(el) el.style.display=el.style.display==='none'?'block':'none'; }
-function _handleDocUpload(files,sourceType,sourceId){
+function _docTab(sourceType,sourceId,tab){
+  const up=document.getElementById('docs-pane-upload-'+sourceType+'-'+sourceId);
+  const lk=document.getElementById('docs-pane-link-'+sourceType+'-'+sourceId);
+  const upBtn=document.getElementById('docs-tab-upload-'+sourceType+'-'+sourceId);
+  const lkBtn=document.getElementById('docs-tab-link-'+sourceType+'-'+sourceId);
+  if(!up||!lk||!upBtn||!lkBtn) return;
+  const activeS="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:none;border:none;border-bottom:2px solid var(--gold);color:var(--gold);cursor:pointer";
+  const inactS="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer";
+  if(tab==='upload'){ up.style.display=''; lk.style.display='none'; upBtn.style.cssText=activeS; lkBtn.style.cssText=inactS; }
+  else { up.style.display='none'; lk.style.display=''; lkBtn.style.cssText=activeS; upBtn.style.cssText=inactS; }
+}
+function _docLinkUrlCheck(sourceType,sourceId){
+  const urlEl=document.getElementById('docs-link-url-'+sourceType+'-'+sourceId);
+  const warnEl=document.getElementById('docs-link-warn-'+sourceType+'-'+sourceId);
+  if(!urlEl||!warnEl) return;
+  const v=urlEl.value.trim();
+  const isDrive=!v||v.includes('drive.google.com')||v.includes('docs.google.com')||v.includes('sheets.google.com')||v.includes('slides.google.com');
+  warnEl.style.display=isDrive?'none':'';
+}
+function _saveDocLink(url,name,sourceType,sourceId){
+  url=(url||'').trim(); name=(name||'').trim();
+  if(!url){ alert('Please paste a URL first.'); return; }
+  if(!name) name=decodeURIComponent(url.split('/').filter(Boolean).pop()||'Untitled');
+  const driveMatch=url.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  const fileId=driveMatch?driveMatch[1]:'';
+  const previewUrl=fileId?'https://drive.google.com/file/d/'+fileId+'/preview':'';
+  const doc={id:'doc-'+Date.now(),taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',
+    name,url,previewUrl,driveFileId:fileId,folderUrl:'',addedBy:window._DGL_USER||'unknown',addedAt:new Date().toISOString()};
+  const key=sourceType+'_'+sourceId;
+  if(!_docsCache[key]) _docsCache[key]=[];
+  _docsCache[key].push(doc);
+  _renderDocsList(sourceType,sourceId);
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_write',...doc})}).catch(()=>{});
+  const urlEl=document.getElementById('docs-link-url-'+sourceType+'-'+sourceId);
+  const nameEl=document.getElementById('docs-link-name-'+sourceType+'-'+sourceId);
+  if(urlEl) urlEl.value=''; if(nameEl) nameEl.value='';
+  _docLinkUrlCheck(sourceType,sourceId);
+}
+function _handleDocUpload(files,sourceType,sourceId,sourceName){
   if(!files||!files.length) return;
   const dz=document.getElementById('docs-dz-'+sourceType+'-'+sourceId);
-  if(dz){ dz.textContent='Uploading '+files.length+' file'+(files.length>1?'s':'')+'…'; dz.style.color='var(--gold)'; }
-  let done=0;
-  Array.from(files).forEach(file=>{
+  const fileArr=Array.from(files);
+  let idx=0;
+  function _uploadNext(){
+    if(idx>=fileArr.length){
+      if(dz){ dz.textContent='✅ All uploaded'; dz.style.color='var(--green)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to browse'; dz.style.color=''; },1800); }
+      return;
+    }
+    const file=fileArr[idx++];
+    if(dz){ dz.textContent='Uploading '+file.name+'…'; dz.style.color='var(--gold)'; }
     const reader=new FileReader();
     reader.onload=ev=>{
       const b64=ev.target.result.split(',')[1];
       const payload={action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,
-        taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',addedBy:window._DGL_USER||'unknown'};
-      if(!CONFIG.sheetsUrl){
-        done++; if(done===files.length&&dz){ dz.textContent='📎 Drop files here or click to browse'; dz.style.color=''; }
-        return;
-      }
+        taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',
+        sourceName:sourceName||'',addedBy:window._DGL_USER||'unknown'};
+      if(!CONFIG.sheetsUrl){ _uploadNext(); return; }
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
         .then(r=>r.json()).then(data=>{
-          if(data.doc){ const key=sourceType+'_'+sourceId; if(!_docsCache[key]) _docsCache[key]=[]; _docsCache[key].push(data.doc); }
-          done++;
-          if(done===files.length){ if(dz){ dz.textContent='✅ Uploaded'; dz.style.color='var(--green)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to browse'; dz.style.color=''; },1800); } _renderDocsList(sourceType,sourceId); }
+          if(data.doc){ const key=sourceType+'_'+sourceId; if(!_docsCache[key]) _docsCache[key]=[]; _docsCache[key].push(data.doc); _renderDocsList(sourceType,sourceId); }
+          _uploadNext();
         })
-        .catch(()=>{
-          done++;
-          if(dz){ dz.textContent='❌ Upload failed'; dz.style.color='var(--red)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to browse'; dz.style.color=''; },2000); }
-        });
+        .catch(()=>{ if(dz){ dz.textContent='❌ Failed: '+file.name; dz.style.color='var(--red)'; } setTimeout(_uploadNext,1500); });
     };
     reader.readAsDataURL(file);
-  });
+  }
+  _uploadNext();
 }
 function deleteDoc(docId,sourceType,sourceId){
   if(!confirm('Remove this document?')) return;
@@ -1978,25 +2059,47 @@ function deleteDoc(docId,sourceType,sourceId){
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).catch(()=>{});
   _renderDocsList(sourceType,sourceId);
 }
-function _buildDocsSection(sourceType,sourceId){
+function _buildDocsSection(sourceType,sourceId,sourceName){
+  const sn=(sourceName||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const dzId='docs-dz-'+sourceType+'-'+sourceId;
   const fiId='docs-fi-'+sourceType+'-'+sourceId;
   const dzSt="border:2px dashed var(--border);border-radius:6px;padding:14px;text-align:center;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;transition:border-color 0.15s;user-select:none";
-  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+  const btnSt="font-family:'DM Mono',monospace;font-size:9px;padding:2px 9px;border-radius:4px;border:1px solid var(--border);color:var(--muted);text-decoration:none;display:inline-block";
+  const tabActSt="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:none;border:none;border-bottom:2px solid var(--gold);color:var(--gold);cursor:pointer";
+  const tabInaSt="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer";
+  const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 9px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:6px";
+  return `<div style="margin-top:14px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">📎 DOCUMENTS</span>
-    <a href="${CONFIG.sharedDriveUrl||'#'}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 9px;border-radius:4px;border:1px solid var(--border);color:var(--muted);text-decoration:none">📁 Shared Drive</a>
+    <div style="display:flex;gap:6px">
+      <a id="docs-folder-btn-${sourceType}-${sourceId}" href="${CONFIG.sharedDriveUrl||'#'}" target="_blank" rel="noopener" style="${btnSt}">📁 Open Task Folder</a>
+      <a href="${CONFIG.sharedDriveUrl||'#'}" target="_blank" rel="noopener" style="${btnSt}">📁 Shared Drive</a>
+    </div>
   </div>
-  <div id="${dzId}" style="${dzSt}"
-    onclick="document.getElementById('${fiId}').click()"
-    ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
-    ondragleave="this.style.borderColor=''"
-    ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'${sourceType}','${sourceId}')">
-    📎 Drop files here or click to browse
+  <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:8px">
+    <button id="docs-tab-upload-${sourceType}-${sourceId}" onclick="_docTab('${sourceType}','${sourceId}','upload')" style="${tabActSt}">⬆️ Upload File</button>
+    <button id="docs-tab-link-${sourceType}-${sourceId}" onclick="_docTab('${sourceType}','${sourceId}','link')" style="${tabInaSt}">🔗 Link Existing</button>
   </div>
-  <input id="${fiId}" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'${sourceType}','${sourceId}');this.value=''">
+  <div id="docs-pane-upload-${sourceType}-${sourceId}">
+    <div id="${dzId}" style="${dzSt}"
+      onclick="document.getElementById('${fiId}').click()"
+      ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+      ondragleave="this.style.borderColor=''"
+      ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'${sourceType}','${sourceId}','${sn}')">
+      📎 Drop files here or click to browse
+    </div>
+    <input id="${fiId}" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'${sourceType}','${sourceId}','${sn}');this.value=''">
+  </div>
+  <div id="docs-pane-link-${sourceType}-${sourceId}" style="display:none">
+    <input id="docs-link-url-${sourceType}-${sourceId}" type="text" placeholder="Paste Google Drive, Doc, Sheet or any URL" style="${iSt}" oninput="_docLinkUrlCheck('${sourceType}','${sourceId}')">
+    <input id="docs-link-name-${sourceType}-${sourceId}" type="text" placeholder="Document name" style="${iSt}">
+    <div id="docs-link-warn-${sourceType}-${sourceId}" style="display:none;font-family:'DM Mono',monospace;font-size:9px;color:#d4a017;padding:2px 0 6px">⚠️ Ensure this file is shared with the team</div>
+    <button onclick="_saveDocLink(document.getElementById('docs-link-url-${sourceType}-${sourceId}').value,document.getElementById('docs-link-name-${sourceType}-${sourceId}').value,'${sourceType}','${sourceId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 14px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Save Link</button>
+  </div>
   <div id="docs-list-${sourceType}-${sourceId}" style="margin-top:8px">
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border);padding:4px 0">Loading…</div>
-  </div>`;
+  </div>
+</div>`;
 }
 function _updateDocReviewBadges(){
   Object.entries(_docsCache).forEach(([key,docs])=>{
@@ -2086,7 +2189,7 @@ function _buildTaskExpandHtml(taskId){
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
         ${lbl('TEAM DISCUSSION')}
         ${_renderNotesLog(taskId,'raci-discussion-'+taskId,canAdmin,'Add a comment — posts here and to the linked Slack channel')}
-        ${_buildDocsSection('task',taskId)}
+        ${_buildDocsSection('task',taskId,t.name)}
       </div>
     </div>
   </div>`;
@@ -3531,7 +3634,7 @@ function _buildAgendaExpandHtml(id){
         <div id="agenda-expand-ai-${id}" style="margin-bottom:14px"></div>
         ${lbl('TEAM DISCUSSION')}
         ${_renderNotesLog(discussId,'agenda-discussion-'+id,canAdmin,'Add a comment — posts here and to the linked Slack channel')}
-        ${_buildDocsSection('agenda',id)}
+        ${_buildDocsSection('agenda',id,it.title)}
       </div>
     </div>
   </div>`;
