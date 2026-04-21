@@ -529,6 +529,7 @@ tr.hidden-row{display:none}
 // ─────────────────────────────────────────────────────────────
 const CONFIG = {
   sheetsUrl: 'https://script.google.com/macros/s/AKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw/exec',
+  sharedDriveUrl: 'https://drive.google.com/drive/folders/16D7cY2ttMldJ2BLwjq8yhhRUkiucXYd-',
   anthropicKey: '' // paste your Anthropic API key here
 };
 
@@ -1872,6 +1873,7 @@ function toggleTaskExpand(taskId,trEl){
   td.innerHTML=cached||_buildTaskExpandHtml(taskId);
   expandTr.appendChild(td);
   trEl.after(expandTr);
+  setTimeout(()=>loadDocsForSource('task',taskId),100);
   // Fill action plan from cache first, then fetch latest from Sheets
   setTimeout(()=>{ const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _apText=_getActionPlanText(taskId); if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } _fetchActionPlan(taskId,t=>{ const el=document.getElementById('raci-task-actionplan-'+taskId); if(el&&t){ el.value=t; el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,400)+'px'; } }); },50);
   if(!cached){
@@ -1890,91 +1892,116 @@ function toggleTaskExpand(taskId,trEl){
 // ── Documents system ───────────────────────────────────────
 // Operations.gs additions needed:
 // const DOCS_SHEET='Documents';
-// const DOCS_HEADERS=['id','taskId','agendaId','name','url','type','reviewNeeded','addedBy','addedAt'];
-// doGet: case 'docs_read': const taskId=e.p.taskId||'',agId=e.p.agendaId||'';
-//   const rows=getSheet(DOCS_SHEET).filter(r=>(!taskId||r.taskId===taskId)&&(!agId||r.agendaId===agId));
-//   return ContentService.createTextOutput(JSON.stringify({docs:rows})).setMimeType(ContentService.MimeType.JSON);
-// doPost: case 'docs_write': appendRow(DOCS_SHEET,DOCS_HEADERS,body); return ok();
-//         case 'docs_delete': deleteRowWhere(DOCS_SHEET,'id',body.id); return ok();
+// const DOCS_HEADERS=['id','taskId','agendaId','name','url','type','previewUrl','reviewNeeded','addedBy','addedAt'];
+// doGet: case 'docs_read': const tId=e.p.taskId||'',agId=e.p.agendaId||'';
+//   const rows=getSheet(DOCS_SHEET).filter(r=>(!tId||r.taskId===tId)&&(!agId||r.agendaId===agId));
+//   return json({docs:rows});
+// doPost: case 'file_upload': const f=uploadToDrive(body.base64data,body.filename,body.mimeType,FOLDER_ID);
+//   const doc={id:'doc-'+Date.now(),taskId:body.taskId||'',agendaId:body.agendaId||'',name:body.filename,
+//     url:f.getUrl(),previewUrl:f.getUrl().replace('/view','/preview'),type:body.mimeType,
+//     reviewNeeded:false,addedBy:body.addedBy,addedAt:new Date().toISOString()};
+//   appendRow(DOCS_SHEET,DOCS_HEADERS,doc); return json({doc});
+//   case 'docs_delete': deleteRowWhere(DOCS_SHEET,'id',body.id); return json({ok:true});
 const _docsCache={};
-const _DOC_ICONS={'Google Doc':'📄','Google Sheet':'📊','PDF':'📑','Google Drive':'📁','Excel':'📋','Other':'🔗'};
-function _docsKey(taskId,agendaId){ return taskId||('ag:'+agendaId); }
-function _docsArr(taskId,agendaId){ return _docsCache[_docsKey(taskId,agendaId)]||[]; }
-function _reRenderDocs(taskId,agendaId){
-  const cId=taskId?'docs-task-'+taskId:'docs-ag-'+agendaId;
-  const el=document.getElementById(cId); if(el) el.innerHTML=_docsSectionInner(taskId,agendaId);
+function _docFileIcon(name){
+  const ext=(name||'').split('.').pop().toLowerCase();
+  if(['doc','docx'].includes(ext)) return '📄';
+  if(['xls','xlsx','csv'].includes(ext)) return '📊';
+  if(['pdf'].includes(ext)) return '📑';
+  if(['png','jpg','jpeg','gif','webp','svg'].includes(ext)) return '🖼️';
+  return '🔗';
 }
-function _docsSectionInner(taskId,agendaId){
-  const docs=_docsArr(taskId,agendaId);
+function loadDocsForSource(sourceType,sourceId,callback){
+  const key=sourceType+'_'+sourceId;
+  if(_docsCache[key]!==undefined){ _renderDocsList(sourceType,sourceId); if(callback) callback(); return; }
+  _docsCache[key]=[];
+  if(!CONFIG.sheetsUrl){ _renderDocsList(sourceType,sourceId); if(callback) callback(); return; }
+  const qp=sourceType==='task'?'taskId='+encodeURIComponent(sourceId):'agendaId='+encodeURIComponent(sourceId);
+  fetch(CONFIG.sheetsUrl+'?action=docs_read&'+qp)
+    .then(r=>r.json()).then(data=>{ if(Array.isArray(data.docs)) _docsCache[key]=data.docs; _renderDocsList(sourceType,sourceId); if(callback) callback(); })
+    .catch(()=>{ _renderDocsList(sourceType,sourceId); if(callback) callback(); });
+}
+function _renderDocsList(sourceType,sourceId){
+  const el=document.getElementById('docs-list-'+sourceType+'-'+sourceId); if(!el) return;
+  const key=sourceType+'_'+sourceId;
+  const docs=_docsCache[key]||[];
   const cu=window._DGL_USER||'';
   const isAdmin=['taylor','steve'].includes(cu);
-  const fId='doc-form-'+(taskId||agendaId);
-  const iSt="width:100%;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
-  const rows=docs.length
-    ? docs.map(d=>`<div style="display:flex;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--surface)">
-        <span style="font-size:13px;flex-shrink:0">${_DOC_ICONS[d.type]||'🔗'}</span>
-        <a href="${d.url||'#'}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.name}">${d.name}</a>
-        ${d.reviewNeeded?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--red);border:1px solid var(--red);border-radius:3px;padding:1px 5px;white-space:nowrap;flex-shrink:0">🔴 REVIEW</span>':''}
-        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap;flex-shrink:0">${(d.addedAt||'').slice(0,10)} · ${d.addedBy||''}</span>
-        ${(isAdmin||d.addedBy===cu)?`<button onclick="deleteDoc('${d.id}','${taskId||''}','${agendaId||''}')" style="background:none;border:none;color:var(--border);font-size:12px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" title="Remove">🗑️</button>`:''}
+  el.innerHTML=docs.length
+    ? docs.map(d=>`<div style="border-bottom:1px solid var(--surface);padding:5px 0">
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:13px;flex-shrink:0">${_docFileIcon(d.name||d.filename||'')}</span>
+          <a href="${d.url||'#'}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name||d.filename||'Untitled'}</a>
+          ${d.previewUrl?`<button onclick="_toggleDocPreview('${d.id}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;color:var(--muted)" title="Preview">👁️</button>`:''}
+          <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap;flex-shrink:0">${(d.addedAt||'').slice(0,10)} · ${d.addedBy||''}</span>
+          ${(isAdmin||d.addedBy===cu)?`<button onclick="deleteDoc('${d.id}','${sourceType}','${sourceId}')" style="background:none;border:none;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;line-height:1;color:var(--border)" title="Remove">🗑️</button>`:''}
+        </div>
+        ${d.previewUrl?`<div id="doc-preview-${d.id}" style="display:none;margin-top:4px"><iframe src="${d.previewUrl}" style="width:100%;height:400px;border:1px solid var(--border);border-radius:4px" frameborder="0" loading="lazy"></iframe></div>`:''}
       </div>`).join('')
     : '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border);padding:4px 0">No documents attached.</div>';
-  return `<div>
-    <div style="text-align:right;margin-bottom:5px"><button onclick="_toggleDocForm('${fId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">➕ Add Document</button></div>
-    <div id="${fId}" style="display:none;margin-bottom:10px;padding:10px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
-        <input id="${fId}-name" type="text" placeholder="Document name" style="${iSt}">
-        <select id="${fId}-type" style="${iSt}">${Object.keys(_DOC_ICONS).map(t=>`<option>${t}</option>`).join('')}</select>
-      </div>
-      <input id="${fId}-url" type="url" placeholder="https://docs.google.com/…" style="${iSt};margin-bottom:6px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);display:flex;align-items:center;gap:5px"><input type="checkbox" id="${fId}-review"> Review needed</label>
-        <button onclick="saveDoc('${taskId||''}','${agendaId||''}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Save</button>
-      </div>
-    </div>
-    ${rows}
-  </div>`;
-}
-function _buildDocsSection(taskId,agendaId){
-  const key=_docsKey(taskId,agendaId);
-  const cId=taskId?'docs-task-'+taskId:'docs-ag-'+agendaId;
-  if(!_docsCache[key]&&CONFIG.sheetsUrl){
-    _docsCache[key]=[];
-    const qp=taskId?'taskId='+encodeURIComponent(taskId):'agendaId='+encodeURIComponent(agendaId);
-    fetch(CONFIG.sheetsUrl+'?action=docs_read&'+qp).then(r=>r.json()).then(data=>{ if(Array.isArray(data.docs)) _docsCache[key]=data.docs; _reRenderDocs(taskId,agendaId); _updateDocReviewBadges(); }).catch(()=>{});
-  }
-  return `<div id="${cId}">${_docsSectionInner(taskId,agendaId)}</div>`;
-}
-function _toggleDocForm(fId){ const el=document.getElementById(fId); if(el) el.style.display=el.style.display==='none'?'block':'none'; }
-function saveDoc(taskId,agendaId){
-  taskId=taskId||null; agendaId=agendaId||null;
-  const fId='doc-form-'+(taskId||agendaId);
-  const name=(document.getElementById(fId+'-name')?.value||'').trim();
-  const url=(document.getElementById(fId+'-url')?.value||'').trim();
-  const type=document.getElementById(fId+'-type')?.value||'Other';
-  const reviewNeeded=!!(document.getElementById(fId+'-review')?.checked);
-  if(!name||!url){ alert('Name and URL are required.'); return; }
-  const doc={id:'doc-'+Date.now(),taskId:taskId||'',agendaId:agendaId||'',name,url,type,reviewNeeded,addedBy:window._DGL_USER||'unknown',addedAt:new Date().toISOString()};
-  const key=_docsKey(taskId,agendaId);
-  if(!_docsCache[key]) _docsCache[key]=[];
-  _docsCache[key].push(doc);
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_write',...doc})}).catch(()=>{});
-  _reRenderDocs(taskId,agendaId);
   _updateDocReviewBadges();
 }
-function deleteDoc(docId,taskId,agendaId){
-  taskId=taskId||null; agendaId=agendaId||null;
+function _toggleDocPreview(docId){ const el=document.getElementById('doc-preview-'+docId); if(el) el.style.display=el.style.display==='none'?'block':'none'; }
+function _handleDocUpload(files,sourceType,sourceId){
+  if(!files||!files.length) return;
+  const dz=document.getElementById('docs-dz-'+sourceType+'-'+sourceId);
+  if(dz){ dz.textContent='Uploading '+files.length+' file'+(files.length>1?'s':'')+'…'; dz.style.color='var(--gold)'; }
+  let done=0;
+  Array.from(files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const b64=ev.target.result.split(',')[1];
+      const payload={action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,
+        taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',addedBy:window._DGL_USER||'unknown'};
+      if(!CONFIG.sheetsUrl){
+        done++; if(done===files.length&&dz){ dz.textContent='📎 Drop files here or click to browse'; dz.style.color=''; }
+        return;
+      }
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+        .then(r=>r.json()).then(data=>{
+          if(data.doc){ const key=sourceType+'_'+sourceId; if(!_docsCache[key]) _docsCache[key]=[]; _docsCache[key].push(data.doc); }
+          done++;
+          if(done===files.length){ if(dz){ dz.textContent='✅ Uploaded'; dz.style.color='var(--green)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to browse'; dz.style.color=''; },1800); } _renderDocsList(sourceType,sourceId); }
+        })
+        .catch(()=>{
+          done++;
+          if(dz){ dz.textContent='❌ Upload failed'; dz.style.color='var(--red)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to browse'; dz.style.color=''; },2000); }
+        });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function deleteDoc(docId,sourceType,sourceId){
   if(!confirm('Remove this document?')) return;
-  const key=_docsKey(taskId,agendaId);
+  const key=sourceType+'_'+sourceId;
   if(_docsCache[key]) _docsCache[key]=_docsCache[key].filter(d=>d.id!==docId);
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).catch(()=>{});
-  _reRenderDocs(taskId,agendaId);
-  _updateDocReviewBadges();
+  _renderDocsList(sourceType,sourceId);
+}
+function _buildDocsSection(sourceType,sourceId){
+  const dzId='docs-dz-'+sourceType+'-'+sourceId;
+  const fiId='docs-fi-'+sourceType+'-'+sourceId;
+  const dzSt="border:2px dashed var(--border);border-radius:6px;padding:14px;text-align:center;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;transition:border-color 0.15s;user-select:none";
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">📎 DOCUMENTS</span>
+    <a href="${CONFIG.sharedDriveUrl||'#'}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 9px;border-radius:4px;border:1px solid var(--border);color:var(--muted);text-decoration:none">📁 Shared Drive</a>
+  </div>
+  <div id="${dzId}" style="${dzSt}"
+    onclick="document.getElementById('${fiId}').click()"
+    ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+    ondragleave="this.style.borderColor=''"
+    ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'${sourceType}','${sourceId}')">
+    📎 Drop files here or click to browse
+  </div>
+  <input id="${fiId}" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'${sourceType}','${sourceId}');this.value=''">
+  <div id="docs-list-${sourceType}-${sourceId}" style="margin-top:8px">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border);padding:4px 0">Loading…</div>
+  </div>`;
 }
 function _updateDocReviewBadges(){
   Object.entries(_docsCache).forEach(([key,docs])=>{
-    if(key.startsWith('ag:')) return;
-    const taskId=key;
+    if(!key.startsWith('task_')) return;
+    const taskId=key.slice(5);
     const count=docs.filter(d=>d.reviewNeeded).length;
     const tr=document.querySelector('#raci-body tr[data-id="'+taskId+'"]'); if(!tr) return;
     let badge=tr.querySelector('.doc-review-badge');
@@ -2059,8 +2086,7 @@ function _buildTaskExpandHtml(taskId){
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
         ${lbl('TEAM DISCUSSION')}
         ${_renderNotesLog(taskId,'raci-discussion-'+taskId,canAdmin,'Add a comment — posts here and to the linked Slack channel')}
-        ${lbl('DOCUMENTS')}
-        ${_buildDocsSection(taskId,null)}
+        ${_buildDocsSection('task',taskId)}
       </div>
     </div>
   </div>`;
@@ -3438,6 +3464,7 @@ function toggleAgendaExpand(id,el){
   newPanel.id='agenda-expand-'+id;
   newPanel.innerHTML=_buildAgendaExpandHtml(id);
   el.after(newPanel);
+  setTimeout(()=>loadDocsForSource('agenda',id),100);
   setTimeout(()=>{ const _ap=document.getElementById('agenda-expand-actionplan-'+id); if(!_ap) return; const _apText=_getActionPlanText(id); if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } _fetchActionPlan(id,t=>{ const el=document.getElementById('agenda-expand-actionplan-'+id); if(el&&t){ el.value=t; el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,400)+'px'; } }); },50);
   _agendaExpandLoadChannels(id);
   const linked=_getTaskSlackLink('agenda_'+id);
@@ -3504,8 +3531,7 @@ function _buildAgendaExpandHtml(id){
         <div id="agenda-expand-ai-${id}" style="margin-bottom:14px"></div>
         ${lbl('TEAM DISCUSSION')}
         ${_renderNotesLog(discussId,'agenda-discussion-'+id,canAdmin,'Add a comment — posts here and to the linked Slack channel')}
-        ${lbl('DOCUMENTS')}
-        ${_buildDocsSection(it.taskId||null,id)}
+        ${_buildDocsSection('agenda',id)}
       </div>
     </div>
   </div>`;
