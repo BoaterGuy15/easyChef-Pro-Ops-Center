@@ -956,6 +956,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
   <div class="section-label" style="margin-top:32px">Channel Mapping</div>
   <div id="channel-mapping-section"></div>
+  <div id="dm-channel-mapping-section" style="margin-top:16px"></div>
 </div>
 
 <!-- ══ PAGE: TEAM ══ -->
@@ -1610,9 +1611,12 @@ const _DM_NAME_MAP={taylor:'Taylor',steve:'Steve',adam:'Adam',mary:'Mary',jr:'JR
 // Person → Slack channel name fragment to match in _slackChannelsCache
 const _DM_CHANNEL_MAP={taylor:'raci-taylor',steve:'leadership',adam:'raci-adam',mary:'general',jr:'raci-jr',hammad:'raci-hammad',searah:'brand-design',sadee:'customer-service'};
 function _getDMChannelId(personKey){
+  const chs=_slackChannelsCache||[];
+  // Check localStorage saved mapping first (exact channel name)
+  try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s){ const m=JSON.parse(s); if(m[personKey]){ const ch=chs.find(c=>c.name===m[personKey]); if(ch) return ch.id; } } }catch(_){}
+  // Fall back to _DM_CHANNEL_MAP fragment match
   const target=_DM_CHANNEL_MAP[personKey]||'';
   if(!target) return '';
-  const chs=_slackChannelsCache||[];
   const ch=chs.find(c=>(c.name||'').toLowerCase().includes(target.toLowerCase()));
   return ch?ch.id:'';
 }
@@ -1856,6 +1860,48 @@ function _buildChannelMappingSection(){
     ${noChannels}${rows||`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No mappings defined.</div>`}
     ${addBtn}
   </div>`;
+  _buildDMChannelMappingSection();
+}
+function _loadDMChannelMap(){
+  try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s){ Object.assign(_DM_CHANNEL_MAP,JSON.parse(s)); } }catch(_){}
+}
+function _saveDMChannelMap(){
+  try{
+    const m={};
+    _DM_MEMBERS.forEach(mem=>{ const sel=document.getElementById('dm-chmap-'+mem.key); if(sel&&sel.value) m[mem.key]=sel.value; });
+    localStorage.setItem('dgl_dm_channel_map',JSON.stringify(m));
+    Object.assign(_DM_CHANNEL_MAP,m);
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ DM channel mapping saved</div>',2500);
+  }catch(_){}
+}
+function _testDMChannel(personKey,btn){
+  const channelId=_getDMChannelId(personKey);
+  if(!channelId){ alert('No Slack channel found for '+(_DM_NAME_MAP[personKey]||personKey)+'. Load channels first.'); return; }
+  if(!CONFIG.sheetsUrl) return;
+  const msg='[DGL Test] DM channel check for '+(_DM_NAME_MAP[personKey]||personKey);
+  const origText=btn.textContent; btn.textContent='Sending…'; btn.disabled=true;
+  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(window._DGL_USER||'system'))
+    .then(()=>{ btn.textContent='✓ Sent'; setTimeout(()=>{ btn.textContent=origText; btn.disabled=false; },1800); })
+    .catch(()=>{ btn.textContent=origText; btn.disabled=false; });
+}
+function _buildDMChannelMappingSection(){
+  const el=document.getElementById('dm-channel-mapping-section'); if(!el) return;
+  const canEdit=['taylor','steve'].includes(window._DGL_USER);
+  const chs=_slackChannelsCache||[];
+  const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap";
+  const _selSt="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;outline:none;width:100%";
+  const _memberColors={taylor:'var(--gold)',steve:'var(--muted)',adam:'var(--accent)',mary:'#22c55e',jr:'#2dd4bf',hammad:'#c084fc',searah:'#f59e0b',sadee:'#2dd4bf'};
+  const currentMap={}; try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s) Object.assign(currentMap,JSON.parse(s)); }catch(_){}
+  const rows=_DM_MEMBERS.map(m=>{
+    const dot=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${_memberColors[m.key]||'var(--muted)'};margin-right:6px;flex-shrink:0;vertical-align:middle"></span>`;
+    const mapped=currentMap[m.key]||_DM_CHANNEL_MAP[m.key]||'';
+    if(canEdit){
+      const opts='<option value="">— None —</option>'+chs.map(c=>`<option value="${c.name}"${c.name===mapped?' selected':''} >#${c.name}</option>`).join('');
+      return `<tr><td style="padding:6px 8px;white-space:nowrap;font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${dot}${m.name}</td><td style="padding:6px 8px"><select id="dm-chmap-${m.key}" style="${_selSt}">${opts}</select></td><td style="padding:6px 8px;text-align:right"><button onclick="_testDMChannel('${m.key}',this)" style="${_bSt}">📤 Test</button></td></tr>`;
+    }
+    return `<tr><td style="padding:6px 8px;white-space:nowrap;font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${dot}${m.name}</td><td style="padding:6px 8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)" colspan="2">${mapped?'#'+mapped:'—'}</td></tr>`;
+  }).join('');
+  el.innerHTML=`<div class="card" style="padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">💬 DM CHANNEL MAPPING</div>${canEdit?`<button onclick="_saveDMChannelMap()" style="${_bSt};border-color:var(--gold);color:var(--gold)">💾 Save Mapping</button>`:''}</div>${!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">View only — Taylor or Steve can edit.</div>`:''}<table style="width:100%;border-collapse:collapse"><thead><tr><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">MEMBER</th><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">DM CHANNEL</th><th style="padding:4px 8px;border-bottom:1px solid var(--border)"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function _autoLinkTaskChannels(){
   if(!_slackChannelsCache||!_slackChannelsCache.length) return;
@@ -8578,6 +8624,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const _staleKeys=['dgl_superai_','dgl_task_comments_','dgl_notes_','dgl_task_slack_','dgl_agenda_slack_','dgl_profiles','dgl_assessment','dgl_tasks'];
   Object.keys(localStorage).forEach(k=>{ if(_staleKeys.some(p=>k.startsWith(p)||k===p)) localStorage.removeItem(k); });
   _loadChannelAssignmentsFromSheets();
+  _loadDMChannelMap();
   loadFromLocal();
   loadBudgetFromLocal();
   loadFromSheets();
