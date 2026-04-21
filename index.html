@@ -8481,9 +8481,16 @@ function saveHRProfileModal(userKey){
   const reactivatable=document.getElementById('hrm-reactivatable').value==='true';
   const inactivationReason=(document.getElementById('hrm-inact-reason').value||'').trim();
   const notes=(document.getElementById('hrm-notes').value||'').trim();
-  _setHRProfile(userKey,{userKey,contractType,status,payRate,payFrequency,startDate,reactivatable,inactivationReason,notes});
+  const profileData={userKey,contractType,status,payRate,payFrequency,startDate,reactivatable,inactivationReason,notes};
+  _setHRProfile(userKey,profileData);
+  const profiles=_getProfiles();
+  if(!profiles[userKey]) profiles[userKey]={};
+  Object.assign(profiles[userKey],{contractType,payRate,payFrequency,startDate,notes});
+  _saveProfiles(profiles);
+  saveProfileToSheets(userKey,profiles[userKey]);
   closeHRProfileModal();
   buildHRPage();
+  buildTeamGrid();
 }
 
 // ── DGL Test Suite ──────────────────────────────────────────
