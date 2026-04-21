@@ -8503,9 +8503,12 @@ function openHRProfileModal(userKey){
     </div>
     <div class="modal-field"><label>Inactivation Reason</label><input type="text" id="hrm-inact-reason" value="${_hEsc(p.inactivationReason||'')}" placeholder="Leave blank if active" style="${iSt}"></div>
     <div class="modal-field"><label>HR Notes (internal)</label><textarea id="hrm-notes" rows="3" style="${iSt};min-height:80px;resize:vertical">${_hEsc(p.notes||'')}</textarea></div>
-    <div class="modal-actions" style="justify-content:flex-end;gap:10px;margin-top:20px">
-      <button class="btn-primary" onclick="saveHRProfileModal('${userKey}')">Save</button>
-      <button class="btn-secondary" onclick="closeHRProfileModal()">Cancel</button>
+    <div class="modal-actions" style="justify-content:space-between;gap:10px;margin-top:20px">
+      <div>${['taylor','steve'].includes(window._DGL_USER||'')?`<button class="btn-secondary" onclick="hrResetPassword('${userKey}','${(m.name||userKey).replace(/'/g,'\\\'')}')" style="color:var(--gold);border-color:var(--gold)">🔑 Reset Password</button>`:''}</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-primary" onclick="saveHRProfileModal('${userKey}')">Save</button>
+        <button class="btn-secondary" onclick="closeHRProfileModal()">Cancel</button>
+      </div>
     </div>`;
   ov.classList.add('open');
 }
@@ -8533,6 +8536,16 @@ function saveHRProfileModal(userKey){
   closeHRProfileModal();
   buildHRPage();
   buildTeamGrid();
+}
+
+async function hrResetPassword(userKey,name){
+  if(!['taylor','steve'].includes(window._DGL_USER||'')) return;
+  const newPw=window.prompt('Set new password for '+name+':');
+  if(!newPw||!newPw.trim()) return;
+  const hash=await sha256hex(newPw.trim());
+  _hrProfilesCache[userKey]={...(_hrProfilesCache[userKey]||{}),passwordHash:hash};
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey,passwordHash:hash})}).catch(()=>{});
+  alert('✅ Password reset for '+name);
 }
 
 // ── DGL Test Suite ──────────────────────────────────────────
