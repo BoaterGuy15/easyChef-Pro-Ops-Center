@@ -3772,7 +3772,7 @@ function _superAiSave(id, type, btn){
   if(type==='task'||type==='raci'||!type){
     const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
     const _agLink=AGENDA_DATA.find(a=>a.taskId===id);
-    if(task){ if(plans.length) task.taskPlans=plans; try{localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks));}catch(e){} _saveTasksNow(); _syncTaskToAgenda(id); }
+    if(task){ if(plans.length) task.taskPlans=plans; _saveTasksNow(); _syncTaskToAgenda(id); }
     if(_agLink&&plans.length){ _agLink.taskPlans=plans; saveAgendaItemToSheets(_agLink); }
     _saveActionPlan(id,'raci',text,id,_agLink?_agLink.id:'');
   }
@@ -4045,7 +4045,6 @@ function _bulkCreateTasks(){
     const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+tid;
     createCount++; createdIds.push(tid); prevTaskId=tid;
   }
-  try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
   masterRefresh();
   // Action plan breadcrumb per created task + clickable summary
   const srcAgendaId=(srcType==='agenda'?srcId:'')|| (srcTask?AGENDA_DATA.find(a=>a.taskId===srcId)?.id:'') || '';
@@ -4062,13 +4061,12 @@ function _bulkCreateTasks(){
     const _noteStr='\n[Sub-tasks created: '+createdIds.join(', ')+' on '+todayStr+']';
     if((srcType==='task'||srcType==='raci')&&srcTask){
       srcTask.notes=(srcTask.notes||'')+_noteStr;
-      try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
       const _agSrc=AGENDA_DATA.find(a=>a.taskId===srcId);
       if(_agSrc){ _agSrc.detail=(_agSrc.detail||'')+_noteStr; saveAgendaItemToSheets(_agSrc); }
     } else if(srcType==='agenda'&&srcAgenda){
       srcAgenda.detail=(srcAgenda.detail||'')+_noteStr;
       saveAgendaItemToSheets(srcAgenda);
-      if(srcLinkedTask){ srcLinkedTask.notes=(srcLinkedTask.notes||'')+_noteStr; try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){} }
+      if(srcLinkedTask){ srcLinkedTask.notes=(srcLinkedTask.notes||'')+_noteStr; }
     }
     setTimeout(()=>_saveTasksNow(),1000);
   }
@@ -5061,7 +5059,7 @@ function buildTeamGrid(){
       if((_hrProfilesCache[userKey]||{}).status==='inactive') return '';
       const ed=_defEdits[userKey]||{};
       const _hrP=_hrProfilesCache[userKey]||{};
-      const displayName=_hrP.name||ed.name||m.name, displayRole=_hrP.role||ed.role||m.role;
+      const displayName=_hrP.name||m.name, displayRole=_hrP.role||m.role;
       const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
       const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
       const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
@@ -6996,7 +6994,6 @@ function raciManualSave(btn){
   setTimeout(()=>{ btn.textContent='💾 Save to Sheets'; btn.style.color=''; btn.disabled=false; },4000);
 }
 function saveToLocal(){
-  try{ localStorage.setItem('dgl_tasks',JSON.stringify(DASHBOARD_DATA.tasks)); }catch(e){}
   saveToSheets();
 }
 let _saveTasksNowTimer=null;
@@ -7015,15 +7012,6 @@ function _saveTasksNow(){
   },1500);
 }
 function loadFromLocal(){
-  try{
-    const saved=localStorage.getItem('dgl_tasks');
-    if(!saved) return;
-    JSON.parse(saved).forEach(s=>{
-      const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
-      if(!t) return;
-      _mergeTask(t,s);
-    });
-  }catch(e){}
   try{
     const savedMs=localStorage.getItem('dgl_milestone_items');
     if(savedMs) DASHBOARD_DATA.meta.milestoneItems=JSON.parse(savedMs);
@@ -8041,7 +8029,7 @@ function slackSend(){
 window.addEventListener('DOMContentLoaded',()=>{
   window._DGL_USER=sessionStorage.getItem('dgl_user')||null;
   window._dglPwHash=sessionStorage.getItem('dgl_pw_hash')||'';
-  const _staleKeys=['dgl_superai_','dgl_task_comments_','dgl_notes_','dgl_task_slack_','dgl_agenda_slack_','dgl_profiles','dgl_assessment'];
+  const _staleKeys=['dgl_superai_','dgl_task_comments_','dgl_notes_','dgl_task_slack_','dgl_agenda_slack_','dgl_profiles','dgl_assessment','dgl_tasks'];
   Object.keys(localStorage).forEach(k=>{ if(_staleKeys.some(p=>k.startsWith(p)||k===p)) localStorage.removeItem(k); });
   _loadChannelAssignmentsFromSheets();
   loadFromLocal();
@@ -8644,11 +8632,7 @@ async function runDGLTests(){
 
   // ── SECTION 2: LOCALSTORAGE ────────────────────────────────
   console.group('Section 2 — localStorage');
-  try{
-    const raw=localStorage.getItem('dgl_tasks');
-    check('dgl_tasks exists', !!raw, 'key missing');
-    if(raw){ const parsed=JSON.parse(raw); check('dgl_tasks parses correctly', Array.isArray(parsed), 'not an array'); }
-  }catch(e){ no('dgl_tasks parses correctly', e.message); }
+  check('dgl_tasks not in localStorage (Sheets-only)', !localStorage.getItem('dgl_tasks'), 'stale dgl_tasks key found — stale cleanup may have failed');
   check('dgl_budget exists', !!localStorage.getItem('dgl_budget'), 'key missing');
   check('Profiles loaded from Sheets or cache', typeof _profilesCache==='object'&&_profilesCache!==null, 'in-memory _profilesCache not an object');
   try{
