@@ -2400,7 +2400,7 @@ function raciAiFind(taskId){
       const base=`${taskCtx}\n\n${slackSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`;
       const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const candidate=`${taskCtx}\n\nHere are the most recent messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`; if(candidate.length<=3000) return candidate; lines=lines.slice(1); } return `${taskCtx}\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task.`; })():base;
       const system=`You are analyzing Slack messages ONLY for relevance to ${t.id} ${t.name} (${t.cat}). Filter ruthlessly — only surface messages directly related to this specific task's deliverable. Ignore messages about other tasks. Be specific and concise.`;
-      return fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt));
+      return fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
     })
     .then(r=>r.json())
     .then(data=>{
@@ -3803,7 +3803,7 @@ function agendaAiFind(id){
       const base=`${ctx}\n\nHere are the last ${msgs.length} messages from #${ch}:\n\n${msgText}\n\nYou are analyzing a Slack channel for the DGL easyChef Pro team. This is agenda item: ${it.title}. Identify relevant discussion, decisions, and action items.`;
       const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const c=`${ctx}\n\nRecent messages from #${ch}:\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions, and action items.`; if(c.length<=3000) return c; lines=lines.slice(1); } return `${ctx}\n\n${lines.join('\n')}\n\nIdentify relevant discussion and action items.`; })():base;
       const system='You are analyzing Slack activity for the DGL easyChef Pro team. Summarize relevant discussion for the given agenda item. Be specific and concise.';
-      return fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt));
+      return fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
     })
     .then(r=>r.json())
     .then(data=>{
@@ -3944,7 +3944,7 @@ async function runSuperAi(id, type, btn){
   try{ docCtx=await _buildDocContext(id,type); }catch(e){ docCtx=''; }
   const prompt=`You are analyzing a SPECIFIC topic for the DGL easyChef Pro team. Stay focused on THIS topic only — do not give generic launch advice.\n\nSPECIFIC TOPIC: ${title}\nCURRENT STATUS: ${status} | Owner: ${owner}\nWHAT THE ANALYSIS FOUND: ${summary.slice(0,800)}\n\nUsing the operational context below ONLY to provide relevant supporting detail, produce a focused action plan for THIS SPECIFIC TOPIC:\n\n1. THE SINGLE MOST IMPORTANT ACTION FOR THIS TOPIC TODAY — who, what, by when, why it unblocks this specific item\n2. THREE ACTIONS THIS WEEK SPECIFIC TO THIS TOPIC — with owners and deadlines directly related to this item\n3. ONE RISK SPECIFIC TO THIS TOPIC — what happens to this item specifically if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE ABOUT THIS SPECIFIC TOPIC\n\nOperational Context (use only for supporting detail):\n${ctx}${docCtx}`;
   const resultEl=document.getElementById('super-ai-result-'+id);
-  fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})})
     .then(r=>r.json())
     .then(data=>{
       btn.textContent='⚡ Super AI — Get Action Plan'; btn.disabled=false;
@@ -4616,7 +4616,7 @@ ${(()=>{
   const btn=document.getElementById('cfo-generate-btn');
   if(btn){btn.disabled=true;btn.style.opacity='0.55';}
   try{
-    const resp=await fetch(CONFIG.sheetsUrl+'?action=anthropic&prompt='+encodeURIComponent(userPrompt)+'&system='+encodeURIComponent(systemPrompt));
+    const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:systemPrompt,prompt:userPrompt})});
     const data=await resp.json();
     if(data.text){
       const renderMd=t=>t.replace(/^##\s+(.+)$/gm,(_,h)=>`<div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;margin:18px 0 6px">${h.trim()}</div>`).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
@@ -8281,8 +8281,7 @@ function slackAnalyzeThread(btn, slotId){
   if(!threadText){ aiSlot.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">No thread content to analyze.</div>'; return; }
   btn.textContent='Analyzing…'; btn.disabled=true;
   const system='You are analyzing a Slack thread for the DGL easyChef Pro team. Summarize key decisions, action items, and who is responsible for what. Be specific and concise.';
-  const url=CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(threadText);
-  fetch(url)
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt:threadText})})
     .then(r=>r.json())
     .then(data=>{
       btn.textContent='✦ AI Analyze'; btn.disabled=false;
@@ -8811,7 +8810,7 @@ async function runHRAnalysis(userKey,btn){
   const prompt=`Team member: ${p.name}\nRole: ${p.role}\nContract: ${p.contractType} | Pay frequency: ${p.payFrequency}\nStatus: ${p.status}\nStart date: ${p.startDate||'Unknown'}\n\nTask performance:\n${taskCtx}\n\nRecent Slack activity (message content):\n${slackContext.slice(0,1500)}\n\nPrior HR notes:\n${priorNotes}\n\nStats snapshot (JSON):\n${JSON.stringify(statsSnap)}`;
   const system='You are an HR advisor analyzing a team member\'s performance for the Digital Galactica Labs founding team (easyChef Pro, pre-launch startup). Today is '+today0+'. IMPORTANT CONTEXT: Task status meanings: "Not Started" = assigned but not begun, "Ready" = prepared to start, "Started" = actively working, "In Progress" = mid-execution, "In Review" = awaiting approval, "Complete" = done, "Blocked" = cannot proceed. "Started" and "In Progress" are POSITIVE indicators — the person IS working. Only "Not Started" tasks with past due dates are concerning. Do NOT penalize team members for tasks that are "Started" or "In Progress". This is an early-stage startup in pre-launch phase — most tasks will be in progress simultaneously. Zero "Complete" tasks may simply mean the product has not launched yet, NOT that the person is underperforming. Be direct, specific, and data-driven. Structure your analysis as: 1) Stats Summary — task breakdown table; 2) Work patterns and velocity — are they executing consistently? focus on Started/In Progress momentum; 3) Communication consistency — Slack engagement; 4) Strengths; 5) Concerns — ONLY flag Blocked tasks or tasks overdue with status still "Not Started"; 6) Retention risk (Low/Medium/High); 7) Action items for Taylor and Steve.';
   if(!CONFIG.sheetsUrl){ if(btn){btn.textContent=origText;btn.disabled=false;} if(resultEl) resultEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red)">Sheets URL not configured.</div>'; return; }
-  fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})})
     .then(r=>r.json())
     .then(data=>{
       const text=data.response||data.result||data.text||data.content||JSON.stringify(data);
