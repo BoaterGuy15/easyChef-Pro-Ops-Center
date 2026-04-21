@@ -2210,7 +2210,7 @@ function _buildTaskExpandHtml(taskId){
         ${lbl('DECISION')}
         ${canAdmin?`<textarea id="raci-task-decision-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Record a decision made about this task — syncs to the linked agenda item" onblur="saveTaskDecision('${taskId}')">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
-        ${(_actionPlansCache[taskId]&&_actionPlansCache[taskId].status==='complete')?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:#22c55e;padding:8px 12px;border:1px solid #22c55e;border-radius:6px;margin-bottom:4px">✅ Action Plan Completed on ${(_actionPlansCache[taskId].completedAt||'').slice(0,10)||'—'}</div>`:`<div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_getActionPlanText(taskId).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>`}
+        ${(()=>{const _cp=_completedPlansCache[taskId];if(_cp){return `<div style="font-family:'DM Mono',monospace;font-size:10px;color:#22c55e;padding:8px 12px;border:1px solid #22c55e;border-radius:6px;margin-bottom:4px">✅ Action Plan Completed on ${(_cp.completedAt||'').slice(0,10)||'—'}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:pre-wrap;padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:200px;overflow-y:auto;margin-bottom:4px">${(_cp.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;}return `<div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:0 0 0 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_getActionPlanText(taskId).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>`;})()}
         ${lbl('TASK PLAN')}
         <div id="raci-task-plans-${taskId}">${_renderTaskPlanCardsHtml(t.taskPlans||[],taskId,'task')}</div>
         ${lbl('DEPENDENCIES')}
@@ -3198,6 +3198,7 @@ function loadAgendaFromSheets(){
 }
 // ── Action Plans system ─────────────────────────────────────
 const _actionPlansCache={}; // sourceId → {id,text,sourceType,createdBy,createdAt,linkedTaskId,linkedAgendaId}
+const _completedPlansCache={}; // sourceId → {id,text,...,status:'complete',completedAt}
 function _getActionPlanText(sourceId){
   if(_actionPlansCache[sourceId]) return _actionPlansCache[sourceId].text||'';
   const _ag=AGENDA_DATA.find(a=>a.id===sourceId); if(_ag&&_ag.actionPlan) return _ag.actionPlan;
@@ -3233,9 +3234,18 @@ function loadActionPlansFromSheets(){
     .then(data=>{
       const plans=Array.isArray(data)?data:(data.plans||[]);
       const bySource={};
-      plans.forEach(p=>{ if(p.sourceId){ if(!bySource[p.sourceId]||p.createdAt>bySource[p.sourceId].createdAt) bySource[p.sourceId]=p; } });
+      const bySourceCompleted={};
+      plans.forEach(p=>{
+        if(!p.sourceId) return;
+        if(p.status==='complete'){
+          if(!bySourceCompleted[p.sourceId]||p.completedAt>bySourceCompleted[p.sourceId].completedAt) bySourceCompleted[p.sourceId]=p;
+        } else {
+          if(!bySource[p.sourceId]||p.createdAt>bySource[p.sourceId].createdAt) bySource[p.sourceId]=p;
+        }
+      });
       Object.assign(_actionPlansCache,bySource);
-      console.log('[DGL] Action plans loaded: '+Object.keys(bySource).length+' sources');
+      Object.assign(_completedPlansCache,bySourceCompleted);
+      console.log('[DGL] Action plans loaded: '+Object.keys(bySource).length+' active, '+Object.keys(bySourceCompleted).length+' completed');
     })
     .catch(()=>{});
 }
@@ -3243,11 +3253,16 @@ function loadActionPlansFromSheets(){
 // case 'action_plans_complete':
 //   completeActionPlan(body.id); return json({ok:true});
 //
+// const ACTION_PLAN_HEADERS=['id','sourceId','sourceType','text','createdBy','createdAt',
+//   'linkedTaskId','linkedAgendaId','status','completedAt'];
+//
 // function completeActionPlan(id){
 //   const sh=getSheet(ACTION_PLANS_SHEET);
 //   const rows=sh.getDataRange().getValues();
-//   const hdr=rows[0]; const idCol=hdr.indexOf('id');
-//   const statCol=hdr.indexOf('status')||hdr.length; const tsCol=hdr.indexOf('completedAt')||hdr.length+1;
+//   const hdr=rows[0];
+//   const idCol=hdr.indexOf('id');
+//   var statCol=hdr.indexOf('status'); if(statCol<0){ statCol=hdr.length; sh.getRange(1,statCol+1).setValue('status'); }
+//   var tsCol=hdr.indexOf('completedAt'); if(tsCol<0){ tsCol=hdr.length+(statCol===hdr.length?1:0); sh.getRange(1,tsCol+1).setValue('completedAt'); }
 //   for(var i=1;i<rows.length;i++){
 //     if(rows[i][idCol]===id){
 //       sh.getRange(i+1,statCol+1).setValue('complete');
@@ -3256,26 +3271,21 @@ function loadActionPlansFromSheets(){
 //     }
 //   }
 // }
-// Add 'status','completedAt' to ACTION_PLAN_HEADERS if not already present.
 function _completeActionPlan(sourceId, planId){
-  // Remove from cache
-  if(_actionPlansCache[sourceId]) delete _actionPlansCache[sourceId];
-  // POST to Sheets
+  const now=new Date().toISOString();
+  const existing=_actionPlansCache[sourceId]||{};
+  _completedPlansCache[sourceId]=Object.assign({},existing,{status:'complete',completedAt:now});
+  delete _actionPlansCache[sourceId];
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_plans_complete',id:planId,sourceId})}).catch(()=>{});
-  // Remove card from DOM immediately
-  const card=document.getElementById('ap-card-'+planId||'ap-card-'+sourceId);
+  const card=document.getElementById('ap-card-'+(planId||sourceId));
   if(card) card.remove();
-  // Rebuild the page to reflect removal
   buildActionPlansPage();
-  // Update linked task status if not already complete
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===sourceId);
   if(task&&task.status!=='Complete'){ task.status='Complete'; _saveTasksNow(); }
 }
 function buildActionPlansPage(){
   const el=document.getElementById('actionplans-body'); if(!el) return;
-  const entries=Object.entries(_actionPlansCache).filter(([,p])=>p.status!=='complete'&&p.completedAt==='');
-  const allEntries=Object.entries(_actionPlansCache);
-  const activeEntries=allEntries.filter(([,p])=>!p.status||p.status!=='complete');
+  const activeEntries=Object.entries(_actionPlansCache);
   if(!activeEntries.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:24px 0">No active action plans. Use Super AI in a task or agenda panel to generate one.</div>'; return; }
   const cSt='background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;border-left:3px solid var(--gold)';
   const btnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid #22c55e;background:transparent;color:#22c55e;cursor:pointer";
@@ -3702,7 +3712,7 @@ function _buildAgendaExpandHtml(id){
         ${lbl('DECISION')}
         ${canAdmin?`<textarea id="agenda-expand-decision-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Record the decision made on this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','decision',this.value)">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${lbl('ACTION PLAN')}
-        <div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="agenda-expand-actionplan-${id}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="updateAgendaField('${id}','actionPlan',this.value)">${_getActionPlanText(id).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>
+        ${(()=>{const _cp=_completedPlansCache[id];if(_cp){return `<div style="font-family:'DM Mono',monospace;font-size:10px;color:#22c55e;padding:8px 12px;border:1px solid #22c55e;border-radius:6px;margin-bottom:4px">✅ Action Plan Completed on ${(_cp.completedAt||'').slice(0,10)||'—'}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:pre-wrap;padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:200px;overflow-y:auto;margin-bottom:4px">${(_cp.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;}return `<div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="agenda-expand-actionplan-${id}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="updateAgendaField('${id}','actionPlan',this.value)">${_getActionPlanText(id).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div>`;})()}
         ${lbl('TASK PLAN')}
         <div id="agenda-task-plans-${id}">${_renderTaskPlanCardsHtml(it.taskPlans||[],id,'agenda')}</div>
       </div>
