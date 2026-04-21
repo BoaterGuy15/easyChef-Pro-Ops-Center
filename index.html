@@ -1607,25 +1607,37 @@ function _submitNote(taskId,cid){
 }
 const _DM_MEMBERS=[{key:'taylor',name:'Taylor'},{key:'steve',name:'Steve'},{key:'adam',name:'Adam'},{key:'mary',name:'Mary'},{key:'jr',name:'JR'},{key:'hammad',name:'Hammad'},{key:'searah',name:'Searah'},{key:'sadee',name:'Sadee'}];
 const _DM_NAME_MAP={taylor:'Taylor',steve:'Steve',adam:'Adam',mary:'Mary',jr:'JR',hammad:'Hammad',searah:'Searah',sadee:'Sadee'};
+// Person → Slack channel name fragment to match in _slackChannelsCache
+const _DM_CHANNEL_MAP={taylor:'raci-taylor',steve:'leadership',adam:'raci-adam',mary:'general',jr:'raci-jr',hammad:'raci-hammad',searah:'brand-design',sadee:'customer-service'};
+function _getDMChannelId(personKey){
+  const target=_DM_CHANNEL_MAP[personKey]||'';
+  if(!target) return '';
+  const chs=_slackChannelsCache||[];
+  const ch=chs.find(c=>(c.name||'').toLowerCase().includes(target.toLowerCase()));
+  return ch?ch.id:'';
+}
 function _submitDM(sourceId,cid){
   const toEl=document.getElementById('dm-to-'+cid);
   const inpEl=document.getElementById('dm-input-'+cid);
   const toKey=toEl?toEl.value:'';
   const text=(inpEl?inpEl.value:'').trim();
-  if(!toKey||!text){ if(!toKey) alert('Select a recipient.'); return; }
+  if(!toKey){ alert('Select a recipient.'); return; }
+  if(!text) return;
+  const channelId=_getDMChannelId(toKey);
+  if(!channelId&&CONFIG.sheetsUrl){ console.warn('[DGL] No Slack channel found for',toKey); }
   const sender=window._DGL_USER||'unknown';
   const toName=_DM_NAME_MAP[toKey]||toKey;
   const fromName=_DM_NAME_MAP[sender]||sender;
   const btn=inpEl&&inpEl.parentElement&&inpEl.parentElement.querySelector('button[onclick*="_submitDM"]');
   if(btn){ if(btn._dglSubmitting) return; btn._dglSubmitting=true; setTimeout(()=>{ btn._dglSubmitting=false; },2000); }
   const feed=document.getElementById('dm-feed-'+cid);
-  const _dmEntryHtml=(fn,tn,ts,msg)=>`<div style="border-left:3px solid #60a5fa;padding:6px 10px;margin-bottom:6px;background:var(--surface);border-radius:0 5px 5px 0"><div style="font-family:'DM Mono',monospace;font-size:9px;color:#60a5fa;margin-bottom:2px">${fn} → ${tn} · ${ts}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap">${msg.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
-  if(feed){ const prev=(feed.innerHTML.includes('No direct')||feed.innerHTML.includes('Loading'))?'':feed.innerHTML; feed.innerHTML=_dmEntryHtml(fromName,toName,new Date().toLocaleString(),text)+prev; }
+  const _dmEntry=(tn,ts,msg)=>`<div style="border-left:3px solid var(--accent);padding:6px 10px;margin-bottom:6px;background:var(--surface);border-radius:0 5px 5px 0"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--accent);margin-bottom:2px">DM to ${tn} · ${ts}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap">${msg.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+  if(feed){ const prev=(feed.innerHTML.includes('No direct')||feed.innerHTML.includes('Loading'))?'':feed.innerHTML; feed.innerHTML=_dmEntry(toName,new Date().toLocaleString(),text)+prev; }
   if(inpEl) inpEl.value='';
-  const slackMsg=`[${sourceId}] DM from ${fromName} to ${toName}: ${text}`;
+  const slackMsg=`@${toName} — [${sourceId}] message from ${fromName}: ${text}`;
   if(CONFIG.sheetsUrl){
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'slack_dm',toUser:toKey,fromUser:sender,text:slackMsg})}).catch(()=>{});
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:sourceId,type:'dm',user:sender,name:fromName,recipient:toName,text:slackMsg,ts:new Date().toISOString()})}).catch(()=>{});
+    if(channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(sender)).catch(()=>{});
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:sourceId,type:'dm',user:sender,name:'DM to '+toName,recipient:toName,text:slackMsg,ts:new Date().toISOString()})}).catch(()=>{});
   }
 }
 function _renderDMSection(sourceId,cid){
@@ -1638,10 +1650,10 @@ function _renderDMSection(sourceId,cid){
         const feed=document.getElementById('dm-feed-'+cid); if(!feed) return;
         const items=Array.isArray(data)?data:(data.comments||[]);
         if(!items.length){ feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No direct messages yet.</div>'; return; }
-        feed.innerHTML=items.map(dm=>`<div style="border-left:3px solid #60a5fa;padding:6px 10px;margin-bottom:6px;background:var(--surface);border-radius:0 5px 5px 0"><div style="font-family:'DM Mono',monospace;font-size:9px;color:#60a5fa;margin-bottom:2px">${(dm.name||dm.user||'?')} → ${dm.recipient||'?'} · ${new Date(dm.ts||dm.timestamp||0).toLocaleString()}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap">${(dm.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
+        feed.innerHTML=items.map(dm=>`<div style="border-left:3px solid var(--accent);padding:6px 10px;margin-bottom:6px;background:var(--surface);border-radius:0 5px 5px 0"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--accent);margin-bottom:2px">${dm.name||'DM'} · ${new Date(dm.ts||dm.timestamp||0).toLocaleString()}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap">${(dm.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('');
       }).catch(()=>{ const feed=document.getElementById('dm-feed-'+cid); if(feed) feed.innerHTML=''; });
   },200);
-  return `<div style="margin-top:4px"><div id="dm-feed-${cid}" style="margin-bottom:8px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">Loading…</div></div><select id="dm-to-${cid}" style="${iSt2};margin-bottom:4px"><option value="">— Select recipient —</option>${_opts}</select><textarea id="dm-input-${cid}" rows="2" style="${iSt2};resize:vertical;margin-bottom:4px" placeholder="Send a direct message to this team member about this task…"></textarea><button onclick="_submitDM('${sourceId}','${cid}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid #60a5fa;background:transparent;color:#60a5fa;cursor:pointer">📤 Send DM</button></div>`;
+  return `<div style="margin-top:4px"><div id="dm-feed-${cid}" style="margin-bottom:8px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">Loading…</div></div><select id="dm-to-${cid}" style="${iSt2};margin-bottom:4px"><option value="">— Select recipient —</option>${_opts}</select><textarea id="dm-input-${cid}" rows="2" style="${iSt2};resize:vertical;margin-bottom:4px" placeholder="Send a direct message to this person about this task…"></textarea><button onclick="_submitDM('${sourceId}','${cid}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer">📤 Send</button></div>`;
 }
 function _renderNotesLog(taskId,cid,canAdd,placeholder){
   const entries=_getNotes(taskId);
