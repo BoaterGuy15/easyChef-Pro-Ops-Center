@@ -5020,6 +5020,7 @@ function buildTeamGrid(){
   el.innerHTML=ordered.map(entry=>{
     if(entry.type==='default'){
       const {m,key,userKey}=entry;
+      if((_hrProfilesCache[userKey]||{}).status==='inactive') return '';
       const ed=_defEdits[userKey]||{};
       const _hrP=_hrProfilesCache[userKey]||{};
       const displayName=_hrP.name||ed.name||m.name, displayRole=_hrP.role||ed.role||m.role;
@@ -5053,6 +5054,7 @@ function buildTeamGrid(){
       </div>`;
     } else {
       const {cm,ci}=entry;
+      if((_hrProfilesCache[cm.user]||{}).status==='inactive') return '';
       const key=cm.raciKey;
       const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
       const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
@@ -8391,6 +8393,7 @@ function hrDeactivateMember(userKey){
   if(!reason.trim()){ alert('Reason is required.'); return; }
   _setHRProfile(userKey,{...p,status:'inactive',inactivationReason:reason.trim(),reactivatable:true});
   buildHRPage();
+  buildTeamGrid();
 }
 
 function hrReactivateMember(userKey){
@@ -8398,6 +8401,7 @@ function hrReactivateMember(userKey){
   if(!confirm('Reactivate '+p.name+'?')) return;
   _setHRProfile(userKey,{...p,status:'active',inactivationReason:''});
   buildHRPage();
+  buildTeamGrid();
 }
 
 function addHRNoteFromUI(userKey){
