@@ -3083,9 +3083,14 @@ function buildCapitalRunway(){
     const op=isPast?'0.3':'0.8';
     segs.push(`<div style="width:${w}%;height:100%;background:${col};opacity:${op}"></div>`);
   }
-  // Kill switch stripe overlay
-  const killStripe=killDate&&killDate>=barStart&&killDate<=barEnd
-    ?`<div style="position:absolute;left:${pct(killDate)}%;top:0;width:2px;height:100%;background:var(--red);opacity:0.9;z-index:2"></div>`:'' ;
+  // Kill switch overlays
+  const _kp = killDate && killDate >= barStart && killDate <= barEnd ? pct(killDate) : -1;
+  const killStripe = _kp >= 0
+    ? `<div style="position:absolute;left:${_kp}%;top:0;width:3px;height:100%;background:#ef4444;opacity:1;z-index:3;transform:translateX(-50%)"></div>` : '';
+  const killZone = _kp >= 0
+    ? `<div style="position:absolute;left:${_kp}%;right:0;top:0;height:100%;background:rgba(239,68,68,0.18);z-index:1;pointer-events:none"></div>` : '';
+  const killMark = _kp >= 0 && killDate
+    ? `<div style="position:absolute;left:${_kp}%;top:-32px;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:4"><div style="font-family:'DM Mono',monospace;font-size:8px;color:#ef4444;white-space:nowrap;letter-spacing:0.5px;font-weight:700">🔴 PMF KILL</div><div style="font-family:'DM Mono',monospace;font-size:7px;color:#ef4444;white-space:nowrap;opacity:0.8;margin-top:1px">${killDate.toLocaleDateString('en-US',{month:'short',year:'numeric'})}</div><div style="width:3px;height:14px;background:#ef4444;opacity:0.9;margin:2px auto 0;border-radius:1px"></div></div>` : '';
   // Marks
   const markDefs=[
     {label:'Today',d:todayDate,col:'var(--text)'},
@@ -3140,10 +3145,10 @@ function buildCapitalRunway(){
         <div style="margin-bottom:4px">
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">CAPITAL RUNWAY — ${barStart.toLocaleDateString('en-US',{month:'short',year:'numeric'})} → ${barEnd.toLocaleDateString('en-US',{month:'short',year:'numeric'})}</div>
         </div>
-        <div style="position:relative;margin:22px 0 8px">
-          ${marks}
+        <div style="position:relative;margin:38px 0 8px">
+          ${marks}${killMark}
           <div style="position:relative;height:10px;background:var(--border);border-radius:5px;overflow:hidden;display:flex">
-            ${segs.join('')}${killStripe}
+            ${segs.join('')}${killZone}${killStripe}
           </div>
         </div>
         <div style="position:relative;height:14px">${monthMarks.join('')}</div>
