@@ -6547,7 +6547,9 @@ const DEFAULT_KILL_CRITERIA={
   ]
 };
 let _killCriteria=null;
+let _killCriteriaCache=null;
 function _getKillCriteria(){
+  if(_killCriteriaCache) return _killCriteriaCache;
   if(_killCriteria) return _killCriteria;
   _killCriteria=JSON.parse(JSON.stringify(DEFAULT_KILL_CRITERIA));
   try{
@@ -6574,11 +6576,22 @@ function saveKillCriteria(){
   const kc=_getKillCriteria();
   try{localStorage.setItem('dgl_kill_criteria',JSON.stringify(kc));}catch(e){}
   if(CONFIG.sheetsUrl){
-    fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'kill_criteria_write',killCriteria:kc})
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'kill_criteria_write',criteria:kc})
     }).catch(()=>{});
   }
+}
+function loadKillCriteriaFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=kill_criteria_read')
+    .then(r=>r.json())
+    .then(data=>{
+      if(!data.criteria) return;
+      _killCriteriaCache=data.criteria;
+      _killCriteria=data.criteria;
+      try{ localStorage.setItem('dgl_kill_criteria',JSON.stringify(data.criteria)); }catch(e){}
+      renderKillCriteria();
+    }).catch(()=>{});
 }
 function _kpiStatus(kpi){
   if(!kpi.target||kpi.target===''||kpi.current===''||kpi.current===undefined) return 'pending';
@@ -8877,6 +8890,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderAppAnalytics();
   renderSurveyResults();
   renderKillCriteria();
+  loadKillCriteriaFromSheets();
   renderWhatIf();
   initFlagToolbar();
   initRaciPopover();
