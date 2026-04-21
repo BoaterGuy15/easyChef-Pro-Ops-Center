@@ -4739,8 +4739,9 @@ async function saveDefaultTeamMember(user){
   if(!profiles[user]) profiles[user]={};
   Object.assign(profiles[user],{phone,slack,channels,github,timezone});
   _saveProfiles(profiles);
-  const _hrPayload={action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel,phone,slack,channels,github,timezone};
+  const _hrPayload={action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel,phone,slack,channels,github,timezone,...(update.passwordHash?{passwordHash:update.passwordHash}:{})};
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_hrPayload)}).catch(()=>{});
+  if(update.passwordHash) _hrProfilesCache[user]={...(_hrProfilesCache[user]||{}),passwordHash:update.passwordHash};
   console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload));
   if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
   closeTeamMemberModal();
@@ -4846,8 +4847,9 @@ async function saveTeamMember(idx){
   if(!profiles[user]) profiles[user]={};
   Object.assign(profiles[user],{phone,slack,channels,github,timezone});
   _saveProfiles(profiles);
-  const _hrPayload2={action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel,phone,slack,channels,github,timezone};
+  const _hrPayload2={action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel,phone,slack,channels,github,timezone,passwordHash};
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_hrPayload2)}).catch(()=>{});
+  _hrProfilesCache[user]={...(_hrProfilesCache[user]||{}),passwordHash};
   console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload2));
   if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
   USER_RACI_COL[user]=raciKey;
@@ -6424,7 +6426,11 @@ async function tryLogin(){
     {pw:'DGL-Searah-2026',user:'searah'},{pw:'DGL-Sadee-2026',user:'sadee'},
   ];
   const h=await sha256hex(val);
-  // Check default member password overrides first
+  // Check HRProfiles sheet cache first (primary source of truth)
+  for(const [_hu,_hp] of Object.entries(_hrProfilesCache)){
+    if(_hp.passwordHash&&_hp.passwordHash===h){ window._dglPwHash=h; sessionStorage.setItem('dgl_pw_hash',h); sessionStorage.setItem('dgl_user',_hu); showDashboard(_hu,true); return; }
+  }
+  // Check default member password overrides (localStorage fallback)
   for(const [_du,_de] of Object.entries(_getDefaultTeamEdits())){
     if(_de.passwordHash&&_de.passwordHash===h){ window._dglPwHash=h; sessionStorage.setItem('dgl_pw_hash',h); sessionStorage.setItem('dgl_user',_du); showDashboard(_du,true); return; }
   }
