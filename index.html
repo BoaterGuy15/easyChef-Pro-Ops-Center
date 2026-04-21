@@ -4679,7 +4679,7 @@ function openDefaultTeamMemberModal(user){
   const p=(_getProfiles()[user])||{};
   const _dv=window._DGL_USER||'';
   const canWrite=['taylor','steve'].includes(_dv)||_dv===user;
-  const canEditPw=['taylor','steve'].includes(_dv);
+  const canEditPw=['taylor','steve'].includes(_dv)||_dv===user;
   const title=document.getElementById('tmm-title');
   if(title) title.textContent='EDIT TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
@@ -4693,7 +4693,7 @@ function openDefaultTeamMemberModal(user){
       <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cur.name||''}" style="${fSt}"${ro}></div>
       <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cur.role||''}" style="${fSt}"${ro}></div>
       <div class="modal-field"><label>Email</label><input type="email" id="tmm-email" value="${cur.email||''}" style="${fSt}"${ro}></div>
-      ${canEditPw?`<div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep" style="${fSt}"></div>`:'<input type="hidden" id="tmm-password" value="">'}
+      ${canEditPw?`<div class="modal-field"><label>Password (blank = keep current)</label><input type="password" id="tmm-password" placeholder="Leave blank to keep current password" style="${fSt}"></div>`:'<input type="hidden" id="tmm-password" value="">'}
       <div class="modal-field"><label>RACI Column Name</label><input type="text" value="${cur.raciKey||''}" readonly style="${roSt}"></div>
       <div class="modal-field"><label>Login Key</label><input type="text" value="${cur.user||''}" readonly style="${roSt}"></div>
       <div class="modal-field"><label>Access Level</label><select id="tmm-level" style="${fSt}"${canWrite?'':' disabled'}>${levelOpts}</select></div>
@@ -4742,8 +4742,9 @@ async function saveDefaultTeamMember(user){
   const _hrPayload={action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel,phone,slack,channels,github,timezone,...(update.passwordHash?{passwordHash:update.passwordHash}:{})};
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_hrPayload)}).catch(()=>{});
   if(update.passwordHash) _hrProfilesCache[user]={...(_hrProfilesCache[user]||{}),passwordHash:update.passwordHash};
+  if(pw&&user===window._DGL_USER){ window._dglPwHash=update.passwordHash; sessionStorage.setItem('dgl_pw_hash',update.passwordHash); }
   console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload));
-  if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
+  if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='✅ Password saved'; await new Promise(r=>setTimeout(r,1200)); } }
   closeTeamMemberModal();
   buildTeamGrid();
 }
@@ -4850,8 +4851,9 @@ async function saveTeamMember(idx){
   const _hrPayload2={action:'hr_profiles_write',userKey:user,name,role,email,color,accessLevel,phone,slack,channels,github,timezone,passwordHash};
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_hrPayload2)}).catch(()=>{});
   _hrProfilesCache[user]={...(_hrProfilesCache[user]||{}),passwordHash};
+  if(pw&&user===window._DGL_USER){ window._dglPwHash=passwordHash; sessionStorage.setItem('dgl_pw_hash',passwordHash); }
   console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload2));
-  if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='Password updated ✓'; await new Promise(r=>setTimeout(r,1200)); } }
+  if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='✅ Password saved'; await new Promise(r=>setTimeout(r,1200)); } }
   USER_RACI_COL[user]=raciKey;
   USER_DISPLAY[user]=raciKey;
   closeTeamMemberModal();
