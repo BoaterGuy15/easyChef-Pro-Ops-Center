@@ -6434,26 +6434,29 @@ function updatePhase(i, val){
   updateAdPhaseAmounts();
 }
 
-function updateAdPhaseAmounts(){
+function updateAdPhaseAmounts(sandboxAdBudget){
   const b=DASHBOARD_DATA.budget;
   if(!b.adPhases) return;
-  const dailyRate=b.adBudget/30;
+  const adBudget=typeof sandboxAdBudget==='number'?sandboxAdBudget:b.adBudget;
   const totalCampaignDays=b.adPhases.reduce((a,p)=>a+(_phaseDaysCount(p)||0),0);
+  const totalBudget=adBudget*totalCampaignDays/30;
   let totalAmt=0;
   b.adPhases.forEach((p,i)=>{
-    const days=_phaseDaysCount(p);
+    const days=_phaseDaysCount(p)||0;
     const isManual=typeof p.pctManual==='number';
-    const amt=isManual?b.adBudget*p.pctManual/100:(days?dailyRate*days:0);
+    const pct=isManual?p.pctManual:(totalCampaignDays?days/totalCampaignDays*100:0);
+    const amt=totalBudget*pct/100;
+    const daily=days?amt/days:0;
     totalAmt+=amt;
     const amtEl=document.getElementById('phase-amt-'+i);
     const dailyEl=document.getElementById('phase-daily-'+i);
     if(amtEl) amtEl.textContent=fmt(amt);
-    if(dailyEl) dailyEl.value=Math.round(dailyRate);
+    if(dailyEl) dailyEl.value=Math.round(daily);
   });
   const amtEl=document.getElementById('phase-amt-total');
   if(amtEl) amtEl.textContent=fmt(totalAmt);
   const noteEl=document.getElementById('phase-note');
-  if(noteEl) noteEl.textContent=`Based on ${fmt(b.adBudget)}/mo ad spend · ${fmt(dailyRate*totalCampaignDays)} total over ${totalCampaignDays} campaign days`;
+  if(noteEl) noteEl.textContent=`Based on ${fmt(adBudget)}/mo ad spend · ${fmt(totalBudget)} total over ${totalCampaignDays} campaign days`;
 }
 
 function editPhaseName(i){
@@ -8553,6 +8556,7 @@ function wiCalc(){
   const hdr = document.getElementById('wi-exp-total-hdr');
   if(hdr){ const {fixedAndTeam,payoneer}=_wiTotals(); hdr.textContent=fmt(fixedAndTeam+payoneer); }
   wiDrawBar(capital, totalBurn, netBurnCombined, minReserve, launchDate, today, profitable);
+  updateAdPhaseAmounts(_wiState.adSpend);
   wiCalcApp();
 }
 
