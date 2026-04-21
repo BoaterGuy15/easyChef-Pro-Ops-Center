@@ -1865,7 +1865,13 @@ function _getCategoryChannelMap(){
   try{ const s=localStorage.getItem('dgl_category_channel_map'); return s?{...CATEGORY_CHANNEL_MAP,...JSON.parse(s)}:{...CATEGORY_CHANNEL_MAP}; }catch(_){ return {...CATEGORY_CHANNEL_MAP}; }
 }
 function _saveCategoryChannel(cat,slug){
+  const oldSlug=(_getCategoryChannelMap()[cat])||'none';
   try{ const s=localStorage.getItem('dgl_category_channel_map'); const m=s?JSON.parse(s):{}; m[cat]=slug; localStorage.setItem('dgl_category_channel_map',JSON.stringify(m)); }catch(_){}
+  if(CONFIG.sheetsUrl&&_commsIsUnlocked()){
+    const user=window._DGL_USER||'unknown';
+    const _sh=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'CAT_MAP_CHANGE',channelId:slug||'none',channelName:cat,changedBy:user,oldChannel:oldSlug,sessionHash:_sh})}).catch(()=>{});
+  }
 }
 function _addCategoryChannel(){
   const cat=(document.getElementById('ccm-new-cat')?.value||'').trim();
@@ -1883,7 +1889,9 @@ function _relinkAllTasks(){
 }
 function _buildChannelMappingSection(){
   const el=document.getElementById('channel-mapping-section'); if(!el) return;
-  const canEdit=['taylor','steve'].includes(window._DGL_USER);
+  const canAdmin=['taylor','steve'].includes(window._DGL_USER);
+  const unlocked=_commsIsUnlocked();
+  const canEdit=canAdmin&&unlocked;
   const map=_getCategoryChannelMap();
   const chs=_slackChannelsCache||[];
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
@@ -1902,13 +1910,16 @@ function _buildChannelMappingSection(){
     <select id="ccm-new-ch" style="${_selSt}">${_chOpts('')}</select>
     <button onclick="_addCategoryChannel()" style="${_bSt}">+ Add Category</button>
   </div>`:'';
+  const lockIcon=`<span style="font-size:12px;margin-left:6px">${unlocked?'🔓':'🔒'}</span>`;
+  const unlockBtn=canAdmin&&!unlocked?`<button onclick="openCommsAuthModal()" style="${_bSt};border-color:var(--accent);color:var(--accent)">🔒 Unlock to Edit</button>`:'';
+  const unlockedBadge=canAdmin&&unlocked?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#22c55e;margin-left:8px">🔓 Unlocked · ${_getCommsUnlockMinutes()}min remaining</span>`:'';
+  const subhead=!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">${canAdmin?'Locked — click Unlock to Edit.':'View only — Taylor or Steve can edit.'}</div>`:'';
   el.innerHTML=`<div class="card" style="padding:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">CATEGORY → SLACK CHANNEL MAPPING</div>
-      <button id="ccm-relink-btn" onclick="_relinkAllTasks()" style="${_bSt}">↺ Re-link All Tasks</button>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">CATEGORY → SLACK CHANNEL MAPPING</div>${lockIcon}${unlockedBadge}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${unlockBtn}<button id="ccm-relink-btn" onclick="_relinkAllTasks()" style="${_bSt}">↺ Re-link All Tasks</button></div>
     </div>
-    ${!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">View only — Taylor or Steve can edit.</div>`:''}
-    ${noChannels}${rows||`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No mappings defined.</div>`}
+    ${subhead}${noChannels}${rows||`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No mappings defined.</div>`}
     ${addBtn}
   </div>`;
   _buildDMChannelMappingSection();
@@ -1926,10 +1937,21 @@ function _loadDMChannelMap(){
 }
 function _saveDMChannelMap(){
   try{
+    const oldMap={}; try{ const s=localStorage.getItem('dgl_dm_channel_map'); if(s) Object.assign(oldMap,JSON.parse(s)); }catch(_){}
     const m={};
     _DM_MEMBERS.forEach(mem=>{ const sel=document.getElementById('dm-chmap-'+mem.key); if(sel&&sel.value) m[mem.key]=sel.value; });
     localStorage.setItem('dgl_dm_channel_map',JSON.stringify(m));
     Object.assign(_DM_CHANNEL_MAP,m);
+    if(CONFIG.sheetsUrl&&_commsIsUnlocked()){
+      const user=window._DGL_USER||'unknown';
+      Object.entries(m).forEach(([k,v])=>{
+        const old=oldMap[k]||'none';
+        if(v!==old){
+          const _sh=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+          fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'DM_MAP_CHANGE',channelId:v,channelName:_DM_NAME_MAP[k]||k,changedBy:user,oldChannel:old,sessionHash:_sh})}).catch(()=>{});
+        }
+      });
+    }
     _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ DM channel mapping saved</div>',2500);
   }catch(_){}
 }
@@ -1945,7 +1967,9 @@ function _testDMChannel(personKey,btn){
 }
 function _buildDMChannelMappingSection(){
   const el=document.getElementById('dm-channel-mapping-section'); if(!el) return;
-  const canEdit=['taylor','steve'].includes(window._DGL_USER);
+  const canAdmin=['taylor','steve'].includes(window._DGL_USER);
+  const unlocked=_commsIsUnlocked();
+  const canEdit=canAdmin&&unlocked;
   const chs=_slackChannelsCache||[];
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap";
   const _selSt="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;outline:none;width:100%";
@@ -1966,7 +1990,11 @@ function _buildDMChannelMappingSection(){
     return `<tr id="dm-row-${m.key}" style="${rowStyle}"><td style="padding:6px 8px;white-space:nowrap;font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${dot}${m.name}${inactiveBadge}</td><td style="padding:6px 8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)" colspan="2">${mapped?'#'+mapped:'—'}</td></tr>`;
   }).join('');
   const addPersonBtn=canEdit?`<div style="margin-top:10px"><button onclick="_showAddDMPerson()" style="${_bSt};border-color:var(--gold);color:var(--gold)">➕ Add Person</button></div>`:'';
-  el.innerHTML=`<div class="card" style="padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">💬 DM CHANNEL MAPPING</div>${canEdit?`<button onclick="_saveDMChannelMap()" style="${_bSt};border-color:var(--gold);color:var(--gold)">💾 Save Mapping</button>`:''}</div>${!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">View only — Taylor or Steve can edit.</div>`:''}<table style="width:100%;border-collapse:collapse"><thead><tr><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">MEMBER</th><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">DM CHANNEL</th><th style="padding:4px 8px;border-bottom:1px solid var(--border)"></th></tr></thead><tbody>${rows}</tbody></table>${addPersonBtn}<div id="dm-add-person-form" style="display:none;margin-top:10px"></div></div>`;
+  const _dmLockIcon=`<span style="font-size:12px;margin-left:6px">${unlocked?'🔓':'🔒'}</span>`;
+  const _dmUnlockBtn=canAdmin&&!unlocked?`<button onclick="openCommsAuthModal()" style="${_bSt};border-color:var(--accent);color:var(--accent)">🔒 Unlock to Edit</button>`:'';
+  const _dmUnlockedBadge=canAdmin&&unlocked?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#22c55e;margin-left:8px">🔓 Unlocked · ${_getCommsUnlockMinutes()}min remaining</span>`:'';
+  const _dmSubhead=!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">${canAdmin?'Locked — click Unlock to Edit.':'View only — Taylor or Steve can edit.'}</div>`:'';
+  el.innerHTML=`<div class="card" style="padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">💬 DM CHANNEL MAPPING</div>${_dmLockIcon}${_dmUnlockedBadge}</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${_dmUnlockBtn}${canEdit?`<button onclick="_saveDMChannelMap()" style="${_bSt};border-color:var(--gold);color:var(--gold)">💾 Save Mapping</button>`:''}</div></div>${_dmSubhead}<table style="width:100%;border-collapse:collapse"><thead><tr><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">MEMBER</th><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">DM CHANNEL</th><th style="padding:4px 8px;border-bottom:1px solid var(--border)"></th></tr></thead><tbody>${rows}</tbody></table>${addPersonBtn}<div id="dm-add-person-form" style="display:none;margin-top:10px"></div></div>`;
 }
 function _autoLinkTaskChannels(){
   if(!_slackChannelsCache||!_slackChannelsCache.length) return;
@@ -5622,6 +5650,56 @@ async function _submitHRAuth(){
     const inp=document.getElementById('hrauth-pw'); if(inp){ inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; }
   }
 }
+function _commsIsUnlocked(){
+  const exp=parseInt(sessionStorage.getItem('dgl_comms_unlock')||'0',10);
+  return exp>Date.now();
+}
+function _getCommsUnlockMinutes(){
+  const exp=parseInt(sessionStorage.getItem('dgl_comms_unlock')||'0',10);
+  const ms=exp-Date.now(); if(ms<=0) return 0;
+  return Math.ceil(ms/60000);
+}
+function openCommsAuthModal(){
+  if(_commsIsUnlocked()){ _buildChannelMappingSection(); return; }
+  let ov=document.getElementById('comms-auth-overlay'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='comms-auth-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9998;display:flex;align-items:center;justify-content:center';
+  const _bSt="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";
+  ov.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;width:min(380px,90vw)">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">🔒 CHANNEL MAPPING — CONFIRM IDENTITY</div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:16px;letter-spacing:0.5px">Session unlocks for 10 minutes</div>
+    <input id="commsauth-pw" type="password" placeholder="Enter your DGL password"
+      style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:9px 12px;border-radius:6px;outline:none;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter')_submitCommsAuth()">
+    <div id="commsauth-error" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:8px;min-height:14px"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button onclick="document.getElementById('comms-auth-overlay').remove()" style="${_bSt}">Cancel</button>
+      <button onclick="_submitCommsAuth()" style="${_bSt};border-color:var(--gold);color:var(--gold)">Unlock</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>{ const p=document.getElementById('commsauth-pw'); if(p) p.focus(); },50);
+}
+async function _submitCommsAuth(){
+  const pw=(document.getElementById('commsauth-pw')?.value||'').trim(); if(!pw) return;
+  const errEl=document.getElementById('commsauth-error');
+  const user=window._DGL_USER||'unknown';
+  const ts=new Date().toISOString();
+  if(!window._dglPwHash){ if(errEl) errEl.textContent='Session expired — please sign in again'; return; }
+  const h=await sha256hex(pw);
+  if(h===window._dglPwHash){
+    sessionStorage.setItem('dgl_comms_unlock',String(Date.now()+10*60*1000));
+    document.getElementById('comms-auth-overlay')?.remove();
+    const _sh=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'COMMS_MAPPING_UNLOCK',channelId:'GRANTED',channelName:'comms_mapping',changedBy:user,changedAt:ts,oldChannel:'none',sessionHash:_sh})}).catch(()=>{});
+    _buildChannelMappingSection();
+  } else {
+    if(errEl) errEl.textContent='Incorrect password — use your own login password';
+    const _fh=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:'COMMS_MAPPING_FAILED',channelId:'FAILED',channelName:'comms_mapping',changedBy:user,changedAt:ts,oldChannel:'none',sessionHash:_fh})}).catch(()=>{});
+    const inp=document.getElementById('commsauth-pw'); if(inp){ inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; }
+  }
+}
 function showTeamSection(section){
   if(section==='hr'&&!_hrIsUnlocked()){ openHRAuthModal(); return; }
   const secTeam=document.getElementById('team-section-team');
@@ -8714,6 +8792,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderAdPhases();
   renderSlackCard();
   _buildChannelMappingSection();
+  // Auto-lock: rebuild mapping cards when comms session unlock expires
+  let _commsWasUnlocked=false;
+  setInterval(()=>{ const now=_commsIsUnlocked(); if(_commsWasUnlocked&&!now&&document.getElementById('channel-mapping-section')) _buildChannelMappingSection(); _commsWasUnlocked=now; },30000);
   renderBetaFamilies();
   renderBetaMetrics();
   renderAppAnalytics();
