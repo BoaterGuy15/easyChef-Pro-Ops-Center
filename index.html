@@ -3896,7 +3896,29 @@ function _renderSuperAiBtn(id, type, title, status, owner){
   const dOwner=(owner||'—').replace(/"/g,'&quot;');
   return `<div id="super-ai-wrap-${id}" style="margin-top:10px">${lastPlan}<button id="super-ai-btn-${id}" data-title="${dTitle}" data-status="${dStatus}" data-owner="${dOwner}" onclick="runSuperAi('${id}','${type}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap;font-weight:600;letter-spacing:1px">⚡ Super AI — Get Action Plan</button><div id="super-ai-result-${id}"></div></div>`;
 }
-function runSuperAi(id, type, btn){
+async function _buildDocContext(id, type){
+  const cacheKey=(type==='raci'?'task':'agenda')+'_'+id;
+  const docs=_docsCache[cacheKey]||[];
+  if(!docs.length) return '';
+  let ctx='\n\nATTACHED DOCUMENTS FOR THIS TASK:\n';
+  for(const doc of docs){
+    const name=doc.name||doc.filename||'Untitled';
+    const date=(doc.addedAt||'').slice(0,10);
+    const url=doc.url||'';
+    ctx+=`- [${name}] (uploaded by ${doc.addedBy||'—'} on ${date}): ${url}\n`;
+    if(url.includes('docs.google.com/document')){
+      const m=url.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+      if(m){ try{ const r=await fetch('https://docs.google.com/document/d/'+m[1]+'/export?format=txt'); const t=await r.text(); ctx+='  Content preview: '+t.slice(0,3000)+'\n'; }catch(_){ ctx+='  (Content unavailable — check sharing)\n'; } }
+    } else if(url.includes('spreadsheets')||url.includes('sheets.google.com')){
+      const m=url.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+      if(m){ try{ const r=await fetch('https://docs.google.com/spreadsheets/d/'+m[1]+'/export?format=csv'); const t=await r.text(); ctx+='  Content preview (CSV): '+t.slice(0,2000)+'\n'; }catch(_){ ctx+='  (Content unavailable — check sharing)\n'; } }
+    } else if(/\.(pdf|pptx?|docx?)$/i.test(name)){
+      ctx+='  (Binary file — AI cannot read content directly)\n';
+    }
+  }
+  return ctx;
+}
+async function runSuperAi(id, type, btn){
   if(!CONFIG.sheetsUrl) return;
   let summary='';
   if(type==='raci') summary=_raciAiSummaries[id]||'';
@@ -3908,7 +3930,8 @@ function runSuperAi(id, type, btn){
   btn.textContent='⚡ Generating action plan…'; btn.disabled=true;
   const system='You are the Chief Operating Officer AI for DGL\'s easyChef Pro launch. You have complete visibility into the team\'s operational state. Be brutally specific: name exact people, exact task IDs, exact deadlines, exact dollar amounts. Never be vague. Never hedge.';
   const ctx=_buildDGLContext().slice(0,2000);
-  const prompt=`You are analyzing a SPECIFIC topic for the DGL easyChef Pro team. Stay focused on THIS topic only — do not give generic launch advice.\n\nSPECIFIC TOPIC: ${title}\nCURRENT STATUS: ${status} | Owner: ${owner}\nWHAT THE ANALYSIS FOUND: ${summary.slice(0,800)}\n\nUsing the operational context below ONLY to provide relevant supporting detail, produce a focused action plan for THIS SPECIFIC TOPIC:\n\n1. THE SINGLE MOST IMPORTANT ACTION FOR THIS TOPIC TODAY — who, what, by when, why it unblocks this specific item\n2. THREE ACTIONS THIS WEEK SPECIFIC TO THIS TOPIC — with owners and deadlines directly related to this item\n3. ONE RISK SPECIFIC TO THIS TOPIC — what happens to this item specifically if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE ABOUT THIS SPECIFIC TOPIC\n\nOperational Context (use only for supporting detail):\n${ctx}`;
+  const docCtx=await _buildDocContext(id,type);
+  const prompt=`You are analyzing a SPECIFIC topic for the DGL easyChef Pro team. Stay focused on THIS topic only — do not give generic launch advice.\n\nSPECIFIC TOPIC: ${title}\nCURRENT STATUS: ${status} | Owner: ${owner}\nWHAT THE ANALYSIS FOUND: ${summary.slice(0,800)}\n\nUsing the operational context below ONLY to provide relevant supporting detail, produce a focused action plan for THIS SPECIFIC TOPIC:\n\n1. THE SINGLE MOST IMPORTANT ACTION FOR THIS TOPIC TODAY — who, what, by when, why it unblocks this specific item\n2. THREE ACTIONS THIS WEEK SPECIFIC TO THIS TOPIC — with owners and deadlines directly related to this item\n3. ONE RISK SPECIFIC TO THIS TOPIC — what happens to this item specifically if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE ABOUT THIS SPECIFIC TOPIC\n\nOperational Context (use only for supporting detail):\n${ctx}${docCtx}`;
   const resultEl=document.getElementById('super-ai-result-'+id);
   fetch(CONFIG.sheetsUrl+'?action=anthropic&system='+encodeURIComponent(system)+'&prompt='+encodeURIComponent(prompt))
     .then(r=>r.json())
