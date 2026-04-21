@@ -1589,11 +1589,21 @@ function _notesInputSetColor(cid,color){ const el=document.getElementById('nl-in
 function _submitNote(taskId,cid){
   const inp=document.getElementById('nl-input-'+cid);
   const text=(inp?inp.value:'').trim(); if(!text) return;
+  // Guard against double-submit on repeated clicks
+  const submitBtn=inp?inp.parentElement&&inp.parentElement.querySelector('button[onclick*="_submitNote"]'):null;
+  if(submitBtn){ if(submitBtn._dglSubmitting) return; submitBtn._dglSubmitting=true; setTimeout(()=>{ submitBtn._dglSubmitting=false; },2000); }
   _appendNote(taskId,text);
   if(inp) inp.value='';
   const entries=_getNotes(taskId);
   const log=document.getElementById(cid+'-entries');
   if(log){ log.innerHTML=entries.length?entries.map(_noteEntryHtml).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No notes yet.</div>'; log.scrollTop=log.scrollHeight; }
+  // Post to linked Slack channel
+  const user=window._DGL_USER||'unknown';
+  const linked=_getTaskSlackLink(taskId);
+  if(linked.channelId&&CONFIG.sheetsUrl){
+    const slackMsg='['+taskId+'] Note from '+user+': '+text;
+    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(user)).catch(()=>{});
+  }
 }
 function _renderNotesLog(taskId,cid,canAdd,placeholder){
   const entries=_getNotes(taskId);
