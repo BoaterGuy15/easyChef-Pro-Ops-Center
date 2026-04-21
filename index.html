@@ -2037,9 +2037,10 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
     const reader=new FileReader();
     reader.onload=ev=>{
       const b64=ev.target.result.split(',')[1];
+      const _sn=sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===sourceId)||{}).title||'';
       const payload={action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,
         taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',
-        sourceName:sourceName||'',addedBy:window._DGL_USER||'unknown'};
+        sourceType:sourceType,sourceId:sourceId,sourceName:_sn,addedBy:window._DGL_USER||'unknown'};
       if(!CONFIG.sheetsUrl){ _uploadNext(); return; }
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
         .then(r=>r.json()).then(data=>{
