@@ -3906,7 +3906,12 @@ function _stripMarkdown(text){
     .trim();
 }
 async function _buildDocContext(id, type){
-  const cacheKey=(type==='raci'?'task':'agenda')+'_'+id;
+  const srcType=(type==='raci'||type==='task')?'task':'agenda';
+  const cacheKey=srcType+'_'+id;
+  console.log('[DGL] buildDocContext cache key:',cacheKey,'docs:',_docsCache[cacheKey]?.length);
+  if(_docsCache[cacheKey]===undefined){
+    await new Promise(resolve=>loadDocsForSource(srcType,id,resolve));
+  }
   const docs=_docsCache[cacheKey]||[];
   if(!docs.length) return '';
   let ctx='\n\nATTACHED DOCUMENTS FOR THIS TASK:\n';
@@ -3938,11 +3943,18 @@ async function runSuperAi(id, type, btn){
   const status=btn.dataset.status||'—';
   const owner=btn.dataset.owner||'—';
   btn.textContent='⚡ Generating action plan…'; btn.disabled=true;
-  const system='You are the Chief Operating Officer AI for DGL\'s easyChef Pro launch. You have complete visibility into the team\'s operational state. Be brutally specific: name exact people, exact task IDs, exact deadlines, exact dollar amounts. Never be vague. Never hedge. Format your response as plain text only. No markdown symbols like ##, ###, **, *, or ---. Use ALL CAPS for section headers instead. Use numbered lists with plain numbers. Keep formatting clean for Slack.';
+  const system='You are the Chief Operating Officer AI for DGL\'s easyChef Pro launch. You have complete visibility into the team\'s operational state. Be brutally specific: name exact people, exact task IDs, exact deadlines, exact dollar amounts. Never be vague. Never hedge. Format your response as plain text only. No markdown symbols like ##, ###, **, *, or ---. Use ALL CAPS for section headers instead. Use numbered lists with plain numbers. Keep formatting clean for Slack. Task status values: Not Started, Ready, Started, In Progress, In Review, Complete, Blocked. If status is Complete or flag is Resolved — acknowledge the completion and ask if follow-up is needed rather than creating new action items.';
   const ctx=_buildDGLContext().slice(0,2000);
   let docCtx='';
   try{ docCtx=await _buildDocContext(id,type); }catch(e){ docCtx=''; }
-  const prompt=`You are analyzing a SPECIFIC topic for the DGL easyChef Pro team. Stay focused on THIS topic only — do not give generic launch advice.\n\nSPECIFIC TOPIC: ${title}\nCURRENT STATUS: ${status} | Owner: ${owner}\nWHAT THE ANALYSIS FOUND: ${summary.slice(0,800)}\n\nUsing the operational context below ONLY to provide relevant supporting detail, produce a focused action plan for THIS SPECIFIC TOPIC:\n\n1. THE SINGLE MOST IMPORTANT ACTION FOR THIS TOPIC TODAY — who, what, by when, why it unblocks this specific item\n2. THREE ACTIONS THIS WEEK SPECIFIC TO THIS TOPIC — with owners and deadlines directly related to this item\n3. ONE RISK SPECIFIC TO THIS TOPIC — what happens to this item specifically if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE ABOUT THIS SPECIFIC TOPIC\n\nOperational Context (use only for supporting detail):\n${ctx}${docCtx}`;
+  const _t=DASHBOARD_DATA.tasks.find(x=>x.id===id);
+  const _ag=AGENDA_DATA.find(x=>x.id===id);
+  const taskFlag=(_t&&_t.flag)||(_ag&&_ag.flag)||'';
+  const taskNotes=(_t&&_t.notes)||'';
+  const lastChange=(_t&&_t.lastStatusChange)||'';
+  const isComplete=status==='Complete'||status==='Done'||taskFlag==='✓ Resolved'||taskFlag==='✓ Closed';
+  const completionNote=isComplete?'\n\nNOTE: THIS TASK IS MARKED COMPLETE/RESOLVED — confirm with the team if any follow-up is still needed before generating new action items.':'';
+  const prompt=`You are analyzing a SPECIFIC topic for the DGL easyChef Pro team. Stay focused on THIS topic only — do not give generic launch advice.\n\nSPECIFIC TOPIC: ${title}\nCURRENT STATUS: ${status} | Owner: ${owner}${taskFlag?` | Flag: ${taskFlag}`:''}${lastChange?` | Last changed: ${lastChange}`:''}${taskNotes?`\nTASK NOTES: ${taskNotes.slice(0,400)}`:''}${completionNote}\nWHAT THE ANALYSIS FOUND: ${summary.slice(0,800)}\n\nUsing the operational context below ONLY to provide relevant supporting detail, produce a focused action plan for THIS SPECIFIC TOPIC:\n\n1. THE SINGLE MOST IMPORTANT ACTION FOR THIS TOPIC TODAY — who, what, by when, why it unblocks this specific item\n2. THREE ACTIONS THIS WEEK SPECIFIC TO THIS TOPIC — with owners and deadlines directly related to this item\n3. ONE RISK SPECIFIC TO THIS TOPIC — what happens to this item specifically if ignored\n4. ONE DECISION ONLY TAYLOR CAN MAKE ABOUT THIS SPECIFIC TOPIC\n\nOperational Context (use only for supporting detail):\n${ctx}${docCtx}`;
   const resultEl=document.getElementById('super-ai-result-'+id);
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})})
     .then(r=>r.json())
