@@ -8460,19 +8460,32 @@ function wiDeletePreset(key){
 }
 
 function wiCalc(){
-  const { totalBurn, netBurn } = _wiTotals();
+  const { totalBurn } = _wiTotals();
   const b          = DASHBOARD_DATA.budget;
   const capital    = b.capital;
   const minReserve = b.minReserve;
   const launchDate = new Date((DASHBOARD_DATA.meta.milestoneDate||'2026-07-01')+'T00:00:00');
   const today      = new Date(); today.setHours(0,0,0,0);
   const moToLaunch = (launchDate - today) / (30*86400000);
+
+  // App revenue model — combined with manual revenue slider
+  const appPrice   = _wiState.appPrice    || 15;
+  const appUsers   = _wiState.userScale   || 0;
+  const appFeeRate = (_wiState.platformFee || 15) / 100;
+  const appNetRev  = appUsers * appPrice * (1 - appFeeRate);
+  const totalRevenue      = _wiState.revenue + appNetRev;
+  const netBurnCombined   = Math.max(0, totalBurn - totalRevenue);
+  const profitable        = totalRevenue > totalBurn;
+  const netProfit         = profitable ? totalRevenue - totalBurn : 0;
+
   const launchRes  = capital - totalBurn * moToLaunch;
-  const runway     = netBurn > 0 ? (capital - minReserve) / netBurn : 99;
-  const postSurv   = netBurn > 0 ? Math.max(0, (launchRes - minReserve) / netBurn) : 99;
-  const profitable  = _wiState.revenue > totalBurn;
-  const netProfit   = profitable ? _wiState.revenue - totalBurn : 0;
-  const breakEvenStr = _wiState.revenue === 0 ? 'N/A (no revenue)' : 'N/A (static model)';
+  const runway     = netBurnCombined > 0 ? (capital - minReserve) / netBurnCombined : 99;
+  const postSurv   = netBurnCombined > 0 ? Math.max(0, (launchRes - minReserve) / netBurnCombined) : 99;
+
+  // Break-even users: how many app users needed to cover all burn above slider revenue
+  const netPerUser         = appPrice * (1 - appFeeRate);
+  const remainingBurn      = Math.max(0, totalBurn - _wiState.revenue);
+  const appBreakEvenUsers  = netPerUser > 0 ? Math.ceil(remainingBurn / netPerUser) : 0;
 
   const adV=document.getElementById('wi-adspend-val'), reV=document.getElementById('wi-revenue-val');
   if(adV) adV.textContent=fmtWi(_wiState.adSpend);
@@ -8483,14 +8496,14 @@ function wiCalc(){
     const stats = [
       {
         label: profitable ? 'NET PROFIT / MO' : 'NET BURN / MO',
-        val:   profitable ? fmtWi(netProfit) : fmt(netBurn),
-        col:   profitable ? 'var(--green)' : (netBurn>totalBurn*0.8?'var(--red)':'var(--amber)')
+        val:   profitable ? fmtWi(netProfit) : fmt(netBurnCombined),
+        col:   profitable ? 'var(--green)' : (netBurnCombined>totalBurn*0.8?'var(--red)':'var(--amber)')
       },
       {
         label: 'RUNWAY',
-        val:   runway>99 ? '∞ Infinite' : runway.toFixed(1)+' mo',
-        col:   runway>6 ? 'var(--green)' : runway>3 ? 'var(--amber)' : 'var(--red)',
-        sub:   runway>99 ? `Capital growing ${fmtWi(netProfit)}/mo` : null
+        val:   profitable ? '🟢 Cash flow positive' : (runway>99 ? '∞ Infinite' : runway.toFixed(1)+' mo'),
+        col:   profitable ? 'var(--green)' : runway>6 ? 'var(--green)' : runway>3 ? 'var(--amber)' : 'var(--red)',
+        sub:   profitable ? `Growing ${fmtWi(netProfit)}/mo` : null
       },
       {
         label: 'LAUNCH RESERVE',
@@ -8499,13 +8512,17 @@ function wiCalc(){
       },
       {
         label: 'POST-LAUNCH SURVIVAL',
-        val:   postSurv>99 ? '∞ Sustained' : postSurv.toFixed(1)+' mo',
-        col:   postSurv>6 ? 'var(--green)' : postSurv>3 ? 'var(--amber)' : 'var(--red)'
+        val:   profitable ? '∞ Sustained' : (postSurv>99 ? '∞ Sustained' : postSurv.toFixed(1)+' mo'),
+        col:   profitable || postSurv>6 ? 'var(--green)' : postSurv>3 ? 'var(--amber)' : 'var(--red)'
       },
       {
-        label: 'BREAK-EVEN',
-        val:   profitable ? `Profitable — ${fmtWi(netProfit)}/mo` : breakEvenStr,
-        col:   profitable ? 'var(--green)' : 'var(--muted)'
+        label: 'BREAK-EVEN USERS',
+        val:   appBreakEvenUsers > 0
+          ? appBreakEvenUsers.toLocaleString() + ' users'
+          : (profitable ? 'Profitable w/ 0 users' : 'N/A'),
+        col:   appUsers >= appBreakEvenUsers && appBreakEvenUsers > 0
+          ? 'var(--green)'
+          : appBreakEvenUsers > 0 ? 'var(--amber)' : 'var(--muted)'
       },
     ];
     if(profitable) stats.push({
@@ -8523,7 +8540,7 @@ function wiCalc(){
   }
   const hdr = document.getElementById('wi-exp-total-hdr');
   if(hdr){ const {fixedAndTeam,payoneer}=_wiTotals(); hdr.textContent=fmt(fixedAndTeam+payoneer); }
-  wiDrawBar(capital, totalBurn, _wiState.revenue, netBurn, minReserve, launchDate, today);
+  wiDrawBar(capital, totalBurn, netBurnCombined, minReserve, launchDate, today, profitable);
   wiCalcApp();
 }
 
@@ -8537,9 +8554,6 @@ function wiCalcApp(){
   const { totalBurn } = _wiTotals();
   const netPerUser    = price * (1 - feeRate);
   const breakEven     = netPerUser > 0 ? Math.ceil(totalBurn / netPerUser) : 0;
-  const b             = DASHBOARD_DATA.budget;
-  const adjustedBurn  = Math.max(0, totalBurn - net);
-  const runway        = adjustedBurn > 0 ? (b.capital - b.minReserve) / adjustedBurn : 99;
 
   const prV = document.getElementById('wi-appprice-val');
   const usV = document.getElementById('wi-userscale-val');
@@ -8552,18 +8566,16 @@ function wiCalcApp(){
   if(!resEl) return;
   const fN = n => n >= 1000000 ? '$' + (n/1000000).toFixed(1) + 'M' : n >= 1000 ? '$' + (n/1000).toFixed(0) + 'K' : '$' + Math.round(n).toLocaleString();
   const stats = [
-    { label:'GROSS REVENUE',     val: fN(gross),    col:'var(--green)' },
-    { label:'PLATFORM FEE',      val: fN(feeAmt),   col:'var(--red)' },
-    { label:'NET REVENUE',       val: fN(net),      col: net > 0 ? 'var(--green)' : 'var(--muted)' },
-    { label:'BREAK-EVEN USERS',  val: breakEven > 0 ? breakEven.toLocaleString() + ' users' : 'N/A',
+    { label:'GROSS REVENUE',    val: fN(gross),  col:'var(--green)' },
+    { label:'PLATFORM FEE',     val: fN(feeAmt), col:'var(--red)' },
+    { label:'NET REVENUE',      val: fN(net),    col: net > 0 ? 'var(--green)' : 'var(--muted)' },
+    { label:'BREAK-EVEN USERS', val: breakEven > 0 ? breakEven.toLocaleString() + ' users' : 'N/A',
       col: users >= breakEven && breakEven > 0 ? 'var(--green)' : 'var(--amber)' },
-    { label:'RUNWAY IMPACT',     val: runway > 99 ? '∞ Infinite' : runway.toFixed(1) + ' mo',
-      col: runway > 6 ? 'var(--green)' : runway > 3 ? 'var(--amber)' : 'var(--red)' },
   ];
   resEl.innerHTML = stats.map(s => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px"><div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${s.label}</div><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:${s.col}">${s.val}</div></div>`).join('');
 }
 
-function wiDrawBar(capital, totalBurn, revenue, netBurn, minReserve, launchDate, today){
+function wiDrawBar(capital, totalBurn, netBurnCombined, minReserve, launchDate, today, profitable){
   const wrap = document.getElementById('wi-bar-wrap');
   if(!wrap) return;
   const barEnd  = new Date(launchDate.getTime() + 12*30*86400000);
@@ -8571,21 +8583,27 @@ function wiDrawBar(capital, totalBurn, revenue, netBurn, minReserve, launchDate,
   function pct(d){ return Math.max(0, Math.min(100, (d-today)/86400000/barDays*100)); }
   function balAt(d){
     if(d <= launchDate) return capital - totalBurn*(d-today)/(30*86400000);
-    return capital - totalBurn*(launchDate-today)/(30*86400000) - netBurn*(d-launchDate)/(30*86400000);
+    return capital - totalBurn*(launchDate-today)/(30*86400000) - netBurnCombined*(d-launchDate)/(30*86400000);
   }
   const segs=[]; let prev=today;
   for(let m=1;m<=18;m++){
     const next=new Date(today.getTime()+m*30*86400000);
     if(next>barEnd) break;
     const w=pct(next)-pct(prev); if(w<0.1){prev=next;continue;}
+    const isPostLaunch = next > launchDate;
     const bal=balAt(next);
-    const col=bal>minReserve*1.5?'var(--green)':bal>minReserve?'var(--amber)':'var(--red)';
-    segs.push(`<div style="width:${w}%;height:100%;background:${col};opacity:0.85"></div>`);
+    const col = isPostLaunch && profitable
+      ? 'var(--green)'
+      : bal>minReserve*1.5?'var(--green)':bal>minReserve?'var(--amber)':'var(--red)';
+    segs.push(`<div style="width:${w}%;height:100%;background:${col};opacity:${isPostLaunch&&profitable?'1':'0.85'}"></div>`);
     prev=next;
   }
   const betaDate=new Date('2026-05-11T00:00:00');
+  const launchLabel = profitable ? 'Launch · CF+' : 'Launch';
   const markers=[
-    {label:'Today',d:today,col:'var(--text)'},{label:'Beta',d:betaDate,col:'var(--amber)'},{label:'Launch',d:launchDate,col:'var(--green)'},
+    {label:'Today',d:today,col:'var(--text)'},
+    {label:'Beta',d:betaDate,col:'var(--amber)'},
+    {label:launchLabel,d:launchDate,col:'var(--green)'},
   ].filter(m=>m.d>=today&&m.d<=barEnd).map(m=>`
     <div style="position:absolute;left:${pct(m.d)}%;top:-18px;transform:translateX(-50%);text-align:center;pointer-events:none">
       <div style="font-family:'DM Mono',monospace;font-size:8px;color:${m.col};white-space:nowrap">${m.label}</div>
