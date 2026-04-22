@@ -4294,7 +4294,7 @@ function _initGanttDrag(){
     row.querySelectorAll(`.rm-cell:not([data-task-id="${taskId}"])`).forEach(s=>{
       const sL=parseFloat(s.style.left)||0,sW=parseFloat(s.style.width)||_ganttDayPx*7;
       s.style.transition='transform 0.12s ease';
-      s.style.transform=pL<sL+sW&&pL+pW>sL?'translateY(-26px)':'';
+      s.style.transform=pL<sL+sW&&pL+pW>sL?'translateY(26px)':'';
     });
   }
 
