@@ -2060,8 +2060,7 @@ function _saveAllCategoryMappings(btn){
 }
 function _relinkAllTasks(){
   Object.keys(_slackLinksCache).forEach(k=>{ delete _slackLinksCache[k]; });
-  _autoLinkTaskChannels();
-  _batchSaveChannelsToSheets();
+  loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); });
   const btn=document.getElementById('ccm-relink-btn');
   if(btn){ btn.textContent='↺ Linked ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='↺ Re-link All Tasks'; btn.disabled=false; },1500); }
 }
@@ -2170,6 +2169,20 @@ function _buildDMChannelMappingSection(){
   const _dmUnlockedBadge=canAdmin&&unlocked?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#22c55e;margin-left:8px">🔓 Unlocked · ${_getCommsUnlockMinutes()}min remaining</span>`:'';
   const _dmSubhead=!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">${canAdmin?'Locked — click Unlock to Edit.':'View only — Taylor or Steve can edit.'}</div>`:'';
   el.innerHTML=`<div class="card" style="padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">💬 DM CHANNEL MAPPING</div>${_dmLockIcon}${_dmUnlockedBadge}</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${_dmUnlockBtn}${canEdit?`<button onclick="_saveDMChannelMap()" style="${_bSt};border-color:var(--gold);color:var(--gold)">💾 Save Mapping</button>`:''}</div></div>${_dmSubhead}<table style="width:100%;border-collapse:collapse"><thead><tr><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">MEMBER</th><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">DM CHANNEL</th><th style="padding:4px 8px;border-bottom:1px solid var(--border)"></th></tr></thead><tbody>${rows}</tbody></table>${addPersonBtn}<div id="dm-add-person-form" style="display:none;margin-top:10px"></div></div>`;
+}
+function loadTaskChannelLinks(){
+  if(!CONFIG.sheetsUrl) return Promise.resolve();
+  return fetch(CONFIG.sheetsUrl+'?action=channel_map_read')
+    .then(r=>r.json())
+    .then(d=>{
+      if(!d.ok) return;
+      Object.values(d.map||{}).forEach(entry=>{
+        if(entry.taskId&&entry.channelId){
+          _slackLinksCache['dgl_task_slack_'+entry.taskId]={channelId:entry.channelId,channelName:entry.channelName};
+        }
+      });
+      console.log('[DGL] Task channels loaded from Sheets:',Object.keys(_slackLinksCache).filter(k=>k.startsWith('dgl_task_slack_')).length);
+    }).catch(()=>{});
 }
 function _autoLinkTaskChannels(){
   if(!_slackChannelsCache||!_slackChannelsCache.length) return;
@@ -3234,7 +3247,7 @@ function _raciExpandLoadChannels(taskId){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); _populate(); })
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); _populate(); }); })
     .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('raci-chpicker-'+taskId); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
 }
 function raciLinkSlack(taskId,sel){
@@ -5093,7 +5106,7 @@ function _agendaExpandLoadChannels(id){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); _populate(); })
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); _populate(); }); })
     .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('agenda-chpicker-'+id); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
 }
 function agendaLinkSlack(id,sel){
@@ -10341,7 +10354,7 @@ function _slackLoadChannels(){
       if(data.error){ sel.innerHTML=`<option value="">Error: ${data.error}</option>`; return; }
       const chs=data.channels||[];
       _slackChannelsCache=chs;
-      _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection();
+      loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); });
       sel.innerHTML='<option value="">— Select channel —</option>'+
         chs.map(c=>`<option value="${c.id}">#${c.name} (${c.member_count||0})</option>`).join('');
       if(_slackChannelId){
