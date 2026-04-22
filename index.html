@@ -414,18 +414,23 @@ tr.hidden-row{display:none}
 .owner-cell{font-size:11px;color:var(--text);max-width:130px}
 .warn{color:var(--amber)}
 
-/* ── ROADMAP ── */
-.roadmap-wrap{overflow-x:auto;position:relative}
-#roadmap-head-wrap{overflow-x:hidden}
-#roadmap-sticky-header{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7)}
-.roadmap-table{border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:900px;width:100%}
-.roadmap-table th{background:var(--surface);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:8px 10px;text-align:center;border:1px solid var(--border);border-left:none;border-top:none;white-space:nowrap}
-.roadmap-table thead tr:first-child th{border-top:1px solid var(--border)}
-.roadmap-table th.ws-col{text-align:left;background:var(--surface);border-left:1px solid var(--border)}
-.roadmap-table th.launch-col{background:rgba(52,211,153,0.06);color:var(--green)}
-.roadmap-table td{border:1px solid var(--border);border-left:none;border-top:none;padding:6px 8px;font-size:11px;vertical-align:top}
-.roadmap-table td.ws-label{font-size:12px;color:var(--text);font-weight:500;background:var(--surface);white-space:nowrap;border-left:1px solid var(--border)}
-.roadmap-table tbody tr:first-child td{border-top:1px solid var(--border)}
+/* ── TIMELINE GANTT ── */
+#gantt-sticky-bar{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7)}
+#gantt-hdr-scroll{overflow:hidden}
+#gantt-hdr-canvas{position:relative;height:52px;background:var(--surface)}
+#gantt-scroll{overflow-x:auto;position:relative}
+#gantt-canvas{position:relative}
+.gantt-row{display:flex;align-items:stretch;border-bottom:1px solid rgba(37,42,53,0.4);min-height:44px}
+.gantt-row-label{position:sticky;left:0;z-index:10;width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:6px 10px;font-size:11px;color:var(--text);font-weight:500;display:flex;align-items:center;white-space:nowrap;overflow:hidden}
+.gantt-row-track{flex:1;position:relative;min-height:44px;overflow:visible}
+.gantt-month-band{position:absolute;top:0;height:28px;box-sizing:border-box;border-left:1px solid var(--border);padding:2px 6px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;background:var(--surface)}
+.gantt-week-tick{position:absolute;top:28px;height:24px;box-sizing:border-box;border-left:1px solid rgba(37,42,53,0.4);padding:2px 3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--border);white-space:nowrap;overflow:hidden}
+.gantt-col-bg{position:absolute;top:0;bottom:0;width:1px;background:rgba(37,42,53,0.25);pointer-events:none;z-index:1}
+#gantt-today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:0.7;pointer-events:none;z-index:6}
+#gantt-hdr-today{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:0.6;pointer-events:none}
+.gantt-ctrl-btn{font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+.gantt-ctrl-btn:hover,.gantt-ctrl-btn.active-zoom{border-color:var(--gold);color:var(--gold)}
+.gantt-ms-line{position:absolute;top:0;bottom:0;width:2px;pointer-events:auto;cursor:default}
 .rm-cell{background:var(--card);border-radius:4px;padding:0;font-size:10px;color:var(--muted);line-height:1.4;display:flex;align-items:stretch;gap:0;cursor:default;user-select:none;overflow:hidden;position:relative;z-index:3}
 .rm-cell.active{background:rgba(201,168,76,0.08);color:var(--gold-light);border-left:2px solid var(--gold)}
 .rm-cell.milestone{background:rgba(52,211,153,0.08);color:var(--green);border-left:2px solid var(--green);font-weight:500}
@@ -937,36 +942,30 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
 <!-- ══ PAGE: ROADMAP ══ -->
 <div id="page-roadmap" class="page">
-  <div class="section-label">10-Week Launch Roadmap — Apr 20 → Jul 1, 2026</div>
-  <div id="roadmap-sticky-header">
-    <div class="alert-banner amber" style="margin-bottom:0">⬤ &nbsp;CRITICAL DEPENDENCY — Beta must start May 11. 30 days of family receipts power social proof for launch. Slip beta = slip everything.</div>
-    <div id="roadmap-head-wrap">
-      <table class="roadmap-table" id="roadmap-head-table">
-        <colgroup><col style="width:160px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:94px"></colgroup>
-        <thead><tr>
-          <th class="ws-col">Workstream</th>
-          <th>W1<br><small>Apr 20–26</small></th>
-          <th>W2<br><small>Apr 27–May 3</small></th>
-          <th>W3<br><small>May 4–10</small></th>
-          <th>W4<br><small>May 11–17</small></th>
-          <th>W5<br><small>May 18–24</small></th>
-          <th>W6<br><small>May 25–31</small></th>
-          <th>W7<br><small>Jun 1–7</small></th>
-          <th>W8<br><small>Jun 8–14</small></th>
-          <th>W9<br><small>Jun 15–21</small></th>
-          <th>W10<br><small>Jun 22–28</small></th>
-          <th class="launch-col" id="roadmap-launch-th">LAUNCH<br><small>Jul 1</small></th>
-        </tr>
-        <tr id="roadmap-status-row"></tr>
-        </thead>
-      </table>
+  <div class="section-label">Launch Roadmap — Apr 20, 2026 → Apr 20, 2027</div>
+  <div class="alert-banner amber" style="margin-bottom:8px">⬤ &nbsp;CRITICAL DEPENDENCY — Beta must start May 11. 30 days of family receipts power social proof for launch. Slip beta = slip everything.</div>
+  <div id="gantt-sticky-bar">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
+      <button class="gantt-ctrl-btn" onclick="_ganttScrollToday()">◀ Today</button>
+      <button class="gantt-ctrl-btn" onclick="_ganttScrollLaunch()">🚀 Launch</button>
+      <div style="flex:1"></div>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
+      <button class="gantt-ctrl-btn" id="zoom-2w" onclick="_ganttSetZoom('2w')">2W</button>
+      <button class="gantt-ctrl-btn active-zoom" id="zoom-90d" onclick="_ganttSetZoom('90d')">90D</button>
+      <button class="gantt-ctrl-btn" id="zoom-6mo" onclick="_ganttSetZoom('6mo')">6MO</button>
+      <button class="gantt-ctrl-btn" id="zoom-1yr" onclick="_ganttSetZoom('1yr')">1YR</button>
+    </div>
+    <div style="display:flex">
+      <div style="width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:flex-end;padding:4px 8px">
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px">WORKSTREAM</span>
+      </div>
+      <div id="gantt-hdr-scroll" style="flex:1;overflow:hidden">
+        <div id="gantt-hdr-canvas" style="position:relative;height:52px"></div>
+      </div>
     </div>
   </div>
-  <div class="roadmap-wrap">
-    <table class="roadmap-table" id="roadmap-table">
-      <colgroup><col style="width:160px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:94px"></colgroup>
-      <tbody id="roadmap-body"></tbody>
-    </table>
+  <div id="gantt-scroll">
+    <div id="gantt-canvas"></div>
   </div>
   <div style="margin-top:32px">
     <div class="section-label">Key Milestones</div>
@@ -1291,7 +1290,7 @@ function showPage(id){
   if(pg) pg.classList.add('active');
   sessionStorage.setItem('dgl_active_tab',id);
   if(id==='raci') setTimeout(_raciStickyThTop,50);
-  if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(initRoadmapHeadSync,50); }
+  if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom('90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
   if(id==='budget') loadBudgetFromSheets();
   if(id==='command'){
@@ -1328,13 +1327,7 @@ function _restoreNavOrder(user){
   if(!tabs) return;
   order.forEach(id=>{ const el=tabs.querySelector('[data-tab-id="'+id+'"]'); if(el) tabs.appendChild(el); });
 }
-function initRoadmapHeadSync(){
-  const wrap=document.querySelector('.roadmap-wrap');
-  const headWrap=document.getElementById('roadmap-head-wrap');
-  if(!wrap||!headWrap||wrap._headSynced) return;
-  wrap._headSynced=true;
-  wrap.addEventListener('scroll',()=>{ headWrap.scrollLeft=wrap.scrollLeft; },{passive:true});
-}
+function initRoadmapHeadSync(){ /* no-op: replaced by gantt scroll sync in buildRoadmap */ }
 
 function _raciStickyThTop(){
   const bar=document.getElementById('raci-filter-sticky');
@@ -3639,76 +3632,112 @@ const _GANTT_BAR_BG={
   'var(--gold)':'rgba(201,168,76,0.08)',
   'var(--muted)':'transparent',
 };
+// ── Gantt timeline constants & helpers ──────────────────────
+const _GANTT_START='2026-04-20';
+const _GANTT_DAYS=365;
+let _ganttDayPx=28;
+const _GANTT_LABEL_W=160;
+function _ganttStartMs(){return new Date(_GANTT_START+'T00:00:00').getTime();}
+function _ganttDayOff(dateStr){
+  if(!dateStr) return 0;
+  let ms;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) ms=new Date(dateStr+'T00:00:00').getTime();
+  else{const p=new Date(dateStr);if(isNaN(p.getTime())) return 0;ms=new Date(p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0')+'T00:00:00').getTime();}
+  return Math.max(0,(ms-_ganttStartMs())/86400000);
+}
+function _isoToday(){
+  const d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function _ganttSyncHeader(){
+  const scroll=document.getElementById('gantt-scroll');
+  const hdrScroll=document.getElementById('gantt-hdr-scroll');
+  if(scroll&&hdrScroll) hdrScroll.scrollLeft=scroll.scrollLeft;
+}
+function _ganttScrollToday(){
+  const scroll=document.getElementById('gantt-scroll');
+  if(!scroll) return;
+  const off=_ganttDayOff(_isoToday());
+  scroll.scrollLeft=Math.max(0,Math.round(off*_ganttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+}
+function _ganttScrollLaunch(){
+  const scroll=document.getElementById('gantt-scroll');
+  if(!scroll) return;
+  const off=_ganttDayOff(DASHBOARD_DATA.meta.milestoneDate||'2026-07-01');
+  scroll.scrollLeft=Math.max(0,Math.round(off*_ganttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+}
+function _ganttSetZoom(z){
+  const daysMap={'2w':14,'90d':90,'6mo':182,'1yr':365};
+  const days=daysMap[z]||90;
+  const scroll=document.getElementById('gantt-scroll');
+  const visW=scroll?scroll.clientWidth-_GANTT_LABEL_W:800;
+  _ganttDayPx=Math.max(3,Math.round(visW/days));
+  document.querySelectorAll('[id^="zoom-"]').forEach(b=>b.classList.remove('active-zoom'));
+  const btn=document.getElementById('zoom-'+z);
+  if(btn) btn.classList.add('active-zoom');
+  buildRoadmap();
+  requestAnimationFrame(_ganttScrollToday);
+}
+function _xToDate(clientX){
+  const scroll=document.getElementById('gantt-scroll');
+  if(!scroll) return _GANTT_START;
+  const rect=scroll.getBoundingClientRect();
+  const dayOff=Math.round((clientX-rect.left-_GANTT_LABEL_W+scroll.scrollLeft)/_ganttDayPx);
+  const clamped=Math.max(0,Math.min(_GANTT_DAYS-1,dayOff));
+  const d=new Date(_ganttStartMs()+clamped*86400000);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 function buildRoadmap(){
-  const tbody = document.getElementById('roadmap-body');
-  if(!tbody) return;
-  const WEEKS = [
-    {label:'W1',  start:'2026-04-20', end:'2026-04-26'},
-    {label:'W2',  start:'2026-04-27', end:'2026-05-03'},
-    {label:'W3',  start:'2026-05-04', end:'2026-05-10'},
-    {label:'W4',  start:'2026-05-11', end:'2026-05-17'},
-    {label:'W5',  start:'2026-05-18', end:'2026-05-24'},
-    {label:'W6',  start:'2026-05-25', end:'2026-05-31'},
-    {label:'W7',  start:'2026-06-01', end:'2026-06-07'},
-    {label:'W8',  start:'2026-06-08', end:'2026-06-14'},
-    {label:'W9',  start:'2026-06-15', end:'2026-06-21'},
-    {label:'W10', start:'2026-06-22', end:'2026-06-28'},
-    {label:'LAUNCH', start:'2026-07-01', end:'2026-07-31'},
-  ];
-  const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
-  const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const canvas=document.getElementById('gantt-canvas');
+  const hdrCanvas=document.getElementById('gantt-hdr-canvas');
+  if(!canvas) return;
+  const totalTrackW=_GANTT_DAYS*_ganttDayPx;
+  const today=_isoToday();
+
+  // ── Launch day celebration ──
   if(DASHBOARD_DATA.meta.milestoneDate===today&&!sessionStorage.getItem('dgl_celebrated')){
     sessionStorage.setItem('dgl_celebrated','1');
     triggerCelebration();
   }
 
-  // ── Launch column header countdown ──
-  const launchTh = document.getElementById('roadmap-launch-th');
-  if(launchTh){
-    const meta = DASHBOARD_DATA.meta;
-    const ld = new Date((meta.milestoneDate||'2026-07-01')+'T00:00:00');
-    _d.setHours(0,0,0,0); ld.setHours(0,0,0,0);
-    const diff = Math.round((ld - _d)/(1000*60*60*24));
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][ld.getMonth()];
-    const dateLabel = mo+' '+ld.getDate();
-    let cdColor, cdText;
-    if(diff < 0){ cdColor='var(--muted)'; cdText=Math.abs(diff)+'d ago'; }
-    else if(diff <= 7){ cdColor='var(--red)'; cdText=diff+'d away'; }
-    else if(diff <= 14){ cdColor='var(--amber)'; cdText=diff+'d away'; }
-    else { cdColor='var(--green)'; cdText=diff+'d away'; }
-    launchTh.innerHTML = `LAUNCH<br><small>${dateLabel}</small><br><small style="color:${cdColor};font-size:9px">${cdText}</small>`;
-  }
-
-  // ── Normalize any date value to "YYYY-MM-DD" string ──
   function toIsoDate(v){
     if(!v) return '';
     if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
     const d=new Date(v); if(isNaN(d.getTime())) return '';
-    // Use UTC to avoid timezone shift on ISO timestamp strings (e.g. from Sheets)
     return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
   }
-
-  // ── Week status indicator row ──
-  const statusRow = document.getElementById('roadmap-status-row');
-  if(statusRow){
-    let sHtml = '<th class="ws-col" style="padding:3px 10px;font-size:8px;color:var(--muted);letter-spacing:1px">STATUS</th>';
-    WEEKS.forEach(w=>{
-      const wt = DASHBOARD_DATA.tasks.filter(t=>{ const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed); return sd&&ed&&sd<=w.end&&ed>=w.start; });
-      let dot, color;
-      if(!wt.length){ dot='·'; color='var(--border)'; }
-      else if(wt.every(t=>t.status==='Done'||t.status==='Complete')){ dot='✓'; color='var(--green)'; }
-      else if(wt.some(t=>t.status!=='Done'&&t.status!=='Complete'&&toIsoDate(t.ed)&&toIsoDate(t.ed)<today)){ dot='⛔'; color='var(--red)'; }
-      else if(wt.some(t=>['Started','In Progress','In Review','Ready'].includes(t.status))){ dot='●'; color='var(--amber)'; }
-      else{ dot='○'; color='var(--muted)'; }
-      const isLaunch = w.label==='LAUNCH';
-      sHtml += `<th style="padding:3px 8px;text-align:center;${isLaunch?'background:rgba(52,211,153,0.06)':''}"><span style="font-size:11px;color:${color};line-height:1">${dot}</span></th>`;
-    });
-    statusRow.innerHTML = sHtml;
+  function _addDays(iso,n){
+    const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   }
 
-  const cats = {};
-  DASHBOARD_DATA.tasks.forEach(t=>{ if(!cats[t.cat]) cats[t.cat]=[]; cats[t.cat].push(t); });
-  // Flag emoji extractor — returns just the leading emoji character from a flag string
+  // ── Build header ──
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if(hdrCanvas){
+    hdrCanvas.style.width=totalTrackW+'px';
+    let hdrHtml='';
+    const ganttStart=new Date(_GANTT_START+'T00:00:00');
+    let cur=new Date(ganttStart.getFullYear(),ganttStart.getMonth(),1);
+    while(true){
+      const mStartDay=Math.max(0,(cur-ganttStart)/86400000);
+      if(mStartDay>=_GANTT_DAYS) break;
+      const mEndRaw=new Date(cur.getFullYear(),cur.getMonth()+1,0);
+      const mEndDay=Math.min(_GANTT_DAYS-1,(mEndRaw-ganttStart)/86400000);
+      const bandW=(mEndDay-mStartDay+1)*_ganttDayPx;
+      hdrHtml+=`<div class="gantt-month-band" style="left:${mStartDay*_ganttDayPx}px;width:${bandW}px">${MO[cur.getMonth()]} ${cur.getFullYear()}</div>`;
+      cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+    }
+    for(let day=0;day<_GANTT_DAYS;day+=7){
+      const td=new Date(_ganttStartMs()+day*86400000);
+      hdrHtml+=`<div class="gantt-week-tick" style="left:${day*_ganttDayPx}px">${(td.getMonth()+1)+'/'+td.getDate()}</div>`;
+    }
+    const todayHdrOff=_ganttDayOff(today);
+    if(todayHdrOff<_GANTT_DAYS) hdrHtml+=`<div id="gantt-hdr-today" style="left:${todayHdrOff*_ganttDayPx}px"></div>`;
+    hdrCanvas.innerHTML=hdrHtml;
+  }
+
+  // ── Build rows ──
   function _flagEmoji(flag){
     if(!flag) return '';
     const f=flag.trim();
@@ -3720,95 +3749,96 @@ function buildRoadmap(){
     if(f.startsWith('💡')) return '💡';
     return '';
   }
-
-  tbody.innerHTML = '';
-  Object.entries(cats).forEach(([cat, tasks])=>{
-    const tr = document.createElement('tr');
-    const rowLabel = CAT_LABELS[cat] || cat;
-    // Row label: show highest-priority flag among tasks in this category
-    const flaggedTasks=tasks.filter(t=>_flagEmoji(t.flag));
-    const rowFlagEmoji=flaggedTasks.length?_flagEmoji(flaggedTasks[0].flag):'';
-    const rowFlagTip=rowFlagEmoji?flaggedTasks[0].flag:'';
-    let html = `<td class="ws-label">${rowFlagEmoji?`<span title="${rowFlagTip.replace(/"/g,'&quot;')}" style="margin-right:5px;font-size:11px;line-height:1;vertical-align:middle">${rowFlagEmoji}</span>`:''}${rowLabel}</td>`;
-    WEEKS.forEach((w,wi)=>{
-      const inWeek = tasks.filter(t=>{ const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed); return sd&&ed&&sd<=w.end&&ed>=w.start; });
-      if(!inWeek.length){
-        html += `<td data-week-idx="${wi}"><span class="rm-empty">—</span></td>`;
-      } else {
-        const cells = inWeek.map(t=>{
-          const isDone = t.status==='Done'||t.status==='Complete';
-          const isActive = ['Started','In Progress','Ready','In Review'].includes(t.status);
-          const isOverdue = !isDone && toIsoDate(t.ed) < today;
-          // Status-based class (original colors preserved)
-          const cls = isDone ? 'rm-cell milestone' : isActive ? 'rm-cell active' : 'rm-cell';
-          const ovStyle = isOverdue ? 'color:var(--red);border-color:rgba(248,113,113,0.4);' : '';
-          const name = t.name.length>12 ? t.name.substring(0,11)+'…' : t.name;
-          const sd=toIsoDate(t.sd)||'', ed=toIsoDate(t.ed)||'';
-          const flagIco=_flagEmoji(t.flag);
-          const flagPin=flagIco?`<span class="gantt-flag-pin" title="${(t.flag||'').replace(/"/g,'&quot;')}" style="font-size:9px;line-height:1;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
-          return `<div class="${cls}" style="${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">
-            <span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true" title="Drag to shift start date"></span>
-            <span class="gantt-mid" draggable="true" data-task-id="${t.id}" data-mode="move">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span></span>
-            <span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true" title="Drag to shift end date"></span>
-          </div>`;
-        }).join('');
-        html += `<td data-week-idx="${wi}">${cells}</td>`;
-      }
+  function _assignLanes(tasks){
+    const valid=tasks.filter(t=>toIsoDate(t.sd)&&toIsoDate(t.ed)).sort((a,b)=>{const sa=toIsoDate(a.sd),sb=toIsoDate(b.sd);return sa<sb?-1:sa>sb?1:0;});
+    const laneEnds=[];
+    const map=new Map();
+    valid.forEach(t=>{
+      const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed);
+      let lane=laneEnds.findIndex(e=>e<sd);
+      if(lane<0) lane=laneEnds.length;
+      laneEnds[lane]=ed;
+      map.set(t.id,lane);
     });
-    tr.dataset.cat=cat;
-    tr.innerHTML = html;
-    tbody.appendChild(tr);
+    tasks.filter(t=>!toIsoDate(t.sd)||!toIsoDate(t.ed)).forEach(t=>map.set(t.id,0));
+    return{map,maxLane:Math.max(1,laneEnds.length)};
+  }
+
+  const cats={};
+  DASHBOARD_DATA.tasks.forEach(t=>{if(!cats[t.cat])cats[t.cat]=[];cats[t.cat].push(t);});
+
+  let canvasHtml='';
+  const todayOff=_ganttDayOff(today);
+
+  Object.entries(cats).forEach(([cat,tasks])=>{
+    const rowLabel=CAT_LABELS[cat]||cat;
+    const {map,maxLane}=_assignLanes(tasks);
+    const rowH=Math.max(44,maxLane*26+10);
+
+    let barsHtml='';
+    for(let day=0;day<_GANTT_DAYS;day+=7){
+      barsHtml+=`<div class="gantt-col-bg" style="left:${day*_ganttDayPx}px;height:${rowH}px"></div>`;
+    }
+
+    tasks.forEach(t=>{
+      const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed);
+      if(!sd||!ed) return;
+      const sdOff=_ganttDayOff(sd);
+      const edOff=_ganttDayOff(ed);
+      const barW=Math.max((edOff-sdOff+1)*_ganttDayPx,Math.max(20,_ganttDayPx));
+      const barL=sdOff*_ganttDayPx;
+      const lane=map.get(t.id)||0;
+      const barTop=5+lane*26;
+      const isDone=t.status==='Done'||t.status==='Complete';
+      const isActive=['Started','In Progress','Ready','In Review'].includes(t.status);
+      const isOverdue=!isDone&&ed<today;
+      const cls=isDone?'rm-cell milestone':isActive?'rm-cell active':'rm-cell';
+      const ovStyle=isOverdue?'color:var(--red);border-color:rgba(248,113,113,0.4);':'';
+      const maxChars=Math.max(4,Math.floor(barW/_ganttDayPx*1.2));
+      const name=t.name.length>maxChars?t.name.substring(0,maxChars)+'…':t.name;
+      const flagIco=_flagEmoji(t.flag);
+      const flagPin=flagIco?`<span style="font-size:9px;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
+      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true"></span><span class="gantt-mid" draggable="true" data-task-id="${t.id}" data-mode="move">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true"></span></div>`;
+    });
+
+    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px"><div class="gantt-row-label">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;width:${totalTrackW}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
   });
-  _initGanttDrag(WEEKS, toIsoDate);
-  // Defer so tbody has been painted and has measurable height
+  canvas.innerHTML=canvasHtml;
+
+  // ── Today line ──
+  let todayLine=document.getElementById('gantt-today-line');
+  if(todayLine) todayLine.remove();
+  if(todayOff<_GANTT_DAYS){
+    todayLine=document.createElement('div');
+    todayLine.id='gantt-today-line';
+    todayLine.style.cssText=`position:absolute;left:${_GANTT_LABEL_W+todayOff*_ganttDayPx}px;top:0;bottom:0;width:2px;background:var(--red);opacity:0.7;pointer-events:none;z-index:6`;
+    canvas.appendChild(todayLine);
+  }
+
+  // ── Scroll sync ──
+  const scroll=document.getElementById('gantt-scroll');
+  if(scroll&&!scroll._ganttSynced){
+    scroll._ganttSynced=true;
+    scroll.addEventListener('scroll',_ganttSyncHeader,{passive:true});
+  }
+
+  _initGanttDrag();
   requestAnimationFrame(_renderGanttMilestoneLines);
 }
 
 function _renderGanttMilestoneLines(){
-  const wrap=document.querySelector('.roadmap-wrap');
-  const tbody=document.getElementById('roadmap-body');
-  if(!wrap||!tbody) return;
-  ['gantt-milestone-overlay','gantt-ms-lines','gantt-ms-diamonds'].forEach(id=>{ const el=document.getElementById(id); if(el) el.remove(); });
+  const canvas=document.getElementById('gantt-canvas');
+  const hdrCanvas=document.getElementById('gantt-hdr-canvas');
+  if(!canvas) return;
+  ['gantt-ms-lines','gantt-ms-diamonds','gantt-ms-lines-hdr'].forEach(id=>{ const el=document.getElementById(id); if(el) el.remove(); });
   const items=(DASHBOARD_DATA.meta.milestoneItems||[]).filter(m=>m.date);
   if(!items.length) return;
 
-  // Measure actual rendered column positions from the DOM
-  const sampleRow=tbody.querySelector('tr');
-  if(!sampleRow) return;
-  const firstWkTd=sampleRow.querySelector('td[data-week-idx="0"]');
-  const lastWkTd=sampleRow.querySelector('td[data-week-idx="10"]');
-  if(!firstWkTd||!lastWkTd) return;
-  const wrapRect=wrap.getBoundingClientRect();
-  const scrollLeft=wrap.scrollLeft;
-  const ganttLeft=firstWkTd.getBoundingClientRect().left-wrapRect.left+scrollLeft;
-  const ganttRight=lastWkTd.getBoundingClientRect().right-wrapRect.left+scrollLeft;
-  const ganttWidth=ganttRight-ganttLeft;
-  const totalWidth=wrap.scrollWidth||wrap.offsetWidth;
-
-  // Timeline bounds matching buildRoadmap WEEKS
-  const ganttStartDate=new Date('2026-04-20T00:00:00');
-  const ganttEndDate=new Date('2026-08-01T00:00:00'); // day after last LAUNCH week end
-  const totalMs=ganttEndDate-ganttStartDate;
-
-  function _parseMs(s){
-    if(!s) return NaN;
-    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s+'T00:00:00').getTime();
-    const p=new Date(s);
-    if(isNaN(p.getTime())) return NaN;
-    return new Date(p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0')+'T00:00:00').getTime();
-  }
-  function _xPct(dateStr){
-    const d=_parseMs(dateStr);
-    if(isNaN(d)){ console.warn('[DGL] Milestone invalid date:',dateStr); return null; }
-    const frac=Math.max(0,Math.min(1,(d-ganttStartDate.getTime())/totalMs));
-    const xPx=ganttLeft+frac*ganttWidth;
-    return (xPx/totalWidth)*100;
-  }
-
+  const totalTrackW=_GANTT_DAYS*_ganttDayPx;
+  const canvasH=canvas.scrollHeight||canvas.offsetHeight||400;
   const _COLOR_MAP={'gold':'#c9a84c','red':'#ef4444','green':'#22c55e','blue':'#4a9eff','amber':'#f59e0b','purple':'#a78bfa','teal':'#2dd4bf','pink':'#f472b6'};
   function _resolveColor(raw){ if(!raw) return '#c9a84c'; return _COLOR_MAP[raw.toLowerCase()]||raw; }
 
-  // Shared rich tooltip
   let _mTip=document.getElementById('gantt-ms-tooltip');
   if(!_mTip){ _mTip=document.createElement('div'); _mTip.id='gantt-ms-tooltip'; _mTip.style.cssText='position:fixed;z-index:9001;background:var(--card);border:1px solid var(--gold);border-radius:6px;padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);pointer-events:none;display:none;max-width:240px;box-shadow:0 6px 20px rgba(0,0,0,0.5)'; document.body.appendChild(_mTip); }
   function _showMTip(e,m,color){
@@ -3819,43 +3849,53 @@ function _renderGanttMilestoneLines(){
   }
   function _hideMTip(){ _mTip.style.display='none'; }
 
-  const tbodyH=tbody.getBoundingClientRect().height||200;
   const linesOverlay=document.createElement('div');
   linesOverlay.id='gantt-ms-lines';
-  linesOverlay.style.cssText='position:absolute;top:0;left:0;width:'+totalWidth+'px;height:'+tbodyH+'px;pointer-events:none;z-index:2;overflow:visible';
+  linesOverlay.style.cssText=`position:absolute;top:0;left:${_GANTT_LABEL_W}px;width:${totalTrackW}px;height:${canvasH}px;pointer-events:none;z-index:2;overflow:visible`;
 
   const diamondsOverlay=document.createElement('div');
   diamondsOverlay.id='gantt-ms-diamonds';
-  diamondsOverlay.style.cssText='position:absolute;top:0;left:0;width:'+totalWidth+'px;height:'+tbodyH+'px;pointer-events:none;z-index:5;overflow:visible';
+  diamondsOverlay.style.cssText=`position:absolute;top:0;left:${_GANTT_LABEL_W}px;width:${totalTrackW}px;height:${canvasH}px;pointer-events:none;z-index:5;overflow:visible`;
 
-  console.log('[DGL] Rendering milestone lines:',items.length,'ganttLeft:',ganttLeft.toFixed(0),'ganttWidth:',ganttWidth.toFixed(0));
+  const hdrLinesOverlay=document.createElement('div');
+  hdrLinesOverlay.id='gantt-ms-lines-hdr';
+  hdrLinesOverlay.style.cssText=`position:absolute;top:0;left:0;width:${totalTrackW}px;height:52px;pointer-events:none;z-index:4;overflow:visible`;
+
+  console.log('[DGL] Rendering milestone lines:',items.length);
   items.forEach(m=>{
-    const xPct=_xPct(m.date);
-    if(xPct===null) return;
-    console.log('[DGL] Milestone line:',m.title,'date:',m.date,'x:',xPct.toFixed(1)+'%');
+    const off=_ganttDayOff(m.date);
+    if(off>=_GANTT_DAYS){ console.warn('[DGL] Milestone out of range:',m.title,m.date); return; }
+    const x=Math.round(off*_ganttDayPx);
     const isDone=m.status==='Complete'||m.status==='Done';
     const color=isDone?'#22c55e':_resolveColor(m.color);
     const marker=isDone?'✓':'◆';
+    console.log('[DGL] Milestone:',m.title,'day:',off.toFixed(1),'x:',x+'px');
 
     const line=document.createElement('div');
-    line.style.cssText=`position:absolute;left:${xPct}%;top:14px;width:2px;height:calc(100% - 14px);border-left:2px solid ${color};opacity:0.5;pointer-events:auto;cursor:default`;
+    line.style.cssText=`position:absolute;left:${x}px;top:0;width:2px;height:100%;border-left:2px solid ${color};opacity:0.5;pointer-events:auto;cursor:default`;
     line.addEventListener('mouseenter',e=>_showMTip(e,m,color));
     line.addEventListener('mousemove',e=>{ _mTip.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px'; _mTip.style.top=(e.clientY-10)+'px'; });
     line.addEventListener('mouseleave',_hideMTip);
 
     const diamond=document.createElement('div');
     diamond.textContent=marker;
-    diamond.style.cssText=`position:absolute;left:${xPct}%;top:2px;transform:translateX(-50%);font-size:10px;color:${color};opacity:1;line-height:1;pointer-events:auto;cursor:default;text-shadow:0 1px 3px rgba(0,0,0,0.6)`;
+    diamond.style.cssText=`position:absolute;left:${x}px;top:2px;transform:translateX(-50%);font-size:10px;color:${color};opacity:1;line-height:1;pointer-events:auto;cursor:default;text-shadow:0 1px 3px rgba(0,0,0,0.6)`;
     diamond.addEventListener('mouseenter',e=>_showMTip(e,m,color));
     diamond.addEventListener('mousemove',e=>{ _mTip.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px'; _mTip.style.top=(e.clientY-10)+'px'; });
     diamond.addEventListener('mouseleave',_hideMTip);
 
+    const hdrMarker=document.createElement('div');
+    hdrMarker.textContent=marker;
+    hdrMarker.style.cssText=`position:absolute;left:${x}px;top:32px;transform:translateX(-50%);font-size:10px;color:${color};opacity:0.8;line-height:1;pointer-events:none`;
+
     linesOverlay.appendChild(line);
     diamondsOverlay.appendChild(diamond);
+    hdrLinesOverlay.appendChild(hdrMarker);
   });
 
-  wrap.appendChild(linesOverlay);
-  wrap.appendChild(diamondsOverlay);
+  canvas.appendChild(linesOverlay);
+  canvas.appendChild(diamondsOverlay);
+  if(hdrCanvas) hdrCanvas.appendChild(hdrLinesOverlay);
 }
 
 // ── Gantt context menu ───────────────────────────────────────
@@ -4183,141 +4223,86 @@ function _ganttDeleteTask(taskId){
 }
 
 // ── Gantt drag-and-drop ──────────────────────────────────────
-function _initGanttDrag(WEEKS, toIsoDate){
-  const tbody=document.getElementById('roadmap-body');
-  if(!tbody||tbody._ganttDragInited) return;
-  tbody._ganttDragInited=true;
+function _initGanttDrag(){
+  const canvas=document.getElementById('gantt-canvas');
+  if(!canvas||canvas._ganttDragInited) return;
+  canvas._ganttDragInited=true;
 
-  function _addDays(dateStr,days){
-    const d=new Date(dateStr+'T00:00:00');
-    d.setDate(d.getDate()+days);
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
-  function _daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
-  function _isoDate(v){
+  function toIsoDate(v){
     if(!v) return '';
     if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
     const d=new Date(v); if(isNaN(d.getTime())) return '';
     return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
   }
+  function _addDays(dateStr,days){
+    const d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()+days);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function _daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
 
   let _drag=null;
-  // Create tooltip element
   let _tip=document.getElementById('gantt-drag-tooltip');
   if(!_tip){ _tip=document.createElement('div'); _tip.id='gantt-drag-tooltip'; document.body.appendChild(_tip); }
 
-  function _taskRow(cat){ return tbody.querySelector(`tr[data-cat="${CSS.escape(cat)}"]`); }
-  function _clearHighlights(){
-    tbody.querySelectorAll('.gantt-drop-target').forEach(td=>td.classList.remove('gantt-drop-target'));
-    tbody.querySelectorAll('.gantt-range-target').forEach(td=>td.classList.remove('gantt-range-target'));
-  }
-
-  tbody.addEventListener('dragstart',e=>{
+  canvas.addEventListener('dragstart',e=>{
     const draggable=e.target.closest('[draggable][data-task-id]');
     if(!draggable) return;
     const taskId=draggable.dataset.taskId;
     const mode=draggable.dataset.mode||'move';
     const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
     if(!t) return;
-    const sd=_isoDate(t.sd), ed=_isoDate(t.ed);
+    const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed);
     const dur=sd&&ed?_daysBetween(sd,ed):6;
-    _drag={taskId,taskCat:t.cat||'',origSd:sd,origEd:ed,durationDays:Math.max(0,dur),mode};
+    _drag={taskId,origSd:sd,origEd:ed,durationDays:Math.max(0,dur),mode};
     e.dataTransfer.effectAllowed='move';
     e.dataTransfer.setData('text/plain',taskId+'|'+mode);
-    setTimeout(()=>{ tbody.querySelectorAll(`[data-task-id="${taskId}"]`).forEach(el=>el.classList.add('gantt-dragging')); },0);
+    setTimeout(()=>{ canvas.querySelectorAll(`[data-task-id="${taskId}"]`).forEach(el=>el.classList.add('gantt-dragging')); },0);
   },true);
 
-  tbody.addEventListener('dragend',()=>{
+  canvas.addEventListener('dragend',()=>{
     _drag=null;
     _tip.style.display='none';
-    tbody.querySelectorAll('.gantt-dragging').forEach(el=>el.classList.remove('gantt-dragging'));
-    _clearHighlights();
+    canvas.querySelectorAll('.gantt-dragging').forEach(el=>el.classList.remove('gantt-dragging'));
   },true);
 
-  tbody.addEventListener('dragover',e=>{
+  canvas.addEventListener('dragover',e=>{
     if(!_drag) return;
     e.preventDefault();
     e.dataTransfer.dropEffect='move';
-    // Determine hovered week from mouse X — use the task's own row, not whichever row the mouse is over
-    const taskRow=_taskRow(_drag.taskCat);
-    _clearHighlights();
-    if(!taskRow) return;
-    // Find which week column the mouse X maps to within the task's own row
-    const rowTds=Array.from(taskRow.querySelectorAll('td[data-week-idx]'));
-    const hoveredTd=rowTds.find(td=>{ const r=td.getBoundingClientRect(); return e.clientX>=r.left&&e.clientX<=r.right; });
-    if(!hoveredTd) return;
-    const weekIdx=parseInt(hoveredTd.dataset.weekIdx);
-    const week=WEEKS[weekIdx];
-    if(!week) return;
-    // Compute preview range
-    let previewSd, previewEd;
-    if(_drag.mode==='move'){
-      previewSd=week.start;
-      previewEd=_addDays(previewSd,_drag.durationDays||6);
-    } else if(_drag.mode==='left'){
-      previewSd=week.start;
-      previewEd=_drag.origEd;
-      if(previewSd>=previewEd) previewSd=_addDays(previewEd,-1);
-    } else {
-      previewSd=_drag.origSd;
-      previewEd=week.end;
-      if(previewEd<=previewSd) previewEd=_addDays(previewSd,1);
-    }
-    // Highlight only cells in the task's own row within the preview range
-    rowTds.forEach(td=>{
-      const wi=parseInt(td.dataset.weekIdx);
-      const w=WEEKS[wi]; if(!w) return;
-      if(previewSd<=w.end&&previewEd>=w.start)
-        td.classList.add(wi===weekIdx?'gantt-drop-target':'gantt-range-target');
-    });
-    // Tooltip
-    const tipText=_drag.mode==='left'?'Start: '+previewSd:_drag.mode==='right'?'End: '+previewEd:'Start: '+previewSd;
+    const hoverDate=_xToDate(e.clientX);
+    const tipText=_drag.mode==='right'?'End: '+hoverDate:'Start: '+hoverDate;
     _tip.textContent=tipText;
     _tip.style.left=Math.min(e.clientX+14,window.innerWidth-160)+'px';
     _tip.style.top=(e.clientY-34)+'px';
     _tip.style.display='block';
   },true);
 
-  tbody.addEventListener('drop',e=>{
+  canvas.addEventListener('drop',e=>{
     if(!_drag) return;
     e.preventDefault();
     _tip.style.display='none';
-    _clearHighlights();
-    // Snap drop to the task's own workstream row — resolve week from mouse X
-    const taskRow=_taskRow(_drag.taskCat);
-    if(!taskRow) return;
-    const rowTds=Array.from(taskRow.querySelectorAll('td[data-week-idx]'));
-    const hoveredTd=rowTds.find(td=>{ const r=td.getBoundingClientRect(); return e.clientX>=r.left&&e.clientX<=r.right; });
-    if(!hoveredTd) return;
-    const weekIdx=parseInt(hoveredTd.dataset.weekIdx);
-    const week=WEEKS[weekIdx];
-    if(!week) return;
+    const dropDate=_xToDate(e.clientX);
     const t=DASHBOARD_DATA.tasks.find(x=>x.id===_drag.taskId);
     if(!t) return;
-
-    let newSd=_isoDate(t.sd)||week.start, newEd=_isoDate(t.ed)||week.end;
+    let newSd=toIsoDate(t.sd)||dropDate, newEd=toIsoDate(t.ed)||_addDays(dropDate,6);
     if(_drag.mode==='move'){
-      newSd=week.start;
+      newSd=dropDate;
       newEd=_addDays(newSd,_drag.durationDays||6);
     } else if(_drag.mode==='left'){
-      newSd=week.start;
+      newSd=dropDate;
       if(newSd>=newEd) newEd=_addDays(newSd,6);
-    } else if(_drag.mode==='right'){
-      newEd=week.end;
+    } else {
+      newEd=dropDate;
       if(newEd<=newSd) newSd=_addDays(newEd,-6);
     }
-
     t.sd=newSd; t.ed=newEd;
     const savedId=_drag.taskId;
     _drag=null;
-
-    buildRoadmap(); initRoadmapHeadSync();
-    // Update open expansion panel date inputs if present
+    buildRoadmap();
     const sdEl=document.getElementById('raci-sd-'+savedId);
     const edEl=document.getElementById('raci-ed-'+savedId);
     if(sdEl) sdEl.value=newSd;
     if(edEl) edEl.value=newEd;
-
     _saveTasksNow();
     _showToast(`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--gold)">📅 ${savedId} moved to ${newSd}</div>`,3000);
   },true);
@@ -6866,6 +6851,7 @@ function buildMilestones(){
   if(!commandEl&&!roadmapEl) return;
   if(commandEl) commandEl.innerHTML=_buildMilestonesHtml(false);
   if(roadmapEl) roadmapEl.innerHTML=_buildMilestonesHtml(true);
+  if(document.getElementById('gantt-canvas')) requestAnimationFrame(_renderGanttMilestoneLines);
 }
 function _openMilestoneEditModal(milestoneId){
   console.log('[DGL] Opening milestone edit:', milestoneId);
