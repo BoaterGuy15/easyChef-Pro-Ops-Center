@@ -2160,73 +2160,204 @@ function _jumpToTask(taskId){
     if(tr){ tr.scrollIntoView({behavior:'smooth',block:'center'}); toggleTaskExpand(taskId,tr); }
   },100);
 }
+// ─── DELIVERY BRIEFING MODAL ──────────────────────────────────────────────────
+const _DGL_TEAM_NAMES=Object.values(_USER_RACI_MAP); // ['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee']
+
 function _openMarkCompleteModal(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t) return;
   let modal=document.getElementById('mark-complete-modal');
   if(!modal){ modal=document.createElement('div'); modal.id='mark-complete-modal'; document.body.appendChild(modal); }
-  const IS='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:8px';
+  const IS='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:2px';
+  const LBL='display:block;font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:10px;margin-bottom:3px';
+  const SEC='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid rgba(201,168,76,0.2)';
   const todayStr=new Date().toISOString().slice(0,10);
-  modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65)';
-  modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:24px 28px;width:440px;max-width:95vw">
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green);letter-spacing:2px;margin-bottom:16px">✅ MARK COMPLETE — ${t.id} ${t.name}</div>
-    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">WHAT WAS DELIVERED? *</label>
-    <textarea id="mc-delivery" rows="4" style="${IS}" placeholder="Describe exactly what was completed and delivered…"></textarea>
-    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">DELIVERED BY</label>
-    <input id="mc-by" type="text" value="${t.owner||_USER_RACI_MAP[window._DGL_USER||'']||window._DGL_USER||''}" style="${IS}">
-    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">DATE</label>
+  const owner=t.owner||_USER_RACI_MAP[window._DGL_USER||'']||window._DGL_USER||'';
+  const unblocked=DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(taskId));
+
+  // Team member dropdown options
+  const memberOpts=_DGL_TEAM_NAMES.map(n=>`<option value="${n}"${n===owner?'selected':''}>${n}</option>`).join('');
+  // Multi-select checkboxes for "also involved"
+  const involvedBoxes=_DGL_TEAM_NAMES.map(n=>`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:pointer"><input type="checkbox" value="${n}" id="mc-inv-${n.toLowerCase()}" style="accent-color:var(--gold)">${n}</label>`).join('');
+  // Notify checkboxes
+  const notifyBoxes=_DGL_TEAM_NAMES.map(n=>`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:pointer"><input type="checkbox" value="${n}" id="mc-notify-${n.toLowerCase()}" style="accent-color:var(--accent)">${n}</label>`).join('');
+  // Downstream tasks list
+  const downstreamHtml=unblocked.length
+    ?unblocked.map(u=>`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--gold)">${u.id}</span> — ${u.name} <span style="color:var(--muted)">(${u.status||'Pending'})</span></div>`).join('')
+    :`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">No downstream tasks depend on this.</div>`;
+
+  modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-start;justify-content:center;background:rgba(0,0,0,0.72);overflow-y:auto;padding:24px 0';
+  modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:24px 28px;width:560px;max-width:96vw;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green);letter-spacing:2px">✅ DELIVERY BRIEFING — ${t.id}</div>
+      <button onclick="document.getElementById('mark-complete-modal').style.display='none'" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);margin-bottom:12px;opacity:0.7">${t.name||''}</div>
+
+    <!-- SECTION 1: WHO -->
+    <div style="${SEC}">① WHO</div>
+    <label style="${LBL}">Who completed this task? *</label>
+    <select id="mc-by" style="${IS}">${memberOpts}</select>
+    <label style="${LBL}">Who else was involved?</label>
+    <div style="margin-bottom:8px;line-height:1.8">${involvedBoxes}</div>
+
+    <!-- SECTION 2: WHAT -->
+    <div style="${SEC}">② WHAT</div>
+    <label style="${LBL}">Describe what was delivered *</label>
+    <textarea id="mc-delivery" rows="3" style="${IS};margin-bottom:8px;resize:vertical" placeholder="Be specific — what exactly was produced or completed?"></textarea>
+    <label style="${LBL}">What format is the deliverable?</label>
+    <select id="mc-format" style="${IS}">
+      <option value="">— select —</option>
+      <option>Google Doc</option><option>Spreadsheet</option><option>Presentation</option>
+      <option>Design File</option><option>Code</option><option>Video</option><option>Other</option>
+    </select>
+    <label style="${LBL};margin-top:8px">Did you attach a file to this task?</label>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button id="mc-file-yes" onclick="_mcFileToggle('yes')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">Yes</button>
+      <button id="mc-file-no" onclick="_mcFileToggle('no')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">No</button>
+    </div>
+    <div id="mc-file-detail" style="display:none;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);cursor:pointer;margin-bottom:6px"><input type="checkbox" id="mc-file-already" style="accent-color:var(--green)"> File is already uploaded above</label>
+      <button onclick="document.getElementById('mark-complete-modal').style.display='none';document.querySelector('[data-task-upload=\\'${taskId}\\']')?.click()" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer">📎 Upload now via task panel</button>
+    </div>
+
+    <!-- SECTION 3: WHEN -->
+    <div style="${SEC}">③ WHEN</div>
+    <label style="${LBL}">Date completed *</label>
     <input id="mc-date" type="date" value="${todayStr}" style="${IS}">
+    <label style="${LBL}">How long did this take?</label>
+    <select id="mc-duration" style="${IS}">
+      <option value="">— select —</option>
+      <option>&lt;1 day</option><option>1-3 days</option><option>1 week</option><option>2 weeks</option><option>1 month+</option>
+    </select>
+
+    <!-- SECTION 4: IMPACT -->
+    <div style="${SEC}">④ IMPACT</div>
+    <label style="${LBL}">What does this unlock?</label>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px">${downstreamHtml}</div>
+    <label style="${LBL}">Any blockers encountered?</label>
+    <textarea id="mc-blockers" rows="2" style="${IS};resize:vertical;margin-bottom:8px" placeholder="Optional — describe any issues that slowed this down"></textarea>
+    <label style="${LBL}">Quality confidence</label>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">1 Needs Review</span>
+      <input id="mc-quality" type="range" min="1" max="5" value="3" style="flex:1;accent-color:var(--green)" oninput="document.getElementById('mc-quality-val').textContent=this.value">
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">5 Excellent</span>
+      <span id="mc-quality-val" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--green);font-weight:700;min-width:16px">3</span>
+    </div>
+
+    <!-- SECTION 5: NEXT STEPS -->
+    <div style="${SEC}">⑤ NEXT STEPS</div>
+    <label style="${LBL}">Recommended next action</label>
+    <textarea id="mc-next" rows="2" style="${IS};resize:vertical;margin-bottom:8px" placeholder="Optional — what should happen now that this is done?"></textarea>
+    <label style="${LBL}">Who should be notified?</label>
+    <div style="margin-bottom:12px;line-height:1.8">${notifyBoxes}</div>
+
     <div style="display:flex;gap:8px;margin-top:4px">
-      <button onclick="_markTaskComplete('${taskId}')" style="background:var(--green);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;padding:7px 18px;cursor:pointer">✅ Save & Mark Complete</button>
-      <button onclick="document.getElementById('mark-complete-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:7px 14px;cursor:pointer">Cancel</button>
+      <button onclick="_markTaskComplete('${taskId}')" style="background:var(--green);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;padding:8px 20px;cursor:pointer">✅ Submit Delivery Briefing</button>
+      <button onclick="document.getElementById('mark-complete-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:8px 14px;cursor:pointer">Cancel</button>
     </div>
   </div>`;
 }
+function _mcFileToggle(v){
+  const det=document.getElementById('mc-file-detail');
+  const yes=document.getElementById('mc-file-yes');
+  const no=document.getElementById('mc-file-no');
+  if(v==='yes'){ det.style.display='block'; yes.style.background='var(--green)'; yes.style.color='#0b0d10'; yes.style.borderColor='var(--green)'; no.style.background='var(--surface)'; no.style.color='var(--muted)'; no.style.borderColor='var(--border)'; }
+  else { det.style.display='none'; no.style.background='var(--accent)'; no.style.color='#0b0d10'; no.style.borderColor='var(--accent)'; yes.style.background='var(--surface)'; yes.style.color='var(--muted)'; yes.style.borderColor='var(--border)'; }
+}
 function _markTaskComplete(taskId){
   const delivery=(document.getElementById('mc-delivery')?.value||'').trim();
-  if(!delivery){ alert('Please describe what was delivered.'); return; }
+  if(delivery.length<20){ alert('Please describe what was delivered (at least 20 characters).'); return; }
   const deliveredBy=(document.getElementById('mc-by')?.value||'').trim()||window._DGL_USER||'—';
   const date=(document.getElementById('mc-date')?.value||new Date().toISOString().slice(0,10));
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t) return;
+
+  // Collect all form fields
+  const involved=_DGL_TEAM_NAMES.filter(n=>document.getElementById('mc-inv-'+n.toLowerCase())?.checked);
+  const format=document.getElementById('mc-format')?.value||'';
+  const fileAttached=document.getElementById('mc-file-already')?.checked?'Already uploaded':'No';
+  const duration=document.getElementById('mc-duration')?.value||'';
+  const blockers=(document.getElementById('mc-blockers')?.value||'').trim();
+  const quality=document.getElementById('mc-quality')?.value||'3';
+  const qualityLabel={'1':'Needs Review','2':'Needs Review','3':'Solid','4':'Solid','5':'Excellent'}[quality]||'Solid';
+  const nextAction=(document.getElementById('mc-next')?.value||'').trim();
+  const toNotify=_DGL_TEAM_NAMES.filter(n=>document.getElementById('mc-notify-'+n.toLowerCase())?.checked);
+  const unblocked=DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(taskId));
+
   t.status='Complete';
   t.flag='✓ Resolved';
   t.lastStatusChange=date+'T00:00:00.000Z';
-  const noteText='COMPLETED by '+deliveredBy+': '+delivery;
-  _appendNote(taskId, noteText, 'task');
-  const linked=_getTaskSlackLink(taskId);
-  if(linked&&linked.channelId&&CONFIG.sheetsUrl)
-    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('['+taskId+'] ✅ COMPLETED by '+deliveredBy+': '+delivery)+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
-  // Build Drive completion record
-  const unblockedTasks=DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(taskId));
+
+  // Build structured completion record object (stored as JSON in notes)
+  const record={
+    taskId, taskName:t.name||'', category:t.cat||'',
+    completedBy:deliveredBy, involvedTeam:involved, date, duration,
+    delivery, format, fileAttached, blockers, quality, qualityLabel,
+    nextAction, notified:toNotify,
+    unblocked:unblocked.map(u=>u.id+' — '+u.name),
+    session:window._dglSessionHash||'', generatedAt:new Date().toISOString()
+  };
+
+  // Save to notes cache as type='completion' (JSON stringified)
+  _appendNote(taskId, JSON.stringify(record), 'completion');
+
+  // Plain-text version for Drive and action plan
   const raciCols=['responsible','accountable','consulted','informed'];
-  const raciLines=raciCols.map(r=>{ const v=t[r]||t[r.charAt(0).toUpperCase()+r.slice(1)]||''; return v?r.charAt(0).toUpperCase()+r.slice(1)+': '+v:''; }).filter(Boolean).join('\n');
-  const record=[
-    'TASK COMPLETION RECORD',
-    '======================',
-    'Task ID:     '+taskId,
-    'Task Name:   '+(t.name||''),
-    'Category:    '+(t.cat||t.category||''),
-    'Completed By:'+deliveredBy,
-    'Date:        '+date,
+  const raciLines=raciCols.map(r=>{ const v=t[r]||''; return v?r.charAt(0).toUpperCase()+r.slice(1)+': '+v:''; }).filter(Boolean).join('\n');
+  const txt=[
+    'TASK COMPLETION RECORD — DELIVERY BRIEFING',
+    '==========================================',
+    'Task ID:      '+taskId,
+    'Task Name:    '+(t.name||''),
+    'Category:     '+(t.cat||''),
     '',
-    'DELIVERY DESCRIPTION',
-    '--------------------',
-    delivery,
+    '① WHO',
+    'Completed By: '+deliveredBy,
+    'Also Involved:'+( involved.length?involved.join(', '):'(none)'),
+    '',
+    '② WHAT',
+    'Delivery:     '+delivery,
+    'Format:       '+(format||'Not specified'),
+    'File Attached:'+fileAttached,
+    '',
+    '③ WHEN',
+    'Date:         '+date,
+    'Duration:     '+(duration||'Not specified'),
+    '',
+    '④ IMPACT',
+    'Unblocked Tasks:',
+    unblocked.length?unblocked.map(u=>'  • '+u.id+' — '+u.name).join('\n'):'  (none)',
+    'Blockers:     '+(blockers||'None'),
+    'Quality:      '+quality+'/5 — '+qualityLabel,
+    '',
+    '⑤ NEXT STEPS',
+    'Next Action:  '+(nextAction||'(none)'),
+    'Notify:       '+(toNotify.length?toNotify.join(', '):'(none)'),
     '',
     'RACI ASSIGNMENTS',
-    '----------------',
     raciLines||'(none recorded)',
-    '',
-    'UNBLOCKED TASKS',
-    '---------------',
-    unblockedTasks.length?unblockedTasks.map(u=>u.id+' — '+u.name).join('\n'):'(none)',
     '',
     'SESSION: '+(window._dglSessionHash||'unknown'),
     'Generated: '+new Date().toISOString()
   ].join('\n');
+
+  // Post to Slack linked channel
+  const linked=_getTaskSlackLink(taskId);
+  if(linked&&linked.channelId&&CONFIG.sheetsUrl)
+    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('✅ ['+taskId+'] '+( t.name||'')+' COMPLETED by '+deliveredBy+': '+delivery.slice(0,120))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+
+  // Notify selected team members via DM channels
+  if(toNotify.length&&CONFIG.sheetsUrl){
+    toNotify.forEach(name=>{
+      const uKey=Object.keys(_USER_RACI_MAP).find(k=>_USER_RACI_MAP[k]===name)||name.toLowerCase();
+      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent('@'+uKey)+'&text='+encodeURIComponent('📬 FYI: ['+taskId+'] '+( t.name||'')+' was just marked complete by '+deliveredBy+'. '+delivery.slice(0,100))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+    });
+  }
+
+  // Upload Drive .txt record
   if(CONFIG.sheetsUrl){
-    const b64=btoa(unescape(encodeURIComponent(record)));
+    const b64=btoa(unescape(encodeURIComponent(txt)));
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
       action:'file_upload',
       docName:taskId+'_COMPLETION_RECORD_'+date+'.txt',
@@ -2243,13 +2374,103 @@ function _markTaskComplete(taskId){
     })}).catch(()=>{});
     _saveActionPlan(taskId,'raci','COMPLETION RECORD: '+delivery,taskId,'');
   }
+
   _saveTasksNow();
   document.getElementById('mark-complete-modal').style.display='none';
-  // Re-render expansion panel to reflect new status
+
+  // Re-render expansion panel
   const existingRow=document.getElementById('raci-expand-row-'+taskId);
   if(existingRow){ const newHtml=_buildTaskExpandHtml(taskId); existingRow.querySelector('td>div').innerHTML=newHtml; _afterExpandRender(taskId); }
   masterRefresh();
-  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#22c55e">✅ Task marked complete — delivery record saved to Drive</div>',4000);
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#22c55e">✅ Delivery briefing saved — record uploaded to Drive</div>',4000);
+}
+
+// ─── COMPLETION RECORD READ-ONLY VIEW ────────────────────────────────────────
+function _getCompletionRecord(taskId){
+  // Check local notes cache first (same session), then commentsCache (populated from Sheets)
+  const noteSources=[..._getNotes(taskId),...(_commentsCache[taskId]||[])];
+  const entry=noteSources.slice().reverse().find(n=>n.type==='completion');
+  if(!entry) return null;
+  try{ return JSON.parse(entry.text); }catch(e){ return null; }
+}
+function _fetchAndInjectCompletionRecord(taskId){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(taskId)+'&type=completion')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.comments||[]);
+      const completion=rows.find(r=>r.type==='completion');
+      if(!completion) return;
+      // Merge into notesCache if not already present
+      const existing=_getNotes(taskId);
+      if(!existing.find(n=>n.type==='completion')){
+        existing.push(completion);
+        _saveNotes(taskId,existing);
+      }
+      // Inject into DOM if panel is open and no record is showing
+      const slot=document.getElementById('completion-record-'+taskId);
+      if(!slot){
+        // Find the mark-complete button area and prepend record
+        const btn=document.querySelector(`[onclick="_openMarkCompleteModal('${taskId}')"]`);
+        if(btn&&btn.parentElement){
+          const div=document.createElement('div');
+          div.innerHTML=_renderCompletionRecordHtml(taskId);
+          btn.parentElement.insertBefore(div.firstChild,btn);
+        }
+      }
+    }).catch(()=>{});
+}
+function _renderCompletionRecordHtml(taskId){
+  const r=_getCompletionRecord(taskId);
+  if(!r) return '';
+  const canEdit=['taylor','steve'].includes(window._DGL_USER||'');
+  const q=r.quality||3; const ql=r.qualityLabel||'Solid';
+  const stars='★'.repeat(Number(q))+'☆'.repeat(5-Number(q));
+  const fRow=(label,val)=>val?`<div style="display:flex;gap:6px;margin-bottom:3px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);min-width:90px">${label}</span><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${val}</span></div>`:'';
+  return `<div id="completion-record-${taskId}" style="background:rgba(34,197,94,0.04);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:12px 14px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:#22c55e;letter-spacing:1.5px">✅ DELIVERY BRIEFING · ${r.date||''}</div>
+      <div style="display:flex;gap:6px">
+        ${canEdit?`<button onclick="_openMarkCompleteModal('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📝 Edit Record</button>`:''}
+        <button onclick="_shareCompletionToSlack('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📤 Share to Slack</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1.5px;margin-bottom:5px">WHO</div>
+        ${fRow('Completed by',r.completedBy)}
+        ${fRow('Also involved',(r.involvedTeam||[]).join(', ')||'—')}
+      </div>
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1.5px;margin-bottom:5px">WHEN</div>
+        ${fRow('Date',r.date)}
+        ${fRow('Duration',r.duration||'—')}
+      </div>
+    </div>
+    <div style="margin-top:8px">
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1.5px;margin-bottom:5px">WHAT WAS DELIVERED</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5">${(r.delivery||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      ${fRow('Format',r.format||'—')}
+    </div>
+    ${(r.unblocked||[]).length?`<div style="margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1.5px;margin-bottom:5px">UNLOCKS</div>${r.unblocked.map(u=>`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">→ ${u.replace(/</g,'&lt;')}</div>`).join('')}</div>`:''}
+    ${r.blockers?`<div style="margin-top:8px">${fRow('Blockers',r.blockers.replace(/</g,'&lt;'))}</div>`:''}
+    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Quality</span>
+      <span style="color:#22c55e;font-size:11px">${stars}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${q}/5 — ${ql}</span>
+    </div>
+    ${r.nextAction?`<div style="margin-top:8px">${fRow('Next action',r.nextAction.replace(/</g,'&lt;'))}</div>`:''}
+    ${(r.notified||[]).length?`<div style="margin-top:4px">${fRow('Notified',(r.notified||[]).join(', '))}</div>`:''}
+  </div>`;
+}
+function _shareCompletionToSlack(taskId){
+  const r=_getCompletionRecord(taskId);
+  if(!r||!CONFIG.sheetsUrl) return;
+  const linked=_getTaskSlackLink(taskId);
+  if(!linked||!linked.channelId){ _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted)">No Slack channel linked to this task.</div>',3000); return; }
+  const msg='📋 Delivery Record: ['+taskId+'] '+(r.taskName||'')+'\\nCompleted by '+r.completedBy+' on '+r.date+'\\nDelivered: '+r.delivery.slice(0,200)+(r.quality?' | Quality: '+r.quality+'/5':'');
+  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--accent)">📤 Completion record shared to Slack</div>',3000);
 }
 function toggleTaskExpand(taskId,trEl){
   _raciInjectExpandStyles();
@@ -2277,6 +2498,7 @@ function toggleTaskExpand(taskId,trEl){
   expandTr.appendChild(td);
   trEl.after(expandTr);
   setTimeout(()=>loadDocsForSource('task',taskId),100);
+  setTimeout(()=>_fetchAndInjectCompletionRecord(taskId),150);
   // Fill action plan from cache first, then fetch latest from Sheets
   setTimeout(()=>{ if(_completedPlansCache[taskId]) return; const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _apText=_getActionPlanText(taskId); if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } _fetchActionPlan(taskId,t=>{ const el=document.getElementById('raci-task-actionplan-'+taskId); if(el&&t){ el.value=t; el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,400)+'px'; } }); },50);
   if(!cached){
@@ -2597,6 +2819,7 @@ function _buildTaskExpandHtml(taskId){
         ${fRow('Owner',t.owner||'—')}
         ${lbl('FLAG')}
         <div class="flag-btn-group" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${_fsBtnsHtml}</div>
+        ${_renderCompletionRecordHtml(taskId)}
         ${t.status!=='Complete'?`<button onclick="_openMarkCompleteModal('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;margin-bottom:10px">✅ Mark Complete + Log Delivery</button>`:''}
         ${lbl('TASK NOTES')}
         <textarea id="raci-task-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note — visible to all team members and readable by AI" onblur="saveTaskNotes('${taskId}')">${(t.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
