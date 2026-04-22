@@ -3533,7 +3533,7 @@ function buildRoadmap(){
           const ovStyle = isOverdue ? 'color:var(--red);border-color:rgba(248,113,113,0.4);' : '';
           const name = t.name.length>14 ? t.name.substring(0,13)+'…' : t.name;
           const sd=toIsoDate(t.sd)||'', ed=toIsoDate(t.ed)||'';
-          return `<div class="${cls}" style="${ovStyle}" draggable="true" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" data-mode="move" title="${t.name} · ${sd} → ${ed}">
+          return `<div class="${cls}" style="${ovStyle}" draggable="true" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" data-mode="move" title="${t.name} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">
             <span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true" title="Drag ◀ to shift start date">◀</span>
             <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${name}</span>
             <span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true" title="Drag ▶ to shift end date">▶</span>
@@ -3546,6 +3546,96 @@ function buildRoadmap(){
     tbody.appendChild(tr);
   });
   _initGanttDrag(WEEKS, toIsoDate);
+}
+
+// ── Gantt context menu ───────────────────────────────────────
+function _closeGanttContextMenu(){
+  const m=document.getElementById('gantt-ctx-menu');
+  if(m) m.remove();
+  document.removeEventListener('click',_closeGanttContextMenu,true);
+  document.removeEventListener('keydown',_ganttCtxEsc,true);
+}
+function _ganttCtxEsc(e){ if(e.key==='Escape') _closeGanttContextMenu(); }
+
+function _showGanttContextMenu(event,taskId){
+  _closeGanttContextMenu();
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const canAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+
+  const IS='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:5px 7px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box';
+  const statuses=['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'];
+  const statusOpts=statuses.map(s=>`<option value="${s}"${t.status===s?' selected':''}>${s}</option>`).join('');
+  const flagOpts=_FLAG_STATES.map(f=>`<option value="${f.emoji}"${(t.flag||'').startsWith(f.emoji)?' selected':''}>${f.emoji} ${f.label}</option>`).join('');
+
+  const mnu=document.createElement('div');
+  mnu.id='gantt-ctx-menu';
+  mnu.style.cssText=`position:fixed;z-index:99999;left:${Math.min(event.clientX,window.innerWidth-220)}px;top:${Math.min(event.clientY,window.innerHeight-320)}px;width:210px;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:6px 0;font-family:'DM Mono',monospace;font-size:11px`;
+
+  const _item=(icon,label,onclick,extra='')=>`<div class="gctx-item" onclick="${onclick};_closeGanttContextMenu()" style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;color:var(--text);transition:background 0.1s" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background='transparent'"${extra}><span style="font-size:13px;width:18px;text-align:center;flex-shrink:0">${icon}</span><span>${label}</span></div>`;
+  const _sep=()=>`<div style="height:1px;background:var(--border);margin:3px 0"></div>`;
+  const _label=(txt)=>`<div style="padding:4px 14px 2px;font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">${txt}</div>`;
+
+  mnu.innerHTML=`
+    ${_label(taskId+' · '+t.name.slice(0,22)+(t.name.length>22?'…':''))}
+    ${_sep()}
+    ${_item('✏️','Edit Task',`showTaskModal('${taskId}')`)}
+    ${_item('📋','View Details',`showPage('raci');setTimeout(()=>{const r=document.querySelector('[data-id="${taskId}"]');if(r)toggleTaskExpand('${taskId}',r)},300)`)}
+    ${_sep()}
+    ${_label('Quick Status')}
+    <div style="padding:4px 10px 6px">
+      <select id="gctx-status-${taskId}" style="${IS}" onchange="(function(){const t=DASHBOARD_DATA.tasks.find(x=>x.id==='${taskId}');if(t){t.status=this.value;_saveTasksNow();buildRoadmap();initRoadmapHeadSync();_showToast('<div style=\\'font-family:DM Mono,monospace;font-size:12px;color:var(--gold)\\'>🚀 Status updated: '+this.value+'</div>',2500);}}).call(this);_closeGanttContextMenu()">${statusOpts}</select>
+    </div>
+    ${_label('Quick Flag')}
+    <div style="padding:4px 10px 6px">
+      <select id="gctx-flag-${taskId}" style="${IS}" onchange="(function(){const t=DASHBOARD_DATA.tasks.find(x=>x.id==='${taskId}');if(t){t.flag=this.value;_saveTasksNow();buildRoadmap();_showToast('<div style=\\'font-family:DM Mono,monospace;font-size:12px;color:var(--gold)\\'>🎯 Flag set: '+this.value+'</div>',2500);}}).call(this);_closeGanttContextMenu()">
+        <option value="">— No flag —</option>${flagOpts}
+      </select>
+    </div>
+    ${_sep()}
+    ${_item('✅','Mark Complete',`_openMarkCompleteModal('${taskId}')`,t.status==='Complete'?' style="opacity:0.4;pointer-events:none"':'')}
+    ${_item('📅','Set Dates',`_openGanttDateModal('${taskId}')`)}
+    ${_sep()}
+    ${canAdmin?_item('🗑️','Delete Task',`_ganttDeleteTask('${taskId}')`,` style="color:var(--red)" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'"`):''}
+  `;
+  document.body.appendChild(mnu);
+  setTimeout(()=>{
+    document.addEventListener('click',_closeGanttContextMenu,true);
+    document.addEventListener('keydown',_ganttCtxEsc,true);
+  },10);
+}
+
+function _openGanttDateModal(taskId){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const IS='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:8px';
+  function _toVal(v){ if(!v) return ''; if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)) return v; const d=new Date(v); return isNaN(d)?'':d.toISOString().slice(0,10); }
+  let modal=document.getElementById('gantt-date-modal');
+  if(!modal){ modal=document.createElement('div'); modal.id='gantt-date-modal'; document.body.appendChild(modal); }
+  modal.style.cssText='position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65)';
+  modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--gold);border-radius:12px;padding:24px 28px;width:320px;max-width:94vw">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">📅 SET DATES — ${taskId}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:14px">${t.name}</div>
+    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block">START DATE</label>
+    <input id="gdm-sd" type="date" value="${_toVal(t.sd)}" style="${IS}">
+    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block">END DATE</label>
+    <input id="gdm-ed" type="date" value="${_toVal(t.ed)}" style="${IS}">
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button onclick="(function(){const t=DASHBOARD_DATA.tasks.find(x=>x.id==='${taskId}');if(!t)return;const sd=document.getElementById('gdm-sd').value,ed=document.getElementById('gdm-ed').value;if(!sd||!ed){alert('Both dates required');return;}if(sd>ed){alert('Start must be before end');return;}t.sd=sd;t.ed=ed;_saveTasksNow();buildRoadmap();initRoadmapHeadSync();document.getElementById('gantt-date-modal').style.display='none';_showToast('<div style=\\'font-family:DM Mono,monospace;font-size:12px;color:var(--gold)\\'>📅 ${taskId} dates updated</div>',3000);})()" style="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;padding:7px 18px;cursor:pointer">Save Dates</button>
+      <button onclick="document.getElementById('gantt-date-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:7px 14px;cursor:pointer">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function _ganttDeleteTask(taskId){
+  if(!confirm('Delete task '+taskId+'? This cannot be undone.')) return;
+  const idx=DASHBOARD_DATA.tasks.findIndex(x=>x.id===taskId);
+  if(idx===-1) return;
+  DASHBOARD_DATA.tasks.splice(idx,1);
+  _saveTasksNow();
+  buildRoadmap(); initRoadmapHeadSync();
+  masterRefresh();
+  _showToast(`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--red)">🗑️ ${taskId} deleted</div>`,3000);
 }
 
 // ── Gantt drag-and-drop ──────────────────────────────────────
