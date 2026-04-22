@@ -6798,19 +6798,17 @@ function _milestoneColor(name){
   if(!name) return '#c9a84c';
   return map[name.toLowerCase()]||name;
 }
-function buildMilestones(){
-  console.log('[DGL] buildMilestones called');
-  const targets=[document.getElementById('milestone-list'),document.getElementById('roadmap-milestone-list')].filter(Boolean);
-  if(!targets.length) return;
+function _buildMilestonesHtml(canEditControls){
   if(!DASHBOARD_DATA.meta.milestoneItems) DASHBOARD_DATA.meta.milestoneItems=[];
-  const items = DASHBOARD_DATA.meta.milestoneItems;
-  const canEdit = ['taylor','steve'].includes(window._DGL_USER||'');
-  let html = '';
-  html += `<div style="margin-bottom:16px"><button onclick="_openMilestoneModal()" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">➕ Add Milestone</button></div>`;
+  const items=DASHBOARD_DATA.meta.milestoneItems;
+  const isAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+  const showControls=canEditControls&&isAdmin;
+  let html='';
+  if(canEditControls) html+=`<div style="margin-bottom:16px"><button onclick="_openMilestoneModal()" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">➕ Add Milestone</button></div>`;
   if(!items.length){
-    html += `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">No milestones — loading from Sheets...</div>`;
+    html+=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">No milestones — loading from Sheets...</div>`;
   } else {
-    html += items.map((m,i)=>{
+    html+=items.map((m,i)=>{
       const title=m.title||m.label||'';
       const desc=m.description||m.note||'';
       const date=m.date||'';
@@ -6822,8 +6820,8 @@ function buildMilestones(){
       const cardColorRgb=(()=>{ const h=cardColor.replace('#',''); if(h.length===6){ const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return r+','+g+','+b; } return '201,168,76'; })();
       const typePill=`<span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(${cardColorRgb},0.12);color:${cardColor};padding:1px 5px;border-radius:3px;border:1px solid rgba(${cardColorRgb},0.25)">${type}</span>`;
       const doneBadge=done?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green)">✓ ${m.achievedDate||'Complete'}</span>`:'';
-      const achieveBtn=canEdit&&!done?`<button onclick="_achieveMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✅ Achieve</button>`:'';
-      const deleteBtn=canEdit?`<button onclick="_deleteMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑️</button>`:'';
+      const achieveBtn=showControls&&!done?`<button onclick="_achieveMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✅ Achieve</button>`:'';
+      const deleteBtn=showControls?`<button onclick="_deleteMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑️</button>`:'';
       return `<div style="display:flex;gap:14px;padding-bottom:${isLast?'0':'16px'}">
         <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:80px">
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-bottom:6px">${date}</div>
@@ -6840,7 +6838,15 @@ function buildMilestones(){
       </div>`;
     }).join('');
   }
-  targets.forEach(el=>{ el.innerHTML=html; });
+  return html;
+}
+function buildMilestones(){
+  console.log('[DGL] buildMilestones called');
+  const commandEl=document.getElementById('milestone-list');
+  const roadmapEl=document.getElementById('roadmap-milestone-list');
+  if(!commandEl&&!roadmapEl) return;
+  if(commandEl) commandEl.innerHTML=_buildMilestonesHtml(false);
+  if(roadmapEl) roadmapEl.innerHTML=_buildMilestonesHtml(true);
 }
 function _openMilestoneModal(){
   let modal=document.getElementById('ms-add-modal');
