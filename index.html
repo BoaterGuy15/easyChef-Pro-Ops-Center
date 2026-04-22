@@ -6793,6 +6793,11 @@ function buildGapList(){
 // ── Milestone list ─────────────────────────────────────────
 let _buildMilestonesDebounce=null;
 function _debouncedBuildMilestones(){ clearTimeout(_buildMilestonesDebounce); _buildMilestonesDebounce=setTimeout(buildMilestones,300); }
+function _milestoneColor(name){
+  const map={gold:'#c9a84c',red:'#ef4444',green:'#22c55e',blue:'#4a9eff',amber:'#f59e0b',purple:'#a78bfa',teal:'#14b8a6',pink:'#f472b6',muted:'#666666'};
+  if(!name) return '#c9a84c';
+  return map[name.toLowerCase()]||name;
+}
 function buildMilestones(){
   console.log('[DGL] buildMilestones called');
   const targets=[document.getElementById('milestone-list'),document.getElementById('roadmap-milestone-list')].filter(Boolean);
@@ -6813,7 +6818,9 @@ function buildMilestones(){
       const done=(m.status==='Complete'||m.status==='Achieved')||!!m.achievedDate;
       const dotC=done?'var(--green)':m.status==='Active'?'var(--amber)':m.color||'var(--gold)';
       const isLast=i===items.length-1;
-      const typePill=`<span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(201,168,76,0.1);color:var(--muted);padding:1px 5px;border-radius:3px">${type}</span>`;
+      const cardColor=done?'#22c55e':_milestoneColor(m.color);
+      const cardColorRgb=(()=>{ const h=cardColor.replace('#',''); if(h.length===6){ const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return r+','+g+','+b; } return '201,168,76'; })();
+      const typePill=`<span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(${cardColorRgb},0.12);color:${cardColor};padding:1px 5px;border-radius:3px;border:1px solid rgba(${cardColorRgb},0.25)">${type}</span>`;
       const doneBadge=done?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green)">✓ ${m.achievedDate||'Complete'}</span>`:'';
       const achieveBtn=canEdit&&!done?`<button onclick="_achieveMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✅ Achieve</button>`:'';
       const deleteBtn=canEdit?`<button onclick="_deleteMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑️</button>`:'';
@@ -6823,7 +6830,7 @@ function buildMilestones(){
           <div style="width:10px;height:10px;border-radius:50%;background:${dotC};flex-shrink:0"></div>
           ${!isLast?`<div style="width:1px;flex:1;background:var(--border);margin-top:4px"></div>`:''}
         </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;flex:1">
+        <div style="background:var(--surface);border:1px solid ${cardColor};border-left:3px solid ${cardColor};border-radius:8px;padding:12px 14px;flex:1;box-shadow:0 0 8px rgba(${cardColorRgb},0.18)">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${desc?'4px':'0'}">
             <span style="font-size:13px;font-weight:500">${title}</span>
             ${typePill}${doneBadge}${achieveBtn}${deleteBtn}
