@@ -2966,7 +2966,7 @@ function _buildTaskExpandHtml(taskId){
         ${fRow('Owner',t.owner||'—')}
         ${lbl('FLAG')}
         <div class="flag-btn-group" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${_fsBtnsHtml}</div>
-        ${(()=>{const _fn=(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim(); return `<div style="margin-bottom:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px;margin-top:14px">FLAG NOTES</div><textarea id="flag-notes-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Add context about this flag...">${_fn.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea><button onclick="_saveFlagNotes('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:4px">💾 Save Flag Notes</button></div>`; })()}
+        ${(()=>{const _fn=(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim(); return `<div style="margin-bottom:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px;margin-top:14px">FLAG NOTES</div><textarea id="flag-notes-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Add context about this flag..." oninput="_onFlagNotesInput('${taskId}',this)">${_fn.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea><button onclick="_saveFlagNotes('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:4px">💾 Save Flag Notes</button></div>`; })()}
         ${_renderCompletionRecordHtml(taskId)}
         ${t.status!=='Complete'?`<button onclick="_openMarkCompleteModal('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;margin-bottom:10px">✅ Mark Complete + Log Delivery</button>`:''}
         ${lbl('TASK NOTES')}
@@ -3080,6 +3080,29 @@ function setTaskFlagEmoji(taskId,emoji){
   const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
   if(agItem){agItem.flag=emoji;saveAgendaItemToSheets(agItem);}
 }
+function _syncFlagDisplay(taskId){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-cell .flag-edit');
+  if(flagEl){ flagEl.textContent=t.flag||''; const fst=_getFlagState(t.flag||''); flagEl.style.color=fst?fst.color:'var(--muted)'; }
+  const notesEl=document.getElementById('flag-notes-'+taskId);
+  if(notesEl){ notesEl.value=(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim(); }
+}
+function _onFlagNotesInput(taskId,textarea){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const emoji=(t.flag||'').match(/^(✓|⚠️|⛔|🔵|💡|🎯)/)?.[0]||'';
+  const newFlag=emoji?(emoji+(textarea.value?' '+textarea.value:'')):(textarea.value||'');
+  const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-cell .flag-edit');
+  if(flagEl){ flagEl.textContent=newFlag; const fst=_getFlagState(newFlag); flagEl.style.color=fst?fst.color:'var(--muted)'; }
+  clearTimeout(((window._flagNotesTimer=window._flagNotesTimer||{})[taskId]));
+  window._flagNotesTimer[taskId]=setTimeout(()=>{ t.flag=newFlag; _saveTasksNow(); },500);
+}
+function _onIcsFlagInput(taskId,el){
+  const newFlag=(el.innerText||el.textContent||'').trim();
+  const notesEl=document.getElementById('flag-notes-'+taskId);
+  if(notesEl){ notesEl.value=newFlag.replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim(); }
+  clearTimeout(((window._icsFlagTimer=window._icsFlagTimer||{})[taskId]));
+  window._icsFlagTimer[taskId]=setTimeout(()=>{ const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(t){ t.flag=newFlag; _saveTasksNow(); } },500);
+}
 function _saveFlagNotes(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
   const el=document.getElementById('flag-notes-'+taskId); if(!el) return;
@@ -3087,9 +3110,7 @@ function _saveFlagNotes(taskId){
   const emoji=(t.flag||'').match(/^(✓|⚠️|⛔|🔵|💡|🎯)/)?.[0]||'';
   t.flag=emoji?(emoji+(notes?' '+notes:'')):(notes||'');
   _saveTasksNow();
-  // Update RACI row flag cell inline
-  const flagDiv=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-cell .flag-edit');
-  if(flagDiv){ flagDiv.textContent=t.flag; const fst=_getFlagState(t.flag); flagDiv.style.color=fst?fst.color:'var(--muted)'; }
+  _syncFlagDisplay(taskId);
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#22c55e">✅ Flag notes saved</div>',2500);
 }
 function saveTaskNotes(taskId){
@@ -3384,7 +3405,7 @@ function buildRaciTable(){
       <td>${ownerSelect(t)}</td>
       ${raciCell(t.Taylor,t.id,'Taylor')}${raciCell(t.Steve,t.id,'Steve')}${raciCell(t.Adam,t.id,'Adam')}${raciCell(t.Mary,t.id,'Mary')}${raciCell(t.JR,t.id,'JR')}${raciCell(t.Hammad,t.id,'Hammad')}${raciCell(t.Searah,t.id,'Searah')}${raciCell(t.Sadee,t.id,'Sadee')}${customMembers.map(cm=>raciCell(t[cm.raciKey]||'',t.id,cm.raciKey)).join('')}
       ${taskProgress(t)}
-      <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()">${t.flag||''}</div></td>
+      <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()" oninput="_onIcsFlagInput('${t.id}',this)">${t.flag||''}</div></td>
     `;
     tr.style.cursor='pointer';
     tr.addEventListener('click',e=>{ if(e.target.closest('.raci-no-expand,select,input,button,a,[contenteditable="true"]')) return; if(_raciExpandedId===t.id&&e.target.closest('.raci-expand-inner')) return; toggleTaskExpand(t.id,tr); });
