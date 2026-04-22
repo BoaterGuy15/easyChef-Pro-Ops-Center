@@ -3772,40 +3772,37 @@ function _renderGanttMilestoneLines(){
   const items=(DASHBOARD_DATA.meta.milestoneItems||[]).filter(m=>m.date);
   if(!items.length) return;
 
-  // Fixed column layout: label=160px, W1-W10=78px each, LAUNCH=94px
-  const COL_LABEL=160, COL_WEEK=78, COL_LAUNCH=94;
-  // WEEKS in order (mirrors buildRoadmap)
-  const WEEKS=[
-    {start:'2026-04-20',end:'2026-04-26',left:COL_LABEL+0*COL_WEEK,width:COL_WEEK},
-    {start:'2026-04-27',end:'2026-05-03',left:COL_LABEL+1*COL_WEEK,width:COL_WEEK},
-    {start:'2026-05-04',end:'2026-05-10',left:COL_LABEL+2*COL_WEEK,width:COL_WEEK},
-    {start:'2026-05-11',end:'2026-05-17',left:COL_LABEL+3*COL_WEEK,width:COL_WEEK},
-    {start:'2026-05-18',end:'2026-05-24',left:COL_LABEL+4*COL_WEEK,width:COL_WEEK},
-    {start:'2026-05-25',end:'2026-05-31',left:COL_LABEL+5*COL_WEEK,width:COL_WEEK},
-    {start:'2026-06-01',end:'2026-06-07',left:COL_LABEL+6*COL_WEEK,width:COL_WEEK},
-    {start:'2026-06-08',end:'2026-06-14',left:COL_LABEL+7*COL_WEEK,width:COL_WEEK},
-    {start:'2026-06-15',end:'2026-06-21',left:COL_LABEL+8*COL_WEEK,width:COL_WEEK},
-    {start:'2026-06-22',end:'2026-06-28',left:COL_LABEL+9*COL_WEEK,width:COL_WEEK},
-    {start:'2026-07-01',end:'2026-07-31',left:COL_LABEL+10*COL_WEEK,width:COL_LAUNCH},
-  ];
-  function _dayMs(s){
+  // Measure actual rendered column positions from the DOM
+  const sampleRow=tbody.querySelector('tr');
+  if(!sampleRow) return;
+  const firstWkTd=sampleRow.querySelector('td[data-week-idx="0"]');
+  const lastWkTd=sampleRow.querySelector('td[data-week-idx="10"]');
+  if(!firstWkTd||!lastWkTd) return;
+  const wrapRect=wrap.getBoundingClientRect();
+  const scrollLeft=wrap.scrollLeft;
+  const ganttLeft=firstWkTd.getBoundingClientRect().left-wrapRect.left+scrollLeft;
+  const ganttRight=lastWkTd.getBoundingClientRect().right-wrapRect.left+scrollLeft;
+  const ganttWidth=ganttRight-ganttLeft;
+  const totalWidth=wrap.scrollWidth||wrap.offsetWidth;
+
+  // Timeline bounds matching buildRoadmap WEEKS
+  const ganttStartDate=new Date('2026-04-20T00:00:00');
+  const ganttEndDate=new Date('2026-08-01T00:00:00'); // day after last LAUNCH week end
+  const totalMs=ganttEndDate-ganttStartDate;
+
+  function _parseMs(s){
     if(!s) return NaN;
     if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s+'T00:00:00').getTime();
     const p=new Date(s);
     if(isNaN(p.getTime())) return NaN;
     return new Date(p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0')+'T00:00:00').getTime();
   }
-  function _xForDate(dateStr){
-    const d=_dayMs(dateStr);
-    if(isNaN(d)){ console.warn('[DGL] Milestone invalid date:',dateStr); return WEEKS[0].left; }
-    for(const w of WEEKS){
-      const ws=_dayMs(w.start),we=_dayMs(w.end)+86400000;
-      if(d>=ws&&d<we){ return w.left+((d-ws)/(we-ws))*w.width; }
-    }
-    // Outside range — clamp
-    if(d<_dayMs(WEEKS[0].start)) return WEEKS[0].left;
-    const last=WEEKS[WEEKS.length-1];
-    return last.left+last.width;
+  function _xPct(dateStr){
+    const d=_parseMs(dateStr);
+    if(isNaN(d)){ console.warn('[DGL] Milestone invalid date:',dateStr); return null; }
+    const frac=Math.max(0,Math.min(1,(d-ganttStartDate.getTime())/totalMs));
+    const xPx=ganttLeft+frac*ganttWidth;
+    return (xPx/totalWidth)*100;
   }
 
   const _COLOR_MAP={'gold':'#c9a84c','red':'#ef4444','green':'#22c55e','blue':'#4a9eff','amber':'#f59e0b','purple':'#a78bfa','teal':'#2dd4bf','pink':'#f472b6'};
@@ -3815,7 +3812,7 @@ function _renderGanttMilestoneLines(){
   let _mTip=document.getElementById('gantt-ms-tooltip');
   if(!_mTip){ _mTip=document.createElement('div'); _mTip.id='gantt-ms-tooltip'; _mTip.style.cssText='position:fixed;z-index:9001;background:var(--card);border:1px solid var(--gold);border-radius:6px;padding:8px 12px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);pointer-events:none;display:none;max-width:240px;box-shadow:0 6px 20px rgba(0,0,0,0.5)'; document.body.appendChild(_mTip); }
   function _showMTip(e,m,color){
-    _mTip.innerHTML='<div style="color:'+color+';font-size:11px;font-weight:600;margin-bottom:4px">'+m.title+'</div>'+(m.date?'<div style="color:var(--muted);font-size:9px;margin-bottom:3px">📅 '+m.date+'</div>':'')+(m.description?'<div style="color:var(--text);font-size:9px;line-height:1.4">'+m.description+'</div>':'');
+    _mTip.innerHTML='<div style="color:'+color+';font-size:11px;font-weight:600;margin-bottom:4px">'+m.title+'</div>'+(m.date?'<div style="color:var(--muted);font-size:9px;margin-bottom:3px">📅 '+_fmtMsDate(m.date)+'</div>':'')+(m.description?'<div style="color:var(--text);font-size:9px;line-height:1.4">'+m.description+'</div>':'');
     _mTip.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px';
     _mTip.style.top=(e.clientY-10)+'px';
     _mTip.style.display='block';
@@ -3825,29 +3822,30 @@ function _renderGanttMilestoneLines(){
   const tbodyH=tbody.getBoundingClientRect().height||200;
   const linesOverlay=document.createElement('div');
   linesOverlay.id='gantt-ms-lines';
-  linesOverlay.style.cssText='position:absolute;top:0;left:0;width:100%;height:'+tbodyH+'px;pointer-events:none;z-index:2;overflow:visible';
+  linesOverlay.style.cssText='position:absolute;top:0;left:0;width:'+totalWidth+'px;height:'+tbodyH+'px;pointer-events:none;z-index:2;overflow:visible';
 
   const diamondsOverlay=document.createElement('div');
   diamondsOverlay.id='gantt-ms-diamonds';
-  diamondsOverlay.style.cssText='position:absolute;top:0;left:0;width:100%;height:'+tbodyH+'px;pointer-events:none;z-index:5;overflow:visible';
+  diamondsOverlay.style.cssText='position:absolute;top:0;left:0;width:'+totalWidth+'px;height:'+tbodyH+'px;pointer-events:none;z-index:5;overflow:visible';
 
-  console.log('[DGL] Rendering milestone lines:',items.length);
+  console.log('[DGL] Rendering milestone lines:',items.length,'ganttLeft:',ganttLeft.toFixed(0),'ganttWidth:',ganttWidth.toFixed(0));
   items.forEach(m=>{
-    const x=_xForDate(m.date);
-    console.log('[DGL] Milestone:',m.title,'date:',m.date,'x:',x);
+    const xPct=_xPct(m.date);
+    if(xPct===null) return;
+    console.log('[DGL] Milestone line:',m.title,'date:',m.date,'x:',xPct.toFixed(1)+'%');
     const isDone=m.status==='Complete'||m.status==='Done';
     const color=isDone?'#22c55e':_resolveColor(m.color);
     const marker=isDone?'✓':'◆';
 
     const line=document.createElement('div');
-    line.style.cssText=`position:absolute;left:${x}px;top:14px;width:2px;height:calc(100% - 14px);border-left:2px solid ${color};opacity:0.5;pointer-events:auto;cursor:default`;
+    line.style.cssText=`position:absolute;left:${xPct}%;top:14px;width:2px;height:calc(100% - 14px);border-left:2px solid ${color};opacity:0.5;pointer-events:auto;cursor:default`;
     line.addEventListener('mouseenter',e=>_showMTip(e,m,color));
     line.addEventListener('mousemove',e=>{ _mTip.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px'; _mTip.style.top=(e.clientY-10)+'px'; });
     line.addEventListener('mouseleave',_hideMTip);
 
     const diamond=document.createElement('div');
     diamond.textContent=marker;
-    diamond.style.cssText=`position:absolute;left:${x}px;top:2px;transform:translateX(-50%);font-size:10px;color:${color};opacity:1;line-height:1;pointer-events:auto;cursor:default;text-shadow:0 1px 3px rgba(0,0,0,0.6)`;
+    diamond.style.cssText=`position:absolute;left:${xPct}%;top:2px;transform:translateX(-50%);font-size:10px;color:${color};opacity:1;line-height:1;pointer-events:auto;cursor:default;text-shadow:0 1px 3px rgba(0,0,0,0.6)`;
     diamond.addEventListener('mouseenter',e=>_showMTip(e,m,color));
     diamond.addEventListener('mousemove',e=>{ _mTip.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px'; _mTip.style.top=(e.clientY-10)+'px'; });
     diamond.addEventListener('mouseleave',_hideMTip);
