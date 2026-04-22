@@ -4339,7 +4339,18 @@ function _initGanttDrag(){
     _drag=null;
     _ganttSaveUndo(savedId,oldSd,oldEd);
     t.sd=newSd; t.ed=newEd;
-    buildRoadmap();
+    // Move only the dragged bar — defer past dragend so class resets don't fight us
+    requestAnimationFrame(()=>{
+      const bar=canvas.querySelector(`[data-task-id="${savedId}"].rm-cell`);
+      if(bar){
+        const newL=_ganttDayOff(newSd)*_ganttDayPx;
+        const span=Math.max(1,Math.round((new Date(newEd+'T00:00:00')-new Date(newSd+'T00:00:00'))/86400000)+1);
+        const newW=Math.max(span*_ganttDayPx,Math.max(20,_ganttDayPx));
+        bar.style.left=newL+'px';
+        bar.style.width=newW+'px';
+        bar.dataset.sd=newSd; bar.dataset.ed=newEd;
+      }
+    });
     const sdEl=document.getElementById('raci-sd-'+savedId);
     const edEl=document.getElementById('raci-ed-'+savedId);
     if(sdEl) sdEl.value=newSd;
@@ -4372,7 +4383,7 @@ function _dismissGanttConfirm(save){
 }
 function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
   const existing=document.getElementById('gantt-confirm-btns');
-  if(existing) _dismissGanttConfirm(true);
+  if(existing){ _dismissGanttConfirm(true); buildRoadmap(); }
   window._ganttPendingConfirmId=taskId;
 
   const wrap=document.createElement('div');
@@ -4384,6 +4395,7 @@ function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
   confirmBtn.style.cssText='background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:4px 12px;cursor:pointer';
   confirmBtn.onclick=()=>{
     _dismissGanttConfirm(true);
+    buildRoadmap();
     _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Saved</div>',1800);
   };
 
