@@ -415,7 +415,7 @@ tr.hidden-row{display:none}
 .warn{color:var(--amber)}
 
 /* ── ROADMAP ── */
-.roadmap-wrap{overflow-x:auto}
+.roadmap-wrap{overflow-x:auto;position:relative}
 #roadmap-head-wrap{overflow-x:hidden}
 #roadmap-sticky-header{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7)}
 .roadmap-table{border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:900px;width:100%}
@@ -3760,6 +3760,95 @@ function buildRoadmap(){
     tbody.appendChild(tr);
   });
   _initGanttDrag(WEEKS, toIsoDate);
+  // Defer so tbody has been painted and has measurable height
+  requestAnimationFrame(_renderGanttMilestoneLines);
+}
+
+function _renderGanttMilestoneLines(){
+  const wrap=document.querySelector('.roadmap-wrap');
+  const tbody=document.getElementById('roadmap-body');
+  if(!wrap||!tbody) return;
+  const existing=document.getElementById('gantt-milestone-overlay');
+  if(existing) existing.remove();
+  const items=(DASHBOARD_DATA.meta.milestoneItems||[]).filter(m=>m.date);
+  if(!items.length) return;
+
+  // Fixed column layout: label=160px, W1-W10=78px each, LAUNCH=94px
+  const COL_LABEL=160, COL_WEEK=78, COL_LAUNCH=94;
+  // WEEKS in order (mirrors buildRoadmap)
+  const WEEKS=[
+    {start:'2026-04-20',end:'2026-04-26',left:COL_LABEL+0*COL_WEEK,width:COL_WEEK},
+    {start:'2026-04-27',end:'2026-05-03',left:COL_LABEL+1*COL_WEEK,width:COL_WEEK},
+    {start:'2026-05-04',end:'2026-05-10',left:COL_LABEL+2*COL_WEEK,width:COL_WEEK},
+    {start:'2026-05-11',end:'2026-05-17',left:COL_LABEL+3*COL_WEEK,width:COL_WEEK},
+    {start:'2026-05-18',end:'2026-05-24',left:COL_LABEL+4*COL_WEEK,width:COL_WEEK},
+    {start:'2026-05-25',end:'2026-05-31',left:COL_LABEL+5*COL_WEEK,width:COL_WEEK},
+    {start:'2026-06-01',end:'2026-06-07',left:COL_LABEL+6*COL_WEEK,width:COL_WEEK},
+    {start:'2026-06-08',end:'2026-06-14',left:COL_LABEL+7*COL_WEEK,width:COL_WEEK},
+    {start:'2026-06-15',end:'2026-06-21',left:COL_LABEL+8*COL_WEEK,width:COL_WEEK},
+    {start:'2026-06-22',end:'2026-06-28',left:COL_LABEL+9*COL_WEEK,width:COL_WEEK},
+    {start:'2026-07-01',end:'2026-07-31',left:COL_LABEL+10*COL_WEEK,width:COL_LAUNCH},
+  ];
+  function _dayMs(s){ return new Date(s+'T00:00:00').getTime(); }
+  function _xForDate(dateStr){
+    const d=_dayMs(dateStr);
+    for(const w of WEEKS){
+      const ws=_dayMs(w.start),we=_dayMs(w.end)+86400000;
+      if(d>=ws&&d<we){ return w.left+((d-ws)/(we-ws))*w.width; }
+    }
+    // Outside range — clamp
+    if(d<_dayMs(WEEKS[0].start)) return WEEKS[0].left;
+    const last=WEEKS[WEEKS.length-1];
+    return last.left+last.width;
+  }
+
+  function _colorForType(type,status){
+    if(status==='Complete'||status==='Done') return {color:'#22c55e',border:'solid',width:'2px'};
+    switch((type||'').toLowerCase()){
+      case 'beta':    return {color:'#f59e0b',border:'dashed',width:'1.5px'};
+      case 'launch':  return {color:'var(--gold)',border:'solid',width:'2px'};
+      case 'goal':    return {color:'#4a9eff',border:'dashed',width:'1.5px'};
+      default:        return {color:'var(--muted)',border:'dotted',width:'1px'};
+    }
+  }
+
+  const tbodyH=tbody.getBoundingClientRect().height||200;
+  const overlay=document.createElement('div');
+  overlay.id='gantt-milestone-overlay';
+  overlay.style.cssText='position:absolute;top:0;left:0;width:100%;height:'+tbodyH+'px;pointer-events:none;z-index:10;overflow:visible';
+
+  items.forEach(m=>{
+    const x=_xForDate(m.date);
+    const {color,border,width}=_colorForType(m.type,m.status);
+    const isDone=m.status==='Complete'||m.status==='Done';
+    const marker=isDone?'✓':'◆';
+    const markerColor=isDone?'#22c55e':color;
+    const titleShort=m.title.length>16?m.title.slice(0,15)+'…':m.title;
+    const tip=m.title+(m.date?' · '+m.date:'')+(m.description?' — '+m.description:'');
+
+    const line=document.createElement('div');
+    line.title=tip;
+    line.style.cssText=`position:absolute;left:${x}px;top:18px;width:${width};height:calc(100% - 18px);border-left:${width} ${border} ${color};opacity:0.75;pointer-events:auto;cursor:default`;
+
+    const label=document.createElement('div');
+    label.style.cssText=`position:absolute;left:${x}px;top:0;display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:default`;
+    label.title=tip;
+
+    const diamond=document.createElement('span');
+    diamond.textContent=marker;
+    diamond.style.cssText=`font-size:9px;color:${markerColor};line-height:1;display:block;text-shadow:0 1px 3px rgba(0,0,0,0.5)`;
+
+    const txt=document.createElement('span');
+    txt.textContent=titleShort;
+    txt.style.cssText=`font-family:'DM Mono',monospace;font-size:8px;color:${color};white-space:nowrap;writing-mode:horizontal-tb;transform:rotate(-45deg) translateX(-50%);transform-origin:top left;display:block;margin-top:1px;text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:0.5px`;
+
+    label.appendChild(diamond);
+    label.appendChild(txt);
+    overlay.appendChild(line);
+    overlay.appendChild(label);
+  });
+
+  wrap.appendChild(overlay);
 }
 
 // ── Gantt context menu ───────────────────────────────────────
@@ -9429,6 +9518,7 @@ function loadFromSheets(){
             _debouncedBuildMilestones();
             buildMilestoneHistory();
             _buildChannelMappingSection();
+            _renderGanttMilestoneLines();
             if(_w2badge) _w2badge.style.display='none';
           }).catch(()=>{ if(_w2badge) _w2badge.style.display='none'; });
       }, 100);
