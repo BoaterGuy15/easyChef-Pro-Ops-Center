@@ -426,12 +426,18 @@ tr.hidden-row{display:none}
 .roadmap-table td{border:1px solid var(--border);border-left:none;border-top:none;padding:6px 8px;font-size:11px;vertical-align:top}
 .roadmap-table td.ws-label{font-size:12px;color:var(--text);font-weight:500;background:var(--surface);white-space:nowrap;border-left:1px solid var(--border)}
 .roadmap-table tbody tr:first-child td{border-top:1px solid var(--border)}
-.rm-cell{background:var(--card);border-radius:4px;padding:4px 6px;font-size:10px;color:var(--muted);line-height:1.4}
+.rm-cell{background:var(--card);border-radius:4px;padding:3px 2px;font-size:10px;color:var(--muted);line-height:1.4;display:flex;align-items:center;gap:2px;cursor:grab;user-select:none}
 .rm-cell.active{background:rgba(201,168,76,0.08);color:var(--gold-light);border-left:2px solid var(--gold)}
 .rm-cell.milestone{background:rgba(52,211,153,0.08);color:var(--green);border-left:2px solid var(--green);font-weight:500}
 .rm-cell.searah{background:rgba(201,168,76,0.06);border-left:2px solid var(--amber);color:#fbbf24}
 .rm-cell.sadee{background:rgba(45,212,191,0.06);border-left:2px solid var(--teal);color:var(--teal)}
 .rm-cell.hammad{background:rgba(167,139,250,0.06);border-left:2px solid var(--purple);color:var(--purple)}
+.rm-cell:active{cursor:grabbing}
+.rm-cell.gantt-dragging{opacity:0.45}
+.gantt-handle{cursor:ew-resize;padding:0 3px;font-size:9px;opacity:0;flex-shrink:0;transition:opacity 0.1s;line-height:1}
+.rm-cell:hover .gantt-handle{opacity:0.6}
+.gantt-handle:hover{opacity:1!important}
+td.gantt-drop-target{background:rgba(201,168,76,0.12);outline:2px dashed var(--gold);outline-offset:-2px}
 .rm-empty{color:var(--border);font-size:10px;text-align:center;padding:8px 0}
 
 /* ── BUDGET ── */
@@ -3514,26 +3520,124 @@ function buildRoadmap(){
     const tr = document.createElement('tr');
     const rowLabel = CAT_LABELS[cat] || cat;
     let html = `<td class="ws-label">${rowLabel}</td>`;
-    WEEKS.forEach(w=>{
+    WEEKS.forEach((w,wi)=>{
       const inWeek = tasks.filter(t=>{ const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed); return sd&&ed&&sd<=w.end&&ed>=w.start; });
       if(!inWeek.length){
-        html += `<td><span class="rm-empty">—</span></td>`;
+        html += `<td data-week-idx="${wi}"><span class="rm-empty">—</span></td>`;
       } else {
         const cells = inWeek.map(t=>{
           const isDone = t.status==='Done'||t.status==='Complete';
           const isActive = ['Started','In Progress','Ready','In Review'].includes(t.status);
           const isOverdue = !isDone && toIsoDate(t.ed) < today;
           const cls = isDone ? 'rm-cell milestone' : isActive ? 'rm-cell active' : 'rm-cell';
-          const style = isOverdue ? ' style="color:var(--red);border-color:rgba(248,113,113,0.4)"' : '';
-          const name = t.name.length>18 ? t.name.substring(0,16)+'…' : t.name;
-          return `<div class="${cls}"${style}>${name}</div>`;
+          const ovStyle = isOverdue ? 'color:var(--red);border-color:rgba(248,113,113,0.4);' : '';
+          const name = t.name.length>14 ? t.name.substring(0,13)+'…' : t.name;
+          const sd=toIsoDate(t.sd)||'', ed=toIsoDate(t.ed)||'';
+          return `<div class="${cls}" style="${ovStyle}" draggable="true" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" data-mode="move" title="${t.name} · ${sd} → ${ed}">
+            <span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true" title="Drag ◀ to shift start date">◀</span>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${name}</span>
+            <span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true" title="Drag ▶ to shift end date">▶</span>
+          </div>`;
         }).join('');
-        html += `<td>${cells}</td>`;
+        html += `<td data-week-idx="${wi}">${cells}</td>`;
       }
     });
     tr.innerHTML = html;
     tbody.appendChild(tr);
   });
+  _initGanttDrag(WEEKS, toIsoDate);
+}
+
+// ── Gantt drag-and-drop ──────────────────────────────────────
+function _initGanttDrag(WEEKS, toIsoDate){
+  const tbody=document.getElementById('roadmap-body');
+  if(!tbody||tbody._ganttDragInited) return;
+  tbody._ganttDragInited=true;
+
+  function _addDays(dateStr,days){
+    const d=new Date(dateStr+'T00:00:00');
+    d.setDate(d.getDate()+days);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function _daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+  function _isoDate(v){
+    if(!v) return '';
+    if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const d=new Date(v); if(isNaN(d.getTime())) return '';
+    return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+  }
+
+  let _drag=null;
+
+  tbody.addEventListener('dragstart',e=>{
+    const handle=e.target.closest('.gantt-handle');
+    const bar=e.target.closest('[draggable][data-task-id]');
+    if(!bar) return;
+    const taskId=bar.dataset.taskId;
+    const mode=handle?handle.dataset.mode:(bar.dataset.mode||'move');
+    const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+    if(!t) return;
+    const sd=_isoDate(t.sd), ed=_isoDate(t.ed);
+    const dur=sd&&ed?_daysBetween(sd,ed):6;
+    _drag={taskId,origSd:sd,origEd:ed,durationDays:Math.max(0,dur),mode};
+    e.dataTransfer.effectAllowed='move';
+    e.dataTransfer.setData('text/plain',taskId+'|'+mode);
+    setTimeout(()=>{ tbody.querySelectorAll(`[data-task-id="${taskId}"]`).forEach(el=>el.classList.add('gantt-dragging')); },0);
+  },true);
+
+  tbody.addEventListener('dragend',()=>{
+    _drag=null;
+    tbody.querySelectorAll('.gantt-dragging').forEach(el=>el.classList.remove('gantt-dragging'));
+    tbody.querySelectorAll('.gantt-drop-target').forEach(td=>td.classList.remove('gantt-drop-target'));
+  },true);
+
+  tbody.addEventListener('dragover',e=>{
+    if(!_drag) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect='move';
+    const td=e.target.closest('td[data-week-idx]');
+    tbody.querySelectorAll('.gantt-drop-target').forEach(t=>t.classList.remove('gantt-drop-target'));
+    if(td) td.classList.add('gantt-drop-target');
+  },true);
+
+  tbody.addEventListener('drop',e=>{
+    if(!_drag) return;
+    e.preventDefault();
+    const td=e.target.closest('td[data-week-idx]');
+    tbody.querySelectorAll('.gantt-drop-target').forEach(t=>t.classList.remove('gantt-drop-target'));
+    if(!td) return;
+    const weekIdx=parseInt(td.dataset.weekIdx);
+    const week=WEEKS[weekIdx];
+    if(!week) return;
+    const t=DASHBOARD_DATA.tasks.find(x=>x.id===_drag.taskId);
+    if(!t) return;
+
+    let newSd=_isoDate(t.sd)||week.start, newEd=_isoDate(t.ed)||week.end;
+    if(_drag.mode==='move'){
+      newSd=week.start;
+      newEd=_addDays(newSd,_drag.durationDays||6);
+    } else if(_drag.mode==='left'){
+      newSd=week.start;
+      if(newSd>=newEd) newEd=_addDays(newSd,6);
+    } else if(_drag.mode==='right'){
+      newEd=week.end;
+      if(newEd<=newSd) newSd=_addDays(newEd,-6);
+    }
+
+    t.sd=newSd; t.ed=newEd;
+    const savedId=_drag.taskId;
+    _drag=null;
+
+    buildRoadmap(); initRoadmapHeadSync();
+    // Update open expansion panel date inputs if present
+    const sdEl=document.getElementById('raci-sd-'+savedId);
+    const edEl=document.getElementById('raci-ed-'+savedId);
+    if(sdEl) sdEl.value=newSd;
+    if(edEl) edEl.value=newEd;
+
+    _saveTasksNow();
+    _showToast(`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--gold)">📅 ${savedId} moved to ${newSd}</div>`,3000);
+  },true);
 }
 
 // ── Budget ──────────────────────────────────────────────────
