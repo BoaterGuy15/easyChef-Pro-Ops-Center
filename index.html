@@ -9153,8 +9153,8 @@ function loadFromSheets(){
       rows.forEach(s=>{ if(s.id) window._lastSheetsSnapshot[s.id]=Object.assign({},s); });
       _lastSheetsLoadTime=Date.now();
       Object.keys(_raciExpandCache).forEach(k=>{ delete _raciExpandCache[k]; });
-      masterRefresh();
       window._sheetsLoaded=true;
+      masterRefresh();
       updateSyncStatus('ok');
     })
     .catch(()=>updateSyncStatus('fail'));
