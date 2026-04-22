@@ -2270,7 +2270,7 @@ function _openMarkCompleteModal(taskId){
   // Notify checkboxes
   const notifyBoxes=_DGL_TEAM_NAMES.filter(n=>n!=='Mary').map(n=>{const locked=n==='Taylor'||n==='Steve';return`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:${locked?'default':'pointer'}"><input type="checkbox" value="${n}" id="mc-notify-${n.toLowerCase()}" style="accent-color:var(--accent)"${locked?' checked disabled':''}>${n}${locked?'<span style="font-size:7px;color:var(--gold);margin-left:2px">★</span>':''}</label>`;}).join('');
   // Downstream tasks list — pre-fill text for editable textarea
-  const downstreamDefault=unblocked.length?unblocked.map(u=>u.id+' — '+u.name).join('\n'):'No downstream tasks identified';
+  const downstreamDefault=unblocked.length?unblocked.map(u=>u.id+' — '+u.name+' ('+u.status+')').join('\n'):'';
 
   modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-start;justify-content:center;background:rgba(0,0,0,0.72);overflow-y:auto;padding:24px 0';
   modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:24px 28px;width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;margin:auto">
@@ -2322,9 +2322,9 @@ function _openMarkCompleteModal(taskId){
     <!-- SECTION 4: IMPACT -->
     <div style="${SEC}">④ IMPACT</div>
     <label style="${LBL}">What does this unlock?</label>
-    <textarea id="delivery-unlocks" rows="3" style="${IS};resize:vertical;margin-bottom:8px" placeholder="Downstream tasks or impact this completion unlocks">${downstreamDefault}</textarea>
+    <textarea id="delivery-unlocks" rows="3" style="${IS};resize:vertical;margin-bottom:8px" placeholder="Describe what this completion unlocks for the team...">${downstreamDefault}</textarea>
     <label style="${LBL}">Any blockers encountered?</label>
-    <textarea id="mc-blockers" rows="2" style="${IS};resize:vertical;margin-bottom:8px" placeholder="Optional — describe any issues that slowed this down"></textarea>
+    <textarea id="mc-blockers" rows="3" style="${IS};resize:vertical;margin-bottom:8px" placeholder="Describe any blockers that were encountered during this task..."></textarea>
     <label style="${LBL}">Quality confidence</label>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">1 Needs Review</span>
