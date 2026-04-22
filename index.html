@@ -438,6 +438,7 @@ tr.hidden-row{display:none}
 .rm-cell:hover .gantt-handle{opacity:0.6}
 .gantt-handle:hover{opacity:1!important}
 td.gantt-drop-target{background:rgba(201,168,76,0.12);outline:2px dashed var(--gold);outline-offset:-2px}
+.gantt-flag-pin{cursor:default;user-select:none}
 .rm-empty{color:var(--border);font-size:10px;text-align:center;padding:8px 0}
 
 /* ── BUDGET ── */
@@ -3537,11 +3538,28 @@ function buildRoadmap(){
 
   const cats = {};
   DASHBOARD_DATA.tasks.forEach(t=>{ if(!cats[t.cat]) cats[t.cat]=[]; cats[t.cat].push(t); });
+  // Flag emoji extractor — returns just the leading emoji character from a flag string
+  function _flagEmoji(flag){
+    if(!flag) return '';
+    const f=flag.trim();
+    if(f.startsWith('⛔')) return '⛔';
+    if(f.startsWith('⚠️')) return '⚠️';
+    if(f.startsWith('✓')) return '✓';
+    if(f.startsWith('🔵')) return '🔵';
+    if(f.startsWith('🎯')) return '🎯';
+    if(f.startsWith('💡')) return '💡';
+    return '';
+  }
+
   tbody.innerHTML = '';
   Object.entries(cats).forEach(([cat, tasks])=>{
     const tr = document.createElement('tr');
     const rowLabel = CAT_LABELS[cat] || cat;
-    let html = `<td class="ws-label">${rowLabel}</td>`;
+    // Row label: show highest-priority flag among tasks in this category
+    const flaggedTasks=tasks.filter(t=>_flagEmoji(t.flag));
+    const rowFlagEmoji=flaggedTasks.length?_flagEmoji(flaggedTasks[0].flag):'';
+    const rowFlagTip=rowFlagEmoji?flaggedTasks[0].flag:'';
+    let html = `<td class="ws-label">${rowFlagEmoji?`<span title="${rowFlagTip.replace(/"/g,'&quot;')}" style="margin-right:5px;font-size:11px;line-height:1;vertical-align:middle">${rowFlagEmoji}</span>`:''}${rowLabel}</td>`;
     WEEKS.forEach((w,wi)=>{
       const inWeek = tasks.filter(t=>{ const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed); return sd&&ed&&sd<=w.end&&ed>=w.start; });
       if(!inWeek.length){
@@ -3549,13 +3567,18 @@ function buildRoadmap(){
       } else {
         const cells = inWeek.map(t=>{
           const isDone = t.status==='Done'||t.status==='Complete';
+          const isActive = ['Started','In Progress','Ready','In Review'].includes(t.status);
           const isOverdue = !isDone && toIsoDate(t.ed) < today;
-          const barColor = isOverdue ? '#ef4444' : _getTaskBarColor(t);
-          const barBg = isOverdue ? 'rgba(239,68,68,0.09)' : (_GANTT_BAR_BG[barColor]||'rgba(201,168,76,0.08)');
-          const name = t.name.length>14 ? t.name.substring(0,13)+'…' : t.name;
+          // Status-based class (original colors preserved)
+          const cls = isDone ? 'rm-cell milestone' : isActive ? 'rm-cell active' : 'rm-cell';
+          const ovStyle = isOverdue ? 'color:var(--red);border-color:rgba(248,113,113,0.4);' : '';
+          const name = t.name.length>12 ? t.name.substring(0,11)+'…' : t.name;
           const sd=toIsoDate(t.sd)||'', ed=toIsoDate(t.ed)||'';
-          return `<div class="rm-cell" style="border-left:2px solid ${barColor};color:${barColor};background:${barBg}" draggable="true" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" data-mode="move" title="${t.name} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">
+          const flagIco=_flagEmoji(t.flag);
+          const flagPin=flagIco?`<span class="gantt-flag-pin" title="${(t.flag||'').replace(/"/g,'&quot;')}" style="font-size:9px;line-height:1;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
+          return `<div class="${cls}" style="${ovStyle}" draggable="true" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" data-mode="move" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">
             <span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true" title="Drag ◀ to shift start date">◀</span>
+            ${flagPin}
             <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${name}</span>
             <span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true" title="Drag ▶ to shift end date">▶</span>
           </div>`;
