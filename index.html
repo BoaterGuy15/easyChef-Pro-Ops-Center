@@ -11,6 +11,8 @@
   const BUDGET_SHEET_NAME = 'Budget';
   const ROADMAP_SHEET = 'Roadmap';
   const ROADMAP_HEADERS = ['id','title','date','type','status','description','color','taskIds','achievedDate'];
+  const COMPLETIONS_SHEET = 'Completions';
+  const COMPLETIONS_HEADERS = ['id','taskId','taskName','category','completedBy','involvedTeam','description','deliverableType','fileAttached','completedDate','timeSpent','blockers','qualityScore','nextSteps','notified','unlockedTasks','sessionHash','loggedBy','timestamp'];
   const FIELDS = [
     'id','name','cat','pri','status','owner','deps','notes',
     'Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',
@@ -32,6 +34,10 @@
       }
       if (action === 'roadmap_read') {
         return respond(getRoadmap());
+      }
+      if (action === 'completions_read') {
+        const taskId = e && e.parameter && e.parameter.taskId ? e.parameter.taskId : '';
+        return respond({ ok: true, completions: getCompletions(taskId) });
       }
       if (action === 'anthropic') {
         const prompt = e.parameter.prompt || '';
@@ -60,6 +66,10 @@
       }
       if (action === 'roadmap_delete') {
         deleteRoadmapItem(body.id);
+        return respond({ ok: true });
+      }
+      if (action === 'completion_write') {
+        setCompletion(body);
         return respond({ ok: true });
       }
       // default: write tasks array
@@ -222,6 +232,44 @@
     }
   }
 
+  // ── Completions ─────────────────────────────────────────────────────────
+
+  function getCompletions(taskId) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(COMPLETIONS_SHEET);
+    if (!sheet) return [];
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return [];
+    const header = rows[0];
+    const all = rows.slice(1).map(row => {
+      const obj = {};
+      header.forEach((col, i) => { obj[col] = String(row[i] == null ? '' : row[i]); });
+      return obj;
+    });
+    return taskId ? all.filter(r => r.taskId === taskId) : all;
+  }
+
+  function setCompletion(item) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(COMPLETIONS_SHEET);
+    if (!sheet) {
+      sheet = ss.insertSheet(COMPLETIONS_SHEET);
+      sheet.appendRow(COMPLETIONS_HEADERS);
+    }
+    const rows = sheet.getDataRange().getValues();
+    const header = rows[0];
+    // Upsert by id — if id exists, replace row; otherwise append
+    const idCol = header.indexOf('id');
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][idCol]) === String(item.id)) {
+        sheet.getRange(i + 1, 1, 1, COMPLETIONS_HEADERS.length)
+          .setValues([COMPLETIONS_HEADERS.map(h => item[h] != null ? String(item[h]) : '')]);
+        return;
+      }
+    }
+    sheet.appendRow(COMPLETIONS_HEADERS.map(h => item[h] != null ? String(item[h]) : ''));
+  }
+
   // CORS NOTE: Apps Script includes CORS headers for GET automatically.
   // POST from the browser uses mode:'no-cors' (fire-and-forget). The sync
   // indicator shows 'Synced ✓' optimistically once the request completes.
@@ -229,6 +277,7 @@
   // initialize the Budget tab before the first budget_write POST.
   // Run setRoadmapItem({}) once (or just add the Roadmap sheet manually) to
   // initialize the Roadmap tab with headers before the first roadmap_write POST.
+  // The Completions sheet is auto-created on first setCompletion() call.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -2299,10 +2348,7 @@ function _markTaskComplete(taskId){
     session:window._dglSessionHash||'', generatedAt:new Date().toISOString()
   };
 
-  // Save to notes cache as type='completion' (JSON stringified)
-  _appendNote(taskId, JSON.stringify(record), 'completion');
-
-  // Plain-text version for Drive and action plan
+  // Plain-text version for Drive
   const raciCols=['responsible','accountable','consulted','informed'];
   const raciLines=raciCols.map(r=>{ const v=t[r]||''; return v?r.charAt(0).toUpperCase()+r.slice(1)+': '+v:''; }).filter(Boolean).join('\n');
   const txt=[
@@ -2314,7 +2360,7 @@ function _markTaskComplete(taskId){
     '',
     '① WHO',
     'Completed By: '+deliveredBy,
-    'Also Involved:'+( involved.length?involved.join(', '):'(none)'),
+    'Also Involved:'+(involved.length?involved.join(', '):'(none)'),
     '',
     '② WHAT',
     'Delivery:     '+delivery,
@@ -2342,21 +2388,46 @@ function _markTaskComplete(taskId){
     'Generated: '+new Date().toISOString()
   ].join('\n');
 
-  // Post to Slack linked channel
-  const linked=_getTaskSlackLink(taskId);
-  if(linked&&linked.channelId&&CONFIG.sheetsUrl)
-    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('✅ ['+taskId+'] '+( t.name||'')+' COMPLETED by '+deliveredBy+': '+delivery.slice(0,120))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+  // Cache locally
+  if(!window._completionsCache) window._completionsCache={};
+  window._completionsCache[taskId]=record;
+  // Also push into notesCache so _getCompletionRecord works immediately
+  const _existingNotes=_getNotes(taskId);
+  _existingNotes.push({ts:record.generatedAt,user:window._DGL_USER||'system',name:deliveredBy,text:JSON.stringify(record),type:'completion'});
+  _saveNotes(taskId,_existingNotes);
 
-  // Notify selected team members via DM channels
-  if(toNotify.length&&CONFIG.sheetsUrl){
-    toNotify.forEach(name=>{
-      const uKey=Object.keys(_USER_RACI_MAP).find(k=>_USER_RACI_MAP[k]===name)||name.toLowerCase();
-      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent('@'+uKey)+'&text='+encodeURIComponent('📬 FYI: ['+taskId+'] '+( t.name||'')+' was just marked complete by '+deliveredBy+'. '+delivery.slice(0,100))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
-    });
-  }
-
-  // Upload Drive .txt record
   if(CONFIG.sheetsUrl){
+    // a. POST to Completions sheet
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+      action:'completion_write',
+      id:'comp-'+Date.now(),
+      taskId,
+      taskName:t.name||'',
+      category:t.cat||'',
+      completedBy:deliveredBy,
+      involvedTeam:involved.join(','),
+      description:delivery,
+      deliverableType:format,
+      fileAttached,
+      completedDate:date,
+      timeSpent:duration,
+      blockers,
+      qualityScore:quality,
+      nextSteps:nextAction,
+      notified:toNotify.join(','),
+      unlockedTasks:unblocked.map(u=>u.id).join(','),
+      sessionHash:window._dglSessionHash||'',
+      loggedBy:window._DGL_USER||'system',
+      timestamp:new Date().toISOString()
+    })}).catch(()=>{});
+
+    // b. POST to Comments sheet (type='completion', full JSON)
+    const _cu=window._DGL_USER||'system';
+    const _cn=deliveredBy;
+    const _cts=record.generatedAt;
+    fetch(CONFIG.sheetsUrl+'?action=comments_write&taskId='+encodeURIComponent(taskId)+'&user='+encodeURIComponent(_cu)+'&name='+encodeURIComponent(_cn)+'&ts='+encodeURIComponent(_cts)+'&text='+encodeURIComponent(JSON.stringify(record))+'&type=completion').catch(()=>{});
+
+    // c. POST to Drive (plain-text .txt)
     const b64=btoa(unescape(encodeURIComponent(txt)));
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
       action:'file_upload',
@@ -2364,7 +2435,7 @@ function _markTaskComplete(taskId){
       filename:taskId+'_COMPLETION_RECORD_'+date+'.txt',
       mimeType:'text/plain',
       base64data:b64,
-      taskId:taskId,
+      taskId,
       agendaId:'',
       sourceType:'task',
       sourceId:taskId,
@@ -2372,7 +2443,21 @@ function _markTaskComplete(taskId){
       addedBy:window._DGL_USER||'system',
       reviewNeeded:'false'
     })}).catch(()=>{});
+
     _saveActionPlan(taskId,'raci','COMPLETION RECORD: '+delivery,taskId,'');
+  }
+
+  // Post to Slack linked channel
+  const linked=_getTaskSlackLink(taskId);
+  if(linked&&linked.channelId&&CONFIG.sheetsUrl)
+    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('✅ ['+taskId+'] '+(t.name||'')+' COMPLETED by '+deliveredBy+': '+delivery.slice(0,120))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+
+  // Notify selected team members via DM
+  if(toNotify.length&&CONFIG.sheetsUrl){
+    toNotify.forEach(name=>{
+      const uKey=Object.keys(_USER_RACI_MAP).find(k=>_USER_RACI_MAP[k]===name)||name.toLowerCase();
+      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent('@'+uKey)+'&text='+encodeURIComponent('📬 FYI: ['+taskId+'] '+(t.name||'')+' was just marked complete by '+deliveredBy+'. '+delivery.slice(0,100))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+    });
   }
 
   _saveTasksNow();
@@ -2387,7 +2472,9 @@ function _markTaskComplete(taskId){
 
 // ─── COMPLETION RECORD READ-ONLY VIEW ────────────────────────────────────────
 function _getCompletionRecord(taskId){
-  // Check local notes cache first (same session), then commentsCache (populated from Sheets)
+  // 1. _completionsCache (set immediately on submit)
+  if(window._completionsCache&&window._completionsCache[taskId]) return window._completionsCache[taskId];
+  // 2. notesCache (same session _appendNote writes)
   const noteSources=[..._getNotes(taskId),...(_commentsCache[taskId]||[])];
   const entry=noteSources.slice().reverse().find(n=>n.type==='completion');
   if(!entry) return null;
@@ -2395,30 +2482,58 @@ function _getCompletionRecord(taskId){
 }
 function _fetchAndInjectCompletionRecord(taskId){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(taskId)+'&type=completion')
+  // Already cached — inject immediately if DOM slot missing
+  if(window._completionsCache&&window._completionsCache[taskId]){
+    _injectCompletionRecordDom(taskId); return;
+  }
+  // Fetch from Completions sheet first, fall back to Comments
+  fetch(CONFIG.sheetsUrl+'?action=completions_read&taskId='+encodeURIComponent(taskId))
     .then(r=>r.json())
     .then(data=>{
+      const rows=Array.isArray(data)?data:(data.completions||data.items||[]);
+      const row=rows.find(r=>(r.taskId||r.id||'')===taskId||rows[0]);
+      if(row&&row.taskId){
+        // Map flat Sheets row → record object
+        const rec={
+          taskId:row.taskId||taskId, taskName:row.taskName||'', category:row.category||'',
+          completedBy:row.completedBy||'', involvedTeam:(row.involvedTeam||'').split(',').filter(Boolean),
+          delivery:row.description||'', format:row.deliverableType||'', fileAttached:row.fileAttached||'',
+          date:row.completedDate||'', duration:row.timeSpent||'', blockers:row.blockers||'',
+          quality:row.qualityScore||'3', qualityLabel:{'1':'Needs Review','2':'Needs Review','3':'Solid','4':'Solid','5':'Excellent'}[row.qualityScore]||'Solid',
+          nextAction:row.nextSteps||'', notified:(row.notified||'').split(',').filter(Boolean),
+          unblocked:(row.unlockedTasks||'').split(',').filter(Boolean).map(id=>{ const ut=DASHBOARD_DATA.tasks.find(t=>t.id===id.trim()); return ut?id.trim()+' — '+ut.name:id.trim(); }),
+          session:row.sessionHash||'', generatedAt:row.timestamp||''
+        };
+        if(!window._completionsCache) window._completionsCache={};
+        window._completionsCache[taskId]=rec;
+        _injectCompletionRecordDom(taskId);
+        return;
+      }
+      // Fallback: Comments sheet
+      return fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(taskId)+'&type=completion');
+    })
+    .then(r=>{ if(!r||!r.json) return; return r.json(); })
+    .then(data=>{
+      if(!data) return;
       const rows=Array.isArray(data)?data:(data.comments||[]);
       const completion=rows.find(r=>r.type==='completion');
       if(!completion) return;
-      // Merge into notesCache if not already present
       const existing=_getNotes(taskId);
-      if(!existing.find(n=>n.type==='completion')){
-        existing.push(completion);
-        _saveNotes(taskId,existing);
-      }
-      // Inject into DOM if panel is open and no record is showing
-      const slot=document.getElementById('completion-record-'+taskId);
-      if(!slot){
-        // Find the mark-complete button area and prepend record
-        const btn=document.querySelector(`[onclick="_openMarkCompleteModal('${taskId}')"]`);
-        if(btn&&btn.parentElement){
-          const div=document.createElement('div');
-          div.innerHTML=_renderCompletionRecordHtml(taskId);
-          btn.parentElement.insertBefore(div.firstChild,btn);
-        }
-      }
+      if(!existing.find(n=>n.type==='completion')){ existing.push(completion); _saveNotes(taskId,existing); }
+      _injectCompletionRecordDom(taskId);
     }).catch(()=>{});
+}
+function _injectCompletionRecordDom(taskId){
+  const slot=document.getElementById('completion-record-'+taskId);
+  if(slot) return; // already rendered
+  const html=_renderCompletionRecordHtml(taskId);
+  if(!html) return;
+  const btn=document.querySelector('[onclick="_openMarkCompleteModal(\''+taskId+'\')"]');
+  if(btn&&btn.parentElement){
+    const div=document.createElement('div');
+    div.innerHTML=html;
+    btn.parentElement.insertBefore(div.firstChild,btn);
+  }
 }
 function _renderCompletionRecordHtml(taskId){
   const r=_getCompletionRecord(taskId);
