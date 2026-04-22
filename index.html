@@ -3641,7 +3641,7 @@ function _showGanttContextMenu(event,taskId){
     ${_label(taskId+' · '+t.name.slice(0,22)+(t.name.length>22?'…':''))}
     ${_sep()}
     ${_item('✏️','Edit Task',`showTaskModal('${taskId}')`)}
-    ${_item('📋','View Details',`showPage('raci');setTimeout(()=>{const r=document.querySelector('[data-id="${taskId}"]');if(r)toggleTaskExpand('${taskId}',r)},300)`)}
+    ${_item('📋','View Details',`showPage('raci');setTimeout(()=>{const r=document.querySelector('#raci-body tr[data-id="${taskId}"]');if(r){toggleTaskExpand('${taskId}',r);setTimeout(()=>{const p=document.getElementById('raci-expand-row-${taskId}');if(p)p.scrollIntoView({behavior:'smooth',block:'start'});},120);}},350)`)}
     ${_sep()}
     ${_label('Quick Status')}
     <div style="padding:4px 10px 6px">
