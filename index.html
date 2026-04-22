@@ -3684,10 +3684,12 @@ function _showGanttContextMenu(event,taskId){
     if(t.status===s) opt.selected=true;
     statusSel.appendChild(opt);
   });
+  statusSel.onmousedown=(e)=>e.stopPropagation();
+  statusSel.onclick=(e)=>e.stopPropagation();
   statusSel.onchange=()=>{
     const task=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
     if(task){task.status=statusSel.value;_saveTasksNow();buildRoadmap();initRoadmapHeadSync();}
-    _closeGanttContextMenu();
+    setTimeout(()=>_closeGanttContextMenu(),100);
   };
   const statusWrap=document.createElement('div');
   statusWrap.style.cssText='padding:4px 10px 6px';
