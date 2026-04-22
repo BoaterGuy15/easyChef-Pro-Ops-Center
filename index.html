@@ -3446,6 +3446,28 @@ function filterStatus(status, btn){
 }
 
 // ── Roadmap ─────────────────────────────────────────────────
+function _getTaskBarColor(task){
+  const f=task.flag||'';
+  if(f.includes('⛔')||f.toLowerCase().includes('blocker')) return '#ef4444';
+  if(f.includes('⚠️')||f.toLowerCase().includes('at risk')) return '#f59e0b';
+  if(f.includes('✓')||f.toLowerCase().includes('resolved')) return '#22c55e';
+  if(f.includes('🔵')||f.toLowerCase().includes('in progress')) return '#4a9eff';
+  if(f.includes('🎯')||f.toLowerCase().includes('on target')) return '#22c55e';
+  if(f.includes('💡')||f.toLowerCase().includes('idea')) return '#a78bfa';
+  if(task.status==='Complete'||task.status==='Done') return '#22c55e';
+  if(task.status==='Not Started') return 'var(--muted)';
+  if(['Started','In Progress','Ready','In Review'].includes(task.status)) return 'var(--gold)';
+  return 'var(--gold)';
+}
+const _GANTT_BAR_BG={
+  '#ef4444':'rgba(239,68,68,0.09)',
+  '#f59e0b':'rgba(245,158,11,0.09)',
+  '#22c55e':'rgba(34,197,94,0.09)',
+  '#4a9eff':'rgba(74,158,255,0.09)',
+  '#a78bfa':'rgba(167,139,250,0.09)',
+  'var(--gold)':'rgba(201,168,76,0.08)',
+  'var(--muted)':'transparent',
+};
 function buildRoadmap(){
   const tbody = document.getElementById('roadmap-body');
   if(!tbody) return;
@@ -3527,13 +3549,12 @@ function buildRoadmap(){
       } else {
         const cells = inWeek.map(t=>{
           const isDone = t.status==='Done'||t.status==='Complete';
-          const isActive = ['Started','In Progress','Ready','In Review'].includes(t.status);
           const isOverdue = !isDone && toIsoDate(t.ed) < today;
-          const cls = isDone ? 'rm-cell milestone' : isActive ? 'rm-cell active' : 'rm-cell';
-          const ovStyle = isOverdue ? 'color:var(--red);border-color:rgba(248,113,113,0.4);' : '';
+          const barColor = isOverdue ? '#ef4444' : _getTaskBarColor(t);
+          const barBg = isOverdue ? 'rgba(239,68,68,0.09)' : (_GANTT_BAR_BG[barColor]||'rgba(201,168,76,0.08)');
           const name = t.name.length>14 ? t.name.substring(0,13)+'…' : t.name;
           const sd=toIsoDate(t.sd)||'', ed=toIsoDate(t.ed)||'';
-          return `<div class="${cls}" style="${ovStyle}" draggable="true" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" data-mode="move" title="${t.name} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">
+          return `<div class="rm-cell" style="border-left:2px solid ${barColor};color:${barColor};background:${barBg}" draggable="true" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" data-mode="move" title="${t.name} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">
             <span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true" title="Drag ◀ to shift start date">◀</span>
             <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${name}</span>
             <span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true" title="Drag ▶ to shift end date">▶</span>
