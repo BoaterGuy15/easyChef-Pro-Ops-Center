@@ -774,6 +774,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
 <!-- ══ PAGE: COMMAND ══ -->
 <div id="page-command" class="page">
+  <div id="master-ai-card"></div>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
     <div>
       <h1 style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900">easyChef Pro <span style="color:var(--gold)">Ops Center</span></h1>
@@ -1224,6 +1225,11 @@ function showPage(id){
   if(id==='roadmap'){ buildMilestones(); loadRoadmapFromSheets(); setTimeout(initRoadmapHeadSync,50); }
   if(id==='actionplans') buildActionPlansPage();
   if(id==='budget') loadBudgetFromSheets();
+  if(id==='command'){
+    _renderMasterAICard();
+    const stale=Date.now()-(_masterAiLastRun||+sessionStorage.getItem('dgl_master_ai_ts')||0)>2*60*60*1000;
+    if(stale&&CONFIG.sheetsUrl) setTimeout(()=>{ const b=document.getElementById('master-ai-run-btn'); if(b) runMasterAI(b); },400);
+  }
 }
 let _navDragSrc=null;
 function _navDragStart(e,el){ _navDragSrc=el; e.dataTransfer.effectAllowed='move'; setTimeout(()=>{ el.style.opacity='0.4'; },0); }
@@ -4270,6 +4276,152 @@ function agendaAiMarkResolved(id,btn){
 }
 // ── Super AI ─────────────────────────────────────────────────
 const _slackAiSummaries={};
+// ── Master AI Briefing ─────────────────────────────────────
+let _masterAiLastRun=0;
+function _renderMasterAICard(){
+  const el=document.getElementById('master-ai-card');
+  if(!el) return;
+  const bSt="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
+  const savedText=sessionStorage.getItem('dgl_master_ai_text')||'';
+  const savedTs=sessionStorage.getItem('dgl_master_ai_ts')||'';
+  const resultHtml=savedText
+    ?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">Last generated ${new Date(+savedTs).toLocaleString()}</div><div id="master-ai-text" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.7;user-select:text">${savedText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`
+    :`<div id="master-ai-text" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:4px 0">Click Generate Briefing to run a full cross-workstream intelligence analysis.</div>`;
+  el.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">🧠 MASTER AI BRIEFING</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="master-ai-run-btn" onclick="runMasterAI(this)" style="${bSt};border-color:var(--gold);color:var(--gold);font-weight:600">⚡ Generate Briefing</button>
+        <button onclick="_masterAiPostToSlack()" style="${bSt}">📤 Post to #leadership</button>
+        <button onclick="_masterAiSave()" style="${bSt}">💾 Save as Action Plan</button>
+      </div>
+    </div>
+    <div id="master-ai-result">${resultHtml}</div>
+  </div>`;
+}
+async function runMasterAI(btn){
+  if(!CONFIG.sheetsUrl) return;
+  btn.textContent='🧠 Analyzing…'; btn.disabled=true;
+  const tasks=DASHBOARD_DATA.tasks;
+  const today=getPSTDate();
+  const todayStr=today.toISOString().slice(0,10);
+  const may11=new Date('2026-05-11T00:00:00');
+  const jul1=new Date('2026-07-01T00:00:00');
+  const daysToMay11=Math.ceil((may11-today)/(1000*60*60*24));
+  const daysToLaunch=Math.ceil((jul1-today)/(1000*60*60*24));
+  // Section A — full task graph
+  const taskGraph=tasks.map(t=>{
+    const depIds=(t.deps||'').split(',').map(d=>d.trim()).filter(Boolean);
+    const depStatuses=depIds.map(did=>{ const d=tasks.find(x=>x.id===did); return d?`${did}(${d.status})`:did; }).join(', ');
+    const blocks=tasks.filter(x=>(x.deps||'').split(',').map(d=>d.trim()).includes(t.id)).map(x=>x.id);
+    const done=t.status==='Complete'||t.status==='Done';
+    const isOverdue=!done&&t.ed&&new Date(t.ed)<today;
+    return `${t.id} ${t.name} [${t.cat||'—'}] — ${t.status}${done?' ✓':isOverdue?' OVERDUE':''} — owner:${t.owner||'—'} — flag:${t.flag||'none'}${depIds.length?' — depends on:'+depStatuses:''}${blocks.length?' — blocks:'+blocks.join(','):''}`;
+  }).join('\n');
+  // Section B — workstream health
+  const cats=[...new Set(tasks.map(t=>t.cat).filter(Boolean))];
+  const wsHealth=cats.map(cat=>{
+    const ct=tasks.filter(t=>t.cat===cat);
+    const done=ct.filter(t=>t.status==='Complete').length;
+    const active=ct.filter(t=>['Started','In Progress','In Review','Ready'].includes(t.status)).length;
+    const notStarted=ct.filter(t=>t.status==='Not Started').length;
+    const pct=ct.length?Math.round(done/ct.length*100):0;
+    const critical=ct.filter(t=>t.pri==='High'&&t.status!=='Complete').map(t=>`${t.id}(${t.status})`).join(', ');
+    return `${cat}: ${ct.length} tasks | ${done} complete (${pct}%) | ${active} active | ${notStarted} not started${critical?' | HIGH PRI OPEN:'+critical:''}`;
+  }).join('\n');
+  // Section C — team load
+  const people=['Taylor','Adam','Steve','Hammad','Mary','JR','Searah','Sadee'];
+  const teamLoad=people.map(p=>{
+    const mine=tasks.filter(t=>t[p]==='R'||t[p]==='A/R'||t.owner===p);
+    const active=mine.filter(t=>['Started','In Progress','In Review','Ready'].includes(t.status)).length;
+    const notStarted=mine.filter(t=>t.status==='Not Started').length;
+    const overdue=mine.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).map(t=>t.id).join(',');
+    const atRisk=mine.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<=may11).map(t=>t.id).join(',');
+    return `${p}: ${mine.length} tasks — ${active} active, ${notStarted} not started${overdue?' | OVERDUE:'+overdue:''}${atRisk?' | AT RISK for May 11:'+atRisk:''}`;
+  }).join('\n');
+  // Section D — critical path to May 11
+  const may11Critical=tasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<=may11);
+  const critPath=may11Critical.map(t=>{
+    const dLeft=Math.ceil((new Date(t.ed)-today)/(1000*60*60*24));
+    return `${t.id} ${t.name} — ${t.status} — owner:${t.owner||'—'} — due:${t.ed} (${dLeft<0?'OVERDUE '+Math.abs(dLeft)+'d':dLeft+'d left'})`;
+  }).join('\n')||'All pre-May 11 tasks complete.';
+  // Section E — dependency violations
+  const violations=[];
+  tasks.forEach(t=>{
+    const depIds=(t.deps||'').split(',').map(d=>d.trim()).filter(Boolean);
+    const incompleteDeps=depIds.map(did=>tasks.find(x=>x.id===did)).filter(d=>d&&d.status!=='Complete'&&d.status!=='Done');
+    if(['Started','In Progress','In Review','Complete'].includes(t.status)&&incompleteDeps.length)
+      violations.push(`${t.id} ${t.name} is ${t.status} but deps not done: ${incompleteDeps.map(d=>d.id+'('+d.status+')').join(', ')}`);
+    if(t.status==='Blocked'&&!t.flag)
+      violations.push(`${t.id} ${t.name} is Blocked but has no flag — undocumented`);
+  });
+  const depViolations=violations.join('\n')||'No violations detected.';
+  const completedList=tasks.filter(t=>t.status==='Complete').map(t=>`${t.id} ${t.name} (${t.cat})`).join(', ')||'None';
+  const system='You are the Master AI for DGL easyChef Pro. You have complete visibility across all tasks, workstreams, and team members. Your job is to give Taylor a complete executive briefing — connecting all the dots across every workstream. Think like a COO who has read every Slack message, every task note, every action plan. Be brutally specific. Name exact people, tasks, and dates. No generic advice. Format as plain text only — no markdown symbols. Use ALL CAPS for section headers.';
+  const prompt=`Give me a complete Master Briefing for today ${todayStr}. We have ${daysToMay11} days to Beta (May 11) and ${daysToLaunch} days to Launch (Jul 1).
+
+FULL TASK GRAPH (all ${tasks.length} tasks):
+${taskGraph}
+
+WORKSTREAM HEALTH:
+${wsHealth}
+
+TEAM LOAD:
+${teamLoad}
+
+CRITICAL PATH TO MAY 11 BETA (${may11Critical.length} tasks not complete):
+${critPath}
+
+DEPENDENCY VIOLATIONS:
+${depViolations}
+
+COMPLETED TASKS (do not suggest redoing these):
+${completedList}
+
+Now produce the Master Briefing:
+
+EXECUTIVE SUMMARY — 3 sentences on where we stand overall
+
+CRITICAL PATH STATUS — are we on track for May 11 Beta and July 1 Launch?
+
+WORKSTREAM STATUS — health of each workstream, name specific bottlenecks
+
+CROSS-WORKSTREAM DEPENDENCIES — what is blocking what across categories, name exact task IDs
+
+TEAM ASSIGNMENTS — who owns what, who is overloaded, who has capacity
+
+TOP 10 ACTIONS THIS WEEK — ranked by impact on launch timeline, with named owners and specific deadlines
+
+RED FLAGS — anything that could derail May 11 or July 1, be specific
+
+COMPLETED WORK — acknowledge what the team has finished (do not suggest redoing completed tasks)`;
+  try{
+    const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
+    const data=await resp.json();
+    const text=_stripMarkdown(data.response||data.result||data.text||data.content||JSON.stringify(data));
+    _masterAiLastRun=Date.now();
+    sessionStorage.setItem('dgl_master_ai_ts',String(_masterAiLastRun));
+    sessionStorage.setItem('dgl_master_ai_text',text.slice(0,8000));
+    const resultEl=document.getElementById('master-ai-result');
+    if(resultEl) resultEl.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">Generated ${new Date().toLocaleString()} · ${tasks.length} tasks analyzed</div><div id="master-ai-text" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.7;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  }catch(e){
+    const resultEl=document.getElementById('master-ai-result');
+    if(resultEl) resultEl.textContent='Master AI failed: '+e.message;
+  }
+  btn.textContent='⚡ Generate Briefing'; btn.disabled=false;
+}
+function _masterAiPostToSlack(){
+  const text=document.getElementById('master-ai-text')?.textContent||'';
+  if(!text||!CONFIG.sheetsUrl){ alert('No briefing generated yet.'); return; }
+  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent('leadership')+'&text='+encodeURIComponent('🧠 MASTER AI BRIEFING\n\n'+text.slice(0,3000))+'&user='+encodeURIComponent(window._DGL_USER||'master-ai')).catch(()=>{});
+  alert('Posted to #leadership');
+}
+function _masterAiSave(){
+  const text=document.getElementById('master-ai-text')?.textContent||'';
+  if(!text){ alert('No briefing generated yet.'); return; }
+  _saveActionPlan('master-briefing','command',text,'','');
+  alert('Saved as Action Plan');
+}
 function _buildDGLContext(){
   const tasks=DASHBOARD_DATA.tasks; const meta=DASHBOARD_DATA.meta; const today=getPSTDate();
   const complete=tasks.filter(t=>t.status==='Complete').length;
@@ -9246,6 +9398,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderKillCriteria();
   loadKillCriteriaFromSheets();
   loadRoadmapFromSheets();
+  _renderMasterAICard();
   renderWhatIf();
   initFlagToolbar();
   initRaciPopover();
