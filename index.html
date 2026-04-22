@@ -3610,6 +3610,17 @@ function buildRoadmap(){
 }
 
 // ── Gantt context menu ───────────────────────────────────────
+function _viewTaskDetails(taskId){
+  _closeGanttContextMenu();
+  showPage('raci');
+  setTimeout(()=>{
+    const trEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"]');
+    if(trEl){
+      toggleTaskExpand(taskId,trEl);
+      setTimeout(()=>{ const p=document.getElementById('raci-expand-row-'+taskId); if(p) p.scrollIntoView({behavior:'smooth',block:'start'}); },200);
+    }
+  },350);
+}
 function _closeGanttContextMenu(){
   const m=document.getElementById('gantt-ctx-menu');
   if(m) m.remove();
@@ -3641,7 +3652,7 @@ function _showGanttContextMenu(event,taskId){
     ${_label(taskId+' · '+t.name.slice(0,22)+(t.name.length>22?'…':''))}
     ${_sep()}
     ${_item('✏️','Edit Task',`showTaskModal('${taskId}')`)}
-    ${_item('📋','View Details',`showPage('raci');setTimeout(()=>{const r=document.querySelector('#raci-body tr[data-id="${taskId}"]');if(r){toggleTaskExpand('${taskId}',r);setTimeout(()=>{const p=document.getElementById('raci-expand-row-${taskId}');if(p)p.scrollIntoView({behavior:'smooth',block:'start'});},120);}},350)`)}
+    ${_item('📋','View Details',`_viewTaskDetails('${taskId}')`)}
     ${_sep()}
     ${_label('Quick Status')}
     <div style="padding:4px 10px 6px">
