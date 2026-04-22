@@ -5396,6 +5396,7 @@ function _saveMilestoneModal(){
   if(!DASHBOARD_DATA.meta.milestoneItems) DASHBOARD_DATA.meta.milestoneItems=[];
   DASHBOARD_DATA.meta.milestoneItems.push(item);
   _saveMilestoneToSheets(item);
+  console.log('[DGL] Milestone saved:', item.title, 'total:', DASHBOARD_DATA.meta.milestoneItems.length);
   g('ms-add-modal').style.display='none';
   buildMilestones();
   buildMilestoneHistory();
