@@ -1693,7 +1693,7 @@ function _loadCommentsFromSheets(storageKey,sheetsTaskId,onUpdate){
   fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(sheetsTaskId))
     .then(r=>r.json())
     .then(data=>{
-      const rows=Array.isArray(data)?data:(data.comments||[]);
+      const rows=(Array.isArray(data)?data:(data.comments||[])).filter(r=>r.type!=='completion');
       if(!rows.length) return;
       const local=_getTaskComments(storageKey);
       const merged=_mergeCommentArrays(local,rows);
@@ -2499,8 +2499,8 @@ function _fetchAndInjectCompletionRecord(taskId){
     .then(r=>r.json())
     .then(data=>{
       const rows=Array.isArray(data)?data:(data.completions||data.items||[]);
-      const row=rows.find(r=>(r.taskId||r.id||'')===taskId||rows[0]);
-      if(row&&row.taskId){
+      const row=rows.find(r=>r.taskId===taskId);
+      if(row&&row.taskId===taskId){
         // Map flat Sheets row → record object
         const rec={
           taskId:row.taskId||taskId, taskName:row.taskName||'', category:row.category||'',
@@ -2543,6 +2543,7 @@ function _injectCompletionRecordDom(taskId){
     btn.parentElement.insertBefore(div.firstChild,btn);
   }
 }
+function _fmtCompDate(d){ if(!d) return ''; try{ const p=String(d).slice(0,10).split('-'); if(p.length===3){ const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return M[parseInt(p[1])-1]+' '+parseInt(p[2])+', '+p[0]; } return d; }catch(_){ return d; } }
 function _renderCompletionRecordHtml(taskId){
   const r=_getCompletionRecord(taskId);
   if(!r) return '';
@@ -2552,7 +2553,7 @@ function _renderCompletionRecordHtml(taskId){
   const fRow=(label,val)=>val?`<div style="display:flex;gap:6px;margin-bottom:3px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);min-width:90px">${label}</span><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${val}</span></div>`:'';
   return `<div id="completion-record-${taskId}" style="background:rgba(34,197,94,0.04);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:12px 14px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-family:'DM Mono',monospace;font-size:9px;color:#22c55e;letter-spacing:1.5px">✅ DELIVERY BRIEFING · ${r.date||''}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:#22c55e;letter-spacing:1.5px">✅ DELIVERY BRIEFING · ${_fmtCompDate(r.date)}</div>
       <div style="display:flex;gap:6px">
         ${canEdit?`<button onclick="_openMarkCompleteModal('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📝 Edit Record</button>`:''}
         <button onclick="_shareCompletionToSlack('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📤 Share to Slack</button>
@@ -2566,7 +2567,7 @@ function _renderCompletionRecordHtml(taskId){
       </div>
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1.5px;margin-bottom:5px">WHEN</div>
-        ${fRow('Date',r.date)}
+        ${fRow('Date',_fmtCompDate(r.date))}
         ${fRow('Duration',r.duration||'—')}
       </div>
     </div>
