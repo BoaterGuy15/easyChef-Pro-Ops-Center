@@ -4346,47 +4346,35 @@ function _initGanttDrag(){
   },true);
 }
 
-let _ganttConfirmTimer=null;
-function _dismissGanttConfirm(autoConfirm){
-  clearInterval(_ganttConfirmTimer);
-  _ganttConfirmTimer=null;
-  const bar=document.getElementById('gantt-confirm-bar');
-  if(bar) bar.remove();
-  if(autoConfirm) _saveTasksNow();
+function _dismissGanttConfirm(save){
+  const el=document.getElementById('gantt-confirm-btns');
+  if(el) el.remove();
+  if(save) _saveTasksNow();
 }
 function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
-  // Auto-confirm any pending confirmation first
-  const existing=document.getElementById('gantt-confirm-bar');
+  // Auto-commit any previous pending move
+  const existing=document.getElementById('gantt-confirm-btns');
   if(existing) _dismissGanttConfirm(true);
 
-  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
-  const taskName=t?t.name:'';
-  const label=`${taskId}${taskName?' — '+taskName.slice(0,28)+(taskName.length>28?'…':''):''}`;
-
-  const bar=document.createElement('div');
-  bar.id='gantt-confirm-bar';
-  bar.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:9500;background:#0f1114;border-top:2px solid var(--gold);padding:10px 20px;display:flex;align-items:center;gap:14px;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--text);box-shadow:0 -4px 24px rgba(0,0,0,0.6)';
-
-  const info=document.createElement('span');
-  info.style.cssText='flex:1;color:var(--muted)';
-  info.innerHTML=`<span style="color:var(--gold)">📅 ${label}</span>  <span style="color:var(--muted)">${oldSd} → ${oldEd}</span>  <span style="color:var(--text)">▶</span>  <span style="color:var(--green)">${newSd} → ${newEd}</span>`;
-
-  const countdown=document.createElement('span');
-  countdown.style.cssText='color:var(--muted);font-size:10px;min-width:110px';
+  const wrap=document.createElement('div');
+  wrap.id='gantt-confirm-btns';
+  wrap.style.cssText='position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;gap:8px;font-family:\'DM Mono\',monospace;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.6))';
 
   const confirmBtn=document.createElement('button');
-  confirmBtn.textContent='✅ Confirm';
-  confirmBtn.style.cssText='background:rgba(34,197,94,0.15);color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;cursor:pointer';
-  confirmBtn.onclick=()=>_dismissGanttConfirm(true);
+  confirmBtn.textContent='✅ Confirm Move';
+  confirmBtn.style.cssText='background:var(--card);color:var(--green);border:1px solid var(--green);border-radius:6px;font-family:\'DM Mono\',monospace;font-size:10px;padding:7px 16px;cursor:pointer;letter-spacing:0.5px';
+  confirmBtn.onclick=()=>{
+    _dismissGanttConfirm(true);
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Saved</div>',1800);
+  };
 
-  const cancelBtn=document.createElement('button');
-  cancelBtn.textContent='↩ Cancel';
-  cancelBtn.style.cssText='background:rgba(239,68,68,0.12);color:var(--red);border:1px solid var(--red);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;cursor:pointer';
-  cancelBtn.onclick=()=>{
+  const undoBtn=document.createElement('button');
+  undoBtn.textContent='↩ Undo';
+  undoBtn.style.cssText='background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-family:\'DM Mono\',monospace;font-size:10px;padding:7px 16px;cursor:pointer;letter-spacing:0.5px';
+  undoBtn.onclick=()=>{
     _dismissGanttConfirm(false);
     const task=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
     if(task){ task.sd=oldSd; task.ed=oldEd; }
-    // pop the undo entry we pushed since we're reverting
     if(_ganttUndoStack.length&&_ganttUndoStack[_ganttUndoStack.length-1].taskId===taskId) _ganttUndoStack.pop();
     buildRoadmap();
     const sdEl=document.getElementById('raci-sd-'+taskId);
@@ -4395,16 +4383,9 @@ function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
     if(edEl) edEl.value=oldEd;
   };
 
-  bar.appendChild(info);
-  bar.appendChild(countdown);
-  bar.appendChild(confirmBtn);
-  bar.appendChild(cancelBtn);
-  document.body.appendChild(bar);
-
-  let secs=8;
-  function _tick(){ countdown.textContent='Auto-confirming in '+secs+'s…'; if(--secs<0){ _dismissGanttConfirm(true); } }
-  _tick();
-  _ganttConfirmTimer=setInterval(_tick,1000);
+  wrap.appendChild(confirmBtn);
+  wrap.appendChild(undoBtn);
+  document.body.appendChild(wrap);
 }
 
 // ── Budget ──────────────────────────────────────────────────
