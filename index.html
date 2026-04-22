@@ -579,6 +579,13 @@ td.gantt-drop-target{background:rgba(201,168,76,0.12);outline:2px dashed var(--g
 </head>
 <body>
 
+<!-- ══ LOADING SPINNER ══ -->
+<div id="sheets-loading-spinner" style="display:none;position:fixed;inset:0;z-index:9990;background:var(--bg);align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:dgl-spin 0.8s linear infinite"></div>
+  <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px">LOADING DATA…</div>
+</div>
+<style>@keyframes dgl-spin{to{transform:rotate(360deg)}}</style>
+
 <!-- ══ LOGIN OVERLAY ══ -->
 <div id="login-overlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center">
   <div style="text-align:center;max-width:340px;width:100%;padding:0 24px">
@@ -2172,22 +2179,19 @@ function _buildDMChannelMappingSection(){
   const _dmSubhead=!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">${canAdmin?'Locked — click Unlock to Edit.':'View only — Taylor or Steve can edit.'}</div>`:'';
   el.innerHTML=`<div class="card" style="padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">💬 DM CHANNEL MAPPING</div>${_dmLockIcon}${_dmUnlockedBadge}</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${_dmUnlockBtn}${canEdit?`<button onclick="_saveDMChannelMap()" style="${_bSt};border-color:var(--gold);color:var(--gold)">💾 Save Mapping</button>`:''}</div></div>${_dmSubhead}<table style="width:100%;border-collapse:collapse"><thead><tr><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">MEMBER</th><th style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">DM CHANNEL</th><th style="padding:4px 8px;border-bottom:1px solid var(--border)"></th></tr></thead><tbody>${rows}</tbody></table>${addPersonBtn}<div id="dm-add-person-form" style="display:none;margin-top:10px"></div></div>`;
 }
-let _taskChannelLinksLoaded=false;
+let _channelLinksLoaded=false;
 function loadTaskChannelLinks(){
-  if(_taskChannelLinksLoaded) return Promise.resolve();
+  if(_channelLinksLoaded) return Promise.resolve();
   if(!CONFIG.sheetsUrl) return Promise.resolve();
   return fetch(CONFIG.sheetsUrl+'?action=channel_map_read')
     .then(r=>r.json())
     .then(d=>{
-      _taskChannelLinksLoaded=true;
-      if(!d.ok) return;
-      Object.values(d.map||{}).forEach(entry=>{
-        if(entry.taskId&&entry.channelId){
-          _slackLinksCache['dgl_task_slack_'+entry.taskId]={channelId:entry.channelId,channelName:entry.channelName};
-        }
+      _channelLinksLoaded=true;
+      Object.values(d.map||{}).forEach(e=>{
+        if(e.taskId&&e.channelId) _slackLinksCache['dgl_task_slack_'+e.taskId]={channelId:e.channelId,channelName:e.channelName};
       });
-      console.log('[DGL] Task channels loaded from Sheets:',Object.keys(_slackLinksCache).filter(k=>k.startsWith('dgl_task_slack_')).length);
-    }).catch(()=>{ _taskChannelLinksLoaded=true; });
+      console.log('[DGL] Task channels loaded:',Object.keys(_slackLinksCache).filter(k=>k.startsWith('dgl_task_slack_')).length);
+    }).catch(()=>{ _channelLinksLoaded=true; });
 }
 function _autoLinkTaskChannels(){
   if(!_slackChannelsCache||!_slackChannelsCache.length) return;
@@ -8695,6 +8699,8 @@ function shakePwInput(){
   inp.value='';
   setTimeout(()=>inp.classList.remove('shake'),400);
 }
+function _showLoadingSpinner(){ const el=document.getElementById('sheets-loading-spinner'); if(el){ el.style.display='flex'; } }
+function _hideLoadingSpinner(){ const el=document.getElementById('sheets-loading-spinner'); if(el){ el.style.display='none'; } }
 function showDashboard(user, showPopup=false){
   window._DGL_USER=user;
   _restoreNavOrder(user);
@@ -8702,6 +8708,7 @@ function showDashboard(user, showPopup=false){
   const role=getUserRole(user);
   const ov=document.getElementById('login-overlay');
   if(ov&&ov.style.display!=='none'){ ov.style.opacity='0'; setTimeout(()=>ov.style.display='none',400); }
+  if(!window._sheetsLoaded) _showLoadingSpinner();
   const badge=document.getElementById('user-badge');
   const so=document.getElementById('sign-out-btn');
   const bell=document.getElementById('briefing-bell');
@@ -9243,30 +9250,37 @@ function saveToSheets(){
   }, 2000);
 }
 function loadFromSheets(){
-  if(!CONFIG.sheetsUrl) return;
+  if(!CONFIG.sheetsUrl){ window._sheetsLoaded=true; masterRefresh(); _hideLoadingSpinner(); return; }
   if(_sheetsSyncLock) return;
   updateSyncStatus('syncing');
-  fetch(CONFIG.sheetsUrl)
+  const _fetchTasks=fetch(CONFIG.sheetsUrl)
     .then(r=>r.json())
     .then(data=>{
       const rows=Array.isArray(data)?data:(data.tasks||[]);
       if(!rows.length) return;
-      rows.forEach(s=>{
-        const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id);
-        if(t){ _mergeTask(t,s); }
-        else if(s.id&&s.name){ DASHBOARD_DATA.tasks.push(s); }
-      });
+      rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mergeTask(t,s); } else if(s.id&&s.name){ DASHBOARD_DATA.tasks.push(s); } });
       window._lastSheetsSnapshot={};
       rows.forEach(s=>{ if(s.id) window._lastSheetsSnapshot[s.id]=Object.assign({},s); });
       _lastSheetsLoadTime=Date.now();
       Object.keys(_raciExpandCache).forEach(k=>{ delete _raciExpandCache[k]; });
+    }).catch(()=>{});
+  const _fetchHR=fetch(CONFIG.sheetsUrl+'?action=hr_profiles_read').then(r=>r.json()).then(data=>{ if(Array.isArray(data.profiles)) data.profiles.forEach(p=>{ if(p.userKey) _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p}; }); }).catch(()=>{});
+  const _fetchActionPlans=fetch(CONFIG.sheetsUrl+'?action=action_plans_read').then(r=>r.json()).then(data=>{ const plans=Array.isArray(data)?data:(data.plans||[]); plans.forEach(p=>{ if(!p.sourceId) return; if(p.status==='complete'){ if(!window._completedPlansCache[p.sourceId]||p.completedAt>window._completedPlansCache[p.sourceId].completedAt) window._completedPlansCache[p.sourceId]=p; delete _actionPlansCache[p.sourceId]; } else { if(!_actionPlansCache[p.sourceId]||p.createdAt>_actionPlansCache[p.sourceId].createdAt) _actionPlansCache[p.sourceId]=p; } }); }).catch(()=>{});
+  const _fetchChannelMaps=fetch(CONFIG.sheetsUrl+'?action=channel_maps_read').then(r=>r.json()).then(maps=>{ if(maps.category&&typeof maps.category==='object') Object.entries(maps.category).forEach(([k,v])=>{ const slug=(v&&typeof v==='object'?v.channelName:v||'').replace('#',''); if(slug){ _categoryChannelMapOverrides[k]=slug; CATEGORY_CHANNEL_MAP[k]=slug; } }); if(maps.dm&&typeof maps.dm==='object') Object.assign(_DM_CHANNEL_MAP,maps.dm); }).catch(()=>{});
+  const _fetchKillCriteria=fetch(CONFIG.sheetsUrl+'?action=kill_criteria_read').then(r=>r.json()).then(data=>{ if(data.criteria){ _killCriteriaCache=data.criteria; _killCriteria=data.criteria; try{ localStorage.setItem('dgl_kill_criteria',JSON.stringify(data.criteria)); }catch(e){} } }).catch(()=>{});
+  const _fetchRoadmap=fetch(CONFIG.sheetsUrl+'?action=roadmap_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(!rows.length) return; DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({id:r.id||('ms-'+r.title),title:r.title||r.label||'',date:r.date||'',type:r.type||'Milestone',status:r.status||'Upcoming',description:r.description||r.note||'',color:r.color||'',taskIds:r.taskIds||'',achievedDate:r.achievedDate||''})); }).catch(()=>{});
+  Promise.all([_fetchTasks,_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,loadTaskChannelLinks()])
+    .then(()=>{
       window._sheetsLoaded=true;
-      loadTaskChannelLinks().then(()=>{
-        masterRefresh();
-        updateSyncStatus('ok');
-      });
+      _hideLoadingSpinner();
+      masterRefresh();
+      _debouncedBuildMilestones();
+      buildMilestoneHistory();
+      renderKillCriteria();
+      _buildChannelMappingSection();
+      updateSyncStatus('ok');
     })
-    .catch(()=>updateSyncStatus('fail'));
+    .catch(()=>{ window._sheetsLoaded=true; _hideLoadingSpinner(); masterRefresh(); updateSyncStatus('fail'); });
 }
 function raciManualSave(btn){
   btn.textContent='Saving…'; btn.disabled=true; btn.style.color='var(--gold)';
@@ -10500,7 +10514,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   Object.keys(localStorage).forEach(k=>{ if(_staleKeys.some(p=>k.startsWith(p)||k===p)) localStorage.removeItem(k); });
   _loadChannelAssignmentsFromSheets();
   _loadDMChannelMap();
-  loadChannelMapsFromSheets();
   loadFromLocal();
   loadBudgetFromLocal();
   loadFromSheets();
@@ -10533,8 +10546,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderAppAnalytics();
   renderSurveyResults();
   renderKillCriteria();
-  loadKillCriteriaFromSheets();
-  loadRoadmapFromSheets();
   _renderMasterAICard();
   renderWhatIf();
   initFlagToolbar();
@@ -10547,7 +10558,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(window._DGL_USER) showDashboard(window._DGL_USER);
   showPage(sessionStorage.getItem('dgl_active_tab')||'agenda');
   updateLiveDot();
-  loadActionPlansFromSheets();
   loadHRFromSheets();
 });
 
