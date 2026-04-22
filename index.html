@@ -3785,6 +3785,71 @@ function _closeGanttContextMenu(){
 }
 function _ganttCtxEsc(e){ if(e.key==='Escape') _closeGanttContextMenu(); }
 function _ctxEl(tag,css,text){ const e=document.createElement(tag); if(css) e.style.cssText=css; if(text!=null) e.textContent=text; return e; }
+function _showDocPreview(doc){
+  const existing=document.getElementById('gantt-doc-preview');
+  if(existing) existing.remove();
+  const fname=doc.name||doc.filename||'Untitled';
+  const previewSrc=(()=>{
+    const u=doc.previewUrl||doc.url||'';
+    if(u.includes('docs.google.com/document')) return u.replace(/\/edit.*$/,'/preview');
+    if(u.includes('docs.google.com/spreadsheets')) return u.replace(/\/edit.*$/,'/htmlview');
+    if(u.includes('docs.google.com/presentation')) return u.replace(/\/edit.*$/,'/preview');
+    if(u.includes('drive.google.com/file')) return u.replace(/\/view.*$/,'/preview');
+    return u;
+  })();
+  const openUrl=doc.url||doc.previewUrl||'#';
+
+  const overlay=document.createElement('div');
+  overlay.id='gantt-doc-preview';
+  overlay.style.cssText='position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55)';
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) overlay.remove(); });
+
+  const panel=document.createElement('div');
+  panel.style.cssText='width:620px;max-width:95vw;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 16px 48px rgba(0,0,0,0.6);display:flex;flex-direction:column;overflow:hidden';
+  panel.addEventListener('click',e=>e.stopPropagation());
+
+  // Header
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px';
+  const title=document.createElement('span');
+  title.style.cssText='font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1';
+  title.textContent=fname;
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0';
+  closeBtn.onclick=()=>overlay.remove();
+  hdr.appendChild(title); hdr.appendChild(closeBtn);
+
+  // iframe
+  const iframeWrap=document.createElement('div');
+  iframeWrap.style.cssText='flex:1;background:#000';
+  if(previewSrc){
+    const iframe=document.createElement('iframe');
+    iframe.src=previewSrc;
+    iframe.style.cssText='width:100%;height:440px;border:none;display:block';
+    iframe.setAttribute('frameborder','0');
+    iframe.setAttribute('loading','lazy');
+    iframeWrap.appendChild(iframe);
+  } else {
+    const noPreview=document.createElement('div');
+    noPreview.style.cssText='height:440px;display:flex;align-items:center;justify-content:center;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)';
+    noPreview.textContent='No preview available';
+    iframeWrap.appendChild(noPreview);
+  }
+
+  // Footer
+  const ftr=document.createElement('div');
+  ftr.style.cssText='display:flex;justify-content:flex-end;padding:8px 14px;border-top:1px solid var(--border)';
+  const openBtn=document.createElement('a');
+  openBtn.href=openUrl; openBtn.target='_blank';
+  openBtn.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);color:var(--gold);text-decoration:none;cursor:pointer';
+  openBtn.textContent='↗️ Open Full';
+  ftr.appendChild(openBtn);
+
+  panel.appendChild(hdr); panel.appendChild(iframeWrap); panel.appendChild(ftr);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
 function _renderContextMenuDocs(container,docs,taskId){
   container.innerHTML='';
   if(!docs.length){
@@ -3802,7 +3867,7 @@ function _renderContextMenuDocs(container,docs,taskId){
     dd.onmouseout=()=>dd.style.background='transparent';
     dd.appendChild(_ctxEl('span','font-size:11px;flex-shrink:0','👁️'));
     dd.appendChild(_ctxEl('span','overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1',truncName));
-    dd.onclick=()=>{ window.open(d.previewUrl||d.url||'#','_blank'); _closeGanttContextMenu(); };
+    dd.onclick=()=>{ _closeGanttContextMenu(); _showDocPreview(d); };
     container.appendChild(dd);
   });
   if(docs.length>3) container.appendChild(_ctxEl('div','padding:3px 14px;font-size:9px;color:var(--muted)','+ '+(docs.length-3)+' more'));
