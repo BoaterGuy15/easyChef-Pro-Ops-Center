@@ -3738,9 +3738,11 @@ function _showGanttContextMenu(event,taskId){
   // Delete (admin only)
   if(canAdmin){_sep();_item('🗑️','Delete Task',()=>_ganttDeleteTask(taskId),'var(--red)');}
 
+  mnu.addEventListener('click',e=>e.stopPropagation());
+  mnu.addEventListener('mousedown',e=>e.stopPropagation());
   document.body.appendChild(mnu);
   setTimeout(()=>{
-    document.addEventListener('click',_closeGanttContextMenu,true);
+    document.addEventListener('click',_closeGanttContextMenu,false);
     document.addEventListener('keydown',_ganttCtxEsc,true);
   },10);
 }
