@@ -3823,7 +3823,7 @@ function buildRoadmap(){
       const name=t.name.length>maxChars?t.name.substring(0,maxChars)+'…':t.name;
       const flagIco=_flagEmoji(t.flag);
       const flagPin=flagIco?`<span style="font-size:9px;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
-      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true"></span><span class="gantt-mid" draggable="true" data-task-id="${t.id}" data-mode="move">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true"></span></div>`;
+      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
     canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
@@ -4259,7 +4259,7 @@ function _ganttDeleteTask(taskId){
   _showToast(`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--red)">🗑️ ${taskId} deleted</div>`,3000);
 }
 
-// ── Gantt drag-and-drop ──────────────────────────────────────
+// ── Gantt pointer-based drag ──────────────────────────────────
 function _initGanttDrag(){
   const canvas=document.getElementById('gantt-canvas');
   if(!canvas||canvas._ganttDragInited) return;
@@ -4275,109 +4275,114 @@ function _initGanttDrag(){
     const d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()+days);
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   }
-  function _daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+  function _daysBetween(a,b){return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);}
+  function _barW(sd,ed){const span=Math.max(1,_daysBetween(sd,ed)+1);return Math.max(span*_ganttDayPx,Math.max(20,_ganttDayPx));}
 
-  let _drag=null;
   let _tip=document.getElementById('gantt-drag-tooltip');
-  if(!_tip){ _tip=document.createElement('div'); _tip.id='gantt-drag-tooltip'; document.body.appendChild(_tip); }
+  if(!_tip){_tip=document.createElement('div');_tip.id='gantt-drag-tooltip';document.body.appendChild(_tip);}
 
-  canvas.addEventListener('mousedown',e=>{ if(e.target.closest('[data-task-id]')) e.stopPropagation(); },true);
+  // Stop pan from firing when pointer lands on a task element
+  canvas.addEventListener('mousedown',e=>{if(e.target.closest('[data-task-id]')) e.stopPropagation();},true);
 
-  canvas.addEventListener('dragstart',e=>{
-    const draggable=e.target.closest('[draggable][data-task-id]');
-    if(!draggable) return;
-    const taskId=draggable.dataset.taskId;
-    const mode=draggable.dataset.mode||'move';
+  function _resetSiblings(cat,taskId){
+    const row=canvas.querySelector(`.gantt-row[data-cat="${CSS.escape(cat)}"]`);
+    if(row) row.querySelectorAll(`.rm-cell:not([data-task-id="${taskId}"])`).forEach(s=>{s.style.transform='';s.style.transition='';});
+  }
+  function _shiftSiblings(cat,taskId,pL,pW){
+    const row=canvas.querySelector(`.gantt-row[data-cat="${CSS.escape(cat)}"]`);
+    if(!row) return;
+    row.querySelectorAll(`.rm-cell:not([data-task-id="${taskId}"])`).forEach(s=>{
+      const sL=parseFloat(s.style.left)||0,sW=parseFloat(s.style.width)||_ganttDayPx*7;
+      s.style.transition='transform 0.12s ease';
+      s.style.transform=pL<sL+sW&&pL+pW>sL?'translateY(-26px)':'';
+    });
+  }
+
+  canvas.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    // Identify mode from target
+    const handle=e.target.closest('.gantt-handle');
+    const mid=e.target.closest('.gantt-mid');
+    const bar=e.target.closest('.rm-cell[data-task-id]');
+    if(!bar) return;
+    const mode=handle?(handle.classList.contains('gantt-handle-left')?'left':'right'):'move';
+    const taskId=bar.dataset.taskId;
     const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
     if(!t) return;
-    const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed);
-    const dur=sd&&ed?_daysBetween(sd,ed):6;
-    _drag={taskId,taskCat:t.cat||'',origSd:sd,origEd:ed,durationDays:Math.max(0,dur),mode};
-    e.dataTransfer.effectAllowed='move';
-    e.dataTransfer.setData('text/plain',taskId+'|'+mode);
-    setTimeout(()=>{ canvas.querySelectorAll(`[data-task-id="${taskId}"]`).forEach(el=>el.classList.add('gantt-dragging')); },0);
-  },true);
+    const origSd=toIsoDate(t.sd),origEd=toIsoDate(t.ed);
+    const origL=parseFloat(bar.style.left)||0;
+    const origW=parseFloat(bar.style.width)||_barW(origSd,origEd);
+    const dur=origSd&&origEd?_daysBetween(origSd,origEd):6;
 
-  canvas.addEventListener('dragend',()=>{
-    _drag=null;
-    _tip.style.display='none';
-    canvas.querySelectorAll('.gantt-dragging').forEach(el=>el.classList.remove('gantt-dragging'));
-    canvas.querySelectorAll('.rm-cell').forEach(el=>{ el.style.transform=''; el.style.transition=''; });
-  },true);
+    bar.setPointerCapture(e.pointerId);
+    bar.classList.add('gantt-dragging');
+    bar.style.zIndex='10';
+    bar.style.boxShadow='0 4px 16px rgba(0,0,0,0.5)';
 
-  canvas.addEventListener('dragover',e=>{
-    if(!_drag) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect='move';
-    const hoverDate=_xToDate(e.clientX);
-    const tipText=_drag.mode==='right'?'End: '+hoverDate:'Start: '+hoverDate;
-    _tip.textContent=tipText;
-    _tip.style.left=Math.min(e.clientX+14,window.innerWidth-160)+'px';
-    _tip.style.top=(e.clientY-34)+'px';
-    _tip.style.display='block';
-    // Compute preview bar bounds for overlap detection
-    const hOff=_ganttDayOff(hoverDate);
-    let pL,pW;
-    if(_drag.mode==='move'){
-      pL=hOff*_ganttDayPx; pW=(_drag.durationDays+1)*_ganttDayPx;
-    } else if(_drag.mode==='left'){
-      pL=hOff*_ganttDayPx; pW=Math.max(1,_ganttDayOff(_drag.origEd)-hOff+1)*_ganttDayPx;
-    } else {
-      const oL=_ganttDayOff(_drag.origSd); pL=oL*_ganttDayPx; pW=Math.max(1,hOff-oL+1)*_ganttDayPx;
-    }
-    // Shift siblings that overlap the preview position
-    const row=canvas.querySelector(`.gantt-row[data-cat="${CSS.escape(_drag.taskCat)}"]`);
-    if(row){
-      row.querySelectorAll(`.rm-cell:not([data-task-id="${_drag.taskId}"])`).forEach(sib=>{
-        const sL=parseFloat(sib.style.left)||0;
-        const sW=parseFloat(sib.style.width)||_ganttDayPx*7;
-        const overlaps=pL<sL+sW&&pL+pW>sL;
-        sib.style.transition='transform 0.12s ease';
-        sib.style.transform=overlaps?'translateY(-26px)':'';
-      });
-    }
-  },true);
+    let lastDelta=0;
+    e.stopPropagation();
 
-  canvas.addEventListener('drop',e=>{
-    if(!_drag) return;
-    e.preventDefault();
-    _tip.style.display='none';
-    const dropDate=_xToDate(e.clientX);
-    const t=DASHBOARD_DATA.tasks.find(x=>x.id===_drag.taskId);
-    if(!t) return;
-    const oldSd=toIsoDate(t.sd), oldEd=toIsoDate(t.ed);
-    let newSd=oldSd||dropDate, newEd=oldEd||_addDays(dropDate,6);
-    if(_drag.mode==='move'){
-      newSd=dropDate;
-      newEd=_addDays(newSd,_drag.durationDays||6);
-    } else if(_drag.mode==='left'){
-      newSd=dropDate;
-      if(newSd>=newEd) newEd=_addDays(newSd,6);
-    } else {
-      newEd=dropDate;
-      if(newEd<=newSd) newSd=_addDays(newEd,-6);
-    }
-    const savedId=_drag.taskId;
-    _drag=null;
-    _ganttSaveUndo(savedId,oldSd,oldEd);
-    t.sd=newSd; t.ed=newEd;
-    // Move only the dragged bar — defer past dragend so class resets don't fight us
-    requestAnimationFrame(()=>{
-      const bar=canvas.querySelector(`[data-task-id="${savedId}"].rm-cell`);
-      if(bar){
-        const newL=_ganttDayOff(newSd)*_ganttDayPx;
-        const span=Math.max(1,Math.round((new Date(newEd+'T00:00:00')-new Date(newSd+'T00:00:00'))/86400000)+1);
-        const newW=Math.max(span*_ganttDayPx,Math.max(20,_ganttDayPx));
-        bar.style.left=newL+'px';
-        bar.style.width=newW+'px';
-        bar.dataset.sd=newSd; bar.dataset.ed=newEd;
+    function onMove(ev){
+      const delta=Math.round((ev.clientX-e.clientX)/_ganttDayPx);
+      if(delta===lastDelta) return;
+      lastDelta=delta;
+      let newSd=origSd,newEd=origEd,newL=origL,newW=origW;
+      if(mode==='move'){
+        newSd=_addDays(origSd,delta); newEd=_addDays(origEd,delta);
+        newL=origL+delta*_ganttDayPx; newW=origW;
+      } else if(mode==='left'){
+        newSd=_addDays(origSd,delta);
+        if(newSd>=origEd) newSd=_addDays(origEd,-1);
+        newL=_ganttDayOff(newSd)*_ganttDayPx;
+        newW=_barW(newSd,origEd);
+      } else {
+        newEd=_addDays(origEd,delta);
+        if(newEd<=origSd) newEd=_addDays(origSd,1);
+        newW=_barW(origSd,newEd);
       }
-    });
-    const sdEl=document.getElementById('raci-sd-'+savedId);
-    const edEl=document.getElementById('raci-ed-'+savedId);
-    if(sdEl) sdEl.value=newSd;
-    if(edEl) edEl.value=newEd;
-    _showGanttMoveConfirm(savedId,oldSd,oldEd,newSd,newEd);
+      bar.style.left=newL+'px'; bar.style.width=newW+'px';
+      // Tooltip
+      const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      function _fmt(s){const d=new Date(s+'T00:00:00');return MO[d.getMonth()]+' '+d.getDate();}
+      _tip.textContent=(mode==='right'?'End: '+_fmt(newEd):mode==='left'?'Start: '+_fmt(newSd):_fmt(newSd)+' → '+_fmt(newEd));
+      _tip.style.left=Math.min(ev.clientX+14,window.innerWidth-160)+'px';
+      _tip.style.top=(ev.clientY-34)+'px'; _tip.style.display='block';
+      // Sibling shift
+      _shiftSiblings(t.cat||'',taskId,newL,newW);
+    }
+
+    function onUp(ev){
+      bar.removeEventListener('pointermove',onMove);
+      bar.removeEventListener('pointerup',onUp);
+      bar.removeEventListener('pointercancel',onUp);
+      bar.classList.remove('gantt-dragging');
+      bar.style.zIndex=''; bar.style.boxShadow='';
+      _tip.style.display='none';
+      _resetSiblings(t.cat||'',taskId);
+
+      const finalDelta=Math.round((ev.clientX-e.clientX)/_ganttDayPx);
+      if(finalDelta===0) return;
+
+      const oldSd=origSd,oldEd=origEd;
+      let newSd=origSd,newEd=origEd;
+      if(mode==='move'){newSd=_addDays(origSd,finalDelta);newEd=_addDays(origEd,finalDelta);}
+      else if(mode==='left'){newSd=_addDays(origSd,finalDelta);if(newSd>=origEd)newSd=_addDays(origEd,-1);}
+      else{newEd=_addDays(origEd,finalDelta);if(newEd<=origSd)newEd=_addDays(origSd,1);}
+
+      _ganttSaveUndo(taskId,oldSd,oldEd);
+      t.sd=newSd; t.ed=newEd;
+      bar.style.left=(_ganttDayOff(newSd)*_ganttDayPx)+'px';
+      bar.style.width=_barW(newSd,newEd)+'px';
+      bar.dataset.sd=newSd; bar.dataset.ed=newEd;
+      const sdEl=document.getElementById('raci-sd-'+taskId);
+      const edEl=document.getElementById('raci-ed-'+taskId);
+      if(sdEl) sdEl.value=newSd; if(edEl) edEl.value=newEd;
+      _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd);
+    }
+
+    bar.addEventListener('pointermove',onMove,{passive:true});
+    bar.addEventListener('pointerup',onUp);
+    bar.addEventListener('pointercancel',onUp);
   },true);
 }
 
