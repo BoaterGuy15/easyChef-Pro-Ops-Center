@@ -3180,10 +3180,8 @@ function saveTaskExpandNotes(taskId){
   if(!el) return;
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t) return;
-  t.flag=el.value;
-  saveToLocal();
-  const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-edit');
-  if(flagEl) flagEl.textContent=t.flag;
+  const emoji=(t.flag||'').match(/^(✓|⚠️|⛔|🔵|💡|🎯)/)?.[0]||'';
+  _updateTaskFlag(taskId, emoji, el.value.trim());
   _syncTaskToAgenda(taskId);
 }
 function setTaskFlagEmoji(taskId,emoji){
@@ -3214,12 +3212,16 @@ function setTaskFlagEmoji(taskId,emoji){
   const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
   if(agItem){agItem.flag=emoji;saveAgendaItemToSheets(agItem);}
 }
-function _setFlagEmoji(taskId, newEmoji){
+function _updateTaskFlag(taskId, emoji, notes){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
-  const existingNotes=(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)\s*/,'').trim();
-  t.flag=newEmoji+(existingNotes?' '+existingNotes:'');
+  const existingNotes=notes!==undefined?notes:(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)\s*/,'').trim();
+  t.flag=(emoji?emoji+' ':'')+existingNotes;
   saveToLocal();
   _saveTasksNow();
+  _syncFlagDisplay(taskId);
+}
+function _setFlagEmoji(taskId, newEmoji){
+  _updateTaskFlag(taskId, newEmoji, undefined);
 }
 function _syncFlagDisplay(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
@@ -3249,13 +3251,8 @@ function _onIcsFlagInput(taskId,el){
 function _saveFlagNotes(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
   const el=document.getElementById('flag-notes-'+taskId); if(!el) return;
-  const notes=el.value.trim();
   const emoji=(t.flag||'').match(/^(✓|⚠️|⛔|🔵|💡|🎯)/)?.[0]||'';
-  t.flag=emoji?(emoji+(notes?' '+notes:'')):(notes||'');
-  console.log('[DGL] Saving flag notes for',taskId,'flag:',t.flag,'sheetsLoaded:',window._sheetsLoaded);
-  saveToLocal();
-  _saveTasksNow();
-  _syncFlagDisplay(taskId);
+  _updateTaskFlag(taskId, emoji, el.value.trim());
   el.style.transition='border-color 0.15s';
   el.style.borderColor='var(--green)';
   setTimeout(()=>{ el.style.borderColor=''; },1200);
