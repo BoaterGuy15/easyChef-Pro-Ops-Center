@@ -55,7 +55,7 @@
         return respond({ ok: true });
       }
       if (action === 'roadmap_write') {
-        setRoadmapItem(body.item);
+        setRoadmapItem(body);
         return respond({ ok: true });
       }
       if (action === 'roadmap_delete') {
@@ -2197,12 +2197,59 @@ function _markTaskComplete(taskId){
   const linked=_getTaskSlackLink(taskId);
   if(linked&&linked.channelId&&CONFIG.sheetsUrl)
     fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('['+taskId+'] ✅ COMPLETED by '+deliveredBy+': '+delivery)+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+  // Build Drive completion record
+  const unblockedTasks=DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(taskId));
+  const raciCols=['responsible','accountable','consulted','informed'];
+  const raciLines=raciCols.map(r=>{ const v=t[r]||t[r.charAt(0).toUpperCase()+r.slice(1)]||''; return v?r.charAt(0).toUpperCase()+r.slice(1)+': '+v:''; }).filter(Boolean).join('\n');
+  const record=[
+    'TASK COMPLETION RECORD',
+    '======================',
+    'Task ID:     '+taskId,
+    'Task Name:   '+(t.name||''),
+    'Category:    '+(t.cat||t.category||''),
+    'Completed By:'+deliveredBy,
+    'Date:        '+date,
+    '',
+    'DELIVERY DESCRIPTION',
+    '--------------------',
+    delivery,
+    '',
+    'RACI ASSIGNMENTS',
+    '----------------',
+    raciLines||'(none recorded)',
+    '',
+    'UNBLOCKED TASKS',
+    '---------------',
+    unblockedTasks.length?unblockedTasks.map(u=>u.id+' — '+u.name).join('\n'):'(none)',
+    '',
+    'SESSION: '+(window._dglSessionHash||'unknown'),
+    'Generated: '+new Date().toISOString()
+  ].join('\n');
+  if(CONFIG.sheetsUrl){
+    const b64=btoa(unescape(encodeURIComponent(record)));
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+      action:'file_upload',
+      docName:taskId+'_COMPLETION_RECORD_'+date+'.txt',
+      filename:taskId+'_COMPLETION_RECORD_'+date+'.txt',
+      mimeType:'text/plain',
+      base64data:b64,
+      taskId:taskId,
+      agendaId:'',
+      sourceType:'task',
+      sourceId:taskId,
+      sourceName:t.name||taskId,
+      addedBy:window._DGL_USER||'system',
+      reviewNeeded:'false'
+    })}).catch(()=>{});
+    _saveActionPlan(taskId,'raci','COMPLETION RECORD: '+delivery,taskId,'');
+  }
   _saveTasksNow();
   document.getElementById('mark-complete-modal').style.display='none';
   // Re-render expansion panel to reflect new status
   const existingRow=document.getElementById('raci-expand-row-'+taskId);
   if(existingRow){ const newHtml=_buildTaskExpandHtml(taskId); existingRow.querySelector('td>div').innerHTML=newHtml; _afterExpandRender(taskId); }
   masterRefresh();
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#22c55e">✅ Task marked complete — delivery record saved to Drive</div>',4000);
 }
 function toggleTaskExpand(taskId,trEl){
   _raciInjectExpandStyles();
