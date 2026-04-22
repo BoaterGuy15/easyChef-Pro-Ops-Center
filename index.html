@@ -4748,8 +4748,9 @@ function _bulkCreateTasks(){
   const _raciKeys=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',..._getCustomTeamMembers().map(m=>m.raciKey)];
   const _flagMap={risk:'⛔',week:'⚠️',today:'',decision:'',general:''};
   const prog=document.getElementById('bulk-create-progress');
-  const _now=new Date(); const todayStr=_now.toISOString().slice(0,10);
-  const _ed7=new Date(_now); _ed7.setDate(_ed7.getDate()+7); const edDef=_ed7.toISOString().slice(0,10);
+  const toYMD=d=>new Date(d).toISOString().slice(0,10);
+  const todayStr=toYMD(new Date());
+  const edDef=toYMD(new Date(Date.now()+30*24*60*60*1000));
   let createCount=0; const createdIds=[]; let prevTaskId=''; let skippedCount=0;
   for(let i=0;i<plans.length;i++){
     const chk=document.getElementById('bcp-chk-'+i); if(!chk||!chk.checked) continue;
@@ -7734,11 +7735,12 @@ function deleteTask(taskId){
 const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','sd','ed','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
 const PROTECTED_DATE_FIELDS=new Set(['sd','ed','lastStatusChange']);
 function _mergeTask(t,s){
+  const toYMD=v=>v&&typeof v==='string'&&v.includes('GMT')?new Date(v).toISOString().slice(0,10):v;
   _PERSIST_FIELDS.forEach(f=>{
     const incoming=s[f];
     if(incoming==null||incoming==='') return;
     if(PROTECTED_DATE_FIELDS.has(f)&&t[f]&&t[f].length===10) return;
-    t[f]=incoming;
+    t[f]=(f==='sd'||f==='ed')?toYMD(incoming):incoming;
   });
 }
 
