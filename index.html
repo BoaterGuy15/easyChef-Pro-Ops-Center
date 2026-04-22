@@ -3827,7 +3827,7 @@ function buildRoadmap(){
     let _panning=false,_panX=0,_panY=0,_panLeft=0,_panTop=0;
     scroll.addEventListener('mousedown',e=>{
       if(e.button!==0) return;
-      if(e.target.closest('.rm-cell')||e.target.classList.contains('gantt-handle')) return;
+      if(e.target.closest('[data-task-id]')||e.target.closest('.rm-cell')||e.target.closest('.gantt-handle')||e.target.closest('.gantt-mid')) return;
       _panning=true;
       _panX=e.clientX; _panY=e.clientY;
       _panLeft=scroll.scrollLeft; _panTop=scroll.scrollTop;
@@ -4255,6 +4255,8 @@ function _initGanttDrag(){
   let _drag=null;
   let _tip=document.getElementById('gantt-drag-tooltip');
   if(!_tip){ _tip=document.createElement('div'); _tip.id='gantt-drag-tooltip'; document.body.appendChild(_tip); }
+
+  canvas.addEventListener('mousedown',e=>{ if(e.target.closest('[data-task-id]')) e.stopPropagation(); },true);
 
   canvas.addEventListener('dragstart',e=>{
     const draggable=e.target.closest('[draggable][data-task-id]');
