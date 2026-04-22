@@ -3052,11 +3052,7 @@ function saveTaskExpandNotes(taskId){
 }
 function setTaskFlagEmoji(taskId,emoji){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
-  // Preserve existing notes from textarea when changing emoji
-  const _notesEl=document.getElementById('flag-notes-'+taskId);
-  const _existingNotes=_notesEl?_notesEl.value.trim():((t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim());
-  t.flag=emoji?emoji+(_existingNotes?' '+_existingNotes:''):_existingNotes;
-  saveToLocal();
+  _setFlagEmoji(taskId,emoji);
   const fst=_getFlagState(emoji);
   const tr=document.querySelector('#raci-body tr[data-id="'+taskId+'"]');
   if(tr){
@@ -3064,7 +3060,7 @@ function setTaskFlagEmoji(taskId,emoji){
     const badge=tr.querySelector('.flag-emoji-badge');
     if(badge){badge.textContent=emoji;badge.style.color=fst?fst.color:'';badge.style.display=emoji?'':'none';}
     const flagDiv=tr.querySelector('.flag-cell .flag-edit');
-    if(flagDiv){flagDiv.textContent=emoji;flagDiv.style.color=fst?fst.color:'var(--muted)';}
+    if(flagDiv){flagDiv.textContent=t.flag||'';flagDiv.style.color=fst?fst.color:'var(--muted)';}
   }
   const panelInner=document.querySelector('#raci-expand-row-'+taskId+' .raci-expand-inner');
   if(panelInner) panelInner.style.borderLeftColor=fst?fst.color:'var(--gold)';
@@ -3078,8 +3074,16 @@ function setTaskFlagEmoji(taskId,emoji){
     const lbl=btn.querySelector('.flag-btn-label');
     if(lbl) lbl.style.color=active&&bfst?bfst.color:'var(--muted)';
   });
+  _syncFlagDisplay(taskId);
   const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
   if(agItem){agItem.flag=emoji;saveAgendaItemToSheets(agItem);}
+}
+function _setFlagEmoji(taskId, newEmoji){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const existingNotes=(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)\s*/,'').trim();
+  t.flag=newEmoji+(existingNotes?' '+existingNotes:'');
+  saveToLocal();
+  _saveTasksNow();
 }
 function _syncFlagDisplay(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
@@ -3664,11 +3668,8 @@ function buildRoadmap(){
 // ── Gantt context menu ───────────────────────────────────────
 function _setTaskFlagFromMenu(taskId, flagValue){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
-  // Preserve any existing flag notes when changing emoji
-  const _existingNotes=(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim();
-  t.flag=flagValue?(flagValue+(_existingNotes?' '+_existingNotes:'')):_existingNotes;
+  _setFlagEmoji(taskId, flagValue||'');
   t.lastStatusChange=new Date().toISOString();
-  _saveTasksNow();
   _closeGanttContextMenu();
   buildRoadmap();
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--gold)">🎯 Flag updated'+(flagValue?' → '+flagValue:'  cleared')+'</div>',2500);
