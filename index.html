@@ -9256,8 +9256,10 @@ function loadFromSheets(){
       _lastSheetsLoadTime=Date.now();
       Object.keys(_raciExpandCache).forEach(k=>{ delete _raciExpandCache[k]; });
       window._sheetsLoaded=true;
-      masterRefresh();
-      updateSyncStatus('ok');
+      loadTaskChannelLinks().then(()=>{
+        masterRefresh();
+        updateSyncStatus('ok');
+      });
     })
     .catch(()=>updateSyncStatus('fail'));
 }
