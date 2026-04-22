@@ -1552,6 +1552,7 @@ function setTaskFlag(id, el){
   const text=el.innerText.trim();
   task.flag=text;
   saveToLocal();
+  _saveTasksNow();
   masterRefresh();
 }
 // ── Flag toolbar ──────────────────────────────────────────────
@@ -3094,14 +3095,14 @@ function _onFlagNotesInput(taskId,textarea){
   const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-cell .flag-edit');
   if(flagEl){ flagEl.textContent=newFlag; const fst=_getFlagState(newFlag); flagEl.style.color=fst?fst.color:'var(--muted)'; }
   clearTimeout(((window._flagNotesTimer=window._flagNotesTimer||{})[taskId]));
-  window._flagNotesTimer[taskId]=setTimeout(()=>{ t.flag=newFlag; _saveTasksNow(); },500);
+  window._flagNotesTimer[taskId]=setTimeout(()=>{ t.flag=newFlag; saveToLocal(); _saveTasksNow(); },500);
 }
 function _onIcsFlagInput(taskId,el){
   const newFlag=(el.innerText||el.textContent||'').trim();
   const notesEl=document.getElementById('flag-notes-'+taskId);
   if(notesEl){ notesEl.value=newFlag.replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim(); }
   clearTimeout(((window._icsFlagTimer=window._icsFlagTimer||{})[taskId]));
-  window._icsFlagTimer[taskId]=setTimeout(()=>{ const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(t){ t.flag=newFlag; _saveTasksNow(); } },500);
+  window._icsFlagTimer[taskId]=setTimeout(()=>{ const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(t){ t.flag=newFlag; saveToLocal(); _saveTasksNow(); } },500);
 }
 function _saveFlagNotes(taskId){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
@@ -3109,8 +3110,13 @@ function _saveFlagNotes(taskId){
   const notes=el.value.trim();
   const emoji=(t.flag||'').match(/^(✓|⚠️|⛔|🔵|💡|🎯)/)?.[0]||'';
   t.flag=emoji?(emoji+(notes?' '+notes:'')):(notes||'');
+  console.log('[DGL] Saving flag notes for',taskId,'flag:',t.flag,'sheetsLoaded:',window._sheetsLoaded);
+  saveToLocal();
   _saveTasksNow();
   _syncFlagDisplay(taskId);
+  el.style.transition='border-color 0.15s';
+  el.style.borderColor='var(--green)';
+  setTimeout(()=>{ el.style.borderColor=''; },1200);
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#22c55e">✅ Flag notes saved</div>',2500);
 }
 function saveTaskNotes(taskId){
