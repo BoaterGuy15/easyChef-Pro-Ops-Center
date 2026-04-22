@@ -426,18 +426,23 @@ tr.hidden-row{display:none}
 .roadmap-table td{border:1px solid var(--border);border-left:none;border-top:none;padding:6px 8px;font-size:11px;vertical-align:top}
 .roadmap-table td.ws-label{font-size:12px;color:var(--text);font-weight:500;background:var(--surface);white-space:nowrap;border-left:1px solid var(--border)}
 .roadmap-table tbody tr:first-child td{border-top:1px solid var(--border)}
-.rm-cell{background:var(--card);border-radius:4px;padding:3px 2px;font-size:10px;color:var(--muted);line-height:1.4;display:flex;align-items:center;gap:2px;cursor:grab;user-select:none}
+.rm-cell{background:var(--card);border-radius:4px;padding:0;font-size:10px;color:var(--muted);line-height:1.4;display:flex;align-items:stretch;gap:0;cursor:default;user-select:none;overflow:hidden}
 .rm-cell.active{background:rgba(201,168,76,0.08);color:var(--gold-light);border-left:2px solid var(--gold)}
 .rm-cell.milestone{background:rgba(52,211,153,0.08);color:var(--green);border-left:2px solid var(--green);font-weight:500}
 .rm-cell.searah{background:rgba(201,168,76,0.06);border-left:2px solid var(--amber);color:#fbbf24}
 .rm-cell.sadee{background:rgba(45,212,191,0.06);border-left:2px solid var(--teal);color:var(--teal)}
 .rm-cell.hammad{background:rgba(167,139,250,0.06);border-left:2px solid var(--purple);color:var(--purple)}
-.rm-cell:active{cursor:grabbing}
+.rm-cell:active{cursor:default}
 .rm-cell.gantt-dragging{opacity:0.45}
-.gantt-handle{cursor:ew-resize;padding:0 3px;font-size:9px;opacity:0;flex-shrink:0;transition:opacity 0.1s;line-height:1}
-.rm-cell:hover .gantt-handle{opacity:0.6}
-.gantt-handle:hover{opacity:1!important}
+.gantt-handle{width:6px;min-width:6px;background:rgba(201,168,76,0.5);opacity:0;flex-shrink:0;transition:opacity 0.15s;cursor:ew-resize}
+.gantt-handle-left{border-radius:3px 0 0 3px;cursor:w-resize}
+.gantt-handle-right{border-radius:0 3px 3px 0;cursor:e-resize}
+.rm-cell:hover .gantt-handle{opacity:1}
+.gantt-mid{flex:1;display:flex;align-items:center;gap:2px;padding:3px 2px;cursor:grab;overflow:hidden;min-width:0}
+.gantt-mid:active{cursor:grabbing}
 td.gantt-drop-target{background:rgba(201,168,76,0.12);outline:2px dashed var(--gold);outline-offset:-2px}
+td.gantt-range-target{background:rgba(201,168,76,0.06)}
+#gantt-drag-tooltip{position:fixed;z-index:100000;background:var(--card);border:1px solid var(--gold);border-radius:5px;padding:4px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);pointer-events:none;display:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.4)}
 .gantt-flag-pin{cursor:default;user-select:none}
 .rm-empty{color:var(--border);font-size:10px;text-align:center;padding:8px 0}
 
@@ -3741,11 +3746,10 @@ function buildRoadmap(){
           const sd=toIsoDate(t.sd)||'', ed=toIsoDate(t.ed)||'';
           const flagIco=_flagEmoji(t.flag);
           const flagPin=flagIco?`<span class="gantt-flag-pin" title="${(t.flag||'').replace(/"/g,'&quot;')}" style="font-size:9px;line-height:1;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
-          return `<div class="${cls}" style="${ovStyle}" draggable="true" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" data-mode="move" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">
-            <span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true" title="Drag ◀ to shift start date">◀</span>
-            ${flagPin}
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${name}</span>
-            <span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true" title="Drag ▶ to shift end date">▶</span>
+          return `<div class="${cls}" style="${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">
+            <span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true" title="Drag to shift start date"></span>
+            <span class="gantt-mid" draggable="true" data-task-id="${t.id}" data-mode="move">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span></span>
+            <span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true" title="Drag to shift end date"></span>
           </div>`;
         }).join('');
         html += `<td data-week-idx="${wi}">${cells}</td>`;
@@ -4080,13 +4084,20 @@ function _initGanttDrag(WEEKS, toIsoDate){
   }
 
   let _drag=null;
+  // Create tooltip element
+  let _tip=document.getElementById('gantt-drag-tooltip');
+  if(!_tip){ _tip=document.createElement('div'); _tip.id='gantt-drag-tooltip'; document.body.appendChild(_tip); }
+
+  function _clearHighlights(){
+    tbody.querySelectorAll('.gantt-drop-target').forEach(td=>td.classList.remove('gantt-drop-target'));
+    tbody.querySelectorAll('.gantt-range-target').forEach(td=>td.classList.remove('gantt-range-target'));
+  }
 
   tbody.addEventListener('dragstart',e=>{
-    const handle=e.target.closest('.gantt-handle');
-    const bar=e.target.closest('[draggable][data-task-id]');
-    if(!bar) return;
-    const taskId=bar.dataset.taskId;
-    const mode=handle?handle.dataset.mode:(bar.dataset.mode||'move');
+    const draggable=e.target.closest('[draggable][data-task-id]');
+    if(!draggable) return;
+    const taskId=draggable.dataset.taskId;
+    const mode=draggable.dataset.mode||'move';
     const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
     if(!t) return;
     const sd=_isoDate(t.sd), ed=_isoDate(t.ed);
@@ -4099,8 +4110,9 @@ function _initGanttDrag(WEEKS, toIsoDate){
 
   tbody.addEventListener('dragend',()=>{
     _drag=null;
+    _tip.style.display='none';
     tbody.querySelectorAll('.gantt-dragging').forEach(el=>el.classList.remove('gantt-dragging'));
-    tbody.querySelectorAll('.gantt-drop-target').forEach(td=>td.classList.remove('gantt-drop-target'));
+    _clearHighlights();
   },true);
 
   tbody.addEventListener('dragover',e=>{
@@ -4108,15 +4120,46 @@ function _initGanttDrag(WEEKS, toIsoDate){
     e.preventDefault();
     e.dataTransfer.dropEffect='move';
     const td=e.target.closest('td[data-week-idx]');
-    tbody.querySelectorAll('.gantt-drop-target').forEach(t=>t.classList.remove('gantt-drop-target'));
-    if(td) td.classList.add('gantt-drop-target');
+    _clearHighlights();
+    if(!td) return;
+    const weekIdx=parseInt(td.dataset.weekIdx);
+    const week=WEEKS[weekIdx];
+    if(!week) return;
+    // Compute preview range
+    let previewSd, previewEd;
+    if(_drag.mode==='move'){
+      previewSd=week.start;
+      previewEd=_addDays(previewSd,_drag.durationDays||6);
+    } else if(_drag.mode==='left'){
+      previewSd=week.start;
+      previewEd=_drag.origEd;
+      if(previewSd>=previewEd) previewSd=_addDays(previewEd,-1);
+    } else {
+      previewSd=_drag.origSd;
+      previewEd=week.end;
+      if(previewEd<=previewSd) previewEd=_addDays(previewSd,1);
+    }
+    // Highlight all cells in the preview range
+    WEEKS.forEach((w,i)=>{
+      if(previewSd<=w.end&&previewEd>=w.start){
+        const cell=tbody.querySelector(`td[data-week-idx="${i}"]`);
+        if(cell) cell.classList.add(i===weekIdx?'gantt-drop-target':'gantt-range-target');
+      }
+    });
+    // Tooltip
+    const tipText=_drag.mode==='left'?'Start: '+previewSd:_drag.mode==='right'?'End: '+previewEd:'Start: '+previewSd;
+    _tip.textContent=tipText;
+    _tip.style.left=Math.min(e.clientX+14,window.innerWidth-160)+'px';
+    _tip.style.top=(e.clientY-34)+'px';
+    _tip.style.display='block';
   },true);
 
   tbody.addEventListener('drop',e=>{
     if(!_drag) return;
     e.preventDefault();
+    _tip.style.display='none';
     const td=e.target.closest('td[data-week-idx]');
-    tbody.querySelectorAll('.gantt-drop-target').forEach(t=>t.classList.remove('gantt-drop-target'));
+    _clearHighlights();
     if(!td) return;
     const weekIdx=parseInt(td.dataset.weekIdx);
     const week=WEEKS[weekIdx];
