@@ -4375,9 +4375,22 @@ async function runSuperAi(id, type, btn){
   const raciLines=_t?_raciPeople.map(p=>{ const r=_t[p]; return r?`${p}=${r}`:null; }).filter(Boolean).join(', '):'—';
   // ── 3. Dependency chain ──────────────────────────────────────
   const depIds=_t?(_t.deps||'').split(',').map(d=>d.trim()).filter(Boolean):[];
-  const depDetails=depIds.map(did=>{ const d=DASHBOARD_DATA.tasks.find(x=>x.id===did); return d?`${did} "${d.name}" (${d.status}, owner:${d.owner||'—'}${d.flag&&d.flag.length>2?', flag:'+d.flag:''})`:`${did} (not found)`; }).join('\n  ')||'None';
+  const depDetails=depIds.map(did=>{
+    const d=DASHBOARD_DATA.tasks.find(x=>x.id===did);
+    if(!d) return `${did} (not found)`;
+    const isDone=d.status==='Complete'||d.status==='Done'||(d.flag&&d.flag.includes('✓'));
+    const doneLabel=isDone?' — COMPLETED ✓ — unblocks this task':` — ${d.status} — owner:${d.owner||'—'}`;
+    return `${d.id} ${d.name} (${d.cat||'—'})${doneLabel}`;
+  }).join('\n  ')||'None';
+  const completedUpstream=depIds.map(did=>{
+    const d=DASHBOARD_DATA.tasks.find(x=>x.id===did);
+    if(!d) return null;
+    const isDone=d.status==='Complete'||d.status==='Done'||(d.flag&&d.flag.includes('✓'));
+    return isDone?`${d.id} ${d.name} — COMPLETE ✓ (no action needed)`:`${d.id} ${d.name} — ${d.status} — owner:${d.owner||'—'} — STILL PENDING`;
+  }).filter(Boolean).join('\n')||'None';
   const blocksTasks=DASHBOARD_DATA.tasks.filter(x=>x.id!==id&&(x.deps||'').split(',').map(d=>d.trim()).filter(Boolean).includes(id));
   const blocksDetails=blocksTasks.map(x=>`${x.id} "${x.name}" (${x.status}, owner:${x.owner||'—'})`).join('\n  ')||'None';
+  const completedTasks=DASHBOARD_DATA.tasks.filter(t=>t.status==='Complete'||t.status==='Done').map(t=>`${t.id} ${t.name} (${t.cat||'—'})`).join(', ')||'None';
   // ── 4. Linked agenda item ───────────────────────────────────
   const linkedAg=AGENDA_DATA.find(a=>a.taskId===id);
   const agendaCtx=linkedAg?`Title: ${linkedAg.title}\nDetail: ${(linkedAg.detail||'').slice(0,400)}\nDecision: ${linkedAg.decision||'—'}\nOwner: ${linkedAg.owner||'—'}\nDeadline: ${linkedAg.deadline||'—'}`:'None';
@@ -4416,6 +4429,12 @@ DEPENDENCY CHAIN — this task depends on:
   ${depDetails}
 This task blocks:
   ${blocksDetails}
+
+COMPLETED UPSTREAM TASKS (do not flag as blockers):
+${completedUpstream}
+
+COMPLETED TASKS ACROSS ALL CATEGORIES (do not flag as blockers):
+${completedTasks}
 
 LINKED AGENDA ITEM:
 ${agendaCtx}
