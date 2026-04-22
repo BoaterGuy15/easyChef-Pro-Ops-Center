@@ -787,12 +787,13 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <button id="raci-save-btn" style="margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0" onclick="raciManualSave(this)">💾 Save to Sheets</button>
     <button id="raci-add-task-btn" style="font-family:'DM Mono',monospace;font-size:11px;padding:5px 12px;border-radius:99px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap;flex-shrink:0;display:none" onclick="_openAddTaskModal()">➕ Add Task</button>
   </div>
+  <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:4px 0;letter-spacing:0.5px"><span style="color:var(--gold);font-weight:600">R</span> = Responsible (does the work) &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600">A</span> = Accountable (owns outcome) &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:600">C</span> = Consulted (gives input) &nbsp;·&nbsp; <span style="font-weight:600">I</span> = Informed (kept updated)</div>
   </div>
   <div class="table-wrap">
     <table id="raci-table">
       <thead><tr>
         <th style="width:28px;padding:4px 2px"></th><th>ID</th><th>Task</th><th>Category</th><th>Pri</th><th>Status</th><th>Owner</th>
-        <th class="raci-person-col">Tay</th><th class="raci-person-col">Stv</th><th class="raci-person-col">Adm</th><th class="raci-person-col">Mry</th><th class="raci-person-col">JR</th><th class="raci-person-col">Hmd</th><th class="raci-person-col">Sea</th><th class="raci-person-col">Sde</th>
+        <th class="raci-person-col" title="Taylor — R=Responsible A=Accountable C=Consulted I=Informed">Tay</th><th class="raci-person-col" title="Steve — R=Responsible A=Accountable C=Consulted I=Informed">Stv</th><th class="raci-person-col" title="Adam — R=Responsible A=Accountable C=Consulted I=Informed">Adm</th><th class="raci-person-col" title="Mary — R=Responsible A=Accountable C=Consulted I=Informed">Mry</th><th class="raci-person-col" title="JR — R=Responsible A=Accountable C=Consulted I=Informed">JR</th><th class="raci-person-col" title="Hammad — R=Responsible A=Accountable C=Consulted I=Informed">Hmd</th><th class="raci-person-col" title="Searah — R=Responsible A=Accountable C=Consulted I=Informed">Sea</th><th class="raci-person-col" title="Sadee — R=Responsible A=Accountable C=Consulted I=Informed">Sde</th>
         <th>Timeline</th><th>ICS Flags / Notes</th>
       </tr></thead>
       <tbody id="raci-body"></tbody>
@@ -1529,12 +1530,11 @@ function initRaciPopover(){
     {v:'A', bg:'rgba(248,113,113,0.1)', color:'var(--red)'},
     {v:'C', bg:'rgba(79,142,247,0.1)',  color:'var(--accent)'},
     {v:'I', bg:'rgba(107,114,128,0.1)', color:'var(--muted)'},
-    {v:'A/R',bg:'transparent',color:'var(--red)',label:'<span style="color:var(--red)">A</span><span style="color:var(--amber);margin-left:2px">R</span>'},
     {v:'',  bg:'transparent',           color:'var(--muted)', label:'—'}
   ];
   const pop=document.createElement('div');
   pop.id='raci-popover';
-  pop.innerHTML=btns.map(b=>`<button class="raci-pop-btn" style="background:${b.bg};color:${b.color}" onclick="setRaciValue('${b.v}')">${b.label||b.v}</button>`).join('');
+  pop.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:7px;color:var(--muted);padding:4px 6px 3px;letter-spacing:0.4px;white-space:nowrap;border-bottom:1px solid var(--border);margin-bottom:3px"><span style="color:var(--gold)">R</span>=Does work · <span style="color:var(--red)">A</span>=Owns outcome · <span style="color:var(--accent)">C</span>=Input · I=Updated</div>`+btns.map(b=>`<button class="raci-pop-btn" style="background:${b.bg};color:${b.color}" onclick="setRaciValue('${b.v}')">${b.label||b.v}</button>`).join('');
   document.body.appendChild(pop);
   document.addEventListener('click',e=>{
     if(!pop.contains(e.target)) hideRaciPopover();
