@@ -419,7 +419,7 @@ tr.hidden-row{display:none}
 #gantt-sticky-bar{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%}
 #gantt-hdr-scroll{flex:1;overflow:hidden}
 #gantt-hdr-canvas{position:relative;height:52px;background:var(--surface)}
-#gantt-scroll{overflow-x:auto;position:relative;width:100%}
+#gantt-scroll{overflow-x:auto;overflow-y:auto;position:relative;width:100%;max-height:calc(100vh - 200px)}
 #gantt-canvas{position:relative}
 .gantt-row{display:flex;align-items:stretch;border-bottom:1px solid rgba(37,42,53,0.4);min-height:44px}
 .gantt-row-label{position:sticky;left:0;z-index:10;width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:6px 10px;font-size:11px;color:var(--text);font-weight:500;display:flex;align-items:center;white-space:nowrap;overflow:hidden}
@@ -3824,19 +3824,20 @@ function buildRoadmap(){
     scroll._ganttSynced=true;
     scroll.addEventListener('scroll',_ganttSyncHeader,{passive:true});
     scroll.style.cursor='grab';
-    let _panning=false,_panX=0,_panLeft=0;
+    let _panning=false,_panX=0,_panY=0,_panLeft=0,_panTop=0;
     scroll.addEventListener('mousedown',e=>{
       if(e.button!==0) return;
       if(e.target.closest('.rm-cell')||e.target.classList.contains('gantt-handle')) return;
       _panning=true;
-      _panX=e.clientX;
-      _panLeft=scroll.scrollLeft;
+      _panX=e.clientX; _panY=e.clientY;
+      _panLeft=scroll.scrollLeft; _panTop=scroll.scrollTop;
       scroll.style.cursor='grabbing';
       e.preventDefault();
     });
     document.addEventListener('mousemove',e=>{
       if(!_panning) return;
       scroll.scrollLeft=_panLeft-(e.clientX-_panX);
+      scroll.scrollTop=_panTop-(e.clientY-_panY);
     },{passive:true});
     document.addEventListener('mouseup',()=>{
       if(!_panning) return;
