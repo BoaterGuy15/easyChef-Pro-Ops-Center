@@ -2160,6 +2160,50 @@ function _jumpToTask(taskId){
     if(tr){ tr.scrollIntoView({behavior:'smooth',block:'center'}); toggleTaskExpand(taskId,tr); }
   },100);
 }
+function _openMarkCompleteModal(taskId){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  let modal=document.getElementById('mark-complete-modal');
+  if(!modal){ modal=document.createElement('div'); modal.id='mark-complete-modal'; document.body.appendChild(modal); }
+  const IS='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:8px';
+  const todayStr=new Date().toISOString().slice(0,10);
+  modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65)';
+  modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:24px 28px;width:440px;max-width:95vw">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green);letter-spacing:2px;margin-bottom:16px">✅ MARK COMPLETE — ${t.id} ${t.name}</div>
+    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">WHAT WAS DELIVERED? *</label>
+    <textarea id="mc-delivery" rows="4" style="${IS}" placeholder="Describe exactly what was completed and delivered…"></textarea>
+    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">DELIVERED BY</label>
+    <input id="mc-by" type="text" value="${t.owner||_USER_RACI_MAP[window._DGL_USER||'']||window._DGL_USER||''}" style="${IS}">
+    <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">DATE</label>
+    <input id="mc-date" type="date" value="${todayStr}" style="${IS}">
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button onclick="_markTaskComplete('${taskId}')" style="background:var(--green);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;padding:7px 18px;cursor:pointer">✅ Save & Mark Complete</button>
+      <button onclick="document.getElementById('mark-complete-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:7px 14px;cursor:pointer">Cancel</button>
+    </div>
+  </div>`;
+}
+function _markTaskComplete(taskId){
+  const delivery=(document.getElementById('mc-delivery')?.value||'').trim();
+  if(!delivery){ alert('Please describe what was delivered.'); return; }
+  const deliveredBy=(document.getElementById('mc-by')?.value||'').trim()||window._DGL_USER||'—';
+  const date=(document.getElementById('mc-date')?.value||new Date().toISOString().slice(0,10));
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  t.status='Complete';
+  t.flag='✓ Resolved';
+  t.lastStatusChange=date+'T00:00:00.000Z';
+  const noteText='COMPLETED by '+deliveredBy+': '+delivery;
+  _appendNote(taskId, noteText, 'task');
+  const linked=_getTaskSlackLink(taskId);
+  if(linked&&linked.channelId&&CONFIG.sheetsUrl)
+    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('['+taskId+'] ✅ COMPLETED by '+deliveredBy+': '+delivery)+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+  _saveTasksNow();
+  document.getElementById('mark-complete-modal').style.display='none';
+  // Re-render expansion panel to reflect new status
+  const existingRow=document.getElementById('raci-expand-row-'+taskId);
+  if(existingRow){ const newHtml=_buildTaskExpandHtml(taskId); existingRow.querySelector('td>div').innerHTML=newHtml; _afterExpandRender(taskId); }
+  masterRefresh();
+}
 function toggleTaskExpand(taskId,trEl){
   _raciInjectExpandStyles();
   const panelExists=!!document.getElementById('raci-expand-row-'+taskId);
@@ -2506,6 +2550,7 @@ function _buildTaskExpandHtml(taskId){
         ${fRow('Owner',t.owner||'—')}
         ${lbl('FLAG')}
         <div class="flag-btn-group" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${_fsBtnsHtml}</div>
+        ${t.status!=='Complete'?`<button onclick="_openMarkCompleteModal('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;margin-bottom:10px">✅ Mark Complete + Log Delivery</button>`:''}
         ${lbl('TASK NOTES')}
         <textarea id="raci-task-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note — visible to all team members and readable by AI" onblur="saveTaskNotes('${taskId}')">${(t.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
         ${_agDecItem&&_agDecItem.detail?`${lbl('AGENDA NOTES — from Monday Meeting')}<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-style:italic;padding:7px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.15);border-radius:6px;min-height:36px;white-space:pre-wrap"><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1px;font-style:normal">[${_agDecItem.id}] </span>${(_agDecItem.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`:''}
@@ -4361,8 +4406,15 @@ async function runMasterAI(btn){
   const depViolations=violations.join('\n')||'No violations detected.';
   const completedTaskLines=completedTasks.map(t=>`${t.id} ${t.name} (${t.cat}) — DONE`).join('\n')||'None';
   const completedTaskIds=completedTasks.map(t=>t.id+' '+t.name).join(', ')||'None';
-  const system='You are the Master AI for DGL easyChef Pro. You have complete visibility across all tasks, workstreams, and team members. Your job is to give Taylor a complete executive briefing — connecting all the dots across every workstream. Think like a COO who has read every Slack message, every task note, every action plan. Be brutally specific. Name exact people, tasks, and dates. No generic advice. Format as plain text only — no markdown symbols. Use ALL CAPS for section headers. CRITICAL: Tasks marked Complete are FINISHED — do not suggest redoing them or flag them as blockers. Only flag tasks that are NOT Complete as needing attention.';
+  const system='You are the Master AI for DGL easyChef Pro. You have complete visibility across all tasks, workstreams, and team members. Your job is to give Taylor a complete executive briefing — connecting all the dots across every workstream. Think like a COO who has read every Slack message, every task note, every action plan. Be brutally specific. Name exact people, tasks, and dates. No generic advice. Format as plain text only — no markdown symbols. Use ALL CAPS for section headers. CRITICAL: Tasks marked Complete are FINISHED — do not suggest redoing them or flag them as blockers. Only flag tasks that are NOT Complete as needing attention. CRITICAL RULE: Tasks with status=Complete are DONE. Do not list them as blockers, do not suggest action items for them. Only reference them as completed dependencies that UNBLOCK downstream work.';
+  const completedBlock='=== COMPLETED TASKS — TREAT AS DONE, NO ACTION NEEDED ===\n'+
+    DASHBOARD_DATA.tasks.filter(t=>t.status==='Complete').map(t=>
+      t.id+' '+t.name+' ('+t.cat+') — COMPLETE ✓ — unblocks: '+
+      (DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(t.id)).map(d=>d.id).join(', ')||'nothing')
+    ).join('\n')||'None';
   const prompt=`Give me a complete Master Briefing for today ${todayStr}. We have ${daysToMay11} days to Beta (May 11) and ${daysToLaunch} days to Launch (Jul 1).
+
+${completedBlock}
 
 FULL TASK GRAPH (all ${tasks.length} tasks):
 ${taskGraph}
@@ -4544,7 +4596,12 @@ function _buildTaskBreadcrumb(taskId, maxEvents){
     const sdMs=_t.sd?new Date(_t.sd+'T00:00:00').getTime():0;
     push(sdMs,'TASK','system',`${_t.name} | cat:${_t.cat||'—'} | pri:${_t.pri||'—'} | owner:${_t.owner||'—'} | start:${_t.sd||'—'} | due:${_t.ed||'—'} | status:${_t.status}`);
     if(_t.lastStatusChange) push(_t.lastStatusChange,'STATUS',_t.owner||'—',`changed to ${_t.status}`);
-    if(_t.flag) push(_t.lastStatusChange||sdMs,'FLAG',_t.owner||'—',`set to "${_t.flag}"`);
+    if(_t.status==='Complete'){
+      const compTs=_t.lastStatusChange||_t.ed||sdMs;
+      push(compTs,'COMPLETED ✓',_t.owner||'—','Task marked Complete — deliverables finished');
+    }
+    if(_t.flag&&_t.flag.includes('✓')) push(_t.lastStatusChange||sdMs,'RESOLVED ✓',_t.owner||'—',`Flag set to "${_t.flag}"`);
+    else if(_t.flag) push(_t.lastStatusChange||sdMs,'FLAG',_t.owner||'—',`set to "${_t.flag}"`);
     if(_t.notes&&_t.notes.trim()) push(sdMs,'NOTES','system',_t.notes.slice(0,400));
     if(_t.decision&&_t.decision.trim()) push(sdMs,'DECISION','system',_t.decision.slice(0,400));
   }
@@ -4574,7 +4631,7 @@ async function runSuperAi(id, type, btn){
   if(!CONFIG.sheetsUrl) return;
   btn.textContent='⚡ Generating action plan…'; btn.disabled=true;
   const resultEl=document.getElementById('super-ai-result-'+id);
-  const system='You are the executive AI advisor for DGL easyChef Pro. You have been given complete context about a specific task including team discussions, Slack messages, attached documents, dependency chains, and action plan history. Analyze ALL provided context to give a highly specific, actionable plan. Follow the breadcrumbs — understand the flow of work from dependencies through to downstream tasks. Reference specific people, dates, and discussions in your analysis. Format your response as plain text only. No markdown symbols like ##, ###, **, *, or ---. Use ALL CAPS for section headers. Use numbered lists with plain numbers. Keep formatting clean for Slack. Task status values: Not Started, Ready, Started, In Progress, In Review, Complete, Blocked. If status is Complete or flag is Resolved — acknowledge the completion and ask if follow-up is needed rather than creating new action items.';
+  const system='You are the executive AI advisor for DGL easyChef Pro. You have been given complete context about a specific task including team discussions, Slack messages, attached documents, dependency chains, and action plan history. Analyze ALL provided context to give a highly specific, actionable plan. Follow the breadcrumbs — understand the flow of work from dependencies through to downstream tasks. Reference specific people, dates, and discussions in your analysis. Format your response as plain text only. No markdown symbols like ##, ###, **, *, or ---. Use ALL CAPS for section headers. Use numbered lists with plain numbers. Keep formatting clean for Slack. Task status values: Not Started, Ready, Started, In Progress, In Review, Complete, Blocked. If status is Complete or flag is Resolved — acknowledge the completion and ask if follow-up is needed rather than creating new action items. CRITICAL RULE: Any task showing status=Complete or flag containing ✓ is FINISHED. Never suggest starting it, never flag it as a blocker. Reference it only as completed context.';
   // ── 1. Task record ──────────────────────────────────────────
   const _t=DASHBOARD_DATA.tasks.find(x=>x.id===id);
   const _ag=AGENDA_DATA.find(x=>x.id===id);
