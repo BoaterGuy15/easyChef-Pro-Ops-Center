@@ -3664,27 +3664,28 @@ function _closeGanttContextMenu(){
   document.removeEventListener('keydown',_ganttCtxEsc,true);
 }
 function _ganttCtxEsc(e){ if(e.key==='Escape') _closeGanttContextMenu(); }
+function _ctxEl(tag,css,text){ const e=document.createElement(tag); if(css) e.style.cssText=css; if(text!=null) e.textContent=text; return e; }
 function _renderContextMenuDocs(container,docs,taskId){
   container.innerHTML='';
   if(!docs.length){
-    const nd=_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;font-size:10px;color:var(--muted)');
-    nd.appendChild(_el('span',null,'📎'));
-    nd.appendChild(_el('span',null,'No documents attached'));
+    const nd=_ctxEl('div','display:flex;align-items:center;gap:6px;padding:5px 14px;font-size:10px;color:var(--muted)');
+    nd.appendChild(_ctxEl('span',null,'📎'));
+    nd.appendChild(_ctxEl('span',null,'No documents attached'));
     container.appendChild(nd);
     return;
   }
   docs.slice(0,3).forEach(d=>{
     const fname=d.name||d.filename||'Untitled';
     const truncName=fname.length>26?fname.slice(0,24)+'…':fname;
-    const dd=_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:10px;color:var(--text)');
+    const dd=_ctxEl('div','display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:10px;color:var(--text)');
     dd.onmouseover=()=>dd.style.background='rgba(201,168,76,0.08)';
     dd.onmouseout=()=>dd.style.background='transparent';
-    dd.appendChild(_el('span','font-size:11px;flex-shrink:0','👁️'));
-    dd.appendChild(_el('span','overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1',truncName));
+    dd.appendChild(_ctxEl('span','font-size:11px;flex-shrink:0','👁️'));
+    dd.appendChild(_ctxEl('span','overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1',truncName));
     dd.onclick=()=>{ window.open(d.previewUrl||d.url||'#','_blank'); _closeGanttContextMenu(); };
     container.appendChild(dd);
   });
-  if(docs.length>3) container.appendChild(_el('div','padding:3px 14px;font-size:9px;color:var(--muted)','+ '+(docs.length-3)+' more'));
+  if(docs.length>3) container.appendChild(_ctxEl('div','padding:3px 14px;font-size:9px;color:var(--muted)','+ '+(docs.length-3)+' more'));
 }
 
 function _showGanttContextMenu(event,taskId){
