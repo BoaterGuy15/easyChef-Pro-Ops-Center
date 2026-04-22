@@ -8966,6 +8966,15 @@ function _openAddTaskModal(){
     if(displayName&&typeof _tmOwners!=='undefined'){ _tmOwners=[displayName]; if(typeof _renderTmOwnerChips==='function') _renderTmOwnerChips(); }
   },0);
 }
+function _updateCatChannelHint(){
+  const el=document.getElementById('tm-cat-channel-hint'); if(!el) return;
+  const cat=document.getElementById('tm-cat')?.value||'';
+  const slug=(CATEGORY_CHANNEL_MAP[cat]||'').toLowerCase();
+  if(!slug){ el.textContent=''; return; }
+  const ch=_slackChannelsCache&&_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes(slug));
+  el.textContent=ch?'Will link to #'+ch.name:'Will link to #'+slug+' (pending channel load)';
+  el.style.color=ch?'var(--accent)':'var(--muted)';
+}
 function showTaskModal(taskId){
   const task = taskId ? DASHBOARD_DATA.tasks.find(t=>t.id===taskId) : null;
   const isNew = !task;
@@ -9005,7 +9014,8 @@ function showTaskModal(taskId){
         </div>
         <div class="modal-field">
           <label>Category</label>
-          <select id="tm-cat">${catOpts}</select>
+          <select id="tm-cat" onchange="_updateCatChannelHint()">${catOpts}</select>
+          <div id="tm-cat-channel-hint" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px"></div>
         </div>
         <div class="modal-field">
           <label>Status</label>
@@ -9085,6 +9095,7 @@ function showTaskModal(taskId){
   _renderTmOwnerChips();
   document.getElementById('modal-overlay').classList.add('open');
   _initModal(document.getElementById('modal-content'), document.getElementById('tm-drag-handle'));
+  _updateCatChannelHint();
   if(!isNew){
     const _tmFN=document.getElementById('tm-flag-notes');
     if(_tmFN) _tmFN.addEventListener('input',()=>{
@@ -9138,12 +9149,22 @@ function saveTaskModal(taskId){
       if(_newT){if(_ptd.flag)_newT.flag=_ptd.flag;if(_ptd.decision)_newT.decision=_ptd.decision;}
       window._pendingAiTaskData=null;
     }
+    // Auto-link Slack channel by category
+    const _catSlug=(CATEGORY_CHANNEL_MAP[cat]||'').toLowerCase();
+    if(_catSlug&&_slackChannelsCache&&_slackChannelsCache.length){
+      const _ch=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes(_catSlug));
+      if(_ch){
+        _slackLinksCache['dgl_task_slack_'+id]={channelId:_ch.id,channelName:'#'+_ch.name};
+        if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId:id,channelId:_ch.id,channelName:'#'+_ch.name,changedBy:window._DGL_USER||'system',sessionHash:window._dglSessionHash||''})}).catch(()=>{});
+      }
+    }
   } else {
     const task = DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
     if(!task) return;
     Object.assign(task, {name, cat, pri, status, owner, deps, notes, actionPlan, flag, flagNotes, flagColor:_getFlagState(flag)?.color||'', sd, ed, ...raciFields});
   }
   closeModal();
+  _autoLinkTaskChannels();
   masterRefresh();
 }
 
