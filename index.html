@@ -2281,8 +2281,10 @@ function _openMarkCompleteModal(taskId){
       <button id="mc-file-no" onclick="_mcFileToggle('no')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">No</button>
     </div>
     <div id="mc-file-detail" style="display:none;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:8px">
-      <label style="display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);cursor:pointer;margin-bottom:6px"><input type="checkbox" id="mc-file-already" style="accent-color:var(--green)"> File is already uploaded above</label>
-      <button onclick="document.getElementById('mark-complete-modal').style.display='none';document.querySelector('[data-task-upload=\\'${taskId}\\']')?.click()" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer">📎 Upload now via task panel</button>
+      <label style="display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);cursor:pointer;margin-bottom:6px"><input type="checkbox" id="mc-file-already" style="accent-color:var(--green)"> File already uploaded to this task</label>
+      <input type="file" id="delivery-file-input" multiple style="display:none" onchange="_deliveryUploadFile('${taskId}')">
+      <button type="button" onclick="document.getElementById('delivery-file-input').click()" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;border-radius:4px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer">📎 Upload File to Drive</button>
+      <div id="mc-upload-status" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:6px"></div>
     </div>
 
     <!-- SECTION 3: WHEN -->
@@ -2484,6 +2486,62 @@ function _markTaskComplete(taskId){
   if(existingRow){ const newHtml=_buildTaskExpandHtml(taskId); existingRow.querySelector('td>div').innerHTML=newHtml; _afterExpandRender(taskId); }
   masterRefresh();
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#22c55e">✅ Delivery briefing saved — record uploaded to Drive</div>',4000);
+}
+
+// ─── DELIVERY BRIEFING FILE UPLOAD ───────────────────────────────────────────
+function _deliveryUploadFile(taskId){
+  const input=document.getElementById('delivery-file-input');
+  const statusEl=document.getElementById('mc-upload-status');
+  if(!input||!input.files||!input.files.length) return;
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const files=Array.from(input.files);
+  if(statusEl) statusEl.textContent='⏳ Uploading '+files.length+' file'+(files.length>1?'s…':'…');
+  let done=0;
+  const results=[];
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      const b64=ev.target.result.split(',')[1]||btoa(ev.target.result);
+      if(CONFIG.sheetsUrl){
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+          action:'file_upload',
+          filename:file.name,
+          docName:file.name,
+          mimeType:file.type||'application/octet-stream',
+          base64data:b64,
+          taskId,
+          agendaId:'',
+          sourceType:'task',
+          sourceId:taskId,
+          sourceName:t.name||taskId,
+          addedBy:window._DGL_USER||'system',
+          reviewNeeded:'false'
+        })}).then(r=>r.json()).then(data=>{
+          const docEntry={id:data.id||('local-'+Date.now()),name:file.name,filename:file.name,url:data.url||data.webViewLink||'',mimeType:file.type};
+          const cacheKey='task_'+taskId;
+          if(!_docsCache[cacheKey]) _docsCache[cacheKey]=[];
+          _docsCache[cacheKey].push(docEntry);
+          results.push('✅ '+file.name);
+          done++;
+          if(done===files.length){
+            if(statusEl) statusEl.textContent=results.join(' · ');
+            const cbAlready=document.getElementById('mc-file-already');
+            if(cbAlready) cbAlready.checked=true;
+          }
+        }).catch(()=>{
+          results.push('❌ '+file.name+' failed');
+          done++;
+          if(done===files.length&&statusEl) statusEl.textContent=results.join(' · ');
+        });
+      } else {
+        results.push('⚠️ No Sheets URL configured');
+        done++;
+        if(done===files.length&&statusEl) statusEl.textContent=results.join(' · ');
+      }
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // ─── COMPLETION RECORD READ-ONLY VIEW ────────────────────────────────────────
