@@ -891,7 +891,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <select id="raci-status-filter" class="raci-filter-select" onchange="filterStatusDropdown(this.value)">
       <option value="all">All Statuses</option>
       <option value="Not Started">Not Started</option>
-      <option value="Ready">Ready</option>
+
       <option value="Started">Started</option>
       <option value="In Progress">In Progress</option>
       <option value="In Review">In Review</option>
@@ -1385,7 +1385,7 @@ function getStatusColors(s){
   return {bg:'rgba(107,114,128,0.1)',color:'var(--muted)'};
 }
 function statusSelect(t){
-  const opts=['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'];
+  const opts=['Not Started','Started','In Progress','In Review','Complete','Blocked'];
   const c=getStatusColors(t.status);
   return `<select class="status-select" style="background:${c.bg};color:${c.color}"
     onchange="setTaskStatus('${t.id}',this.value,this)">${
@@ -3389,7 +3389,7 @@ function raciAiUpdateStatus(taskId,btn){
   const actBar=document.getElementById('raci-ai-actions-'+taskId); if(!actBar) return;
   const wrapId='raci-ai-status-wrap-'+taskId;
   if(document.getElementById(wrapId)) return;
-  const statuses=['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'];
+  const statuses=['Not Started','Started','In Progress','In Review','Complete','Blocked'];
   const wrap=document.createElement('div');
   wrap.id=wrapId;
   wrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:6px;width:100%';
@@ -3855,7 +3855,7 @@ function _showGanttContextMenu(event,taskId){
   const statusSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
   statusHdr.onclick=()=>{ statusSub.style.maxHeight=statusSub.style.maxHeight==='260px'?'0':'260px'; };
 
-  ['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'].forEach(s=>{
+  ['Not Started','Started','In Progress','In Review','Complete','Blocked'].forEach(s=>{
     const sd=_el('div','display:flex;align-items:center;gap:6px;padding:5px 20px;cursor:pointer;font-size:10px;color:'+(t.status===s?'var(--gold)':'var(--text)'));
     sd.onmouseover=()=>sd.style.background='rgba(201,168,76,0.08)';
     sd.onmouseout=()=>sd.style.background='transparent';
@@ -9006,7 +9006,7 @@ function showTaskModal(taskId){
   const isNew = !task;
   const esc = s=>(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   const id = isNew ? nextTaskId() : task.id;
-  const statuses = ['Not Started','Ready','Started','In Progress','In Review','Complete','Blocked'];
+  const statuses = ['Not Started','Started','In Progress','In Review','Complete','Blocked'];
   _tmOwners = isNew ? ['TBD'] : (task.owner||'TBD').split('/').map(s=>s.trim()).filter(Boolean);
   const catOpts = Object.keys(CAT_LABELS).map(o=>`<option value="${o}"${!isNew&&task.cat===o?' selected':''}>${CAT_LABELS[o]}</option>`).join('');
   const statusOpts = statuses.map(o=>`<option${(!isNew&&task.status===o)||(isNew&&o==='Not Started')?' selected':''}>${o}</option>`).join('');
@@ -11114,7 +11114,7 @@ async function runDGLTests(){
   if(Array.isArray(tasks)){
     const badFields=tasks.filter(t=>!t.id||!t.name||!t.sd||!t.ed);
     check('All tasks have id, name, sd, ed non-empty', badFields.length===0, `${badFields.length} tasks missing fields: ${badFields.slice(0,3).map(t=>t.id||'?').join(', ')}`);
-    const validStatuses=new Set(['Not Started','In Progress','Started','In Review','Ready','Complete','Done','Blocked','Cancelled']);
+    const validStatuses=new Set(['Not Started','In Progress','Started','In Review','Ready','Complete','Done','Blocked','Cancelled']); // 'Ready' kept for existing task data
     const badStatus=tasks.filter(t=>!validStatuses.has(t.status));
     check('All tasks have valid status values', badStatus.length===0, `${badStatus.length} invalid: ${badStatus.slice(0,3).map(t=>t.id+':'+t.status).join(', ')}`);
   } else { no('All tasks have id, name, sd, ed non-empty','tasks not array'); no('All tasks have valid status values','tasks not array'); }
