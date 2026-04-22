@@ -3784,7 +3784,7 @@ function _viewTaskDetails(taskId){
 }
 function _closeGanttContextMenu(){
   const m=document.getElementById('gantt-ctx-menu');
-  if(m) m.remove();
+  if(m){ if(m._cleanupDrag) m._cleanupDrag(); m.remove(); }
   document.removeEventListener('click',_closeGanttContextMenu,true);
   document.removeEventListener('keydown',_ganttCtxEsc,true);
 }
@@ -3892,7 +3892,7 @@ function _showGanttContextMenu(event,taskId){
 
   function _el(tag,css,text){const e=document.createElement(tag);if(css)e.style.cssText=css;if(text!=null)e.textContent=text;return e;}
   function _sep(){mnu.appendChild(_el('div','height:1px;background:var(--border);margin:3px 0'));}
-  function _lbl(txt){mnu.appendChild(_el('div','padding:4px 14px 2px;font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase',txt));}
+  function _lbl(txt){const d=_el('div','padding:4px 14px 2px;font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase',txt);mnu.appendChild(d);return d;}
   function _item(icon,label,fn,color){
     const d=_el('div','display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;color:'+(color||'var(--text)'));
     d.onmouseover=()=>d.style.background=color==='var(--red)'?'rgba(239,68,68,0.1)':'rgba(201,168,76,0.1)';
@@ -3903,8 +3903,12 @@ function _showGanttContextMenu(event,taskId){
     d.appendChild(ic);d.appendChild(lb);mnu.appendChild(d);return d;
   }
 
-  // Header
-  _lbl(taskId+' · '+t.name.slice(0,20)+(t.name.length>20?'…':''));
+  // Header — drag handle
+  const hdr=_lbl('✥  '+taskId+' · '+t.name.slice(0,18)+(t.name.length>18?'…':''));
+  hdr.style.cursor='move';
+  hdr.style.userSelect='none';
+  hdr.style.paddingTop='7px';
+  hdr.style.paddingBottom='6px';
   _sep();
 
   // Edit / View
@@ -4026,6 +4030,23 @@ function _showGanttContextMenu(event,taskId){
   mnu.addEventListener('click',e=>e.stopPropagation());
   mnu.addEventListener('mousedown',e=>e.stopPropagation());
   document.body.appendChild(mnu);
+
+  // Drag-to-move
+  let _mnuDragging=false,_mnuDx=0,_mnuDy=0,_mnuL=0,_mnuT=0;
+  hdr.addEventListener('mousedown',e=>{
+    _mnuDragging=true;
+    _mnuDx=e.clientX; _mnuDy=e.clientY;
+    _mnuL=parseInt(mnu.style.left)||0; _mnuT=parseInt(mnu.style.top)||0;
+    e.stopPropagation();
+  });
+  const _mnuMove=e=>{ if(!_mnuDragging) return; mnu.style.left=(_mnuL+e.clientX-_mnuDx)+'px'; mnu.style.top=(_mnuT+e.clientY-_mnuDy)+'px'; };
+  const _mnuUp=()=>{ _mnuDragging=false; };
+  document.addEventListener('mousemove',_mnuMove);
+  document.addEventListener('mouseup',_mnuUp);
+  // Clean up listeners when menu closes
+  const _origClose=_closeGanttContextMenu;
+  mnu._cleanupDrag=()=>{ document.removeEventListener('mousemove',_mnuMove); document.removeEventListener('mouseup',_mnuUp); };
+
   setTimeout(()=>{
     document.addEventListener('click',_closeGanttContextMenu,false);
     document.addEventListener('keydown',_ganttCtxEsc,true);
