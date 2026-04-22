@@ -3798,7 +3798,7 @@ function buildRoadmap(){
     const rowLabel=CAT_LABELS[cat]||cat;
     const cc=getCatColors(cat);
     const {map,maxLane}=_assignLanes(tasks);
-    const rowH=Math.max(44,maxLane*28+12);
+    const rowH=Math.max(44,(maxLane+1)*28+8);
 
     let barsHtml='';
     for(let day=0;day<_GANTT_DAYS;day+=7){
@@ -3826,7 +3826,7 @@ function buildRoadmap(){
       barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
-    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:6px">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
+    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
   });
   canvas.innerHTML=canvasHtml;
 
