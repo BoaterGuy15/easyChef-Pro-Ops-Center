@@ -1278,7 +1278,7 @@ function showPage(id){
   if(pg) pg.classList.add('active');
   sessionStorage.setItem('dgl_active_tab',id);
   if(id==='raci') setTimeout(_raciStickyThTop,50);
-  if(id==='roadmap'){ buildMilestones(); loadRoadmapFromSheets(); setTimeout(initRoadmapHeadSync,50); }
+  if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(initRoadmapHeadSync,50); }
   if(id==='actionplans') buildActionPlansPage();
   if(id==='budget') loadBudgetFromSheets();
   if(id==='command'){
@@ -6475,6 +6475,8 @@ function buildGapList(){
 }
 
 // ── Milestone list ─────────────────────────────────────────
+let _buildMilestonesDebounce=null;
+function _debouncedBuildMilestones(){ clearTimeout(_buildMilestonesDebounce); _buildMilestonesDebounce=setTimeout(buildMilestones,300); }
 function buildMilestones(){
   console.log('[DGL] buildMilestones called');
   const targets=[document.getElementById('milestone-list'),document.getElementById('roadmap-milestone-list')].filter(Boolean);
@@ -6554,7 +6556,7 @@ function _saveMilestoneModal(){
   _saveMilestoneToSheets(item);
   console.log('[DGL] Milestone saved:', item.title, 'total:', DASHBOARD_DATA.meta.milestoneItems.length);
   g('ms-add-modal').style.display='none';
-  buildMilestones();
+  _debouncedBuildMilestones();
   buildMilestoneHistory();
 }
 function _achieveMilestone(idx){
@@ -6565,7 +6567,7 @@ function _achieveMilestone(idx){
   item.achievedDate=today;
   _saveMilestoneToSheets(item);
   triggerCelebration();
-  buildMilestones();
+  _debouncedBuildMilestones();
   buildMilestoneHistory();
   _offerRemoveBudgetPhase(item.title||item.label||'');
 }
@@ -6574,7 +6576,7 @@ function _deleteMilestone(idx){
   if(!confirm('Delete milestone: '+(item.title||item.label||'')+'?')) return;
   _deleteMilestoneFromSheets(item.id);
   DASHBOARD_DATA.meta.milestoneItems.splice(idx,1);
-  buildMilestones();
+  _debouncedBuildMilestones();
   buildMilestoneHistory();
 }
 
@@ -9187,13 +9189,13 @@ function _doSave(){
     .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
     .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
 }
-let _saveTasksNowTimer=null;
+let _saveTasksDebounce=null;
 function _saveTasksNow(){
   if(!window._sheetsLoaded){ console.warn('[DGL] Blocked premature task save'); return; }
   if(!CONFIG.sheetsUrl) return;
-  clearTimeout(_saveTasksNowTimer);
+  clearTimeout(_saveTasksDebounce);
   clearTimeout(_sheetsDebounce);
-  _saveTasksNowTimer=setTimeout(()=>{
+  _saveTasksDebounce=setTimeout(()=>{
     const age=Date.now()-(_lastSheetsLoadTime||0);
     if(age>5*60*1000){
       // Stale — fetch fresh, merge without overwriting local changes, then save
@@ -9207,7 +9209,7 @@ function _saveTasksNow(){
     } else {
       _doSave();
     }
-  },1500);
+  },800);
 }
 function loadFromLocal(){
   // milestone items now sourced from Sheets via loadRoadmapFromSheets()
@@ -9235,7 +9237,7 @@ function loadRoadmapFromSheets(){
         taskIds:r.taskIds||'',
         achievedDate:r.achievedDate||''
       }));
-      buildMilestones();
+      _debouncedBuildMilestones();
       buildMilestoneHistory();
     }).catch(()=>{});
 }
@@ -9341,7 +9343,7 @@ function markMilestoneAchieved(idx){
   item.status='Complete';
   _saveMilestoneToSheets(item);
   triggerCelebration();
-  buildMilestones();
+  _debouncedBuildMilestones();
   buildMilestoneHistory();
   _offerRemoveBudgetPhase(item.title||item.label||'');
 }
@@ -9353,7 +9355,7 @@ function saveMilestoneItem(){
   const item={id:'ms-'+Date.now(),title,date,type:'Milestone',status:'Upcoming',description,color:'',taskIds:'',achievedDate:''};
   DASHBOARD_DATA.meta.milestoneItems.push(item);
   _saveMilestoneToSheets(item);
-  buildMilestones();
+  _debouncedBuildMilestones();
   buildMilestoneHistory();
 }
 
@@ -10403,7 +10405,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   _initCustomTeamExtensions();
   buildCommandKPIs();
   buildGapList();
-  buildMilestones();
+  _debouncedBuildMilestones();
   buildRaciTable();
   buildRoadmap(); initRoadmapHeadSync();
   renderBudget();
@@ -10438,7 +10440,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   updateLiveDot();
   loadActionPlansFromSheets();
   loadHRFromSheets();
-  setTimeout(saveToLocal, 2000);
 });
 
 // ── HR Module ──────────────────────────────────────────────
