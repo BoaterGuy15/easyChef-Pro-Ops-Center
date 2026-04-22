@@ -3788,9 +3788,16 @@ function _renderGanttMilestoneLines(){
     {start:'2026-06-22',end:'2026-06-28',left:COL_LABEL+9*COL_WEEK,width:COL_WEEK},
     {start:'2026-07-01',end:'2026-07-31',left:COL_LABEL+10*COL_WEEK,width:COL_LAUNCH},
   ];
-  function _dayMs(s){ return new Date(s+'T00:00:00').getTime(); }
+  function _dayMs(s){
+    if(!s) return NaN;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s+'T00:00:00').getTime();
+    const p=new Date(s);
+    if(isNaN(p.getTime())) return NaN;
+    return new Date(p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0')+'T00:00:00').getTime();
+  }
   function _xForDate(dateStr){
     const d=_dayMs(dateStr);
+    if(isNaN(d)){ console.warn('[DGL] Milestone invalid date:',dateStr); return WEEKS[0].left; }
     for(const w of WEEKS){
       const ws=_dayMs(w.start),we=_dayMs(w.end)+86400000;
       if(d>=ws&&d<we){ return w.left+((d-ws)/(we-ws))*w.width; }
@@ -3824,8 +3831,10 @@ function _renderGanttMilestoneLines(){
   diamondsOverlay.id='gantt-ms-diamonds';
   diamondsOverlay.style.cssText='position:absolute;top:0;left:0;width:100%;height:'+tbodyH+'px;pointer-events:none;z-index:5;overflow:visible';
 
+  console.log('[DGL] Rendering milestone lines:',items.length);
   items.forEach(m=>{
     const x=_xForDate(m.date);
+    console.log('[DGL] Milestone:',m.title,'date:',m.date,'x:',x);
     const isDone=m.status==='Complete'||m.status==='Done';
     const color=isDone?'#22c55e':_resolveColor(m.color);
     const marker=isDone?'✓':'◆';
