@@ -415,12 +415,12 @@ tr.hidden-row{display:none}
 .warn{color:var(--amber)}
 
 /* ── TIMELINE GANTT ── */
-#page-roadmap{padding-left:8px;padding-right:8px;max-width:none!important;width:100%}
+#page-roadmap{padding:16px 8px!important;max-width:none!important;width:100%!important;margin:0!important;box-sizing:border-box}
 #gantt-sticky-bar{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%}
 #gantt-hdr-scroll{flex:1;overflow:hidden}
 #gantt-hdr-canvas{position:relative;height:52px;background:var(--surface)}
 #gantt-scroll{overflow-x:auto;position:relative;width:100%}
-#gantt-canvas{position:relative;width:100%}
+#gantt-canvas{position:relative}
 .gantt-row{display:flex;align-items:stretch;border-bottom:1px solid rgba(37,42,53,0.4);min-height:44px}
 .gantt-row-label{position:sticky;left:0;z-index:10;width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:6px 10px;font-size:11px;color:var(--text);font-weight:500;display:flex;align-items:center;white-space:nowrap;overflow:hidden}
 .gantt-row-track{flex:1;position:relative;min-height:44px;overflow:visible}
@@ -3694,6 +3694,8 @@ function buildRoadmap(){
   const hdrCanvas=document.getElementById('gantt-hdr-canvas');
   if(!canvas) return;
   const totalTrackW=_GANTT_DAYS*_ganttDayPx;
+  const totalCanvasW=_GANTT_LABEL_W+totalTrackW;
+  canvas.style.minWidth=totalCanvasW+'px';
   const today=_isoToday();
 
   // ── Launch day celebration ──
@@ -3799,10 +3801,10 @@ function buildRoadmap(){
       const name=t.name.length>maxChars?t.name.substring(0,maxChars)+'…':t.name;
       const flagIco=_flagEmoji(t.flag);
       const flagPin=flagIco?`<span style="font-size:9px;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
-      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true"></span><span class="gantt-mid" draggable="true" data-task-id="${t.id}" data-mode="move">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true"></span></div>`;
+      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left" data-task-id="${t.id}" data-mode="left" draggable="true"></span><span class="gantt-mid" draggable="true" data-task-id="${t.id}" data-mode="move">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right" data-task-id="${t.id}" data-mode="right" draggable="true"></span></div>`;
     });
 
-    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px"><div class="gantt-row-label">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;width:${totalTrackW}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
+    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px"><div class="gantt-row-label">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
   });
   canvas.innerHTML=canvasHtml;
 
@@ -3832,6 +3834,7 @@ function _renderGanttMilestoneLines(){
   const hdrCanvas=document.getElementById('gantt-hdr-canvas');
   if(!canvas) return;
   ['gantt-ms-lines','gantt-ms-diamonds','gantt-ms-lines-hdr'].forEach(id=>{ const el=document.getElementById(id); if(el) el.remove(); });
+  // gantt-ms-diamonds removed — diamonds live in header only
   const items=(DASHBOARD_DATA.meta.milestoneItems||[]).filter(m=>m.date);
   if(!items.length) return;
 
@@ -3854,10 +3857,6 @@ function _renderGanttMilestoneLines(){
   linesOverlay.id='gantt-ms-lines';
   linesOverlay.style.cssText=`position:absolute;top:0;left:${_GANTT_LABEL_W}px;width:${totalTrackW}px;height:${canvasH}px;pointer-events:none;z-index:2;overflow:visible`;
 
-  const diamondsOverlay=document.createElement('div');
-  diamondsOverlay.id='gantt-ms-diamonds';
-  diamondsOverlay.style.cssText=`position:absolute;top:0;left:${_GANTT_LABEL_W}px;width:${totalTrackW}px;height:${canvasH}px;pointer-events:none;z-index:5;overflow:visible`;
-
   const hdrLinesOverlay=document.createElement('div');
   hdrLinesOverlay.id='gantt-ms-lines-hdr';
   hdrLinesOverlay.style.cssText=`position:absolute;top:0;left:0;width:${totalTrackW}px;height:52px;pointer-events:none;z-index:4;overflow:visible`;
@@ -3878,24 +3877,15 @@ function _renderGanttMilestoneLines(){
     line.addEventListener('mousemove',e=>{ _mTip.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px'; _mTip.style.top=(e.clientY-10)+'px'; });
     line.addEventListener('mouseleave',_hideMTip);
 
-    const diamond=document.createElement('div');
-    diamond.textContent=marker;
-    diamond.style.cssText=`position:absolute;left:${x}px;top:2px;transform:translateX(-50%);font-size:10px;color:${color};opacity:1;line-height:1;pointer-events:auto;cursor:default;text-shadow:0 1px 3px rgba(0,0,0,0.6)`;
-    diamond.addEventListener('mouseenter',e=>_showMTip(e,m,color));
-    diamond.addEventListener('mousemove',e=>{ _mTip.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px'; _mTip.style.top=(e.clientY-10)+'px'; });
-    diamond.addEventListener('mouseleave',_hideMTip);
-
     const hdrMarker=document.createElement('div');
     hdrMarker.textContent=marker;
-    hdrMarker.style.cssText=`position:absolute;left:${x}px;top:32px;transform:translateX(-50%);font-size:10px;color:${color};opacity:0.8;line-height:1;pointer-events:none`;
+    hdrMarker.style.cssText=`position:absolute;left:${x}px;top:32px;transform:translateX(-50%);font-size:10px;color:${color};opacity:0.8;line-height:1;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.6)`;
 
     linesOverlay.appendChild(line);
-    diamondsOverlay.appendChild(diamond);
     hdrLinesOverlay.appendChild(hdrMarker);
   });
 
   canvas.appendChild(linesOverlay);
-  canvas.appendChild(diamondsOverlay);
   if(hdrCanvas) hdrCanvas.appendChild(hdrLinesOverlay);
 }
 
