@@ -2268,7 +2268,7 @@ function _openMarkCompleteModal(taskId){
   // Multi-select checkboxes for "also involved"
   const involvedBoxes=_DGL_TEAM_NAMES.map(n=>`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:pointer"><input type="checkbox" value="${n}" id="mc-inv-${n.toLowerCase()}" style="accent-color:var(--gold)">${n}</label>`).join('');
   // Notify checkboxes
-  const notifyBoxes=_DGL_TEAM_NAMES.map(n=>`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:pointer"><input type="checkbox" value="${n}" id="mc-notify-${n.toLowerCase()}" style="accent-color:var(--accent)">${n}</label>`).join('');
+  const notifyBoxes=_DGL_TEAM_NAMES.map(n=>{const locked=n==='Taylor'||n==='Steve';return`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:${locked?'default':'pointer'}"><input type="checkbox" value="${n}" id="mc-notify-${n.toLowerCase()}" style="accent-color:var(--accent)"${locked?' checked disabled':''}>${n}${locked?'<span style="font-size:7px;color:var(--gold);margin-left:2px">★</span>':''}</label>`;}).join('');
   // Downstream tasks list
   const downstreamHtml=unblocked.length
     ?unblocked.map(u=>`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--gold)">${u.id}</span> — ${u.name} <span style="color:var(--muted)">(${u.status||'Pending'})</span></div>`).join('')
@@ -2339,8 +2339,9 @@ function _openMarkCompleteModal(taskId){
     <div style="${SEC}">⑤ NEXT STEPS</div>
     <label style="${LBL}">Recommended next action</label>
     <textarea id="mc-next" rows="2" style="${IS};resize:vertical;margin-bottom:8px" placeholder="Optional — what should happen now that this is done?"></textarea>
-    <label style="${LBL}">Who should be notified?</label>
-    <div style="margin-bottom:12px;line-height:1.8">${notifyBoxes}</div>
+    <label style="${LBL}">Who should be notified? <span style="font-size:7px;color:var(--gold);letter-spacing:0">Taylor & Steve always notified ★</span></label>
+    <div style="margin-bottom:8px;line-height:1.8">${notifyBoxes}</div>
+    <div id="mc-notify-status" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);min-height:16px;margin-bottom:8px"></div>
 
     <div style="display:flex;gap:8px;margin-top:4px">
       <button onclick="_markTaskComplete('${taskId}')" style="background:var(--green);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;padding:8px 20px;cursor:pointer">✅ Submit Delivery Briefing</button>
@@ -2356,10 +2357,24 @@ function _mcFileToggle(v){
   else { det.style.display='none'; no.style.background='var(--accent)'; no.style.color='#0b0d10'; no.style.borderColor='var(--accent)'; yes.style.background='var(--surface)'; yes.style.color='var(--muted)'; yes.style.borderColor='var(--border)'; }
 }
 function _markTaskComplete(taskId){
-  const delivery=(document.getElementById('mc-delivery')?.value||'').trim();
-  if(delivery.length<20){ alert('Please describe what was delivered (at least 20 characters).'); return; }
-  const deliveredBy=(document.getElementById('mc-by')?.value||'').trim()||window._DGL_USER||'—';
-  const date=(document.getElementById('mc-date')?.value||new Date().toISOString().slice(0,10));
+  // Validate required fields — highlight red, scroll to first error
+  const ERR='2px solid #ef4444';
+  const OK='';
+  let firstErr=null;
+  function _vEl(id,ok){ const el=document.getElementById(id); if(el){ el.style.outline=ok?OK:ERR; if(!ok&&!firstErr) firstErr=el; } return ok; }
+  const byEl=document.getElementById('mc-by');
+  const deliveryEl=document.getElementById('mc-delivery');
+  const dateEl=document.getElementById('mc-date');
+  const formatEl=document.getElementById('mc-format');
+  const delivery=(deliveryEl?.value||'').trim();
+  const deliveredBy=(byEl?.value||'').trim()||window._DGL_USER||'—';
+  const date=(dateEl?.value||new Date().toISOString().slice(0,10));
+  let valid=true;
+  if(!deliveredBy){ _vEl('mc-by',false); valid=false; } else _vEl('mc-by',true);
+  if(delivery.length<20){ _vEl('mc-delivery',false); valid=false; } else _vEl('mc-delivery',true);
+  if(!date){ _vEl('mc-date',false); valid=false; } else _vEl('mc-date',true);
+  if(!formatEl?.value){ _vEl('mc-format',false); valid=false; } else _vEl('mc-format',true);
+  if(!valid){ if(firstErr) firstErr.scrollIntoView({behavior:'smooth',block:'center'}); return; }
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t) return;
 
@@ -2493,12 +2508,18 @@ function _markTaskComplete(taskId){
   if(linked&&linked.channelId&&CONFIG.sheetsUrl)
     fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('✅ ['+taskId+'] '+(t.name||'')+' COMPLETED by '+deliveredBy+': '+delivery.slice(0,120))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
 
-  // Notify selected team members via DM
+  // Notify selected team members via DM channel
   if(toNotify.length&&CONFIG.sheetsUrl){
-    toNotify.forEach(name=>{
-      const uKey=Object.keys(_USER_RACI_MAP).find(k=>_USER_RACI_MAP[k]===name)||name.toLowerCase();
-      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent('@'+uKey)+'&text='+encodeURIComponent('📬 FYI: ['+taskId+'] '+(t.name||'')+' was just marked complete by '+deliveredBy+'. '+delivery.slice(0,100))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+    const _nSt=document.getElementById('mc-notify-status');
+    if(_nSt) _nSt.textContent='📤 Notifying '+toNotify.join(', ')+'…';
+    const _logBy=window._DGL_USER||'system';
+    const _dmMsg='✅ ['+taskId+'] — '+(t.name||'')+' has been marked COMPLETE\nCompleted by: '+deliveredBy+'\nDelivered: '+delivery.slice(0,200)+'\nQuality: '+quality+'/5\nNotified by: '+_logBy;
+    const _sends=toNotify.map(name=>{
+      const uKey=Object.keys(_USER_RACI_MAP).find(k=>_USER_RACI_MAP[k]===name)||(name.toLowerCase());
+      const chId=_getDMChannelId(uKey)||_DM_CHANNEL_MAP[uKey]||('raci-'+uKey);
+      return fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(_dmMsg)+'&user='+encodeURIComponent(_logBy)).catch(()=>{});
     });
+    Promise.all(_sends).then(()=>{ const s=document.getElementById('mc-notify-status'); if(s) s.textContent='✅ Notifications sent'; }).catch(()=>{ const s=document.getElementById('mc-notify-status'); if(s) s.textContent='⚠️ Some notifications failed'; });
   }
 
   _saveTasksNow();
