@@ -6798,6 +6798,13 @@ function _milestoneColor(name){
   if(!name) return '#c9a84c';
   return map[name.toLowerCase()]||name;
 }
+function _fmtMsDate(d){
+  if(!d) return '—';
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const parsed=new Date(d);
+  if(isNaN(parsed.getTime())) return String(d);
+  return mo[parsed.getMonth()]+' '+parsed.getDate()+', '+parsed.getFullYear();
+}
 function _buildMilestonesHtml(canEditControls){
   if(!DASHBOARD_DATA.meta.milestoneItems) DASHBOARD_DATA.meta.milestoneItems=[];
   const items=DASHBOARD_DATA.meta.milestoneItems;
@@ -6811,7 +6818,7 @@ function _buildMilestonesHtml(canEditControls){
     html+=items.map((m,i)=>{
       const title=m.title||m.label||'';
       const desc=m.description||m.note||'';
-      const date=m.date||'';
+      const date=_fmtMsDate(m.date);
       const type=m.type||'Milestone';
       const done=(m.status==='Complete'||m.status==='Achieved')||!!m.achievedDate;
       const dotC=done?'var(--green)':m.status==='Active'?'var(--amber)':m.color||'var(--gold)';
