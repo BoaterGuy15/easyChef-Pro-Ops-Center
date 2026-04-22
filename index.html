@@ -4497,7 +4497,25 @@ async function _buildDocContext(id, type){
     } else if(url.includes('spreadsheets')||url.includes('sheets.google.com')){
       const m=url.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
       if(m){ try{ const r=await fetch('https://docs.google.com/spreadsheets/d/'+m[1]+'/export?format=csv'); const t=await r.text(); ctx+='  Content preview (CSV): '+t.slice(0,2000)+'\n'; }catch(_){ ctx+='  (Content unavailable — check sharing)\n'; } }
-    } else if(/\.(pdf|pptx?|docx?)$/i.test(name)){
+    } else if(/\.docx?$/i.test(name)){
+      const fileId=doc.driveFileId||(url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||[])[1]||'';
+      if(fileId){
+        let extracted=false;
+        try{
+          const r=await fetch('https://docs.google.com/document/d/'+fileId+'/export?format=txt');
+          if(r.ok){ const t=await r.text(); if(t&&t.trim().length>10){ ctx+='  Content preview (Word→Docs): '+t.slice(0,3000)+'\n'; extracted=true; } }
+        }catch(_){}
+        if(!extracted){
+          try{
+            const r=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'/export?mimeType=text/plain');
+            if(r.ok){ const t=await r.text(); if(t&&t.trim().length>10){ ctx+='  Content preview (Drive export): '+t.slice(0,3000)+'\n'; extracted=true; } }
+          }catch(_){}
+        }
+        if(!extracted) ctx+='  (Word doc — export unavailable, ensure file is shared and converted in Drive)\n';
+      } else {
+        ctx+='  (Word doc — no Drive file ID, AI cannot read content directly)\n';
+      }
+    } else if(/\.(pdf|pptx?)$/i.test(name)){
       ctx+='  (Binary file — AI cannot read content directly)\n';
     }
   }
