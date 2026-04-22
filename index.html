@@ -3610,6 +3610,17 @@ function buildRoadmap(){
 }
 
 // ── Gantt context menu ───────────────────────────────────────
+function _setTaskFlagFromMenu(taskId, flagValue){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  // Preserve any existing flag notes when changing emoji
+  const _existingNotes=(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim();
+  t.flag=flagValue?(flagValue+(_existingNotes?' '+_existingNotes:'')):_existingNotes;
+  t.lastStatusChange=new Date().toISOString();
+  _saveTasksNow();
+  _closeGanttContextMenu();
+  buildRoadmap();
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--gold)">🎯 Flag updated'+(flagValue?' → '+flagValue:'  cleared')+'</div>',2500);
+}
 function _viewTaskDetails(taskId){
   _closeGanttContextMenu();
   showPage('raci');
@@ -3658,11 +3669,12 @@ function _showGanttContextMenu(event,taskId){
     <div style="padding:4px 10px 6px">
       <select id="gctx-status-${taskId}" style="${IS}" onchange="(function(){const t=DASHBOARD_DATA.tasks.find(x=>x.id==='${taskId}');if(t){t.status=this.value;_saveTasksNow();buildRoadmap();initRoadmapHeadSync();_showToast('<div style=\\'font-family:DM Mono,monospace;font-size:12px;color:var(--gold)\\'>🚀 Status updated: '+this.value+'</div>',2500);}}).call(this);_closeGanttContextMenu()">${statusOpts}</select>
     </div>
-    ${_label('Quick Flag')}
-    <div style="padding:4px 10px 6px">
-      <select id="gctx-flag-${taskId}" style="${IS}" onchange="(function(){const t=DASHBOARD_DATA.tasks.find(x=>x.id==='${taskId}');if(t){t.flag=this.value;_saveTasksNow();buildRoadmap();_showToast('<div style=\\'font-family:DM Mono,monospace;font-size:12px;color:var(--gold)\\'>🎯 Flag set: '+this.value+'</div>',2500);}}).call(this);_closeGanttContextMenu()">
-        <option value="">— No flag —</option>${flagOpts}
-      </select>
+    <div>
+      <div class="gctx-item" onclick="const s=document.getElementById('gctx-flag-sub-${taskId}');s.style.maxHeight=s.style.maxHeight==='200px'?'0':'200px'" style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;color:var(--text);justify-content:space-between" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background='transparent'"><span style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;width:18px;text-align:center">🎯</span><span>Set Flag</span></span><span style="font-size:9px;color:var(--muted)">▾</span></div>
+      <div id="gctx-flag-sub-${taskId}" style="max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)">
+        ${_FLAG_STATES.map(f=>`<div class="gctx-item" onclick="_setTaskFlagFromMenu('${taskId}','${f.emoji}')" style="display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;color:${f.color}" onmouseover="this.style.background='rgba(201,168,76,0.08)'" onmouseout="this.style.background='transparent'"><span style="font-size:12px;width:18px;text-align:center">${f.emoji}</span><span style="font-family:'DM Mono',monospace;font-size:10px">${f.label}</span></div>`).join('')}
+        <div class="gctx-item" onclick="_setTaskFlagFromMenu('${taskId}','')" style="display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;color:var(--muted)" onmouseover="this.style.background='rgba(201,168,76,0.08)'" onmouseout="this.style.background='transparent'"><span style="font-size:12px;width:18px;text-align:center">✕</span><span style="font-family:'DM Mono',monospace;font-size:10px">Clear Flag</span></div>
+      </div>
     </div>
     ${_sep()}
     ${_item('✅','Mark Complete',`_openMarkCompleteModal('${taskId}')`,t.status==='Complete'?' style="opacity:0.4;pointer-events:none"':'')}
