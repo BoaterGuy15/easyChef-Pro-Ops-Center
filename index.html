@@ -9,6 +9,8 @@
 
   const SHEET_NAME = 'Tasks';
   const BUDGET_SHEET_NAME = 'Budget';
+  const ROADMAP_SHEET = 'Roadmap';
+  const ROADMAP_HEADERS = ['id','title','date','type','status','description','color','taskIds','achievedDate'];
   const FIELDS = [
     'id','name','cat','pri','status','owner','deps','notes',
     'Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',
@@ -27,6 +29,9 @@
       const action = e && e.parameter && e.parameter.action ? e.parameter.action : 'tasks';
       if (action === 'budget_read') {
         return respond({ ok: true, budget: getBudget() });
+      }
+      if (action === 'roadmap_read') {
+        return respond(getRoadmap());
       }
       if (action === 'anthropic') {
         const prompt = e.parameter.prompt || '';
@@ -47,6 +52,14 @@
       const action = body.action || 'tasks';
       if (action === 'budget_write') {
         setBudget(body.budget);
+        return respond({ ok: true });
+      }
+      if (action === 'roadmap_write') {
+        setRoadmapItem(body.item);
+        return respond({ ok: true });
+      }
+      if (action === 'roadmap_delete') {
+        deleteRoadmapItem(body.id);
         return respond({ ok: true });
       }
       // default: write tasks array
@@ -164,11 +177,58 @@
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ── Roadmap ────────────────────────────────────────────────────────────
+
+  function getRoadmap() {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ROADMAP_SHEET);
+    if (!sheet) return [];
+    const rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return [];
+    const header = rows[0];
+    return rows.slice(1).filter(r => r[0]).map(row => {
+      const obj = {};
+      header.forEach((col, i) => { obj[col] = (row[i] == null) ? '' : String(row[i]); });
+      return obj;
+    });
+  }
+
+  function setRoadmapItem(item) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(ROADMAP_SHEET);
+    if (!sheet) {
+      sheet = ss.insertSheet(ROADMAP_SHEET);
+      sheet.getRange(1, 1, 1, ROADMAP_HEADERS.length).setValues([ROADMAP_HEADERS]);
+    }
+    const rows = sheet.getDataRange().getValues();
+    const header = rows[0];
+    const idCol = header.indexOf('id');
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][idCol]) === String(item.id)) {
+        sheet.getRange(i + 1, 1, 1, ROADMAP_HEADERS.length)
+          .setValues([ROADMAP_HEADERS.map(h => item[h] !== undefined ? item[h] : '')]);
+        return;
+      }
+    }
+    sheet.appendRow(ROADMAP_HEADERS.map(h => item[h] !== undefined ? item[h] : ''));
+  }
+
+  function deleteRoadmapItem(id) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ROADMAP_SHEET);
+    if (!sheet) return;
+    const rows = sheet.getDataRange().getValues();
+    const idCol = rows[0].indexOf('id');
+    for (let i = rows.length - 1; i >= 1; i--) {
+      if (String(rows[i][idCol]) === String(id)) { sheet.deleteRow(i + 1); return; }
+    }
+  }
+
   // CORS NOTE: Apps Script includes CORS headers for GET automatically.
   // POST from the browser uses mode:'no-cors' (fire-and-forget). The sync
   // indicator shows 'Synced ✓' optimistically once the request completes.
   // Run setupBudgetSheet() once manually from the Apps Script editor to
   // initialize the Budget tab before the first budget_write POST.
+  // Run setRoadmapItem({}) once (or just add the Roadmap sheet manually) to
+  // initialize the Roadmap tab with headers before the first roadmap_write POST.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -1157,7 +1217,7 @@ function showPage(id){
   if(pg) pg.classList.add('active');
   sessionStorage.setItem('dgl_active_tab',id);
   if(id==='raci') setTimeout(_raciStickyThTop,50);
-  if(id==='roadmap') setTimeout(initRoadmapHeadSync,50);
+  if(id==='roadmap'){ loadRoadmapFromSheets(); setTimeout(initRoadmapHeadSync,50); }
   if(id==='actionplans') buildActionPlansPage();
   if(id==='budget') loadBudgetFromSheets();
 }
@@ -7872,15 +7932,50 @@ function _saveTasksNow(){
   },1500);
 }
 function loadFromLocal(){
-  try{
-    const savedMs=localStorage.getItem('dgl_milestone_items');
-    if(savedMs) DASHBOARD_DATA.meta.milestoneItems=JSON.parse(savedMs);
-  }catch(e){}
+  // milestone items now sourced from Sheets via loadRoadmapFromSheets()
 }
 function resetToDefaults(){
   if(!confirm('Reset all changes to defaults? This cannot be undone.')) return;
   localStorage.removeItem('dgl_tasks');
   location.reload();
+}
+function loadRoadmapFromSheets(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=roadmap_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.items||[]);
+      if(!rows.length) return;
+      DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({
+        id:r.id||('ms-'+r.title),
+        label:r.title||'',
+        date:r.date||'',
+        note:r.description||'',
+        achievedDate:r.achievedDate||null
+      }));
+      buildMilestoneHistory();
+    }).catch(()=>{});
+}
+function _saveMilestoneToSheets(item){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+    action:'roadmap_write',
+    item:{
+      id:item.id||('ms-'+item.label),
+      title:item.label||'',
+      date:item.date||'',
+      type:'milestone',
+      status:item.achievedDate?'Achieved':'Pending',
+      description:item.note||'',
+      color:'',
+      taskIds:'',
+      achievedDate:item.achievedDate||''
+    }
+  })}).catch(()=>{});
+}
+function _deleteMilestoneFromSheets(id){
+  if(!CONFIG.sheetsUrl||!id) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'roadmap_delete',id})}).catch(()=>{});
 }
 
 // ── Milestone History card ──────────────────────────────────
@@ -7961,7 +8056,7 @@ function markMilestoneAchieved(idx){
   const today=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
   const item=DASHBOARD_DATA.meta.milestoneItems[idx];
   item.achievedDate=today;
-  try{localStorage.setItem('dgl_milestone_items',JSON.stringify(DASHBOARD_DATA.meta.milestoneItems));}catch(e){}
+  _saveMilestoneToSheets(item);
   triggerCelebration();
   buildMilestoneHistory();
   _offerRemoveBudgetPhase(item.label);
@@ -7971,8 +8066,9 @@ function saveMilestoneItem(){
   if(!label) return;
   const date=document.getElementById('ms-item-date').value||'';
   const note=(document.getElementById('ms-item-note').value||'').trim();
-  DASHBOARD_DATA.meta.milestoneItems.push({label,date,note,achievedDate:null});
-  try{localStorage.setItem('dgl_milestone_items',JSON.stringify(DASHBOARD_DATA.meta.milestoneItems));}catch(e){}
+  const item={id:'ms-'+Date.now(),label,date,note,achievedDate:null};
+  DASHBOARD_DATA.meta.milestoneItems.push(item);
+  _saveMilestoneToSheets(item);
   buildMilestoneHistory();
 }
 
@@ -9042,6 +9138,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderSurveyResults();
   renderKillCriteria();
   loadKillCriteriaFromSheets();
+  loadRoadmapFromSheets();
   renderWhatIf();
   initFlagToolbar();
   initRaciPopover();
