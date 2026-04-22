@@ -7958,6 +7958,7 @@ function loadRoadmapFromSheets(){
 }
 function _saveMilestoneToSheets(item){
   if(!CONFIG.sheetsUrl) return;
+  console.log('[DGL] Saving milestone to Sheets:', item.title||item.label);
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
     action:'roadmap_write',
     item:{
