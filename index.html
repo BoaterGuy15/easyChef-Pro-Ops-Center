@@ -2385,6 +2385,7 @@ function _markTaskComplete(taskId){
   const quality=document.getElementById('mc-quality')?.value||'3';
   const qualityLabel={'1':'Needs Review','2':'Needs Review','3':'Solid','4':'Solid','5':'Excellent'}[quality]||'Solid';
   const nextAction=(document.getElementById('mc-next')?.value||'').trim();
+  const unlocks=(document.getElementById('delivery-unlocks')?.value||'').trim();
   const toNotify=_DGL_TEAM_NAMES.filter(n=>document.getElementById('mc-notify-'+n.toLowerCase())?.checked);
   const unblocked=DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(taskId));
 
@@ -2501,21 +2502,46 @@ function _markTaskComplete(taskId){
     _saveActionPlan(taskId,'raci','COMPLETION RECORD: '+delivery,taskId,'');
   }
 
-  // Post to Slack linked channel
-  const linked=_getTaskSlackLink(taskId);
-  if(linked&&linked.channelId&&CONFIG.sheetsUrl)
-    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent('✅ ['+taskId+'] '+(t.name||'')+' COMPLETED by '+deliveredBy+': '+delivery.slice(0,120))+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
+  // Build unified Slack message
+  const _logBy=window._DGL_USER||'system';
+  const slackMsg=[
+    '✅ TASK COMPLETE — '+taskId+' · '+(t.name||''),
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '👤 Completed by: '+deliveredBy,
+    (involved.length?'🤝 Also involved: '+involved.join(', '):''),
+    '',
+    '📦 What was delivered:',
+    delivery,
+    '',
+    '📁 Format: '+(format||'—'),
+    '📎 File attached: '+fileAttached,
+    '⭐ Quality: '+quality+'/5 — '+qualityLabel,
+    '⏱ Time taken: '+(duration||'—'),
+    '',
+    (unlocks?'🔓 This unlocks:\n'+unlocks:''),
+    (blockers?'⚠️ Blockers encountered:\n'+blockers:''),
+    (nextAction?'➡️ Next step: '+nextAction:''),
+    '',
+    '📅 Completed: '+date,
+    '🔔 Notified: '+toNotify.join(', '),
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  ].filter(Boolean).join('\n');
+
+  // Post to task's linked Slack channel
+  if(CONFIG.sheetsUrl){
+    const linked=_getTaskSlackLink(taskId);
+    if(linked&&linked.channelId)
+      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(_logBy)).catch(()=>{});
+  }
 
   // Notify selected team members via DM channel
   if(toNotify.length&&CONFIG.sheetsUrl){
     const _nSt=document.getElementById('mc-notify-status');
     if(_nSt) _nSt.textContent='📤 Notifying '+toNotify.join(', ')+'…';
-    const _logBy=window._DGL_USER||'system';
-    const _dmMsg='✅ ['+taskId+'] — '+(t.name||'')+' has been marked COMPLETE\nCompleted by: '+deliveredBy+'\nDelivered: '+delivery.slice(0,200)+'\nQuality: '+quality+'/5\nNotified by: '+_logBy;
     const _sends=toNotify.map(name=>{
       const uKey=Object.keys(_USER_RACI_MAP).find(k=>_USER_RACI_MAP[k]===name)||(name.toLowerCase());
       const chId=_getDMChannelId(uKey)||_DM_CHANNEL_MAP[uKey]||('raci-'+uKey);
-      return fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(_dmMsg)+'&user='+encodeURIComponent(_logBy)).catch(()=>{});
+      return fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(_logBy)).catch(()=>{});
     });
     Promise.all(_sends).then(()=>{ const s=document.getElementById('mc-notify-status'); if(s) s.textContent='✅ Notifications sent'; }).catch(()=>{ const s=document.getElementById('mc-notify-status'); if(s) s.textContent='⚠️ Some notifications failed'; });
   }
@@ -9964,8 +9990,10 @@ function triggerCelebration(){
   const canvas = document.createElement('canvas');
   canvas.id = 'fireworks-canvas';
   Object.assign(canvas.style,{position:'fixed',inset:'0',width:'100%',height:'100%',zIndex:'9998',pointerEvents:'none'});
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const vvw=(window.visualViewport?window.visualViewport.width:window.innerWidth)||window.screen.width;
+  const vvh=(window.visualViewport?window.visualViewport.height:window.innerHeight)||window.screen.height;
+  canvas.width = Math.round(vvw);
+  canvas.height = Math.round(vvh);
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -9982,7 +10010,7 @@ function triggerCelebration(){
         alpha:1,decay:0.007+Math.random()*0.013,r:1.5+Math.random()*2.5,gravity:0.04+Math.random()*0.05});
     }
   }
-  const end = Date.now()+10000;
+  const end = Date.now()+3000;
   let nextBurst = 0;
   function tick(){
     if(Date.now()>end){ cancelAnimationFrame(raf); canvas.remove(); return; }
