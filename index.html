@@ -3844,6 +3844,7 @@ function buildRoadmap(){
   if(scroll&&!scroll._ganttSynced){
     scroll._ganttSynced=true;
     scroll.addEventListener('scroll',_ganttSyncHeader,{passive:true});
+    scroll.addEventListener('scroll',()=>{ if(window._ganttPendingConfirmId) _repositionConfirmBubble(window._ganttPendingConfirmId); },{passive:true});
     scroll.addEventListener('dblclick',e=>{ if(!e.target.closest('[data-task-id]')) _ganttUndo(); });
     document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='z'&&document.getElementById('page-roadmap')?.classList.contains('active')){ e.preventDefault(); _ganttUndo(); } });
     scroll.style.cursor='grab';
@@ -4346,23 +4347,40 @@ function _initGanttDrag(){
   },true);
 }
 
+function _repositionConfirmBubble(taskId){
+  const wrap=document.getElementById('gantt-confirm-btns');
+  if(!wrap) return;
+  const bar=document.querySelector(`[data-task-id="${taskId}"].rm-cell`);
+  const rect=bar?bar.getBoundingClientRect():null;
+  if(!rect){ wrap.style.bottom='24px'; wrap.style.right='24px'; wrap.style.top=''; wrap.style.left=''; return; }
+  const bw=wrap.offsetWidth||160;
+  const bh=wrap.offsetHeight||40;
+  let top=rect.top-bh-10;
+  let left=rect.right+8;
+  if(left+bw>window.innerWidth-8) left=rect.left-bw-8;
+  if(top<8) top=rect.bottom+8;
+  wrap.style.top=Math.max(8,top)+'px';
+  wrap.style.left=Math.max(8,Math.min(left,window.innerWidth-bw-8))+'px';
+  wrap.style.bottom=''; wrap.style.right='';
+}
 function _dismissGanttConfirm(save){
+  window._ganttPendingConfirmId=null;
   const el=document.getElementById('gantt-confirm-btns');
   if(el) el.remove();
   if(save) _saveTasksNow();
 }
 function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
-  // Auto-commit any previous pending move
   const existing=document.getElementById('gantt-confirm-btns');
   if(existing) _dismissGanttConfirm(true);
+  window._ganttPendingConfirmId=taskId;
 
   const wrap=document.createElement('div');
   wrap.id='gantt-confirm-btns';
-  wrap.style.cssText='position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;gap:8px;font-family:\'DM Mono\',monospace;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.6))';
+  wrap.style.cssText='position:fixed;z-index:9999;display:flex;gap:6px;padding:6px 10px;background:var(--card);border:1px solid var(--gold);border-radius:7px;font-family:\'DM Mono\',monospace;box-shadow:0 4px 18px rgba(0,0,0,0.55)';
 
   const confirmBtn=document.createElement('button');
-  confirmBtn.textContent='✅ Confirm Move';
-  confirmBtn.style.cssText='background:var(--card);color:var(--green);border:1px solid var(--green);border-radius:6px;font-family:\'DM Mono\',monospace;font-size:10px;padding:7px 16px;cursor:pointer;letter-spacing:0.5px';
+  confirmBtn.textContent='✅ Confirm';
+  confirmBtn.style.cssText='background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:4px 12px;cursor:pointer';
   confirmBtn.onclick=()=>{
     _dismissGanttConfirm(true);
     _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Saved</div>',1800);
@@ -4370,7 +4388,7 @@ function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
 
   const undoBtn=document.createElement('button');
   undoBtn.textContent='↩ Undo';
-  undoBtn.style.cssText='background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-family:\'DM Mono\',monospace;font-size:10px;padding:7px 16px;cursor:pointer;letter-spacing:0.5px';
+  undoBtn.style.cssText='background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:4px 12px;cursor:pointer';
   undoBtn.onclick=()=>{
     _dismissGanttConfirm(false);
     const task=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
@@ -4386,6 +4404,8 @@ function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
   wrap.appendChild(confirmBtn);
   wrap.appendChild(undoBtn);
   document.body.appendChild(wrap);
+  // Position after paint so offsetWidth is available
+  requestAnimationFrame(()=>_repositionConfirmBubble(taskId));
 }
 
 // ── Budget ──────────────────────────────────────────────────
