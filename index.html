@@ -638,6 +638,7 @@ td.gantt-drop-target{background:rgba(201,168,76,0.12);outline:2px dashed var(--g
     <div id="user-badge"></div>
     <button id="sign-out-btn" onclick="doSignOut()">Sign out</button>
     <span id="sync-status" style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;display:none"></span>
+    <span id="wave2-loading" style="display:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">⏳ Loading…</span>
     <button id="briefing-bell" onclick="showBriefing()" title="Open daily briefing">🔔<span id="bell-dot"></span></button>
     <div class="live-dot" id="live-dot" title="Live data"></div>
   </div>
@@ -9253,6 +9254,8 @@ function loadFromSheets(){
   if(!CONFIG.sheetsUrl){ window._sheetsLoaded=true; masterRefresh(); _hideLoadingSpinner(); return; }
   if(_sheetsSyncLock) return;
   updateSyncStatus('syncing');
+
+  // ── WAVE 1: critical data — tasks + channel links ─────────────────────────
   const _fetchTasks=fetch(CONFIG.sheetsUrl)
     .then(r=>r.json())
     .then(data=>{
@@ -9264,21 +9267,31 @@ function loadFromSheets(){
       _lastSheetsLoadTime=Date.now();
       Object.keys(_raciExpandCache).forEach(k=>{ delete _raciExpandCache[k]; });
     }).catch(()=>{});
-  const _fetchHR=fetch(CONFIG.sheetsUrl+'?action=hr_profiles_read').then(r=>r.json()).then(data=>{ if(Array.isArray(data.profiles)) data.profiles.forEach(p=>{ if(p.userKey) _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p}; }); }).catch(()=>{});
-  const _fetchActionPlans=fetch(CONFIG.sheetsUrl+'?action=action_plans_read').then(r=>r.json()).then(data=>{ const plans=Array.isArray(data)?data:(data.plans||[]); plans.forEach(p=>{ if(!p.sourceId) return; if(p.status==='complete'){ if(!window._completedPlansCache[p.sourceId]||p.completedAt>window._completedPlansCache[p.sourceId].completedAt) window._completedPlansCache[p.sourceId]=p; delete _actionPlansCache[p.sourceId]; } else { if(!_actionPlansCache[p.sourceId]||p.createdAt>_actionPlansCache[p.sourceId].createdAt) _actionPlansCache[p.sourceId]=p; } }); }).catch(()=>{});
-  const _fetchChannelMaps=fetch(CONFIG.sheetsUrl+'?action=channel_maps_read').then(r=>r.json()).then(maps=>{ if(maps.category&&typeof maps.category==='object') Object.entries(maps.category).forEach(([k,v])=>{ const slug=(v&&typeof v==='object'?v.channelName:v||'').replace('#',''); if(slug){ _categoryChannelMapOverrides[k]=slug; CATEGORY_CHANNEL_MAP[k]=slug; } }); if(maps.dm&&typeof maps.dm==='object') Object.assign(_DM_CHANNEL_MAP,maps.dm); }).catch(()=>{});
-  const _fetchKillCriteria=fetch(CONFIG.sheetsUrl+'?action=kill_criteria_read').then(r=>r.json()).then(data=>{ if(data.criteria){ _killCriteriaCache=data.criteria; _killCriteria=data.criteria; try{ localStorage.setItem('dgl_kill_criteria',JSON.stringify(data.criteria)); }catch(e){} } }).catch(()=>{});
-  const _fetchRoadmap=fetch(CONFIG.sheetsUrl+'?action=roadmap_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(!rows.length) return; DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({id:r.id||('ms-'+r.title),title:r.title||r.label||'',date:r.date||'',type:r.type||'Milestone',status:r.status||'Upcoming',description:r.description||r.note||'',color:r.color||'',taskIds:r.taskIds||'',achievedDate:r.achievedDate||''})); }).catch(()=>{});
-  Promise.all([_fetchTasks,_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,loadTaskChannelLinks()])
+
+  Promise.all([_fetchTasks, loadTaskChannelLinks()])
     .then(()=>{
       window._sheetsLoaded=true;
       _hideLoadingSpinner();
       masterRefresh();
-      _debouncedBuildMilestones();
-      buildMilestoneHistory();
-      renderKillCriteria();
-      _buildChannelMappingSection();
       updateSyncStatus('ok');
+      // ── WAVE 2: background data — render after UI is visible ──────────────
+      const _w2badge=document.getElementById('wave2-loading');
+      if(_w2badge) _w2badge.style.display='inline';
+      setTimeout(()=>{
+        const _fetchHR=fetch(CONFIG.sheetsUrl+'?action=hr_profiles_read').then(r=>r.json()).then(data=>{ if(Array.isArray(data.profiles)) data.profiles.forEach(p=>{ if(p.userKey) _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p}; }); }).catch(()=>{});
+        const _fetchActionPlans=fetch(CONFIG.sheetsUrl+'?action=action_plans_read').then(r=>r.json()).then(data=>{ const plans=Array.isArray(data)?data:(data.plans||[]); plans.forEach(p=>{ if(!p.sourceId) return; if(p.status==='complete'){ if(!window._completedPlansCache[p.sourceId]||p.completedAt>window._completedPlansCache[p.sourceId].completedAt) window._completedPlansCache[p.sourceId]=p; delete _actionPlansCache[p.sourceId]; } else { if(!_actionPlansCache[p.sourceId]||p.createdAt>_actionPlansCache[p.sourceId].createdAt) _actionPlansCache[p.sourceId]=p; } }); }).catch(()=>{});
+        const _fetchChannelMaps=fetch(CONFIG.sheetsUrl+'?action=channel_maps_read').then(r=>r.json()).then(maps=>{ if(maps.category&&typeof maps.category==='object') Object.entries(maps.category).forEach(([k,v])=>{ const slug=(v&&typeof v==='object'?v.channelName:v||'').replace('#',''); if(slug){ _categoryChannelMapOverrides[k]=slug; CATEGORY_CHANNEL_MAP[k]=slug; } }); if(maps.dm&&typeof maps.dm==='object') Object.assign(_DM_CHANNEL_MAP,maps.dm); }).catch(()=>{});
+        const _fetchKillCriteria=fetch(CONFIG.sheetsUrl+'?action=kill_criteria_read').then(r=>r.json()).then(data=>{ if(data.criteria){ _killCriteriaCache=data.criteria; _killCriteria=data.criteria; try{ localStorage.setItem('dgl_kill_criteria',JSON.stringify(data.criteria)); }catch(e){} } }).catch(()=>{});
+        const _fetchRoadmap=fetch(CONFIG.sheetsUrl+'?action=roadmap_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(!rows.length) return; DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({id:r.id||('ms-'+r.title),title:r.title||r.label||'',date:r.date||'',type:r.type||'Milestone',status:r.status||'Upcoming',description:r.description||r.note||'',color:r.color||'',taskIds:r.taskIds||'',achievedDate:r.achievedDate||''})); }).catch(()=>{});
+        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap])
+          .then(()=>{
+            renderKillCriteria();
+            _debouncedBuildMilestones();
+            buildMilestoneHistory();
+            _buildChannelMappingSection();
+            if(_w2badge) _w2badge.style.display='none';
+          }).catch(()=>{ if(_w2badge) _w2badge.style.display='none'; });
+      }, 100);
     })
     .catch(()=>{ window._sheetsLoaded=true; _hideLoadingSpinner(); masterRefresh(); updateSyncStatus('fail'); });
 }
