@@ -3767,6 +3767,43 @@ function _showGanttContextMenu(event,taskId){
   if(t.status==='Complete'){mc.style.opacity='0.4';mc.style.pointerEvents='none';}
   _item('📅','Set Dates',()=>_openGanttDateModal(taskId));
 
+  // Documents
+  _sep();
+  _lbl('Documents');
+  const cacheKey='task_'+taskId;
+  const docs=(_docsCache&&_docsCache[cacheKey])||[];
+  if(docs.length){
+    const shown=docs.slice(0,3);
+    shown.forEach(d=>{
+      const fname=(d.name||d.filename||'Untitled');
+      const truncName=fname.length>26?fname.slice(0,24)+'…':fname;
+      const dd=_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:10px;color:var(--text)');
+      dd.onmouseover=()=>dd.style.background='rgba(201,168,76,0.08)';
+      dd.onmouseout=()=>dd.style.background='transparent';
+      dd.appendChild(_el('span','font-size:11px;flex-shrink:0','👁️'));
+      dd.appendChild(_el('span','overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1',truncName));
+      dd.onclick=()=>{ window.open(d.previewUrl||d.url||'#','_blank'); _closeGanttContextMenu(); };
+      mnu.appendChild(dd);
+    });
+    if(docs.length>3){
+      const more=_el('div','padding:3px 14px;font-size:9px;color:var(--muted)','+ '+(docs.length-3)+' more');
+      mnu.appendChild(more);
+    }
+  } else {
+    const nd=_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;font-size:10px;color:var(--muted)');
+    nd.appendChild(_el('span',null,'📎'));
+    nd.appendChild(_el('span',null,'No documents attached'));
+    mnu.appendChild(nd);
+  }
+  const folderUrl=(docs.find(d=>d.folderUrl)||{}).folderUrl||(typeof CONFIG!=='undefined'&&CONFIG.sharedDriveUrl)||'#';
+  const fd2=_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:10px;color:var(--text)');
+  fd2.onmouseover=()=>fd2.style.background='rgba(201,168,76,0.08)';
+  fd2.onmouseout=()=>fd2.style.background='transparent';
+  fd2.appendChild(_el('span','font-size:11px;flex-shrink:0','📁'));
+  fd2.appendChild(_el('span',null,'Open Task Folder'));
+  fd2.onclick=()=>{ window.open(folderUrl,'_blank'); _closeGanttContextMenu(); };
+  mnu.appendChild(fd2);
+
   // Delete (admin only)
   if(canAdmin){_sep();_item('🗑️','Delete Task',()=>_ganttDeleteTask(taskId),'var(--red)');}
 
