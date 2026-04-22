@@ -3818,11 +3818,31 @@ function buildRoadmap(){
     canvas.appendChild(todayLine);
   }
 
-  // ── Scroll sync ──
+  // ── Scroll sync + pan-to-scroll ──
   const scroll=document.getElementById('gantt-scroll');
   if(scroll&&!scroll._ganttSynced){
     scroll._ganttSynced=true;
     scroll.addEventListener('scroll',_ganttSyncHeader,{passive:true});
+    scroll.style.cursor='grab';
+    let _panning=false,_panX=0,_panLeft=0;
+    scroll.addEventListener('mousedown',e=>{
+      if(e.button!==0) return;
+      if(e.target.closest('.rm-cell')||e.target.classList.contains('gantt-handle')) return;
+      _panning=true;
+      _panX=e.clientX;
+      _panLeft=scroll.scrollLeft;
+      scroll.style.cursor='grabbing';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove',e=>{
+      if(!_panning) return;
+      scroll.scrollLeft=_panLeft-(e.clientX-_panX);
+    },{passive:true});
+    document.addEventListener('mouseup',()=>{
+      if(!_panning) return;
+      _panning=false;
+      scroll.style.cursor='grab';
+    });
   }
 
   _initGanttDrag();
