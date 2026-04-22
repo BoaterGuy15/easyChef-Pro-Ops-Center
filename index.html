@@ -955,6 +955,8 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <button class="gantt-ctrl-btn active-zoom" id="zoom-90d" onclick="_ganttSetZoom('90d')">90D</button>
       <button class="gantt-ctrl-btn" id="zoom-6mo" onclick="_ganttSetZoom('6mo')">6MO</button>
       <button class="gantt-ctrl-btn" id="zoom-1yr" onclick="_ganttSetZoom('1yr')">1YR</button>
+      <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
+      <button class="gantt-ctrl-btn" onclick="_ganttUndo()" title="Undo last move (Ctrl+Z)">↩</button>
     </div>
     <div style="display:flex">
       <div style="width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:flex-end;padding:4px 8px">
@@ -3638,6 +3640,25 @@ const _GANTT_START='2026-04-20';
 const _GANTT_DAYS=365;
 let _ganttDayPx=28;
 const _GANTT_LABEL_W=160;
+const _ganttUndoStack=[];
+const _ganttRedoStack=[];
+const _GANTT_MAX_UNDO=20;
+function _ganttSaveUndo(taskId,oldSd,oldEd){
+  _ganttUndoStack.push({taskId,sd:oldSd,ed:oldEd});
+  if(_ganttUndoStack.length>_GANTT_MAX_UNDO) _ganttUndoStack.shift();
+  _ganttRedoStack.length=0;
+}
+function _ganttUndo(){
+  if(!_ganttUndoStack.length){ _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted)">Nothing to undo</div>',1800); return; }
+  const {taskId,sd,ed}=_ganttUndoStack.pop();
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  _ganttRedoStack.push({taskId,sd:t.sd,ed:t.ed});
+  t.sd=sd; t.ed=ed;
+  _saveTasksNow();
+  buildRoadmap();
+  _showToast(`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--gold)">↩ Undone — ${taskId} restored</div>`,2200);
+}
 function _ganttStartMs(){return new Date(_GANTT_START+'T00:00:00').getTime();}
 function _ganttDayOff(dateStr){
   if(!dateStr) return 0;
@@ -3823,6 +3844,8 @@ function buildRoadmap(){
   if(scroll&&!scroll._ganttSynced){
     scroll._ganttSynced=true;
     scroll.addEventListener('scroll',_ganttSyncHeader,{passive:true});
+    scroll.addEventListener('dblclick',e=>{ if(!e.target.closest('[data-task-id]')) _ganttUndo(); });
+    document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='z'&&document.getElementById('page-roadmap')?.classList.contains('active')){ e.preventDefault(); _ganttUndo(); } });
     scroll.style.cursor='grab';
     let _panning=false,_panX=0,_panY=0,_panLeft=0,_panTop=0;
     scroll.addEventListener('mousedown',e=>{
@@ -4298,7 +4321,8 @@ function _initGanttDrag(){
     const dropDate=_xToDate(e.clientX);
     const t=DASHBOARD_DATA.tasks.find(x=>x.id===_drag.taskId);
     if(!t) return;
-    let newSd=toIsoDate(t.sd)||dropDate, newEd=toIsoDate(t.ed)||_addDays(dropDate,6);
+    const oldSd=toIsoDate(t.sd), oldEd=toIsoDate(t.ed);
+    let newSd=oldSd||dropDate, newEd=oldEd||_addDays(dropDate,6);
     if(_drag.mode==='move'){
       newSd=dropDate;
       newEd=_addDays(newSd,_drag.durationDays||6);
@@ -4309,6 +4333,7 @@ function _initGanttDrag(){
       newEd=dropDate;
       if(newEd<=newSd) newSd=_addDays(newEd,-6);
     }
+    _ganttSaveUndo(_drag.taskId,oldSd,oldEd);
     t.sd=newSd; t.ed=newEd;
     const savedId=_drag.taskId;
     _drag=null;
