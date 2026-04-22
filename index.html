@@ -4319,15 +4319,17 @@ async function runMasterAI(btn){
     return `${t.id} ${t.name} [${t.cat||'—'}] — ${t.status}${done?' ✓':isOverdue?' OVERDUE':''} — owner:${t.owner||'—'} — flag:${t.flag||'none'}${depIds.length?' — depends on:'+depStatuses:''}${blocks.length?' — blocks:'+blocks.join(','):''}`;
   }).join('\n');
   // Section B — workstream health
+  const completedTasks=tasks.filter(t=>t.status==='Complete');
   const cats=[...new Set(tasks.map(t=>t.cat).filter(Boolean))];
   const wsHealth=cats.map(cat=>{
     const ct=tasks.filter(t=>t.cat===cat);
-    const done=ct.filter(t=>t.status==='Complete').length;
-    const active=ct.filter(t=>['Started','In Progress','In Review','Ready'].includes(t.status)).length;
-    const notStarted=ct.filter(t=>t.status==='Not Started').length;
+    const byStatus=ct.reduce((acc,t)=>{ acc[t.status]=(acc[t.status]||0)+1; return acc; },{});
+    const done=byStatus['Complete']||0;
+    const active=(byStatus['Started']||0)+(byStatus['In Progress']||0)+(byStatus['In Review']||0)+(byStatus['Ready']||0);
+    const notStarted=byStatus['Not Started']||0;
     const pct=ct.length?Math.round(done/ct.length*100):0;
     const critical=ct.filter(t=>t.pri==='High'&&t.status!=='Complete').map(t=>`${t.id}(${t.status})`).join(', ');
-    return `${cat}: ${ct.length} tasks | ${done} complete (${pct}%) | ${active} active | ${notStarted} not started${critical?' | HIGH PRI OPEN:'+critical:''}`;
+    return `${cat}: ${ct.length} tasks | Complete: ${done} (${pct}%), Started: ${active}, Not Started: ${notStarted}${critical?' | HIGH PRI OPEN:'+critical:''}`;
   }).join('\n');
   // Section C — team load
   const people=['Taylor','Adam','Steve','Hammad','Mary','JR','Searah','Sadee'];
@@ -4356,8 +4358,9 @@ async function runMasterAI(btn){
       violations.push(`${t.id} ${t.name} is Blocked but has no flag — undocumented`);
   });
   const depViolations=violations.join('\n')||'No violations detected.';
-  const completedList=tasks.filter(t=>t.status==='Complete').map(t=>`${t.id} ${t.name} (${t.cat})`).join(', ')||'None';
-  const system='You are the Master AI for DGL easyChef Pro. You have complete visibility across all tasks, workstreams, and team members. Your job is to give Taylor a complete executive briefing — connecting all the dots across every workstream. Think like a COO who has read every Slack message, every task note, every action plan. Be brutally specific. Name exact people, tasks, and dates. No generic advice. Format as plain text only — no markdown symbols. Use ALL CAPS for section headers.';
+  const completedTaskLines=completedTasks.map(t=>`${t.id} ${t.name} (${t.cat}) — DONE`).join('\n')||'None';
+  const completedTaskIds=completedTasks.map(t=>t.id+' '+t.name).join(', ')||'None';
+  const system='You are the Master AI for DGL easyChef Pro. You have complete visibility across all tasks, workstreams, and team members. Your job is to give Taylor a complete executive briefing — connecting all the dots across every workstream. Think like a COO who has read every Slack message, every task note, every action plan. Be brutally specific. Name exact people, tasks, and dates. No generic advice. Format as plain text only — no markdown symbols. Use ALL CAPS for section headers. CRITICAL: Tasks marked Complete are FINISHED — do not suggest redoing them or flag them as blockers. Only flag tasks that are NOT Complete as needing attention.';
   const prompt=`Give me a complete Master Briefing for today ${todayStr}. We have ${daysToMay11} days to Beta (May 11) and ${daysToLaunch} days to Launch (Jul 1).
 
 FULL TASK GRAPH (all ${tasks.length} tasks):
@@ -4375,8 +4378,10 @@ ${critPath}
 DEPENDENCY VIOLATIONS:
 ${depViolations}
 
-COMPLETED TASKS (do not suggest redoing these):
-${completedList}
+COMPLETED TASKS (${completedTasks.length} done — do not suggest redoing these, do not flag as blockers):
+${completedTaskLines}
+
+The following tasks are COMPLETE and should NOT be mentioned as blockers or action items: ${completedTaskIds}
 
 Now produce the Master Briefing:
 
