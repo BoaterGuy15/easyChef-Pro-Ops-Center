@@ -3755,6 +3755,7 @@ function buildRoadmap(){
         html += `<td data-week-idx="${wi}">${cells}</td>`;
       }
     });
+    tr.dataset.cat=cat;
     tr.innerHTML = html;
     tbody.appendChild(tr);
   });
@@ -4088,6 +4089,7 @@ function _initGanttDrag(WEEKS, toIsoDate){
   let _tip=document.getElementById('gantt-drag-tooltip');
   if(!_tip){ _tip=document.createElement('div'); _tip.id='gantt-drag-tooltip'; document.body.appendChild(_tip); }
 
+  function _taskRow(cat){ return tbody.querySelector(`tr[data-cat="${CSS.escape(cat)}"]`); }
   function _clearHighlights(){
     tbody.querySelectorAll('.gantt-drop-target').forEach(td=>td.classList.remove('gantt-drop-target'));
     tbody.querySelectorAll('.gantt-range-target').forEach(td=>td.classList.remove('gantt-range-target'));
@@ -4102,7 +4104,7 @@ function _initGanttDrag(WEEKS, toIsoDate){
     if(!t) return;
     const sd=_isoDate(t.sd), ed=_isoDate(t.ed);
     const dur=sd&&ed?_daysBetween(sd,ed):6;
-    _drag={taskId,origSd:sd,origEd:ed,durationDays:Math.max(0,dur),mode};
+    _drag={taskId,taskCat:t.cat||'',origSd:sd,origEd:ed,durationDays:Math.max(0,dur),mode};
     e.dataTransfer.effectAllowed='move';
     e.dataTransfer.setData('text/plain',taskId+'|'+mode);
     setTimeout(()=>{ tbody.querySelectorAll(`[data-task-id="${taskId}"]`).forEach(el=>el.classList.add('gantt-dragging')); },0);
@@ -4119,10 +4121,15 @@ function _initGanttDrag(WEEKS, toIsoDate){
     if(!_drag) return;
     e.preventDefault();
     e.dataTransfer.dropEffect='move';
-    const td=e.target.closest('td[data-week-idx]');
+    // Determine hovered week from mouse X — use the task's own row, not whichever row the mouse is over
+    const taskRow=_taskRow(_drag.taskCat);
     _clearHighlights();
-    if(!td) return;
-    const weekIdx=parseInt(td.dataset.weekIdx);
+    if(!taskRow) return;
+    // Find which week column the mouse X maps to within the task's own row
+    const rowTds=Array.from(taskRow.querySelectorAll('td[data-week-idx]'));
+    const hoveredTd=rowTds.find(td=>{ const r=td.getBoundingClientRect(); return e.clientX>=r.left&&e.clientX<=r.right; });
+    if(!hoveredTd) return;
+    const weekIdx=parseInt(hoveredTd.dataset.weekIdx);
     const week=WEEKS[weekIdx];
     if(!week) return;
     // Compute preview range
@@ -4139,12 +4146,12 @@ function _initGanttDrag(WEEKS, toIsoDate){
       previewEd=week.end;
       if(previewEd<=previewSd) previewEd=_addDays(previewSd,1);
     }
-    // Highlight all cells in the preview range
-    WEEKS.forEach((w,i)=>{
-      if(previewSd<=w.end&&previewEd>=w.start){
-        const cell=tbody.querySelector(`td[data-week-idx="${i}"]`);
-        if(cell) cell.classList.add(i===weekIdx?'gantt-drop-target':'gantt-range-target');
-      }
+    // Highlight only cells in the task's own row within the preview range
+    rowTds.forEach(td=>{
+      const wi=parseInt(td.dataset.weekIdx);
+      const w=WEEKS[wi]; if(!w) return;
+      if(previewSd<=w.end&&previewEd>=w.start)
+        td.classList.add(wi===weekIdx?'gantt-drop-target':'gantt-range-target');
     });
     // Tooltip
     const tipText=_drag.mode==='left'?'Start: '+previewSd:_drag.mode==='right'?'End: '+previewEd:'Start: '+previewSd;
@@ -4158,10 +4165,14 @@ function _initGanttDrag(WEEKS, toIsoDate){
     if(!_drag) return;
     e.preventDefault();
     _tip.style.display='none';
-    const td=e.target.closest('td[data-week-idx]');
     _clearHighlights();
-    if(!td) return;
-    const weekIdx=parseInt(td.dataset.weekIdx);
+    // Snap drop to the task's own workstream row — resolve week from mouse X
+    const taskRow=_taskRow(_drag.taskCat);
+    if(!taskRow) return;
+    const rowTds=Array.from(taskRow.querySelectorAll('td[data-week-idx]'));
+    const hoveredTd=rowTds.find(td=>{ const r=td.getBoundingClientRect(); return e.clientX>=r.left&&e.clientX<=r.right; });
+    if(!hoveredTd) return;
+    const weekIdx=parseInt(hoveredTd.dataset.weekIdx);
     const week=WEEKS[weekIdx];
     if(!week) return;
     const t=DASHBOARD_DATA.tasks.find(x=>x.id===_drag.taskId);
