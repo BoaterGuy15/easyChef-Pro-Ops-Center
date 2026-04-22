@@ -785,7 +785,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <button id="raci-search-clear" onclick="raciSearch('');document.getElementById('raci-search').value=''" title="Clear">×</button>
     </div>
     <button id="raci-save-btn" style="margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0" onclick="raciManualSave(this)">💾 Save to Sheets</button>
-    <button class="btn-secondary" style="font-size:11px;padding:5px 12px;white-space:nowrap;flex-shrink:0" onclick="showTaskModal(null)">+ New Task</button>
+    <button id="raci-add-task-btn" style="font-family:'DM Mono',monospace;font-size:11px;padding:5px 12px;border-radius:99px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap;flex-shrink:0;display:none" onclick="_openAddTaskModal()">➕ Add Task</button>
   </div>
   </div>
   <div class="table-wrap">
@@ -2846,6 +2846,8 @@ function buildRaciTable(){
   const ru = document.getElementById('raci-updated');
   if(ru) ru.textContent = DASHBOARD_DATA.meta.updated;
   if(window._DGL_USER==='view') applyViewOnly();
+  const _addBtn=document.getElementById('raci-add-task-btn');
+  if(_addBtn) _addBtn.style.display=(window._DGL_USER&&window._DGL_USER!=='view')?'':'none';
   // Restore expansion panel if one was open before the rebuild
   if(_raciExpandedId){
     const restoreTr=document.querySelector('#raci-body tr[data-id="'+_raciExpandedId+'"]');
@@ -7592,6 +7594,18 @@ function _initModal(modal, dragHandle){
   });
 }
 
+function _openAddTaskModal(){
+  if(!window._DGL_USER||window._DGL_USER==='view') return;
+  showTaskModal(null);
+  setTimeout(()=>{
+    const g=id=>document.getElementById(id);
+    const priEl=g('tm-pri'); if(priEl) priEl.value='High';
+    const sdEl=g('tm-sd');   if(sdEl)  sdEl.value=_toYMD(new Date());
+    const edEl=g('tm-ed');   if(edEl)  edEl.value=_toYMD(new Date(Date.now()+30*24*60*60*1000));
+    const displayName=(_USER_RACI_MAP[window._DGL_USER]||window._DGL_USER||'');
+    if(displayName&&typeof _tmOwners!=='undefined'){ _tmOwners=[displayName]; if(typeof _renderTmOwnerChips==='function') _renderTmOwnerChips(); }
+  },0);
+}
 function showTaskModal(taskId){
   const task = taskId ? DASHBOARD_DATA.tasks.find(t=>t.id===taskId) : null;
   const isNew = !task;
