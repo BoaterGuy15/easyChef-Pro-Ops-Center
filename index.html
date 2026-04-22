@@ -2941,6 +2941,7 @@ function _buildTaskExpandHtml(taskId){
         ${fRow('Owner',t.owner||'—')}
         ${lbl('FLAG')}
         <div class="flag-btn-group" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${_fsBtnsHtml}</div>
+        ${(()=>{const _fn=(t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim(); return `<div style="margin-bottom:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:3px">FLAG NOTES</div><textarea id="flag-notes-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Add context about this flag...">${_fn.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea><button onclick="_saveFlagNotes('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:4px">💾 Save Flag Notes</button></div>`; })()}
         ${_renderCompletionRecordHtml(taskId)}
         ${t.status!=='Complete'?`<button onclick="_openMarkCompleteModal('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;margin-bottom:10px">✅ Mark Complete + Log Delivery</button>`:''}
         ${lbl('TASK NOTES')}
@@ -3025,7 +3026,11 @@ function saveTaskExpandNotes(taskId){
 }
 function setTaskFlagEmoji(taskId,emoji){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
-  t.flag=emoji; saveToLocal();
+  // Preserve existing notes from textarea when changing emoji
+  const _notesEl=document.getElementById('flag-notes-'+taskId);
+  const _existingNotes=_notesEl?_notesEl.value.trim():((t.flag||'').replace(/^(✓|⚠️|⛔|🔵|💡|🎯)/,'').trim());
+  t.flag=emoji?emoji+(_existingNotes?' '+_existingNotes:''):_existingNotes;
+  saveToLocal();
   const fst=_getFlagState(emoji);
   const tr=document.querySelector('#raci-body tr[data-id="'+taskId+'"]');
   if(tr){
@@ -3049,6 +3054,18 @@ function setTaskFlagEmoji(taskId,emoji){
   });
   const agItem=AGENDA_DATA.find(a=>a.taskId===taskId);
   if(agItem){agItem.flag=emoji;saveAgendaItemToSheets(agItem);}
+}
+function _saveFlagNotes(taskId){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+  const el=document.getElementById('flag-notes-'+taskId); if(!el) return;
+  const notes=el.value.trim();
+  const emoji=(t.flag||'').match(/^(✓|⚠️|⛔|🔵|💡|🎯)/)?.[0]||'';
+  t.flag=emoji?(emoji+(notes?' '+notes:'')):(notes||'');
+  _saveTasksNow();
+  // Update RACI row flag cell inline
+  const flagDiv=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-cell .flag-edit');
+  if(flagDiv){ flagDiv.textContent=t.flag; const fst=_getFlagState(t.flag); flagDiv.style.color=fst?fst.color:'var(--muted)'; }
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#22c55e">✅ Flag notes saved</div>',2500);
 }
 function saveTaskNotes(taskId){
   const el=document.getElementById('raci-task-notes-'+taskId);
