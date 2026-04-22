@@ -1387,10 +1387,15 @@ function statusSelect(t){
 function setTaskStatus(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
   if(!task) return;
+  if(val==='Complete'){
+    // Revert dropdown to current status while modal opens
+    if(el) el.value=task.status||'Not Started';
+    _openMarkCompleteModal(id);
+    return;
+  }
   task.status=val;
   const _p=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   task.lastStatusChange=_p.getFullYear()+'-'+String(_p.getMonth()+1).padStart(2,'0')+'-'+String(_p.getDate()).padStart(2,'0');
-  if(val==='Complete') triggerCelebration();
   masterRefresh();
 }
 function setTaskDate(id,field,val){
@@ -2472,6 +2477,7 @@ function _markTaskComplete(taskId){
 
   _saveTasksNow();
   document.getElementById('mark-complete-modal').style.display='none';
+  triggerCelebration();
 
   // Re-render expansion panel
   const existingRow=document.getElementById('raci-expand-row-'+taskId);
@@ -3775,9 +3781,10 @@ function _showGanttContextMenu(event,taskId){
     sd.appendChild(_el('span','width:10px;flex-shrink:0;font-size:9px;color:var(--gold)',t.status===s?'✓':''));
     sd.appendChild(_el('span',null,s));
     sd.onclick=()=>{
+      _closeGanttContextMenu();
+      if(s==='Complete'){ _openMarkCompleteModal(taskId); return; }
       const task=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
       if(task){task.status=s;_saveTasksNow();buildRoadmap();initRoadmapHeadSync();}
-      _closeGanttContextMenu();
     };
     statusSub.appendChild(sd);
   });
