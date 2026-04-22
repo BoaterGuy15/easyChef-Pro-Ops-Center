@@ -3098,6 +3098,8 @@ function _onFlagNotesInput(taskId,textarea){
   const newFlag=emoji?(emoji+(textarea.value?' '+textarea.value:'')):(textarea.value||'');
   const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-cell .flag-edit');
   if(flagEl){ flagEl.textContent=newFlag; const fst=_getFlagState(newFlag); flagEl.style.color=fst?fst.color:'var(--muted)'; }
+  const modalEl=document.getElementById('tm-flag-notes');
+  if(modalEl) modalEl.value=textarea.value;
   clearTimeout(((window._flagNotesTimer=window._flagNotesTimer||{})[taskId]));
   window._flagNotesTimer[taskId]=setTimeout(()=>{ t.flag=newFlag; saveToLocal(); _saveTasksNow(); },500);
 }
@@ -9013,6 +9015,19 @@ function showTaskModal(taskId){
   _renderTmOwnerChips();
   document.getElementById('modal-overlay').classList.add('open');
   _initModal(document.getElementById('modal-content'), document.getElementById('tm-drag-handle'));
+  if(!isNew){
+    const _tmFN=document.getElementById('tm-flag-notes');
+    if(_tmFN) _tmFN.addEventListener('input',()=>{
+      const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
+      const emoji=(t.flag||'').match(/^(✓|⚠️|⛔|🔵|💡|🎯)/)?.[0]||'';
+      const newNotes=_tmFN.value;
+      t.flag=emoji+(newNotes?' '+newNotes:'');
+      const expEl=document.getElementById('flag-notes-'+taskId);
+      if(expEl) expEl.value=newNotes;
+      const flagEl=document.querySelector('#raci-body tr[data-id="'+taskId+'"] .flag-cell .flag-edit');
+      if(flagEl){ flagEl.textContent=t.flag; const fst=_getFlagState(t.flag); flagEl.style.color=fst?fst.color:'var(--muted)'; }
+    });
+  }
 }
 function saveTaskModal(taskId){
   const isNew = !taskId;
@@ -9070,6 +9085,7 @@ function deleteTask(taskId){
   closeModal();
   masterRefresh();
   saveToLocal();
+  _saveTasksNow();
 }
 
 // ── localStorage persistence ────────────────────────────────
