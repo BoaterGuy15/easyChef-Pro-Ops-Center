@@ -4292,7 +4292,7 @@ function _initGanttDrag(){
     if(!t) return;
     const sd=toIsoDate(t.sd),ed=toIsoDate(t.ed);
     const dur=sd&&ed?_daysBetween(sd,ed):6;
-    _drag={taskId,origSd:sd,origEd:ed,durationDays:Math.max(0,dur),mode};
+    _drag={taskId,taskCat:t.cat||'',origSd:sd,origEd:ed,durationDays:Math.max(0,dur),mode};
     e.dataTransfer.effectAllowed='move';
     e.dataTransfer.setData('text/plain',taskId+'|'+mode);
     setTimeout(()=>{ canvas.querySelectorAll(`[data-task-id="${taskId}"]`).forEach(el=>el.classList.add('gantt-dragging')); },0);
@@ -4302,6 +4302,7 @@ function _initGanttDrag(){
     _drag=null;
     _tip.style.display='none';
     canvas.querySelectorAll('.gantt-dragging').forEach(el=>el.classList.remove('gantt-dragging'));
+    canvas.querySelectorAll('.rm-cell').forEach(el=>{ el.style.transform=''; el.style.transition=''; });
   },true);
 
   canvas.addEventListener('dragover',e=>{
@@ -4314,6 +4315,27 @@ function _initGanttDrag(){
     _tip.style.left=Math.min(e.clientX+14,window.innerWidth-160)+'px';
     _tip.style.top=(e.clientY-34)+'px';
     _tip.style.display='block';
+    // Compute preview bar bounds for overlap detection
+    const hOff=_ganttDayOff(hoverDate);
+    let pL,pW;
+    if(_drag.mode==='move'){
+      pL=hOff*_ganttDayPx; pW=(_drag.durationDays+1)*_ganttDayPx;
+    } else if(_drag.mode==='left'){
+      pL=hOff*_ganttDayPx; pW=Math.max(1,_ganttDayOff(_drag.origEd)-hOff+1)*_ganttDayPx;
+    } else {
+      const oL=_ganttDayOff(_drag.origSd); pL=oL*_ganttDayPx; pW=Math.max(1,hOff-oL+1)*_ganttDayPx;
+    }
+    // Shift siblings that overlap the preview position
+    const row=canvas.querySelector(`.gantt-row[data-cat="${CSS.escape(_drag.taskCat)}"]`);
+    if(row){
+      row.querySelectorAll(`.rm-cell:not([data-task-id="${_drag.taskId}"])`).forEach(sib=>{
+        const sL=parseFloat(sib.style.left)||0;
+        const sW=parseFloat(sib.style.width)||_ganttDayPx*7;
+        const overlaps=pL<sL+sW&&pL+pW>sL;
+        sib.style.transition='transform 0.12s ease';
+        sib.style.transform=overlaps?'translateY(-26px)':'';
+      });
+    }
   },true);
 
   canvas.addEventListener('drop',e=>{
