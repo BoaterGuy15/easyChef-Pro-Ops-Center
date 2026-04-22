@@ -4341,12 +4341,13 @@ async function runMasterAI(btn){
     const atRisk=mine.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<=may11).map(t=>t.id).join(',');
     return `${p}: ${mine.length} tasks — ${active} active, ${notStarted} not started${overdue?' | OVERDUE:'+overdue:''}${atRisk?' | AT RISK for May 11:'+atRisk:''}`;
   }).join('\n');
-  // Section D — critical path to May 11
+  // Section D — critical path to May 11 with mini breadcrumbs
   const may11Critical=tasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<=may11);
   const critPath=may11Critical.map(t=>{
     const dLeft=Math.ceil((new Date(t.ed)-today)/(1000*60*60*24));
-    return `${t.id} ${t.name} — ${t.status} — owner:${t.owner||'—'} — due:${t.ed} (${dLeft<0?'OVERDUE '+Math.abs(dLeft)+'d':dLeft+'d left'})`;
-  }).join('\n')||'All pre-May 11 tasks complete.';
+    const mini=_buildTaskBreadcrumb(t.id,3);
+    return `${t.id} ${t.name} — ${t.status} — owner:${t.owner||'—'} — due:${t.ed} (${dLeft<0?'OVERDUE '+Math.abs(dLeft)+'d':dLeft+'d left'})\n  Recent activity:\n  ${mini.replace(/\n/g,'\n  ')}`;
+  }).join('\n\n')||'All pre-May 11 tasks complete.';
   // Section E — dependency violations
   const violations=[];
   tasks.forEach(t=>{
@@ -4521,6 +4522,53 @@ async function _buildDocContext(id, type){
   }
   return ctx;
 }
+function _buildTaskBreadcrumb(taskId, maxEvents){
+  const events=[];
+  const _t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  function _tsMs(ts){
+    if(!ts) return 0;
+    if(typeof ts==='number') return ts;
+    const n=Number(ts); if(!isNaN(n)&&n>1e12) return n;
+    const d=new Date(ts); return isNaN(d)?0:d.getTime();
+  }
+  function _fmtTs(ts){
+    const ms=_tsMs(ts); if(!ms) return '????-??-?? ??:??';
+    const d=new Date(ms);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  function push(ts, type, author, content){
+    events.push({ms:_tsMs(ts)||0, line:`[${_fmtTs(ts)}] [${type}]${author?' ['+author+']':''}: ${content}`});
+  }
+  // Task record
+  if(_t){
+    const sdMs=_t.sd?new Date(_t.sd+'T00:00:00').getTime():0;
+    push(sdMs,'TASK','system',`${_t.name} | cat:${_t.cat||'—'} | pri:${_t.pri||'—'} | owner:${_t.owner||'—'} | start:${_t.sd||'—'} | due:${_t.ed||'—'} | status:${_t.status}`);
+    if(_t.lastStatusChange) push(_t.lastStatusChange,'STATUS',_t.owner||'—',`changed to ${_t.status}`);
+    if(_t.flag) push(_t.lastStatusChange||sdMs,'FLAG',_t.owner||'—',`set to "${_t.flag}"`);
+    if(_t.notes&&_t.notes.trim()) push(sdMs,'NOTES','system',_t.notes.slice(0,400));
+    if(_t.decision&&_t.decision.trim()) push(sdMs,'DECISION','system',_t.decision.slice(0,400));
+  }
+  // Linked agenda items
+  AGENDA_DATA.filter(a=>a.taskId===taskId||a.id===taskId).forEach(a=>{
+    push(0,'AGENDA','system',`${a.title||'—'}${a.detail?' — '+a.detail.slice(0,200):''}${a.decision?' | decision:'+a.decision:''}${a.owner?' | owner:'+a.owner:''}${a.deadline?' | deadline:'+a.deadline:''}`);
+  });
+  // Team discussion notes sorted by ts
+  (_notesCache[taskId]||[]).slice().sort((a,b)=>_tsMs(a.ts)-_tsMs(b.ts)).forEach(n=>{
+    push(n.ts,'DISCUSSION',n.name||n.user||'?',(n.text||'').slice(0,400));
+  });
+  // Action plans
+  const ap=_actionPlansCache[taskId];
+  if(ap) push(ap.createdAt,'ACTION PLAN',ap.createdBy||'?',`plan created (${ap.id||'—'}): ${(ap.text||'').slice(0,300)}`);
+  const cp=(window._completedPlansCache||{})[taskId];
+  if(cp) push(cp.completedAt||cp.createdAt,'ACTION PLAN COMPLETE',cp.completedBy||cp.createdBy||'?',`marked done: ${(cp.text||'').slice(0,100)}`);
+  // Documents
+  (_docsCache['task_'+taskId]||_docsCache['agenda_'+taskId]||[]).slice().sort((a,b)=>_tsMs(a.addedAt)-_tsMs(b.addedAt)).forEach(doc=>{
+    push(doc.addedAt,'DOCUMENT',doc.addedBy||'?',`uploaded ${doc.name||'—'}${doc.url?' — '+doc.url:''}`);
+  });
+  events.sort((a,b)=>a.ms-b.ms);
+  const lines=events.map(e=>e.line);
+  return (maxEvents?lines.slice(-maxEvents):lines).join('\n')||'No breadcrumb data.';
+}
 async function runSuperAi(id, type, btn){
   console.log('[DGL] runSuperAi called', id, type);
   if(!CONFIG.sheetsUrl) return;
@@ -4588,6 +4636,8 @@ async function runSuperAi(id, type, btn){
   const completionNote=isComplete?'\n\nNOTE: THIS TASK IS MARKED COMPLETE/RESOLVED — confirm with the team if any follow-up is still needed before generating new action items.':'';
   // ── 10. Global summary ───────────────────────────────────────
   const globalCtx=_buildDGLContext().slice(0,1500);
+  // ── 11. Chronological breadcrumb ─────────────────────────────
+  const breadcrumb=_buildTaskBreadcrumb(id);
   const fullContext=`TASK: ${id} — ${taskName}
 CATEGORY: ${taskCat} | PRIORITY: ${taskPri} | STATUS: ${status} | OWNER: ${owner}
 DATES: Start ${taskSd||'—'} | End ${taskEd||'—'} | ${daysStr}
@@ -4625,6 +4675,9 @@ ${docCtx}
 
 PREVIOUS ACTION PLAN:
 ${apCtx}
+
+CHRONOLOGICAL BREADCRUMB TRAIL (everything that happened on this task, in order):
+${breadcrumb}
 
 ALL TASKS SUMMARY (cross-task breadcrumb context):
 ${globalCtx}`;
