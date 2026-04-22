@@ -3640,6 +3640,12 @@ function _excelSerialToDate(val){
   if(/^\d+$/.test(s)){ const n=parseInt(s); const d=new Date((n-25569)*86400*1000); return _MONTHS[d.getUTCMonth()]+' '+d.getUTCDate()+', '+d.getUTCFullYear(); }
   return s;
 }
+function _toYMD(d){
+  if(!d) return '';
+  if(typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const dt=new Date(d);
+  return isNaN(dt)?'':dt.toISOString().slice(0,10);
+}
 function _toInputDate(val){
   if(!val) return '';
   if(/^\d{4}-\d{2}-\d{2}$/.test(String(val))) return val;
@@ -4451,8 +4457,8 @@ function _openCreateTaskWithData(taskData){
     if(taskData&&taskData.name){const el=g('tm-name');if(el)el.value=taskData.name;}
     if(taskData&&taskData.priority){const el=g('tm-pri');if(el)el.value=taskData.priority;}
     if(taskData&&taskData.cat){const el=g('tm-cat');if(el)el.value=taskData.cat;}
-    if(taskData&&taskData.sd){const el=g('tm-sd');if(el)el.value=_toInputDate(taskData.sd);}
-    if(taskData&&taskData.ed){const el=g('tm-ed');if(el)el.value=_toInputDate(taskData.ed);}
+    if(taskData){const el=g('tm-sd');if(el)el.value=_toYMD(taskData.sd||new Date());}
+    if(taskData){const el=g('tm-ed');if(el)el.value=_toYMD(taskData.ed||new Date(Date.now()+30*24*60*60*1000));}
     if(taskData&&taskData.notes){const el=g('tm-notes');if(el){el.value=taskData.notes;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,300)+'px';}}
     if(taskData&&taskData.deps){const el=g('tm-deps');if(el)el.value=taskData.deps;}
     if(taskData&&taskData.actionPlan){const el=g('tm-action-plan');if(el){el.value=taskData.actionPlan;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,300)+'px';}}
@@ -4748,9 +4754,8 @@ function _bulkCreateTasks(){
   const _raciKeys=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',..._getCustomTeamMembers().map(m=>m.raciKey)];
   const _flagMap={risk:'⛔',week:'⚠️',today:'',decision:'',general:''};
   const prog=document.getElementById('bulk-create-progress');
-  const toYMD=d=>new Date(d).toISOString().slice(0,10);
-  const todayStr=toYMD(new Date());
-  const edDef=toYMD(new Date(Date.now()+30*24*60*60*1000));
+  const todayStr=_toYMD(new Date());
+  const edDef=_toYMD(new Date(Date.now()+30*24*60*60*1000));
   let createCount=0; const createdIds=[]; let prevTaskId=''; let skippedCount=0;
   for(let i=0;i<plans.length;i++){
     const chk=document.getElementById('bcp-chk-'+i); if(!chk||!chk.checked) continue;
@@ -4818,7 +4823,7 @@ function _bulkAddToAgenda(sourceId,sourceType){
   const srcTask=srcTaskId?DASHBOARD_DATA.tasks.find(t=>t.id===srcTaskId):null;
   let added=0;
   for(const p of selected){
-    const item={id:_genAgendaId(),title:p.title,detail:p.description||srcTask?.notes||'',decision:'',checked:false,owner:srcTask?.owner||p.owner||'',deadline:p.deadline||'',category:'Action Item',taskId:srcTaskId};
+    const item={id:_genAgendaId(),title:p.title,detail:p.description||srcTask?.notes||'',decision:'',checked:false,owner:srcTask?.owner||p.owner||'',deadline:_toYMD(p.deadline||new Date(Date.now()+14*24*60*60*1000)),category:'Action Item',taskId:srcTaskId};
     AGENDA_DATA.push(item);
     saveAgendaItemToSheets(item);
     added++;
@@ -7684,8 +7689,8 @@ function saveTaskModal(taskId){
   const pri = document.getElementById('tm-pri').value;
   const status = document.getElementById('tm-status').value;
   const owner = _tmOwners.length ? _tmOwners.join(' / ') : 'TBD';
-  const sd = document.getElementById('tm-sd').value;
-  const ed = document.getElementById('tm-ed').value;
+  const sd = _toYMD(document.getElementById('tm-sd')?.value);
+  const ed = _toYMD(document.getElementById('tm-ed')?.value);
   const deps = (document.getElementById('tm-deps').value||'').trim();
   const notes = (document.getElementById('tm-notes').value||'').trim();
   const actionPlan = (document.getElementById('tm-action-plan')?.value||'').trim();
@@ -7735,12 +7740,11 @@ function deleteTask(taskId){
 const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','sd','ed','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
 const PROTECTED_DATE_FIELDS=new Set(['sd','ed','lastStatusChange']);
 function _mergeTask(t,s){
-  const toYMD=v=>v&&typeof v==='string'&&v.includes('GMT')?new Date(v).toISOString().slice(0,10):v;
   _PERSIST_FIELDS.forEach(f=>{
     const incoming=s[f];
     if(incoming==null||incoming==='') return;
     if(PROTECTED_DATE_FIELDS.has(f)&&t[f]&&t[f].length===10) return;
-    t[f]=(f==='sd'||f==='ed')?toYMD(incoming):incoming;
+    t[f]=(f==='sd'||f==='ed')?_toYMD(incoming):incoming;
   });
 }
 
