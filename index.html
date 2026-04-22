@@ -5325,27 +5325,100 @@ function buildGapList(){
 function buildMilestones(){
   const el = document.getElementById('milestone-list');
   if(!el) return;
-  const milestones = [
-    {date:'This week',title:'Brand Guidelines + Designer Briefed',detail:'T-010. Searah intro to designer Monday. Critical upstream blocker.',color:'var(--red)'},
-    {date:'Apr 18',title:'Mary delivers website content ✓',detail:'T-012 committed and in progress.',color:'var(--green)'},
-    {date:'Apr 20',title:'Searah Day 1 + Team Alignment — 11AM ET',detail:'Gap resolution meeting. Budget ceiling set. Kill KPIs defined.',color:'var(--green)'},
-    {date:'Before May 11',title:'Zendesk + Support Emails Live',detail:'Sadee owns. support@easyChefPro.com + alpha/beta channel.',color:'var(--gold)'},
-    {date:'May 11',title:'Beta Launch — 50 Real Families 🧪',detail:'App stable. <3 min Aha confirmed. Sadee on concierge support.',color:'var(--red)'},
-    {date:'Jun 8',title:'Kill Criteria Checkpoint ⚠️',detail:'3 PMF KPIs reviewed. 40% Sean Ellis threshold. Delay if missed.',color:'var(--amber)'},
-    {date:'Jul 1',title:'🚀 Public Launch',detail:'All dependencies cleared. 10K waitlist target for Day 1.',color:'var(--green)'},
-  ];
-  el.innerHTML = milestones.map(m=>`
-    <div style="display:flex;gap:14px;padding-bottom:16px">
+  if(!DASHBOARD_DATA.meta.milestoneItems) DASHBOARD_DATA.meta.milestoneItems=[];
+  const items = DASHBOARD_DATA.meta.milestoneItems;
+  const canEdit = ['taylor','steve'].includes(window._DGL_USER||'');
+  const addBtn = canEdit ? `<button onclick="_openMilestoneModal()" style="background:transparent;border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:3px 10px;cursor:pointer;float:right;margin-bottom:8px" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ Add</button><div style="clear:both"></div>` : '';
+  if(!items.length){
+    el.innerHTML = addBtn + `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">No milestones — loading from Sheets...</div>`;
+    return;
+  }
+  el.innerHTML = addBtn + items.map((m,i)=>{
+    const title=m.title||m.label||'';
+    const desc=m.description||m.note||'';
+    const date=m.date||'';
+    const type=m.type||'Milestone';
+    const done=(m.status==='Complete'||m.status==='Achieved')||!!m.achievedDate;
+    const dotC=done?'var(--green)':m.status==='Active'?'var(--amber)':m.color||'var(--gold)';
+    const isLast=i===items.length-1;
+    const typePill=`<span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(201,168,76,0.1);color:var(--muted);padding:1px 5px;border-radius:3px">${type}</span>`;
+    const doneBadge=done?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green)">✓ ${m.achievedDate||'Complete'}</span>`:'';
+    const achieveBtn=canEdit&&!done?`<button onclick="_achieveMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✅ Achieve</button>`:'';
+    const deleteBtn=canEdit?`<button onclick="_deleteMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑️</button>`:'';
+    return `<div style="display:flex;gap:14px;padding-bottom:${isLast?'0':'16px'}">
       <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:80px">
-        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-bottom:6px">${m.date}</div>
-        <div style="width:10px;height:10px;border-radius:50%;background:${m.color};flex-shrink:0"></div>
-        <div style="width:1px;flex:1;background:var(--border);margin-top:4px"></div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-bottom:6px">${date}</div>
+        <div style="width:10px;height:10px;border-radius:50%;background:${dotC};flex-shrink:0"></div>
+        ${!isLast?`<div style="width:1px;flex:1;background:var(--border);margin-top:4px"></div>`:''}
       </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;flex:1;margin-bottom:0">
-        <div style="font-size:13px;font-weight:500;margin-bottom:3px">${m.title}</div>
-        <div style="font-size:11px;color:var(--muted)">${m.detail}</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;flex:1">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${desc?'4px':'0'}">
+          <span style="font-size:13px;font-weight:500">${title}</span>
+          ${typePill}${doneBadge}${achieveBtn}${deleteBtn}
+        </div>
+        ${desc?`<div style="font-size:11px;color:var(--muted)">${desc}</div>`:''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+function _openMilestoneModal(){
+  let modal=document.getElementById('ms-add-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='ms-add-modal';
+    modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)';
+    const IS='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:8px';
+    modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px 28px;width:420px;max-width:95vw">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">ADD MILESTONE</div>
+      <input id="ms-modal-title" type="text" placeholder="Title" style="${IS}">
+      <input id="ms-modal-date" type="date" style="${IS}">
+      <select id="ms-modal-type" style="${IS}"><option value="Milestone">Milestone</option><option value="Launch">Launch</option><option value="Beta">Beta</option></select>
+      <select id="ms-modal-status" style="${IS}"><option value="Upcoming">Upcoming</option><option value="Active">Active</option><option value="Complete">Complete</option></select>
+      <input id="ms-modal-desc" type="text" placeholder="Description (optional)" style="${IS}">
+      <input id="ms-modal-color" type="text" placeholder="Color e.g. var(--gold) or #f59e0b" style="${IS}">
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="_saveMilestoneModal()" style="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;padding:6px 16px;cursor:pointer">Save</button>
+        <button onclick="document.getElementById('ms-add-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 16px;cursor:pointer">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  const g=id=>document.getElementById(id);
+  ['ms-modal-title','ms-modal-desc','ms-modal-color'].forEach(id=>{const e=g(id);if(e)e.value='';});
+  if(g('ms-modal-date'))g('ms-modal-date').value='';
+  modal.style.display='flex';
+}
+function _saveMilestoneModal(){
+  const g=id=>document.getElementById(id);
+  const title=(g('ms-modal-title').value||'').trim();
+  if(!title) return;
+  const item={id:'ms-'+Date.now(),title,date:g('ms-modal-date').value||'',type:g('ms-modal-type').value||'Milestone',status:g('ms-modal-status').value||'Upcoming',description:(g('ms-modal-desc').value||'').trim(),color:g('ms-modal-color').value||'',taskIds:'',achievedDate:''};
+  if(!DASHBOARD_DATA.meta.milestoneItems) DASHBOARD_DATA.meta.milestoneItems=[];
+  DASHBOARD_DATA.meta.milestoneItems.push(item);
+  _saveMilestoneToSheets(item);
+  g('ms-add-modal').style.display='none';
+  buildMilestones();
+  buildMilestoneHistory();
+}
+function _achieveMilestone(idx){
+  const _d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  const today=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const item=DASHBOARD_DATA.meta.milestoneItems[idx];
+  item.status='Complete';
+  item.achievedDate=today;
+  _saveMilestoneToSheets(item);
+  triggerCelebration();
+  buildMilestones();
+  buildMilestoneHistory();
+  _offerRemoveBudgetPhase(item.title||item.label||'');
+}
+function _deleteMilestone(idx){
+  const item=DASHBOARD_DATA.meta.milestoneItems[idx];
+  if(!confirm('Delete milestone: '+(item.title||item.label||'')+'?')) return;
+  _deleteMilestoneFromSheets(item.id);
+  DASHBOARD_DATA.meta.milestoneItems.splice(idx,1);
+  buildMilestones();
+  buildMilestoneHistory();
 }
 
 // ── Team grid ───────────────────────────────────────────────
@@ -7948,11 +8021,16 @@ function loadRoadmapFromSheets(){
       if(!rows.length) return;
       DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({
         id:r.id||('ms-'+r.title),
-        label:r.title||'',
+        title:r.title||r.label||'',
         date:r.date||'',
-        note:r.description||'',
-        achievedDate:r.achievedDate||null
+        type:r.type||'Milestone',
+        status:r.status||'Upcoming',
+        description:r.description||r.note||'',
+        color:r.color||'',
+        taskIds:r.taskIds||'',
+        achievedDate:r.achievedDate||''
       }));
+      buildMilestones();
       buildMilestoneHistory();
     }).catch(()=>{});
 }
@@ -7961,17 +8039,15 @@ function _saveMilestoneToSheets(item){
   console.log('[DGL] Saving milestone to Sheets:', item.title||item.label);
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
     action:'roadmap_write',
-    item:{
-      id:item.id||('ms-'+item.label),
-      title:item.label||'',
-      date:item.date||'',
-      type:'milestone',
-      status:item.achievedDate?'Achieved':'Pending',
-      description:item.note||'',
-      color:'',
-      taskIds:'',
-      achievedDate:item.achievedDate||''
-    }
+    id:item.id||('ms-'+(item.title||item.label)),
+    title:item.title||item.label||'',
+    date:item.date||'',
+    type:item.type||'Milestone',
+    status:item.status||(item.achievedDate?'Complete':'Upcoming'),
+    description:item.description||item.note||'',
+    color:item.color||'',
+    taskIds:item.taskIds||'',
+    achievedDate:item.achievedDate||''
   })}).catch(()=>{});
 }
 function _deleteMilestoneFromSheets(id){
@@ -8024,11 +8100,11 @@ function buildMilestoneHistory(){
       </div>
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-weight:500;font-size:13px;color:var(--text)">${m.label}</span>
+          <span style="font-weight:500;font-size:13px;color:var(--text)">${m.title||m.label||''}</span>
           <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${m.date||'—'}</span>
           ${achBadge}${markBtn}
         </div>
-        ${m.note?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${m.note}</div>`:''}
+        ${(m.description||m.note)?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${m.description||m.note}</div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -8057,19 +8133,22 @@ function markMilestoneAchieved(idx){
   const today=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
   const item=DASHBOARD_DATA.meta.milestoneItems[idx];
   item.achievedDate=today;
+  item.status='Complete';
   _saveMilestoneToSheets(item);
   triggerCelebration();
+  buildMilestones();
   buildMilestoneHistory();
-  _offerRemoveBudgetPhase(item.label);
+  _offerRemoveBudgetPhase(item.title||item.label||'');
 }
 function saveMilestoneItem(){
-  const label=(document.getElementById('ms-item-label').value||'').trim();
-  if(!label) return;
+  const title=(document.getElementById('ms-item-label').value||'').trim();
+  if(!title) return;
   const date=document.getElementById('ms-item-date').value||'';
-  const note=(document.getElementById('ms-item-note').value||'').trim();
-  const item={id:'ms-'+Date.now(),label,date,note,achievedDate:null};
+  const description=(document.getElementById('ms-item-note').value||'').trim();
+  const item={id:'ms-'+Date.now(),title,date,type:'Milestone',status:'Upcoming',description,color:'',taskIds:'',achievedDate:''};
   DASHBOARD_DATA.meta.milestoneItems.push(item);
   _saveMilestoneToSheets(item);
+  buildMilestones();
   buildMilestoneHistory();
 }
 
