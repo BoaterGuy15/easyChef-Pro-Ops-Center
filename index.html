@@ -3831,7 +3831,7 @@ function _renderGanttMilestoneLines(){
     const marker=isDone?'✓':'◆';
 
     const line=document.createElement('div');
-    line.style.cssText=`position:absolute;left:${x}px;top:14px;width:2px;height:calc(100% - 14px);border-left:2px solid ${color};opacity:0.6;pointer-events:auto;cursor:default`;
+    line.style.cssText=`position:absolute;left:${x}px;top:14px;width:2px;height:calc(100% - 14px);border-left:2px solid ${color};opacity:0.5;pointer-events:auto;cursor:default`;
     line.addEventListener('mouseenter',e=>_showMTip(e,m,color));
     line.addEventListener('mousemove',e=>{ _mTip.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px'; _mTip.style.top=(e.clientY-10)+'px'; });
     line.addEventListener('mouseleave',_hideMTip);
