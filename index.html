@@ -9737,7 +9737,7 @@ function _showNotifActionMenu(event,notif){
 
   // Documents section
   if(taskId){
-    _lbl('Documents');
+    _lbl('DOCUMENTS');
     const cacheKey='task_'+taskId;
     const docs=_docsCache[cacheKey]||[];
     const docsContainer=_el('div',null);
@@ -9772,20 +9772,19 @@ function _showNotifActionMenu(event,notif){
       folderRow.appendChild(_el('span','font-size:12px;width:18px;text-align:center;flex-shrink:0','📁'));
       folderRow.appendChild(_el('span','font-family:\'DM Mono\',monospace;font-size:10px','Open Task Folder'));
       docsContainer.appendChild(folderRow);
-      // Upload row
+      // Upload Doc row
       const upInput=document.createElement('input');upInput.type='file';upInput.multiple=true;upInput.style.display='none';
       upInput.onchange=()=>{
         _handleStatusUpdateDrop(upInput.files,taskId,null,null,null);
-        // Re-render after slight delay to pick up cache update
         setTimeout(_renderMnuDocs,2500);
       };
       docsContainer.appendChild(upInput);
-      const upRow=_el('div','display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;color:var(--muted)');
-      upRow.onmouseover=()=>upRow.style.background='rgba(201,168,76,0.08)';
+      const upRow=_el('div','display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;color:var(--text)');
+      upRow.onmouseover=()=>upRow.style.background='rgba(201,168,76,0.1)';
       upRow.onmouseout=()=>upRow.style.background='transparent';
       upRow.onclick=()=>upInput.click();
-      upRow.appendChild(_el('span','font-size:12px;width:18px;text-align:center;flex-shrink:0','⬆️'));
-      upRow.appendChild(_el('span','font-family:\'DM Mono\',monospace;font-size:10px','Upload File'));
+      upRow.appendChild(_el('span','font-size:13px;width:18px;text-align:center;flex-shrink:0','📎'));
+      upRow.appendChild(_el('span',null,'Upload Doc'));
       docsContainer.appendChild(upRow);
     }
     _renderMnuDocs();
