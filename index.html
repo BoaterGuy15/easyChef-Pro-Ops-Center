@@ -9717,17 +9717,39 @@ function _showNotifActionMenu(event,notif){
     _sep();
   }
 
-  // Reply to Team
-  _item('💬','Reply to Team',()=>{
-    _closeMailboxPanel();
-    if(taskId){
-      _jumpToTask(taskId);
-      setTimeout(()=>{
-        const inp=document.querySelector('#raci-expand-row-'+taskId+' .discussion-input');
-        if(inp){inp.focus();inp.scrollIntoView({behavior:'smooth',block:'center'});}
-      },600);
-    }
-  });
+  // Update Status — inline expand
+  const usHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
+  usHdr.onmouseover=()=>usHdr.style.background='rgba(201,168,76,0.1)';
+  usHdr.onmouseout=()=>usHdr.style.background='transparent';
+  const usL=_el('span','display:flex;align-items:center;gap:8px');
+  usL.appendChild(_el('span','font-size:13px;width:18px;text-align:center','📊'));
+  usL.appendChild(_el('span',null,'Update Status'));
+  usHdr.appendChild(usL);usHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
+  const usSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15);padding:0 14px');
+  usHdr.onclick=(e)=>{e.stopPropagation();usSub.style.maxHeight=usSub.style.maxHeight==='130px'?'0':'130px';};
+  const usTa=_el('textarea','width:100%;box-sizing:border-box;margin-top:8px;padding:6px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;resize:none;outline:none;height:52px');
+  usTa.placeholder='Post a status update to the team Slack channel...';
+  usTa.onclick=e=>e.stopPropagation();
+  const usBtn=_el('button','margin:6px 0 8px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer','📤 Post Status Update');
+  usBtn.onclick=e=>{
+    e.stopPropagation();
+    const msg=(usTa.value||'').trim();
+    if(!msg) return;
+    const userName=window._DGL_USER||'system';
+    const taskName=t?(t.name||''):'';
+    const taskStatus=t?(t.status||''):'';
+    const fullMsg='['+taskId+'] STATUS UPDATE by '+userName+': '+msg+'\nTask: '+taskName+'\nStatus: '+taskStatus+'\n🔗 https://ops.dgl.dev/#'+taskId;
+    const linked=taskId?_getTaskSlackLink(taskId):{};
+    const chId=linked.channelId||'';
+    const chName=(linked.channelName||chId).replace('#','');
+    const ch=(_slackChannelsCache||[]).find(c=>c.name===chName)||(_slackChannelsCache||[]).find(c=>c.id===chId);
+    if(ch?.id&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch.id)+'&text='+encodeURIComponent(fullMsg)+'&user='+encodeURIComponent(userName)).catch(()=>{});
+    if(taskId) _appendNote(taskId,msg,'task');
+    if(taskId) _logNotification(taskId,notif.toUser||'',chId,fullMsg,'progress-report');
+    _closeNotifActionMenu();
+  };
+  usSub.appendChild(usTa);usSub.appendChild(usBtn);
+  mnu.appendChild(usHdr);mnu.appendChild(usSub);
 
   // Post to Slack — inline expand
   const slHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
