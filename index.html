@@ -9411,7 +9411,7 @@ async function _loadUserNotifications(userKey){
   if(!CONFIG.sheetsUrl||!userKey||userKey==='view') return;
   console.log('[DGL] Fetching notifications for:', userKey);
   try{
-    const r=await fetch(CONFIG.sheetsUrl+'?action=notification_read');
+    const r=await fetch(CONFIG.sheetsUrl+'?action=notifications_read');
     const d=await r.json();
     const all=Array.isArray(d)?d:(d.notifications||[]);
     console.log('[DGL] All notifications:', all.length);
@@ -9431,7 +9431,7 @@ async function _loadNotifLog(){
   el.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted)">Loading…</div>';
   if(!CONFIG.sheetsUrl){ el.innerHTML='<div style="padding:16px;color:var(--muted)">No Sheets URL configured.</div>'; return; }
   try{
-    const r=await fetch(CONFIG.sheetsUrl+'?action=notification_read');
+    const r=await fetch(CONFIG.sheetsUrl+'?action=notifications_read');
     const d=await r.json();
     const all=(Array.isArray(d)?d:(d.notifications||[])).sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
     if(!all.length){ el.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted)">No notifications logged.</div>'; return; }
