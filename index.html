@@ -9660,7 +9660,22 @@ function _showNotifActionMenu(event,notif){
   _sep();
 
   if(t){
-    _item('📋','View Task Details',()=>{_closeMailboxPanel();_jumpToTask(taskId);});
+    _item('📋','View Task Details',()=>{
+      _closeNotifActionMenu();
+      _closeMailboxPanel();
+      showPage('raci');
+      setTimeout(()=>{
+        const trEl=document.querySelector('[data-task-id="'+taskId+'"]');
+        if(trEl){
+          const existing=document.getElementById('raci-expand-row-'+taskId);
+          if(!existing) toggleTaskExpand(taskId,trEl);
+          setTimeout(()=>{
+            const panel=document.getElementById('raci-expand-row-'+taskId);
+            if(panel) panel.scrollIntoView({behavior:'smooth',block:'start'});
+          },300);
+        }
+      },400);
+    });
     _item('✏️','Edit Task',()=>{_closeMailboxPanel();showTaskModal(taskId);});
     _sep();
 
