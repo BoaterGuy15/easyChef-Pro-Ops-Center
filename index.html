@@ -5476,7 +5476,7 @@ function _agendaItemHtml(it,i,canEdit){
     ?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:${linkedTask.ed?'var(--amber)':'var(--muted)'}">${linkedTask.ed?_excelSerialToDate(linkedTask.ed):'—'}</span>`
     :`<input type="date" value="${_toInputDate(it.deadline||'')}" onchange="updateAgendaField('${it.id}','deadline',this.value)" ${canEdit?'':'disabled'} style="background:transparent;border:none;border-bottom:1px solid ${it.deadline?'var(--amber)':'var(--border)'};color:${it.deadline?'var(--amber)':'var(--muted)'};font-family:'DM Mono',monospace;font-size:10px;outline:none;padding:1px 0">`;
   const _agRowFst=_getFlagState(it.flag);
-  return `<div class="agenda-item-row" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" onclick="if(!event.target.closest('select,input,button,a,textarea,[contenteditable],.ag-no-expand'))toggleAgendaExpand('${it.id}',this)" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);border-left:3px solid ${_agRowFst?_agRowFst.color:'transparent'};padding-left:${_agRowFst?'9px':'0'};opacity:${done?'0.42':'1'};transition:opacity 0.2s;cursor:pointer">
+  return `<div class="agenda-item-row" id="agenda-item-${it.id}" data-id="${it.id}" draggable="${canEdit?'true':'false'}" ondragstart="_agendaDragStart(event,'${it.id}')" onclick="if(!event.target.closest('select,input,button,a,textarea,[contenteditable],.ag-no-expand'))toggleAgendaExpand('${it.id}',this)" style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid rgba(37,42,53,0.4);border-left:3px solid ${_agRowFst?_agRowFst.color:'transparent'};padding-left:${_agRowFst?'9px':'0'};opacity:${done?'0.42':'1'};transition:opacity 0.2s;cursor:pointer">
     ${drag}${chk}
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:24px;gap:2px">
       <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--gold-dim);line-height:1.1">${String(i+1).padStart(2,'0')}</div>
@@ -10460,7 +10460,7 @@ function _buildPersonalBriefing(userKey){
   if(!agItems.length) s2+='<div class="briefing-empty">No agenda items assigned this week.</div>';
   else agItems.forEach(a=>{
     const checked=a.checked;
-    const agOnclk=`_closeBriefingPanel();showPage('agenda');setTimeout(()=>{const el=document.getElementById('agenda-item-${a.id}');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},400)`;
+    const agOnclk=`_closeBriefingPanel();showPage('agenda');setTimeout(()=>{const el=document.getElementById('agenda-item-${a.id}')||document.querySelector('[data-agenda-id=\\"${a.id}\\"]');if(el){el.click();setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),200);}},400)`;
     s2+=`<div class="briefing-row" style="cursor:pointer;transition:background 0.15s;border-radius:4px;padding:6px 4px" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''" onclick="${agOnclk}">
       <div class="briefing-row-name" style="border-left:2px solid ${checked?'var(--muted)':'var(--gold)'};padding-left:8px;${checked?'opacity:0.5;text-decoration:line-through;':''}">
         ${(a.title||'Untitled').slice(0,60)}
