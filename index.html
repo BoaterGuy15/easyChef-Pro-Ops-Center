@@ -10315,7 +10315,7 @@ function _openStatusUpdateModal(taskId,notif){
 
   const _suEsc=e=>{if(e.key==='Escape'){_closeStatusUpdateModal();document.removeEventListener('keydown',_suEsc);}};
   document.addEventListener('keydown',_suEsc);
-  ov._cleanup=()=>{document.removeEventListener('mousemove',_suMove);document.removeEventListener('mouseup',_suUp);document.removeEventListener('keydown',_suEsc);};
+  ov._cleanup=()=>{document.removeEventListener('keydown',_suEsc);};
 }
 function _notifyTaskAction(taskId,actionText){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
