@@ -3210,7 +3210,7 @@ function deleteDoc(docId,sourceType,sourceId){
   if(!confirm('Remove this document?')) return;
   const key=sourceType+'_'+sourceId;
   if(_docsCache[key]) _docsCache[key]=_docsCache[key].filter(d=>d.id!==docId);
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).catch(()=>{});
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).then(r=>r.json()).then(d=>{console.log('[DGL] Doc deleted:',docId,'result:',d.ok);}).catch(()=>{});
   _renderDocsList(sourceType,sourceId);
 }
 function _buildDocsSection(sourceType,sourceId,sourceName){
