@@ -8002,21 +8002,19 @@ function _buildWorkSummaryHtml(userKey,raciKey,myTasks){
   </div>`;
 }
 function buildTeamGrid(){
-  const el = document.getElementById('team-grid');
+  const el=document.getElementById('team-grid');
   if(!el) return;
-  const _isAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+  const viewerKey=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
+  const _isAdmin=['taylor','steve'].includes(viewerKey);
   const _hrBtn2=document.getElementById('team-btn-hr');
   if(_hrBtn2) _hrBtn2.style.display=_isAdmin?'':'none';
-  const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
-  const today = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
-  const RACI_KEY = {
-    'Taylor Reasoner':'Taylor','Adam G':'Adam','Hammad':'Hammad',
-    'Steve':'Steve','Mary':'Mary','JR':'JR',
-    'Searah Teitgen':'Searah','Sadee Tison':'Sadee'
-  };
-  const _defEdits=_getDefaultTeamEdits();
+  const _d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+  const _fmt2=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const today=_fmt2(_d);
+  const _d7=new Date(_d);_d7.setDate(_d.getDate()+7);
+  const week7=_fmt2(_d7);
+  const RACI_KEY={'Taylor Reasoner':'Taylor','Adam G':'Adam','Hammad':'Hammad','Steve':'Steve','Mary':'Mary','JR':'JR','Searah Teitgen':'Searah','Sadee Tison':'Sadee'};
   const customMembers=_getCustomTeamMembers();
-  // Build unified map keyed by userKey
   const allMap={};
   DASHBOARD_DATA.team.forEach(m=>{
     const key=RACI_KEY[m.name]||m.name;
@@ -8024,86 +8022,214 @@ function buildTeamGrid(){
     const userKey=defMeta?defMeta.user:key.toLowerCase();
     allMap[userKey]={type:'default',userKey,m,key};
   });
-  customMembers.forEach((cm,ci)=>{ allMap[cm.user]={type:'custom',userKey:cm.user,cm,ci}; });
-  // Apply saved order, append any new members not yet in saved order
+  customMembers.forEach((cm,ci)=>{allMap[cm.user]={type:'custom',userKey:cm.user,cm,ci};});
   const savedOrder=_getTeamOrder();
-  const ordered=[...savedOrder.filter(k=>allMap[k]).map(k=>allMap[k]),
-    ...Object.values(allMap).filter(e=>!savedOrder.includes(e.userKey))];
-  const dragHandle=`<span class="tc-drag-handle" style="position:absolute;top:10px;left:10px;color:var(--border);font-size:14px;cursor:grab;opacity:0;transition:opacity 0.15s;user-select:none" title="Drag to reorder">⠿</span>`;
-  el.innerHTML=ordered.map(entry=>{
+  const ordered=[...savedOrder.filter(k=>allMap[k]).map(k=>allMap[k]),...Object.values(allMap).filter(e=>!savedOrder.includes(e.userKey))];
+  const CLR={gold:'var(--gold)',muted:'var(--muted)',green:'var(--green)',amber:'var(--amber)',red:'var(--red)',teal:'var(--teal)',purple:'var(--purple)',blue:'#60a5fa'};
+  const sColor=s=>s==='Complete'||s==='Done'?'var(--green)':s==='Blocked'?'var(--red)':s==='In Progress'||s==='Started'?'var(--gold)':'var(--muted)';
+
+  el.innerHTML='';
+  ordered.forEach(entry=>{
+    const userKey=entry.userKey;
+    const _hrP=_hrProfilesCache[userKey]||{};
+    if(_hrP.status==='inactive') return;
+    let raciKey,displayName,displayRole,cm,ci,m;
     if(entry.type==='default'){
-      const {m,key,userKey}=entry;
-      if((_hrProfilesCache[userKey]||{}).status==='inactive') return '';
-      const ed=_defEdits[userKey]||{};
-      const _hrP=_hrProfilesCache[userKey]||{};
-      const displayName=_hrP.name||m.name, displayRole=_hrP.role||m.role;
-      const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
-      const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
-      const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
-      const inProg=myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
-      const notStarted=myTasks.filter(t=>t.status==='Not Started').length;
-      const cls=m.isNew?'tc new-hire':m.isNewTeal?'tc new-teal':'tc';
-      const badgeHtml=m.isNew?'<span class="tc-badge">NEW · APR 20</span>':m.isNewTeal?'<span class="tc-badge teal">ACTIVATED</span>':'';
-      const tasksHtml=myTasks.slice(0,5).map(t=>{
-        const isWarn=t.flag&&(t.flag.startsWith('⛔')||t.flag.startsWith('⚠️'));
-        const isDone=t.status==='Done'||t.status==='Complete';
-        const color=isWarn?'var(--red)':isDone?'var(--green)':'var(--muted)';
-        const label=t.name.length>28?t.name.substring(0,26)+'…':t.name;
-        return `<div class="tc-task"><span class="tc-task-name" style="color:${color}">${t.id}: ${label}</span></div>`;
-      }).join('');
-      const statsHtml=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
-        .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
-      const warnHtml=m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
-      const noteHtml=m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
-      const _cu=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
-      const _canEditDefault=(['taylor','steve'].includes(_cu)||_cu===userKey)&&_cu!=='view'&&_cu!=='';
-      const editBtnDefault=_canEditDefault?`<button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit Profile">✏️ Edit</button>`:'';
-      return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
-        ${dragHandle}
-        <div class="tc-name">${displayName}${badgeHtml}</div>
-        <div class="tc-role">${displayRole}</div>
-        ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${warnHtml}${noteHtml}
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnDefault?`<div style="display:flex;gap:4px">${editBtnDefault}</div>`:''}</div>
-        ${_buildWorkSummaryHtml(userKey,key,myTasks)}
-      </div>`;
+      ({m,key:raciKey}=entry);
+      const ed=(_getDefaultTeamEdits()[userKey])||{};
+      displayName=_hrP.name||m.name; displayRole=_hrP.role||m.role;
     } else {
-      const {cm,ci}=entry;
-      if((_hrProfilesCache[cm.user]||{}).status==='inactive') return '';
-      const key=cm.raciKey;
-      const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[key]==='R'||t[key]==='A/R');
-      const done=myTasks.filter(t=>t.status==='Done'||t.status==='Complete').length;
-      const overdue=myTasks.filter(t=>t.status!=='Done'&&t.status!=='Complete'&&t.ed&&t.ed<today).length;
-      const inProg=myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
-      const notStarted=myTasks.filter(t=>t.status==='Not Started').length;
-      const tasksHtml2=myTasks.slice(0,5).map(t=>{
-        const isWarn=t.flag&&(t.flag.startsWith('⛔')||t.flag.startsWith('⚠️'));
-        const isDone=t.status==='Done'||t.status==='Complete';
-        const col2=isWarn?'var(--red)':isDone?'var(--green)':'var(--muted)';
-        const label=t.name.length>28?t.name.substring(0,26)+'…':t.name;
-        return `<div class="tc-task"><span class="tc-task-name" style="color:${col2}">${t.id}: ${label}</span></div>`;
-      }).join('');
-      const statsHtml2=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
-        .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
-      const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
-      const _cu2=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
-      const _canEditCustom=(['taylor','steve'].includes(_cu2)||_cu2===cm.user)&&_cu2!=='view'&&_cu2!=='';
-      const editBtnCustom=_canEditCustom?`<button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit Profile">✏️ Edit</button>`:'';
-      const _hrP2=_hrProfilesCache[cm.user]||{};
-      return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
-        ${dragHandle}
-        <div class="tc-name">${_hrP2.name||cm.name}${accessLabel}</div>
-        <div class="tc-role">${_hrP2.role||cm.role}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
-        ${tasksHtml2}<div class="tc-stats">${statsHtml2}</div>
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnCustom?`<div style="display:flex;gap:4px">${editBtnCustom}</div>`:''}</div>
-        ${_buildWorkSummaryHtml(cm.user,key,myTasks)}
-      </div>`;
+      ({cm,ci}=entry); raciKey=cm.raciKey;
+      displayName=_hrP.name||cm.name; displayRole=_hrP.role||cm.role;
     }
-  }).join('');
+    const accentClr=CLR[_hrP.color||(DEFAULT_TEAM_MEMBERS[userKey]||{}).color||'']||'var(--gold)';
+    const isActive=_hrP.status!=='inactive';
+    const myTasks=DASHBOARD_DATA.tasks.filter(t=>{const r=t[raciKey]||'';return r==='R'||r==='A'||r==='A/R'||r==='AR';});
+    const myTaskIds=new Set(myTasks.map(t=>t.id));
+
+    const cls=m&&m.isNew?'tc new-hire':m&&m.isNewTeal?'tc new-teal':'tc';
+    const card=document.createElement('div');
+    card.className=cls; card.draggable=true; card.dataset.userKey=userKey;
+    card.style.cssText='position:relative;border-top:3px solid '+accentClr;
+
+    function _e(tag,css,txt){const e=document.createElement(tag);if(css)e.style.cssText=css;if(txt!=null)e.textContent=txt;return e;}
+
+    // Card-level drag handle
+    const dh=_e('span','position:absolute;top:10px;left:10px;color:var(--border);font-size:14px;cursor:grab;opacity:0;transition:opacity 0.15s;user-select:none','⠿');
+    dh.className='tc-drag-handle'; card.appendChild(dh);
+
+    // Header — click opens briefing for this member
+    const hdr=_e('div','display:flex;align-items:flex-start;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none');
+    hdr.title='Open '+displayName+''s briefing';
+    hdr.onclick=()=>{
+      const bp=document.getElementById('briefing-panel-body');
+      if(bp){bp.innerHTML='';bp.appendChild(_buildPersonalBriefing(userKey));}
+      document.getElementById('briefing-panel')?.classList.add('open');
+      document.getElementById('panel-overlay')?.classList.add('open');
+    };
+    const hdrL=_e('div','min-width:0;flex:1;padding-left:20px');
+    const nameRow=_e('div','display:flex;align-items:center;gap:5px;flex-wrap:wrap');
+    nameRow.appendChild(_e('span','font-size:10px;line-height:1',isActive?'🟢':'🔴'));
+    nameRow.appendChild(_e('span','font-size:13px;font-weight:500;color:var(--text)',displayName));
+    if(m&&m.isNew) nameRow.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:1px 4px','NEW'));
+    hdrL.appendChild(nameRow);
+    hdrL.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px',displayRole));
+    hdr.appendChild(hdrL);
+    card.appendChild(hdr);
+
+    // Sections container
+    const secCont=_e('div','display:flex;flex-direction:column;gap:6px');
+    const secOrderKey='dgl_card_order_'+viewerKey+'_'+userKey;
+    const secSaved=JSON.parse(localStorage.getItem(secOrderKey)||'null');
+
+    function mkSec(id,icon,label,bClr,buildFn){
+      const sec=_e('div','border-radius:6px;border-left:2px solid '+bClr+';background:rgba(0,0,0,0.14);overflow:hidden');
+      sec.dataset.sectionId=id;
+      sec.draggable=true;
+      sec.addEventListener('dragstart',e=>{e.stopPropagation();e.dataTransfer.setData('text/plain',id);setTimeout(()=>sec.style.opacity='0.4',0);});
+      sec.addEventListener('dragend',()=>{sec.style.opacity='1';sec.style.borderLeftColor=bClr;});
+      sec.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();sec.style.borderLeftColor='var(--gold)';});
+      sec.addEventListener('dragleave',()=>sec.style.borderLeftColor=bClr);
+      sec.addEventListener('drop',e=>{
+        e.preventDefault();e.stopPropagation();sec.style.borderLeftColor=bClr;
+        const fromId=e.dataTransfer.getData('text/plain');
+        const fromEl=secCont.querySelector('[data-section-id="'+fromId+'"]');
+        if(fromEl&&fromEl!==sec){
+          const kids=[...secCont.children],fi=kids.indexOf(fromEl),ti=kids.indexOf(sec);
+          if(fi<ti) secCont.insertBefore(fromEl,sec.nextSibling); else secCont.insertBefore(fromEl,sec);
+          localStorage.setItem(secOrderKey,JSON.stringify([...secCont.children].map(s=>s.dataset.sectionId).filter(Boolean)));
+        }
+      });
+      const sHdr=_e('div','display:flex;align-items:center;gap:4px;padding:4px 8px 3px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:grab;user-select:none');
+      sHdr.appendChild(_e('span','font-size:10px;color:var(--border)','⠿'));
+      sHdr.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:8px;color:'+bClr+';letter-spacing:1.5px;text-transform:uppercase;font-weight:700',icon+' '+label));
+      sec.appendChild(sHdr);
+      const body=_e('div','padding:6px 8px 8px');
+      buildFn(body);sec.appendChild(body);return sec;
+    }
+
+    const builtSecs=[];
+
+    // A: MY TASKS
+    {
+      const complete=myTasks.filter(t=>t.status==='Complete'||t.status==='Done').length;
+      const inProg=myTasks.filter(t=>['Started','In Progress'].includes(t.status)).length;
+      const notSt=myTasks.filter(t=>t.status==='Not Started').length;
+      const overdue=myTasks.filter(t=>t.status!=='Complete'&&t.status!=='Done'&&t.ed&&t.ed<today);
+      const nextDue=myTasks.filter(t=>t.status!=='Complete'&&t.status!=='Done'&&t.ed).sort((a,b)=>a.ed.localeCompare(b.ed))[0];
+      builtSecs.push({id:'tasks',el:mkSec('tasks','📊','MY TASKS','var(--gold)',body=>{
+        const row=_e('div','display:flex;align-items:flex-end;gap:10px;margin-bottom:5px;flex-wrap:wrap');
+        [[complete,'Complete','var(--green)'],[inProg,'In Prog','var(--gold)'],[notSt,'Not Started','var(--muted)']].forEach(([v,k,c])=>{
+          const d=_e('div','display:flex;flex-direction:column;align-items:center');
+          d.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:'+c,''+v));
+          d.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:7px;color:var(--muted);letter-spacing:0.3px',k));
+          row.appendChild(d);
+        });
+        if(overdue.length) row.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--red);background:rgba(239,68,68,0.1);border-radius:3px;padding:1px 5px;margin-left:2px',overdue.length+' overdue ⛔'));
+        body.appendChild(row);
+        if(nextDue){
+          const nd=_e('div','font-family:\'DM Mono\',monospace;font-size:9px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.05);cursor:pointer;border-radius:3px');
+          nd.onmouseover=()=>nd.style.background='rgba(201,168,76,0.07)';nd.onmouseout=()=>nd.style.background='';
+          nd.onclick=e=>{e.stopPropagation();_viewTaskDetails(nextDue.id);};
+          nd.appendChild(_e('span','color:var(--gold)',nextDue.id+' '));
+          nd.appendChild(_e('span','color:var(--text)',nextDue.name.slice(0,26)+' '));
+          nd.appendChild(_e('span','color:var(--muted)','— Due '+nextDue.ed));
+          body.appendChild(nd);
+        } else body.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)','All clear ✓'));
+      })});
+    }
+
+    // B: PRIORITY
+    {
+      const priTasks=myTasks.filter(t=>t.pri==='High'&&t.status!=='Complete'&&t.status!=='Done').sort((a,b)=>(a.ed||'').localeCompare(b.ed||'')).slice(0,3);
+      if(priTasks.length) builtSecs.push({id:'priority',el:mkSec('priority','🚨','PRIORITY','var(--red)',body=>{
+        priTasks.forEach(t=>{
+          const row=_e('div','display:flex;align-items:center;gap:5px;padding:2px 0;cursor:pointer;border-radius:3px');
+          row.onmouseover=()=>row.style.background='rgba(239,68,68,0.08)';row.onmouseout=()=>row.style.background='';
+          row.onclick=e=>{e.stopPropagation();_viewTaskDetails(t.id);};
+          row.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--red);flex-shrink:0',t.id));
+          row.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap',' · '+t.name.slice(0,22)));
+          const sb=_e('span','font-family:\'DM Mono\',monospace;font-size:8px;color:'+sColor(t.status)+';border:1px solid '+sColor(t.status)+';border-radius:3px;padding:0 3px;flex-shrink:0',t.status);
+          row.appendChild(sb);body.appendChild(row);
+        });
+      })});
+    }
+
+    // C: ACTION PLANS
+    {
+      const aps=Object.values(_actionPlansCache||{}).filter(p=>p.createdBy===userKey||(p.linkedTaskId&&myTaskIds.has(p.linkedTaskId)));
+      aps.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+      const active=aps.filter(p=>p.status!=='complete');
+      builtSecs.push({id:'plans',el:mkSec('plans','⚡','ACTION PLANS','var(--amber)',body=>{
+        body.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:3px',active.length+' active plan'+(active.length!==1?'s':'')));
+        if(aps.length){const row=_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap');row.textContent='📋 '+(aps[0].text||'').replace(/\n/g,' ').slice(0,42)||'Plan';body.appendChild(row);}
+        else body.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)','No plans'));
+      })});
+    }
+
+    // D: THIS WEEK
+    {
+      const wkTasks=myTasks.filter(t=>(t.sd&&t.sd>=today&&t.sd<=week7)||(t.ed&&t.ed>=today&&t.ed<=week7)).sort((a,b)=>(a.ed||a.sd||'').localeCompare(b.ed||b.sd||''));
+      builtSecs.push({id:'week',el:mkSec('week','📅','THIS WEEK','#60a5fa',body=>{
+        if(!wkTasks.length){body.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)','No tasks this week'));return;}
+        wkTasks.slice(0,4).forEach(t=>{
+          const row=_e('div','display:flex;align-items:baseline;gap:4px;padding:2px 0;cursor:pointer;border-radius:3px');
+          row.onmouseover=()=>row.style.background='rgba(96,165,250,0.07)';row.onmouseout=()=>row.style.background='';
+          row.onclick=e=>{e.stopPropagation();_viewTaskDetails(t.id);};
+          row.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:8px;color:#60a5fa;flex-shrink:0',t.id));
+          row.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap',' · '+t.name.slice(0,20)));
+          row.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);white-space:nowrap',t.ed||t.sd||''));
+          body.appendChild(row);
+        });
+        if(wkTasks.length>4) body.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted)','+'+( wkTasks.length-4)+' more'));
+      })});
+    }
+
+    // E: NOTIFICATIONS
+    {
+      const allRaw=window._allNotificationsRaw||window._userNotifications||[];
+      const memberNotifs=allRaw.filter(n=>n.toUser===userKey);
+      const readIds=_readNotifIds();
+      const unread=memberNotifs.filter(n=>!readIds.has(n.id)).length;
+      const last=memberNotifs[0];
+      builtSecs.push({id:'notifs',el:mkSec('notifs','📬','NOTIFICATIONS','var(--purple)',body=>{
+        const cntRow=_e('div','display:flex;align-items:center;gap:6px;margin-bottom:4px');
+        cntRow.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:9px;background:'+(unread>0?'rgba(167,139,250,0.18)':'rgba(0,0,0,0.12)')+';color:'+(unread>0?'var(--purple)':'var(--muted)')+';border-radius:3px;padding:1px 6px',unread+' unread'));
+        cntRow.appendChild(_e('span','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)',memberNotifs.length+' total'));
+        body.appendChild(cntRow);
+        if(last){const row=_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap');row.textContent=(last.type||'notif')+' · '+(last.taskId||last.task||last.message||'').slice(0,30);body.appendChild(row);}
+        else body.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)','No notifications'));
+      })});
+    }
+
+    // Sort by saved order
+    if(secSaved&&secSaved.length) builtSecs.sort((a,b)=>{const ai=secSaved.indexOf(a.id),bi=secSaved.indexOf(b.id);return(ai===-1?999:ai)-(bi===-1?999:bi);});
+    builtSecs.forEach(({el:s})=>secCont.appendChild(s));
+    card.appendChild(secCont);
+
+    // Footer
+    const foot=_e('div','border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center');
+    const profBtn=_e('button','font-family:\'DM Mono\',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer','Profile');
+    profBtn.onclick=()=>openProfileModal(userKey);foot.appendChild(profBtn);
+    const _cu=viewerKey;
+    const _canEdit=(['taylor','steve'].includes(_cu)||_cu===userKey)&&_cu!=='view'&&_cu!=='';
+    if(_canEdit){
+      const editBtn=_e('button','font-family:\'DM Mono\',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer','✏️ Edit');
+      editBtn.onclick=()=>{if(entry.type==='default') openDefaultTeamMemberModal(userKey); else openTeamMemberModal(ci);};
+      foot.appendChild(editBtn);
+    }
+    card.appendChild(foot);
+    if(entry.type==='default'&&m){
+      if(m.warn) card.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--red);margin-top:4px',m.warn));
+      if(m.note) card.appendChild(_e('div','font-family:\'DM Mono\',monospace;font-size:9px;color:var(--green);margin-top:4px',m.note));
+    }
+    el.appendChild(card);
+  });
+
   _initTeamGridDnd(el);
   const lbl=document.getElementById('team-section-label');
   const total=DASHBOARD_DATA.team.length+customMembers.length;
-  if(lbl) lbl.textContent=`Team Responsibility Summary — ${total} Members`;
+  if(lbl) lbl.textContent='Team Responsibility Summary — '+total+' Members';
 }
 
 // ── Agenda ──────────────────────────────────────────────────
@@ -9541,6 +9667,7 @@ async function _loadUserNotifications(userKey){
     const r=await fetch(CONFIG.sheetsUrl+'?action=notifications_read');
     const d=await r.json();
     const all=Array.isArray(d)?d:(d.notifications||[]);
+    window._allNotificationsRaw=all;
     console.log('[DGL] All notifications:', all.length);
     const _delSet=new Set(JSON.parse(localStorage.getItem('dgl_del_'+(userKey||''))||'[]'));
     const mine=all.filter(n=>(n.toUser===userKey||n.toUser===''||!n.toUser)&&!_delSet.has(n.id));
