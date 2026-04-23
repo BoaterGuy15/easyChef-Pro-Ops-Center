@@ -9732,6 +9732,7 @@ function _showNotifActionMenu(event,notif){
   }
 
   _item('📊','Update Status',()=>{ _closeNotifActionMenu(); _openStatusUpdateModal(taskId,notif); });
+  _item('📎','Upload Doc',()=>{ _closeNotifActionMenu(); _openQuickUploadModal(taskId,notif); });
   _sep();
 
   const isRead=_readNotifIds().has(notif.id);
@@ -9757,6 +9758,108 @@ function _showNotifActionMenu(event,notif){
     document.addEventListener('click',_closeNotifActionMenu,false);
     document.addEventListener('keydown',_notifMenuEsc,true);
   },0);
+}
+function _closeQuickUploadModal(){
+  const ov=document.getElementById('quick-upload-overlay');
+  if(ov){if(ov._cleanup)ov._cleanup();ov.remove();}
+}
+function _openQuickUploadModal(taskId,notif){
+  _closeQuickUploadModal();
+  notif=notif||{};
+  const t=taskId?DASHBOARD_DATA.tasks.find(x=>x.id===taskId):null;
+  const taskName=t?(t.name||''):'';
+  const linked=taskId?_getTaskSlackLink(taskId):{};
+  const chId=linked.channelId||'';
+  const chDisplayName=linked.channelName||chId||'';
+
+  const ov=document.createElement('div');
+  ov.id='quick-upload-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
+  ov.onclick=e=>{if(e.target===ov){_closeQuickUploadModal();_showNotifActionMenu({clientX:window.innerWidth/2,clientY:window.innerHeight/2,stopPropagation:()=>{}},notif);}};
+
+  const modal=document.createElement('div');
+  modal.style.cssText="position:fixed;z-index:99999;width:520px;height:420px;left:calc(50% - 260px);top:calc(50% - 210px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:300px;min-height:250px";
+
+  // Header — draggable
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:move;user-select:none;flex-shrink:0';
+  const hdrL=document.createElement('div');hdrL.style.cssText='display:flex;align-items:center;gap:10px;overflow:hidden';
+  const hdrIco=document.createElement('span');hdrIco.textContent='📎';hdrIco.style.fontSize='15px';
+  const hdrTit=document.createElement('span');
+  hdrTit.style.cssText="font-size:11px;font-weight:700;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+  hdrTit.textContent='UPLOAD DOCUMENT'+(taskId?' — '+taskId+(taskName?' · '+taskName.slice(0,22)+(taskName.length>22?'…':''):''):'');
+  hdrL.appendChild(hdrIco);hdrL.appendChild(hdrTit);
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 0 0 12px;flex-shrink:0;font-family:'DM Mono',monospace";
+  closeBtn.onclick=()=>{_closeQuickUploadModal();_showNotifActionMenu({clientX:window.innerWidth/2,clientY:window.innerHeight/2,stopPropagation:()=>{}},notif);};
+  hdr.appendChild(hdrL);hdr.appendChild(closeBtn);
+  modal.appendChild(hdr);
+
+  // Body — drop zone + file list
+  const body=document.createElement('div');
+  body.style.cssText='flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:10px;overflow:hidden;min-height:0';
+
+  const qFileInput=document.createElement('input');
+  qFileInput.type='file';qFileInput.multiple=true;qFileInput.style.display='none';
+
+  const qDz=document.createElement('div');
+  qDz.style.cssText="flex:1;min-height:120px;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:border-color 0.15s,background 0.15s";
+  qDz.innerHTML="<span style=\"font-size:28px\">📎</span><span style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)\">Drop files here or click to browse</span><span style=\"font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)\">PDF, DOCX, images, spreadsheets...</span>";
+  qDz.onclick=()=>qFileInput.click();
+  qDz.ondragover=e=>{e.preventDefault();qDz.style.borderColor='var(--gold)';qDz.style.background='rgba(201,168,76,0.05)';};
+  qDz.ondragleave=()=>{qDz.style.borderColor='var(--border)';qDz.style.background='';};
+  qDz.ondrop=e=>{e.preventDefault();qDz.style.borderColor='var(--border)';qDz.style.background='';_handleStatusUpdateDrop(e.dataTransfer.files,taskId,qFileList,qDz,modal);};
+  qFileInput.onchange=()=>_handleStatusUpdateDrop(qFileInput.files,taskId,qFileList,qDz,modal);
+
+  const qFileList=document.createElement('div');
+  qFileList.style.cssText='display:flex;flex-direction:column;gap:5px;max-height:120px;overflow-y:auto;flex-shrink:0';
+
+  body.appendChild(qFileInput);body.appendChild(qDz);body.appendChild(qFileList);
+  modal.appendChild(body);
+
+  // Footer
+  const footer=document.createElement('div');
+  footer.style.cssText='display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0';
+
+  const postSlackBtn=document.createElement('button');
+  postSlackBtn.style.cssText="padding:7px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer";
+  postSlackBtn.textContent='📢 Post links to Slack';
+  postSlackBtn.onclick=()=>{
+    const docs=modal._uploadedDocs||[];
+    if(!docs.length){postSlackBtn.textContent='⚠️ No uploads yet';setTimeout(()=>{postSlackBtn.textContent='📢 Post links to Slack';},1500);return;}
+    const chName=(linked.channelName||chId).replace('#','');
+    const ch=(_slackChannelsCache||[]).find(c=>c.name===chName)||(_slackChannelsCache||[]).find(c=>c.id===chId);
+    if(ch?.id&&CONFIG.sheetsUrl){
+      const txt='📎 Documents attached to ['+taskId+'] '+taskName+':\n'+docs.map(d=>d.name+(d.url?': '+d.url:'')).join('\n')+'\n🔗 '+_taskUrl(taskId);
+      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch.id)+'&text='+encodeURIComponent(txt)+'&user='+(window._DGL_USER||'')).catch(()=>{});
+    }
+    postSlackBtn.textContent='✅ Posted';postSlackBtn.style.color='var(--green)';
+    setTimeout(()=>{postSlackBtn.textContent='📢 Post links to Slack';postSlackBtn.style.color='var(--muted)';},2000);
+  };
+
+  const doneBtn=document.createElement('button');
+  doneBtn.style.cssText="flex:1;padding:8px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.1);color:var(--gold);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;font-weight:600";
+  doneBtn.textContent='✅ Done';
+  doneBtn.onclick=()=>{_closeQuickUploadModal();_showNotifActionMenu({clientX:window.innerWidth/2,clientY:window.innerHeight/2,stopPropagation:()=>{}},notif);};
+
+  footer.appendChild(postSlackBtn);footer.appendChild(doneBtn);
+  modal.appendChild(footer);
+
+  modal._uploadedDocs=[];
+  _makeResizable(modal);
+  ov.appendChild(modal);
+  document.body.appendChild(ov);
+
+  // Drag
+  let _quDrag=false,_quDx=0,_quDy=0,_quL=0,_quT=0;
+  hdr.addEventListener('mousedown',e=>{_quDrag=true;_quDx=e.clientX;_quDy=e.clientY;const r=modal.getBoundingClientRect();_quL=r.left;_quT=r.top;e.preventDefault();});
+  const _quMove=e=>{if(!_quDrag)return;modal.style.left=(_quL+e.clientX-_quDx)+'px';modal.style.top=(_quT+e.clientY-_quDy)+'px';};
+  const _quUp=()=>{_quDrag=false;};
+  document.addEventListener('mousemove',_quMove);document.addEventListener('mouseup',_quUp);
+  const _quEsc=e=>{if(e.key==='Escape'){_closeQuickUploadModal();document.removeEventListener('keydown',_quEsc);}};
+  document.addEventListener('keydown',_quEsc);
+  ov._cleanup=()=>{document.removeEventListener('mousemove',_quMove);document.removeEventListener('mouseup',_quUp);document.removeEventListener('keydown',_quEsc);};
 }
 function _closeStatusUpdateModal(){
   const ov=document.getElementById('update-status-overlay');
