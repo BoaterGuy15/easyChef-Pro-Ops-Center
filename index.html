@@ -10210,12 +10210,8 @@ function _openStatusUpdateModal(taskId,notif){
   hdrTitle.style.cssText="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
   hdrTitle.textContent='STATUS UPDATE'+(taskId?' — '+taskId+(taskName?' · '+taskName.slice(0,24)+(taskName.length>24?'…':''):''):'');
   hdrL.appendChild(hdrIcon);hdrL.appendChild(hdrTitle);
-  const closeBtn=document.createElement('button');
-  closeBtn.textContent='✕';
-  closeBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 0 0 12px;flex-shrink:0;font-family:'DM Mono',monospace";
   const _closeModal=()=>{if(ov._cleanup)ov._cleanup();ov.remove();};
-  closeBtn.onclick=_closeModal;
-  hdr.appendChild(hdrL);hdr.appendChild(closeBtn);
+  hdr.appendChild(hdrL);
   modal.appendChild(hdr);
 
   // Info bar
