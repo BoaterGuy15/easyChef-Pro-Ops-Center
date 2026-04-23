@@ -5952,6 +5952,7 @@ COMPLETED WORK — acknowledge what the team has finished (do not suggest redoin
     _masterAiLastRun=Date.now();
     sessionStorage.setItem('dgl_master_ai_ts',String(_masterAiLastRun));
     sessionStorage.setItem('dgl_master_ai_text',text.slice(0,8000));
+    _sendProgressReportNotifications(text);
     const resultEl=document.getElementById('master-ai-result');
     if(resultEl) resultEl.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">Generated ${new Date().toLocaleString()} · ${tasks.length} tasks analyzed</div><div id="master-ai-text" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.7;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
   }catch(e){
@@ -9364,12 +9365,12 @@ function _relativeTime(ts){
   if(diff<172800000) return 'yesterday';
   return Math.floor(diff/86400000)+'d ago';
 }
-function _notifTypeIcon(type){ return ({overdue:'🔴',unblocked:'🔓',completion:'✅',dm:'💬',gap:'⚠️',discussion:'💬',general:'📬'})[type]||'📬'; }
+function _notifTypeIcon(type){ return ({overdue:'🔴',unblocked:'🔓',completion:'✅',dm:'💬',gap:'⚠️',discussion:'💬','progress-report':'📋',briefing:'📋',general:'📬'})[type]||'📬'; }
+function _notifTypeColor(type){ return ({overdue:'var(--red)',unblocked:'var(--accent)',completion:'#22c55e','progress-report':'var(--gold)',briefing:'var(--gold)',gap:'var(--amber)'})[type]||'var(--muted)'; }
 function _mailboxBadgeUpdate(){
   const badge=document.getElementById('mailbox-badge'); if(!badge) return;
   const readN=_readNotifIds();
   const unreadN=(window._userNotifications||[]).filter(n=>!readN.has(n.id)).length;
-  const readD=_readDMIds();
   const unreadD=(window._userDMs||[]).filter(d=>d.unread>0).length;
   const total=unreadN+unreadD;
   badge.textContent=total>9?'9+':String(total);
@@ -9394,23 +9395,24 @@ async function _loadUserDMs(userKey){
     const r=await fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId=all&type=dm');
     const d=await r.json();
     const all=Array.isArray(d)?d:(d.comments||[]);
-    const convMap={};
-    all.forEach(msg=>{
-      const pair=[msg.user||'',msg.recipient||''].sort().join('|');
-      if(!convMap[pair]) convMap[pair]={msgs:[],pair};
-      convMap[pair].msgs.push(msg);
+    // Filter to messages involving this user, group by taskId
+    const mine=all.filter(m=>m.user===userKey||m.recipient===userKey);
+    const taskGroups={};
+    mine.forEach(msg=>{
+      const key=msg.taskId||'__nodm__';
+      if(!taskGroups[key]) taskGroups[key]={msgs:[],taskId:msg.taskId||''};
+      taskGroups[key].msgs.push(msg);
     });
     const readD=_readDMIds();
-    window._userDMs=Object.values(convMap)
-      .filter(c=>c.pair.includes(userKey))
-      .map(c=>{
-        const sorted=c.msgs.sort((a,b)=>new Date(b.ts||0)-new Date(a.ts||0));
+    window._userDMs=Object.values(taskGroups)
+      .map(g=>{
+        const sorted=g.msgs.sort((a,b)=>new Date(b.ts||0)-new Date(a.ts||0));
         const last=sorted[0]||{};
-        const other=c.pair.split('|').find(p=>p!==userKey)||c.pair.split('|')[0];
-        const unread=sorted.filter(m=>m.recipient===userKey&&!readD.has(m.ts)).length;
-        return {id:c.pair,pair:c.pair,other,lastMsg:last.text||'',lastTs:last.ts||'',taskId:(last.taskId||'').match(/T-\d+/)?.[0]||'',unread};
+        const unread=sorted.filter(m=>m.recipient===userKey&&!readD.has(m.ts||m.id||'')).length;
+        const task=DASHBOARD_DATA.tasks.find(t=>t.id===g.taskId)||null;
+        return {taskId:g.taskId,taskName:task?task.name:'',msgs:sorted,last,unread};
       })
-      .sort((a,b)=>new Date(b.lastTs||0)-new Date(a.lastTs||0));
+      .sort((a,b)=>new Date(b.last.ts||0)-new Date(a.last.ts||0));
     _mailboxBadgeUpdate();
     if(document.getElementById('mailbox-panel')?.classList.contains('open')&&_mbActiveTab==='dm') _renderDMTab();
   }catch(_){}
@@ -9420,18 +9422,28 @@ function _renderDMTab(){
   const dms=window._userDMs||[];
   if(!dms.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No direct messages yet.</div>'; return; }
   el.innerHTML=dms.map(d=>{
-    const initials=(d.other||'?').slice(0,2).toUpperCase();
     const isRead=d.unread===0;
-    const preview=(d.lastMsg||'').slice(0,80)+((d.lastMsg||'').length>80?'…':'');
-    return `<div onclick="${d.taskId?`_closeMailboxPanel();_jumpToTask('${d.taskId}')`:''}" style="padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};display:flex;gap:12px;align-items:flex-start;cursor:${d.taskId?'pointer':'default'}">
-      <div style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);flex-shrink:0">${initials}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);font-weight:${isRead?400:700}">${d.other}</span>
-          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${_relativeTime(d.lastTs)}</span>
+    const last=d.last||{};
+    const sender=last.user||'?';
+    const recipient=last.recipient||'?';
+    const preview=(last.text||'').slice(0,90)+((last.text||'').length>90?'…':'');
+    const initials=(sender||'?').slice(0,2).toUpperCase();
+    const replyBtn=d.taskId?`<button onclick="_closeMailboxPanel();_jumpToTask('${d.taskId}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Reply →</button>`:'';
+    return `<div style="padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'}">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);flex-shrink:0">${initials}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+            <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);font-weight:${isRead?400:700}">${sender} → ${recipient}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0">${_relativeTime(last.ts)}</span>
+          </div>
+          ${d.taskId?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:3px">📎 ${d.taskId}${d.taskName?' · '+d.taskName.slice(0,32):''}</div>`:''}
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px">${preview||'No message'}</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+            ${d.unread>0?`<span style="font-family:'DM Mono',monospace;font-size:8px;background:var(--red);color:#fff;border-radius:8px;padding:1px 5px">${d.unread} unread</span>`:''}
+            ${replyBtn}
+          </div>
         </div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${preview||'<em>No message</em>'}</div>
-        ${d.unread>0?`<span style="font-family:'DM Mono',monospace;font-size:8px;background:var(--red);color:#fff;border-radius:8px;padding:1px 5px;margin-top:4px;display:inline-block">${d.unread} unread</span>`:''}
       </div>
     </div>`;
   }).join('');
@@ -9439,24 +9451,34 @@ function _renderDMTab(){
 function _renderAlertsTab(){
   const el=document.getElementById('mb-alerts-list'); if(!el) return;
   const notifs=window._userNotifications||[];
+  if(!notifs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No notifications yet.</div>'; return; }
   const read=_readNotifIds();
-  const hdr=notifs.length?`<div style="padding:8px 20px;border-bottom:1px solid rgba(37,42,53,0.3);display:flex;justify-content:flex-end"><button onclick="_markAllAlertsRead()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark all read</button></div>`:'';
-  if(!notifs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No alerts yet.</div>'; return; }
+  const hdr=`<div style="padding:8px 20px;border-bottom:1px solid rgba(37,42,53,0.3);display:flex;justify-content:flex-end"><button onclick="_markAllAlertsRead()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark all read</button></div>`;
   el.innerHTML=hdr+notifs.map(n=>{
     const isRead=read.has(n.id);
     const icon=_notifTypeIcon(n.type||'');
-    const preview=(n.message||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0,120)+((n.message||'').length>120?'…':'');
+    const iconColor=_notifTypeColor(n.type||'');
+    const preview=(n.message||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0,150)+((n.message||'').length>150?'…':'');
     const taskId=(n.taskId||'').match(/T-\d+/)?.[0]||'';
+    const task=taskId?DASHBOARD_DATA.tasks.find(t=>t.id===taskId):null;
+    const taskName=task?(task.name||'').slice(0,38):'';
+    const channelId=n.channel||'';
+    const viewTaskBtn=taskId?`<button onclick="_closeMailboxPanel();_jumpToTask('${taskId}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔗 View Task</button>`:'';
+    const viewChannelBtn=channelId?`<button onclick="_closeMailboxPanel();showPage('comms');setTimeout(()=>{const s=document.getElementById('slack-channel-select');if(s){s.value='${channelId}';slackSelectChannel('${channelId}');}},250)" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📢 #${channelId}</button>`:'';
+    const markReadBtn=!isRead?`<button onclick="_markAlertRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark read</button>`:'';
     return `<div style="padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};background:${isRead?'transparent':'rgba(201,168,76,0.03)'}">
       <div style="display:flex;align-items:flex-start;gap:8px">
-        <span style="font-size:14px;flex-shrink:0;margin-top:1px">${icon}</span>
+        <span style="font-size:15px;flex-shrink:0;margin-top:1px">${icon}</span>
         <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
-            ${taskId?`<span onclick="_closeMailboxPanel();_jumpToTask('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);cursor:pointer;text-decoration:underline dotted">${taskId}</span>`:'<span></span>'}
-            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0">${_relativeTime(n.sentAt||n.ts)}</span>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:3px">
+            <div style="min-width:0">
+              ${taskId?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:${iconColor};font-weight:700">${taskId}</span>`:''}
+              ${taskName?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-left:5px">${taskName}</span>`:''}
+            </div>
+            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;flex-shrink:0">${_relativeTime(n.sentAt||n.ts)}</span>
           </div>
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.5;word-break:break-word">${preview}</div>
-          ${!isRead?`<button onclick="_markAlertRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:6px">Mark read</button>`:''}
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.6;word-break:break-word;margin-bottom:7px">${preview}</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">${viewTaskBtn}${viewChannelBtn}${markReadBtn}</div>
         </div>
       </div>
     </div>`;
@@ -9517,6 +9539,27 @@ function _startNotifRefresh(){
       _loadUserDMs(window._DGL_USER);
     }
   },5*60*1000);
+}
+function _sendProgressReportNotifications(briefingText){
+  if(!CONFIG.sheetsUrl||!briefingText) return;
+  const today=new Date().toISOString().slice(0,10);
+  const teamPairs=[['taylor','Taylor'],['steve','Steve'],['adam','Adam'],['hammad','Hammad'],['jr','JR'],['searah','Searah'],['sadee','Sadee']];
+  teamPairs.forEach(([userKey,personName])=>{
+    const colName=USER_RACI_COL[userKey];
+    const myOpen=colName
+      ? DASHBOARD_DATA.tasks.filter(t=>{const rc=t[colName]||'';return (rc==='R'||rc==='A/R')&&t.status!=='Complete';})
+      : DASHBOARD_DATA.tasks.filter(t=>t.owner===personName&&t.status!=='Complete');
+    if(!myOpen.length) return;
+    const overdue=myOpen.filter(t=>t.ed&&new Date(t.ed)<new Date(today));
+    const hiPri=myOpen.filter(t=>t.pri==='High');
+    const critTask=overdue[0]||hiPri[0]||myOpen[0];
+    const lines=briefingText.split('\n');
+    const relevant=lines.filter(l=>l.includes(personName)||l.includes(critTask.id)||(critTask.name&&l.includes(critTask.name.slice(0,15))));
+    const excerpt='Master AI: '+(relevant.length?relevant.slice(0,3).join(' '):briefingText).replace(/\s+/g,' ').slice(0,200);
+    const linked=_getTaskSlackLink(critTask.id);
+    const channelId=linked.channelId||_DM_CHANNEL_MAP[userKey]||'';
+    _logNotification(critTask.id,userKey,channelId,excerpt,'progress-report');
+  });
 }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') _closePanels(); });
 // ─────────────────────────────────────────────────────────────
