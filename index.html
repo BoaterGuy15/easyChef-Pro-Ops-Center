@@ -11522,6 +11522,7 @@ function _mergeTask(t,s){
   _PERSIST_FIELDS.forEach(f=>{
     const incoming=s[f];
     if(incoming==null||incoming==='') return;
+    if((f==='sd'||f==='ed')&&t.id==='T-027') console.log('[DGL] _mergeTask T-027',f,'raw:',JSON.stringify(incoming),'type:',typeof incoming,'_toYMD:',_toYMD(incoming));
     t[f]=(f==='sd'||f==='ed')?(_toYMD(incoming)||incoming):incoming;
   });
 }
