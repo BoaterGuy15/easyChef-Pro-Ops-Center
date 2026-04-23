@@ -9409,15 +9409,21 @@ function _mailboxBadgeUpdate(){
 }
 async function _loadUserNotifications(userKey){
   if(!CONFIG.sheetsUrl||!userKey||userKey==='view') return;
+  console.log('[DGL] Fetching notifications for:', userKey);
   try{
     const r=await fetch(CONFIG.sheetsUrl+'?action=notification_read');
     const d=await r.json();
     const all=Array.isArray(d)?d:(d.notifications||[]);
+    console.log('[DGL] All notifications:', all.length);
     const mine=all.filter(n=>n.toUser===userKey||n.toUser===''||!n.toUser);
-    console.log('[DGL] Mailbox alerts for '+userKey+':', mine.length, '(total fetched:', all.length+')');
+    console.log('[DGL] Filtered for user:', mine.length);
+    if(mine.length) console.log('[DGL] First notification:', JSON.stringify(mine[0]));
     window._userNotifications=mine.sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
     _mailboxBadgeUpdate();
-    if(document.getElementById('mailbox-panel')?.classList.contains('open')&&_mbActiveTab==='alerts') _renderAlertsTab();
+    // Always re-render if panel is open, regardless of which tab is active
+    if(document.getElementById('mailbox-panel')?.classList.contains('open')){
+      if(_mbActiveTab==='alerts') _renderAlertsTab();
+    }
   }catch(err){ console.error('[DGL] _loadUserNotifications error:', err); }
 }
 async function _loadNotifLog(){
@@ -9504,8 +9510,11 @@ function _renderDMTab(){
   }).join('');
 }
 function _renderAlertsTab(){
-  const el=document.getElementById('mb-alerts-list'); if(!el) return;
+  const el=document.getElementById('mb-alerts-list');
+  console.log('[DGL] Alerts container found:', !!el);
+  if(!el) return;
   const notifs=window._userNotifications||[];
+  console.log('[DGL] Rendering', notifs.length, 'alerts into #mb-alerts-list');
   if(!notifs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No notifications yet.</div>'; return; }
   const read=_readNotifIds();
   const hdr=`<div style="padding:8px 20px;border-bottom:1px solid rgba(37,42,53,0.3);display:flex;justify-content:flex-end"><button onclick="_markAllAlertsRead()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark all read</button></div>`;
@@ -9547,7 +9556,7 @@ function _mbSwitchTab(tab){
   const alEl=document.getElementById('mb-alerts-list');
   if(dmEl) dmEl.style.display=tab==='dm'?'block':'none';
   if(alEl) alEl.style.display=tab==='alerts'?'block':'none';
-  if(tab==='dm') _renderDMTab(); else _renderAlertsTab();
+  if(tab==='dm'){ _renderDMTab(); } else { _renderAlertsTab(); if(window._DGL_USER&&window._DGL_USER!=='view') _loadUserNotifications(window._DGL_USER); }
 }
 function _openMailboxPanel(){
   document.getElementById('mailbox-panel')?.classList.add('open');
