@@ -9730,47 +9730,7 @@ function _showNotifActionMenu(event,notif){
     _sep();
   }
 
-  // Update Status — inline expand, draggable, resizable textarea
-  const usHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
-  usHdr.onmouseover=()=>usHdr.style.background='rgba(201,168,76,0.1)';
-  usHdr.onmouseout=()=>usHdr.style.background='transparent';
-  const usL=_el('span','display:flex;align-items:center;gap:8px');
-  usL.appendChild(_el('span','font-size:13px;width:18px;text-align:center','📊'));
-  usL.appendChild(_el('span',null,'Update Status'));
-  usHdr.appendChild(usL);
-  const usArrow=_el('span','font-size:9px;color:var(--muted)','▾');
-  usHdr.appendChild(usArrow);
-  const usSub=_el('div','display:none;background:rgba(0,0,0,0.15);padding:0 14px 8px');
-  usHdr.onclick=(e)=>{
-    e.stopPropagation();
-    const open=usSub.style.display==='block';
-    usSub.style.display=open?'none':'block';
-    usArrow.textContent=open?'▾':'▴';
-  };
-  const usTa=_el('textarea','width:100%;box-sizing:border-box;padding:6px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;resize:both;outline:none;min-height:60px;max-height:400px;min-width:200px;max-width:500px;height:90px');
-  usTa.placeholder='Post a status update to the team Slack channel...';
-  usTa.onclick=e=>e.stopPropagation();
-  usTa.onmousedown=e=>e.stopPropagation();
-  const usBtn=_el('button','margin:6px 0 4px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer','📤 Post Status Update');
-  usBtn.onclick=e=>{
-    e.stopPropagation();
-    const msg=(usTa.value||'').trim();
-    if(!msg) return;
-    const userName=window._DGL_USER||'system';
-    const taskName=t?(t.name||''):'';
-    const taskStatus=t?(t.status||''):'';
-    const fullMsg='['+taskId+'] STATUS UPDATE by '+userName+': '+msg+'\nTask: '+taskName+'\nStatus: '+taskStatus+'\n🔗 https://ops.dgl.dev/#'+taskId;
-    const linked=taskId?_getTaskSlackLink(taskId):{};
-    const chId=linked.channelId||'';
-    const chName=(linked.channelName||chId).replace('#','');
-    const ch=(_slackChannelsCache||[]).find(c=>c.name===chName)||(_slackChannelsCache||[]).find(c=>c.id===chId);
-    if(ch?.id&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch.id)+'&text='+encodeURIComponent(fullMsg)+'&user='+encodeURIComponent(userName)).catch(()=>{});
-    if(taskId) _appendNote(taskId,msg,'task');
-    if(taskId) _logNotification(taskId,notif.toUser||'',chId,fullMsg,'progress-report');
-    _closeNotifActionMenu();
-  };
-  usSub.appendChild(usTa);usSub.appendChild(usBtn);
-  mnuBody.appendChild(usHdr);mnuBody.appendChild(usSub);
+  _item('📊','Update Status',()=>{ _closeNotifActionMenu(); _openStatusUpdateModal(taskId,notif); });
   _sep();
 
   const isRead=_readNotifIds().has(notif.id);
@@ -9811,6 +9771,129 @@ function _showNotifActionMenu(event,notif){
     document.addEventListener('click',_closeNotifActionMenu,false);
     document.addEventListener('keydown',_notifMenuEsc,true);
   },0);
+}
+function _closeStatusUpdateModal(){
+  const ov=document.getElementById('update-status-overlay');
+  if(ov) ov.remove();
+}
+function _openStatusUpdateModal(taskId,notif){
+  _closeStatusUpdateModal();
+  notif=notif||{};
+  const t=taskId?DASHBOARD_DATA.tasks.find(x=>x.id===taskId):null;
+  const taskName=t?(t.name||''):'';
+  const taskStatus=t?(t.status||'Unknown'):'Unknown';
+  const taskOwner=t?(()=>{const p=['Taylor','Steve','Adam','JR','Hammad','Searah','Sadee'];return p.filter(n=>t[n]==='R'||t[n]==='A'||t[n]==='AR'||t[n]==='A/R').join(', ')||'—';})():'—';
+  const taskDue=t?(t.end||t.due||'—'):'—';
+  const linked=taskId?_getTaskSlackLink(taskId):{};
+  const chId=linked.channelId||'';
+  const chDisplayName=linked.channelName||chId||'team channel';
+  const sc=getStatusColors(taskStatus);
+
+  // Overlay
+  const ov=document.createElement('div');
+  ov.id='update-status-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
+  ov.onclick=e=>{ if(e.target===ov) _closeStatusUpdateModal(); };
+
+  // Modal
+  const modal=document.createElement('div');
+  modal.style.cssText="position:fixed;z-index:99999;width:600px;height:400px;left:calc(50% - 300px);top:calc(50% - 200px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden";
+
+  // Header (drag handle)
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:move;user-select:none;flex-shrink:0';
+  const hdrL=document.createElement('div');
+  hdrL.style.cssText='display:flex;align-items:center;gap:10px;overflow:hidden';
+  const hdrIcon=document.createElement('span');hdrIcon.textContent='📊';hdrIcon.style.fontSize='15px';
+  const hdrTitle=document.createElement('span');
+  hdrTitle.style.cssText="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+  hdrTitle.textContent='STATUS UPDATE'+(taskId?' — '+taskId+(taskName?' · '+taskName.slice(0,24)+(taskName.length>24?'…':''):''):'');
+  hdrL.appendChild(hdrIcon);hdrL.appendChild(hdrTitle);
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 0 0 12px;flex-shrink:0;font-family:'DM Mono',monospace";
+  closeBtn.onclick=_closeStatusUpdateModal;
+  hdr.appendChild(hdrL);hdr.appendChild(closeBtn);
+  modal.appendChild(hdr);
+
+  // Info bar
+  const info=document.createElement('div');
+  info.style.cssText='display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap';
+  const badge=document.createElement('span');
+  badge.style.cssText='font-size:10px;padding:2px 8px;border-radius:4px;background:'+sc.bg+';color:'+sc.color+';font-weight:600';
+  badge.textContent=taskStatus;
+  const ownerEl=document.createElement('span');
+  ownerEl.style.cssText="font-size:10px;color:var(--muted)";
+  ownerEl.textContent='Owner: '+taskOwner;
+  const dueEl=document.createElement('span');
+  dueEl.style.cssText="font-size:10px;color:var(--muted)";
+  dueEl.textContent='Due: '+taskDue;
+  const chEl=document.createElement('span');
+  chEl.style.cssText="font-size:10px;color:var(--gold);margin-left:auto";
+  chEl.textContent=chDisplayName?'→ '+chDisplayName:'';
+  info.appendChild(badge);info.appendChild(ownerEl);info.appendChild(dueEl);info.appendChild(chEl);
+  modal.appendChild(info);
+
+  // Textarea body
+  const body=document.createElement('div');
+  body.style.cssText='flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:0;overflow:hidden';
+  const ta=document.createElement('textarea');
+  ta.style.cssText="flex:1;width:100%;box-sizing:border-box;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;line-height:1.6;padding:10px;resize:vertical;outline:none;min-height:80px";
+  ta.placeholder='Post a status update to the '+chDisplayName+' channel...';
+  body.appendChild(ta);
+  modal.appendChild(body);
+
+  // Footer
+  const footer=document.createElement('div');
+  footer.style.cssText='display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0';
+  const postBtn=document.createElement('button');
+  postBtn.style.cssText="flex:1;padding:8px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.1);color:var(--gold);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;font-weight:600";
+  postBtn.textContent='📤 Post to '+chDisplayName;
+  const cancelBtn=document.createElement('button');
+  cancelBtn.style.cssText="padding:8px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer";
+  cancelBtn.textContent='Cancel';
+  cancelBtn.onclick=_closeStatusUpdateModal;
+  postBtn.onclick=()=>{
+    const msg=(ta.value||'').trim();
+    if(!msg){ta.style.borderColor='var(--red)';ta.focus();return;}
+    ta.style.borderColor='var(--border)';
+    const userName=window._DGL_USER||'system';
+    const fullMsg='['+taskId+'] STATUS UPDATE by '+userName+': '+msg+'\nTask: '+taskName+'\nStatus: '+taskStatus+'\n🔗 https://ops.dgl.dev/#'+taskId;
+    const chName=(linked.channelName||chId).replace('#','');
+    const ch=(_slackChannelsCache||[]).find(c=>c.name===chName)||(_slackChannelsCache||[]).find(c=>c.id===chId);
+    if(ch?.id&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch.id)+'&text='+encodeURIComponent(fullMsg)+'&user='+encodeURIComponent(userName)).catch(()=>{});
+    if(taskId) _appendNote(taskId,msg,'task');
+    if(taskId) _logNotification(taskId,(notif.toUser||''),chId,fullMsg,'progress-report');
+    footer.innerHTML='';
+    const ok=document.createElement('div');
+    ok.style.cssText="flex:1;text-align:center;font-family:'DM Mono',monospace;font-size:12px;color:var(--green);font-weight:600";
+    ok.textContent='✅ Posted to '+chDisplayName;
+    footer.appendChild(ok);
+    setTimeout(_closeStatusUpdateModal,2000);
+  };
+  footer.appendChild(postBtn);footer.appendChild(cancelBtn);
+  modal.appendChild(footer);
+
+  ov.appendChild(modal);
+  document.body.appendChild(ov);
+  ta.focus();
+
+  // Drag
+  let _suDrag=false,_suDx=0,_suDy=0,_suL=0,_suT=0;
+  hdr.addEventListener('mousedown',e=>{
+    _suDrag=true;_suDx=e.clientX;_suDy=e.clientY;
+    const r=modal.getBoundingClientRect();_suL=r.left;_suT=r.top;
+    e.preventDefault();
+  });
+  const _suMove=e=>{if(!_suDrag)return;modal.style.left=(_suL+e.clientX-_suDx)+'px';modal.style.top=(_suT+e.clientY-_suDy)+'px';};
+  const _suUp=()=>{_suDrag=false;};
+  document.addEventListener('mousemove',_suMove);
+  document.addEventListener('mouseup',_suUp);
+  ov.addEventListener('remove',()=>{document.removeEventListener('mousemove',_suMove);document.removeEventListener('mouseup',_suUp);});
+
+  // Escape closes
+  const _suEsc=e=>{if(e.key==='Escape'){_closeStatusUpdateModal();document.removeEventListener('keydown',_suEsc);}};
+  document.addEventListener('keydown',_suEsc);
 }
 function _startNotifRefresh(){
   clearInterval(_mbRefreshTimer);
