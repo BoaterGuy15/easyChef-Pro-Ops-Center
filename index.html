@@ -7515,6 +7515,33 @@ function _getMemberInfo(userKey){
   return custom||{name:userKey,role:'',email:''};
 }
 let _profileClockInterval=null;
+function _uploadTeamPhoto(userKey){
+  const inp=document.getElementById('tc-photo-input');
+  if(!inp) return;
+  inp.onchange=async function(){
+    const file=inp.files[0];
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=async function(ev){
+      const b64=ev.target.result.split(',')[1];
+      if(!CONFIG.sheetsUrl){_showToast('No Sheets URL configured',2000);return;}
+      try{
+        const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',userKey,filename:file.name,mimeType:file.type,data:b64})});
+        const json=await resp.json();
+        const url=json.url||json.driveUrl||json.photoUrl||'';
+        if(!url){_showToast('Upload failed — no URL returned',2000);return;}
+        _hrProfilesCache[userKey]={...(_hrProfilesCache[userKey]||{}),photo:url};
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey,photo:url})}).catch(()=>{});
+        buildTeamGrid();
+        const av=document.getElementById('profile-modal-avatar')||document.getElementById('tmm-avatar');
+        if(av) av.outerHTML=`<img id="${av.id}" src="${url}" style="${av.style.cssText};object-fit:cover;border-radius:50%">`;
+        _showToast('<div>✅ Photo updated</div>',1800);
+      }catch(e){_showToast('Upload error: '+(e.message||e),2000);}
+    };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
+}
 function openProfileModal(userKey){
   const overlay=document.getElementById('profile-modal-overlay');
   if(!overlay) return;
@@ -7529,8 +7556,16 @@ function openProfileModal(userKey){
   const fRow=(lbl,val)=>`<div style="margin-bottom:10px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:3px">${lbl}</div><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${val||'<span style="color:var(--border)">—</span>'}</div></div>`;
   const logItems=(p.log||[]).slice(-10).reverse();
   const logHtml=logItems.length?logItems.map(e=>`<div style="display:flex;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--surface)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;min-width:72px">${e.date}</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)">${e.text}</span></div>`).join(''):'<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border)">No entries yet.</span>';
+  const _pmHrC=_hrProfilesCache[userKey]||{};
+  const _pmCHex={gold:'#c9a84c',blue:'#4f8ef7',purple:'#a78bfa',green:'#34d399',teal:'#2dd4bf',amber:'#fbbf24',muted:'#6b7280'};
+  const _pmHex=_pmCHex[_pmHrC.color||info.color||'gold']||'#c9a84c';
+  const _pmPts=(info.name||userKey).trim().split(/\s+/);
+  const _pmIni=((_pmPts[0]||'?')[0]+(((_pmPts.length>1?_pmPts[_pmPts.length-1]:'')||' ')[0])).toUpperCase().trim();
+  const _pmAvHtml=_pmHrC.photo?`<img id="profile-modal-avatar" src="${_pmHrC.photo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:8px;display:block">`:`<div id="profile-modal-avatar" style="width:72px;height:72px;border-radius:50%;background:${_pmHex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:22px;display:flex;align-items:center;justify-content:center;margin-bottom:8px">${_pmIni}</div>`;
+  const _pmUpHtml=canWrite?`${_pmAvHtml}<input type="file" id="tc-photo-input" accept="image/*" style="display:none"><button onclick="_uploadTeamPhoto('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-bottom:14px">📷 Upload Photo</button>`:_pmAvHtml;
   document.getElementById('profile-modal-body').innerHTML=`
     <div>
+      ${_pmUpHtml}
       <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">CONTACT</div>
       ${fRow('EMAIL',info.email)}
       ${fRow('PHONE',p.phone)}
@@ -7613,7 +7648,17 @@ function openDefaultTeamMemberModal(user){
   const ro=canWrite?'':' readonly';
   const colorOpts=['gold','blue','purple','green','teal','amber','muted'].map(c=>`<option value="${c}"${cur.color===c?' selected':''}>${c}</option>`).join('');
   const levelOpts=['Founder','Executive','Member','View Only'].map(l=>`<option value="${l}"${cur.accessLevel===l?' selected':''}>${l}</option>`).join('');
+  const _dmHrC=_hrProfilesCache[user]||{};
+  const _dmCHex={gold:'#c9a84c',blue:'#4f8ef7',purple:'#a78bfa',green:'#34d399',teal:'#2dd4bf',amber:'#fbbf24',muted:'#6b7280'};
+  const _dmHex=_dmCHex[cur.color||'gold']||'#c9a84c';
+  const _dmPts=(cur.name||user).trim().split(/\s+/);
+  const _dmIni=((_dmPts[0]||'?')[0]+(((_dmPts.length>1?_dmPts[_dmPts.length-1]:'')||' ')[0])).toUpperCase().trim();
+  const _dmAvHtml=_dmHrC.photo?`<img id="tmm-avatar" src="${_dmHrC.photo}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">`:`<div id="tmm-avatar" style="width:56px;height:56px;border-radius:50%;background:${_dmHex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:18px;display:flex;align-items:center;justify-content:center">${_dmIni}</div>`;
   document.getElementById('tmm-modal-body').innerHTML=`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+      ${_dmAvHtml}
+      ${canWrite?`<div><input type="file" id="tc-photo-input" accept="image/*" style="display:none"><button onclick="_uploadTeamPhoto('${user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📷 Upload Photo</button></div>`:''}
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cur.name||''}" style="${fSt}"${ro}></div>
       <div class="modal-field"><label>Role / Title</label><input type="text" id="tmm-role" value="${cur.role||''}" style="${fSt}"${ro}></div>
@@ -8037,6 +8082,8 @@ function buildTeamGrid(){
   const _sColor=s=>s==='Complete'||s==='Done'?'var(--green)':s==='Blocked'?'var(--red)':['Started','In Progress'].includes(s)?'var(--gold)':'var(--muted)';
   const _mkTCSec=(label,clr,rows)=>rows.length?'<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px"><div style="font-family:\'DM Mono\',monospace;font-size:8px;color:'+clr+';letter-spacing:1.5px;margin-bottom:4px">'+label+'</div>'+rows.join('')+'</div>':'';
   const _tcRow=(t,sub)=>'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);cursor:pointer;padding:2px 0;border-radius:2px" onclick="_viewTaskDetails(\''+t.id+'\')"><span style="color:var(--gold)">'+t.id+'</span> · '+t.name.slice(0,24)+' <span style="color:var(--muted)">'+sub+'</span></div>';
+  const _colorHex={gold:'#c9a84c',blue:'#4f8ef7',purple:'#a78bfa',green:'#34d399',teal:'#2dd4bf',amber:'#fbbf24',muted:'#6b7280'};
+  const _tcAvatar=(uk,name,acColor)=>{const ph=(_hrProfilesCache[uk]||{}).photo;const hex=_colorHex[acColor]||'#c9a84c';const pts=(name||'?').trim().split(/\s+/);const ini=((pts[0]||'?')[0]+((pts.length>1?(pts[pts.length-1]||''):'')+' ')[0]).toUpperCase().trim();return ph?`<img src="${ph}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;margin-bottom:8px;display:block" onerror="this.style.display='none'">`:`<div style="width:48px;height:48px;border-radius:50%;background:${hex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:16px;display:flex;align-items:center;justify-content:center;margin-bottom:8px">${ini}</div>`;};
   el.innerHTML=ordered.map(entry=>{
     if(entry.type==='default'){
       const {m,key,userKey}=entry;
@@ -8075,6 +8122,7 @@ function buildTeamGrid(){
       const editBtnDefault=_canEditDefault?`<button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit Profile">✏️ Edit</button>`:'';
       return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
         ${dragHandle}
+        ${_tcAvatar(userKey,displayName,ed.color||m.color||'gold')}
         <div class="tc-name">${displayName}${badgeHtml}</div>
         <div class="tc-role">${displayRole}</div>
         ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${_dueWkHtml}${_ovrdHtml}${_notStHtml}${_cmUpHtml}${warnHtml}${noteHtml}
@@ -8114,6 +8162,7 @@ function buildTeamGrid(){
       const _hrP2=_hrProfilesCache[cm.user]||{};
       return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
         ${dragHandle}
+        ${_tcAvatar(cm.user,_hrP2.name||cm.name,_hrP2.color||cm.color||'gold')}
         <div class="tc-name">${_hrP2.name||cm.name}${accessLabel}</div>
         <div class="tc-role">${_hrP2.role||cm.role}</div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
