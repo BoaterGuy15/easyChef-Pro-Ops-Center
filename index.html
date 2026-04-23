@@ -9533,7 +9533,7 @@ function _renderAlertsTab(){
     const viewTaskBtn=taskId?`<button onclick="_closeMailboxPanel();_jumpToTask('${taskId}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔗 View Task</button>`:'';
     const viewChannelBtn=channelId?`<button onclick="_closeMailboxPanel();showPage('comms');setTimeout(()=>{const s=document.getElementById('slack-channel-select');if(s){s.value='${channelId}';slackSelectChannel('${channelId}');}},250)" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📢 #${channelId}</button>`:'';
     const markReadBtn=!isRead?`<button onclick="_markAlertRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark read</button>`:'';
-    return `<div style="padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};background:${isRead?'transparent':'rgba(201,168,76,0.03)'}">
+    return `<div onclick="if(!event.target.closest('button'))_showNotifActionMenu(event,'${n.id}')" style="cursor:pointer;padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};background:${isRead?'transparent':'rgba(201,168,76,0.03)'}">
       <div style="display:flex;align-items:flex-start;gap:8px">
         <span style="font-size:15px;flex-shrink:0;margin-top:1px">${icon}</span>
         <div style="flex:1;min-width:0">
@@ -9597,6 +9597,161 @@ function _markAllAlertsRead(){
   const read=_readNotifIds();
   (window._userNotifications||[]).forEach(n=>read.add(n.id));
   _saveReadNotifIds(read); _mailboxBadgeUpdate(); _renderAlertsTab();
+}
+function _closeNotifActionMenu(){
+  const m=document.getElementById('notif-action-menu');
+  if(m) m.remove();
+  document.removeEventListener('click',_closeNotifActionMenu,true);
+  document.removeEventListener('keydown',_notifMenuEsc,true);
+}
+function _notifMenuEsc(e){ if(e.key==='Escape') _closeNotifActionMenu(); }
+function _showNotifActionMenu(event,notifId){
+  event.stopPropagation();
+  _closeNotifActionMenu();
+  const notif=(window._userNotifications||[]).find(n=>n.id===notifId)||{};
+  const taskId=(notif.taskId||'').match(/T-\d+/)?.[0]||'';
+  const t=taskId?DASHBOARD_DATA.tasks.find(x=>x.id===taskId):null;
+
+  const mnu=document.createElement('div');
+  mnu.id='notif-action-menu';
+  mnu.style.cssText="position:fixed;z-index:99999;width:215px;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:6px 0;font-family:'DM Mono',monospace;font-size:11px";
+  mnu.style.left=Math.min(event.clientX,window.innerWidth-230)+'px';
+  mnu.style.top=Math.min(event.clientY,window.innerHeight-360)+'px';
+
+  function _el(tag,css,text){const e=document.createElement(tag);if(css)e.style.cssText=css;if(text!=null)e.textContent=text;return e;}
+  function _sep(){mnu.appendChild(_el('div','height:1px;background:var(--border);margin:3px 0'));}
+  function _lbl(txt){const d=_el('div','padding:4px 14px 2px;font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase',txt);mnu.appendChild(d);return d;}
+  function _item(icon,label,fn,color){
+    const d=_el('div','display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;color:'+(color||'var(--text)'));
+    d.onmouseover=()=>d.style.background=color==='var(--red)'?'rgba(239,68,68,0.1)':'rgba(201,168,76,0.1)';
+    d.onmouseout=()=>d.style.background='transparent';
+    d.onclick=()=>{fn();_closeNotifActionMenu();};
+    const ic=_el('span','font-size:13px;width:18px;text-align:center;flex-shrink:0',icon);
+    const lb=_el('span',null,label);
+    d.appendChild(ic);d.appendChild(lb);mnu.appendChild(d);return d;
+  }
+
+  const hdrTxt=taskId?(taskId+(t?' · '+(t.name||'').slice(0,16)+((t.name||'').length>16?'…':''):'')):'Notification';
+  _lbl('✥  '+hdrTxt);
+  _sep();
+
+  if(t){
+    _item('📋','View Task Details',()=>{_closeMailboxPanel();_jumpToTask(taskId);});
+    _item('✏️','Edit Task',()=>{_closeMailboxPanel();showTaskModal(taskId);});
+    _sep();
+
+    // Quick Status
+    const sHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
+    sHdr.onmouseover=()=>sHdr.style.background='rgba(201,168,76,0.1)';
+    sHdr.onmouseout=()=>sHdr.style.background='transparent';
+    const sL=_el('span','display:flex;align-items:center;gap:8px');
+    sL.appendChild(_el('span','font-size:13px;width:18px;text-align:center','📊'));
+    sL.appendChild(_el('span',null,'Quick Status'));
+    sHdr.appendChild(sL);sHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
+    const sSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
+    sHdr.onclick=()=>{sSub.style.maxHeight=sSub.style.maxHeight==='260px'?'0':'260px';};
+    ['Not Started','Started','In Progress','In Review','Complete','Blocked'].forEach(s=>{
+      const sd=_el('div','display:flex;align-items:center;gap:6px;padding:5px 20px;cursor:pointer;font-size:10px;color:'+(t.status===s?'var(--gold)':'var(--text)'));
+      sd.onmouseover=()=>sd.style.background='rgba(201,168,76,0.08)';
+      sd.onmouseout=()=>sd.style.background='transparent';
+      sd.appendChild(_el('span','width:10px;flex-shrink:0;font-size:9px;color:var(--gold)',t.status===s?'✓':''));
+      sd.appendChild(_el('span',null,s));
+      sd.onclick=()=>{
+        _closeNotifActionMenu();
+        if(s==='Complete'){_openMarkCompleteModal(taskId);return;}
+        const _oldS=t.status;t.status=s;
+        _logStatusChange(taskId,_oldS,s,'Mailbox quick status by '+(window._DGL_USER||'system'));
+        _saveTasksNow();buildRoadmap();initRoadmapHeadSync();
+      };
+      sSub.appendChild(sd);
+    });
+    mnu.appendChild(sHdr);mnu.appendChild(sSub);
+    _sep();
+
+    // Set Flag
+    const fHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
+    fHdr.onmouseover=()=>fHdr.style.background='rgba(201,168,76,0.1)';
+    fHdr.onmouseout=()=>fHdr.style.background='transparent';
+    const fL=_el('span','display:flex;align-items:center;gap:8px');
+    fL.appendChild(_el('span','font-size:13px;width:18px;text-align:center','🎯'));
+    fL.appendChild(_el('span',null,'Set Flag'));
+    fHdr.appendChild(fL);fHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
+    const fSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
+    fHdr.onclick=()=>{fSub.style.maxHeight=fSub.style.maxHeight==='220px'?'0':'220px';};
+    (_FLAG_STATES||[]).forEach(f=>{
+      const fd=_el('div','display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;font-size:10px;color:'+f.color);
+      fd.onmouseover=()=>fd.style.background='rgba(201,168,76,0.08)';
+      fd.onmouseout=()=>fd.style.background='transparent';
+      fd.appendChild(_el('span','font-size:12px;width:18px;text-align:center',f.emoji));
+      fd.appendChild(_el('span',null,f.label));
+      fd.onclick=()=>{_setTaskFlagFromMenu(taskId,f.emoji);_closeNotifActionMenu();};
+      fSub.appendChild(fd);
+    });
+    const cfD=_el('div','display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;font-size:10px;color:var(--muted)');
+    cfD.onmouseover=()=>cfD.style.background='rgba(201,168,76,0.08)';
+    cfD.onmouseout=()=>cfD.style.background='transparent';
+    cfD.appendChild(_el('span','font-size:12px;width:18px;text-align:center','✕'));
+    cfD.appendChild(_el('span',null,'Clear Flag'));
+    cfD.onclick=()=>{_setTaskFlagFromMenu(taskId,'');_closeNotifActionMenu();};
+    fSub.appendChild(cfD);
+    mnu.appendChild(fHdr);mnu.appendChild(fSub);
+    _sep();
+
+    const mc=_item('✅','Mark Complete',()=>_openMarkCompleteModal(taskId));
+    if(t.status==='Complete'){mc.style.opacity='0.4';mc.style.pointerEvents='none';}
+    _sep();
+  }
+
+  // Reply to Team
+  _item('💬','Reply to Team',()=>{
+    _closeMailboxPanel();
+    if(taskId){
+      _jumpToTask(taskId);
+      setTimeout(()=>{
+        const inp=document.querySelector('#raci-expand-row-'+taskId+' .discussion-input');
+        if(inp){inp.focus();inp.scrollIntoView({behavior:'smooth',block:'center'});}
+      },600);
+    }
+  });
+
+  // Post to Slack — inline expand
+  const slHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
+  slHdr.onmouseover=()=>slHdr.style.background='rgba(201,168,76,0.1)';
+  slHdr.onmouseout=()=>slHdr.style.background='transparent';
+  const slL=_el('span','display:flex;align-items:center;gap:8px');
+  slL.appendChild(_el('span','font-size:13px;width:18px;text-align:center','📢'));
+  slL.appendChild(_el('span',null,'Post to Slack'));
+  slHdr.appendChild(slL);slHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
+  const slSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15);padding:0 14px');
+  slHdr.onclick=()=>{slSub.style.maxHeight=slSub.style.maxHeight==='120px'?'0':'120px';};
+  const slTa=_el('textarea','width:100%;box-sizing:border-box;margin-top:8px;padding:6px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;resize:none;outline:none;height:52px');
+  slTa.placeholder='Message for Slack...';
+  slTa.onclick=e=>e.stopPropagation();
+  const slBtn=_el('button','margin:6px 0 8px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer','Send');
+  slBtn.onclick=e=>{
+    e.stopPropagation();
+    const msg=(slTa.value||'').trim();
+    if(!msg) return;
+    const linked=taskId?_getTaskSlackLink(taskId):null;
+    const chId=linked?.channelId||notif.channel||'';
+    const chName=chId.replace('#','');
+    const ch=(_slackChannelsCache||[]).find(c=>c.name===chName)||(_slackChannelsCache||[]).find(c=>c.id===chId);
+    if(ch?.id&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch.id)+'&text='+encodeURIComponent(msg)+'&user='+(window._DGL_USER||'')).catch(()=>{});
+    if(taskId) _logNotification(taskId,notif.toUser||'',chId,msg,'dm');
+    _closeNotifActionMenu();
+  };
+  slSub.appendChild(slTa);slSub.appendChild(slBtn);
+  mnu.appendChild(slHdr);mnu.appendChild(slSub);
+  _sep();
+
+  const isRead=_readNotifIds().has(notif.id);
+  if(!isRead) _item('✓','Mark Notification Read',()=>_markAlertRead(notif.id));
+
+  document.body.appendChild(mnu);
+  setTimeout(()=>{
+    document.addEventListener('click',_closeNotifActionMenu,true);
+    document.addEventListener('keydown',_notifMenuEsc,true);
+  },0);
 }
 function _startNotifRefresh(){
   clearInterval(_mbRefreshTimer);
