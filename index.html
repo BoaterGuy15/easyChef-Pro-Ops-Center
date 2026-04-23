@@ -7524,7 +7524,7 @@ function _onPhotoInputChange(inp,userKey){
     if(!CONFIG.sheetsUrl){_showToast('No Sheets URL configured',2000);return;}
     console.log('[DGL] Photo upload starting for:',userKey);
     try{
-      const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',sourceType:'profile',userKey,filename:file.name,mimeType:file.type,data:b64})});
+      const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',sourceType:'profile',userKey,docName:'photo-'+userKey+'.jpg',filename:file.name,mimeType:file.type,base64data:b64,taskId:'profile-'+userKey,sourceName:userKey,addedBy:window._DGL_USER||userKey})});
       const d=await resp.json();
       console.log('[DGL] Upload response:',JSON.stringify(d));
       console.log('[DGL] Photo URL:',d.url);
