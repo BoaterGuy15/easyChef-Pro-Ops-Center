@@ -8092,7 +8092,9 @@ function buildTeamGrid(){
   const _tcRow=(t,sub)=>'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);cursor:pointer;padding:2px 0;border-radius:2px" onclick="_viewTaskDetails(\''+t.id+'\')"><span style="color:var(--gold)">'+t.id+'</span> · '+t.name.slice(0,24)+' <span style="color:var(--muted)">'+sub+'</span></div>';
   const _colorHex={gold:'#c9a84c',blue:'#4f8ef7',purple:'#a78bfa',green:'#34d399',teal:'#2dd4bf',amber:'#fbbf24',muted:'#6b7280'};
   const _tcAvatar=(uk,name,acColor)=>{
-    const photoUrl=_hrProfilesCache[uk]?.photo||_hrProfilesCache[uk.toLowerCase()]?.photo||'';
+    const _rawPhoto=_hrProfilesCache[uk]?.photo||_hrProfilesCache[uk.toLowerCase()]?.photo||'';
+    const _fid=_rawPhoto.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+    const photoUrl=_fid?`https://drive.google.com/thumbnail?id=${_fid}&sz=w200`:_rawPhoto;
     const hex=_colorHex[acColor]||'#c9a84c';
     const pts=(name||'?').trim().split(/\s+/);
     const initials=((pts[0]||'?')[0]+((pts.length>1?(pts[pts.length-1]||''):'')+' ')[0]).toUpperCase().trim();
