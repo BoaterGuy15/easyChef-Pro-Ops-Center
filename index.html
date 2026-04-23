@@ -4490,18 +4490,17 @@ function _showGanttContextMenu(event,taskId){
   document.body.appendChild(mnu);
 
   // Drag-to-move via header strip
-  let _mnuDragging=false,_mnuDx=0,_mnuDy=0,_mnuL=0,_mnuT=0;
   mnuDragHdr.addEventListener('mousedown',e=>{
-    _mnuDragging=true;
-    _mnuDx=e.clientX;_mnuDy=e.clientY;
-    _mnuL=parseInt(mnu.style.left)||0;_mnuT=parseInt(mnu.style.top)||0;
-    e.stopPropagation();
+    e.stopPropagation();e.preventDefault();
+    mnuDragHdr.setPointerCapture(e.pointerId);
+    let L=parseInt(mnu.style.left)||0,T=parseInt(mnu.style.top)||0,sx=e.clientX,sy=e.clientY;
+    const onMove=e=>{mnu.style.left=(L+e.clientX-sx)+'px';mnu.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{mnuDragHdr.releasePointerCapture(e.pointerId);mnuDragHdr.removeEventListener('pointermove',onMove);mnuDragHdr.removeEventListener('pointerup',onUp);mnuDragHdr.removeEventListener('pointercancel',onUp);};
+    mnuDragHdr.addEventListener('pointermove',onMove);
+    mnuDragHdr.addEventListener('pointerup',onUp);
+    mnuDragHdr.addEventListener('pointercancel',onUp);
   });
-  const _mnuMove=e=>{if(!_mnuDragging)return;mnu.style.left=(_mnuL+e.clientX-_mnuDx)+'px';mnu.style.top=(_mnuT+e.clientY-_mnuDy)+'px';};
-  const _mnuUp=()=>{_mnuDragging=false;};
-  document.addEventListener('mousemove',_mnuMove);
-  document.addEventListener('mouseup',_mnuUp);
-  mnu._cleanupDrag=()=>{document.removeEventListener('mousemove',_mnuMove);document.removeEventListener('mouseup',_mnuUp);};
+  mnu._cleanupDrag=()=>{};
 
   setTimeout(()=>{
     document.addEventListener('click',_closeGanttContextMenu,false);
@@ -9892,18 +9891,17 @@ function _showNotifActionMenu(event,notif){
   document.body.appendChild(mnu);
 
   // Drag-to-move via header strip
-  let _naDragging=false,_naDx=0,_naDy=0,_naL=0,_naT=0;
   mnuDragHdr.addEventListener('mousedown',e=>{
-    _naDragging=true;
-    _naDx=e.clientX;_naDy=e.clientY;
-    _naL=parseInt(mnu.style.left)||0;_naT=parseInt(mnu.style.top)||0;
     e.stopPropagation();e.preventDefault();
+    mnuDragHdr.setPointerCapture(e.pointerId);
+    let L=parseInt(mnu.style.left)||0,T=parseInt(mnu.style.top)||0,sx=e.clientX,sy=e.clientY;
+    const onMove=e=>{mnu.style.left=(L+e.clientX-sx)+'px';mnu.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{mnuDragHdr.releasePointerCapture(e.pointerId);mnuDragHdr.removeEventListener('pointermove',onMove);mnuDragHdr.removeEventListener('pointerup',onUp);mnuDragHdr.removeEventListener('pointercancel',onUp);};
+    mnuDragHdr.addEventListener('pointermove',onMove);
+    mnuDragHdr.addEventListener('pointerup',onUp);
+    mnuDragHdr.addEventListener('pointercancel',onUp);
   });
-  const _naMove=e=>{if(_naDragging){mnu.style.left=(_naL+e.clientX-_naDx)+'px';mnu.style.top=(_naT+e.clientY-_naDy)+'px';}};
-  const _naUp=()=>{_naDragging=false;};
-  document.addEventListener('mousemove',_naMove);
-  document.addEventListener('mouseup',_naUp);
-  mnu._cleanupDrag=()=>{document.removeEventListener('mousemove',_naMove);document.removeEventListener('mouseup',_naUp);};
+  mnu._cleanupDrag=()=>{};
 
   setTimeout(()=>{
     document.addEventListener('click',_closeNotifActionMenu,false);
@@ -10145,16 +10143,17 @@ function _openStatusUpdateModal(taskId,notif){
   ta.focus();
 
   // Drag via header
-  let _suDrag=false,_suDx=0,_suDy=0,_suL=0,_suT=0;
   hdr.addEventListener('mousedown',e=>{
-    _suDrag=true;_suDx=e.clientX;_suDy=e.clientY;
-    const r=modal.getBoundingClientRect();_suL=r.left;_suT=r.top;
-    e.preventDefault();
+    e.preventDefault();e.stopPropagation();
+    hdr.setPointerCapture(e.pointerId);
+    const r=modal.getBoundingClientRect();
+    let L=r.left,T=r.top,sx=e.clientX,sy=e.clientY;
+    const onMove=e=>{modal.style.left=(L+e.clientX-sx)+'px';modal.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{hdr.releasePointerCapture(e.pointerId);hdr.removeEventListener('pointermove',onMove);hdr.removeEventListener('pointerup',onUp);hdr.removeEventListener('pointercancel',onUp);};
+    hdr.addEventListener('pointermove',onMove);
+    hdr.addEventListener('pointerup',onUp);
+    hdr.addEventListener('pointercancel',onUp);
   });
-  const _suMove=e=>{if(!_suDrag)return;modal.style.left=(_suL+e.clientX-_suDx)+'px';modal.style.top=(_suT+e.clientY-_suDy)+'px';};
-  const _suUp=()=>{_suDrag=false;};
-  document.addEventListener('mousemove',_suMove);
-  document.addEventListener('mouseup',_suUp);
 
   const _suEsc=e=>{if(e.key==='Escape'){_closeStatusUpdateModal();document.removeEventListener('keydown',_suEsc);}};
   document.addEventListener('keydown',_suEsc);
@@ -10234,19 +10233,21 @@ function _makeResizable(modal){
     el.style.cssText='position:absolute;z-index:10;'+h.style;
     el.addEventListener('mousedown',e=>{
       e.preventDefault();e.stopPropagation();
+      el.setPointerCapture(e.pointerId);
       const startX=e.clientX,startY=e.clientY;
       const startW=modal.offsetWidth,startH=modal.offsetHeight;
       const startL=modal.offsetLeft,startT=modal.offsetTop;
       const onMove=e=>{
         const dx=e.clientX-startX,dy=e.clientY-startY;
-        if(h.pos.includes('e')) modal.style.width=Math.max(300,startW+dx)+'px';
-        if(h.pos.includes('s')) modal.style.height=Math.max(200,startH+dy)+'px';
-        if(h.pos.includes('w')){modal.style.width=Math.max(300,startW-dx)+'px';modal.style.left=Math.min(startL+dx,startL+startW-300)+'px';}
-        if(h.pos.includes('n')){modal.style.height=Math.max(200,startH-dy)+'px';modal.style.top=Math.min(startT+dy,startT+startH-200)+'px';}
+        if(h.pos.includes('e')) modal.style.width=Math.max(400,startW+dx)+'px';
+        if(h.pos.includes('s')) modal.style.height=Math.max(300,startH+dy)+'px';
+        if(h.pos.includes('w')){modal.style.width=Math.max(400,startW-dx)+'px';modal.style.left=Math.min(startL+dx,startL+startW-400)+'px';}
+        if(h.pos.includes('n')){modal.style.height=Math.max(300,startH-dy)+'px';modal.style.top=Math.min(startT+dy,startT+startH-300)+'px';}
       };
-      const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
-      document.addEventListener('mousemove',onMove);
-      document.addEventListener('mouseup',onUp);
+      const onUp=e=>{el.releasePointerCapture(e.pointerId);el.removeEventListener('pointermove',onMove);el.removeEventListener('pointerup',onUp);el.removeEventListener('pointercancel',onUp);};
+      el.addEventListener('pointermove',onMove);
+      el.addEventListener('pointerup',onUp);
+      el.addEventListener('pointercancel',onUp);
     });
     modal.appendChild(el);
   });
@@ -10641,20 +10642,19 @@ function _showActionPlanModal(pKey){
   document.body.appendChild(overlay);
   _makeResizable(modal);
   // Drag via header
-  let _apDrag=false,_apDx=0,_apDy=0,_apL=0,_apT=0;
   hdr.addEventListener('mousedown',e=>{
-    _apDrag=true;
+    e.preventDefault();e.stopPropagation();
+    hdr.setPointerCapture(e.pointerId);
     modal.style.transform='none';
     const r=modal.getBoundingClientRect();
-    modal.style.left=r.left+'px';modal.style.top=r.top+'px';
-    _apDx=e.clientX;_apDy=e.clientY;_apL=r.left;_apT=r.top;
-    e.preventDefault();e.stopPropagation();
+    let L=r.left,T=r.top,sx=e.clientX,sy=e.clientY;
+    modal.style.left=L+'px';modal.style.top=T+'px';
+    const onMove=e=>{modal.style.left=(L+e.clientX-sx)+'px';modal.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{hdr.releasePointerCapture(e.pointerId);hdr.removeEventListener('pointermove',onMove);hdr.removeEventListener('pointerup',onUp);hdr.removeEventListener('pointercancel',onUp);};
+    hdr.addEventListener('pointermove',onMove);
+    hdr.addEventListener('pointerup',onUp);
+    hdr.addEventListener('pointercancel',onUp);
   });
-  const _apMove=e=>{if(!_apDrag)return;modal.style.left=(_apL+e.clientX-_apDx)+'px';modal.style.top=(_apT+e.clientY-_apDy)+'px';};
-  const _apUp=()=>{_apDrag=false;};
-  document.addEventListener('mousemove',_apMove);
-  document.addEventListener('mouseup',_apUp);
-  overlay.addEventListener('remove',()=>{document.removeEventListener('mousemove',_apMove);document.removeEventListener('mouseup',_apUp);});
   // Esc closes
   const _apEsc=e=>{if(e.key==='Escape'){overlay.remove();document.removeEventListener('keydown',_apEsc);}};
   document.addEventListener('keydown',_apEsc);
