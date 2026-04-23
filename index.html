@@ -9774,7 +9774,7 @@ function _showNotifActionMenu(event,notif){
 }
 function _closeStatusUpdateModal(){
   const ov=document.getElementById('update-status-overlay');
-  if(ov) ov.remove();
+  if(ov){if(ov._cleanup)ov._cleanup();ov.remove();}
 }
 function _openStatusUpdateModal(taskId,notif){
   _closeStatusUpdateModal();
@@ -9795,11 +9795,11 @@ function _openStatusUpdateModal(taskId,notif){
   ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
   ov.onclick=e=>{ if(e.target===ov) _closeStatusUpdateModal(); };
 
-  // Modal
+  // Modal — flex column, no overflow so no scrollbars
   const modal=document.createElement('div');
-  modal.style.cssText="position:fixed;z-index:99999;width:600px;height:400px;left:calc(50% - 300px);top:calc(50% - 200px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden";
+  modal.style.cssText="position:fixed;z-index:99999;width:600px;height:400px;left:calc(50% - 300px);top:calc(50% - 200px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:300px;min-height:200px";
 
-  // Header (drag handle)
+  // Header — drag handle
   const hdr=document.createElement('div');
   hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:move;user-select:none;flex-shrink:0';
   const hdrL=document.createElement('div');
@@ -9822,23 +9822,17 @@ function _openStatusUpdateModal(taskId,notif){
   const badge=document.createElement('span');
   badge.style.cssText='font-size:10px;padding:2px 8px;border-radius:4px;background:'+sc.bg+';color:'+sc.color+';font-weight:600';
   badge.textContent=taskStatus;
-  const ownerEl=document.createElement('span');
-  ownerEl.style.cssText="font-size:10px;color:var(--muted)";
-  ownerEl.textContent='Owner: '+taskOwner;
-  const dueEl=document.createElement('span');
-  dueEl.style.cssText="font-size:10px;color:var(--muted)";
-  dueEl.textContent='Due: '+taskDue;
-  const chEl=document.createElement('span');
-  chEl.style.cssText="font-size:10px;color:var(--gold);margin-left:auto";
-  chEl.textContent=chDisplayName?'→ '+chDisplayName:'';
+  const ownerEl=document.createElement('span');ownerEl.style.cssText="font-size:10px;color:var(--muted)";ownerEl.textContent='Owner: '+taskOwner;
+  const dueEl=document.createElement('span');dueEl.style.cssText="font-size:10px;color:var(--muted)";dueEl.textContent='Due: '+taskDue;
+  const chEl=document.createElement('span');chEl.style.cssText="font-size:10px;color:var(--gold);margin-left:auto";chEl.textContent=chDisplayName?'→ '+chDisplayName:'';
   info.appendChild(badge);info.appendChild(ownerEl);info.appendChild(dueEl);info.appendChild(chEl);
   modal.appendChild(info);
 
-  // Textarea body
+  // Body — flex:1, no overflow, textarea fills it
   const body=document.createElement('div');
-  body.style.cssText='flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:0;overflow:hidden';
+  body.style.cssText='flex:1;padding:14px 18px;display:flex;flex-direction:column;overflow:hidden;min-height:0';
   const ta=document.createElement('textarea');
-  ta.style.cssText="flex:1;width:100%;box-sizing:border-box;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;line-height:1.6;padding:10px;resize:vertical;outline:none;min-height:80px";
+  ta.style.cssText="flex:1;width:100%;box-sizing:border-box;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;line-height:1.6;padding:10px;resize:none;outline:none;min-height:0";
   ta.placeholder='Post a status update to the '+chDisplayName+' channel...';
   body.appendChild(ta);
   modal.appendChild(body);
@@ -9851,8 +9845,7 @@ function _openStatusUpdateModal(taskId,notif){
   postBtn.textContent='📤 Post to '+chDisplayName;
   const cancelBtn=document.createElement('button');
   cancelBtn.style.cssText="padding:8px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer";
-  cancelBtn.textContent='Cancel';
-  cancelBtn.onclick=_closeStatusUpdateModal;
+  cancelBtn.textContent='Cancel';cancelBtn.onclick=_closeStatusUpdateModal;
   postBtn.onclick=()=>{
     const msg=(ta.value||'').trim();
     if(!msg){ta.style.borderColor='var(--red)';ta.focus();return;}
@@ -9874,26 +9867,76 @@ function _openStatusUpdateModal(taskId,notif){
   footer.appendChild(postBtn);footer.appendChild(cancelBtn);
   modal.appendChild(footer);
 
+  // Resize handles — 6px strips on edges, 10px corners
+  function _mkHandle(css){
+    const h=document.createElement('div');
+    h.style.cssText='position:absolute;'+css+'background:transparent;z-index:1';
+    modal.appendChild(h);return h;
+  }
+  const rN  =_mkHandle('top:0;left:10px;right:10px;height:6px;cursor:n-resize');
+  const rS  =_mkHandle('bottom:0;left:10px;right:10px;height:6px;cursor:s-resize');
+  const rW  =_mkHandle('left:0;top:10px;bottom:10px;width:6px;cursor:w-resize');
+  const rE  =_mkHandle('right:0;top:10px;bottom:10px;width:6px;cursor:e-resize');
+  const rNW =_mkHandle('top:0;left:0;width:10px;height:10px;cursor:nw-resize');
+  const rNE =_mkHandle('top:0;right:0;width:10px;height:10px;cursor:ne-resize');
+  const rSW =_mkHandle('bottom:0;left:0;width:10px;height:10px;cursor:sw-resize');
+  const rSE =_mkHandle('bottom:0;right:0;width:10px;height:10px;cursor:se-resize');
+
   ov.appendChild(modal);
   document.body.appendChild(ov);
   ta.focus();
 
-  // Drag
-  let _suDrag=false,_suDx=0,_suDy=0,_suL=0,_suT=0;
-  hdr.addEventListener('mousedown',e=>{
-    _suDrag=true;_suDx=e.clientX;_suDy=e.clientY;
-    const r=modal.getBoundingClientRect();_suL=r.left;_suT=r.top;
-    e.preventDefault();
-  });
-  const _suMove=e=>{if(!_suDrag)return;modal.style.left=(_suL+e.clientX-_suDx)+'px';modal.style.top=(_suT+e.clientY-_suDy)+'px';};
-  const _suUp=()=>{_suDrag=false;};
+  // Unified drag + resize state
+  let _suMode=null,_suSX=0,_suSY=0,_suSL=0,_suST=0,_suSW=0,_suSH=0;
+  const MIN_W=300,MIN_H=200;
+
+  function _suStart(mode,e){
+    _suMode=mode;_suSX=e.clientX;_suSY=e.clientY;
+    const r=modal.getBoundingClientRect();
+    _suSL=r.left;_suST=r.top;_suSW=r.width;_suSH=r.height;
+    e.preventDefault();e.stopPropagation();
+  }
+  hdr.addEventListener('mousedown',e=>_suStart('drag',e));
+  rN.addEventListener('mousedown',e=>_suStart('n',e));
+  rS.addEventListener('mousedown',e=>_suStart('s',e));
+  rW.addEventListener('mousedown',e=>_suStart('w',e));
+  rE.addEventListener('mousedown',e=>_suStart('e',e));
+  rNW.addEventListener('mousedown',e=>_suStart('nw',e));
+  rNE.addEventListener('mousedown',e=>_suStart('ne',e));
+  rSW.addEventListener('mousedown',e=>_suStart('sw',e));
+  rSE.addEventListener('mousedown',e=>_suStart('se',e));
+
+  const _suMove=e=>{
+    if(!_suMode) return;
+    const dx=e.clientX-_suSX, dy=e.clientY-_suSY;
+    const m=modal.style;
+    if(_suMode==='drag'){ m.left=(_suSL+dx)+'px'; m.top=(_suST+dy)+'px'; return; }
+    // Vertical
+    if(_suMode==='n'||_suMode==='nw'||_suMode==='ne'){
+      const nh=Math.max(MIN_H,_suSH-dy);
+      m.height=nh+'px'; m.top=(_suST+_suSH-nh)+'px';
+    }
+    if(_suMode==='s'||_suMode==='sw'||_suMode==='se'){
+      m.height=Math.max(MIN_H,_suSH+dy)+'px';
+    }
+    // Horizontal
+    if(_suMode==='w'||_suMode==='nw'||_suMode==='sw'){
+      const nw=Math.max(MIN_W,_suSW-dx);
+      m.width=nw+'px'; m.left=(_suSL+_suSW-nw)+'px';
+    }
+    if(_suMode==='e'||_suMode==='ne'||_suMode==='se'){
+      m.width=Math.max(MIN_W,_suSW+dx)+'px';
+    }
+  };
+  const _suUp=()=>{_suMode=null;};
   document.addEventListener('mousemove',_suMove);
   document.addEventListener('mouseup',_suUp);
-  ov.addEventListener('remove',()=>{document.removeEventListener('mousemove',_suMove);document.removeEventListener('mouseup',_suUp);});
 
-  // Escape closes
   const _suEsc=e=>{if(e.key==='Escape'){_closeStatusUpdateModal();document.removeEventListener('keydown',_suEsc);}};
   document.addEventListener('keydown',_suEsc);
+  // Cleanup on close
+  const _origClose=_closeStatusUpdateModal;
+  ov._cleanup=()=>{document.removeEventListener('mousemove',_suMove);document.removeEventListener('mouseup',_suUp);document.removeEventListener('keydown',_suEsc);};
 }
 function _startNotifRefresh(){
   clearInterval(_mbRefreshTimer);
