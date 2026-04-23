@@ -5456,7 +5456,7 @@ function _initAgendaDrag(){
       placeholder=document.createElement('div');
       placeholder.style.cssText=`height:${rect.height}px;border:1px dashed var(--gold);border-radius:4px;box-sizing:border-box;opacity:0.5;background:rgba(201,168,76,0.04)`;
       row.insertAdjacentElement('beforebegin',placeholder);
-      row.style.opacity='0';
+      row.style.display='none';
       const onMove=e=>{
         if(!handle.hasPointerCapture(e.pointerId)) return;
         clone.style.left=(e.clientX-offsetX)+'px';
@@ -5472,7 +5472,7 @@ function _initAgendaDrag(){
         handle.removeEventListener('pointermove',onMove);
         handle.removeEventListener('pointerup',onUp);
         clone.remove();
-        row.style.opacity='';
+        row.style.display='';
         const nextRow=placeholder.nextElementSibling;
         const nextId=nextRow?.classList.contains('agenda-item-row')?nextRow.dataset.id:null;
         placeholder.remove();
