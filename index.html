@@ -9818,13 +9818,37 @@ function _openStatusUpdateModal(taskId,notif){
   info.appendChild(badge);info.appendChild(ownerEl);info.appendChild(dueEl);info.appendChild(chEl);
   modal.appendChild(info);
 
-  // Body — flex:1, no overflow, textarea fills it
+  // Body — flex:1, column layout: textarea + docs zone
   const body=document.createElement('div');
-  body.style.cssText='flex:1;padding:14px 18px;display:flex;flex-direction:column;overflow:hidden;min-height:0';
+  body.style.cssText='flex:1;padding:14px 18px 8px;display:flex;flex-direction:column;gap:8px;overflow:hidden;min-height:0';
   const ta=document.createElement('textarea');
-  ta.style.cssText="flex:1;width:100%;box-sizing:border-box;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;line-height:1.6;padding:10px;resize:none;outline:none;min-height:0";
+  ta.style.cssText="flex:1;width:100%;box-sizing:border-box;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;line-height:1.6;padding:10px;resize:none;outline:none;min-height:60px";
   ta.placeholder='Post a status update to the '+chDisplayName+' channel...';
   body.appendChild(ta);
+
+  // Docs section
+  const docsWrap=document.createElement('div');
+  docsWrap.style.cssText='flex-shrink:0;display:flex;flex-direction:column;gap:6px';
+
+  const suFileInput=document.createElement('input');
+  suFileInput.type='file';suFileInput.multiple=true;suFileInput.style.display='none';
+  suFileInput.onchange=()=>_handleStatusUpdateDrop(suFileInput.files,taskId,suAttachedList,suDz);
+  docsWrap.appendChild(suFileInput);
+
+  const suDz=document.createElement('div');
+  suDz.style.cssText="border:2px dashed var(--border);border-radius:6px;padding:8px 12px;text-align:center;cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);transition:border-color 0.15s";
+  suDz.textContent='📎 Drop files here or click to attach';
+  suDz.onclick=()=>suFileInput.click();
+  suDz.ondragover=e=>{e.preventDefault();suDz.style.borderColor='var(--gold)';suDz.style.color='var(--gold)';};
+  suDz.ondragleave=()=>{suDz.style.borderColor='var(--border)';suDz.style.color='var(--muted)';};
+  suDz.ondrop=e=>{e.preventDefault();suDz.style.borderColor='var(--border)';suDz.style.color='var(--muted)';_handleStatusUpdateDrop(e.dataTransfer.files,taskId,suAttachedList,suDz);};
+  docsWrap.appendChild(suDz);
+
+  const suAttachedList=document.createElement('div');
+  suAttachedList.style.cssText='display:flex;flex-direction:column;gap:4px;max-height:90px;overflow-y:auto';
+  docsWrap.appendChild(suAttachedList);
+
+  body.appendChild(docsWrap);
   modal.appendChild(body);
 
   // Footer
@@ -9890,6 +9914,54 @@ function _notifyTaskAction(taskId,actionText){
   if(link?.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(link.channelId)+'&text='+encodeURIComponent(msg)+'&user='+(window._DGL_USER||'')).catch(()=>{});
   const {both}=_getRACIUsers(t);
   both.forEach(uk=>{if(uk===window._DGL_USER) return; _logNotification(taskId,uk,link?.channelId||'',msg,'task-action');});
+}
+function _handleStatusUpdateDrop(files,taskId,listEl,dzEl){
+  if(!files||!files.length) return;
+  const fileArr=Array.from(files);
+  let idx=0;
+  function _next(){
+    if(idx>=fileArr.length){
+      if(dzEl){dzEl.textContent='📎 Drop files here or click to attach';dzEl.style.color='var(--muted)';}
+      return;
+    }
+    const file=fileArr[idx++];
+    if(dzEl){dzEl.textContent='⏳ Uploading '+file.name+'…';dzEl.style.color='var(--gold)';}
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const b64=ev.target.result.split(',')[1];
+      const t=taskId?DASHBOARD_DATA.tasks.find(x=>x.id===taskId):null;
+      const sourceName=t?t.name||'':'';
+      const payload={action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,
+        taskId:taskId||'',agendaId:'',sourceType:'task',sourceId:taskId||'',sourceName,addedBy:window._DGL_USER||'unknown'};
+      if(!CONFIG.sheetsUrl){_next();return;}
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+        .then(r=>r.json()).then(data=>{
+          const d=data.doc||data;
+          const doc={id:'doc-'+Date.now(),name:file.name,url:d.url||'',previewUrl:d.previewUrl||'',
+            driveFileId:d.driveFileId||d.id||'',mimeType:file.type,addedBy:window._DGL_USER||'unknown',addedAt:new Date().toISOString()};
+          const cacheKey='task_'+taskId;
+          if(!_docsCache[cacheKey]) _docsCache[cacheKey]=[];
+          _docsCache[cacheKey].push(doc);
+          if(listEl){
+            const row=document.createElement('div');
+            row.style.cssText="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(0,0,0,0.15);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text)";
+            const nm=document.createElement('span');nm.style.cssText='flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';nm.textContent=file.name;
+            const eyeBtn=document.createElement('button');
+            eyeBtn.style.cssText="background:transparent;border:none;cursor:pointer;color:var(--gold);font-size:12px;padding:0 2px";
+            eyeBtn.textContent='👁️';eyeBtn.title='Preview';eyeBtn.onclick=()=>_showDocPreview(doc);
+            const rmBtn=document.createElement('button');
+            rmBtn.style.cssText="background:transparent;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:0 2px";
+            rmBtn.textContent='✕';rmBtn.title='Remove from list';rmBtn.onclick=()=>row.remove();
+            row.appendChild(nm);row.appendChild(eyeBtn);row.appendChild(rmBtn);
+            listEl.appendChild(row);
+          }
+          _next();
+        })
+        .catch(()=>{if(dzEl){dzEl.textContent='❌ Failed: '+file.name;dzEl.style.color='var(--red)';}setTimeout(_next,1500);});
+    };
+    reader.readAsDataURL(file);
+  }
+  _next();
 }
 function _makeResizable(modal){
   [{pos:'n',style:'top:-4px;left:6px;right:6px;height:8px;cursor:n-resize'},
