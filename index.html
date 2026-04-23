@@ -1395,17 +1395,20 @@ function statusSelect(t){
   }</select>`;
 }
 // ── Gaps / Notifications / Status Log ────────────────────────
+function _nowPST(){
+  return new Date().toLocaleString('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).replace(',','');
+}
 function _logStatusChange(taskId,fromStatus,toStatus,note){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'status_log_write',id:'sl-'+Date.now(),taskId,fromStatus,toStatus,changedBy:window._DGL_USER||'system',changedAt:new Date().toISOString(),note:note||''})}).catch(()=>{});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'status_log_write',id:'sl-'+Date.now(),taskId,fromStatus,toStatus,changedBy:window._DGL_USER||'system',changedAt:_nowPST(),note:note||''})}).catch(()=>{});
 }
 function _logNotification(taskId,toUser,channel,message,type){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-'+Date.now(),taskId,toUser,channel,message,type:type||'dm',sentBy:window._DGL_USER||'system',sentAt:new Date().toISOString()})}).catch(()=>{});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-'+Date.now(),taskId,toUser,channel,message,type:type||'dm',sentBy:window._DGL_USER||'system',sentAt:_nowPST()})}).catch(()=>{});
 }
 function _logGap(taskId,type,description,agendaId){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:'gap-'+Date.now(),taskId:taskId||'',agendaId:agendaId||'',type:type||'general',description,status:'open',detectedBy:window._DGL_USER||'system',detectedAt:new Date().toISOString()})}).catch(()=>{});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:'gap-'+Date.now(),taskId:taskId||'',agendaId:agendaId||'',type:type||'general',description,status:'open',detectedBy:window._DGL_USER||'system',detectedAt:_nowPST()})}).catch(()=>{});
 }
 function _detectGaps(){
   const today=new Date().toISOString().slice(0,10);
