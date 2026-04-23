@@ -5436,6 +5436,60 @@ function deleteAgendaItem(id){
   deleteAgendaItemFromSheets(id);
   buildAgendaPage(); buildAgenda();
 }
+function _initAgendaDrag(){
+  if(!canEditAgenda()) return;
+  document.querySelectorAll('.agenda-item-row').forEach(row=>{
+    const handle=row.querySelector('[title="Drag to reorder"]');
+    if(!handle||handle._pdInit) return;
+    handle._pdInit=true;
+    let offsetX,offsetY,clone,placeholder;
+    handle.addEventListener('pointerdown',e=>{
+      if(e.button!==0) return;
+      e.preventDefault();e.stopPropagation();
+      handle.setPointerCapture(e.pointerId);
+      const rect=row.getBoundingClientRect();
+      offsetX=e.clientX-rect.left;
+      offsetY=e.clientY-rect.top;
+      clone=row.cloneNode(true);
+      clone.style.cssText=`position:fixed;z-index:99999;width:${rect.width}px;left:${rect.left}px;top:${rect.top}px;opacity:0.88;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);border-radius:6px;background:var(--card)`;
+      document.body.appendChild(clone);
+      placeholder=document.createElement('div');
+      placeholder.style.cssText=`height:${rect.height}px;border:1px dashed var(--gold);border-radius:4px;box-sizing:border-box;opacity:0.5;background:rgba(201,168,76,0.04)`;
+      row.insertAdjacentElement('beforebegin',placeholder);
+      row.style.opacity='0';
+      const onMove=e=>{
+        if(!handle.hasPointerCapture(e.pointerId)) return;
+        clone.style.left=(e.clientX-offsetX)+'px';
+        clone.style.top=(e.clientY-offsetY)+'px';
+        const rows=[...document.querySelectorAll('.agenda-item-row')].filter(r=>r!==row);
+        let insertBefore=null;
+        for(const r of rows){const rr=r.getBoundingClientRect();if(e.clientY<rr.top+rr.height/2){insertBefore=r;break;}}
+        if(insertBefore) insertBefore.insertAdjacentElement('beforebegin',placeholder);
+        else if(rows.length) rows[rows.length-1].insertAdjacentElement('afterend',placeholder);
+      };
+      const onUp=e=>{
+        handle.releasePointerCapture(e.pointerId);
+        handle.removeEventListener('pointermove',onMove);
+        handle.removeEventListener('pointerup',onUp);
+        clone.remove();
+        row.style.opacity='';
+        const nextRow=placeholder.nextElementSibling;
+        const nextId=nextRow?.classList.contains('agenda-item-row')?nextRow.dataset.id:null;
+        placeholder.remove();
+        const fromId=row.dataset.id;
+        const fromIdx=AGENDA_DATA.findIndex(x=>x.id===fromId);
+        if(fromIdx<0){buildMondayAgenda();buildAgenda();return;}
+        const [moved]=AGENDA_DATA.splice(fromIdx,1);
+        if(nextId){const insertAt=AGENDA_DATA.findIndex(x=>x.id===nextId);if(insertAt>=0)AGENDA_DATA.splice(insertAt,0,moved);else AGENDA_DATA.push(moved);}
+        else AGENDA_DATA.push(moved);
+        saveAgendaOrderToSheets();
+        buildMondayAgenda();buildAgenda();
+      };
+      handle.addEventListener('pointermove',onMove);
+      handle.addEventListener('pointerup',onUp);
+    });
+  });
+}
 let _agendaDragId=null;
 function _agendaDragStart(e,id){
   _agendaDragId=id;
@@ -6841,6 +6895,7 @@ function buildMondayAgenda(){
     ${addFrm}
   </div>`;
   _applyMeetingMetaToHeader();
+  _initAgendaDrag();
 }
 function toggleAgendaItem(id){
   if(!canEditAgenda()) return;
@@ -8077,6 +8132,7 @@ function buildAgenda(){
   <div ondragover="event.preventDefault()" ondrop="_agendaDrop(event)">${AGENDA_DATA.map((it,i)=>_agendaItemHtml(it,i,canEdit)).join('')}</div>
   ${addFrm}`;
   _applyMeetingMetaToHeader();
+  _initAgendaDrag();
 }
 
 // ── Spend log ───────────────────────────────────────────────
