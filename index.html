@@ -1333,7 +1333,7 @@ function showPage(id){
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom('90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
   if(id==='budget') loadBudgetFromSheets();
-  if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } }
+  if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } }
   if(id==='command'){
     _renderMasterAICard();
     const stale=Date.now()-(_masterAiLastRun||+sessionStorage.getItem('dgl_master_ai_ts')||0)>2*60*60*1000;
@@ -2191,7 +2191,7 @@ function _renderRaciChannelPicker(taskId){
   const savedChannelId=linked.channelId||'';
   console.log('[DGL] Building channel dropdown for',taskId,'saved:',savedChannelId);
   const chName=linked.channelName||linked.channelId||'Not linked';
-  const canEdit=['taylor','steve'].includes(window._DGL_USER);
+  const canEdit=['taylor','steve','adam','hammad'].includes(window._DGL_USER);
   const unlocked=_isChannelUnlocked(taskId);
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
@@ -2210,7 +2210,7 @@ function _renderAgendaChannelPicker(id){
   const chs=_slackChannelsCache||[];
   const linked=_getTaskSlackLink('agenda_'+id);
   const chName=linked.channelName||linked.channelId||'Not linked';
-  const canEdit=['taylor','steve'].includes(window._DGL_USER);
+  const canEdit=['taylor','steve','adam','hammad'].includes(window._DGL_USER);
   const _agTid='agenda_'+id;
   const unlocked=_isChannelUnlocked(_agTid);
   const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
@@ -2283,7 +2283,7 @@ function _relinkAllTasks(){
 }
 function _buildChannelMappingSection(){
   const el=document.getElementById('channel-mapping-section'); if(!el) return;
-  const canAdmin=['taylor','steve'].includes(window._DGL_USER);
+  const canAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER);
   const unlocked=_commsIsUnlocked();
   const canEdit=canAdmin&&unlocked;
   const map=_getCategoryChannelMap();
@@ -2359,7 +2359,7 @@ function _testDMChannel(personKey,btn){
 }
 function _buildDMChannelMappingSection(){
   const el=document.getElementById('dm-channel-mapping-section'); if(!el) return;
-  const canAdmin=['taylor','steve'].includes(window._DGL_USER);
+  const canAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER);
   const unlocked=_commsIsUnlocked();
   const canEdit=canAdmin&&unlocked;
   const chs=_slackChannelsCache||[];
@@ -2894,7 +2894,7 @@ function _fmtCompDate(d){ if(!d) return ''; try{ const p=String(d).slice(0,10).s
 function _renderCompletionRecordHtml(taskId){
   const r=_getCompletionRecord(taskId);
   if(!r) return '';
-  const canEdit=['taylor','steve'].includes(window._DGL_USER||'');
+  const canEdit=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const q=r.quality||3; const ql=r.qualityLabel||'Solid';
   const stars='★'.repeat(Number(q))+'☆'.repeat(5-Number(q));
   const fRow=(label,val)=>val?`<div style="display:flex;gap:6px;margin-bottom:3px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);min-width:90px">${label}</span><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${val}</span></div>`:'';
@@ -3058,7 +3058,7 @@ function _buildDocsListHtml(cacheKey){
   const sourceId=cacheKey.slice(sep+1);
   const docs=_docsCache[cacheKey]||[];
   const cu=window._DGL_USER||'';
-  const isAdmin=['taylor','steve'].includes(cu);
+  const isAdmin=['taylor','steve','adam','hammad'].includes(cu);
   if(!docs.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border);padding:4px 0">No documents attached.</div>';
   return docs.map(d=>{
     const isUploaded=!!(d.driveFileId&&d.driveFileId!=='');
@@ -4313,7 +4313,7 @@ function _showGanttContextMenu(event,taskId){
   _closeGanttContextMenu();
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t) return;
-  const canAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+  const canAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
 
   const mnu=document.createElement('div');
   mnu.id='gantt-ctx-menu';
@@ -5384,7 +5384,7 @@ function saveMeetingMetaField(el,field){
 }
 function _applyMeetingMetaToHeader(){
   const meta=_getMeetingMeta();
-  const canEdit=['taylor','steve'].includes(window._DGL_USER||'');
+  const canEdit=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const sl=document.getElementById('agenda-section-label');
   if(sl) sl.innerHTML=_metaSpan('title',meta.title,canEdit)+' Agenda — '+_metaSpan('time',meta.time,canEdit);
   const pt=document.getElementById('agenda-page-title');
@@ -5528,7 +5528,7 @@ function saveAgendaOrderToSheets(){
 }
 function _agendaItemHtml(it,i,canEdit){
   const done=!!it.checked;
-  const canFounder=['taylor','steve'].includes(window._DGL_USER||'');
+  const canFounder=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const catColor=it.category==='RACI'?'var(--gold)':it.category==='Slack'?'#60a5fa':'var(--muted)';
   const catBadge=it.category&&it.category!=='Manual'?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:${catColor};border:1px solid ${catColor};border-radius:3px;padding:1px 4px;margin-left:4px">${it.category}</span>`:'';
   const delBtn=canEdit?`<button onclick="deleteAgendaItem('${it.id}')" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'" title="Remove">✕</button>`:'';
@@ -5718,7 +5718,7 @@ function _buildAgendaExpandHtml(id){
   const lbl=s=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px;margin-top:14px">${s}</div>`;
   const fRow=(k,v)=>`<div style="margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${k}: </span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text)">${v||'—'}</span></div>`;
   const canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
-  const canEdit=['taylor','steve'].includes(window._DGL_USER||'')||(it.owner||'').toLowerCase().split(/,\s*/).includes(window._DGL_USER||'');
+  const canEdit=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'')||(it.owner||'').toLowerCase().split(/,\s*/).includes(window._DGL_USER||'');
   const flagColor=it.flag?'var(--gold)':'var(--muted)';
   const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
   const _swSt2="width:11px;height:11px;border-radius:50%;cursor:pointer;border:none;padding:0;flex-shrink:0";
@@ -6869,7 +6869,7 @@ function buildMondayAgenda(){
   if(!el) return;
   const canEdit=canEditAgenda();
   const meta=_getMeetingMeta();
-  const canEditMeta=['taylor','steve'].includes(window._DGL_USER||'');
+  const canEditMeta=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const resolved=AGENDA_DATA.filter(x=>x.checked).length;
   const addFrm=canEdit?`<div id="agenda-add-form" style="display:none;margin-top:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;margin-bottom:12px">ADD AGENDA ITEM</div>
@@ -7302,7 +7302,7 @@ function _fmtMsDate(d){
 function _buildMilestonesHtml(canEditControls){
   if(!DASHBOARD_DATA.meta.milestoneItems) DASHBOARD_DATA.meta.milestoneItems=[];
   const items=DASHBOARD_DATA.meta.milestoneItems;
-  const isAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+  const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const showControls=canEditControls&&isAdmin;
   let html='';
   if(canEditControls) html+=`<div style="margin-bottom:16px"><button onclick="_openMilestoneModal()" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">➕ Add Milestone</button></div>`;
@@ -7558,7 +7558,7 @@ function openProfileModal(userKey){
   document.getElementById('profile-modal-name').textContent=(info.name||userKey).toUpperCase();
   document.getElementById('profile-modal-role').textContent=info.role||'';
   const _viewer=window._DGL_USER||'';
-  const canWrite=['taylor','steve'].includes(_viewer)||_viewer===userKey;
+  const canWrite=['taylor','steve','adam','hammad'].includes(_viewer)||_viewer===userKey;
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;box-sizing:border-box`;
   const fRow=(lbl,val)=>`<div style="margin-bottom:10px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:3px">${lbl}</div><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text)">${val||'<span style="color:var(--border)">—</span>'}</div></div>`;
   const logItems=(p.log||[]).slice(-10).reverse();
@@ -7645,8 +7645,8 @@ function openDefaultTeamMemberModal(user){
   const cur={...def,...ed};
   const p=(_getProfiles()[user])||{};
   const _dv=window._DGL_USER||'';
-  const canWrite=['taylor','steve'].includes(_dv)||_dv===user;
-  const canEditPw=['taylor','steve'].includes(_dv)||_dv===user;
+  const canWrite=['taylor','steve','adam','hammad'].includes(_dv)||_dv===user;
+  const canEditPw=['taylor','steve','adam','hammad'].includes(_dv)||_dv===user;
   const title=document.getElementById('tmm-title');
   if(title) title.textContent='EDIT TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
@@ -7755,8 +7755,8 @@ function openTeamMemberModal(idx){
   const cm=idx>=0?arr[idx]:null;
   const p=cm?(_getProfiles()[cm.user]||{}):{};
   const _dv2=window._DGL_USER||'';
-  const canWrite2=['taylor','steve'].includes(_dv2)||(cm&&_dv2===cm.user);
-  const canEditPw2=['taylor','steve'].includes(_dv2)||!cm;
+  const canWrite2=['taylor','steve','adam','hammad'].includes(_dv2)||(cm&&_dv2===cm.user);
+  const canEditPw2=['taylor','steve','adam','hammad'].includes(_dv2)||!cm;
   const title=document.getElementById('tmm-title');
   if(title) title.textContent=cm?'EDIT TEAM MEMBER':'ADD TEAM MEMBER';
   const iSt=`width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none`;
@@ -8057,7 +8057,7 @@ function _imgErr(el,initials,color){const d=document.createElement('div');d.styl
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
-  const _isAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+  const _isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const _hrBtn2=document.getElementById('team-btn-hr');
   if(_hrBtn2) _hrBtn2.style.display=_isAdmin?'':'none';
   const _d = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
@@ -8135,7 +8135,7 @@ function buildTeamGrid(){
       const _notStHtml=_mkTCSec('📌 NOT STARTED','var(--muted)',_notSt.slice(0,4).map(t=>_tcRow(t,'Should have started '+_toYMD(t.sd))));
       const _cmUpHtml=_mkTCSec('🔜 COMING UP','#60a5fa',_cmUp.slice(0,4).map(t=>_tcRow(t,'Starts '+_toYMD(t.sd))));
       const _cu=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
-      const _canEditDefault=(['taylor','steve'].includes(_cu)||_cu===userKey)&&_cu!=='view'&&_cu!=='';
+      const _canEditDefault=(['taylor','steve','adam','hammad'].includes(_cu)||_cu===userKey)&&_cu!=='view'&&_cu!=='';
       const editBtnDefault=_canEditDefault?`<button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit Profile">✏️ Edit</button>`:'';
       return `<div class="${cls}" draggable="true" data-user-key="${userKey}" style="position:relative">
         ${dragHandle}
@@ -8174,7 +8174,7 @@ function buildTeamGrid(){
       const _cmUpHtml2=_mkTCSec('🔜 COMING UP','#60a5fa',_cmUp2.slice(0,4).map(t=>_tcRow(t,'Starts '+_toYMD(t.sd))));
       const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
       const _cu2=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
-      const _canEditCustom=(['taylor','steve'].includes(_cu2)||_cu2===cm.user)&&_cu2!=='view'&&_cu2!=='';
+      const _canEditCustom=(['taylor','steve','adam','hammad'].includes(_cu2)||_cu2===cm.user)&&_cu2!=='view'&&_cu2!=='';
       const editBtnCustom=_canEditCustom?`<button onclick="openTeamMemberModal(${ci})" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit Profile">✏️ Edit</button>`:'';
       const _hrP2=_hrProfilesCache[cm.user]||{};
       return `<div class="tc" draggable="true" data-user-key="${cm.user}" style="position:relative">
@@ -10466,7 +10466,7 @@ function showDashboard(user, showPopup=false){
   if(user&&user!=='view'){ _loadUserNotifications(user); _loadUserDMs(user); _startNotifRefresh(); }
   updateBellDot();
   const _hrBtn=document.getElementById('team-btn-hr');
-  if(_hrBtn) _hrBtn.style.display=['taylor','steve'].includes(user)?'':'none';
+  if(_hrBtn) _hrBtn.style.display=['taylor','steve','adam','hammad'].includes(user)?'':'none';
   buildTeamGrid();
   if(showPopup&&user!=='view') setTimeout(()=>showBriefing(), 500);
 }
@@ -10483,7 +10483,7 @@ function applyViewOnly(){
 
 // ── Briefing system ─────────────────────────────────────────
 function getUserRole(user){
-  if(user==='taylor'||user==='steve') return 'founder';
+  if(user==='taylor'||user==='steve'||user==='adam'||user==='hammad') return 'founder';
   if(user==='view') return 'view';
   const _cm2=_getCustomTeamMembers().find(m=>m.user===user);
   if(_cm2){ return _cm2.accessLevel==='Founder'?'founder':_cm2.accessLevel==='View Only'?'view':'member'; }
@@ -12970,7 +12970,7 @@ function _hrPerfScore(userKey){
 function buildHRPage(){
   const el=document.getElementById('hr-body');
   if(!el) return;
-  if(!['taylor','steve'].includes(window._DGL_USER||'')){
+  if(!['taylor','steve','adam','hammad'].includes(window._DGL_USER||'')){
     el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted);padding:40px;text-align:center">HR module — restricted access</div>';
     return;
   }
@@ -13125,7 +13125,7 @@ function _hrNotesTabSwitch(tab){
   });
 }
 function hrDeleteHRNote(userKey,noteId){
-  if(!['taylor','steve'].includes(window._DGL_USER||'')) return;
+  if(!['taylor','steve','adam','hammad'].includes(window._DGL_USER||'')) return;
   if(!confirm('Delete this note? This cannot be undone.')) return;
   if(_hrNotesCache[userKey]) _hrNotesCache[userKey]=_hrNotesCache[userKey].filter(n=>n.id!==noteId);
   buildHRPage();
@@ -13163,7 +13163,7 @@ function _hrCompareAnalysis(userKey,noteId){
 function _buildHRNotesSection(members){
   const ntCls={performance:'hr-nt-performance',retention:'hr-nt-retention',termination:'hr-nt-termination',contract:'hr-nt-contract',general:'hr-nt-general',ai_analysis:'hr-nt-ai_analysis'};
   const iSt="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box;width:100%";
-  const canAdmin=['taylor','steve'].includes(window._DGL_USER||'');
+  const canAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const _tBtnSt=(id,active)=>`id="hr-notes-tab-${id}" onclick="_hrNotesTabSwitch('${id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap"`;
   const tabBar=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"><button ${_tBtnSt('all',true)}>📝 All Notes</button><button ${_tBtnSt('ai',false)}>🤖 AI Evaluations</button><button ${_tBtnSt('perf',false)}>⚠️ Performance</button><button ${_tBtnSt('gen',false)}>📋 General</button></div>`;
   const _noteItem=(m,n)=>`<div class="hr-note-item">
@@ -13370,7 +13370,7 @@ function openHRProfileModal(userKey){
     <div class="modal-field"><label>Inactivation Reason</label><input type="text" id="hrm-inact-reason" value="${_hEsc(p.inactivationReason||'')}" placeholder="Leave blank if active" style="${iSt}"></div>
     <div class="modal-field"><label>HR Notes (internal)</label><textarea id="hrm-notes" rows="3" style="${iSt};min-height:80px;resize:vertical">${_hEsc(p.notes||'')}</textarea></div>
     <div class="modal-actions" style="justify-content:space-between;gap:10px;margin-top:20px">
-      <div>${['taylor','steve'].includes(window._DGL_USER||'')?`<button class="btn-secondary" onclick="hrResetPassword('${userKey}','${(m.name||userKey).replace(/'/g,'\\\'')}')" style="color:var(--gold);border-color:var(--gold)">🔑 Reset Password</button>`:''}</div>
+      <div>${['taylor','steve','adam','hammad'].includes(window._DGL_USER||'')?`<button class="btn-secondary" onclick="hrResetPassword('${userKey}','${(m.name||userKey).replace(/'/g,'\\\'')}')" style="color:var(--gold);border-color:var(--gold)">🔑 Reset Password</button>`:''}</div>
       <div style="display:flex;gap:10px">
         <button class="btn-primary" onclick="saveHRProfileModal('${userKey}')">Save</button>
         <button class="btn-secondary" onclick="closeHRProfileModal()">Cancel</button>
@@ -13405,7 +13405,7 @@ function saveHRProfileModal(userKey){
 }
 
 async function hrResetPassword(userKey,name){
-  if(!['taylor','steve'].includes(window._DGL_USER||'')) return;
+  if(!['taylor','steve','adam','hammad'].includes(window._DGL_USER||'')) return;
   const newPw=window.prompt('Set new password for '+name+':');
   if(!newPw||!newPw.trim()) return;
   const hash=await sha256hex(newPw.trim());
