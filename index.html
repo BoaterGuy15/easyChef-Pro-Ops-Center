@@ -10514,50 +10514,54 @@ function _buildPersonalBriefing(userKey){
   frag.appendChild(hdrDiv);
   // S0 — HIGH PRIORITY / NEEDS ATTENTION
   {
-    const raSet=new Set(['R','A','A/R','AR']);
-    const myRAIds=col?new Set(DASHBOARD_DATA.tasks.filter(t=>raSet.has(t[col]||'')).map(t=>t.id)):new Set();
-    const taskById=Object.fromEntries(DASHBOARD_DATA.tasks.map(t=>[t.id,t]));
-    const in7=new Date(today);in7.setDate(today.getDate()+7);in7.setHours(23,59,59,999);
+    const allRaciSet=new Set(['R','A','A/R','AR','C','I']);
+    const raOnlySet=new Set(['R','A','A/R','AR']);
+    const myAllIds=col?new Set(DASHBOARD_DATA.tasks.filter(t=>allRaciSet.has(t[col]||'')).map(t=>t.id)):new Set();
+    const myRAIds=col?new Set(DASHBOARD_DATA.tasks.filter(t=>raOnlySet.has(t[col]||'')).map(t=>t.id)):new Set();
+    const weekEnd=new Date(today);weekEnd.setDate(today.getDate()+7);weekEnd.setHours(23,59,59,999);
+    const twoWeekEnd=new Date(today);twoWeekEnd.setDate(today.getDate()+14);twoWeekEnd.setHours(23,59,59,999);
     const s0Items=[];
-    // a. Overdue
-    DASHBOARD_DATA.tasks.filter(t=>myRAIds.has(t.id)&&t.status!=='Complete'&&t.ed&&new Date(t.ed)<today)
+    // Tier 1 — Overdue (past ed, not complete, any RACI)
+    DASHBOARD_DATA.tasks
+      .filter(t=>myAllIds.has(t.id)&&t.status!=='Complete'&&t.ed&&new Date(t.ed)<today)
       .sort((a,b)=>new Date(a.ed)-new Date(b.ed))
-      .forEach(t=>s0Items.push({tid:t.id,label:`⛔ OVERDUE — ${t.id} ${t.name} — ${daysOver(t.ed)}d overdue`,color:'var(--red)',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}}));
-    // b. Due this week (today..+7 days), not complete
-    DASHBOARD_DATA.tasks.filter(t=>myRAIds.has(t.id)&&t.status!=='Complete'&&t.ed&&new Date(t.ed)>=today&&new Date(t.ed)<=in7)
+      .forEach(t=>s0Items.push({tier:1,tid:t.id,label:`⛔ OVERDUE — ${t.id} · ${t.name} — ${daysOver(t.ed)} days past due`,color:'var(--red)',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}}));
+    // Tier 2 — Must Start: due within 7 days, Not Started, any RACI
+    DASHBOARD_DATA.tasks
+      .filter(t=>myAllIds.has(t.id)&&t.status==='Not Started'&&t.ed&&new Date(t.ed)>=today&&new Date(t.ed)<=weekEnd)
       .sort((a,b)=>new Date(a.ed)-new Date(b.ed))
-      .forEach(t=>s0Items.push({tid:t.id,label:`⚠️ DUE THIS WEEK — ${t.id} ${t.name} — Due ${fmtD(t.ed)}`,color:'var(--amber)',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}}));
-    // c. Blocked — has deps where any dep task is not Complete
-    DASHBOARD_DATA.tasks.filter(t=>{
-      if(!myRAIds.has(t.id)||t.status==='Complete') return false;
-      if(!t.deps||!t.deps.trim()) return false;
-      return t.deps.split(',').map(d=>d.trim()).filter(Boolean).some(did=>{const dt=taskById[did];return dt&&dt.status!=='Complete';});
-    }).forEach(t=>{
-      const blockedBy=t.deps.split(',').map(d=>d.trim()).filter(did=>{const dt=taskById[did];return dt&&dt.status!=='Complete';});
-      s0Items.push({tid:t.id,label:`🔴 BLOCKED — ${t.id} ${t.name} — waiting on ${blockedBy.join(', ')}`,color:'var(--red)',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}});
-    });
-    // d. High priority, not started, R or A, start date this week or past
-    DASHBOARD_DATA.tasks.filter(t=>myRAIds.has(t.id)&&t.status==='Not Started'&&t.pri==='High'&&t.sd&&new Date(t.sd)<=in7)
-      .forEach(t=>s0Items.push({tid:t.id,label:`📌 NOT STARTED — ${t.id} ${t.name} — Priority: High`,color:'var(--amber)',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}}));
-    // e. Agenda items due this week, unchecked
-    AGENDA_DATA.filter(a=>!a.checked&&a.deadline&&new Date(a.deadline)>=today&&new Date(a.deadline)<=in7)
-      .forEach(a=>s0Items.push({tid:null,label:`📋 AGENDA — ${a.title} — Due ${fmtD(a.deadline)}`,color:'var(--gold)',fn:()=>{_closeBriefingPanel();showPage('agenda');setTimeout(()=>{const el=document.getElementById('agenda-item-'+a.id);if(el){el.click();setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),200);}},400);}}));
-    // Deduplicate task items by ID (keep first/most-severe occurrence)
-    const seenS0=new Set();
-    const dedupedS0=s0Items.filter(item=>{if(!item.tid)return true;if(seenS0.has(item.tid))return false;seenS0.add(item.tid);return true;});
+      .forEach(t=>s0Items.push({tier:2,tid:t.id,label:`🔴 MUST START — ${t.id} · ${t.name} — Due ${fmtD(t.ed)} · Not Started`,color:'#f87171',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}}));
+    // Tier 3 — In Progress this week: sd within current week, Started
+    DASHBOARD_DATA.tasks
+      .filter(t=>myAllIds.has(t.id)&&t.status==='Started'&&t.sd&&new Date(t.sd)>=today&&new Date(t.sd)<=weekEnd)
+      .sort((a,b)=>new Date(a.ed)-new Date(b.ed))
+      .forEach(t=>s0Items.push({tier:3,tid:t.id,label:`🟡 IN PROGRESS — ${t.id} · ${t.name} — Due ${fmtD(t.ed)}`,color:'var(--amber)',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}}));
+    // Tier 4 — Coming up: sd within 14 days, Not Started, any RACI
+    DASHBOARD_DATA.tasks
+      .filter(t=>myAllIds.has(t.id)&&t.status==='Not Started'&&t.sd&&new Date(t.sd)>=today&&new Date(t.sd)<=twoWeekEnd)
+      .sort((a,b)=>new Date(a.sd)-new Date(b.sd))
+      .forEach(t=>s0Items.push({tier:4,tid:t.id,label:`📌 COMING UP — ${t.id} · ${t.name} — Starts ${fmtD(t.sd)} · Not Started`,color:'var(--muted)',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}}));
+    // Tier 5 — High priority not started, R or A only
+    DASHBOARD_DATA.tasks
+      .filter(t=>myRAIds.has(t.id)&&t.pri==='High'&&t.status!=='Complete')
+      .forEach(t=>s0Items.push({tier:5,tid:t.id,label:`⚡ HIGH PRIORITY — ${t.id} · ${t.name} — ${t.status}`,color:'var(--gold)',fn:()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);}}));
+    // Deduplicate by task ID (keep lowest/most-severe tier per task)
+    const seenS0=new Map();
+    s0Items.forEach(item=>{if(!item.tid){return;}if(!seenS0.has(item.tid)||seenS0.get(item.tid).tier>item.tier)seenS0.set(item.tid,item);});
+    const dedupedS0=s0Items.filter(item=>!item.tid||seenS0.get(item.tid)===item);
     const s0=mke('div');
     s0.style.cssText='margin-bottom:20px;border-radius:8px;border-left:3px solid var(--red);background:rgba(239,68,68,0.08);overflow:hidden';
     const s0lbl=mke('div');
     s0lbl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);letter-spacing:2px;text-transform:uppercase;padding:10px 14px 6px;font-weight:700";
-    s0lbl.textContent='🚨 NEEDS ATTENTION';
+    s0lbl.textContent='🚨 HIGH PRIORITY — THIS WEEK';
     s0.appendChild(s0lbl);
     if(!dedupedS0.length){
       const e=mke('div');e.style.cssText="font-family:'DM Mono',monospace;font-size:10px;color:var(--green);padding:8px 14px 12px";e.textContent='✅ No urgent items this week';s0.appendChild(e);
     }else{
       dedupedS0.forEach(item=>{
         const r=mkRow(item.fn);
-        r.style.cssText='cursor:pointer;transition:background 0.15s;border-radius:0;padding:7px 14px;border-bottom:1px solid rgba(239,68,68,0.12)';
-        r.onmouseover=()=>r.style.background='rgba(239,68,68,0.1)';
+        r.style.cssText='cursor:pointer;transition:background 0.15s;border-radius:0;padding:7px 14px;border-bottom:1px solid rgba(239,68,68,0.1)';
+        r.onmouseover=()=>r.style.background='rgba(239,68,68,0.08)';
         r.onmouseout=()=>r.style.background='';
         const txt=mke('div');txt.style.cssText=`font-family:'DM Mono',monospace;font-size:10px;color:${item.color};line-height:1.5`;txt.textContent=item.label;
         r.appendChild(txt);s0.appendChild(r);
