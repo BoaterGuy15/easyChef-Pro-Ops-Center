@@ -9657,9 +9657,6 @@ function _showNotifActionMenu(event,notif){
   mnu.appendChild(mnuBody);
 
   // Resize handle
-  const mnuResize=_el('div','position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:se-resize;z-index:1');
-  mnuResize.innerHTML='<svg width="10" height="10" viewBox="0 0 10 10" style="position:absolute;bottom:3px;right:3px;opacity:0.4"><path d="M9 1L1 9M9 5L5 9M9 9" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"/></svg>';
-  mnu.appendChild(mnuResize);
   _sep();
 
   if(t){
@@ -9740,29 +9737,14 @@ function _showNotifActionMenu(event,notif){
 
   // Drag-to-move via header strip
   let _naDragging=false,_naDx=0,_naDy=0,_naL=0,_naT=0;
-  let _naResizing=false,_naRx=0,_naRy=0,_naRw=0,_naRh=0;
   mnuDragHdr.addEventListener('mousedown',e=>{
     _naDragging=true;
     _naDx=e.clientX;_naDy=e.clientY;
     _naL=parseInt(mnu.style.left)||0;_naT=parseInt(mnu.style.top)||0;
     e.stopPropagation();e.preventDefault();
   });
-  mnuResize.addEventListener('mousedown',e=>{
-    _naResizing=true;
-    _naRx=e.clientX;_naRy=e.clientY;
-    _naRw=mnu.offsetWidth;_naRh=mnu.offsetHeight;
-    e.stopPropagation();e.preventDefault();
-  });
-  const _naMove=e=>{
-    if(_naDragging){mnu.style.left=(_naL+e.clientX-_naDx)+'px';mnu.style.top=(_naT+e.clientY-_naDy)+'px';}
-    if(_naResizing){
-      const nw=Math.min(500,Math.max(215,_naRw+e.clientX-_naRx));
-      const nh=Math.min(window.innerHeight*0.8,Math.max(100,_naRh+e.clientY-_naRy));
-      mnu.style.width=nw+'px';
-      mnuBody.style.maxHeight=(nh-50)+'px';
-    }
-  };
-  const _naUp=()=>{_naDragging=false;_naResizing=false;};
+  const _naMove=e=>{if(_naDragging){mnu.style.left=(_naL+e.clientX-_naDx)+'px';mnu.style.top=(_naT+e.clientY-_naDy)+'px';}};
+  const _naUp=()=>{_naDragging=false;};
   document.addEventListener('mousemove',_naMove);
   document.addEventListener('mouseup',_naUp);
   mnu._cleanupDrag=()=>{document.removeEventListener('mousemove',_naMove);document.removeEventListener('mouseup',_naUp);};
