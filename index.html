@@ -1429,7 +1429,7 @@ function setTaskStatus(id,val,el){
   task.status=val;
   const _p=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   task.lastStatusChange=_p.getFullYear()+'-'+String(_p.getMonth()+1).padStart(2,'0')+'-'+String(_p.getDate()).padStart(2,'0');
-  _logStatusChange(id,_oldStatus,val,'status dropdown');
+  _logStatusChange(id,_oldStatus,val,'Manual change by '+(window._DGL_USER||'system'));
   masterRefresh();
 }
 function setTaskDate(id,field,val){
@@ -2418,7 +2418,7 @@ function _markTaskComplete(taskId){
   t.status='Complete';
   t.flag='✓ Resolved';
   t.lastStatusChange=date+'T00:00:00.000Z';
-  _logStatusChange(taskId,_oldStatusDB,'Complete','delivery briefing');
+  _logStatusChange(taskId,_oldStatusDB,'Complete','Delivery briefing by '+(window._DGL_USER||'system'));
 
   // Build structured completion record object (stored as JSON in notes)
   const record={
@@ -4181,7 +4181,7 @@ function _showGanttContextMenu(event,taskId){
       _closeGanttContextMenu();
       if(s==='Complete'){ _openMarkCompleteModal(taskId); return; }
       const task=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
-      if(task){const _oldS=task.status;task.status=s;_logStatusChange(taskId,_oldS,s,'roadmap context menu');_saveTasksNow();buildRoadmap();initRoadmapHeadSync();}
+      if(task){const _oldS=task.status;task.status=s;_logStatusChange(taskId,_oldS,s,'Roadmap quick status by '+(window._DGL_USER||'system'));_saveTasksNow();buildRoadmap();initRoadmapHeadSync();}
     };
     statusSub.appendChild(sd);
   });
