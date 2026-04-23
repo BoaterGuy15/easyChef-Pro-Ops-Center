@@ -1418,7 +1418,7 @@ function _detectGaps(){
         if(dep&&dep.status!=='Complete') _logGap(t.id,'dep-violation',t.id+' started but '+depId+' ('+dep.name+') not complete');
       });
     }
-    if(t.ed&&t.ed<today&&t.status!=='Complete') _logGap(t.id,'overdue',t.id+' — '+t.name+' overdue since '+t.ed);
+    if(t.ed&&t.ed<today&&t.status!=='Complete'){ _logGap(t.id,'overdue',t.id+' — '+t.name+' overdue since '+t.ed); _sendOverdueSlack(t); }
   });
 }
 function buildAutoGapCard(filter){
@@ -1459,6 +1459,44 @@ function _resolveGap(gapId){
   if(!CONFIG.sheetsUrl||!gapId) return;
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:gapId,status:'resolved',resolvedBy:window._DGL_USER||'system',resolvedAt:new Date().toISOString()})}).catch(()=>{});
   setTimeout(()=>buildAutoGapCard(window._autoGapFilter),600);
+}
+function _taskUrl(taskId){ return 'https://ops.dgl.dev/#'+taskId; }
+function _handleDeepLink(){
+  const hash=window.location.hash.replace('#','');
+  const taskId=(hash.match(/^(?:task-)?(T-\d+)/)||[])[1]||'';
+  if(!taskId) return;
+  showPage('raci');
+  setTimeout(()=>{
+    const tr=document.querySelector('#raci-body tr[data-id="'+taskId+'"]');
+    if(tr){ toggleTaskExpand(taskId,tr); tr.scrollIntoView({behavior:'smooth',block:'center'}); }
+  },500);
+}
+function _sendOverdueSlack(t){
+  if(!CONFIG.sheetsUrl) return;
+  const _k='dgl_overdue_notif_'+t.id;
+  if(sessionStorage.getItem(_k)) return;
+  sessionStorage.setItem(_k,'1');
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const due=new Date(t.ed+'T00:00:00');
+  const dueFmt=MO[due.getMonth()]+' '+due.getDate()+', '+due.getFullYear();
+  const daysOver=Math.ceil((Date.now()-due.getTime())/(864e5));
+  const msg='⚠️ *OVERDUE TASK*\n*['+t.id+'] '+t.name+'*\n━━━━━━━━━━━━━━━━━━━━\n👤 Owner: '+(t.owner||'—')+'\n📅 Due: '+dueFmt+' ('+daysOver+' day'+(daysOver!==1?'s':'')+' overdue)\n📊 Status: '+(t.status||'—')+'\n🔗 View task: '+_taskUrl(t.id)+'\n━━━━━━━━━━━━━━━━━━━━\nPlease update the status or flag this task.';
+  const linked=_getTaskSlackLink(t.id);
+  if(linked.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user=system').catch(()=>{});
+}
+function _sendUnblockedSlack(unblockedTask,completedTask){
+  if(!CONFIG.sheetsUrl) return;
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function _fd(d){ if(!d) return '—'; const dt=new Date(d+'T00:00:00'); return MO[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear(); }
+  const msg='🔓 *TASK UNBLOCKED*\n*['+unblockedTask.id+'] '+unblockedTask.name+'* is now ready to begin\n━━━━━━━━━━━━━━━━━━━━\n✅ Unblocked by: '+completedTask.id+' '+completedTask.name+' (just completed)\n👤 Owner: '+(unblockedTask.owner||'—')+'\n📅 Due: '+_fd(unblockedTask.ed)+'\n🔗 View task: '+_taskUrl(unblockedTask.id)+'\n━━━━━━━━━━━━━━━━━━━━\nYou can now begin work on this task.';
+  const linked=_getTaskSlackLink(unblockedTask.id);
+  if(linked.channelId){
+    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user=system').catch(()=>{});
+  } else {
+    const uKey=Object.keys(_USER_RACI_MAP||{}).find(k=>(_USER_RACI_MAP[k]||'')===unblockedTask.owner)||((unblockedTask.owner||'').toLowerCase());
+    const chId=_getDMChannelId(uKey)||_DM_CHANNEL_MAP[uKey]||'';
+    if(chId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(msg)+'&user=system').catch(()=>{});
+  }
 }
 const _statusLogCache={};
 async function _fetchStatusLog(taskId){
@@ -2632,6 +2670,7 @@ function _markTaskComplete(taskId){
   }
 
   _saveTasksNow();
+  unblocked.forEach(u=>_sendUnblockedSlack(u,t));
   document.getElementById('mark-complete-modal').style.display='none';
   triggerCelebration();
 
@@ -11152,6 +11191,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   showPage(sessionStorage.getItem('dgl_active_tab')||'agenda');
   updateLiveDot();
   loadHRFromSheets();
+  _handleDeepLink();
 });
 
 // ── HR Module ──────────────────────────────────────────────
