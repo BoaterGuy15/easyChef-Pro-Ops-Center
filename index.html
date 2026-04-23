@@ -5437,7 +5437,17 @@ function deleteAgendaItem(id){
   buildAgendaPage(); buildAgenda();
 }
 let _agendaDragId=null;
-function _agendaDragStart(e,id){ _agendaDragId=id; e.dataTransfer.effectAllowed='move'; }
+function _agendaDragStart(e,id){
+  _agendaDragId=id;
+  e.dataTransfer.effectAllowed='move';
+  const el=e.target.closest('.agenda-item-row');
+  if(el){
+    const rect=el.getBoundingClientRect();
+    const offsetX=e.clientX-rect.left;
+    const offsetY=e.clientY-rect.top;
+    e.dataTransfer.setDragImage(el,offsetX,offsetY);
+  }
+}
 function _agendaDrop(e){
   e.preventDefault();
   if(!_agendaDragId) return;
