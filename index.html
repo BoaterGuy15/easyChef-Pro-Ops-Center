@@ -8091,7 +8091,14 @@ function buildTeamGrid(){
   const _mkTCSec=(label,clr,rows)=>rows.length?'<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px"><div style="font-family:\'DM Mono\',monospace;font-size:8px;color:'+clr+';letter-spacing:1.5px;margin-bottom:4px">'+label+'</div>'+rows.join('')+'</div>':'';
   const _tcRow=(t,sub)=>'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);cursor:pointer;padding:2px 0;border-radius:2px" onclick="_viewTaskDetails(\''+t.id+'\')"><span style="color:var(--gold)">'+t.id+'</span> · '+t.name.slice(0,24)+' <span style="color:var(--muted)">'+sub+'</span></div>';
   const _colorHex={gold:'#c9a84c',blue:'#4f8ef7',purple:'#a78bfa',green:'#34d399',teal:'#2dd4bf',amber:'#fbbf24',muted:'#6b7280'};
-  const _tcAvatar=(uk,name,acColor)=>{const ph=(_hrProfilesCache[uk]||{}).photo;const hex=_colorHex[acColor]||'#c9a84c';const pts=(name||'?').trim().split(/\s+/);const ini=((pts[0]||'?')[0]+((pts.length>1?(pts[pts.length-1]||''):'')+' ')[0]).toUpperCase().trim();const _fb=`<div style="width:52px;height:52px;border-radius:50%;background:${hex};display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:18px;margin-bottom:8px">${ini}</div>`;return ph?`<img src="${ph}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);margin-bottom:8px;display:block" onerror="_imgErr(this,'${ini}','${hex}')">`:_fb;};
+  const _tcAvatar=(uk,name,acColor)=>{
+    const photoUrl=_hrProfilesCache[uk]?.photo||_hrProfilesCache[uk.toLowerCase()]?.photo||'';
+    const hex=_colorHex[acColor]||'#c9a84c';
+    const pts=(name||'?').trim().split(/\s+/);
+    const initials=((pts[0]||'?')[0]+((pts.length>1?(pts[pts.length-1]||''):'')+' ')[0]).toUpperCase().trim();
+    const initialsDiv=`<div style="width:52px;height:52px;border-radius:50%;background:${hex};display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:18px;margin-bottom:8px">${initials}</div>`;
+    return photoUrl?`<img src="${photoUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);margin-bottom:8px;display:block" onerror="_imgErr(this,'${initials}','${hex}')">`:initialsDiv;
+  };
   el.innerHTML=ordered.map(entry=>{
     if(entry.type==='default'){
       const {m,key,userKey}=entry;
@@ -12906,6 +12913,7 @@ function loadHRFromSheets(){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=hr_profiles_read').then(r=>r.json()).then(data=>{
     if(Array.isArray(data.profiles)) data.profiles.forEach(p=>{ if(p.userKey) _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p}; });
+    buildTeamGrid();
   }).catch(()=>{});
   fetch(CONFIG.sheetsUrl+'?action=hr_notes_read').then(r=>r.json()).then(data=>{
     if(Array.isArray(data.notes)){ _hrNotesCache={}; data.notes.forEach(n=>{ if(!_hrNotesCache[n.userKey]) _hrNotesCache[n.userKey]=[]; _hrNotesCache[n.userKey].push(n); }); }
