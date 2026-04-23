@@ -4490,15 +4490,14 @@ function _showGanttContextMenu(event,taskId){
   document.body.appendChild(mnu);
 
   // Drag-to-move via header strip
-  mnuDragHdr.addEventListener('mousedown',e=>{
+  mnuDragHdr.addEventListener('pointerdown',e=>{
     e.stopPropagation();e.preventDefault();
     mnuDragHdr.setPointerCapture(e.pointerId);
     let L=parseInt(mnu.style.left)||0,T=parseInt(mnu.style.top)||0,sx=e.clientX,sy=e.clientY;
-    const onMove=e=>{mnu.style.left=(L+e.clientX-sx)+'px';mnu.style.top=(T+e.clientY-sy)+'px';};
-    const onUp=e=>{mnuDragHdr.releasePointerCapture(e.pointerId);mnuDragHdr.removeEventListener('pointermove',onMove);mnuDragHdr.removeEventListener('pointerup',onUp);mnuDragHdr.removeEventListener('pointercancel',onUp);};
+    const onMove=e=>{if(!mnuDragHdr.hasPointerCapture(e.pointerId)) return;mnu.style.left=(L+e.clientX-sx)+'px';mnu.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{mnuDragHdr.releasePointerCapture(e.pointerId);mnuDragHdr.removeEventListener('pointermove',onMove);mnuDragHdr.removeEventListener('pointerup',onUp);};
     mnuDragHdr.addEventListener('pointermove',onMove);
     mnuDragHdr.addEventListener('pointerup',onUp);
-    mnuDragHdr.addEventListener('pointercancel',onUp);
   });
   mnu._cleanupDrag=()=>{};
 
@@ -9891,15 +9890,14 @@ function _showNotifActionMenu(event,notif){
   document.body.appendChild(mnu);
 
   // Drag-to-move via header strip
-  mnuDragHdr.addEventListener('mousedown',e=>{
+  mnuDragHdr.addEventListener('pointerdown',e=>{
     e.stopPropagation();e.preventDefault();
     mnuDragHdr.setPointerCapture(e.pointerId);
     let L=parseInt(mnu.style.left)||0,T=parseInt(mnu.style.top)||0,sx=e.clientX,sy=e.clientY;
-    const onMove=e=>{mnu.style.left=(L+e.clientX-sx)+'px';mnu.style.top=(T+e.clientY-sy)+'px';};
-    const onUp=e=>{mnuDragHdr.releasePointerCapture(e.pointerId);mnuDragHdr.removeEventListener('pointermove',onMove);mnuDragHdr.removeEventListener('pointerup',onUp);mnuDragHdr.removeEventListener('pointercancel',onUp);};
+    const onMove=e=>{if(!mnuDragHdr.hasPointerCapture(e.pointerId)) return;mnu.style.left=(L+e.clientX-sx)+'px';mnu.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{mnuDragHdr.releasePointerCapture(e.pointerId);mnuDragHdr.removeEventListener('pointermove',onMove);mnuDragHdr.removeEventListener('pointerup',onUp);};
     mnuDragHdr.addEventListener('pointermove',onMove);
     mnuDragHdr.addEventListener('pointerup',onUp);
-    mnuDragHdr.addEventListener('pointercancel',onUp);
   });
   mnu._cleanupDrag=()=>{};
 
@@ -10143,16 +10141,15 @@ function _openStatusUpdateModal(taskId,notif){
   ta.focus();
 
   // Drag via header
-  hdr.addEventListener('mousedown',e=>{
+  hdr.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();
     hdr.setPointerCapture(e.pointerId);
     const r=modal.getBoundingClientRect();
     let L=r.left,T=r.top,sx=e.clientX,sy=e.clientY;
-    const onMove=e=>{modal.style.left=(L+e.clientX-sx)+'px';modal.style.top=(T+e.clientY-sy)+'px';};
-    const onUp=e=>{hdr.releasePointerCapture(e.pointerId);hdr.removeEventListener('pointermove',onMove);hdr.removeEventListener('pointerup',onUp);hdr.removeEventListener('pointercancel',onUp);};
+    const onMove=e=>{if(!hdr.hasPointerCapture(e.pointerId)) return;modal.style.left=(L+e.clientX-sx)+'px';modal.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{hdr.releasePointerCapture(e.pointerId);hdr.removeEventListener('pointermove',onMove);hdr.removeEventListener('pointerup',onUp);};
     hdr.addEventListener('pointermove',onMove);
     hdr.addEventListener('pointerup',onUp);
-    hdr.addEventListener('pointercancel',onUp);
   });
 
   const _suEsc=e=>{if(e.key==='Escape'){_closeStatusUpdateModal();document.removeEventListener('keydown',_suEsc);}};
@@ -10220,6 +10217,7 @@ function _handleStatusUpdateDrop(files,taskId,listEl,dzEl,modal){
   _next();
 }
 function _makeResizable(modal){
+  modal.style.position='fixed';
   [{pos:'n',style:'top:-4px;left:6px;right:6px;height:8px;cursor:n-resize'},
    {pos:'s',style:'bottom:-4px;left:6px;right:6px;height:8px;cursor:s-resize'},
    {pos:'e',style:'right:-4px;top:6px;bottom:6px;width:8px;cursor:e-resize'},
@@ -10231,23 +10229,23 @@ function _makeResizable(modal){
   ].forEach(h=>{
     const el=document.createElement('div');
     el.style.cssText='position:absolute;z-index:10;'+h.style;
-    el.addEventListener('mousedown',e=>{
+    el.addEventListener('pointerdown',e=>{
       e.preventDefault();e.stopPropagation();
       el.setPointerCapture(e.pointerId);
       const startX=e.clientX,startY=e.clientY;
       const startW=modal.offsetWidth,startH=modal.offsetHeight;
       const startL=modal.offsetLeft,startT=modal.offsetTop;
       const onMove=e=>{
+        if(!el.hasPointerCapture(e.pointerId)) return;
         const dx=e.clientX-startX,dy=e.clientY-startY;
         if(h.pos.includes('e')) modal.style.width=Math.max(400,startW+dx)+'px';
         if(h.pos.includes('s')) modal.style.height=Math.max(300,startH+dy)+'px';
         if(h.pos.includes('w')){modal.style.width=Math.max(400,startW-dx)+'px';modal.style.left=Math.min(startL+dx,startL+startW-400)+'px';}
         if(h.pos.includes('n')){modal.style.height=Math.max(300,startH-dy)+'px';modal.style.top=Math.min(startT+dy,startT+startH-300)+'px';}
       };
-      const onUp=e=>{el.releasePointerCapture(e.pointerId);el.removeEventListener('pointermove',onMove);el.removeEventListener('pointerup',onUp);el.removeEventListener('pointercancel',onUp);};
+      const onUp=e=>{el.releasePointerCapture(e.pointerId);el.removeEventListener('pointermove',onMove);el.removeEventListener('pointerup',onUp);};
       el.addEventListener('pointermove',onMove);
       el.addEventListener('pointerup',onUp);
-      el.addEventListener('pointercancel',onUp);
     });
     modal.appendChild(el);
   });
@@ -10642,18 +10640,17 @@ function _showActionPlanModal(pKey){
   document.body.appendChild(overlay);
   _makeResizable(modal);
   // Drag via header
-  hdr.addEventListener('mousedown',e=>{
+  hdr.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();
     hdr.setPointerCapture(e.pointerId);
     modal.style.transform='none';
     const r=modal.getBoundingClientRect();
     let L=r.left,T=r.top,sx=e.clientX,sy=e.clientY;
     modal.style.left=L+'px';modal.style.top=T+'px';
-    const onMove=e=>{modal.style.left=(L+e.clientX-sx)+'px';modal.style.top=(T+e.clientY-sy)+'px';};
-    const onUp=e=>{hdr.releasePointerCapture(e.pointerId);hdr.removeEventListener('pointermove',onMove);hdr.removeEventListener('pointerup',onUp);hdr.removeEventListener('pointercancel',onUp);};
+    const onMove=e=>{if(!hdr.hasPointerCapture(e.pointerId)) return;modal.style.left=(L+e.clientX-sx)+'px';modal.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{hdr.releasePointerCapture(e.pointerId);hdr.removeEventListener('pointermove',onMove);hdr.removeEventListener('pointerup',onUp);};
     hdr.addEventListener('pointermove',onMove);
     hdr.addEventListener('pointerup',onUp);
-    hdr.addEventListener('pointercancel',onUp);
   });
   // Esc closes
   const _apEsc=e=>{if(e.key==='Escape'){overlay.remove();document.removeEventListener('keydown',_apEsc);}};
