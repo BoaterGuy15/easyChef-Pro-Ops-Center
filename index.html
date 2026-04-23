@@ -1393,6 +1393,29 @@ function statusSelect(t){
     opts.map(o=>`<option value="${o}"${o===t.status?' selected':''}>${o}</option>`).join('')
   }</select>`;
 }
+// ── Gaps / Notifications / Status Log ────────────────────────
+function _logStatusChange(taskId,fromStatus,toStatus,note){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'status_log_write',id:'sl-'+Date.now(),taskId,fromStatus,toStatus,changedBy:window._DGL_USER||'system',changedAt:new Date().toISOString(),note:note||''})}).catch(()=>{});
+}
+function _logNotification(taskId,toUser,channel,message,type){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-'+Date.now(),taskId,toUser,channel,message,type:type||'dm',sentBy:window._DGL_USER||'system',sentAt:new Date().toISOString()})}).catch(()=>{});
+}
+function _logGap(taskId,type,description){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:'gap-'+Date.now(),taskId,type:type||'general',description,status:'open',identifiedBy:window._DGL_USER||'system',identifiedAt:new Date().toISOString()})}).catch(()=>{});
+}
+const _statusLogCache={};
+async function _fetchStatusLog(taskId){
+  if(!CONFIG.sheetsUrl) return;
+  try{
+    const r=await fetch(CONFIG.sheetsUrl+'?action=status_log_read&taskId='+encodeURIComponent(taskId));
+    const d=await r.json();
+    _statusLogCache[taskId]=Array.isArray(d)?d:(Array.isArray(d.entries)?d.entries:[]);
+  }catch(_){}
+}
+// ─────────────────────────────────────────────────────────────
 function setTaskStatus(id,val,el){
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===id);
   if(!task) return;
@@ -1402,9 +1425,11 @@ function setTaskStatus(id,val,el){
     _openMarkCompleteModal(id);
     return;
   }
+  const _oldStatus=task.status;
   task.status=val;
   const _p=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   task.lastStatusChange=_p.getFullYear()+'-'+String(_p.getMonth()+1).padStart(2,'0')+'-'+String(_p.getDate()).padStart(2,'0');
+  _logStatusChange(id,_oldStatus,val,'status dropdown');
   masterRefresh();
 }
 function setTaskDate(id,field,val){
@@ -2389,9 +2414,11 @@ function _markTaskComplete(taskId){
   const toNotify=_DGL_TEAM_NAMES.filter(n=>document.getElementById('mc-notify-'+n.toLowerCase())?.checked);
   const unblocked=DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(taskId));
 
+  const _oldStatusDB=t.status;
   t.status='Complete';
   t.flag='✓ Resolved';
   t.lastStatusChange=date+'T00:00:00.000Z';
+  _logStatusChange(taskId,_oldStatusDB,'Complete','delivery briefing');
 
   // Build structured completion record object (stored as JSON in notes)
   const record={
@@ -4154,7 +4181,7 @@ function _showGanttContextMenu(event,taskId){
       _closeGanttContextMenu();
       if(s==='Complete'){ _openMarkCompleteModal(taskId); return; }
       const task=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
-      if(task){task.status=s;_saveTasksNow();buildRoadmap();initRoadmapHeadSync();}
+      if(task){const _oldS=task.status;task.status=s;_logStatusChange(taskId,_oldS,s,'roadmap context menu');_saveTasksNow();buildRoadmap();initRoadmapHeadSync();}
     };
     statusSub.appendChild(sd);
   });
@@ -5009,7 +5036,7 @@ function _completeActionPlan(sourceId, planId){
   }
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Action Plan marked complete</div>',3000);
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===sourceId);
-  if(task&&task.status!=='Complete'){ task.status='Complete'; _saveTasksNow(); }
+  if(task&&task.status!=='Complete'){const _oldSAP=task.status;task.status='Complete';_logStatusChange(task.id||sourceId,_oldSAP,'Complete','action plan complete');_saveTasksNow();}
 }
 function buildActionPlansPage(){
   const el=document.getElementById('actionplans-body'); if(!el) return;
@@ -5961,6 +5988,10 @@ function _buildTaskBreadcrumb(taskId, maxEvents){
   (_docsCache['task_'+taskId]||_docsCache['agenda_'+taskId]||[]).slice().sort((a,b)=>_tsMs(a.addedAt)-_tsMs(b.addedAt)).forEach(doc=>{
     push(doc.addedAt,'DOCUMENT',doc.addedBy||'?',`uploaded ${doc.name||'—'}${doc.url?' — '+doc.url:''}`);
   });
+  // Status log (from cache — pre-loaded by _fetchStatusLog)
+  (_statusLogCache[taskId]||[]).forEach(entry=>{
+    push(entry.changedAt||entry.ts||0,'STATUS CHANGE',entry.changedBy||'?',`${entry.fromStatus||'?'} → ${entry.toStatus||'?'}${entry.note?' ('+entry.note+')':''}`);
+  });
   events.sort((a,b)=>a.ms-b.ms);
   const lines=events.map(e=>e.line);
   return (maxEvents?lines.slice(-maxEvents):lines).join('\n')||'No breadcrumb data.';
@@ -6032,7 +6063,8 @@ async function runSuperAi(id, type, btn){
   const completionNote=isComplete?'\n\nNOTE: THIS TASK IS MARKED COMPLETE/RESOLVED — confirm with the team if any follow-up is still needed before generating new action items.':'';
   // ── 10. Global summary ───────────────────────────────────────
   const globalCtx=_buildDGLContext().slice(0,1500);
-  // ── 11. Chronological breadcrumb ─────────────────────────────
+  // ── 11. Chronological breadcrumb (pre-load status log) ───────
+  await _fetchStatusLog(id);
   const breadcrumb=_buildTaskBreadcrumb(id);
   const fullContext=`TASK: ${id} — ${taskName}
 CATEGORY: ${taskCat} | PRIORITY: ${taskPri} | STATUS: ${status} | OWNER: ${owner}
