@@ -1500,6 +1500,13 @@ function _handleDeepLink(){
     if(tr){ toggleTaskExpand(taskId,tr); tr.scrollIntoView({behavior:'smooth',block:'center'}); }
   },500);
 }
+function _getRACIUsers(task){
+  const people=['Taylor','Steve','Adam','JR','Hammad','Searah','Sadee'];
+  const keyMap={Taylor:'taylor',Steve:'steve',Adam:'adam',JR:'jr',Hammad:'hammad',Searah:'searah',Sadee:'sadee'};
+  const responsible=people.filter(p=>task[p]==='R'||task[p]==='A/R').map(p=>keyMap[p]);
+  const accountable=people.filter(p=>task[p]==='A'||task[p]==='A/R').map(p=>keyMap[p]);
+  return {responsible,accountable};
+}
 function _sendOverdueSlack(t){
   if(!CONFIG.sheetsUrl) return;
   const _k='dgl_overdue_notif_'+t.id;
@@ -1512,6 +1519,11 @@ function _sendOverdueSlack(t){
   const msg='⚠️ *OVERDUE TASK*\n*['+t.id+'] '+t.name+'*\n━━━━━━━━━━━━━━━━━━━━\n👤 Owner: '+(t.owner||'—')+'\n📅 Due: '+dueFmt+' ('+daysOver+' day'+(daysOver!==1?'s':'')+' overdue)\n📊 Status: '+(t.status||'—')+'\n🔗 View task: '+_taskUrl(t.id)+'\n━━━━━━━━━━━━━━━━━━━━\nPlease update the status or flag this task.';
   const linked=_getTaskSlackLink(t.id);
   if(linked.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user=system').catch(()=>{});
+  const {responsible,accountable}=_getRACIUsers(t);
+  const rMsg='⚠️ Your task ['+t.id+'] '+t.name+' is '+daysOver+'d overdue. Please act now. '+_taskUrl(t.id);
+  const aMsg='⚠️ Accountability: ['+t.id+'] '+t.name+' is '+daysOver+'d overdue — owner action needed. '+_taskUrl(t.id);
+  responsible.forEach(uk=>{ const ch=linked.channelId||_DM_CHANNEL_MAP[uk]||''; _logNotification(t.id,uk,ch,rMsg,'overdue'); });
+  accountable.filter(uk=>!responsible.includes(uk)).forEach(uk=>{ const ch=linked.channelId||_DM_CHANNEL_MAP[uk]||''; _logNotification(t.id,uk,ch,aMsg,'overdue'); });
 }
 function _sendUnblockedSlack(unblockedTask,completedTask){
   if(!CONFIG.sheetsUrl) return;
@@ -1526,6 +1538,12 @@ function _sendUnblockedSlack(unblockedTask,completedTask){
     const chId=_getDMChannelId(uKey)||_DM_CHANNEL_MAP[uKey]||'';
     if(chId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(msg)+'&user=system').catch(()=>{});
   }
+  const {responsible,accountable}=_getRACIUsers(unblockedTask);
+  const ch=linked.channelId||'';
+  const rMsg='🔓 Your task ['+unblockedTask.id+'] '+unblockedTask.name+' is now unblocked — you can begin. '+_taskUrl(unblockedTask.id);
+  const aMsg='🔓 Accountability: ['+unblockedTask.id+'] '+unblockedTask.name+' is unblocked and ready for the responsible party to begin. '+_taskUrl(unblockedTask.id);
+  responsible.forEach(uk=>{ const dch=ch||_DM_CHANNEL_MAP[uk]||''; _logNotification(unblockedTask.id,uk,dch,rMsg,'unblocked'); });
+  accountable.filter(uk=>!responsible.includes(uk)).forEach(uk=>{ const dch=ch||_DM_CHANNEL_MAP[uk]||''; _logNotification(unblockedTask.id,uk,dch,aMsg,'unblocked'); });
 }
 const _statusLogCache={};
 async function _fetchStatusLog(taskId){
@@ -9542,23 +9560,18 @@ function _startNotifRefresh(){
 }
 function _sendProgressReportNotifications(briefingText){
   if(!CONFIG.sheetsUrl||!briefingText) return;
-  const today=new Date().toISOString().slice(0,10);
-  const teamPairs=[['taylor','Taylor'],['steve','Steve'],['adam','Adam'],['hammad','Hammad'],['jr','JR'],['searah','Searah'],['sadee','Sadee']];
-  teamPairs.forEach(([userKey,personName])=>{
-    const colName=USER_RACI_COL[userKey];
-    const myOpen=colName
-      ? DASHBOARD_DATA.tasks.filter(t=>{const rc=t[colName]||'';return (rc==='R'||rc==='A/R')&&t.status!=='Complete';})
-      : DASHBOARD_DATA.tasks.filter(t=>t.owner===personName&&t.status!=='Complete');
-    if(!myOpen.length) return;
-    const overdue=myOpen.filter(t=>t.ed&&new Date(t.ed)<new Date(today));
-    const hiPri=myOpen.filter(t=>t.pri==='High');
-    const critTask=overdue[0]||hiPri[0]||myOpen[0];
-    const lines=briefingText.split('\n');
-    const relevant=lines.filter(l=>l.includes(personName)||l.includes(critTask.id)||(critTask.name&&l.includes(critTask.name.slice(0,15))));
-    const excerpt='Master AI: '+(relevant.length?relevant.slice(0,3).join(' '):briefingText).replace(/\s+/g,' ').slice(0,200);
-    const linked=_getTaskSlackLink(critTask.id);
-    const channelId=linked.channelId||_DM_CHANNEL_MAP[userKey]||'';
-    _logNotification(critTask.id,userKey,channelId,excerpt,'progress-report');
+  const lines=briefingText.split('\n');
+  DASHBOARD_DATA.tasks.filter(t=>t.status!=='Complete').forEach(t=>{
+    const {responsible,accountable}=_getRACIUsers(t);
+    if(!responsible.length&&!accountable.length) return;
+    const relevant=lines.filter(l=>l.includes(t.id)||(t.name&&l.includes(t.name.slice(0,15))));
+    const snippet=(relevant.length?relevant.slice(0,2).join(' '):lines.slice(0,3).join(' ')).replace(/\s+/g,' ').slice(0,160);
+    const linked=_getTaskSlackLink(t.id);
+    const baseCh=linked.channelId||'';
+    const rMsg='📊 Progress update on your task ['+t.id+'] '+t.name+'. '+snippet+' '+_taskUrl(t.id);
+    const aMsg='📊 Accountability update on ['+t.id+'] '+t.name+'. '+snippet+' '+_taskUrl(t.id);
+    responsible.forEach(uk=>{ const ch=baseCh||_DM_CHANNEL_MAP[uk]||''; _logNotification(t.id,uk,ch,rMsg,'progress-report'); });
+    accountable.filter(uk=>!responsible.includes(uk)).forEach(uk=>{ const ch=baseCh||_DM_CHANNEL_MAP[uk]||''; _logNotification(t.id,uk,ch,aMsg,'progress-report'); });
   });
 }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') _closePanels(); });
