@@ -9786,6 +9786,7 @@ function _openStatusUpdateModal(taskId,notif){
   modal.style.cssText="position:fixed;z-index:99999;width:600px;height:400px;left:calc(50% - 300px);top:calc(50% - 200px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:300px;min-height:200px";
   modal._notif=notif;
   modal._openX=window.innerWidth/2;
+  modal._uploadedDocs=[];
   modal._openY=window.innerHeight/2;
 
   // Header — drag handle
@@ -9832,7 +9833,7 @@ function _openStatusUpdateModal(taskId,notif){
 
   const suFileInput=document.createElement('input');
   suFileInput.type='file';suFileInput.multiple=true;suFileInput.style.display='none';
-  suFileInput.onchange=()=>_handleStatusUpdateDrop(suFileInput.files,taskId,suAttachedList,suDz);
+  suFileInput.onchange=()=>_handleStatusUpdateDrop(suFileInput.files,taskId,suAttachedList,suDz,modal);
   docsWrap.appendChild(suFileInput);
 
   const suDz=document.createElement('div');
@@ -9841,7 +9842,7 @@ function _openStatusUpdateModal(taskId,notif){
   suDz.onclick=()=>suFileInput.click();
   suDz.ondragover=e=>{e.preventDefault();suDz.style.borderColor='var(--gold)';suDz.style.color='var(--gold)';};
   suDz.ondragleave=()=>{suDz.style.borderColor='var(--border)';suDz.style.color='var(--muted)';};
-  suDz.ondrop=e=>{e.preventDefault();suDz.style.borderColor='var(--border)';suDz.style.color='var(--muted)';_handleStatusUpdateDrop(e.dataTransfer.files,taskId,suAttachedList,suDz);};
+  suDz.ondrop=e=>{e.preventDefault();suDz.style.borderColor='var(--border)';suDz.style.color='var(--muted)';_handleStatusUpdateDrop(e.dataTransfer.files,taskId,suAttachedList,suDz,modal);};
   docsWrap.appendChild(suDz);
 
   const suAttachedList=document.createElement('div');
@@ -9865,7 +9866,8 @@ function _openStatusUpdateModal(taskId,notif){
     if(!msg){ta.style.borderColor='var(--red)';ta.focus();return;}
     ta.style.borderColor='var(--border)';
     const userName=window._DGL_USER||'system';
-    const fullMsg='['+taskId+'] STATUS UPDATE by '+userName+': '+msg+'\nTask: '+taskName+'\nStatus: '+taskStatus+'\n🔗 https://ops.dgl.dev/#'+taskId;
+    const docLinks=(modal._uploadedDocs||[]).map(d=>'📎 '+d.name+(d.url?': '+d.url:'')).join('\n');
+    const fullMsg='['+taskId+'] STATUS UPDATE by '+userName+': '+msg+'\nTask: '+taskName+'\nStatus: '+taskStatus+(docLinks?'\n\n'+docLinks:'')+'\n🔗 '+_taskUrl(taskId);
     const chName=(linked.channelName||chId).replace('#','');
     const ch=(_slackChannelsCache||[]).find(c=>c.name===chName)||(_slackChannelsCache||[]).find(c=>c.id===chId);
     if(ch?.id&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch.id)+'&text='+encodeURIComponent(fullMsg)+'&user='+encodeURIComponent(userName)).catch(()=>{});
@@ -9915,7 +9917,7 @@ function _notifyTaskAction(taskId,actionText){
   const {both}=_getRACIUsers(t);
   both.forEach(uk=>{if(uk===window._DGL_USER) return; _logNotification(taskId,uk,link?.channelId||'',msg,'task-action');});
 }
-function _handleStatusUpdateDrop(files,taskId,listEl,dzEl){
+function _handleStatusUpdateDrop(files,taskId,listEl,dzEl,modal){
   if(!files||!files.length) return;
   const fileArr=Array.from(files);
   let idx=0;
@@ -9942,6 +9944,7 @@ function _handleStatusUpdateDrop(files,taskId,listEl,dzEl){
           const cacheKey='task_'+taskId;
           if(!_docsCache[cacheKey]) _docsCache[cacheKey]=[];
           _docsCache[cacheKey].push(doc);
+          if(modal&&modal._uploadedDocs) modal._uploadedDocs.push({name:file.name,url:doc.url,previewUrl:doc.previewUrl,driveFileId:doc.driveFileId});
           if(listEl){
             const row=document.createElement('div');
             row.style.cssText="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(0,0,0,0.15);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text)";
