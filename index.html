@@ -11625,7 +11625,7 @@ function _mergeFreshSheets(sheetsRows){
     _PERSIST_FIELDS.forEach(f=>{
       const sv=s[f]; if(sv==null||sv==='') return;
       // Sheets changed this field AND we haven't changed it locally → accept the Sheets value
-      if(sv!==snap[f]&&t[f]===snap[f]) t[f]=sv;
+      if(sv!==snap[f]&&t[f]===snap[f]) t[f]=(f==='sd'||f==='ed')?(_toYMD(sv)||sv):sv;
     });
   });
 }
@@ -11633,7 +11633,7 @@ function _doSave(){
   updateSyncStatus('syncing');
   _sheetsSyncLock=true;
   setTimeout(()=>{ _sheetsSyncLock=false; },8000);
-  const _tPayload=DASHBOARD_DATA.tasks.map(({actionPlan,...r})=>r);
+  const _tPayload=DASHBOARD_DATA.tasks.map(({actionPlan,...r})=>({...r,sd:r.sd?(_toYMD(r.sd)||r.sd):r.sd,ed:r.ed?(_toYMD(r.ed)||r.ed):r.ed}));
   fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(_tPayload)})
     .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
     .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
