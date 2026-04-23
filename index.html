@@ -1441,10 +1441,9 @@ function _logStatusChange(taskId,fromStatus,toStatus,note){
 }
 function _logNotification(taskId,toUser,channel,message,type){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-'+Date.now(),taskId,toUser,channel,message,type:type||'dm',sentBy:window._DGL_USER||'system',sentAt:_nowPST()})}).catch(()=>{});
   const chName=(channel||'').replace('#','');
-  const ch=(_slackChannelsCache||[]).find(c=>c.name===chName);
-  if(ch?.id&&message) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch.id)+'&text='+encodeURIComponent(message)+'&user='+(window._DGL_USER||'')).catch(()=>{});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-'+Date.now(),taskId:taskId||'',toUser:toUser||'',channel:channel||'',message:message||'',sentBy:window._DGL_USER||'system',sentAt:new Date().toLocaleString('en-CA',{timeZone:'America/Los_Angeles'}),type:type||'general'})}).catch(()=>{});
+  if(chName){const ch=(_slackChannelsCache||[]).find(c=>c.name===chName);if(ch?.id)fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+ch.id+'&text='+encodeURIComponent(message||'')+'&user='+(window._DGL_USER||'')).catch(()=>{});}
 }
 function _logGap(taskId,type,description,agendaId){
   if(!CONFIG.sheetsUrl) return;
@@ -9447,7 +9446,8 @@ async function _loadUserNotifications(userKey){
     const d=await r.json();
     const all=Array.isArray(d)?d:(d.notifications||[]);
     console.log('[DGL] All notifications:', all.length);
-    const mine=all.filter(n=>n.toUser===userKey||n.toUser===''||!n.toUser);
+    const _delSet=new Set(JSON.parse(localStorage.getItem('dgl_del_'+(userKey||''))||'[]'));
+    const mine=all.filter(n=>(n.toUser===userKey||n.toUser===''||!n.toUser)&&!_delSet.has(n.id));
     console.log('[DGL] Filtered for user:', mine.length);
     if(mine.length) console.log('[DGL] First notification:', JSON.stringify(mine[0]));
     window._userNotifications=mine.sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
@@ -9567,11 +9567,13 @@ function _renderAlertsTab(){
     const task=taskId?DASHBOARD_DATA.tasks.find(t=>t.id===taskId):null;
     const taskName=task?(task.name||'').slice(0,38):'';
     const channelId=n.channel||'';
+    const rawTs=n.sentAt||n.ts||'';
+    const tsDate=rawTs?new Date(rawTs):null;
+    const tsFmt=tsDate&&!isNaN(tsDate)?tsDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+tsDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):'';
     const viewTaskBtn=taskId?`<button onclick="_viewTaskDetails('${taskId}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔗 View Task</button>`:'';
-    const viewChannelBtn=channelId?`<button onclick="_closeMailboxPanel();showPage('comms');setTimeout(()=>{const s=document.getElementById('slack-channel-select');if(s){s.value='${channelId}';slackSelectChannel('${channelId}');}},250)" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📢 #${channelId}</button>`:'';
     const markReadBtn=!isRead?`<button onclick="_markAlertRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark read</button>`:'';
     const card=document.createElement('div');
-    card.style.cssText=`cursor:pointer;padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};background:${isRead?'transparent':'rgba(201,168,76,0.03)'}`;
+    card.style.cssText=`cursor:pointer;padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};background:${isRead?'transparent':'rgba(201,168,76,0.03)'};position:relative`;
     card.innerHTML=`<div style="display:flex;align-items:flex-start;gap:8px">
       <span style="font-size:15px;flex-shrink:0;margin-top:1px">${icon}</span>
       <div style="flex:1;min-width:0">
@@ -9580,13 +9582,18 @@ function _renderAlertsTab(){
             ${taskId?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:${iconColor};font-weight:700">${taskId}</span>`:''}
             ${taskName?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-left:5px">${taskName}</span>`:''}
           </div>
-          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;flex-shrink:0">${_relativeTime(n.sentAt||n.ts)}</span>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            ${tsFmt?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap">${tsFmt}</span>`:`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap">${_relativeTime(rawTs)}</span>`}
+            <button data-del-id="${n.id}" title="Delete" style="font-size:12px;background:transparent;border:none;cursor:pointer;color:var(--muted);padding:0 2px;line-height:1">🗑️</button>
+          </div>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.6;word-break:break-word;margin-bottom:7px">${preview}</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap">${viewTaskBtn}${viewChannelBtn}${markReadBtn}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${viewTaskBtn}${markReadBtn}</div>
       </div>
     </div>`;
     card.onclick=(e)=>{
+      const delBtn=e.target.closest('[data-del-id]');
+      if(delBtn){ e.stopPropagation(); _deleteNotif(delBtn.dataset.delId); return; }
       if(e.target.closest('button')) return;
       _showNotifActionMenu(e,n);
     };
@@ -9639,6 +9646,14 @@ function _markAllAlertsRead(){
   const read=_readNotifIds();
   (window._userNotifications||[]).forEach(n=>read.add(n.id));
   _saveReadNotifIds(read); _mailboxBadgeUpdate(); _renderAlertsTab();
+}
+function _deleteNotif(notifId){
+  const key='dgl_del_'+(window._DGL_USER||'');
+  const del=new Set(JSON.parse(localStorage.getItem(key)||'[]'));
+  del.add(notifId);
+  localStorage.setItem(key,JSON.stringify([...del]));
+  window._userNotifications=(window._userNotifications||[]).filter(n=>n.id!==notifId);
+  _markAlertRead(notifId);
 }
 function _closeNotifActionMenu(){
   const m=document.getElementById('notif-action-menu');
