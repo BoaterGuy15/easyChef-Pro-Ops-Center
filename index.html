@@ -9630,6 +9630,7 @@ function _showNotifActionMenu(event,notif){
   mnu.style.cssText="position:fixed;z-index:99999;width:215px;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:6px 0;font-family:'DM Mono',monospace;font-size:11px";
   mnu.style.left=Math.min(event.clientX,window.innerWidth-230)+'px';
   mnu.style.top=Math.min(event.clientY,window.innerHeight-360)+'px';
+  mnu.addEventListener('click',e=>e.stopPropagation());
 
   function _el(tag,css,text){const e=document.createElement(tag);if(css)e.style.cssText=css;if(text!=null)e.textContent=text;return e;}
   function _sep(){mnu.appendChild(_el('div','height:1px;background:var(--border);margin:3px 0'));}
@@ -9662,19 +9663,20 @@ function _showNotifActionMenu(event,notif){
     sL.appendChild(_el('span',null,'Quick Status'));
     sHdr.appendChild(sL);sHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
     const sSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
-    sHdr.onclick=()=>{sSub.style.maxHeight=sSub.style.maxHeight==='260px'?'0':'260px';};
+    sHdr.onclick=(e)=>{e.stopPropagation();sSub.style.maxHeight=sSub.style.maxHeight==='260px'?'0':'260px';};
     ['Not Started','Started','In Progress','In Review','Complete','Blocked'].forEach(s=>{
       const sd=_el('div','display:flex;align-items:center;gap:6px;padding:5px 20px;cursor:pointer;font-size:10px;color:'+(t.status===s?'var(--gold)':'var(--text)'));
       sd.onmouseover=()=>sd.style.background='rgba(201,168,76,0.08)';
       sd.onmouseout=()=>sd.style.background='transparent';
       sd.appendChild(_el('span','width:10px;flex-shrink:0;font-size:9px;color:var(--gold)',t.status===s?'✓':''));
       sd.appendChild(_el('span',null,s));
-      sd.onclick=()=>{
-        _closeNotifActionMenu();
-        if(s==='Complete'){_openMarkCompleteModal(taskId);return;}
+      sd.onclick=(e)=>{
+        e.stopPropagation();
+        if(s==='Complete'){_closeNotifActionMenu();_openMarkCompleteModal(taskId);return;}
         const _oldS=t.status;t.status=s;
         _logStatusChange(taskId,_oldS,s,'Mailbox quick status by '+(window._DGL_USER||'system'));
         _saveTasksNow();buildRoadmap();initRoadmapHeadSync();
+        _closeNotifActionMenu();
       };
       sSub.appendChild(sd);
     });
@@ -9690,14 +9692,14 @@ function _showNotifActionMenu(event,notif){
     fL.appendChild(_el('span',null,'Set Flag'));
     fHdr.appendChild(fL);fHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
     const fSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
-    fHdr.onclick=()=>{fSub.style.maxHeight=fSub.style.maxHeight==='220px'?'0':'220px';};
+    fHdr.onclick=(e)=>{e.stopPropagation();fSub.style.maxHeight=fSub.style.maxHeight==='220px'?'0':'220px';};
     (_FLAG_STATES||[]).forEach(f=>{
       const fd=_el('div','display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;font-size:10px;color:'+f.color);
       fd.onmouseover=()=>fd.style.background='rgba(201,168,76,0.08)';
       fd.onmouseout=()=>fd.style.background='transparent';
       fd.appendChild(_el('span','font-size:12px;width:18px;text-align:center',f.emoji));
       fd.appendChild(_el('span',null,f.label));
-      fd.onclick=()=>{_setTaskFlagFromMenu(taskId,f.emoji);_closeNotifActionMenu();};
+      fd.onclick=(e)=>{e.stopPropagation();_setTaskFlagFromMenu(taskId,f.emoji);_closeNotifActionMenu();};
       fSub.appendChild(fd);
     });
     const cfD=_el('div','display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;font-size:10px;color:var(--muted)');
@@ -9705,7 +9707,7 @@ function _showNotifActionMenu(event,notif){
     cfD.onmouseout=()=>cfD.style.background='transparent';
     cfD.appendChild(_el('span','font-size:12px;width:18px;text-align:center','✕'));
     cfD.appendChild(_el('span',null,'Clear Flag'));
-    cfD.onclick=()=>{_setTaskFlagFromMenu(taskId,'');_closeNotifActionMenu();};
+    cfD.onclick=(e)=>{e.stopPropagation();_setTaskFlagFromMenu(taskId,'');_closeNotifActionMenu();};
     fSub.appendChild(cfD);
     mnu.appendChild(fHdr);mnu.appendChild(fSub);
     _sep();
@@ -9736,7 +9738,7 @@ function _showNotifActionMenu(event,notif){
   slL.appendChild(_el('span',null,'Post to Slack'));
   slHdr.appendChild(slL);slHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
   const slSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15);padding:0 14px');
-  slHdr.onclick=()=>{slSub.style.maxHeight=slSub.style.maxHeight==='120px'?'0':'120px';};
+  slHdr.onclick=(e)=>{e.stopPropagation();slSub.style.maxHeight=slSub.style.maxHeight==='120px'?'0':'120px';};
   const slTa=_el('textarea','width:100%;box-sizing:border-box;margin-top:8px;padding:6px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;resize:none;outline:none;height:52px');
   slTa.placeholder='Message for Slack...';
   slTa.onclick=e=>e.stopPropagation();
