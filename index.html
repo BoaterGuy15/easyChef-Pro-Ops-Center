@@ -11082,7 +11082,7 @@ function _showActionPlanModal(pKey){
   hdrLeft.appendChild(hdrIcon);hdrLeft.appendChild(hdrTitle);
   const closeBtn=document.createElement('button');
   closeBtn.textContent='✕';closeBtn.style.cssText='background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0';
-  closeBtn.onclick=()=>overlay.remove();
+  closeBtn.onclick=()=>document.getElementById('action-plan-modal-overlay')?.remove();
   hdr.appendChild(hdrLeft);hdr.appendChild(closeBtn);
   // Info bar
   const infoBar=document.createElement('div');
