@@ -7526,15 +7526,18 @@ function _uploadTeamPhoto(userKey){
       const b64=ev.target.result.split(',')[1];
       if(!CONFIG.sheetsUrl){_showToast('No Sheets URL configured',2000);return;}
       try{
-        const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',userKey,filename:file.name,mimeType:file.type,data:b64})});
+        const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',sourceType:'profile',userKey,filename:file.name,mimeType:file.type,data:b64})});
         const json=await resp.json();
         const url=json.url||json.driveUrl||json.photoUrl||'';
         if(!url){_showToast('Upload failed — no URL returned',2000);return;}
-        _hrProfilesCache[userKey]={...(_hrProfilesCache[userKey]||{}),photo:url};
-        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey,photo:url})}).catch(()=>{});
-        buildTeamGrid();
+        if(!_hrProfilesCache[userKey]) _hrProfilesCache[userKey]={};
+        _hrProfilesCache[userKey].photo=url;
+        const updatedProfile={...(_hrProfilesCache[userKey]||{}),photo:url};
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',...updatedProfile,userKey})})
+          .then(r=>r.json()).then(d=>console.log('[DGL] Photo saved:',d.ok)).catch(()=>{});
         const av=document.getElementById('profile-modal-avatar')||document.getElementById('tmm-avatar');
         if(av) av.outerHTML=`<img id="${av.id}" src="${url}" style="${av.style.cssText};object-fit:cover;border-radius:50%">`;
+        buildTeamGrid();
         _showToast('<div>✅ Photo updated</div>',1800);
       }catch(e){_showToast('Upload error: '+(e.message||e),2000);}
     };
