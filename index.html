@@ -10590,6 +10590,30 @@ function _buildPersonalBriefing(userKey){
     }
     function mkS0Sec(id,icon,label,borderClr,bgClr,lblClr){
       const sec=mke('div');sec.style.cssText=`margin-bottom:14px;border-radius:7px;border-left:3px solid ${borderClr};background:${bgClr};overflow:hidden`;sec.dataset.sectionId=id;
+      sec.draggable=true;
+      sec.addEventListener('dragstart',e=>{
+        e.dataTransfer.setData('text/plain',id);
+        sec.style.opacity='0.5';
+      });
+      sec.addEventListener('dragend',()=>{sec.style.opacity='1';sec.style.borderLeftColor=borderClr;});
+      sec.addEventListener('dragover',e=>{e.preventDefault();sec.style.borderLeftColor='var(--gold)';});
+      sec.addEventListener('dragleave',()=>{sec.style.borderLeftColor=borderClr;});
+      sec.addEventListener('drop',e=>{
+        e.preventDefault();
+        sec.style.borderLeftColor=borderClr;
+        const fromId=e.dataTransfer.getData('text/plain');
+        const fromEl=document.querySelector('[data-section-id="'+fromId+'"]');
+        if(fromEl&&fromEl!==sec){
+          const container=sec.parentElement;
+          const sections=[...container.children];
+          const fromIdx=sections.indexOf(fromEl);
+          const toIdx=sections.indexOf(sec);
+          if(fromIdx<toIdx) container.insertBefore(fromEl,sec.nextSibling);
+          else container.insertBefore(fromEl,sec);
+          const newOrder=[...container.children].map(s=>s.dataset.sectionId).filter(Boolean);
+          localStorage.setItem('dgl_briefing_order_'+userKey,JSON.stringify(newOrder));
+        }
+      });
       const hdr=mke('div');hdr.style.cssText='display:flex;align-items:center;gap:5px;padding:7px 12px 6px;border-bottom:1px solid rgba(255,255,255,0.07)';
       const dragHdl=mke('span');dragHdl.textContent='⠿';dragHdl.className='_brf-drag-hdl';dragHdl.style.cssText='cursor:grab;color:var(--border);font-size:14px;flex-shrink:0;user-select:none;line-height:1;padding-right:2px';dragHdl.title='Drag to reorder';
       const lblSp=mke('span');lblSp.style.cssText=`font-family:'DM Mono',monospace;font-size:9px;color:${lblClr};letter-spacing:1.8px;text-transform:uppercase;font-weight:700;flex:1`;lblSp.textContent=icon+' '+label;
@@ -10629,7 +10653,6 @@ function _buildPersonalBriefing(userKey){
     if(!builtSecs.length){const ac=mke('div');ac.style.cssText="margin-bottom:14px;border-radius:7px;border-left:3px solid var(--green);background:rgba(52,211,153,0.06);padding:12px 14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--green)";ac.textContent='✅ No urgent items this week';sectionsContainer.appendChild(ac);}
     else{builtSecs.forEach(({id,el})=>{if(!hiddenSet.has(id))sectionsContainer.appendChild(el);});sectionsContainer.appendChild(restoreBar);_updateRestoreBar();}
     frag.appendChild(sectionsContainer);
-    setTimeout(()=>_initBriefingDrag(orderKey),0);
   }
   // S1 — TASKS
   const s1=mkSec('MY TASKS — THIS WEEK & NEXT');
