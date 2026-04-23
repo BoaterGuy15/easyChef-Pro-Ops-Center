@@ -9651,7 +9651,18 @@ function _openBriefingPanel(){
   const user=window._DGL_USER;
   if(!user||user==='view') return;
   const el=document.getElementById('briefing-panel-body');
-  if(el) el.innerHTML=buildBriefingHTML(user);
+  if(el){
+    el.innerHTML=_buildPersonalBriefing(user);
+    // Async: load gaps then re-render gaps section
+    if(CONFIG.sheetsUrl){
+      fetch(CONFIG.sheetsUrl+'?action=gap_read').then(r=>r.json()).then(data=>{
+        const gaps=Array.isArray(data)?data:(data.gaps||[]);
+        window._briefingGapsCache=gaps;
+        const gapEl=document.getElementById('briefing-gaps-container');
+        if(gapEl) gapEl.innerHTML=_renderBriefingGaps(user,gaps);
+      }).catch(()=>{});
+    }
+  }
   document.getElementById('briefing-panel')?.classList.add('open');
   document.getElementById('panel-overlay')?.classList.add('open');
 }
@@ -10376,55 +10387,191 @@ function briefingGoToRaci(name){
   const raciName=name||_USER_RACI_MAP[window._DGL_USER||'']||'';
   if(raciName) setTimeout(()=>setRaciFilter(raciName),200);
 }
-function buildBriefingHTML(user){
-  const col=USER_RACI_COL[user];
-  const name=USER_DISPLAY[user]||user;
+function buildBriefingHTML(user){ return _buildPersonalBriefing(user); }
+function _renderBriefingGaps(userKey,gaps){
+  const col=USER_RACI_COL[userKey];
+  const myTaskIds=new Set(col?DASHBOARD_DATA.tasks.filter(t=>{const rc=t[col]||'';return rc==='R'||rc==='A'||rc==='A/R'||rc==='C'||rc==='I';}).map(t=>t.id):[]);
+  const mine=gaps.filter(g=>g.status==='open'&&myTaskIds.has(g.taskId));
+  const TC={overdue:'var(--red)','dep-violation':'var(--amber)','no-owner':'#60a5fa','no-dates':'#a78bfa','no-channel':'var(--muted)',general:'var(--muted)'};
+  if(!mine.length) return '<div class="briefing-empty">No open gaps on your tasks.</div>';
+  return mine.map(g=>{
+    const tc=TC[g.type]||'var(--muted)';
+    const det=g.detectedAt?new Date(g.detectedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
+    return `<div class="briefing-row" style="align-items:flex-start"><div class="briefing-row-name" style="border-left:2px solid ${tc};padding-left:8px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:${tc};text-transform:uppercase;letter-spacing:1px">${g.type||'general'}</span><br>${(g.description||'').slice(0,80)}</div><div class="briefing-row-meta">${det}</div></div>`;
+  }).join('');
+}
+function _buildPersonalBriefing(userKey){
+  const col=USER_RACI_COL[userKey];
+  const name=USER_DISPLAY[userKey]||userKey;
   const today=getPSTDate();
-  const hour=parseInt(new Date().toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',hour12:false}),10);
-  const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  const genTs=new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  // Week bounds
   const dow=(today.getDay()+6)%7;
   const thisMonday=new Date(today); thisMonday.setDate(today.getDate()-dow); thisMonday.setHours(0,0,0,0);
   const thisSunday=new Date(thisMonday); thisSunday.setDate(thisMonday.getDate()+6); thisSunday.setHours(23,59,59,999);
   const nextMonday=new Date(thisMonday); nextMonday.setDate(thisMonday.getDate()+7); nextMonday.setHours(0,0,0,0);
   const nextSunday=new Date(thisMonday); nextSunday.setDate(thisMonday.getDate()+13); nextSunday.setHours(23,59,59,999);
-  const myTasks=col?DASHBOARD_DATA.tasks.filter(t=>{const rc=(t[col]||'');return rc==='R'||rc==='A/R';}) : [];
-  const dueThisWeek=myTasks.filter(t=>{
-    if(t.status==='Complete') return false;
+  function fmtD(d){if(!d)return'—';const x=new Date(d);return isNaN(x)?'—':x.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});}
+  function fmtWeekRange(a,b){return fmtD(a.toISOString().slice(0,10))+' — '+fmtD(b.toISOString().slice(0,10));}
+  function sbadge(s){const cls=s==='Complete'?'s-Done':s==='Blocked'?'s-Blocked':s==='Not Started'?'s-Not':'s-Started';return`<span class="status-badge ${cls}">${s||'—'}</span>`;}
+  function roleColor(r){return r==='R'||r==='A/R'?'var(--gold)':r==='A'?'var(--amber)':r==='C'?'#60a5fa':'var(--muted)';}
+  function daysOver(ed){return Math.round((today-new Date(ed))/86400000);}
+  function sec(title){return`<div class="briefing-section-title">${title}</div>`;}
+  // All tasks where user has any RACI role
+  const allMyTasks=col?DASHBOARD_DATA.tasks.filter(t=>{const rc=t[col]||'';return rc==='R'||rc==='A'||rc==='A/R'||rc==='C'||rc==='I';}) : [];
+  const myTaskIds=new Set(allMyTasks.map(t=>t.id));
+  // SECTION 1 — tasks touching this week or next week
+  const weekTasks=allMyTasks.filter(t=>{
     const sd=t.sd?new Date(t.sd):null; const ed=t.ed?new Date(t.ed):null;
-    return (ed&&ed>=thisMonday&&ed<=thisSunday)||(sd&&sd>=thisMonday&&sd<=thisSunday);
+    return (sd&&sd>=thisMonday&&sd<=nextSunday)||(ed&&ed>=thisMonday&&ed<=nextSunday)||(t.status!=='Complete'&&ed&&ed<today);
+  }).sort((a,b)=>(a.ed||'').localeCompare(b.ed||''));
+  let s1='<div class="briefing-section">'+sec('MY TASKS — THIS WEEK &amp; NEXT');
+  if(!weekTasks.length) s1+='<div class="briefing-empty">No tasks in range — you\'re clear.</div>';
+  else weekTasks.forEach(t=>{
+    const rc=col?t[col]||'':'';
+    const isOverdue=t.status!=='Complete'&&t.ed&&new Date(t.ed)<today;
+    const overdueTag=isOverdue?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red)">⛔ ${daysOver(t.ed)}d overdue</span>`:'';
+    const flagTag=t.flag?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${t.flag}</span>`:'';
+    s1+=`<div class="briefing-row" style="cursor:pointer;flex-direction:column;gap:3px" onclick="_closeBriefingPanel();setTimeout(()=>_viewTaskDetails('${t.id}'),150)">
+      <div style="display:flex;align-items:center;gap:8px;width:100%">
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)};font-weight:700;flex-shrink:0">${t.id}</span>
+        <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
+        ${sbadge(t.status)}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding-left:2px;flex-wrap:wrap">
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)};background:rgba(201,168,76,0.08);padding:1px 5px;border-radius:3px">Role: ${rc||'—'}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Due: ${fmtD(t.ed)}</span>
+        ${overdueTag}${flagTag}
+      </div>
+    </div>`;
   });
-  const overdue=myTasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today);
-  const taskMap={}; DASHBOARD_DATA.tasks.forEach(t=>taskMap[t.id]=t);
-  const blocked=myTasks.filter(t=>{
-    if(t.status==='Complete'||!t.deps) return false;
-    return t.deps.split(',').map(d=>d.trim()).filter(Boolean).some(id=>{
-      const dep=taskMap[id]; return dep&&dep.status!=='Complete'&&dep.ed&&new Date(dep.ed)<today;
+  s1+='</div>';
+  // SECTION 2 — Agenda items
+  const agItems=AGENDA_DATA.filter(a=>{
+    if((a.owner||'').toLowerCase()===(col||'').toLowerCase()) return true;
+    if(!a.checked&&a.deadline){const dl=new Date(a.deadline);return dl>=thisMonday&&dl<=thisSunday;}
+    return false;
+  });
+  let s2='<div class="briefing-section">'+sec('AGENDA ITEMS');
+  if(!agItems.length) s2+='<div class="briefing-empty">No agenda items assigned this week.</div>';
+  else agItems.forEach(a=>{
+    const checked=a.checked;
+    s2+=`<div class="briefing-row">
+      <div class="briefing-row-name" style="border-left:2px solid ${checked?'var(--muted)':'var(--gold)'};padding-left:8px;${checked?'opacity:0.5;text-decoration:line-through;':''}">
+        ${(a.title||'Untitled').slice(0,60)}
+      </div>
+      <div class="briefing-row-meta">
+        ${a.deadline?`<span>${fmtD(a.deadline)}</span>`:''}
+        <span style="color:${checked?'var(--green)':'var(--amber)'}">${checked?'✓ done':'open'}</span>
+      </div>
+    </div>`;
+  });
+  s2+='</div>';
+  // SECTION 3 — Action Plans
+  const planEntries=Object.entries(_actionPlansCache||{}).filter(([k])=>myTaskIds.has(k));
+  const inlinePlans=allMyTasks.filter(t=>t.actionPlan&&t.actionPlan.trim()&&!(_actionPlansCache&&_actionPlansCache[t.id]));
+  let s3='<div class="briefing-section">'+sec('ACTION PLANS');
+  if(!planEntries.length&&!inlinePlans.length) s3+='<div class="briefing-empty">No active action plans.</div>';
+  else{
+    planEntries.forEach(([tid,p])=>{
+      const task=DASHBOARD_DATA.tasks.find(x=>x.id===tid);
+      s3+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--gold);padding-left:8px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)">${tid}</span> ${task?task.name.slice(0,40):''}<br><span style="font-size:10px;color:var(--muted)">${(p.text||'').slice(0,80)}${(p.text||'').length>80?'…':''}</span></div><div class="briefing-row-meta"><span style="color:${p.status==='complete'?'var(--green)':'var(--amber)'}">${p.status||'active'}</span></div></div>`;
     });
+    inlinePlans.forEach(t=>{
+      s3+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--gold);padding-left:8px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)">${t.id}</span> ${t.name.slice(0,40)}<br><span style="font-size:10px;color:var(--muted)">${(t.actionPlan||'').slice(0,80)}${(t.actionPlan||'').length>80?'…':''}</span></div><div class="briefing-row-meta"><span style="color:var(--muted)">inline</span></div></div>`;
+    });
+  }
+  s3+='</div>';
+  // SECTION 4 — Gaps (async — placeholder)
+  const cachedGaps=window._briefingGapsCache||null;
+  let s4='<div class="briefing-section">'+sec('GAPS ON MY TASKS')+'<div id="briefing-gaps-container">';
+  if(cachedGaps) s4+=_renderBriefingGaps(userKey,cachedGaps);
+  else if(CONFIG.sheetsUrl) s4+='<div class="briefing-empty" style="color:var(--gold)">⏳ Loading gaps…</div>';
+  else s4+='<div class="briefing-empty">Gap tracking requires Sheets connection.</div>';
+  s4+='</div></div>';
+  // SECTION 5 — Next Week Preview (R or A only)
+  const nwTasks=allMyTasks.filter(t=>{
+    if(t.status==='Complete') return false;
+    const rc=col?t[col]||'':'';
+    if(rc!=='R'&&rc!=='A'&&rc!=='A/R') return false;
+    const ed=t.ed?new Date(t.ed):null;
+    return ed&&ed>=nextMonday&&ed<=nextSunday;
   });
-  const nextWeek=myTasks.filter(t=>t.status!=='Complete'&&t.sd&&new Date(t.sd)>=nextMonday&&new Date(t.sd)<=nextSunday);
-  const totalComplete=DASHBOARD_DATA.tasks.filter(t=>t.status==='Complete').length;
-  const daysToLaunch=Math.max(0,Math.ceil((DASHBOARD_DATA.meta.launchDate-today)/86400000));
-  const all=DASHBOARD_DATA.tasks;
-  const tovd=all.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today).length;
-  const tblk=all.filter(t=>t.status==='Blocked').length;
-  const tmis=all.filter(t=>t.status==='Not Started'&&t.sd&&new Date(t.sd)<today).length;
-  const healthScore=Math.max(0,Math.min(100,100-(tovd*5)-(tblk*3)-(tmis*2)+(totalComplete*2)));
-  function sbadge(s){const cls=s==='Complete'?'s-Done':s==='Blocked'?'s-Blocked':s==='Not Started'?'s-Not':'s-Started';return`<span class="status-badge ${cls}">${s}</span>`;}
-  function priColor(p){return p==='High'?'var(--red)':p==='Medium'?'var(--amber)':'var(--muted)';}
-  function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'}):''}
-  function daysAgo(d){return Math.round((today-new Date(d))/86400000);}
-  let h=`<div class="briefing-header">${greeting}, ${name}. Here's your day.</div>
-<div class="briefing-subhead">${today.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>`;
-  h+=`<div class="briefing-section"><div class="briefing-section-title">Your tasks due this week</div>`;
-  if(!dueThisWeek.length) h+=`<div class="briefing-empty">No tasks due this week — you're clear.</div>`;
-  else dueThisWeek.forEach(t=>{h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid ${priColor(t.pri)};padding-left:8px">${t.name}</div><div class="briefing-row-meta">${sbadge(t.status)}<span>due ${fmtDate(t.ed)}</span></div></div>`;});
-  h+=`</div>`;
-  if(overdue.length){h+=`<div class="briefing-section"><div class="briefing-section-title">⛔ Overdue</div>`;overdue.forEach(t=>{h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--red);padding-left:8px">${t.name}</div><div class="briefing-row-meta"><span style="color:var(--red)">${daysAgo(t.ed)}d overdue</span>${sbadge(t.status)}</div></div>`;});h+=`</div>`;}
-  if(blocked.length){h+=`<div class="briefing-section"><div class="briefing-section-title">⚠️ Blocked by dependency</div>`;blocked.forEach(t=>{const bIds=t.deps.split(',').map(d=>d.trim()).filter(id=>{const dep=taskMap[id];return dep&&dep.status!=='Complete'&&dep.ed&&new Date(dep.ed)<today;});const bNames=bIds.map(id=>taskMap[id]?taskMap[id].name:id).join(', ');h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--amber);padding-left:8px">${t.name}</div><div class="briefing-row-meta" style="color:var(--amber)">blocked by: ${bNames}</div></div>`;});h+=`</div>`;}
-  if(nextWeek.length){h+=`<div class="briefing-section"><div class="briefing-section-title">Coming up next week</div>`;nextWeek.forEach(t=>{h+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid var(--accent);padding-left:8px">${t.name}</div><div class="briefing-row-meta">${sbadge(t.status)}<span>starts ${fmtDate(t.sd)}</span></div></div>`;});h+=`</div>`;}
-  h+=`<div class="briefing-section"><div class="briefing-section-title">Team pulse</div><div class="briefing-pulse"><div class="briefing-pulse-item"><div class="briefing-pulse-val">${totalComplete}</div><div class="briefing-pulse-label">Tasks complete</div></div><div class="briefing-pulse-item"><div class="briefing-pulse-val">${healthScore}</div><div class="briefing-pulse-label">Health score</div></div><div class="briefing-pulse-item"><div class="briefing-pulse-val">${daysToLaunch}</div><div class="briefing-pulse-label">Days to launch</div></div></div></div>`;
-  h+=`<div class="briefing-footer"><button class="btn-primary" onclick="closeBriefing()">Let's go →</button><a href="#" onclick="closeBriefing();showPage('raci');const _rn=_USER_RACI_MAP[window._DGL_USER||'']||'';if(_rn)setTimeout(()=>setRaciFilter(_rn),200);return false;" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:1px">View full RACI →</a></div>`;
-  return h;
+  let s5='<div class="briefing-section">'+sec('NEXT WEEK PREVIEW');
+  if(!nwTasks.length) s5+='<div class="briefing-empty">No tasks due next week where you are R or A.</div>';
+  else{
+    s5+=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px">Coming up: ${nwTasks.length} task${nwTasks.length!==1?'s':''} due next week</div>`;
+    nwTasks.forEach(t=>{
+      const rc=col?t[col]||'':'';
+      s5+=`<div class="briefing-row"><div class="briefing-row-name" style="border-left:2px solid ${roleColor(rc)};padding-left:8px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)}">${t.id}</span> ${t.name.slice(0,45)}</div><div class="briefing-row-meta">${sbadge(t.status)}<span>${fmtD(t.ed)}</span></div></div>`;
+    });
+  }
+  s5+='</div>';
+  // SECTION 6 — Full Project Status by category
+  const catMap={};
+  allMyTasks.forEach(t=>{
+    const c=t.cat||'Other';
+    if(!catMap[c]) catMap[c]={total:0,complete:0};
+    catMap[c].total++;
+    if(t.status==='Complete') catMap[c].complete++;
+  });
+  const cats=Object.entries(catMap).sort((a,b)=>b[1].total-a[1].total);
+  let s6='<div class="briefing-section">'+sec('FULL PROJECT STATUS');
+  if(!cats.length) s6+='<div class="briefing-empty">No tasks assigned.</div>';
+  else cats.forEach(([cat,d])=>{
+    const pct=d.total?Math.round(d.complete/d.total*100):0;
+    const barFill=pct+'%';
+    s6+=`<div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${cat}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${d.complete}/${d.total} complete (${pct}%)</span>
+      </div>
+      <div style="height:3px;background:var(--border);border-radius:2px"><div style="height:3px;width:${barFill};background:${pct===100?'var(--green)':'var(--gold)'};border-radius:2px;transition:width 0.4s"></div></div>
+    </div>`;
+  });
+  s6+='</div>';
+  // AI Briefing result container
+  const aiSection=`<div id="briefing-ai-result" style="margin-bottom:16px"></div>`;
+  // Footer
+  const footer=`<div class="briefing-footer">
+    <button class="btn-primary" onclick="closeBriefing()">Let's go →</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="briefing-ai-btn" onclick="_runBriefingAI('${userKey}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:5px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;letter-spacing:1px">⚡ AI Briefing</button>
+      <a href="#" onclick="closeBriefing();showPage('raci');const _rn=_USER_RACI_MAP[window._DGL_USER||'']||'';if(_rn)setTimeout(()=>setRaciFilter(_rn),200);return false;" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:1px">Full RACI →</a>
+    </div>
+  </div>`;
+  // Header
+  const header=`
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">📋 DAILY BRIEFING — ${name}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);font-weight:600;margin-bottom:2px">Week of ${fmtWeekRange(thisMonday,thisSunday)}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:20px">Generated: ${genTs}</div>`;
+  return header+s1+s2+s3+s4+s5+s6+aiSection+footer;
+}
+function _runBriefingAI(userKey,btn){
+  if(!CONFIG.sheetsUrl){alert('Sheets connection required for AI Briefing.');return;}
+  const col=USER_RACI_COL[userKey];
+  const name=USER_DISPLAY[userKey]||userKey;
+  btn.textContent='⏳ Generating…';btn.disabled=true;
+  const today=getPSTDate();
+  const allMyTasks=col?DASHBOARD_DATA.tasks.filter(t=>{const rc=t[col]||'';return rc==='R'||rc==='A'||rc==='A/R'||rc==='C'||rc==='I';}) : [];
+  const overdue=allMyTasks.filter(t=>t.status!=='Complete'&&t.ed&&new Date(t.ed)<today);
+  const dow=(today.getDay()+6)%7;
+  const thisMonday=new Date(today);thisMonday.setDate(today.getDate()-dow);
+  const nextSunday=new Date(thisMonday);nextSunday.setDate(thisMonday.getDate()+13);
+  const weekTasks=allMyTasks.filter(t=>{const ed=t.ed?new Date(t.ed):null;const sd=t.sd?new Date(t.sd):null;return(ed&&ed>=thisMonday&&ed<=nextSunday)||(sd&&sd>=thisMonday&&sd<=nextSunday);});
+  const taskLines=weekTasks.map(t=>`${t.id} [${t[col]||''}] ${t.name} | Status:${t.status} | Due:${t.ed||'—'} | Flag:${t.flag||'none'}`).join('\n');
+  const overdueLines=overdue.map(t=>`${t.id} ${t.name} | ${Math.round((today-new Date(t.ed))/86400000)}d overdue`).join('\n');
+  const prompt=`You are a focused project manager briefing ${name} for the DGL easyChef Pro launch.\n\nTASKS THIS WEEK + NEXT:\n${taskLines||'None'}\n\nOVERDUE TASKS:\n${overdueLines||'None'}\n\nProvide a focused personal briefing for ${name}:\n1. TOP PRIORITY TODAY — one specific action\n2. THREE THINGS THIS WEEK — named, actionable\n3. OVERDUE ALERT — what needs immediate attention\n4. ONE RISK — what breaks if ${name} falls behind\n5. POSITIVE NOTE — one thing going well\n\nBe direct, specific, and under 300 words. No generic advice.`;
+  const system=`You are a senior project manager for Digital Galactica Labs. Always be specific to the tasks and person provided. Today is ${today.toISOString().slice(0,10)}.`;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})})
+    .then(r=>r.json())
+    .then(data=>{
+      btn.textContent='⚡ AI Briefing';btn.disabled=false;
+      const text=_stripMarkdown(data.response||data.result||data.text||data.content||JSON.stringify(data));
+      const el=document.getElementById('briefing-ai-result');
+      if(el) el.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">⚡ AI BRIEFING — ${name.toUpperCase()}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+    })
+    .catch(()=>{btn.textContent='⚡ AI Briefing';btn.disabled=false;const el=document.getElementById('briefing-ai-result');if(el)el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">AI Briefing failed.</div>';});
 }
 
 // ── Master refresh ──────────────────────────────────────────
