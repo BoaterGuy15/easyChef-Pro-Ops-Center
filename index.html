@@ -8055,6 +8055,21 @@ function buildTeamGrid(){
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
       const warnHtml=m.warn?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red);margin-top:6px">${m.warn}</div>`:'';
       const noteHtml=m.note?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);margin-top:6px">${m.note}</div>`:'';
+      const sColor=s=>s==='Complete'||s==='Done'?'var(--green)':s==='Blocked'?'var(--red)':s==='In Progress'||s==='Started'?'var(--gold)':'var(--muted)';
+      const _d7=new Date(_d);_d7.setDate(_d.getDate()+7);
+      const week7=_d7.getFullYear()+'-'+String(_d7.getMonth()+1).padStart(2,'0')+'-'+String(_d7.getDate()).padStart(2,'0');
+      const priTasks=myTasks.filter(t=>t.pri==='High'&&t.status!=='Complete'&&t.status!=='Done').sort((a,b)=>(a.ed||'').localeCompare(b.ed||'')).slice(0,3);
+      const weekTasks=myTasks.filter(t=>t.ed&&t.ed>=today&&t.ed<=week7).sort((a,b)=>a.ed.localeCompare(b.ed));
+      const priHtml=priTasks.length?'<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">'
+        +'<div style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--red);letter-spacing:1.5px;margin-bottom:4px">🚨 HIGH PRIORITY</div>'
+        +priTasks.map(t=>'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);cursor:pointer;padding:2px 0" onclick="_viewTaskDetails(\''+t.id+'\')">'
+          +t.id+' · '+t.name.slice(0,25)+' <span style="color:'+sColor(t.status)+'">'+t.status+'</span></div>').join('')
+        +'</div>':'';
+      const weekHtml=weekTasks.length?'<div style="margin-top:6px">'
+        +'<div style="font-family:\'DM Mono\',monospace;font-size:8px;color:#60a5fa;letter-spacing:1.5px;margin-bottom:4px">📅 THIS WEEK</div>'
+        +weekTasks.slice(0,3).map(t=>'<div style="font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer;padding:2px 0" onclick="_viewTaskDetails(\''+t.id+'\')">'
+          +t.id+' · '+t.name.slice(0,22)+' — '+t.ed+'</div>').join('')
+        +'</div>':'';
       const _cu=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
       const _canEditDefault=(['taylor','steve'].includes(_cu)||_cu===userKey)&&_cu!=='view'&&_cu!=='';
       const editBtnDefault=_canEditDefault?`<button onclick="openDefaultTeamMemberModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Edit Profile">✏️ Edit</button>`:'';
@@ -8062,7 +8077,7 @@ function buildTeamGrid(){
         ${dragHandle}
         <div class="tc-name">${displayName}${badgeHtml}</div>
         <div class="tc-role">${displayRole}</div>
-        ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${warnHtml}${noteHtml}
+        ${tasksHtml}<div class="tc-stats">${statsHtml}</div>${priHtml}${weekHtml}${warnHtml}${noteHtml}
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnDefault?`<div style="display:flex;gap:4px">${editBtnDefault}</div>`:''}</div>
         ${_buildWorkSummaryHtml(userKey,key,myTasks)}
       </div>`;
@@ -8084,6 +8099,21 @@ function buildTeamGrid(){
       }).join('');
       const statsHtml2=[{k:'Total',v:myTasks.length},{k:'Done',v:done},{k:'In Prog',v:inProg},{k:'Overdue',v:overdue},{k:'Not Started',v:notStarted}]
         .map(s=>`<div class="tc-stat"><div class="tc-stat-val">${s.v}</div><div class="tc-stat-label">${s.k}</div></div>`).join('');
+      const sColor2=s=>s==='Complete'||s==='Done'?'var(--green)':s==='Blocked'?'var(--red)':s==='In Progress'||s==='Started'?'var(--gold)':'var(--muted)';
+      const _d7c=new Date(_d);_d7c.setDate(_d.getDate()+7);
+      const week7c=_d7c.getFullYear()+'-'+String(_d7c.getMonth()+1).padStart(2,'0')+'-'+String(_d7c.getDate()).padStart(2,'0');
+      const priTasks2=myTasks.filter(t=>t.pri==='High'&&t.status!=='Complete'&&t.status!=='Done').sort((a,b)=>(a.ed||'').localeCompare(b.ed||'')).slice(0,3);
+      const weekTasks2=myTasks.filter(t=>t.ed&&t.ed>=today&&t.ed<=week7c).sort((a,b)=>a.ed.localeCompare(b.ed));
+      const priHtml2=priTasks2.length?'<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">'
+        +'<div style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--red);letter-spacing:1.5px;margin-bottom:4px">🚨 HIGH PRIORITY</div>'
+        +priTasks2.map(t=>'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);cursor:pointer;padding:2px 0" onclick="_viewTaskDetails(\''+t.id+'\')">'
+          +t.id+' · '+t.name.slice(0,25)+' <span style="color:'+sColor2(t.status)+'">'+t.status+'</span></div>').join('')
+        +'</div>':'';
+      const weekHtml2=weekTasks2.length?'<div style="margin-top:6px">'
+        +'<div style="font-family:\'DM Mono\',monospace;font-size:8px;color:#60a5fa;letter-spacing:1.5px;margin-bottom:4px">📅 THIS WEEK</div>'
+        +weekTasks2.slice(0,3).map(t=>'<div style="font-family:\'DM Mono\',monospace;font-size:9px;cursor:pointer;padding:2px 0" onclick="_viewTaskDetails(\''+t.id+'\')">'
+          +t.id+' · '+t.name.slice(0,22)+' — '+t.ed+'</div>').join('')
+        +'</div>':'';
       const accessLabel=cm.accessLevel?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-left:6px">${cm.accessLevel.toUpperCase()}</span>`:'';
       const _cu2=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
       const _canEditCustom=(['taylor','steve'].includes(_cu2)||_cu2===cm.user)&&_cu2!=='view'&&_cu2!=='';
@@ -8094,7 +8124,7 @@ function buildTeamGrid(){
         <div class="tc-name">${_hrP2.name||cm.name}${accessLabel}</div>
         <div class="tc-role">${_hrP2.role||cm.role}</div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${cm.email}</div>
-        ${tasksHtml2}<div class="tc-stats">${statsHtml2}</div>
+        ${tasksHtml2}<div class="tc-stats">${statsHtml2}</div>${priHtml2}${weekHtml2}
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center"><button onclick="openProfileModal('${cm.user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Profile</button>${editBtnCustom?`<div style="display:flex;gap:4px">${editBtnCustom}</div>`:''}</div>
         ${_buildWorkSummaryHtml(cm.user,key,myTasks)}
       </div>`;
