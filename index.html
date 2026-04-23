@@ -1122,6 +1122,16 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div class="section-label" style="margin-top:32px">Channel Mapping</div>
   <div id="channel-mapping-section"></div>
   <div id="dm-channel-mapping-section" style="margin-top:16px"></div>
+
+  <div id="notif-log-section" style="display:none;margin-top:32px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="section-label" style="margin:0">🔔 NOTIFICATION LOG</div>
+      <button onclick="_loadNotifLog()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">↻ Refresh</button>
+    </div>
+    <div class="card" id="notif-log-card" style="padding:0;overflow:hidden">
+      <div id="notif-log-body" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:20px;text-align:center">Click Refresh to load.</div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ PAGE: TEAM ══ -->
@@ -1323,6 +1333,7 @@ function showPage(id){
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom('90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
   if(id==='budget') loadBudgetFromSheets();
+  if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } }
   if(id==='command'){
     _renderMasterAICard();
     const stale=Date.now()-(_masterAiLastRun||+sessionStorage.getItem('dgl_master_ai_ts')||0)>2*60*60*1000;
@@ -9402,12 +9413,36 @@ async function _loadUserNotifications(userKey){
     const r=await fetch(CONFIG.sheetsUrl+'?action=notification_read');
     const d=await r.json();
     const all=Array.isArray(d)?d:(d.notifications||[]);
-    window._userNotifications=all
-      .filter(n=>!n.toUser||n.toUser===userKey||n.toUser==='')
-      .sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
+    const mine=all.filter(n=>n.toUser===userKey||n.toUser===''||!n.toUser);
+    console.log('[DGL] Mailbox alerts for '+userKey+':', mine.length, '(total fetched:', all.length+')');
+    window._userNotifications=mine.sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
     _mailboxBadgeUpdate();
     if(document.getElementById('mailbox-panel')?.classList.contains('open')&&_mbActiveTab==='alerts') _renderAlertsTab();
-  }catch(_){}
+  }catch(err){ console.error('[DGL] _loadUserNotifications error:', err); }
+}
+async function _loadNotifLog(){
+  const el=document.getElementById('notif-log-body'); if(!el) return;
+  el.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted)">Loading…</div>';
+  if(!CONFIG.sheetsUrl){ el.innerHTML='<div style="padding:16px;color:var(--muted)">No Sheets URL configured.</div>'; return; }
+  try{
+    const r=await fetch(CONFIG.sheetsUrl+'?action=notification_read');
+    const d=await r.json();
+    const all=(Array.isArray(d)?d:(d.notifications||[])).sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
+    if(!all.length){ el.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted)">No notifications logged.</div>'; return; }
+    const icon=t=>({overdue:'🔴',unblocked:'🔓',completion:'✅','progress-report':'📋',dm:'💬',gap:'⚠️',test:'🔬'})[t]||'📬';
+    el.innerHTML='<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px">'+
+      '<thead><tr style="background:var(--surface);border-bottom:1px solid var(--border)">'+
+      ['Type','To','Task','Message','Sent'].map(h=>`<th style="padding:7px 12px;text-align:left;color:var(--gold);font-size:9px;letter-spacing:1px;font-weight:600">${h}</th>`).join('')+
+      '</tr></thead><tbody>'+
+      all.map((n,i)=>`<tr style="border-bottom:1px solid rgba(37,42,53,0.3);background:${i%2?'transparent':'rgba(37,42,53,0.15)'}">
+        <td style="padding:6px 12px;white-space:nowrap">${icon(n.type)} ${n.type||'—'}</td>
+        <td style="padding:6px 12px;color:var(--text)">${n.toUser||'<span style="color:var(--muted)">broadcast</span>'}</td>
+        <td style="padding:6px 12px;color:var(--gold)">${n.taskId||'—'}</td>
+        <td style="padding:6px 12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)" title="${(n.message||'').replace(/"/g,'&quot;')}">${(n.message||'').slice(0,60)}${(n.message||'').length>60?'…':''}</td>
+        <td style="padding:6px 12px;color:var(--muted);white-space:nowrap">${(n.sentAt||n.ts||'').slice(0,16)}</td>
+      </tr>`).join('')+
+      '</tbody></table>';
+  }catch(e){ el.innerHTML='<div style="padding:16px;color:var(--red)">Error: '+e.message+'</div>'; }
 }
 async function _loadUserDMs(userKey){
   if(!CONFIG.sheetsUrl||!userKey||userKey==='view') return;
