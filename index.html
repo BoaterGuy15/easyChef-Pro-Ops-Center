@@ -10213,8 +10213,8 @@ function _openStatusUpdateModal(taskId,notif){
   const closeBtn=document.createElement('button');
   closeBtn.textContent='✕';
   closeBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 0 0 12px;flex-shrink:0;font-family:'DM Mono',monospace";
-  const _returnToMenu=()=>{const m=document.getElementById('update-status-overlay');const n=m?.querySelector('div')?._notif||notif;const x=modal._openX||window.innerWidth/2;const y=modal._openY||window.innerHeight/2;_closeStatusUpdateModal();_showNotifActionMenu({clientX:x,clientY:y,stopPropagation:()=>{}},n);};
-  closeBtn.onclick=_returnToMenu;
+  const _closeModal=()=>{if(ov._cleanup)ov._cleanup();ov.remove();};
+  closeBtn.onclick=_closeModal;
   hdr.appendChild(hdrL);hdr.appendChild(closeBtn);
   modal.appendChild(hdr);
 
@@ -10271,7 +10271,7 @@ function _openStatusUpdateModal(taskId,notif){
   postBtn.textContent='📤 Post to '+chDisplayName;
   const cancelBtn=document.createElement('button');
   cancelBtn.style.cssText="padding:8px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer";
-  cancelBtn.textContent='Cancel';cancelBtn.onclick=_returnToMenu;
+  cancelBtn.textContent='Cancel';cancelBtn.onclick=_closeModal;
   postBtn.onclick=()=>{
     const msg=(ta.value||'').trim();
     if(!msg){ta.style.borderColor='var(--red)';ta.focus();return;}
