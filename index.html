@@ -9652,14 +9652,14 @@ function _openBriefingPanel(){
   if(!user||user==='view') return;
   const el=document.getElementById('briefing-panel-body');
   if(el){
-    el.innerHTML=_buildPersonalBriefing(user);
-    // Async: load gaps then re-render gaps section
+    el.innerHTML='';
+    el.appendChild(_buildPersonalBriefing(user));
     if(CONFIG.sheetsUrl){
       fetch(CONFIG.sheetsUrl+'?action=gap_read').then(r=>r.json()).then(data=>{
         const gaps=Array.isArray(data)?data:(data.gaps||[]);
         window._briefingGapsCache=gaps;
         const gapEl=document.getElementById('briefing-gaps-container');
-        if(gapEl) gapEl.innerHTML=_renderBriefingGaps(user,gaps);
+        if(gapEl) _renderBriefingGaps(user,gaps,gapEl);
       }).catch(()=>{});
     }
   }
@@ -10387,175 +10387,176 @@ function briefingGoToRaci(name){
   const raciName=name||_USER_RACI_MAP[window._DGL_USER||'']||'';
   if(raciName) setTimeout(()=>setRaciFilter(raciName),200);
 }
-function buildBriefingHTML(user){ return _buildPersonalBriefing(user); }
-function _renderBriefingGaps(userKey,gaps){
+function buildBriefingHTML(user){ const el=document.getElementById('briefing-panel-body');if(el){el.innerHTML='';el.appendChild(_buildPersonalBriefing(user));}return ''; }
+function _renderBriefingGaps(userKey,gaps,container){
+  container.innerHTML='';
+  function mke(tag,css,txt){const e=document.createElement(tag);if(css)e.style.cssText=css;if(txt!=null)e.textContent=txt;return e;}
   const col=USER_RACI_COL[userKey];
   const myTaskIds=new Set(col?DASHBOARD_DATA.tasks.filter(t=>{const rc=t[col]||'';return rc==='R'||rc==='A'||rc==='A/R'||rc==='C'||rc==='I';}).map(t=>t.id):[]);
   const mine=gaps.filter(g=>g.status==='open'&&myTaskIds.has(g.taskId));
   const TC={overdue:'var(--red)','dep-violation':'var(--amber)','no-owner':'#60a5fa','no-dates':'#a78bfa','no-channel':'var(--muted)',general:'var(--muted)'};
-  if(!mine.length) return '<div class="briefing-empty">No open gaps on your tasks.</div>';
-  window._briefingGapStore=window._briefingGapStore||{};
-  return mine.map(g=>{
+  if(!mine.length){const e=mke('div');e.className='briefing-empty';e.textContent='No open gaps on your tasks.';container.appendChild(e);return;}
+  mine.forEach(g=>{
     const tc=TC[g.type]||'var(--muted)';
     const det=g.detectedAt?new Date(g.detectedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
-    const gKey='g_'+(g.id||g.taskId||Math.random().toString(36).slice(2));
-    window._briefingGapStore[gKey]=g;
-    const onclk=`_closeBriefingPanel();showPage('command');setTimeout(()=>{const el=document.getElementById('gap-${g.id||''}');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},400)`;
-    return `<div class="briefing-row" style="cursor:pointer;align-items:flex-start;transition:background 0.15s" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''" onclick="${onclk}"><div class="briefing-row-name" style="border-left:2px solid ${tc};padding-left:8px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:${tc};text-transform:uppercase;letter-spacing:1px">${g.type||'general'}</span><br>${(g.description||'').slice(0,80)}</div><div class="briefing-row-meta">${det}</div></div>`;
-  }).join('');
+    const row=mke('div');row.className='briefing-row';
+    row.style.cssText='cursor:pointer;align-items:flex-start;transition:background 0.15s;border-radius:4px;padding:6px 4px';
+    row.onmouseover=()=>row.style.background='rgba(201,168,76,0.06)';
+    row.onmouseout=()=>row.style.background='';
+    row.onclick=()=>{_closeBriefingPanel();showPage('command');setTimeout(()=>{const el=document.getElementById('gap-'+(g.id||''));if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},400);};
+    const left=mke('div');left.className='briefing-row-name';left.style.cssText=`border-left:2px solid ${tc};padding-left:8px`;
+    left.appendChild(mke('span',`font-family:'DM Mono',monospace;font-size:9px;color:${tc};text-transform:uppercase;letter-spacing:1px`,g.type||'general'));
+    left.appendChild(document.createElement('br'));
+    left.appendChild(mke('div','font-size:10px;color:var(--text)',(g.description||'').slice(0,80)));
+    const right=mke('div');right.className='briefing-row-meta';right.textContent=det;
+    row.appendChild(left);row.appendChild(right);
+    container.appendChild(row);
+  });
 }
 function _buildPersonalBriefing(userKey){
   const col=USER_RACI_COL[userKey];
   const name=USER_DISPLAY[userKey]||userKey;
   const today=getPSTDate();
   const genTs=new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  // Week bounds
   const dow=(today.getDay()+6)%7;
-  const thisMonday=new Date(today); thisMonday.setDate(today.getDate()-dow); thisMonday.setHours(0,0,0,0);
-  const thisSunday=new Date(thisMonday); thisSunday.setDate(thisMonday.getDate()+6); thisSunday.setHours(23,59,59,999);
-  const nextMonday=new Date(thisMonday); nextMonday.setDate(thisMonday.getDate()+7); nextMonday.setHours(0,0,0,0);
-  const nextSunday=new Date(thisMonday); nextSunday.setDate(thisMonday.getDate()+13); nextSunday.setHours(23,59,59,999);
+  const thisMonday=new Date(today);thisMonday.setDate(today.getDate()-dow);thisMonday.setHours(0,0,0,0);
+  const thisSunday=new Date(thisMonday);thisSunday.setDate(thisMonday.getDate()+6);thisSunday.setHours(23,59,59,999);
+  const nextMonday=new Date(thisMonday);nextMonday.setDate(thisMonday.getDate()+7);nextMonday.setHours(0,0,0,0);
+  const nextSunday=new Date(thisMonday);nextSunday.setDate(thisMonday.getDate()+13);nextSunday.setHours(23,59,59,999);
   function fmtD(d){if(!d)return'—';const x=new Date(d);return isNaN(x)?'—':x.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});}
   function fmtWeekRange(a,b){return fmtD(a.toISOString().slice(0,10))+' — '+fmtD(b.toISOString().slice(0,10));}
-  function sbadge(s){const cls=s==='Complete'?'s-Done':s==='Blocked'?'s-Blocked':s==='Not Started'?'s-Not':'s-Started';return`<span class="status-badge ${cls}">${s||'—'}</span>`;}
   function roleColor(r){return r==='R'||r==='A/R'?'var(--gold)':r==='A'?'var(--amber)':r==='C'?'#60a5fa':'var(--muted)';}
   function daysOver(ed){return Math.round((today-new Date(ed))/86400000);}
-  function sec(title){return`<div class="briefing-section-title">${title}</div>`;}
-  // All tasks where user has any RACI role
+  function mke(tag,css,txt){const e=document.createElement(tag);if(css)e.style.cssText=css;if(txt!=null)e.textContent=txt;return e;}
+  function mkSec(title){const d=mke('div');d.className='briefing-section';const t=mke('div');t.className='briefing-section-title';t.textContent=title;d.appendChild(t);return d;}
+  function mkEmpty(txt){const e=mke('div');e.className='briefing-empty';e.textContent=txt;return e;}
+  function mkBadge(s){const cls=s==='Complete'?'s-Done':s==='Blocked'?'s-Blocked':s==='Not Started'?'s-Not':'s-Started';const sp=mke('span');sp.className='status-badge '+cls;sp.textContent=s||'—';return sp;}
+  function mkRow(fn){const r=mke('div');r.className='briefing-row';r.style.cssText='cursor:pointer;transition:background 0.15s;border-radius:4px;padding:6px 4px';r.onmouseover=()=>r.style.background='rgba(201,168,76,0.06)';r.onmouseout=()=>r.style.background='';r.onclick=fn;return r;}
   const allMyTasks=col?DASHBOARD_DATA.tasks.filter(t=>{const rc=t[col]||'';return rc==='R'||rc==='A'||rc==='A/R'||rc==='C'||rc==='I';}) : [];
   const myTaskIds=new Set(allMyTasks.map(t=>t.id));
-  // SECTION 1 — tasks touching this week or next week
-  const weekTasks=allMyTasks.filter(t=>{
-    const sd=t.sd?new Date(t.sd):null; const ed=t.ed?new Date(t.ed):null;
-    return (sd&&sd>=thisMonday&&sd<=nextSunday)||(ed&&ed>=thisMonday&&ed<=nextSunday)||(t.status!=='Complete'&&ed&&ed<today);
-  }).sort((a,b)=>(a.ed||'').localeCompare(b.ed||''));
-  let s1='<div class="briefing-section">'+sec('MY TASKS — THIS WEEK &amp; NEXT');
-  if(!weekTasks.length) s1+='<div class="briefing-empty">No tasks in range — you\'re clear.</div>';
+  const weekTasks=allMyTasks.filter(t=>{const sd=t.sd?new Date(t.sd):null;const ed=t.ed?new Date(t.ed):null;return(sd&&sd>=thisMonday&&sd<=nextSunday)||(ed&&ed>=thisMonday&&ed<=nextSunday)||(t.status!=='Complete'&&ed&&ed<today);}).sort((a,b)=>(a.ed||'').localeCompare(b.ed||''));
+  const agItems=AGENDA_DATA.filter(a=>{if((a.owner||'').toLowerCase()===(col||'').toLowerCase())return true;if(!a.checked&&a.deadline){const dl=new Date(a.deadline);return dl>=thisMonday&&dl<=thisSunday;}return false;});
+  window._briefingPlanStore=window._briefingPlanStore||{};
+  const planEntries=Object.entries(_actionPlansCache||{}).filter(([k])=>myTaskIds.has(k));
+  const inlinePlans=allMyTasks.filter(t=>t.actionPlan&&t.actionPlan.trim()&&!(_actionPlansCache&&_actionPlansCache[t.id]));
+  const nwTasks=allMyTasks.filter(t=>{if(t.status==='Complete')return false;const rc=col?t[col]||'':'';if(rc!=='R'&&rc!=='A'&&rc!=='A/R')return false;const ed=t.ed?new Date(t.ed):null;return ed&&ed>=nextMonday&&ed<=nextSunday;});
+  const catMap={};allMyTasks.forEach(t=>{const c=t.cat||'Other';if(!catMap[c])catMap[c]={total:0,complete:0};catMap[c].total++;if(t.status==='Complete')catMap[c].complete++;});
+  const cats=Object.entries(catMap).sort((a,b)=>b[1].total-a[1].total);
+  const frag=document.createDocumentFragment();
+  // HEADER (static, no onclick)
+  const hdrDiv=mke('div');
+  hdrDiv.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">📋 DAILY BRIEFING — ${name}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);font-weight:600;margin-bottom:2px">Week of ${fmtWeekRange(thisMonday,thisSunday)}</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:20px">Generated: ${genTs}</div>`;
+  frag.appendChild(hdrDiv);
+  // S1 — TASKS
+  const s1=mkSec('MY TASKS — THIS WEEK & NEXT');
+  if(!weekTasks.length)s1.appendChild(mkEmpty("No tasks in range — you're clear."));
   else weekTasks.forEach(t=>{
     const rc=col?t[col]||'':'';
     const isOverdue=t.status!=='Complete'&&t.ed&&new Date(t.ed)<today;
-    const overdueTag=isOverdue?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--red)">⛔ ${daysOver(t.ed)}d overdue</span>`:'';
-    const flagTag=t.flag?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${t.flag}</span>`:'';
-    s1+=`<div class="briefing-row" style="cursor:pointer;flex-direction:column;gap:3px;transition:background 0.15s;border-radius:4px;padding:6px 4px" onmouseover="this.style.background='rgba(201,168,76,0.06)';this.style.borderLeftColor='var(--gold)'" onmouseout="this.style.background='';this.style.borderLeftColor=''" onclick="_closeBriefingPanel();setTimeout(()=>_viewTaskDetails('${t.id}'),150)">
-      <div style="display:flex;align-items:center;gap:8px;width:100%">
-        <span style="font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)};font-weight:700;flex-shrink:0">${t.id}</span>
-        <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
-        ${sbadge(t.status)}
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;padding-left:2px;flex-wrap:wrap">
-        <span style="font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)};background:rgba(201,168,76,0.08);padding:1px 5px;border-radius:3px">Role: ${rc||'—'}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Due: ${fmtD(t.ed)}</span>
-        ${overdueTag}${flagTag}
-      </div>
-    </div>`;
+    const r=mkRow(()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);});
+    r.style.flexDirection='column';r.style.gap='3px';
+    const top=mke('div','display:flex;align-items:center;gap:8px;width:100%');
+    top.appendChild(mke('span',`font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)};font-weight:700;flex-shrink:0`,t.id));
+    top.appendChild(mke('span','flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap',t.name));
+    top.appendChild(mkBadge(t.status));
+    const bot=mke('div','display:flex;align-items:center;gap:8px;padding-left:2px;flex-wrap:wrap');
+    bot.appendChild(mke('span',`font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)};background:rgba(201,168,76,0.08);padding:1px 5px;border-radius:3px`,'Role: '+(rc||'—')));
+    bot.appendChild(mke('span',"font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)",'Due: '+fmtD(t.ed)));
+    if(isOverdue)bot.appendChild(mke('span',"font-family:'DM Mono',monospace;font-size:9px;color:var(--red)",'⛔ '+daysOver(t.ed)+'d overdue'));
+    if(t.flag)bot.appendChild(mke('span',"font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)",t.flag));
+    r.appendChild(top);r.appendChild(bot);
+    s1.appendChild(r);
   });
-  s1+='</div>';
-  // SECTION 2 — Agenda items
-  const agItems=AGENDA_DATA.filter(a=>{
-    if((a.owner||'').toLowerCase()===(col||'').toLowerCase()) return true;
-    if(!a.checked&&a.deadline){const dl=new Date(a.deadline);return dl>=thisMonday&&dl<=thisSunday;}
-    return false;
-  });
-  let s2='<div class="briefing-section">'+sec('AGENDA ITEMS');
-  if(!agItems.length) s2+='<div class="briefing-empty">No agenda items assigned this week.</div>';
+  frag.appendChild(s1);
+  // S2 — AGENDA
+  const s2=mkSec('AGENDA ITEMS');
+  if(!agItems.length)s2.appendChild(mkEmpty('No agenda items assigned this week.'));
   else agItems.forEach(a=>{
     const checked=a.checked;
-    const agOnclk=`_closeBriefingPanel();showPage('agenda');setTimeout(()=>{const el=document.getElementById('agenda-item-${a.id}')||document.querySelector('[data-agenda-id=\\"${a.id}\\"]');if(el){el.click();setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),200);}},400)`;
-    s2+=`<div class="briefing-row" style="cursor:pointer;transition:background 0.15s;border-radius:4px;padding:6px 4px" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''" onclick="${agOnclk}">
-      <div class="briefing-row-name" style="border-left:2px solid ${checked?'var(--muted)':'var(--gold)'};padding-left:8px;${checked?'opacity:0.5;text-decoration:line-through;':''}">
-        ${(a.title||'Untitled').slice(0,60)}
-      </div>
-      <div class="briefing-row-meta">
-        ${a.deadline?`<span>${fmtD(a.deadline)}</span>`:''}
-        <span style="color:${checked?'var(--green)':'var(--amber)'}">${checked?'✓ done':'open'}</span>
-      </div>
-    </div>`;
+    const r=mkRow(()=>{
+      _closeBriefingPanel();showPage('agenda');
+      setTimeout(()=>{const el=document.getElementById('agenda-item-'+a.id)||document.querySelector('[data-agenda-id="'+a.id+'"]');if(el){el.click();setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),200);}},400);
+    });
+    r.style.borderLeft='2px solid '+(checked?'var(--muted)':'var(--gold)');
+    if(checked){r.style.opacity='0.5';r.style.textDecoration='line-through';}
+    const left=mke('div');left.className='briefing-row-name';left.style.paddingLeft='8px';left.textContent=(a.title||'Untitled').slice(0,60);
+    const right=mke('div');right.className='briefing-row-meta';
+    if(a.deadline){right.appendChild(mke('span',null,fmtD(a.deadline)));const sp=mke('span',null,' ');right.appendChild(sp);}
+    right.appendChild(mke('span','color:'+(checked?'var(--green)':'var(--amber)'),checked?'✓ done':'open'));
+    r.appendChild(left);r.appendChild(right);
+    s2.appendChild(r);
   });
-  s2+='</div>';
-  // SECTION 3 — Action Plans
-  const planEntries=Object.entries(_actionPlansCache||{}).filter(([k])=>myTaskIds.has(k));
-  const inlinePlans=allMyTasks.filter(t=>t.actionPlan&&t.actionPlan.trim()&&!(_actionPlansCache&&_actionPlansCache[t.id]));
-  window._briefingPlanStore=window._briefingPlanStore||{};
-  let s3='<div class="briefing-section">'+sec('ACTION PLANS');
-  if(!planEntries.length&&!inlinePlans.length) s3+='<div class="briefing-empty">No active action plans.</div>';
+  frag.appendChild(s2);
+  // S3 — ACTION PLANS
+  const s3=mkSec('ACTION PLANS');
+  if(!planEntries.length&&!inlinePlans.length)s3.appendChild(mkEmpty('No active action plans.'));
   else{
     planEntries.forEach(([tid,p])=>{
       const task=DASHBOARD_DATA.tasks.find(x=>x.id===tid);
       const pKey='p_'+tid;
       window._briefingPlanStore[pKey]={taskId:tid,taskName:task?task.name:'',text:p.text||'',status:p.status||'active',createdBy:p.createdBy||'',createdAt:p.createdAt||''};
-      s3+=`<div class="briefing-row" style="cursor:pointer;transition:background 0.15s;border-radius:4px;padding:6px 4px" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''" onclick="_showActionPlanModal('${pKey}')"><div class="briefing-row-name" style="border-left:2px solid var(--gold);padding-left:8px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)">${tid}</span> ${task?task.name.slice(0,40):''}<br><span style="font-size:10px;color:var(--muted)">${(p.text||'').slice(0,80)}${(p.text||'').length>80?'…':''}</span></div><div class="briefing-row-meta"><span style="color:${p.status==='complete'?'var(--green)':'var(--amber)'}">${p.status||'active'}</span></div></div>`;
+      const r=mkRow(()=>_showActionPlanModal(pKey));
+      r.style.borderLeft='2px solid var(--gold)';
+      const left=mke('div');left.className='briefing-row-name';left.style.paddingLeft='8px';
+      const idSp=mke('span',"font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)",tid);
+      const nmSp=mke('span','font-size:11px;color:var(--text);margin-left:6px',task?task.name.slice(0,40):'');
+      const prev=mke('div','font-size:10px;color:var(--muted)',(p.text||'').slice(0,80)+((p.text||'').length>80?'…':''));
+      left.appendChild(idSp);left.appendChild(nmSp);left.appendChild(document.createElement('br'));left.appendChild(prev);
+      const right=mke('div');right.className='briefing-row-meta';
+      right.appendChild(mke('span','color:'+(p.status==='complete'?'var(--green)':'var(--amber)'),p.status||'active'));
+      r.appendChild(left);r.appendChild(right);s3.appendChild(r);
     });
     inlinePlans.forEach(t=>{
       const pKey='p_inline_'+t.id;
       window._briefingPlanStore[pKey]={taskId:t.id,taskName:t.name,text:t.actionPlan||'',status:'inline',createdBy:'',createdAt:''};
-      s3+=`<div class="briefing-row" style="cursor:pointer;transition:background 0.15s;border-radius:4px;padding:6px 4px" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''" onclick="_showActionPlanModal('${pKey}')"><div class="briefing-row-name" style="border-left:2px solid var(--gold);padding-left:8px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)">${t.id}</span> ${t.name.slice(0,40)}<br><span style="font-size:10px;color:var(--muted)">${(t.actionPlan||'').slice(0,80)}${(t.actionPlan||'').length>80?'…':''}</span></div><div class="briefing-row-meta"><span style="color:var(--muted)">inline</span></div></div>`;
+      const r=mkRow(()=>_showActionPlanModal(pKey));
+      r.style.borderLeft='2px solid var(--gold)';
+      const left=mke('div');left.className='briefing-row-name';left.style.paddingLeft='8px';
+      const idSp=mke('span',"font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)",t.id);
+      const nmSp=mke('span','font-size:11px;color:var(--text);margin-left:6px',t.name.slice(0,40));
+      const prev=mke('div','font-size:10px;color:var(--muted)',(t.actionPlan||'').slice(0,80)+((t.actionPlan||'').length>80?'…':''));
+      left.appendChild(idSp);left.appendChild(nmSp);left.appendChild(document.createElement('br'));left.appendChild(prev);
+      const right=mke('div');right.className='briefing-row-meta';right.appendChild(mke('span','color:var(--muted)','inline'));
+      r.appendChild(left);r.appendChild(right);s3.appendChild(r);
     });
   }
-  s3+='</div>';
-  // SECTION 4 — Gaps (async — placeholder)
+  frag.appendChild(s3);
+  // S4 — GAPS
+  const s4=mkSec('GAPS ON MY TASKS');
+  const gapCont=mke('div');gapCont.id='briefing-gaps-container';
   const cachedGaps=window._briefingGapsCache||null;
-  let s4='<div class="briefing-section">'+sec('GAPS ON MY TASKS')+'<div id="briefing-gaps-container">';
-  if(cachedGaps) s4+=_renderBriefingGaps(userKey,cachedGaps);
-  else if(CONFIG.sheetsUrl) s4+='<div class="briefing-empty" style="color:var(--gold)">⏳ Loading gaps…</div>';
-  else s4+='<div class="briefing-empty">Gap tracking requires Sheets connection.</div>';
-  s4+='</div></div>';
-  // SECTION 5 — Next Week Preview (R or A only)
-  const nwTasks=allMyTasks.filter(t=>{
-    if(t.status==='Complete') return false;
-    const rc=col?t[col]||'':'';
-    if(rc!=='R'&&rc!=='A'&&rc!=='A/R') return false;
-    const ed=t.ed?new Date(t.ed):null;
-    return ed&&ed>=nextMonday&&ed<=nextSunday;
-  });
-  let s5='<div class="briefing-section">'+sec('NEXT WEEK PREVIEW');
-  if(!nwTasks.length) s5+='<div class="briefing-empty">No tasks due next week where you are R or A.</div>';
+  if(cachedGaps)_renderBriefingGaps(userKey,cachedGaps,gapCont);
+  else if(CONFIG.sheetsUrl){const e=mkEmpty('⏳ Loading gaps…');e.style.color='var(--gold)';gapCont.appendChild(e);}
+  else gapCont.appendChild(mkEmpty('Gap tracking requires Sheets connection.'));
+  s4.appendChild(gapCont);frag.appendChild(s4);
+  // S5 — NEXT WEEK
+  const s5=mkSec('NEXT WEEK PREVIEW');
+  if(!nwTasks.length)s5.appendChild(mkEmpty('No tasks due next week where you are R or A.'));
   else{
-    s5+=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px">Coming up: ${nwTasks.length} task${nwTasks.length!==1?'s':''} due next week</div>`;
+    s5.appendChild(mke('div',"font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px",'Coming up: '+nwTasks.length+' task'+(nwTasks.length!==1?'s':'')+' due next week'));
     nwTasks.forEach(t=>{
       const rc=col?t[col]||'':'';
-      s5+=`<div class="briefing-row" style="cursor:pointer;transition:background 0.15s;border-radius:4px;padding:6px 4px" onmouseover="this.style.background='rgba(201,168,76,0.06)'" onmouseout="this.style.background=''" onclick="_closeBriefingPanel();setTimeout(()=>_viewTaskDetails('${t.id}'),150)"><div class="briefing-row-name" style="border-left:2px solid ${roleColor(rc)};padding-left:8px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)}">${t.id}</span> ${t.name.slice(0,45)}</div><div class="briefing-row-meta">${sbadge(t.status)}<span>${fmtD(t.ed)}</span></div></div>`;
+      const r=mkRow(()=>{_closeBriefingPanel();setTimeout(()=>_viewTaskDetails(t.id),150);});
+      const left=mke('div');left.className='briefing-row-name';left.style.cssText=`border-left:2px solid ${roleColor(rc)};padding-left:8px`;
+      left.appendChild(mke('span',`font-family:'DM Mono',monospace;font-size:9px;color:${roleColor(rc)}`,t.id+' '));
+      left.appendChild(mke('span','font-size:11px;color:var(--text)',t.name.slice(0,45)));
+      const right=mke('div');right.className='briefing-row-meta';right.appendChild(mkBadge(t.status));right.appendChild(mke('span',null,fmtD(t.ed)));
+      r.appendChild(left);r.appendChild(right);s5.appendChild(r);
     });
   }
-  s5+='</div>';
-  // SECTION 6 — Full Project Status by category
-  const catMap={};
-  allMyTasks.forEach(t=>{
-    const c=t.cat||'Other';
-    if(!catMap[c]) catMap[c]={total:0,complete:0};
-    catMap[c].total++;
-    if(t.status==='Complete') catMap[c].complete++;
-  });
-  const cats=Object.entries(catMap).sort((a,b)=>b[1].total-a[1].total);
-  let s6='<div class="briefing-section">'+sec('FULL PROJECT STATUS');
-  if(!cats.length) s6+='<div class="briefing-empty">No tasks assigned.</div>';
-  else cats.forEach(([cat,d])=>{
-    const pct=d.total?Math.round(d.complete/d.total*100):0;
-    const barFill=pct+'%';
-    s6+=`<div style="margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
-        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${cat}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${d.complete}/${d.total} complete (${pct}%)</span>
-      </div>
-      <div style="height:3px;background:var(--border);border-radius:2px"><div style="height:3px;width:${barFill};background:${pct===100?'var(--green)':'var(--gold)'};border-radius:2px;transition:width 0.4s"></div></div>
-    </div>`;
-  });
-  s6+='</div>';
-  // AI Briefing result container
-  const aiSection=`<div id="briefing-ai-result" style="margin-bottom:16px"></div>`;
-  // Footer
-  const footer=`<div class="briefing-footer">
-    <button class="btn-primary" onclick="closeBriefing()">Let's go →</button>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button id="briefing-ai-btn" onclick="_runBriefingAI('${userKey}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:5px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;letter-spacing:1px">⚡ AI Briefing</button>
-      <a href="#" onclick="closeBriefing();showPage('raci');const _rn=_USER_RACI_MAP[window._DGL_USER||'']||'';if(_rn)setTimeout(()=>setRaciFilter(_rn),200);return false;" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:1px">Full RACI →</a>
-    </div>
-  </div>`;
-  // Header
-  const header=`
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">📋 DAILY BRIEFING — ${name}</div>
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);font-weight:600;margin-bottom:2px">Week of ${fmtWeekRange(thisMonday,thisSunday)}</div>
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:20px">Generated: ${genTs}</div>`;
-  return header+s1+s2+s3+s4+s5+s6+aiSection+footer;
+  frag.appendChild(s5);
+  // S6 — PROJECT STATUS (no onclick, safe innerHTML)
+  const s6=mkSec('FULL PROJECT STATUS');
+  if(!cats.length)s6.appendChild(mkEmpty('No tasks assigned.'));
+  else{const bd=mke('div');bd.innerHTML=cats.map(([cat,d])=>{const pct=d.total?Math.round(d.complete/d.total*100):0;return`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${cat}</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${d.complete}/${d.total} complete (${pct}%)</span></div><div style="height:3px;background:var(--border);border-radius:2px"><div style="height:3px;width:${pct}%;background:${pct===100?'var(--green)':'var(--gold)'};border-radius:2px;transition:width 0.4s"></div></div></div>`;}).join('');s6.appendChild(bd);}
+  frag.appendChild(s6);
+  // AI result placeholder
+  const aiDiv=mke('div');aiDiv.id='briefing-ai-result';aiDiv.style.marginBottom='16px';frag.appendChild(aiDiv);
+  // FOOTER (static global fn calls, safe innerHTML)
+  const ftrDiv=mke('div');ftrDiv.className='briefing-footer';
+  ftrDiv.innerHTML=`<button class="btn-primary" onclick="closeBriefing()">Let's go →</button><div style="display:flex;gap:8px;align-items:center"><button id="briefing-ai-btn" onclick="_runBriefingAI('${userKey}',this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:5px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;letter-spacing:1px">⚡ AI Briefing</button><a href="#" onclick="closeBriefing();showPage('raci');const _rn=_USER_RACI_MAP[window._DGL_USER||'']||'';if(_rn)setTimeout(()=>setRaciFilter(_rn),200);return false;" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:1px">Full RACI →</a></div>`;
+  frag.appendChild(ftrDiv);
+  return frag;
 }
 function _showActionPlanModal(pKey){
   const plan=(window._briefingPlanStore||{})[pKey];
