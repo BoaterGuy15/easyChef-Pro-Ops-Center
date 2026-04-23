@@ -9798,6 +9798,9 @@ function _openStatusUpdateModal(taskId,notif){
   // Modal — flex column, no overflow so no scrollbars
   const modal=document.createElement('div');
   modal.style.cssText="position:fixed;z-index:99999;width:600px;height:400px;left:calc(50% - 300px);top:calc(50% - 200px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:300px;min-height:200px";
+  modal._notif=notif;
+  modal._openX=window.innerWidth/2;
+  modal._openY=window.innerHeight/2;
 
   // Header — drag handle
   const hdr=document.createElement('div');
@@ -9812,7 +9815,8 @@ function _openStatusUpdateModal(taskId,notif){
   const closeBtn=document.createElement('button');
   closeBtn.textContent='✕';
   closeBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 0 0 12px;flex-shrink:0;font-family:'DM Mono',monospace";
-  closeBtn.onclick=()=>{_closeStatusUpdateModal();document.getElementById('mailbox-panel')?.classList.add('open');document.getElementById('panel-overlay')?.classList.add('open');_mbSwitchTab('alerts');};
+  const _returnToMenu=()=>{const m=document.getElementById('update-status-overlay');const n=m?.querySelector('div')?._notif||notif;const x=modal._openX||window.innerWidth/2;const y=modal._openY||window.innerHeight/2;_closeStatusUpdateModal();_showNotifActionMenu({clientX:x,clientY:y,stopPropagation:()=>{}},n);};
+  closeBtn.onclick=_returnToMenu;
   hdr.appendChild(hdrL);hdr.appendChild(closeBtn);
   modal.appendChild(hdr);
 
@@ -9845,7 +9849,7 @@ function _openStatusUpdateModal(taskId,notif){
   postBtn.textContent='📤 Post to '+chDisplayName;
   const cancelBtn=document.createElement('button');
   cancelBtn.style.cssText="padding:8px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer";
-  cancelBtn.textContent='Cancel';cancelBtn.onclick=()=>{_closeStatusUpdateModal();document.getElementById('mailbox-panel')?.classList.add('open');document.getElementById('panel-overlay')?.classList.add('open');_mbSwitchTab('alerts');};
+  cancelBtn.textContent='Cancel';cancelBtn.onclick=_returnToMenu;
   postBtn.onclick=()=>{
     const msg=(ta.value||'').trim();
     if(!msg){ta.style.borderColor='var(--red)';ta.focus();return;}
@@ -9862,7 +9866,7 @@ function _openStatusUpdateModal(taskId,notif){
     ok.style.cssText="flex:1;text-align:center;font-family:'DM Mono',monospace;font-size:12px;color:var(--green);font-weight:600";
     ok.textContent='✅ Posted to '+chDisplayName;
     footer.appendChild(ok);
-    setTimeout(()=>{_closeStatusUpdateModal();document.getElementById('mailbox-panel')?.classList.add('open');document.getElementById('panel-overlay')?.classList.add('open');_mbSwitchTab('alerts');},2000);
+    setTimeout(_closeStatusUpdateModal,2000);
   };
   footer.appendChild(postBtn);footer.appendChild(cancelBtn);
   modal.appendChild(footer);
