@@ -11081,9 +11081,7 @@ function _showActionPlanModal(pKey){
   hdrTitle.textContent='ACTION PLAN — '+(plan.taskId||'')+' · '+taskName.slice(0,30)+(taskName.length>30?'…':'');
   hdrLeft.appendChild(hdrIcon);hdrLeft.appendChild(hdrTitle);
   const closeBtn=document.createElement('button');
-  closeBtn.textContent='✕';closeBtn.style.cssText='background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0';
-  closeBtn.onclick=()=>document.getElementById('action-plan-modal-overlay')?.remove();
-  hdr.appendChild(hdrLeft);hdr.appendChild(closeBtn);
+  hdr.appendChild(hdrLeft);
   // Info bar
   const infoBar=document.createElement('div');
   infoBar.style.cssText="display:flex;align-items:center;gap:12px;padding:8px 18px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap";
