@@ -879,6 +879,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     </div>
   </div>
   <div id="task-status-summary"></div>
+  <div id="auto-gap-card" style="margin-top:24px"></div>
 
 </div>
 
@@ -1402,9 +1403,62 @@ function _logNotification(taskId,toUser,channel,message,type){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-'+Date.now(),taskId,toUser,channel,message,type:type||'dm',sentBy:window._DGL_USER||'system',sentAt:new Date().toISOString()})}).catch(()=>{});
 }
-function _logGap(taskId,type,description){
+function _logGap(taskId,type,description,agendaId){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:'gap-'+Date.now(),taskId,type:type||'general',description,status:'open',identifiedBy:window._DGL_USER||'system',identifiedAt:new Date().toISOString()})}).catch(()=>{});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:'gap-'+Date.now(),taskId:taskId||'',agendaId:agendaId||'',type:type||'general',description,status:'open',detectedBy:window._DGL_USER||'system',detectedAt:new Date().toISOString()})}).catch(()=>{});
+}
+function _detectGaps(){
+  const today=new Date().toISOString().slice(0,10);
+  DASHBOARD_DATA.tasks.forEach(t=>{
+    if(!t.owner) _logGap(t.id,'no-owner',t.id+' — '+t.name+' has no owner');
+    if(!t.sd||!t.ed) _logGap(t.id,'no-dates',t.id+' — '+t.name+' missing dates');
+    if(t.status==='Started'||t.status==='In Progress'){
+      (t.deps||'').split(',').map(d=>d.trim()).filter(Boolean).forEach(depId=>{
+        const dep=DASHBOARD_DATA.tasks.find(x=>x.id===depId);
+        if(dep&&dep.status!=='Complete') _logGap(t.id,'dep-violation',t.id+' started but '+depId+' ('+dep.name+') not complete');
+      });
+    }
+    if(t.ed&&t.ed<today&&t.status!=='Complete') _logGap(t.id,'overdue',t.id+' — '+t.name+' overdue since '+t.ed);
+  });
+}
+function buildAutoGapCard(filter){
+  const el=document.getElementById('auto-gap-card'); if(!el) return;
+  if(!CONFIG.sheetsUrl){ el.innerHTML=''; return; }
+  const _f=filter||window._autoGapFilter||'open';
+  window._autoGapFilter=_f;
+  el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:8px 0">Loading gaps…</div>';
+  const TC={overdue:'var(--red)','dep-violation':'var(--amber)','no-owner':'#60a5fa','no-dates':'#a78bfa','no-channel':'var(--muted)',general:'var(--muted)'};
+  const _fb=(label,val)=>`<button onclick="buildAutoGapCard('${val}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid ${_f===val?'var(--gold)':'var(--border)'};background:${_f===val?'rgba(201,168,76,0.1)':'transparent'};color:${_f===val?'var(--gold)':'var(--muted)'};cursor:pointer">${label}</button>`;
+  fetch(CONFIG.sheetsUrl+'?action=gap_read').then(r=>r.json()).then(data=>{
+    const gaps=Array.isArray(data)?data:(data.gaps||[]);
+    const openCount=gaps.filter(g=>g.status==='open').length;
+    const filtered=_f==='all'?gaps:gaps.filter(g=>g.status===_f);
+    const header=`<div class="section-label">Detected Gaps <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);font-weight:400">(${openCount} open)</span></div><div style="display:flex;gap:6px;margin-bottom:12px">${_fb('All','all')}${_fb('Open','open')}${_fb('Resolved','resolved')}</div>`;
+    if(!filtered.length){ el.innerHTML=header+'<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--green);padding:8px 0">No '+(_f==='all'?'':_f+' ')+'gaps detected.</div>'; return; }
+    const rows=filtered.map(g=>{
+      const tc=TC[g.type]||'var(--muted)';
+      const det=g.detectedAt?new Date(g.detectedAt).toLocaleDateString():'—';
+      const resolved=g.status==='resolved';
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${tc};border-radius:6px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+            ${g.taskId?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:${tc};border:1px solid ${tc};border-radius:3px;padding:1px 6px">${g.taskId}</span>`:''}
+            <span style="font-family:'DM Mono',monospace;font-size:9px;color:${tc};background:rgba(0,0,0,0.2);border-radius:3px;padding:1px 6px">${(g.type||'general').toUpperCase()}</span>
+            ${resolved?'<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--green);padding:1px 6px;border-radius:3px;background:rgba(34,197,94,0.08)">RESOLVED</span>':''}
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-bottom:3px">${g.description||'—'}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Detected ${det}${g.detectedBy?' · '+g.detectedBy:''}</div>
+        </div>
+        ${!resolved?`<button onclick="_resolveGap('${g.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;flex-shrink:0;white-space:nowrap">✅ Resolve</button>`:''}
+      </div>`;
+    }).join('');
+    el.innerHTML=header+rows;
+  }).catch(()=>{ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">Could not load gaps.</div>'; });
+}
+function _resolveGap(gapId){
+  if(!CONFIG.sheetsUrl||!gapId) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:gapId,status:'resolved',resolvedBy:window._DGL_USER||'system',resolvedAt:new Date().toISOString()})}).catch(()=>{});
+  setTimeout(()=>buildAutoGapCard(window._autoGapFilter),600);
 }
 const _statusLogCache={};
 async function _fetchStatusLog(taskId){
@@ -1772,6 +1826,7 @@ function _submitNote(taskId,cid){
   if(linked.channelId&&CONFIG.sheetsUrl){
     const slackMsg='['+taskId+'] Note from '+user+': '+text;
     fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(user)).catch(()=>{});
+    _logNotification(taskId,'',linked.channelId,slackMsg,'discussion');
   }
 }
 const _DM_MEMBERS=[{key:'taylor',name:'Taylor'},{key:'steve',name:'Steve'},{key:'adam',name:'Adam'},{key:'mary',name:'Mary'},{key:'jr',name:'JR'},{key:'hammad',name:'Hammad'},{key:'searah',name:'Searah'},{key:'sadee',name:'Sadee'}];
@@ -1858,7 +1913,7 @@ function _submitDM(sourceId,cid){
   if(btn){ btn.textContent='✅ Sent to '+toName; btn.style.color='#22c55e'; btn.style.borderColor='#22c55e'; setTimeout(()=>{ btn.textContent='📤 Message Team Member'; btn.style.color=''; btn.style.borderColor=''; btn._dglSubmitting=false; },2500); }
   const slackMsg=`@${toName} — [${sourceId}] message from ${fromName}: ${text}`;
   if(CONFIG.sheetsUrl){
-    if(channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(sender)).catch(()=>{});
+    if(channelId){ fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(sender)).catch(()=>{}); _logNotification(sourceId,toKey,channelId,slackMsg,'dm'); }
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:sourceId,type:'dm',user:sender,name:'DM to '+toName,recipient:toName,text:slackMsg,ts:new Date().toISOString()})}).catch(()=>{});
   }
 }
@@ -2557,8 +2612,10 @@ function _markTaskComplete(taskId){
   // Post to task's linked Slack channel
   if(CONFIG.sheetsUrl){
     const linked=_getTaskSlackLink(taskId);
-    if(linked&&linked.channelId)
+    if(linked&&linked.channelId){
       fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(_logBy)).catch(()=>{});
+      _logNotification(taskId,'',linked.channelId,slackMsg,'completion');
+    }
   }
 
   // Notify selected team members via DM channel
@@ -2568,6 +2625,7 @@ function _markTaskComplete(taskId){
     const _sends=toNotify.map(name=>{
       const uKey=Object.keys(_USER_RACI_MAP).find(k=>_USER_RACI_MAP[k]===name)||(name.toLowerCase());
       const chId=_getDMChannelId(uKey)||_DM_CHANNEL_MAP[uKey]||('raci-'+uKey);
+      _logNotification(taskId,uKey,chId,slackMsg,'completion');
       return fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(_logBy)).catch(()=>{});
     });
     Promise.all(_sends).then(()=>{ const s=document.getElementById('mc-notify-status'); if(s) s.textContent='✅ Notifications sent'; }).catch(()=>{ const s=document.getElementById('mc-notify-status'); if(s) s.textContent='⚠️ Some notifications failed'; });
@@ -9807,6 +9865,8 @@ function loadFromSheets(){
             buildMilestoneHistory();
             _buildChannelMappingSection();
             _renderGanttMilestoneLines();
+            _detectGaps();
+            buildAutoGapCard('open');
             if(_w2badge) _w2badge.style.display='none';
           }).catch(()=>{ if(_w2badge) _w2badge.style.display='none'; });
       }, 100);
