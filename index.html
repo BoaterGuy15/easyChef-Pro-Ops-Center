@@ -10481,46 +10481,37 @@ function _renderBriefingGaps(userKey,gaps,container){
 function _initBriefingDrag(orderKey){
   const container=document.getElementById('_brf-sections');
   if(!container) return;
-  container.addEventListener('pointerdown',e=>{
-    const handle=e.target.closest('._brf-drag-hdl');
-    if(!handle) return;
-    const sec=handle.closest('[data-section-id]');
-    if(!sec) return;
-    e.preventDefault();e.stopPropagation();
-    handle.setPointerCapture(e.pointerId);
-    const rect=sec.getBoundingClientRect();
-    const offX=e.clientX-rect.left,offY=e.clientY-rect.top;
-    const clone=sec.cloneNode(true);
-    clone.style.cssText=`position:fixed;z-index:99999;width:${rect.width}px;left:${rect.left}px;top:${rect.top}px;opacity:0.88;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);border-radius:7px`;
-    document.body.appendChild(clone);
-    const ph=document.createElement('div');
-    ph.style.cssText=`height:${rect.height}px;border:1px dashed var(--gold);border-radius:7px;opacity:0.5;background:rgba(201,168,76,0.04);box-sizing:border-box;margin-bottom:14px`;
-    sec.insertAdjacentElement('beforebegin',ph);
-    sec.style.display='none';
-    const onMove=e=>{
-      if(!handle.hasPointerCapture(e.pointerId)) return;
-      clone.style.left=(e.clientX-offX)+'px';clone.style.top=(e.clientY-offY)+'px';
-      const secs=[...container.querySelectorAll('[data-section-id]')].filter(s=>s!==sec);
-      let insertBefore=null;
-      for(const s of secs){const r=s.getBoundingClientRect();if(e.clientY<r.top+r.height/2){insertBefore=s;break;}}
-      const restoreBar=document.getElementById('_brf-restore-bar');
-      if(insertBefore) insertBefore.insertAdjacentElement('beforebegin',ph);
-      else if(restoreBar) container.insertBefore(ph,restoreBar);
-      else container.appendChild(ph);
-    };
-    const onUp=e=>{
-      handle.releasePointerCapture(e.pointerId);
-      handle.removeEventListener('pointermove',onMove);handle.removeEventListener('pointerup',onUp);
-      clone.remove();sec.style.display='';
-      const nextSec=ph.nextElementSibling;
-      const nextId=nextSec?.dataset.sectionId||null;
-      ph.remove();
-      if(nextId){const nextEl=container.querySelector(`[data-section-id="${nextId}"]`);if(nextEl)container.insertBefore(sec,nextEl);else container.appendChild(sec);}
-      else{const rb=document.getElementById('_brf-restore-bar');if(rb)container.insertBefore(sec,rb);else container.appendChild(sec);}
-      const order=[...container.querySelectorAll('[data-section-id]')].map(s=>s.dataset.sectionId);
-      localStorage.setItem(orderKey,JSON.stringify(order));
-    };
-    handle.addEventListener('pointermove',onMove);handle.addEventListener('pointerup',onUp);
+  container.querySelectorAll('[data-section-id]').forEach(section=>{
+    section.draggable=true;
+    section.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('text/plain',section.dataset.sectionId);
+      setTimeout(()=>{section.style.opacity='0.4';},0);
+    });
+    section.addEventListener('dragend',()=>{
+      section.style.opacity='1';
+    });
+    section.addEventListener('dragover',e=>{
+      e.preventDefault();
+      section.style.outline='2px solid var(--gold)';
+    });
+    section.addEventListener('dragleave',()=>{
+      section.style.outline='';
+    });
+    section.addEventListener('drop',e=>{
+      e.preventDefault();
+      section.style.outline='';
+      const fromId=e.dataTransfer.getData('text/plain');
+      const fromEl=container.querySelector('[data-section-id="'+fromId+'"]');
+      if(fromEl&&fromEl!==section){
+        const sections=[...container.children];
+        const fromIdx=sections.indexOf(fromEl);
+        const toIdx=sections.indexOf(section);
+        if(fromIdx<toIdx) container.insertBefore(fromEl,section.nextSibling);
+        else container.insertBefore(fromEl,section);
+        const newOrder=[...container.children].map(s=>s.dataset.sectionId).filter(Boolean);
+        localStorage.setItem(orderKey,JSON.stringify(newOrder));
+      }
+    });
   });
 }
 function _buildPersonalBriefing(userKey){
