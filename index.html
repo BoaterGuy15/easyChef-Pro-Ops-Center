@@ -9697,10 +9697,11 @@ function _showNotifActionMenu(event,notif){
       sd.appendChild(_el('span',null,s));
       sd.onclick=(e)=>{
         e.stopPropagation();
-        if(s==='Complete'){_closeNotifActionMenu();_openMarkCompleteModal(taskId);return;}
+        if(s==='Complete'){_notifyTaskAction(taskId,'Task marked Complete');_closeNotifActionMenu();_openMarkCompleteModal(taskId);return;}
         const _oldS=t.status;t.status=s;
         _logStatusChange(taskId,_oldS,s,'Mailbox quick status by '+(window._DGL_USER||'system'));
         _saveTasksNow();buildRoadmap();initRoadmapHeadSync();
+        _notifyTaskAction(taskId,'Status changed to '+s);
         _closeNotifActionMenu();
       };
       sSub.appendChild(sd);
@@ -9724,7 +9725,7 @@ function _showNotifActionMenu(event,notif){
       fd.onmouseout=()=>fd.style.background='transparent';
       fd.appendChild(_el('span','font-size:12px;width:18px;text-align:center',f.emoji));
       fd.appendChild(_el('span',null,f.label));
-      fd.onclick=(e)=>{e.stopPropagation();_setTaskFlagFromMenu(taskId,f.emoji);_closeNotifActionMenu();};
+      fd.onclick=(e)=>{e.stopPropagation();_setTaskFlagFromMenu(taskId,f.emoji);_notifyTaskAction(taskId,'Flag updated to '+f.emoji+' '+f.label);_closeNotifActionMenu();};
       fSub.appendChild(fd);
     });
     const cfD=_el('div','display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;font-size:10px;color:var(--muted)');
@@ -9732,12 +9733,12 @@ function _showNotifActionMenu(event,notif){
     cfD.onmouseout=()=>cfD.style.background='transparent';
     cfD.appendChild(_el('span','font-size:12px;width:18px;text-align:center','✕'));
     cfD.appendChild(_el('span',null,'Clear Flag'));
-    cfD.onclick=(e)=>{e.stopPropagation();_setTaskFlagFromMenu(taskId,'');_closeNotifActionMenu();};
+    cfD.onclick=(e)=>{e.stopPropagation();_setTaskFlagFromMenu(taskId,'');_notifyTaskAction(taskId,'Flag cleared');_closeNotifActionMenu();};
     fSub.appendChild(cfD);
     mnuBody.appendChild(fHdr);mnuBody.appendChild(fSub);
     _sep();
 
-    const mc=_item('✅','Mark Complete',()=>_openMarkCompleteModal(taskId));
+    const mc=_item('✅','Mark Complete',()=>{_notifyTaskAction(taskId,'Task marked Complete');_openMarkCompleteModal(taskId);});
     if(t.status==='Complete'){mc.style.opacity='0.4';mc.style.pointerEvents='none';}
     _sep();
   }
@@ -9857,6 +9858,7 @@ function _openStatusUpdateModal(taskId,notif){
     const ch=(_slackChannelsCache||[]).find(c=>c.name===chName)||(_slackChannelsCache||[]).find(c=>c.id===chId);
     if(ch?.id&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch.id)+'&text='+encodeURIComponent(fullMsg)+'&user='+encodeURIComponent(userName)).catch(()=>{});
     if(taskId) _appendNote(taskId,msg,'task');
+    if(taskId) _notifyTaskAction(taskId,'Status update posted: '+msg.slice(0,100));
     if(taskId) _logNotification(taskId,(notif.toUser||''),chId,fullMsg,'progress-report');
     footer.innerHTML='';
     const ok=document.createElement('div');
@@ -9889,6 +9891,17 @@ function _openStatusUpdateModal(taskId,notif){
   const _suEsc=e=>{if(e.key==='Escape'){_closeStatusUpdateModal();document.removeEventListener('keydown',_suEsc);}};
   document.addEventListener('keydown',_suEsc);
   ov._cleanup=()=>{document.removeEventListener('mousemove',_suMove);document.removeEventListener('mouseup',_suUp);document.removeEventListener('keydown',_suEsc);};
+}
+function _notifyTaskAction(taskId,actionText){
+  const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+  if(!t||!CONFIG.sheetsUrl) return;
+  const msg='['+taskId+'] '+actionText+' by '+(window._DGL_USER||'system');
+  const name=window._DGL_NAME||window._DGL_USER||'system';
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId,user:window._DGL_USER||'system',name,ts:new Date().toISOString(),text:msg,type:'task'})}).catch(()=>{});
+  const link=_slackLinksCache['dgl_task_slack_'+taskId];
+  if(link?.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(link.channelId)+'&text='+encodeURIComponent(msg)+'&user='+(window._DGL_USER||'')).catch(()=>{});
+  const {both}=_getRACIUsers(t);
+  both.forEach(uk=>{if(uk===window._DGL_USER) return; _logNotification(taskId,uk,link?.channelId||'',msg,'task-action');});
 }
 function _makeResizable(modal){
   [{pos:'n',style:'top:-4px;left:6px;right:6px;height:8px;cursor:n-resize'},
