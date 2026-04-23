@@ -1531,7 +1531,33 @@ function _sendOverdueSlack(t){
   const due=new Date(t.ed+'T00:00:00');
   const dueFmt=MO[due.getMonth()]+' '+due.getDate()+', '+due.getFullYear();
   const daysOver=Math.ceil((Date.now()-due.getTime())/(864e5));
-  const msg='⚠️ *OVERDUE TASK*\n*['+t.id+'] '+t.name+'*\n━━━━━━━━━━━━━━━━━━━━\n👤 Owner: '+(t.owner||'—')+'\n📅 Due: '+dueFmt+' ('+daysOver+' day'+(daysOver!==1?'s':'')+' overdue)\n📊 Status: '+(t.status||'—')+'\n🔗 View task: '+_taskUrl(t.id)+'\n━━━━━━━━━━━━━━━━━━━━\nPlease update the status or flag this task.';
+  const _blockers=DASHBOARD_DATA.tasks.filter(x=>(x.deps||'').includes(t.id)).map(x=>x.id+' '+x.name).join(', ')||'None';
+  const msg=[
+    '⚠️ OVERDUE TASK — '+t.id+' · '+t.name,
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    'TASK DETAILS:',
+    'Category: '+(t.cat||'—'),
+    'Priority: '+(t.pri||'—'),
+    'Status: '+(t.status||'—'),
+    'Owner: '+(t.owner||'—'),
+    'Due Date: '+dueFmt+' ('+daysOver+' day'+(daysOver!==1?'s':'')+' overdue)',
+    'Start Date: '+(t.sd||'—'),
+    'Flag: '+(t.flag||'None'),
+    'Notes: '+(t.notes||'None'),
+    '',
+    'RACI ASSIGNMENTS:',
+    'Taylor='+(t.Taylor||'—')+' Steve='+(t.Steve||'—')+' Adam='+(t.Adam||'—'),
+    'Hammad='+(t.Hammad||'—')+' JR='+(t.JR||'—')+' Searah='+(t.Searah||'—')+' Sadee='+(t.Sadee||'—'),
+    '',
+    'DEPENDENCIES:',
+    'Depends on: '+(t.deps||'None'),
+    'Blocks: '+_blockers,
+    '',
+    'This task is past its due date. Immediate action required.',
+    '',
+    '🔗 View task: '+_taskUrl(t.id),
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━'
+  ].join('\n');
   const linked=_getTaskSlackLink(t.id);
   if(linked.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user=system').catch(()=>{});
   const {responsible,accountable}=_getRACIUsers(t);
@@ -9772,20 +9798,29 @@ function _showNotifActionMenu(event,notif){
       folderRow.appendChild(_el('span','font-size:12px;width:18px;text-align:center;flex-shrink:0','📁'));
       folderRow.appendChild(_el('span','font-family:\'DM Mono\',monospace;font-size:10px','Open Task Folder'));
       docsContainer.appendChild(folderRow);
-      // Upload Doc row
+      // Upload Doc — inline drop zone
       const upInput=document.createElement('input');upInput.type='file';upInput.multiple=true;upInput.style.display='none';
-      upInput.onchange=()=>{
-        _handleStatusUpdateDrop(upInput.files,taskId,null,null,null);
-        setTimeout(_renderMnuDocs,2500);
-      };
       docsContainer.appendChild(upInput);
-      const upRow=_el('div','display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;color:var(--text)');
-      upRow.onmouseover=()=>upRow.style.background='rgba(201,168,76,0.1)';
-      upRow.onmouseout=()=>upRow.style.background='transparent';
-      upRow.onclick=()=>upInput.click();
-      upRow.appendChild(_el('span','font-size:13px;width:18px;text-align:center;flex-shrink:0','📎'));
-      upRow.appendChild(_el('span',null,'Upload Doc'));
-      docsContainer.appendChild(upRow);
+      const upDz=_el('div','margin:4px 14px 8px;border:2px dashed var(--border);border-radius:6px;padding:10px;text-align:center;cursor:pointer;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);transition:border-color 0.15s,color 0.15s','📎 Drop file here or tap to browse');
+      upDz.onclick=()=>upInput.click();
+      upDz.ondragover=e=>{e.preventDefault();e.stopPropagation();upDz.style.borderColor='var(--gold)';upDz.style.color='var(--gold)';};
+      upDz.ondragleave=()=>{upDz.style.borderColor='var(--border)';upDz.style.color='var(--muted)';};
+      upDz.ondrop=e=>{
+        e.preventDefault();e.stopPropagation();
+        upDz.style.borderColor='var(--border)';upDz.style.color='var(--muted)';
+        _doUpload(e.dataTransfer.files);
+      };
+      upInput.onchange=()=>_doUpload(upInput.files);
+      function _doUpload(files){
+        if(!files||!files.length) return;
+        upDz.textContent='⏳ Uploading '+files[0].name+'…';upDz.style.color='var(--gold)';
+        _handleStatusUpdateDrop(files,taskId,null,null,null);
+        setTimeout(()=>{
+          upDz.textContent='✅ '+files[0].name;upDz.style.color='var(--green)';
+          setTimeout(()=>{upDz.textContent='📎 Drop file here or tap to browse';upDz.style.color='var(--muted)';_renderMnuDocs();},1800);
+        },2200);
+      }
+      docsContainer.appendChild(upDz);
     }
     _renderMnuDocs();
     // Fetch docs if cache empty
