@@ -1503,9 +1503,10 @@ function _handleDeepLink(){
 function _getRACIUsers(task){
   const people=['Taylor','Steve','Adam','JR','Hammad','Searah','Sadee'];
   const keyMap={Taylor:'taylor',Steve:'steve',Adam:'adam',JR:'jr',Hammad:'hammad',Searah:'searah',Sadee:'sadee'};
-  const responsible=people.filter(p=>task[p]==='R'||task[p]==='A/R').map(p=>keyMap[p]);
-  const accountable=people.filter(p=>task[p]==='A'||task[p]==='A/R').map(p=>keyMap[p]);
-  return {responsible,accountable};
+  const responsible=people.filter(p=>{ const v=task[p]||''; return v==='R'||v==='AR'||v==='RA'||v==='A/R'; }).map(p=>keyMap[p]);
+  const accountable=people.filter(p=>{ const v=task[p]||''; return v==='A'||v==='AR'||v==='RA'||v==='A/R'; }).map(p=>keyMap[p]);
+  const both=[...new Set([...responsible,...accountable])];
+  return {responsible,accountable,both};
 }
 function _sendOverdueSlack(t){
   if(!CONFIG.sheetsUrl) return;
