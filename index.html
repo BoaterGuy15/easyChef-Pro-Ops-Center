@@ -7515,40 +7515,39 @@ function _getMemberInfo(userKey){
   return custom||{name:userKey,role:'',email:''};
 }
 let _profileClockInterval=null;
+function _onPhotoInputChange(inp,userKey){
+  const file=inp.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async function(ev){
+    const b64=ev.target.result.split(',')[1];
+    if(!CONFIG.sheetsUrl){_showToast('No Sheets URL configured',2000);return;}
+    console.log('[DGL] Photo upload starting for:',userKey);
+    try{
+      const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',sourceType:'profile',userKey,filename:file.name,mimeType:file.type,data:b64})});
+      const d=await resp.json();
+      console.log('[DGL] Upload response:',JSON.stringify(d));
+      console.log('[DGL] Photo URL:',d.url);
+      if(d.ok&&d.url){
+        if(!_hrProfilesCache[userKey]) _hrProfilesCache[userKey]={};
+        _hrProfilesCache[userKey].photo=d.url;
+        const profile={..._hrProfilesCache[userKey],photo:d.url,userKey};
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',...profile})})
+          .then(r=>r.json()).then(r=>console.log('[DGL] Photo saved to Sheets:',r.ok));
+        const imgEl=document.getElementById('profile-photo-'+userKey)||document.querySelector('[data-photo-user="'+userKey+'"]');
+        if(imgEl) imgEl.src=d.url;
+        buildTeamGrid();
+        _showToast('<div>✅ Photo saved</div>',1800);
+      }else{
+        _showToast('<div>❌ Upload failed: '+(d.error||'no URL returned')+'</div>',2500);
+      }
+    }catch(e){_showToast('Upload error: '+(e.message||e),2000);}
+  };
+  reader.readAsDataURL(file);
+}
 function _uploadTeamPhoto(userKey){
   const inp=document.getElementById('tc-photo-input');
-  if(!inp) return;
-  inp.onchange=async function(){
-    const file=inp.files[0];
-    if(!file) return;
-    const reader=new FileReader();
-    reader.onload=async function(ev){
-      const b64=ev.target.result.split(',')[1];
-      if(!CONFIG.sheetsUrl){_showToast('No Sheets URL configured',2000);return;}
-      console.log('[DGL] Photo upload starting for:',userKey);
-      try{
-        const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',sourceType:'profile',userKey,filename:file.name,mimeType:file.type,data:b64})});
-        const d=await resp.json();
-        console.log('[DGL] Upload response:',JSON.stringify(d));
-        console.log('[DGL] Photo URL:',d.url);
-        if(d.ok&&d.url){
-          if(!_hrProfilesCache[userKey]) _hrProfilesCache[userKey]={};
-          _hrProfilesCache[userKey].photo=d.url;
-          const profile={..._hrProfilesCache[userKey],photo:d.url,userKey};
-          fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',...profile})})
-            .then(r=>r.json()).then(r=>console.log('[DGL] Photo saved to Sheets:',r.ok));
-          const imgEl=document.getElementById('profile-photo-'+userKey)||document.querySelector('[data-photo-user="'+userKey+'"]');
-          if(imgEl) imgEl.src=d.url;
-          buildTeamGrid();
-          _showToast('<div>✅ Photo saved</div>',1800);
-        }else{
-          _showToast('<div>❌ Upload failed: '+(d.error||'no URL returned')+'</div>',2500);
-        }
-      }catch(e){_showToast('Upload error: '+(e.message||e),2000);}
-    };
-    reader.readAsDataURL(file);
-  };
-  inp.click();
+  if(inp) inp.click();
 }
 function openProfileModal(userKey){
   const overlay=document.getElementById('profile-modal-overlay');
@@ -7570,7 +7569,7 @@ function openProfileModal(userKey){
   const _pmPts=(info.name||userKey).trim().split(/\s+/);
   const _pmIni=((_pmPts[0]||'?')[0]+(((_pmPts.length>1?_pmPts[_pmPts.length-1]:'')||' ')[0])).toUpperCase().trim();
   const _pmAvHtml=_pmHrC.photo?`<img id="profile-modal-avatar" src="${_pmHrC.photo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:8px;display:block">`:`<div id="profile-modal-avatar" style="width:72px;height:72px;border-radius:50%;background:${_pmHex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:22px;display:flex;align-items:center;justify-content:center;margin-bottom:8px">${_pmIni}</div>`;
-  const _pmUpHtml=canWrite?`${_pmAvHtml}<input type="file" id="tc-photo-input" accept="image/*" style="display:none"><button onclick="_uploadTeamPhoto('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-bottom:14px">📷 Upload Photo</button>`:_pmAvHtml;
+  const _pmUpHtml=canWrite?`${_pmAvHtml}<input type="file" id="tc-photo-input" accept="image/*" style="display:none" onchange="_onPhotoInputChange(this,'${userKey}')"><button onclick="_uploadTeamPhoto('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-bottom:14px">📷 Upload Photo</button>`:_pmAvHtml;
   document.getElementById('profile-modal-body').innerHTML=`
     <div>
       ${_pmUpHtml}
@@ -7665,7 +7664,7 @@ function openDefaultTeamMemberModal(user){
   document.getElementById('tmm-modal-body').innerHTML=`
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
       ${_dmAvHtml}
-      ${canWrite?`<div><input type="file" id="tc-photo-input" accept="image/*" style="display:none"><button onclick="_uploadTeamPhoto('${user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📷 Upload Photo</button></div>`:''}
+      ${canWrite?`<div><input type="file" id="tc-photo-input" accept="image/*" style="display:none" onchange="_onPhotoInputChange(this,'${user}')"><button onclick="_uploadTeamPhoto('${user}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📷 Upload Photo</button></div>`:''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="modal-field"><label>Full Name</label><input type="text" id="tmm-name" value="${cur.name||''}" style="${fSt}"${ro}></div>
