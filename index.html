@@ -9614,7 +9614,7 @@ function _markAllAlertsRead(){
 function _closeNotifActionMenu(){
   const m=document.getElementById('notif-action-menu');
   if(m) m.remove();
-  document.removeEventListener('click',_closeNotifActionMenu,true);
+  document.removeEventListener('click',_closeNotifActionMenu,false);
   document.removeEventListener('keydown',_notifMenuEsc,true);
 }
 function _notifMenuEsc(e){ if(e.key==='Escape') _closeNotifActionMenu(); }
@@ -9764,7 +9764,7 @@ function _showNotifActionMenu(event,notif){
 
   document.body.appendChild(mnu);
   setTimeout(()=>{
-    document.addEventListener('click',_closeNotifActionMenu,true);
+    document.addEventListener('click',_closeNotifActionMenu,false);
     document.addEventListener('keydown',_notifMenuEsc,true);
   },0);
 }
