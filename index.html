@@ -11570,6 +11570,8 @@ function loadFromSheets(){
     .then(data=>{
       const rows=Array.isArray(data)?data:(data.tasks||[]);
       if(!rows.length) return;
+      const _dbgT27=rows.find(function(s){return s.id==='T-027';});
+      if(_dbgT27) console.log('[DGL] Sheets T-027 sd='+_dbgT27.sd+' ed='+_dbgT27.ed);
       rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mergeTask(t,s); } else if(s.id&&s.name){ DASHBOARD_DATA.tasks.push(s); } });
       window._lastSheetsSnapshot={};
       rows.forEach(s=>{ if(s.id) window._lastSheetsSnapshot[s.id]=Object.assign({},s); });
