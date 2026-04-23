@@ -4702,9 +4702,15 @@ function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
   confirmBtn.textContent='✅ Confirm';
   confirmBtn.style.cssText='background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:4px 12px;cursor:pointer';
   confirmBtn.onclick=()=>{
-    _dismissGanttConfirm(true);
+    console.log('[DGL] Confirming move for',taskId,'new sd:',newSd,'ed:',newEd);
+    console.log('[DGL] _sheetsLoaded:',window._sheetsLoaded);
+    const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+    if(t){t.sd=newSd;t.ed=newEd;t.lastStatusChange=new Date().toISOString();}
+    _saveTasksNow();
+    window._ganttPendingConfirmId=null;
+    wrap.remove();
     buildRoadmap();
-    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Saved</div>',1800);
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Saved — '+taskId+' moved to '+newSd+'</div>',1800);
   };
 
   const undoBtn=document.createElement('button');
@@ -11354,6 +11360,7 @@ let _saveTasksDebounce=null;
 function _saveTasksNow(){
   if(!window._sheetsLoaded){ console.warn('[DGL] Blocked premature task save'); return; }
   if(!CONFIG.sheetsUrl) return;
+  console.log('[DGL] Saving '+DASHBOARD_DATA.tasks.length+' tasks to Sheets');
   clearTimeout(_saveTasksDebounce);
   clearTimeout(_sheetsDebounce);
   _saveTasksDebounce=setTimeout(()=>{
