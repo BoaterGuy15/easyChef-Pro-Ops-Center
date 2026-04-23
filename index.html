@@ -9520,8 +9520,16 @@ function _renderAlertsTab(){
   console.log('[DGL] Rendering', notifs.length, 'alerts into #mb-alerts-list');
   if(!notifs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No notifications yet.</div>'; return; }
   const read=_readNotifIds();
-  const hdr=`<div style="padding:8px 20px;border-bottom:1px solid rgba(37,42,53,0.3);display:flex;justify-content:flex-end"><button onclick="_markAllAlertsRead()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark all read</button></div>`;
-  el.innerHTML=hdr+notifs.map(n=>{
+  el.innerHTML='';
+  const hdrEl=document.createElement('div');
+  hdrEl.style.cssText='padding:8px 20px;border-bottom:1px solid rgba(37,42,53,0.3);display:flex;justify-content:flex-end';
+  const markAllBtn=document.createElement('button');
+  markAllBtn.style.cssText="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";
+  markAllBtn.textContent='Mark all read';
+  markAllBtn.onclick=()=>_markAllAlertsRead();
+  hdrEl.appendChild(markAllBtn);
+  el.appendChild(hdrEl);
+  notifs.forEach(n=>{
     const isRead=read.has(n.id);
     const icon=_notifTypeIcon(n.type||'');
     const iconColor=_notifTypeColor(n.type||'');
@@ -9533,23 +9541,28 @@ function _renderAlertsTab(){
     const viewTaskBtn=taskId?`<button onclick="_closeMailboxPanel();_jumpToTask('${taskId}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔗 View Task</button>`:'';
     const viewChannelBtn=channelId?`<button onclick="_closeMailboxPanel();showPage('comms');setTimeout(()=>{const s=document.getElementById('slack-channel-select');if(s){s.value='${channelId}';slackSelectChannel('${channelId}');}},250)" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">📢 #${channelId}</button>`:'';
     const markReadBtn=!isRead?`<button onclick="_markAlertRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark read</button>`:'';
-    return `<div onclick="if(!event.target.closest('button'))_showNotifActionMenu(event,'${n.id}')" style="cursor:pointer;padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};background:${isRead?'transparent':'rgba(201,168,76,0.03)'}">
-      <div style="display:flex;align-items:flex-start;gap:8px">
-        <span style="font-size:15px;flex-shrink:0;margin-top:1px">${icon}</span>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:3px">
-            <div style="min-width:0">
-              ${taskId?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:${iconColor};font-weight:700">${taskId}</span>`:''}
-              ${taskName?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-left:5px">${taskName}</span>`:''}
-            </div>
-            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;flex-shrink:0">${_relativeTime(n.sentAt||n.ts)}</span>
+    const card=document.createElement('div');
+    card.style.cssText=`cursor:pointer;padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};background:${isRead?'transparent':'rgba(201,168,76,0.03)'}`;
+    card.innerHTML=`<div style="display:flex;align-items:flex-start;gap:8px">
+      <span style="font-size:15px;flex-shrink:0;margin-top:1px">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:3px">
+          <div style="min-width:0">
+            ${taskId?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:${iconColor};font-weight:700">${taskId}</span>`:''}
+            ${taskName?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-left:5px">${taskName}</span>`:''}
           </div>
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.6;word-break:break-word;margin-bottom:7px">${preview}</div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap">${viewTaskBtn}${viewChannelBtn}${markReadBtn}</div>
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;flex-shrink:0">${_relativeTime(n.sentAt||n.ts)}</span>
         </div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.6;word-break:break-word;margin-bottom:7px">${preview}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${viewTaskBtn}${viewChannelBtn}${markReadBtn}</div>
       </div>
     </div>`;
-  }).join('');
+    card.onclick=(e)=>{
+      if(e.target.closest('button')) return;
+      _showNotifActionMenu(e,n);
+    };
+    el.appendChild(card);
+  });
 }
 function _mbSwitchTab(tab){
   _mbActiveTab=tab;
@@ -9605,10 +9618,10 @@ function _closeNotifActionMenu(){
   document.removeEventListener('keydown',_notifMenuEsc,true);
 }
 function _notifMenuEsc(e){ if(e.key==='Escape') _closeNotifActionMenu(); }
-function _showNotifActionMenu(event,notifId){
+function _showNotifActionMenu(event,notif){
   event.stopPropagation();
   _closeNotifActionMenu();
-  const notif=(window._userNotifications||[]).find(n=>n.id===notifId)||{};
+  notif=notif||{};
   const taskId=(notif.taskId||'').match(/T-\d+/)?.[0]||'';
   const t=taskId?DASHBOARD_DATA.tasks.find(x=>x.id===taskId):null;
 
