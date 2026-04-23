@@ -538,23 +538,20 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 #user-badge{font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;display:none}
 #sign-out-btn{background:transparent;border:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;padding:0 2px;letter-spacing:1px;text-transform:uppercase;display:none}
 #sign-out-btn:hover{color:var(--text)}
-/* ── BRIEFING BELL ── */
-#briefing-bell{background:transparent;border:none;cursor:pointer;padding:4px 6px;position:relative;font-size:16px;line-height:1;display:none}
-#briefing-bell:hover{opacity:0.75}
+/* ── NAV ICON BUTTONS ── */
+#briefing-btn,#mailbox-btn{background:transparent;border:none;cursor:pointer;padding:4px 6px;position:relative;font-size:16px;line-height:1;display:none}
+#briefing-btn:hover,#mailbox-btn:hover{opacity:0.75}
 #bell-dot{position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--red);display:none;border:1.5px solid var(--bg)}
-/* ── NOTIFICATIONS BELL ── */
-#notif-bell{background:transparent;border:none;cursor:pointer;padding:4px 6px;position:relative;font-size:16px;line-height:1;display:none}
-#notif-bell:hover{opacity:0.75}
-#notif-badge{position:absolute;top:0;right:0;min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--bg);line-height:1}
-/* ── NOTIFICATIONS PANEL ── */
-#notif-panel{position:fixed;top:0;right:-400px;width:380px;height:100vh;background:var(--card);border-left:1px solid var(--border);z-index:9990;display:flex;flex-direction:column;transition:right 0.25s ease;box-shadow:-4px 0 24px rgba(0,0,0,0.5)}
-#notif-panel.open{right:0}
-#notif-overlay{position:fixed;inset:0;z-index:9989;display:none;background:rgba(0,0,0,0.25)}
-#notif-overlay.open{display:block}
-/* ── BRIEFING POPUP ── */
-#briefing-overlay{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.82);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
-#briefing-overlay.open{display:flex}
-#briefing-modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:640px;width:100%;margin:auto}
+#mailbox-badge{position:absolute;top:0;right:0;min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--bg);line-height:1}
+/* ── SLIDING PANELS ── */
+#briefing-panel,#mailbox-panel{position:fixed;top:0;right:-420px;width:400px;height:100vh;background:var(--card);border-left:1px solid var(--border);z-index:9990;display:flex;flex-direction:column;transition:right 0.25s ease;box-shadow:-4px 0 24px rgba(0,0,0,0.5)}
+#briefing-panel.open,#mailbox-panel.open{right:0}
+#panel-overlay{position:fixed;inset:0;z-index:9989;display:none;background:rgba(0,0,0,0.25)}
+#panel-overlay.open{display:block}
+.mb-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.mb-tab{flex:1;padding:10px 0;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;text-align:center;cursor:pointer;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;transition:color 0.15s,border-color 0.15s}
+.mb-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+#briefing-panel-body{flex:1;overflow-y:auto;padding:24px}
 .briefing-header{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:4px}
 .briefing-subhead{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:24px}
 .briefing-section{margin-bottom:22px}
@@ -629,24 +626,30 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 </div>
 <script>if(sessionStorage.getItem('dgl_user'))document.getElementById('login-overlay').style.display='none';</script>
 
-<!-- ══ BRIEFING POPUP ══ -->
-<div id="briefing-overlay">
-  <div id="briefing-modal">
-    <div id="briefing-content"></div>
+<!-- ══ SHARED PANEL OVERLAY ══ -->
+<div id="panel-overlay" onclick="_closePanels()"></div>
+
+<!-- ══ BRIEFING PANEL ══ -->
+<div id="briefing-panel">
+  <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">📋 DAILY BRIEFING</div>
+    <button onclick="_closeBriefingPanel()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0">✕</button>
   </div>
+  <div id="briefing-panel-body"></div>
 </div>
 
-<!-- ══ NOTIFICATIONS PANEL ══ -->
-<div id="notif-overlay" onclick="_closeNotifPanel()"></div>
-<div id="notif-panel">
+<!-- ══ MAILBOX PANEL ══ -->
+<div id="mailbox-panel">
   <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">📬 NOTIFICATIONS</div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <button onclick="_markAllNotifsRead()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark all read</button>
-      <button onclick="_closeNotifPanel()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0">✕</button>
-    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px">📬 MAILBOX</div>
+    <button onclick="_closeMailboxPanel()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0">✕</button>
   </div>
-  <div id="notif-list" style="flex:1;overflow-y:auto;padding:0"></div>
+  <div class="mb-tabs">
+    <button class="mb-tab active" id="mb-tab-dm" onclick="_mbSwitchTab('dm')">💬 DMs</button>
+    <button class="mb-tab" id="mb-tab-alerts" onclick="_mbSwitchTab('alerts')">🔔 Alerts</button>
+  </div>
+  <div id="mb-dm-list" style="flex:1;overflow-y:auto;display:block"></div>
+  <div id="mb-alerts-list" style="flex:1;overflow-y:auto;display:none"></div>
 </div>
 
 <!-- ══ TOP NAV ══ -->
@@ -672,8 +675,8 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <button id="sign-out-btn" onclick="doSignOut()">Sign out</button>
     <span id="sync-status" style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;display:none"></span>
     <span id="wave2-loading" style="display:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">⏳ Loading…</span>
-    <button id="briefing-bell" onclick="showBriefing()" title="Open daily briefing">📋<span id="bell-dot"></span></button>
-    <button id="notif-bell" onclick="_openNotifPanel()" title="Notifications inbox">📬<span id="notif-badge"></span></button>
+    <button id="briefing-btn" onclick="_openBriefingPanel()" title="Open daily briefing">📋<span id="bell-dot"></span></button>
+    <button id="mailbox-btn" onclick="_openMailboxPanel()" title="Mailbox">📬<span id="mailbox-badge"></span></button>
     <div class="live-dot" id="live-dot" title="Live data"></div>
   </div>
 </nav>
@@ -9342,11 +9345,15 @@ function shakePwInput(){
 }
 function _showLoadingSpinner(){ const el=document.getElementById('sheets-loading-spinner'); if(el){ el.style.display='flex'; } }
 function _hideLoadingSpinner(){ const el=document.getElementById('sheets-loading-spinner'); if(el){ el.style.display='none'; } }
-// ── Notifications Inbox ───────────────────────────────────────
-let _notifRefreshTimer=null;
+// ── Mailbox + Briefing Panels ─────────────────────────────────
+let _mbRefreshTimer=null;
 window._userNotifications=[];
+window._userDMs=[];
+let _mbActiveTab='dm';
 function _readNotifIds(){ try{ return new Set(JSON.parse(localStorage.getItem('dgl_read_notifs_'+(window._DGL_USER||'view'))||'[]')); }catch(_){ return new Set(); } }
 function _saveReadNotifIds(set){ try{ localStorage.setItem('dgl_read_notifs_'+(window._DGL_USER||'view'),JSON.stringify([...set])); }catch(_){} }
+function _readDMIds(){ try{ return new Set(JSON.parse(localStorage.getItem('dgl_read_dms_'+(window._DGL_USER||'view'))||'[]')); }catch(_){ return new Set(); } }
+function _saveDMIds(set){ try{ localStorage.setItem('dgl_read_dms_'+(window._DGL_USER||'view'),JSON.stringify([...set])); }catch(_){} }
 function _relativeTime(ts){
   if(!ts) return '—';
   const diff=Date.now()-new Date(ts).getTime();
@@ -9358,12 +9365,15 @@ function _relativeTime(ts){
   return Math.floor(diff/86400000)+'d ago';
 }
 function _notifTypeIcon(type){ return ({overdue:'🔴',unblocked:'🔓',completion:'✅',dm:'💬',gap:'⚠️',discussion:'💬',general:'📬'})[type]||'📬'; }
-function _notifBadgeUpdate(){
-  const badge=document.getElementById('notif-badge'); if(!badge) return;
-  const read=_readNotifIds();
-  const unread=(window._userNotifications||[]).filter(n=>!read.has(n.id)).length;
-  badge.textContent=unread>9?'9+':String(unread);
-  badge.style.display=unread>0?'flex':'none';
+function _mailboxBadgeUpdate(){
+  const badge=document.getElementById('mailbox-badge'); if(!badge) return;
+  const readN=_readNotifIds();
+  const unreadN=(window._userNotifications||[]).filter(n=>!readN.has(n.id)).length;
+  const readD=_readDMIds();
+  const unreadD=(window._userDMs||[]).filter(d=>d.unread>0).length;
+  const total=unreadN+unreadD;
+  badge.textContent=total>9?'9+':String(total);
+  badge.style.display=total>0?'flex':'none';
 }
 async function _loadUserNotifications(userKey){
   if(!CONFIG.sheetsUrl||!userKey||userKey==='view') return;
@@ -9374,16 +9384,65 @@ async function _loadUserNotifications(userKey){
     window._userNotifications=all
       .filter(n=>!n.toUser||n.toUser===userKey||n.toUser==='')
       .sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
-    _notifBadgeUpdate();
-    if(document.getElementById('notif-panel')?.classList.contains('open')) _renderNotifPanel();
+    _mailboxBadgeUpdate();
+    if(document.getElementById('mailbox-panel')?.classList.contains('open')&&_mbActiveTab==='alerts') _renderAlertsTab();
   }catch(_){}
 }
-function _renderNotifPanel(){
-  const el=document.getElementById('notif-list'); if(!el) return;
+async function _loadUserDMs(userKey){
+  if(!CONFIG.sheetsUrl||!userKey||userKey==='view') return;
+  try{
+    const r=await fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId=all&type=dm');
+    const d=await r.json();
+    const all=Array.isArray(d)?d:(d.comments||[]);
+    const convMap={};
+    all.forEach(msg=>{
+      const pair=[msg.user||'',msg.recipient||''].sort().join('|');
+      if(!convMap[pair]) convMap[pair]={msgs:[],pair};
+      convMap[pair].msgs.push(msg);
+    });
+    const readD=_readDMIds();
+    window._userDMs=Object.values(convMap)
+      .filter(c=>c.pair.includes(userKey))
+      .map(c=>{
+        const sorted=c.msgs.sort((a,b)=>new Date(b.ts||0)-new Date(a.ts||0));
+        const last=sorted[0]||{};
+        const other=c.pair.split('|').find(p=>p!==userKey)||c.pair.split('|')[0];
+        const unread=sorted.filter(m=>m.recipient===userKey&&!readD.has(m.ts)).length;
+        return {id:c.pair,pair:c.pair,other,lastMsg:last.text||'',lastTs:last.ts||'',taskId:(last.taskId||'').match(/T-\d+/)?.[0]||'',unread};
+      })
+      .sort((a,b)=>new Date(b.lastTs||0)-new Date(a.lastTs||0));
+    _mailboxBadgeUpdate();
+    if(document.getElementById('mailbox-panel')?.classList.contains('open')&&_mbActiveTab==='dm') _renderDMTab();
+  }catch(_){}
+}
+function _renderDMTab(){
+  const el=document.getElementById('mb-dm-list'); if(!el) return;
+  const dms=window._userDMs||[];
+  if(!dms.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No direct messages yet.</div>'; return; }
+  el.innerHTML=dms.map(d=>{
+    const initials=(d.other||'?').slice(0,2).toUpperCase();
+    const isRead=d.unread===0;
+    const preview=(d.lastMsg||'').slice(0,80)+((d.lastMsg||'').length>80?'…':'');
+    return `<div onclick="${d.taskId?`_closeMailboxPanel();_jumpToTask('${d.taskId}')`:''}" style="padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'};display:flex;gap:12px;align-items:flex-start;cursor:${d.taskId?'pointer':'default'}">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);flex-shrink:0">${initials}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);font-weight:${isRead?400:700}">${d.other}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${_relativeTime(d.lastTs)}</span>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${preview||'<em>No message</em>'}</div>
+        ${d.unread>0?`<span style="font-family:'DM Mono',monospace;font-size:8px;background:var(--red);color:#fff;border-radius:8px;padding:1px 5px;margin-top:4px;display:inline-block">${d.unread} unread</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function _renderAlertsTab(){
+  const el=document.getElementById('mb-alerts-list'); if(!el) return;
   const notifs=window._userNotifications||[];
-  if(!notifs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No notifications yet.</div>'; return; }
   const read=_readNotifIds();
-  el.innerHTML=notifs.map(n=>{
+  const hdr=notifs.length?`<div style="padding:8px 20px;border-bottom:1px solid rgba(37,42,53,0.3);display:flex;justify-content:flex-end"><button onclick="_markAllAlertsRead()" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark all read</button></div>`:'';
+  if(!notifs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No alerts yet.</div>'; return; }
+  el.innerHTML=hdr+notifs.map(n=>{
     const isRead=read.has(n.id);
     const icon=_notifTypeIcon(n.type||'');
     const preview=(n.message||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0,120)+((n.message||'').length>120?'…':'');
@@ -9393,38 +9452,73 @@ function _renderNotifPanel(){
         <span style="font-size:14px;flex-shrink:0;margin-top:1px">${icon}</span>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
-            ${taskId?`<span onclick="_closeNotifPanel();_jumpToTask('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);cursor:pointer;text-decoration:underline dotted">${taskId}</span>`:'<span></span>'}
+            ${taskId?`<span onclick="_closeMailboxPanel();_jumpToTask('${taskId}')" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);cursor:pointer;text-decoration:underline dotted">${taskId}</span>`:'<span></span>'}
             <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0">${_relativeTime(n.sentAt||n.ts)}</span>
           </div>
           <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.5;word-break:break-word">${preview}</div>
-          ${!isRead?`<button onclick="_markNotifRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:6px">Mark read</button>`:''}
+          ${!isRead?`<button onclick="_markAlertRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:6px">Mark read</button>`:''}
         </div>
       </div>
     </div>`;
   }).join('');
 }
-function _openNotifPanel(){
-  document.getElementById('notif-panel')?.classList.add('open');
-  document.getElementById('notif-overlay')?.classList.add('open');
+function _mbSwitchTab(tab){
+  _mbActiveTab=tab;
+  document.getElementById('mb-tab-dm')?.classList.toggle('active',tab==='dm');
+  document.getElementById('mb-tab-alerts')?.classList.toggle('active',tab==='alerts');
+  const dmEl=document.getElementById('mb-dm-list');
+  const alEl=document.getElementById('mb-alerts-list');
+  if(dmEl) dmEl.style.display=tab==='dm'?'block':'none';
+  if(alEl) alEl.style.display=tab==='alerts'?'block':'none';
+  if(tab==='dm') _renderDMTab(); else _renderAlertsTab();
+}
+function _openMailboxPanel(){
+  document.getElementById('mailbox-panel')?.classList.add('open');
+  document.getElementById('panel-overlay')?.classList.add('open');
+  _mbSwitchTab(_mbActiveTab);
   _loadUserNotifications(window._DGL_USER||'');
+  _loadUserDMs(window._DGL_USER||'');
 }
-function _closeNotifPanel(){
-  document.getElementById('notif-panel')?.classList.remove('open');
-  document.getElementById('notif-overlay')?.classList.remove('open');
+function _closeMailboxPanel(){
+  document.getElementById('mailbox-panel')?.classList.remove('open');
+  document.getElementById('panel-overlay')?.classList.remove('open');
 }
-function _markNotifRead(id){
+function _openBriefingPanel(){
+  const user=window._DGL_USER;
+  if(!user||user==='view') return;
+  const el=document.getElementById('briefing-panel-body');
+  if(el) el.innerHTML=buildBriefingHTML(user);
+  document.getElementById('briefing-panel')?.classList.add('open');
+  document.getElementById('panel-overlay')?.classList.add('open');
+}
+function _closeBriefingPanel(){
+  document.getElementById('briefing-panel')?.classList.remove('open');
+  document.getElementById('panel-overlay')?.classList.remove('open');
+}
+function _closePanels(){
+  document.getElementById('briefing-panel')?.classList.remove('open');
+  document.getElementById('mailbox-panel')?.classList.remove('open');
+  document.getElementById('panel-overlay')?.classList.remove('open');
+}
+function _markAlertRead(id){
   const read=_readNotifIds(); read.add(id); _saveReadNotifIds(read);
-  _notifBadgeUpdate(); _renderNotifPanel();
+  _mailboxBadgeUpdate(); _renderAlertsTab();
 }
-function _markAllNotifsRead(){
+function _markAllAlertsRead(){
   const read=_readNotifIds();
   (window._userNotifications||[]).forEach(n=>read.add(n.id));
-  _saveReadNotifIds(read); _notifBadgeUpdate(); _renderNotifPanel();
+  _saveReadNotifIds(read); _mailboxBadgeUpdate(); _renderAlertsTab();
 }
 function _startNotifRefresh(){
-  clearInterval(_notifRefreshTimer);
-  _notifRefreshTimer=setInterval(()=>{ if(window._DGL_USER&&window._DGL_USER!=='view') _loadUserNotifications(window._DGL_USER); },5*60*1000);
+  clearInterval(_mbRefreshTimer);
+  _mbRefreshTimer=setInterval(()=>{
+    if(window._DGL_USER&&window._DGL_USER!=='view'){
+      _loadUserNotifications(window._DGL_USER);
+      _loadUserDMs(window._DGL_USER);
+    }
+  },5*60*1000);
 }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') _closePanels(); });
 // ─────────────────────────────────────────────────────────────
 function showDashboard(user, showPopup=false){
   window._DGL_USER=user;
@@ -9436,7 +9530,7 @@ function showDashboard(user, showPopup=false){
   if(!window._sheetsLoaded) _showLoadingSpinner();
   const badge=document.getElementById('user-badge');
   const so=document.getElementById('sign-out-btn');
-  const bell=document.getElementById('briefing-bell');
+  const bell=document.getElementById('briefing-btn');
   if(badge){
     const t=getUserTitle(user);
     badge.textContent=t.text;
@@ -9449,9 +9543,9 @@ function showDashboard(user, showPopup=false){
   if(role==='view') applyViewOnly();
   if(role==='member') applyViewOnly();
   if(bell&&user!=='view') bell.style.display='inline-block';
-  const notifBell=document.getElementById('notif-bell');
-  if(notifBell&&user!=='view') notifBell.style.display='inline-block';
-  if(user&&user!=='view'){ _loadUserNotifications(user); _startNotifRefresh(); }
+  const mailboxBtn=document.getElementById('mailbox-btn');
+  if(mailboxBtn&&user!=='view') mailboxBtn.style.display='inline-block';
+  if(user&&user!=='view'){ _loadUserNotifications(user); _loadUserDMs(user); _startNotifRefresh(); }
   updateBellDot();
   const _hrBtn=document.getElementById('team-btn-hr');
   if(_hrBtn) _hrBtn.style.display=['taylor','steve'].includes(user)?'':'none';
@@ -9522,18 +9616,8 @@ function updateBellDot(){
   });
   dot.style.display=hasOverdue?'inline-block':'none';
 }
-function showBriefing(){
-  const user=window._DGL_USER;
-  if(!user||user==='view') return;
-  const el=document.getElementById('briefing-content');
-  if(el) el.innerHTML=buildBriefingHTML(user);
-  const ov=document.getElementById('briefing-overlay');
-  if(ov) ov.classList.add('open');
-}
-function closeBriefing(){
-  const ov=document.getElementById('briefing-overlay');
-  if(ov) ov.classList.remove('open');
-}
+function showBriefing(){ _openBriefingPanel(); }
+function closeBriefing(){ _closeBriefingPanel(); }
 function setRaciFilter(name){
   const bar=document.getElementById('raci-person-filter-bar');
   if(!bar) return;
