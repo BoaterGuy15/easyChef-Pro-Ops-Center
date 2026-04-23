@@ -11634,8 +11634,8 @@ function _doSave(){
   _sheetsSyncLock=true;
   setTimeout(()=>{ _sheetsSyncLock=false; },8000);
   const _tPayload=DASHBOARD_DATA.tasks.map(({actionPlan,...r})=>({...r,sd:r.sd?(_toYMD(r.sd)||r.sd):r.sd,ed:r.ed?(_toYMD(r.ed)||r.ed):r.ed}));
-  fetch(CONFIG.sheetsUrl,{method:'POST',mode:'no-cors',body:JSON.stringify(_tPayload)})
-    .then(()=>{ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); })
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_tPayload)})
+    .then(r=>r.json()).then(d=>{ if(d.ok){ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); } else { updateSyncStatus('fail'); console.error('[DGL] Save failed:',d.error); } })
     .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
 }
 let _saveTasksDebounce=null;
