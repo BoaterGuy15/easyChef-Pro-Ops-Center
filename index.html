@@ -9735,6 +9735,71 @@ function _showNotifActionMenu(event,notif){
   _item('📎','Upload Doc',()=>{ _closeNotifActionMenu(); _openQuickUploadModal(taskId,notif); });
   _sep();
 
+  // Documents section
+  if(taskId){
+    _lbl('Documents');
+    const cacheKey='task_'+taskId;
+    const docs=_docsCache[cacheKey]||[];
+    const docsContainer=_el('div',null);
+    mnuBody.appendChild(docsContainer);
+    function _renderMnuDocs(){
+      const d2=_docsCache[cacheKey]||[];
+      docsContainer.innerHTML='';
+      if(!d2.length){
+        docsContainer.appendChild(_el('div','padding:4px 14px 6px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)','📎 No documents attached'));
+      } else {
+        d2.forEach(doc=>{
+          const row=_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;border-bottom:1px solid rgba(37,42,53,0.3)');
+          const ico=_el('span','font-size:12px;flex-shrink:0',typeof _docFileIcon==='function'?_docFileIcon(doc.name||''):'📄');
+          const nm=_el('span','font-family:\'DM Mono\',monospace;font-size:10px;color:var(--gold);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap',(doc.name||doc.filename||'Untitled').slice(0,28));
+          const eyeBtn=_el('button','background:none;border:none;font-size:12px;cursor:pointer;padding:0 2px;color:var(--muted);flex-shrink:0','👁️');
+          eyeBtn.title='Preview';eyeBtn.onclick=()=>_showDocPreview(doc);
+          row.appendChild(ico);row.appendChild(nm);row.appendChild(eyeBtn);
+          if(doc.url){
+            const extBtn=_el('a','font-size:12px;color:var(--muted);text-decoration:none;flex-shrink:0;padding:0 2px;line-height:1','↗️');
+            extBtn.href=doc.url;extBtn.target='_blank';extBtn.rel='noopener';extBtn.title='Open';
+            row.appendChild(extBtn);
+          }
+          docsContainer.appendChild(row);
+        });
+      }
+      // Open Folder row
+      const folderUrl=((_docsCache[cacheKey]||[]).find(d=>d.folderUrl)||{}).folderUrl||CONFIG.sharedDriveUrl||'';
+      const folderRow=_el('div','display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;color:var(--muted)');
+      folderRow.onmouseover=()=>folderRow.style.background='rgba(201,168,76,0.08)';
+      folderRow.onmouseout=()=>folderRow.style.background='transparent';
+      folderRow.onclick=()=>{if(folderUrl)window.open(folderUrl,'_blank');};
+      folderRow.appendChild(_el('span','font-size:12px;width:18px;text-align:center;flex-shrink:0','📁'));
+      folderRow.appendChild(_el('span','font-family:\'DM Mono\',monospace;font-size:10px','Open Task Folder'));
+      docsContainer.appendChild(folderRow);
+      // Upload row
+      const upInput=document.createElement('input');upInput.type='file';upInput.multiple=true;upInput.style.display='none';
+      upInput.onchange=()=>{
+        _handleStatusUpdateDrop(upInput.files,taskId,null,null,null);
+        // Re-render after slight delay to pick up cache update
+        setTimeout(_renderMnuDocs,2500);
+      };
+      docsContainer.appendChild(upInput);
+      const upRow=_el('div','display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;color:var(--muted)');
+      upRow.onmouseover=()=>upRow.style.background='rgba(201,168,76,0.08)';
+      upRow.onmouseout=()=>upRow.style.background='transparent';
+      upRow.onclick=()=>upInput.click();
+      upRow.appendChild(_el('span','font-size:12px;width:18px;text-align:center;flex-shrink:0','⬆️'));
+      upRow.appendChild(_el('span','font-family:\'DM Mono\',monospace;font-size:10px','Upload File'));
+      docsContainer.appendChild(upRow);
+    }
+    _renderMnuDocs();
+    // Fetch docs if cache empty
+    if(!docs.length&&CONFIG.sheetsUrl){
+      fetch(CONFIG.sheetsUrl+'?action=docs_read&taskId='+encodeURIComponent(taskId))
+        .then(r=>r.json()).then(data=>{
+          const fresh=data.docs||[];
+          if(fresh.length){_docsCache[cacheKey]=fresh;_renderMnuDocs();}
+        }).catch(()=>{});
+    }
+    _sep();
+  }
+
   const isRead=_readNotifIds().has(notif.id);
   if(!isRead) _item('✓','Mark Notification Read',()=>_markAlertRead(notif.id));
 
