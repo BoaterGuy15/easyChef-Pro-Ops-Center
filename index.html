@@ -10083,7 +10083,7 @@ function _openQuickUploadModal(taskId,notif){
   const ov=document.createElement('div');
   ov.id='quick-upload-overlay';
   ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
-  ov.onclick=e=>{if(e.target===ov){_closeQuickUploadModal();_showNotifActionMenu({clientX:window.innerWidth/2,clientY:window.innerHeight/2,stopPropagation:()=>{}},notif);}};
+  ov.onclick=e=>{if(e.target===ov)_closeQuickUploadModal();};
 
   const modal=document.createElement('div');
   modal.style.cssText="position:fixed;z-index:99999;width:520px;height:420px;left:calc(50% - 260px);top:calc(50% - 210px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:300px;min-height:250px";
@@ -10100,7 +10100,7 @@ function _openQuickUploadModal(taskId,notif){
   const closeBtn=document.createElement('button');
   closeBtn.textContent='✕';
   closeBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 0 0 12px;flex-shrink:0;font-family:'DM Mono',monospace";
-  closeBtn.onclick=()=>{_closeQuickUploadModal();_showNotifActionMenu({clientX:window.innerWidth/2,clientY:window.innerHeight/2,stopPropagation:()=>{}},notif);};
+  closeBtn.onclick=()=>_closeQuickUploadModal();
   hdr.appendChild(hdrL);hdr.appendChild(closeBtn);
   modal.appendChild(hdr);
 
@@ -10149,7 +10149,7 @@ function _openQuickUploadModal(taskId,notif){
   const doneBtn=document.createElement('button');
   doneBtn.style.cssText="flex:1;padding:8px 16px;border-radius:6px;border:1px solid var(--gold);background:rgba(201,168,76,0.1);color:var(--gold);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;font-weight:600";
   doneBtn.textContent='✅ Done';
-  doneBtn.onclick=()=>{_closeQuickUploadModal();_showNotifActionMenu({clientX:window.innerWidth/2,clientY:window.innerHeight/2,stopPropagation:()=>{}},notif);};
+  doneBtn.onclick=()=>_closeQuickUploadModal();
 
   footer.appendChild(postSlackBtn);footer.appendChild(doneBtn);
   modal.appendChild(footer);
