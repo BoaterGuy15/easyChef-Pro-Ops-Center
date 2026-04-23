@@ -4702,7 +4702,7 @@ function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
   confirmBtn.textContent='✅ Confirm';
   confirmBtn.style.cssText='background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:4px 12px;cursor:pointer';
   confirmBtn.onclick=()=>{
-    console.log('[DGL] Confirming move for',taskId,'new sd:',newSd,'ed:',newEd);
+    console.log('[DGL] Confirming move '+taskId+' newSd:'+newSd+' newEd:'+newEd);
     console.log('[DGL] _sheetsLoaded:',window._sheetsLoaded);
     const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
     if(t){t.sd=newSd;t.ed=newEd;t.lastStatusChange=new Date().toISOString();}
