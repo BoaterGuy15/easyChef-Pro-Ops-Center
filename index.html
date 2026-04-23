@@ -4215,7 +4215,7 @@ function _viewTaskDetails(taskId){
 function _closeGanttContextMenu(){
   const m=document.getElementById('gantt-ctx-menu');
   if(m){ if(m._cleanupDrag) m._cleanupDrag(); m.remove(); }
-  document.removeEventListener('click',_closeGanttContextMenu,true);
+  document.removeEventListener('click',_closeGanttContextMenu,false);
   document.removeEventListener('keydown',_ganttCtxEsc,true);
 }
 function _ganttCtxEsc(e){ if(e.key==='Escape') _closeGanttContextMenu(); }
@@ -4309,6 +4309,7 @@ function _renderContextMenuDocs(container,docs,taskId){
 }
 
 function _showGanttContextMenu(event,taskId){
+  event.stopPropagation();
   _closeGanttContextMenu();
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t) return;
@@ -4316,13 +4317,14 @@ function _showGanttContextMenu(event,taskId){
 
   const mnu=document.createElement('div');
   mnu.id='gantt-ctx-menu';
-  mnu.style.cssText='position:fixed;z-index:99999;width:215px;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:6px 0;font-family:\'DM Mono\',monospace;font-size:11px';
-  mnu.style.left=Math.min(event.clientX,window.innerWidth-230)+'px';
-  mnu.style.top=Math.min(event.clientY,window.innerHeight-340)+'px';
+  mnu.style.cssText="position:fixed;z-index:99999;width:260px;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:0;font-family:'DM Mono',monospace;font-size:11px;min-width:215px;max-width:500px;overflow:visible";
+  mnu.style.left=(window.innerWidth/2-130)+'px';
+  mnu.style.top=(window.innerHeight/2-200)+'px';
+  mnu.addEventListener('click',e=>e.stopPropagation());
 
   function _el(tag,css,text){const e=document.createElement(tag);if(css)e.style.cssText=css;if(text!=null)e.textContent=text;return e;}
-  function _sep(){mnu.appendChild(_el('div','height:1px;background:var(--border);margin:3px 0'));}
-  function _lbl(txt){const d=_el('div','padding:4px 14px 2px;font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase',txt);mnu.appendChild(d);return d;}
+  function _sep(){mnuBody.appendChild(_el('div','height:1px;background:var(--border);margin:3px 0'));}
+  function _lbl(txt){const d=_el('div','padding:4px 14px 2px;font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase',txt);mnuBody.appendChild(d);return d;}
   function _item(icon,label,fn,color){
     const d=_el('div','display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;color:'+(color||'var(--text)'));
     d.onmouseover=()=>d.style.background=color==='var(--red)'?'rgba(239,68,68,0.1)':'rgba(201,168,76,0.1)';
@@ -4330,152 +4332,176 @@ function _showGanttContextMenu(event,taskId){
     d.onclick=()=>{fn();_closeGanttContextMenu();};
     const ic=_el('span','font-size:13px;width:18px;text-align:center;flex-shrink:0',icon);
     const lb=_el('span',null,label);
-    d.appendChild(ic);d.appendChild(lb);mnu.appendChild(d);return d;
+    d.appendChild(ic);d.appendChild(lb);mnuBody.appendChild(d);return d;
   }
 
-  // Header — drag handle
-  const hdr=_lbl('✥  '+taskId+' · '+t.name.slice(0,18)+(t.name.length>18?'…':''));
-  hdr.style.cursor='move';
-  hdr.style.userSelect='none';
-  hdr.style.paddingTop='7px';
-  hdr.style.paddingBottom='6px';
-  _sep();
+  // Draggable header strip
+  const hdrTxt=taskId+' · '+(t.name||'').slice(0,18)+((t.name||'').length>18?'…':'');
+  const mnuDragHdr=_el('div','display:flex;align-items:center;gap:8px;padding:7px 14px 6px;cursor:move;user-select:none;border-bottom:1px solid var(--border);border-radius:8px 8px 0 0;background:rgba(201,168,76,0.06)');
+  mnuDragHdr.appendChild(_el('span','font-size:12px;color:var(--gold);flex-shrink:0','⠿'));
+  mnuDragHdr.appendChild(_el('span',"font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap",hdrTxt));
+  mnu.appendChild(mnuDragHdr);
 
-  // Edit / View
+  // Scrollable body
+  const mnuBody=_el('div','padding:6px 0;overflow-y:auto;max-height:80vh');
+  mnu.appendChild(mnuBody);
+
+  _sep();
+  _item('📋','View Task Details',()=>_viewTaskDetails(taskId));
   _item('✏️','Edit Task',()=>showTaskModal(taskId));
-  _item('📋','View Details',()=>_viewTaskDetails(taskId));
   _sep();
 
-  // Quick Status — expandable inline
-  const statusHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
-  statusHdr.onmouseover=()=>statusHdr.style.background='rgba(201,168,76,0.1)';
-  statusHdr.onmouseout=()=>statusHdr.style.background='transparent';
-  const statusLeft=_el('span','display:flex;align-items:center;gap:8px');
-  statusLeft.appendChild(_el('span','font-size:13px;width:18px;text-align:center','📊'));
-  statusLeft.appendChild(_el('span',null,'Quick Status'));
-  const statusArrow=_el('span','font-size:9px;color:var(--muted)','▾');
-  statusHdr.appendChild(statusLeft);statusHdr.appendChild(statusArrow);
-
-  const statusSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
-  statusHdr.onclick=()=>{ statusSub.style.maxHeight=statusSub.style.maxHeight==='260px'?'0':'260px'; };
-
+  // Quick Status — expandable
+  const sHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
+  sHdr.onmouseover=()=>sHdr.style.background='rgba(201,168,76,0.1)';
+  sHdr.onmouseout=()=>sHdr.style.background='transparent';
+  const sL=_el('span','display:flex;align-items:center;gap:8px');
+  sL.appendChild(_el('span','font-size:13px;width:18px;text-align:center','📊'));
+  sL.appendChild(_el('span',null,'Quick Status'));
+  sHdr.appendChild(sL);sHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
+  const sSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
+  sHdr.onclick=(e)=>{e.stopPropagation();sSub.style.maxHeight=sSub.style.maxHeight==='260px'?'0':'260px';};
   ['Not Started','Started','In Progress','In Review','Complete','Blocked'].forEach(s=>{
     const sd=_el('div','display:flex;align-items:center;gap:6px;padding:5px 20px;cursor:pointer;font-size:10px;color:'+(t.status===s?'var(--gold)':'var(--text)'));
     sd.onmouseover=()=>sd.style.background='rgba(201,168,76,0.08)';
     sd.onmouseout=()=>sd.style.background='transparent';
     sd.appendChild(_el('span','width:10px;flex-shrink:0;font-size:9px;color:var(--gold)',t.status===s?'✓':''));
     sd.appendChild(_el('span',null,s));
-    sd.onclick=()=>{
+    sd.onclick=(e)=>{
+      e.stopPropagation();
+      if(s==='Complete'){_notifyTaskAction(taskId,'Task marked Complete');_closeGanttContextMenu();_openMarkCompleteModal(taskId);return;}
+      const _oldS=t.status;t.status=s;
+      _logStatusChange(taskId,_oldS,s,'Roadmap quick status by '+(window._DGL_USER||'system'));
+      _saveTasksNow();buildRoadmap();initRoadmapHeadSync();
+      _notifyTaskAction(taskId,'Status changed to '+s);
       _closeGanttContextMenu();
-      if(s==='Complete'){ _openMarkCompleteModal(taskId); return; }
-      const task=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
-      if(task){const _oldS=task.status;task.status=s;_logStatusChange(taskId,_oldS,s,'Roadmap quick status by '+(window._DGL_USER||'system'));_saveTasksNow();buildRoadmap();initRoadmapHeadSync();}
     };
-    statusSub.appendChild(sd);
+    sSub.appendChild(sd);
   });
-
-  mnu.appendChild(statusHdr);mnu.appendChild(statusSub);
+  mnuBody.appendChild(sHdr);mnuBody.appendChild(sSub);
   _sep();
 
-  // Set Flag — expandable inline
-  const flagHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
-  flagHdr.onmouseover=()=>flagHdr.style.background='rgba(201,168,76,0.1)';
-  flagHdr.onmouseout=()=>flagHdr.style.background='transparent';
-  const flagLeft=_el('span','display:flex;align-items:center;gap:8px');
-  flagLeft.appendChild(_el('span','font-size:13px;width:18px;text-align:center','🎯'));
-  flagLeft.appendChild(_el('span',null,'Set Flag'));
-  const flagArrow=_el('span','font-size:9px;color:var(--muted)','▾');
-  flagHdr.appendChild(flagLeft);flagHdr.appendChild(flagArrow);
-
-  const flagSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
-  flagHdr.onclick=()=>{flagSub.style.maxHeight=flagSub.style.maxHeight==='220px'?'0':'220px';};
-
-  _FLAG_STATES.forEach(f=>{
+  // Set Flag — expandable
+  const fHdr=_el('div','display:flex;align-items:center;justify-content:space-between;padding:7px 14px;cursor:pointer;color:var(--text)');
+  fHdr.onmouseover=()=>fHdr.style.background='rgba(201,168,76,0.1)';
+  fHdr.onmouseout=()=>fHdr.style.background='transparent';
+  const fL=_el('span','display:flex;align-items:center;gap:8px');
+  fL.appendChild(_el('span','font-size:13px;width:18px;text-align:center','🎯'));
+  fL.appendChild(_el('span',null,'Set Flag'));
+  fHdr.appendChild(fL);fHdr.appendChild(_el('span','font-size:9px;color:var(--muted)','▾'));
+  const fSub=_el('div','max-height:0;overflow:hidden;transition:max-height 0.2s ease;background:rgba(0,0,0,0.15)');
+  fHdr.onclick=(e)=>{e.stopPropagation();fSub.style.maxHeight=fSub.style.maxHeight==='220px'?'0':'220px';};
+  (_FLAG_STATES||[]).forEach(f=>{
     const fd=_el('div','display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;font-size:10px;color:'+f.color);
     fd.onmouseover=()=>fd.style.background='rgba(201,168,76,0.08)';
     fd.onmouseout=()=>fd.style.background='transparent';
     fd.appendChild(_el('span','font-size:12px;width:18px;text-align:center',f.emoji));
     fd.appendChild(_el('span',null,f.label));
-    fd.onclick=()=>_setTaskFlagFromMenu(taskId,f.emoji);
-    flagSub.appendChild(fd);
+    fd.onclick=(e)=>{e.stopPropagation();_setTaskFlagFromMenu(taskId,f.emoji);_notifyTaskAction(taskId,'Flag updated to '+f.emoji+' '+f.label);_closeGanttContextMenu();};
+    fSub.appendChild(fd);
   });
-  const clearFd=_el('div','display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;font-size:10px;color:var(--muted)');
-  clearFd.onmouseover=()=>clearFd.style.background='rgba(201,168,76,0.08)';
-  clearFd.onmouseout=()=>clearFd.style.background='transparent';
-  clearFd.appendChild(_el('span','font-size:12px;width:18px;text-align:center','✕'));
-  clearFd.appendChild(_el('span',null,'Clear Flag'));
-  clearFd.onclick=()=>_setTaskFlagFromMenu(taskId,'');
-  flagSub.appendChild(clearFd);
-
-  mnu.appendChild(flagHdr);mnu.appendChild(flagSub);
+  const cfD=_el('div','display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;font-size:10px;color:var(--muted)');
+  cfD.onmouseover=()=>cfD.style.background='rgba(201,168,76,0.08)';
+  cfD.onmouseout=()=>cfD.style.background='transparent';
+  cfD.appendChild(_el('span','font-size:12px;width:18px;text-align:center','✕'));
+  cfD.appendChild(_el('span',null,'Clear Flag'));
+  cfD.onclick=(e)=>{e.stopPropagation();_setTaskFlagFromMenu(taskId,'');_notifyTaskAction(taskId,'Flag cleared');_closeGanttContextMenu();};
+  fSub.appendChild(cfD);
+  mnuBody.appendChild(fHdr);mnuBody.appendChild(fSub);
   _sep();
 
-  // Mark Complete / Set Dates
-  const mc=_item('✅','Mark Complete',()=>_openMarkCompleteModal(taskId));
+  // Mark Complete
+  const mc=_item('✅','Mark Complete',()=>{_notifyTaskAction(taskId,'Task marked Complete');_openMarkCompleteModal(taskId);});
   if(t.status==='Complete'){mc.style.opacity='0.4';mc.style.pointerEvents='none';}
-  _item('📅','Set Dates',()=>_openGanttDateModal(taskId));
-
-  // Documents
   _sep();
-  _lbl('Documents');
+
+  // Update Status — opens same modal as notification menu
+  _item('📊','Update Status',()=>{_closeGanttContextMenu();_openStatusUpdateModal(taskId,null);});
+  _sep();
+
+  // Documents section
+  _lbl('DOCUMENTS');
   const cacheKey='task_'+taskId;
   const docsContainer=_el('div',null);
   docsContainer.id='gantt-ctx-docs-'+taskId;
-  mnu.appendChild(docsContainer);
-  const cachedDocs=(_docsCache&&_docsCache[cacheKey])||[];
-  if(cachedDocs.length){
-    _renderContextMenuDocs(docsContainer,cachedDocs,taskId);
-  } else {
-    docsContainer.appendChild(_el('div','padding:5px 14px;font-size:10px;color:var(--muted)','⏳ Loading...'));
-    if(CONFIG.sheetsUrl){
-      fetch(CONFIG.sheetsUrl+'?action=docs_read&taskId='+encodeURIComponent(taskId))
-        .then(r=>r.json())
-        .then(data=>{
-          const freshDocs=data.docs||[];
-          if(freshDocs.length) _docsCache[cacheKey]=freshDocs;
-          const sect=document.getElementById('gantt-ctx-docs-'+taskId);
-          if(sect) _renderContextMenuDocs(sect,freshDocs,taskId);
-        })
-        .catch(()=>{
-          const sect=document.getElementById('gantt-ctx-docs-'+taskId);
-          if(sect){ sect.innerHTML=''; sect.appendChild(_el('div','padding:5px 14px;font-size:10px;color:var(--muted)','📎 No documents attached')); }
-        });
+  mnuBody.appendChild(docsContainer);
+  function _renderGanttDocs(){
+    const docs=(_docsCache&&_docsCache[cacheKey])||[];
+    docsContainer.innerHTML='';
+    if(!docs.length){
+      docsContainer.appendChild(_el('div','padding:4px 14px 6px;font-size:10px;color:var(--muted)','📎 No documents attached'));
     } else {
-      docsContainer.innerHTML='';
-      docsContainer.appendChild(_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;font-size:10px;color:var(--muted)','📎 No documents attached'));
+      docs.forEach(doc=>{
+        const row=_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;border-bottom:1px solid rgba(37,42,53,0.3)');
+        const ico=_el('span','font-size:12px;flex-shrink:0',typeof _docFileIcon==='function'?_docFileIcon(doc.name||''):'📄');
+        const nm=_el('span',"font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap",(doc.name||doc.filename||'Untitled').slice(0,28));
+        const eyeBtn=_el('button','background:none;border:none;font-size:12px;cursor:pointer;padding:0 2px;color:var(--muted);flex-shrink:0','👁️');
+        eyeBtn.title='Preview';eyeBtn.onclick=()=>_showDocPreview(doc);
+        row.appendChild(ico);row.appendChild(nm);row.appendChild(eyeBtn);
+        if(doc.url){
+          const extBtn=_el('a','font-size:12px;color:var(--muted);text-decoration:none;flex-shrink:0;padding:0 2px;line-height:1','↗️');
+          extBtn.href=doc.url;extBtn.target='_blank';extBtn.rel='noopener';extBtn.title='Open';
+          row.appendChild(extBtn);
+        }
+        docsContainer.appendChild(row);
+      });
     }
+    // Open Task Folder
+    const folderUrl=((_docsCache[cacheKey]||[]).find(d=>d.folderUrl)||{}).folderUrl||CONFIG.sharedDriveUrl||'';
+    const folderRow=_el('div','display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;color:var(--muted)');
+    folderRow.onmouseover=()=>folderRow.style.background='rgba(201,168,76,0.08)';
+    folderRow.onmouseout=()=>folderRow.style.background='transparent';
+    folderRow.onclick=()=>{if(folderUrl)window.open(folderUrl,'_blank');};
+    folderRow.appendChild(_el('span','font-size:12px;width:18px;text-align:center;flex-shrink:0','📁'));
+    folderRow.appendChild(_el('span',"font-family:'DM Mono',monospace;font-size:10px",'Open Task Folder'));
+    docsContainer.appendChild(folderRow);
+    // Inline upload drop zone
+    const upInput=document.createElement('input');upInput.type='file';upInput.multiple=true;upInput.style.display='none';
+    docsContainer.appendChild(upInput);
+    const upDz=_el('div','margin:4px 14px 8px;border:2px dashed var(--border);border-radius:6px;padding:10px;text-align:center;cursor:pointer;font-size:10px;color:var(--muted);transition:border-color 0.15s,color 0.15s','📎 Drop file here or tap to browse');
+    upDz.onclick=()=>upInput.click();
+    upDz.ondragover=e=>{e.preventDefault();e.stopPropagation();upDz.style.borderColor='var(--gold)';upDz.style.color='var(--gold)';};
+    upDz.ondragleave=()=>{upDz.style.borderColor='var(--border)';upDz.style.color='var(--muted)';};
+    upDz.ondrop=e=>{e.preventDefault();e.stopPropagation();upDz.style.borderColor='var(--border)';upDz.style.color='var(--muted)';_doGanttUpload(e.dataTransfer.files);};
+    upInput.onchange=()=>_doGanttUpload(upInput.files);
+    function _doGanttUpload(files){
+      if(!files||!files.length) return;
+      upDz.textContent='⏳ Uploading '+files[0].name+'…';upDz.style.color='var(--gold)';
+      _handleStatusUpdateDrop(files,taskId,null,null,null);
+      setTimeout(()=>{
+        upDz.textContent='✅ '+files[0].name;upDz.style.color='var(--green)';
+        setTimeout(()=>{upDz.textContent='📎 Drop file here or tap to browse';upDz.style.color='var(--muted)';_renderGanttDocs();},1800);
+      },2200);
+    }
+    docsContainer.appendChild(upDz);
   }
-  const folderUrl=(cachedDocs.find(d=>d.folderUrl)||{}).folderUrl||(typeof CONFIG!=='undefined'&&CONFIG.sharedDriveUrl)||'#';
-  const fd2=_el('div','display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:10px;color:var(--text)');
-  fd2.onmouseover=()=>fd2.style.background='rgba(201,168,76,0.08)';
-  fd2.onmouseout=()=>fd2.style.background='transparent';
-  fd2.appendChild(_el('span','font-size:11px;flex-shrink:0','📁'));
-  fd2.appendChild(_el('span',null,'Open Task Folder'));
-  fd2.onclick=()=>{ window.open(folderUrl,'_blank'); _closeGanttContextMenu(); };
-  mnu.appendChild(fd2);
+  _renderGanttDocs();
+  if(!(_docsCache[cacheKey]||[]).length&&CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl+'?action=docs_read&taskId='+encodeURIComponent(taskId))
+      .then(r=>r.json()).then(data=>{
+        const fresh=data.docs||[];
+        if(fresh.length){_docsCache[cacheKey]=fresh;_renderGanttDocs();}
+      }).catch(()=>{});
+  }
 
   // Delete (admin only)
   if(canAdmin){_sep();_item('🗑️','Delete Task',()=>_ganttDeleteTask(taskId),'var(--red)');}
 
-  mnu.addEventListener('click',e=>e.stopPropagation());
-  mnu.addEventListener('mousedown',e=>e.stopPropagation());
   document.body.appendChild(mnu);
 
-  // Drag-to-move
+  // Drag-to-move via header strip
   let _mnuDragging=false,_mnuDx=0,_mnuDy=0,_mnuL=0,_mnuT=0;
-  hdr.addEventListener('mousedown',e=>{
+  mnuDragHdr.addEventListener('mousedown',e=>{
     _mnuDragging=true;
-    _mnuDx=e.clientX; _mnuDy=e.clientY;
-    _mnuL=parseInt(mnu.style.left)||0; _mnuT=parseInt(mnu.style.top)||0;
+    _mnuDx=e.clientX;_mnuDy=e.clientY;
+    _mnuL=parseInt(mnu.style.left)||0;_mnuT=parseInt(mnu.style.top)||0;
     e.stopPropagation();
   });
-  const _mnuMove=e=>{ if(!_mnuDragging) return; mnu.style.left=(_mnuL+e.clientX-_mnuDx)+'px'; mnu.style.top=(_mnuT+e.clientY-_mnuDy)+'px'; };
-  const _mnuUp=()=>{ _mnuDragging=false; };
+  const _mnuMove=e=>{if(!_mnuDragging)return;mnu.style.left=(_mnuL+e.clientX-_mnuDx)+'px';mnu.style.top=(_mnuT+e.clientY-_mnuDy)+'px';};
+  const _mnuUp=()=>{_mnuDragging=false;};
   document.addEventListener('mousemove',_mnuMove);
   document.addEventListener('mouseup',_mnuUp);
-  // Clean up listeners when menu closes
-  const _origClose=_closeGanttContextMenu;
-  mnu._cleanupDrag=()=>{ document.removeEventListener('mousemove',_mnuMove); document.removeEventListener('mouseup',_mnuUp); };
+  mnu._cleanupDrag=()=>{document.removeEventListener('mousemove',_mnuMove);document.removeEventListener('mouseup',_mnuUp);};
 
   setTimeout(()=>{
     document.addEventListener('click',_closeGanttContextMenu,false);
