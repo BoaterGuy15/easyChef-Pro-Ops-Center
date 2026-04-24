@@ -1971,10 +1971,15 @@ const _DM_NAME_MAP={taylor:'Taylor',steve:'Steve',adam:'Adam',mary:'Mary',jr:'JR
 const _DM_CHANNEL_MAP={taylor:'raci-taylor',steve:'leadership',adam:'raci-adam',mary:'general',jr:'raci-jr',hammad:'raci-hammad',searah:'brand-design',sadee:'customer-service'};
 function _isDMInactive(key){ return (_hrProfilesCache[key]||{}).status==='inactive'||key==='mary'; }
 function _getDMChannelId(personKey){
+  const entry=_DM_CHANNEL_MAP[personKey];
+  if(!entry) return '';
+  // Object from channel_maps_read: {channelId, channelName}
+  if(typeof entry==='object') return entry.channelId||'';
+  // Direct Slack ID — U (user), C (channel), D (DM)
+  if(/^[UCD][A-Z0-9]{6,}/.test(entry)) return entry;
+  // Legacy slug: look up by channel name in cache
   const chs=_slackChannelsCache||[];
-  const target=_DM_CHANNEL_MAP[personKey]||'';
-  if(!target) return '';
-  const ch=chs.find(c=>(c.name||'').toLowerCase()===target.toLowerCase())||chs.find(c=>(c.name||'').toLowerCase().includes(target.toLowerCase()));
+  const ch=chs.find(c=>(c.name||'').toLowerCase()===entry.toLowerCase())||chs.find(c=>(c.name||'').toLowerCase().includes(entry.toLowerCase()));
   return ch?ch.id:'';
 }
 function _saveDMMembersToStorage(){ try{ localStorage.setItem('dgl_dm_members',JSON.stringify(_DM_MEMBERS)); }catch(_){} }
@@ -2382,7 +2387,8 @@ function _buildDMChannelMappingSection(){
     const rowStyle=inactive?'opacity:0.45;':'';
     const dot=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${inactive?'#6b7280':(_memberColors[m.key]||'var(--muted)')};margin-right:6px;flex-shrink:0;vertical-align:middle"></span>`;
     const inactiveBadge=inactive?` <span style="font-family:'DM Mono',monospace;font-size:8px;color:#ef4444;margin-left:4px">🔴 INACTIVE</span>`:'';
-    const mapped=_DM_CHANNEL_MAP[m.key]||'';
+    const _rawMapped=_DM_CHANNEL_MAP[m.key];
+    const mapped=_rawMapped&&typeof _rawMapped==='object'?(_rawMapped.channelName||_rawMapped.channelId||''):(_rawMapped||'');
     if(canEdit){
       const opts='<option value="">— None —</option>'+chs.map(c=>`<option value="${c.name}"${c.name===mapped?' selected':''} >#${c.name}</option>`).join('');
       const editBtn=`<button onclick="_editDMRow('${m.key}')" style="${_bSt};margin-right:4px">✏️</button>`;
