@@ -539,8 +539,8 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 #sign-out-btn{background:transparent;border:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;padding:0 2px;letter-spacing:1px;text-transform:uppercase;display:none}
 #sign-out-btn:hover{color:var(--text)}
 /* ── NAV ICON BUTTONS ── */
-#briefing-btn,#mailbox-btn{background:transparent;border:none;cursor:pointer;padding:4px 6px;position:relative;font-size:16px;line-height:1;display:none}
-#briefing-btn:hover,#mailbox-btn:hover{opacity:0.75}
+#briefing-btn,#mailbox-btn,#settings-btn{background:transparent;border:none;cursor:pointer;padding:4px 6px;position:relative;font-size:16px;line-height:1;display:none}
+#briefing-btn:hover,#mailbox-btn:hover,#settings-btn:hover{opacity:0.75}
 #bell-dot{position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--red);display:none;border:1.5px solid var(--bg)}
 #mailbox-badge{position:absolute;top:0;right:0;min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--bg);line-height:1}
 /* ── SLIDING PANELS ── */
@@ -10464,6 +10464,8 @@ function showDashboard(user, showPopup=false){
   if(bell&&user!=='view') bell.style.display='inline-block';
   const mailboxBtn=document.getElementById('mailbox-btn');
   if(mailboxBtn&&user!=='view') mailboxBtn.style.display='inline-block';
+  const settingsBtn=document.getElementById('settings-btn');
+  if(settingsBtn&&user!=='view') settingsBtn.style.display='inline-block';
   if(user&&user!=='view'){ _loadUserNotifications(user); _loadUserDMs(user); _startNotifRefresh(); }
   updateBellDot();
   const _hrBtn=document.getElementById('team-btn-hr');
