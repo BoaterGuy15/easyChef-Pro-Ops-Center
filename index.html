@@ -9662,18 +9662,18 @@ async function _loadNotifLog(){
     const all=(Array.isArray(d)?d:(d.notifications||[])).sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
     if(!all.length){ el.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted)">No notifications logged.</div>'; return; }
     const icon=t=>({overdue:'🔴',unblocked:'🔓',completion:'✅','progress-report':'📋',dm:'💬',gap:'⚠️',test:'🔬'})[t]||'📬';
-    el.innerHTML='<table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:10px">'+
+    el.innerHTML='<div style="max-height:300px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:9px">'+
       '<thead><tr style="background:var(--surface);border-bottom:1px solid var(--border)">'+
-      ['Type','To','Task','Message','Sent'].map(h=>`<th style="padding:7px 12px;text-align:left;color:var(--gold);font-size:9px;letter-spacing:1px;font-weight:600">${h}</th>`).join('')+
+      ['Type','To','Task','Message','Sent'].map(h=>`<th style="position:sticky;top:0;z-index:1;background:var(--surface);padding:5px 8px;text-align:left;color:var(--gold);font-size:9px;letter-spacing:1px;font-weight:600">${h}</th>`).join('')+
       '</tr></thead><tbody>'+
       all.map((n,i)=>`<tr style="border-bottom:1px solid rgba(37,42,53,0.3);background:${i%2?'transparent':'rgba(37,42,53,0.15)'}">
-        <td style="padding:6px 12px;white-space:nowrap">${icon(n.type)} ${n.type||'—'}</td>
-        <td style="padding:6px 12px;color:var(--text)">${n.toUser||'<span style="color:var(--muted)">broadcast</span>'}</td>
-        <td style="padding:6px 12px;color:var(--gold)">${n.taskId||'—'}</td>
-        <td style="padding:6px 12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)" title="${(n.message||'').replace(/"/g,'&quot;')}">${(n.message||'').slice(0,60)}${(n.message||'').length>60?'…':''}</td>
-        <td style="padding:6px 12px;color:var(--muted);white-space:nowrap">${(n.sentAt||n.ts||'').slice(0,16)}</td>
+        <td style="padding:3px 8px;white-space:nowrap">${icon(n.type)} ${n.type||'—'}</td>
+        <td style="padding:3px 8px;color:var(--text)">${n.toUser||'<span style="color:var(--muted)">broadcast</span>'}</td>
+        <td style="padding:3px 8px;color:var(--gold)">${n.taskId||'—'}</td>
+        <td style="padding:3px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)" title="${(n.message||'').replace(/"/g,'&quot;')}">${(n.message||'').slice(0,60)}${(n.message||'').length>60?'…':''}</td>
+        <td style="padding:3px 8px;color:var(--muted);white-space:nowrap">${(n.sentAt||n.ts||'').slice(0,16)}</td>
       </tr>`).join('')+
-      '</tbody></table>';
+      '</tbody></table></div>';
   }catch(e){ el.innerHTML='<div style="padding:16px;color:var(--red)">Error: '+e.message+'</div>'; }
 }
 async function _loadUserDMs(userKey){
