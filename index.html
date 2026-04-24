@@ -2062,7 +2062,7 @@ function _loadDMFeed(sourceId,cid){
   const toKey=(document.getElementById('dm-to-'+cid)||{}).value||'';
   const channelId=toKey?_getDMChannelId(toKey):'';
   const p1=fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId='+encodeURIComponent(sourceId)+'&type=dm').then(r=>r.json()).catch(()=>[]);
-  const p2=channelId?fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=10').then(r=>r.json()).catch(()=>[]):Promise.resolve([]);
+  const p2=(channelId&&!channelId.startsWith('D'))?fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=10').then(r=>r.json()).catch(()=>[]):Promise.resolve([]);
   Promise.all([p1,p2]).then(([d1,d2])=>{
     if(!document.getElementById('dm-feed-'+cid)) return;
     const dms=(Array.isArray(d1)?d1:(d1.comments||[])).filter(d=>d.type==='dm'||!d.type).map(d=>({_ts:new Date(d.ts||d.timestamp||0).getTime(),_html:_dmEntryHtml(d.name||'DM',d.ts||d.timestamp||0,d.text||'')}));
@@ -3544,6 +3544,7 @@ function raciLinkSlack(taskId,sel){
 function _raciExpandLoadSlackFeed(taskId,channelId){
   const feedEl=document.getElementById('raci-expand-slack-feed-'+taskId);
   if(!feedEl||!CONFIG.sheetsUrl) return;
+  if(channelId.startsWith('D')){feedEl.style.display='block';feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">DM channel history unavailable (bot scope removed).</div>';return;}
   feedEl.style.display='block';
   feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Loading…</div>';
   const _oldest30=Math.floor((Date.now()-30*24*60*60*1000)/1000);
@@ -3575,8 +3576,8 @@ function raciAiFind(taskId){
   const btn=event.target;
   const aiEl=document.getElementById('raci-expand-ai-'+taskId);
   const linked=_getTaskSlackLink(taskId);
-  if(!linked.channelId){
-    if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">Link a Slack channel first to enable AI analysis.</div>';
+  if(!linked.channelId||linked.channelId.startsWith('D')){
+    if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">'+(linked.channelId&&linked.channelId.startsWith('D')?'DM channel history unavailable (bot scope removed).':'Link a Slack channel first to enable AI analysis.')+'</div>';
     return;
   }
   if(btn){ btn.textContent='Fetching messages…'; btn.disabled=true; }
@@ -5860,6 +5861,7 @@ function agendaLinkSlack(id,sel){
 function _agendaExpandLoadSlackFeed(id,channelId){
   const feedEl=document.getElementById('agenda-expand-slack-feed-'+id);
   if(!feedEl||!CONFIG.sheetsUrl) return;
+  if(channelId.startsWith('D')){feedEl.style.display='block';feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">DM channel history unavailable (bot scope removed).</div>';return;}
   feedEl.style.display='block';
   feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Loading…</div>';
   const _oldest30=Math.floor((Date.now()-30*24*60*60*1000)/1000);
@@ -5911,8 +5913,8 @@ function agendaAiFind(id){
   const btn=event.target;
   const aiEl=document.getElementById('agenda-expand-ai-'+id);
   const linked=_getTaskSlackLink('agenda_'+id);
-  if(!linked.channelId){
-    if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">Link a Slack channel first to enable AI analysis.</div>';
+  if(!linked.channelId||linked.channelId.startsWith('D')){
+    if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">'+(linked.channelId&&linked.channelId.startsWith('D')?'DM channel history unavailable (bot scope removed).':'Link a Slack channel first to enable AI analysis.')+'</div>';
     return;
   }
   if(btn){ btn.textContent='Fetching messages…'; btn.disabled=true; }
@@ -12738,6 +12740,7 @@ function slackRefresh(){
 function _slackLoadMessages(channelId){
   const feed=document.getElementById('slack-feed');
   if(!feed||!CONFIG.sheetsUrl) return;
+  if(channelId.startsWith('D')){feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);text-align:center;padding:20px 0">DM channel history unavailable (bot scope removed).</div>';return;}
   feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);text-align:center;padding:20px 0">Loading…</div>';
   fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=25')
     .then(r=>r.json())
@@ -13594,7 +13597,7 @@ async function runHRAnalysis(userKey,btn){
   if(CONFIG.sheetsUrl&&_slackChannelsCache&&_slackChannelsCache.length){
     const chIds=new Set();
     myTasks.forEach(t=>{ const lk=_slackLinksCache['dgl_task_slack_'+t.id]||_slackLinksCache[t.id]; if(lk) chIds.add(lk.channelId); });
-    const ids=[...chIds].slice(0,3);
+    const ids=[...chIds].filter(id=>!id.startsWith('D')).slice(0,3);
     if(ids.length){
       try{
         const allMsgsArr=await Promise.all(ids.map(cid=>fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(cid)+'&limit=50').then(r=>r.json()).catch(()=>({messages:[]}))));
