@@ -13127,8 +13127,14 @@ function _renderSettingsCats(container){
     if(!existing){
       chSel=chEl;
       chSel.style.cssText=iSt+';width:100%';
+      const _populateChs=chs=>{chSel.innerHTML='<option value="">— No Slack channel —</option>'+chs.map(c=>`<option value="${c.id}">#${c.name}</option>`).join('');};
       const liveChs=_slackChannelsCache||[];
-      chSel.innerHTML='<option value="">— No Slack channel —</option>'+liveChs.map(c=>`<option value="${c.name}">#${c.name}</option>`).join('');
+      if(liveChs.length){
+        _populateChs(liveChs);
+      } else {
+        chSel.innerHTML='<option value="">Loading channels…</option>';
+        if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_channels').then(r=>r.json()).then(data=>{const chs=data.channels||[];_slackChannelsCache=chs;_populateChs(chs);}).catch(()=>{chSel.innerHTML='<option value="">— Channels unavailable —</option>';});
+      }
     } else {
       const chDisplay=existing.channelName?('#'+existing.channelName.replace(/^#/,'')):'—';
       chEl.style.cssText='font-size:10px;color:var(--muted);padding:4px 0';
@@ -13154,7 +13160,7 @@ function _renderSettingsCats(container){
       } else {
         // New: assign channel from dropdown
         const liveChs2=_slackChannelsCache||[];
-        const ch=chSel?liveChs2.find(c=>c.name===chSel.value)||null:null;
+        const ch=chSel?liveChs2.find(c=>c.id===chSel.value)||null:null;
         const newCat={name:nm,label:lb,color:col,channelId:ch?ch.id:'',channelName:ch?ch.name:''};
         if(_settingsCache.categories.find(c=>c.name===nm)){_showToast('<div>⚠️ Category already exists.</div>',2000);return;}
         _settingsCache.categories.push(newCat);
