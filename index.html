@@ -1968,7 +1968,7 @@ function _submitNote(taskId,cid){
 }
 const _DM_MEMBERS=[{key:'taylor',name:'Taylor'},{key:'steve',name:'Steve'},{key:'adam',name:'Adam'},{key:'mary',name:'Mary'},{key:'jr',name:'JR'},{key:'hammad',name:'Hammad'},{key:'searah',name:'Searah'},{key:'sadee',name:'Sadee'}];
 const _DM_NAME_MAP={taylor:'Taylor',steve:'Steve',adam:'Adam',mary:'Mary',jr:'JR',hammad:'Hammad',searah:'Searah',sadee:'Sadee'};
-const _DM_CHANNEL_MAP={taylor:'raci-taylor',steve:'leadership',adam:'raci-adam',mary:'general',jr:'raci-jr',hammad:'raci-hammad',searah:'brand-design',sadee:'customer-service'};
+let _DM_CHANNEL_MAP={taylor:'raci-taylor',steve:'leadership',adam:'raci-adam',mary:'general',jr:'raci-jr',hammad:'raci-hammad',searah:'brand-design',sadee:'customer-service'};
 function _isDMInactive(key){ return (_hrProfilesCache[key]||{}).status==='inactive'||key==='mary'; }
 function _getDMChannelId(personKey){
   const entry=_DM_CHANNEL_MAP[personKey];
@@ -2148,14 +2148,15 @@ function loadChannelMapsFromSheets(){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=channel_maps_read')
     .then(r=>r.json())
-    .then(maps=>{
+    .then(d=>{
+      const maps=d.maps||{};
       if(maps.category&&typeof maps.category==='object'){
         Object.entries(maps.category).forEach(([key,val])=>{
           const slug=(val&&typeof val==='object'?val.channelName:val||'').replace('#','');
           if(slug){ _categoryChannelMapOverrides[key]=slug; CATEGORY_CHANNEL_MAP[key]=slug; }
         });
       }
-      if(maps.dm&&typeof maps.dm==='object') Object.entries(maps.dm).forEach(([k,v])=>{const id=v&&typeof v==='object'?(v.channelId||v.id||''):(v||'');if(id)_DM_CHANNEL_MAP[k]=id;});
+      if(maps.dm&&typeof maps.dm==='object') Object.entries(maps.dm).forEach(([k,v])=>{_DM_CHANNEL_MAP[k]=(v&&typeof v==='object'?v.channelId:v)||'';});
       _buildChannelMappingSection();
     }).catch(()=>{});
 }
@@ -11601,7 +11602,7 @@ rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mer
       setTimeout(()=>{
         const _fetchHR=fetch(CONFIG.sheetsUrl+'?action=hr_profiles_read').then(r=>r.json()).then(data=>{ if(Array.isArray(data.profiles)) data.profiles.forEach(p=>{ if(p.userKey) _hrProfilesCache[p.userKey]={...(_hrProfilesCache[p.userKey]||{}),...p}; }); }).catch(()=>{});
         const _fetchActionPlans=fetch(CONFIG.sheetsUrl+'?action=action_plans_read').then(r=>r.json()).then(data=>{ const plans=Array.isArray(data)?data:(data.plans||[]); plans.forEach(p=>{ if(!p.sourceId) return; if(p.status==='complete'){ if(!window._completedPlansCache[p.sourceId]||p.completedAt>window._completedPlansCache[p.sourceId].completedAt) window._completedPlansCache[p.sourceId]=p; delete _actionPlansCache[p.sourceId]; } else { if(!_actionPlansCache[p.sourceId]||p.createdAt>_actionPlansCache[p.sourceId].createdAt) _actionPlansCache[p.sourceId]=p; } }); }).catch(()=>{});
-        const _fetchChannelMaps=fetch(CONFIG.sheetsUrl+'?action=channel_maps_read').then(r=>r.json()).then(maps=>{ if(maps.category&&typeof maps.category==='object') Object.entries(maps.category).forEach(([k,v])=>{ const slug=(v&&typeof v==='object'?v.channelName:v||'').replace('#',''); if(slug){ _categoryChannelMapOverrides[k]=slug; CATEGORY_CHANNEL_MAP[k]=slug; } }); if(maps.dm&&typeof maps.dm==='object') Object.entries(maps.dm).forEach(([k,v])=>{const id=v&&typeof v==='object'?(v.channelId||v.id||''):(v||'');if(id)_DM_CHANNEL_MAP[k]=id;}); }).catch(()=>{});
+        const _fetchChannelMaps=fetch(CONFIG.sheetsUrl+'?action=channel_maps_read').then(r=>r.json()).then(d=>{ const maps=d.maps||{}; if(maps.category&&typeof maps.category==='object') Object.entries(maps.category).forEach(([k,v])=>{ const slug=(v&&typeof v==='object'?v.channelName:v||'').replace('#',''); if(slug){ _categoryChannelMapOverrides[k]=slug; CATEGORY_CHANNEL_MAP[k]=slug; } }); if(maps.dm&&typeof maps.dm==='object') Object.entries(maps.dm).forEach(([k,v])=>{_DM_CHANNEL_MAP[k]=(v&&typeof v==='object'?v.channelId:v)||'';}); }).catch(()=>{});
         const _fetchKillCriteria=fetch(CONFIG.sheetsUrl+'?action=kill_criteria_read').then(r=>r.json()).then(data=>{ if(data.criteria){ _killCriteriaCache=data.criteria; _killCriteria=data.criteria; try{ localStorage.setItem('dgl_kill_criteria',JSON.stringify(data.criteria)); }catch(e){} } }).catch(()=>{});
         const _fetchRoadmap=fetch(CONFIG.sheetsUrl+'?action=roadmap_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(!rows.length) return; DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({id:r.id||('ms-'+r.title),title:r.title||r.label||'',date:r.date||'',type:r.type||'Milestone',status:r.status||'Upcoming',description:r.description||r.note||'',color:r.color||'',taskIds:r.taskIds||'',achievedDate:r.achievedDate||''})); }).catch(()=>{});
         const _fetchSettings=loadSettings();
