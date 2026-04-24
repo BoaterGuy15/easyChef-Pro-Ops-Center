@@ -1392,6 +1392,8 @@ function raciCell(val,taskId,person){
   return `<td class="raci-empty raci-person-col"${click}>·</td>`;
 }
 function getCatClass(cat){
+  const _sc=_settingsCache&&_settingsCache.categories&&_settingsCache.categories.find(c=>c.name===cat);
+  if(_sc) return 'cat-'+_sc.name.replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
   if(cat.includes('Marketing Strategy')) return 'cat-Marketing';
   if(cat.includes('Brand')) return 'cat-Brand';
   if(cat.includes('Content')) return 'cat-Content';
@@ -1620,6 +1622,8 @@ function setTaskDate(id,field,val){
   masterRefresh();
 }
 function getCatColors(cat){
+  const _sc=_settingsCache&&_settingsCache.categories&&_settingsCache.categories.find(c=>c.name===cat);
+  if(_sc&&_sc.color){const h=_sc.color.replace('#','');const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return{bg:'rgba('+r+','+g+','+b+',0.12)',color:_sc.color};}
   if(cat.includes('Marketing Strategy')) return {bg:'rgba(79,142,247,0.12)',  color:'#82b0ff'};
   if(cat.includes('Brand'))    return {bg:'rgba(167,139,250,0.12)',color:'var(--purple)'};
   if(cat.includes('Content'))  return {bg:'rgba(52,211,153,0.12)', color:'var(--green)'};
@@ -1637,7 +1641,9 @@ const CAT_LABELS = {
   'Social Media Marketing':'Social Media','Digital Marketing':'Digital Mktg',
   'Product Marketing':'Product Mktg','Launch Ops':'Launch Ops',
   'Tech & Infrastructure':'Tech & Infra','Finance & Legal':'Finance & Legal',
-  'UX & Product':'UX & Product'
+  'UX & Product':'UX & Product',
+  'Brand':'Brand','Email Marketing':'Email Mktg',
+  'Data Science':'Data Science','Partnerships':'Partnerships'
 };
 const CAT_OPTS = Object.keys(CAT_LABELS);
 let _settingsCache={categories:[],project:{}};
@@ -1654,7 +1660,7 @@ function catSelect(t){
   const c=getCatColors(t.cat);
   const _co=_getCatOpts();
   const inList=_co.includes(t.cat);
-  return `<select class="status-select" style="background:${c.bg};color:${c.color};max-width:110px"
+  return `<select class="status-select dgl-cat-select" style="background:${c.bg};color:${c.color};max-width:110px"
     onchange="setTaskCat('${t.id}',this.value,this)">${
     (!inList?`<option value="${t.cat}" selected>${t.cat}</option>`:'')+
     _co.map(o=>`<option value="${o}"${o===t.cat?' selected':''}>${_getCatLabel(o)}</option>`).join('')
@@ -11046,7 +11052,7 @@ function _buildPersonalBriefing(userKey){
   // S6 — PROJECT STATUS (no onclick, safe innerHTML)
   const s6=mkSec('FULL PROJECT STATUS');
   if(!cats.length)s6.appendChild(mkEmpty('No tasks assigned.'));
-  else{const bd=mke('div');bd.innerHTML=cats.map(([cat,d])=>{const pct=d.total?Math.round(d.complete/d.total*100):0;return`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${cat}</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${d.complete}/${d.total} complete (${pct}%)</span></div><div style="height:3px;background:var(--border);border-radius:2px"><div style="height:3px;width:${pct}%;background:${pct===100?'var(--green)':'var(--gold)'};border-radius:2px;transition:width 0.4s"></div></div></div>`;}).join('');s6.appendChild(bd);}
+  else{const bd=mke('div');bd.innerHTML=cats.map(([cat,d])=>{const pct=d.total?Math.round(d.complete/d.total*100):0;return`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${_getCatLabel(cat)}</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${d.complete}/${d.total} complete (${pct}%)</span></div><div style="height:3px;background:var(--border);border-radius:2px"><div style="height:3px;width:${pct}%;background:${pct===100?'var(--green)':'var(--gold)'};border-radius:2px;transition:width 0.4s"></div></div></div>`;}).join('');s6.appendChild(bd);}
   frag.appendChild(s6);
   // AI result placeholder
   const aiDiv=mke('div');aiDiv.id='briefing-ai-result';aiDiv.style.marginBottom='16px';frag.appendChild(aiDiv);
@@ -12928,21 +12934,27 @@ function _rebuildCategoryOptions(){
   const opts=_getCatOpts();
   document.querySelectorAll('#tm-cat,#em-cat,.dgl-cat-select').forEach(sel=>{
     const cur=sel.value;
-    sel.innerHTML=opts.map(o=>`<option value="${o}"${o===cur?' selected':''}>${_getCatLabel(o)}</option>`).join('');
+    const inList=opts.includes(cur);
+    sel.innerHTML=(cur&&!inList?`<option value="${cur}" selected>${cur}</option>`:'')+
+      opts.map(o=>`<option value="${o}"${o===cur?' selected':''}>${_getCatLabel(o)}</option>`).join('');
   });
 }
 function loadSettings(){
   if(!CONFIG.sheetsUrl) return Promise.resolve();
   const _SEED_CATS=[
     {name:'Marketing Strategy',label:'Mktg Strategy',color:'#4f8ef7'},
+    {name:'Brand',label:'Brand',color:'#a78bfa'},
     {name:'Content - Website',label:'Content/Web',color:'#34d399'},
     {name:'Social Media Marketing',label:'Social Media',color:'#c9a84c'},
     {name:'Digital Marketing',label:'Digital Mktg',color:'#fbbf24'},
+    {name:'Email Marketing',label:'Email Mktg',color:'#2dd4bf'},
     {name:'Product Marketing',label:'Product Mktg',color:'#f87171'},
-    {name:'Launch Ops',label:'Launch Ops',color:'#2dd4bf'},
+    {name:'Data Science',label:'Data Science',color:'#6b7280'},
+    {name:'Partnerships',label:'Partnerships',color:'#c084fc'},
+    {name:'Launch Ops',label:'Launch Ops',color:'#22d3ee'},
     {name:'Tech & Infrastructure',label:'Tech & Infra',color:'#60a5fa'},
-    {name:'Finance & Legal',label:'Finance & Legal',color:'#6b7280'},
-    {name:'UX & Product',label:'UX & Product',color:'#a78bfa'}
+    {name:'Finance & Legal',label:'Finance & Legal',color:'#94a3b8'},
+    {name:'UX & Product',label:'UX & Product',color:'#f472b6'}
   ];
   return fetch(CONFIG.sheetsUrl+'?action=settings_read')
     .then(r=>r.json())
@@ -13109,9 +13121,19 @@ function _renderSettingsCats(container){
     colorInp.type='color';colorInp.style.cssText='width:36px;height:24px;border:none;background:none;cursor:pointer;padding:0';
     colorInp.value=existing&&existing.color&&existing.color.startsWith('#')?existing.color:'#4f8ef7';
     colorRow.appendChild(colorLbl);colorRow.appendChild(colorInp);
-    const chSel=document.createElement('select');
-    chSel.style.cssText=iSt+';width:100%';
-    chSel.innerHTML='<option value="">— No Slack channel —</option>'+chs.map(c=>`<option value="${c.name}"${existing&&existing.channelName===c.name?' selected':''}>#${c.name}</option>`).join('');
+    // Channel: dropdown (new only) or read-only text (edit)
+    let chSel=null;
+    const chEl=document.createElement(existing?'div':'select');
+    if(!existing){
+      chSel=chEl;
+      chSel.style.cssText=iSt+';width:100%';
+      const liveChs=_slackChannelsCache||[];
+      chSel.innerHTML='<option value="">— No Slack channel —</option>'+liveChs.map(c=>`<option value="${c.name}">#${c.name}</option>`).join('');
+    } else {
+      const chDisplay=existing.channelName?('#'+existing.channelName.replace(/^#/,'')):'—';
+      chEl.style.cssText='font-size:10px;color:var(--muted);padding:4px 0';
+      chEl.textContent='🔒 Channel: '+chDisplay+' (change in Comms tab)';
+    }
     const btnRow=document.createElement('div');
     btnRow.style.cssText='display:flex;gap:8px';
     const saveBtn=document.createElement('button');
@@ -13122,22 +13144,28 @@ function _renderSettingsCats(container){
       if(!nm){_showToast('<div>⚠️ Category name required.</div>',2000);return;}
       const lb=(labelInp.value||'').trim()||nm;
       const col=colorInp.value;
-      const ch=chs.find(c=>c.name===chSel.value)||null;
-      const newCat={name:nm,label:lb,color:col,channelId:ch?ch.id:'',channelName:ch?ch.name:''};
       if(existing){
+        // Edit: preserve channel, only update name/label/color
+        const newCat={name:nm,label:lb,color:col,channelId:existing.channelId||'',channelName:existing.channelName||''};
         const idx=_settingsCache.categories.findIndex(c=>c.name===existing.name);
         if(idx>=0) _settingsCache.categories[idx]=newCat;
+        const meta=JSON.stringify({color:col,channelId:newCat.channelId,channelName:newCat.channelName});
+        if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).then(r=>r.json()).then(d=>{if(d.ok)console.log('[DGL] Category updated:',nm);else console.warn('[DGL] settings_write failed:',d.error);}).catch(e=>console.warn('[DGL] settings_write error:',e));
       } else {
+        // New: assign channel from dropdown
+        const liveChs2=_slackChannelsCache||[];
+        const ch=chSel?liveChs2.find(c=>c.name===chSel.value)||null:null;
+        const newCat={name:nm,label:lb,color:col,channelId:ch?ch.id:'',channelName:ch?ch.name:''};
         if(_settingsCache.categories.find(c=>c.name===nm)){_showToast('<div>⚠️ Category already exists.</div>',2000);return;}
         _settingsCache.categories.push(newCat);
+        const meta=JSON.stringify({color:col,channelId:newCat.channelId,channelName:newCat.channelName});
+        if(CONFIG.sheetsUrl){
+          fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).then(r=>r.json()).then(d=>{if(d.ok)console.log('[DGL] Category saved:',nm);else console.warn('[DGL] settings_write failed:',d.error);}).catch(e=>console.warn('[DGL] settings_write error:',e));
+          if(ch) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'category',key:nm,channelId:ch.id,channelName:'#'+ch.name,changedBy:window._DGL_USER||'system'})}).catch(()=>{});
+        }
+        _categoryChannelMapOverrides[nm]=ch?ch.name:'';
+        if(ch) CATEGORY_CHANNEL_MAP[nm]=ch.name;
       }
-      const meta=JSON.stringify({color:col,channelId:newCat.channelId,channelName:newCat.channelName});
-      if(CONFIG.sheetsUrl){
-        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).then(r=>r.json()).then(d=>{if(d.ok)console.log('[DGL] Category saved:',nm);else console.warn('[DGL] settings_write failed:',d.error);}).catch(e=>console.warn('[DGL] settings_write error:',e));
-        if(ch) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'category',key:nm,channelId:ch.id,channelName:'#'+ch.name,changedBy:window._DGL_USER||'system'})}).catch(()=>{});
-      }
-      _categoryChannelMapOverrides[nm]=ch?ch.name:'';
-      if(ch) CATEGORY_CHANNEL_MAP[nm]=ch.name;
       _rebuildCategoryOptions();
       _showToast('<div>✅ Category saved.</div>',1800);
       onDone();
@@ -13147,7 +13175,7 @@ function _renderSettingsCats(container){
     cancelBtn2.style.cssText="padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer";
     cancelBtn2.onclick=onDone;
     btnRow.appendChild(saveBtn);btnRow.appendChild(cancelBtn2);
-    wrap.appendChild(nameInp);wrap.appendChild(labelInp);wrap.appendChild(colorRow);wrap.appendChild(chSel);wrap.appendChild(btnRow);
+    wrap.appendChild(nameInp);wrap.appendChild(labelInp);wrap.appendChild(colorRow);wrap.appendChild(chEl);wrap.appendChild(btnRow);
     return wrap;
   }
   _render();
