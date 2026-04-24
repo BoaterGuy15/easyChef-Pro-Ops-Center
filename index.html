@@ -703,22 +703,15 @@ const _USER_RACI_MAP = {
 let _categoryChannelMapOverrides = {};
 const CATEGORY_CHANNEL_MAP = {
   'Marketing Strategy':'marketing-strategy',
-  'Mktg Strategy':'marketing-strategy',
   'Brand':'brand-design',
   'Content - Website':'content-website',
-  'Content/Web':'content-website',
   'Digital Marketing':'digital-marketing',
-  'Digital Mktg':'digital-marketing',
   'Social Media Marketing':'social-media',
-  'Social Media':'social-media',
   'Email Marketing':'email-marketing',
   'Product Marketing':'product-marketing',
-  'Product Mktg':'product-marketing',
   'Data Science':'data-analytics',
   'Partnerships':'partnerships',
-  'Launch Ops':'launch-ops',
-  'Manual':'launch-ops',
-  'Action Item':'launch-ops'
+  'Launch Ops':'launch-ops'
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -2305,13 +2298,14 @@ function _buildChannelMappingSection(){
   const _selSt="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;outline:none";
   const _chOpts=cur=>'<option value="">— none —</option>'+chs.map(c=>`<option value="${c.name}"${c.name===cur?' selected':''}>#${c.name}</option>`).join('');
   const noChannels=!chs.length?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Channels load when the Slack section is open. Dropdowns will populate automatically.</div>`:'';
-  const rows=Object.entries(map).map(([cat,slug])=>`
+  const _cats=(_settingsCache&&_settingsCache.categories&&_settingsCache.categories.length)?_settingsCache.categories.map(c=>c.name):Object.keys(map);
+  const rows=_cats.map(cat=>{const slug=map[cat]||'';return `
     <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);min-width:200px;flex-shrink:0">${cat.replace(/</g,'&lt;')}</div>
       ${canEdit
         ?`<select data-cat="${cat.replace(/"/g,'&quot;')}" onchange="_saveCategoryChannel(this.dataset.cat,this.value)" style="${_selSt}">${_chOpts(slug)}</select>`
         :`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${slug?'#'+slug:'—'}</span>`}
-    </div>`).join('');
+    </div>`;}).join('');
   const addBtn=canEdit?`<div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <input id="ccm-new-cat" placeholder="New category name" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 8px;border-radius:4px;outline:none;width:200px">
     <select id="ccm-new-ch" style="${_selSt}">${_chOpts('')}</select>
