@@ -13041,11 +13041,11 @@ function openSettingsModal(){
   ov._cleanup=()=>document.removeEventListener('keydown',_stEsc);
 }
 function _renderSettingsCats(container){
-  const cats=_settingsCache.categories;
   const iSt="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
   const chs=(_slackChannelsCache||[]);
   let editingName=null;
   function _render(){
+    const cats=_settingsCache.categories;
     container.innerHTML='';
     // Add button
     const addBtn=document.createElement('button');
@@ -13133,7 +13133,7 @@ function _renderSettingsCats(container){
       }
       const meta=JSON.stringify({color:col,channelId:newCat.channelId,channelName:newCat.channelName});
       if(CONFIG.sheetsUrl){
-        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).catch(()=>{});
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).then(r=>r.json()).then(d=>{if(d.ok)console.log('[DGL] Category saved:',nm);else console.warn('[DGL] settings_write failed:',d.error);}).catch(e=>console.warn('[DGL] settings_write error:',e));
         if(ch) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'category',key:nm,channelId:ch.id,channelName:'#'+ch.name,changedBy:window._DGL_USER||'system'})}).catch(()=>{});
       }
       _categoryChannelMapOverrides[nm]=ch?ch.name:'';
