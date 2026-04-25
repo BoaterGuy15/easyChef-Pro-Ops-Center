@@ -920,7 +920,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
 <!-- ══ PAGE: RACI ══ -->
 <div id="page-raci" class="page">
-  <div class="section-label">RACI Workflow Tracker — 40 Tasks</div>
+  <div class="section-label" id="raci-task-count-label">RACI Workflow Tracker — 40 Tasks</div>
   <div id="raci-filter-sticky">
   <div class="filter-bar" id="raci-person-filter-bar">
     <span class="filter-label">Filter by person:</span>
@@ -3766,6 +3766,8 @@ function deleteTaskComment(taskId,idx){
 
 function buildRaciTable(){
   if(_raciExpandedId){ applyRaciFilters(); return; }
+  const _rcLabel=document.getElementById('raci-task-count-label');
+  if(_rcLabel) _rcLabel.textContent='RACI Workflow Tracker — '+(DASHBOARD_DATA.tasks||[]).length+' Tasks';
   const tbody = document.getElementById('raci-body');
   tbody.innerHTML = '';
   // Inject custom member columns into thead
