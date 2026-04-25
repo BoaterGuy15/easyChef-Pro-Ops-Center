@@ -13277,7 +13277,7 @@ function openSettingsModal(){
     tabBar.style.cssText='display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0';
     const tabContent=document.createElement('div');
     tabContent.style.cssText='flex:1;overflow:auto;padding:18px';
-    let activeTab='workstreams';
+    let activeTab='project';
     function _switchTab(t){
       activeTab=t;
       tabBar.querySelectorAll('button').forEach(b=>{b.style.borderBottom=b.dataset.tab===t?'2px solid var(--gold)':'2px solid transparent';b.style.color=b.dataset.tab===t?'var(--gold)':'var(--muted)';});
@@ -13286,7 +13286,7 @@ function openSettingsModal(){
       else if(t==='links'){tabContent.innerHTML='<div id="workflow-links-section"></div>';_renderWorkflowLinks();}
       else _renderSettingsProject(tabContent);
     }
-    [['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🏢 Project','project'],['🔗 Links','links']].forEach(([lbl,t])=>{
+    [['🏢 Project','project'],['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🔗 Links','links']].forEach(([lbl,t])=>{
       const btn=document.createElement('button');
       btn.dataset.tab=t;
       btn.textContent=lbl;
