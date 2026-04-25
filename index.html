@@ -15086,7 +15086,7 @@ function _renderGanttTaskActionsTab(container,taskId){
     const actAll=Array.isArray(actData.actions)?actData.actions:[];
     // Mirror workstream panel: match by workstreamId set OR direct taskId/linkedTaskId
     const _wsIds=new Set([workstreamId,t.cat].filter(Boolean));
-    const _matchA=a=>_wsIds.has(a.workstreamId)||_wsIds.has(a.workstream)||a.taskId===taskId||a.linkedTaskId===taskId;
+    const _matchA=a=>_wsIds.has(a.workstreamId)||_wsIds.has(a.workstream)||a.taskId===taskId||a.linkedTaskId===taskId||a.workstreamId===taskId;
     const wsaFiltered=wsaAll.filter(_matchA);
     const actFiltered=actAll.filter(_matchA);
     const seen=new Set();
