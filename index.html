@@ -4131,7 +4131,7 @@ function buildRoadmap(){
       const flagIco=_flagEmoji(t.flag);
       const flagPin=flagIco?`<span style="font-size:9px;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
       const _td=_docsCache['task_'+t.id]||[];const _tu=_td.some(x=>x.driveFileId&&x.driveFileId!=='');const _tl=_td.some(x=>!x.driveFileId||x.driveFileId==='');
-      const _taskClipHtml=(_tu||_tl)?'<span style="position:absolute;top:2px;left:4px;font-size:8px;line-height:1;pointer-events:none">'+(_tu?'📎':'')+(_tl?'🔗':'')+'</span>':'';
+      const _taskClipHtml=(_tu||_tl)?'<span style="position:absolute;top:2px;right:4px;font-size:8px;line-height:1;pointer-events:none">'+(_tu?'📎':'')+(_tl?'🔗':'')+'</span>':'';
       barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">${_taskClipHtml}<span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${_lblFs}">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
@@ -14569,7 +14569,7 @@ function buildLaunchPlan(){
       }
       const _wsAllDocs=_tids.flatMap(tid=>_docsCache['task_'+tid]||[]);
       const _wsHasUp=_wsAllDocs.some(x=>x.driveFileId&&x.driveFileId!=='');const _wsHasLk=_wsAllDocs.some(x=>!x.driveFileId||x.driveFileId==='');
-      const _clipHtml=(_wsHasUp||_wsHasLk)?'<span style="position:absolute;top:2px;left:4px;font-size:8px;line-height:1;pointer-events:none">'+(_wsHasUp?'📎':'')+(_wsHasLk?'🔗':'')+'</span>':'';
+      const _clipHtml=(_wsHasUp||_wsHasLk)?'<span style="position:absolute;top:2px;right:14px;font-size:8px;line-height:1;pointer-events:none">'+(_wsHasUp?'📎':'')+(_wsHasLk?'🔗':'')+'</span>':'';
       const _barStyle=`position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;background:${_barBg};${_barBorder}${_barTextColor}`;
       barsHtml+=`<div class="rm-cell" style="${_barStyle}" data-lp-id="${t.id}" data-sd="${sd}" data-ed="${ed}">${_dotHtml}${_clipHtml}<span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${_lblFs}">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
