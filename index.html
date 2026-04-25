@@ -4130,7 +4130,7 @@ function buildRoadmap(){
       barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
-    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
+    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showCatRowCtxMenu(event,${JSON.stringify(cat)})">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
   });
   canvas.innerHTML=canvasHtml;
 
@@ -4318,6 +4318,67 @@ function _viewTaskDetails(taskId){
       setTimeout(()=>{ const p=document.getElementById('raci-expand-row-'+taskId); if(p) p.scrollIntoView({behavior:'smooth',block:'start'}); },300);
     }
   },400);
+}
+function _closeCatRowCtxMenu(){
+  const m=document.getElementById('cat-row-ctx-menu');if(m)m.remove();
+  document.removeEventListener('click',_closeCatRowCtxMenu,false);
+  document.removeEventListener('keydown',_catRowCtxEsc,true);
+}
+function _catRowCtxEsc(e){if(e.key==='Escape')_closeCatRowCtxMenu();}
+function _showCatRowCtxMenu(e,cat){
+  e.preventDefault();e.stopPropagation();
+  _closeCatRowCtxMenu();
+  const cx=e.clientX,cy=e.clientY;
+  const mnu=document.createElement('div');
+  mnu.id='cat-row-ctx-menu';
+  mnu.style.cssText="position:fixed;z-index:99999;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:4px 0;font-family:'DM Mono',monospace;font-size:11px;min-width:190px";
+  mnu.style.left=Math.max(4,Math.min(cx+4,window.innerWidth-202))+'px';
+  mnu.style.top=Math.max(4,Math.min(cy+4,window.innerHeight-110))+'px';
+  mnu.addEventListener('click',ev=>ev.stopPropagation());
+  function _row(icon,lbl,fn,color){
+    const r=document.createElement('div');
+    r.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;color:'+(color||'var(--text)');
+    r.onmouseover=()=>r.style.background=color==='var(--red)'?'rgba(239,68,68,0.1)':'rgba(201,168,76,0.1)';
+    r.onmouseout=()=>r.style.background='transparent';
+    const ic=document.createElement('span');ic.style.cssText='font-size:12px;width:18px;text-align:center;flex-shrink:0';ic.textContent=icon;
+    const lb=document.createElement('span');lb.textContent=lbl;
+    r.appendChild(ic);r.appendChild(lb);r.onclick=()=>{_closeCatRowCtxMenu();fn();};mnu.appendChild(r);
+  }
+  function _sep(){const s=document.createElement('div');s.style.cssText='height:1px;background:var(--border);margin:3px 0';mnu.appendChild(s);}
+  _row('✏️','Edit Category',()=>_openSettingsCatEdit(cat));
+  _sep();
+  _row('➕','Add New Category',_openSettingsCatAdd);
+  _sep();
+  _row('🗑️','Delete Category',()=>_ganttCatDelete(cat),'var(--red)');
+  document.body.appendChild(mnu);
+  setTimeout(()=>{document.addEventListener('click',_closeCatRowCtxMenu,false);document.addEventListener('keydown',_catRowCtxEsc,true);},0);
+}
+function _openSettingsCatEdit(catName){
+  openSettingsModal();
+  setTimeout(()=>{
+    const ov=document.getElementById('settings-overlay');if(!ov)return;
+    ov.querySelectorAll('button[title="Edit"]').forEach(btn=>{
+      const nameSpan=btn.closest('[style*="border-bottom"]')?.querySelector('span');
+      if(nameSpan&&nameSpan.textContent===catName)btn.click();
+    });
+  },80);
+}
+function _openSettingsCatAdd(){
+  openSettingsModal();
+  setTimeout(()=>{
+    const ov=document.getElementById('settings-overlay');if(!ov)return;
+    const btn=Array.from(ov.querySelectorAll('button')).find(b=>b.textContent.includes('Add Category'));
+    if(btn)btn.click();
+  },80);
+}
+function _ganttCatDelete(catName){
+  const used=(DASHBOARD_DATA.tasks||[]).filter(t=>t.cat===catName).length;
+  if(used>0){_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px">⚠️ '+used+' task'+(used>1?'s':'')+' use this category. Move or delete them first.</div>',3000);return;}
+  if(!confirm('Delete category "'+catName+'"?'))return;
+  _settingsCache.categories=_settingsCache.categories.filter(c=>c.name!==catName);
+  if(CONFIG.sheetsUrl)fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:catName,value:'',meta:'__delete__'})}).catch(()=>{});
+  _rebuildCategoryOptions();buildRoadmap();
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px">✅ Category "'+catName+'" deleted.</div>',1800);
 }
 function _closeGanttContextMenu(){
   const m=document.getElementById('gantt-ctx-menu');
