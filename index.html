@@ -14229,21 +14229,157 @@ function _toggleCallout(card){
   if(detail){detail.style.maxHeight=opening?'300px':'0';detail.style.padding=opening?'4px 14px 12px':'0 14px';}
   if(chevron) chevron.style.transform=opening?'rotate(90deg)':'';
 }
-function _renderCalloutsPanel(containerId){
-  const el=document.getElementById(containerId);
-  if(!el||el.dataset.rendered) return;
-  el.dataset.rendered='1';
-  el.innerHTML='<div style="display:flex;flex-direction:column;gap:5px;padding-bottom:2px">'+
-    _LP_CALLOUTS.map(c=>{
-      const safe=c.detail.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function _initCalloutItems(){
+  if(!DASHBOARD_DATA.meta.calloutItems){
+    DASHBOARD_DATA.meta.calloutItems=_LP_CALLOUTS.map((c,i)=>({
+      id:'co-'+Date.now()+'-'+i,
+      title:c.title||'',
+      detail:c.detail||'',
+      type:'Note',
+      status:'Active',
+      color:'',
+      createdAt:new Date().toISOString(),
+      archivedAt:''
+    }));
+  }
+  return DASHBOARD_DATA.meta.calloutItems;
+}
+
+function _saveCalloutToSheets(item){
+  // TODO: wire to Sheets once callouts sheet is configured
+}
+
+function _buildCalloutsHtml(canEditControls){
+  const items=_initCalloutItems();
+  const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
+  const showControls=canEditControls&&isAdmin;
+  const active=items.filter(c=>c.status!=='Archived');
+  let html='';
+  if(canEditControls) html+=`<div style="margin-bottom:16px"><button onclick="_openCalloutModal()" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">➕ Add Callout</button></div>`;
+  if(!active.length){
+    html+=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">No callouts.</div>`;
+  } else {
+    html+='<div style="display:flex;flex-direction:column;gap:5px;padding-bottom:2px">'+active.map(c=>{
+      const safe=(c.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const editBtn=showControls?`<button onclick="event.stopPropagation();_openCalloutEditModal('${c.id}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✏️ Edit</button>`:'';
+      const archiveBtn=showControls?`<button onclick="event.stopPropagation();_archiveCallout('${c.id}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--amber)';this.style.color='var(--amber)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">📦 Archive</button>`:'';
+      const deleteBtn=showControls?`<button onclick="event.stopPropagation();_deleteCallout('${c.id}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑️</button>`:'';
       return `<div class="lp-callout-card" style="border:1px solid rgba(245,158,11,0.3);border-radius:6px;background:rgba(245,158,11,0.04);overflow:hidden">
         <div onclick="_toggleCallout(this.parentNode)" style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-family:'DM Mono',monospace;font-size:9px;color:#f59e0b;font-weight:700;letter-spacing:0.8px;user-select:none">
           <span class="co-chevron" style="font-size:8px;transition:transform 0.2s;flex-shrink:0">▶</span>
-          <span>${c.title}</span>
+          <span style="flex:1">${c.title}</span>
+          ${showControls?`<span style="display:flex;gap:4px;flex-shrink:0">${editBtn}${archiveBtn}${deleteBtn}</span>`:''}
         </div>
         <div class="co-detail" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease-out,padding 0.25s ease-out;padding:0 14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.65">${safe}</div>
       </div>`;
     }).join('')+'</div>';
+  }
+  return html;
+}
+
+function buildCallouts(){
+  const ganttEl=document.getElementById('gantt-co-inner');
+  const lpEl=document.getElementById('lp-co-inner');
+  if(ganttEl) ganttEl.innerHTML=_buildCalloutsHtml(true);
+  if(lpEl) lpEl.innerHTML=_buildCalloutsHtml(true);
+}
+
+function _renderCalloutsPanel(containerId){
+  const el=document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML=_buildCalloutsHtml(true);
+}
+
+function _openCalloutModal(){
+  let modal=document.getElementById('co-add-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='co-add-modal';
+    modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)';
+    const IS="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:8px";
+    modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px 28px;width:420px;max-width:95vw">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">ADD CALLOUT</div>
+      <input id="co-modal-title" type="text" placeholder="Title" style="${IS}">
+      <textarea id="co-modal-detail" placeholder="Detail / body text" rows="4" style="${IS}resize:vertical"></textarea>
+      <select id="co-modal-type" style="${IS}"><option value="Note">Note</option><option value="Risk">Risk</option><option value="Dependency">Dependency</option><option value="Warning">Warning</option></select>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="_saveCalloutModal()" style="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;padding:6px 16px;cursor:pointer">Save</button>
+        <button onclick="document.getElementById('co-add-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 16px;cursor:pointer">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  ['co-modal-title','co-modal-detail'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  modal.style.display='flex';
+}
+
+function _saveCalloutModal(){
+  const title=(document.getElementById('co-modal-title').value||'').trim();
+  if(!title) return;
+  const item={id:'co-'+Date.now(),title,detail:(document.getElementById('co-modal-detail').value||'').trim(),type:document.getElementById('co-modal-type').value||'Note',status:'Active',color:'',createdAt:new Date().toISOString(),archivedAt:''};
+  _initCalloutItems().push(item);
+  _saveCalloutToSheets(item);
+  document.getElementById('co-add-modal').style.display='none';
+  buildCallouts();
+}
+
+function _openCalloutEditModal(id){
+  const item=_initCalloutItems().find(c=>c.id===id);
+  if(!item) return;
+  let modal=document.getElementById('co-edit-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='co-edit-modal';
+    modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)';
+    const IS="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:8px";
+    modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px 28px;width:420px;max-width:95vw">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">EDIT CALLOUT</div>
+      <input id="co-edit-title" type="text" placeholder="Title" style="${IS}">
+      <textarea id="co-edit-detail" placeholder="Detail / body text" rows="4" style="${IS}resize:vertical"></textarea>
+      <select id="co-edit-type" style="${IS}"><option value="Note">Note</option><option value="Risk">Risk</option><option value="Dependency">Dependency</option><option value="Warning">Warning</option></select>
+      <input id="co-edit-id" type="hidden">
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="_saveCalloutEditModal()" style="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;padding:6px 16px;cursor:pointer">Save</button>
+        <button onclick="document.getElementById('co-edit-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 16px;cursor:pointer">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  document.getElementById('co-edit-title').value=item.title||'';
+  document.getElementById('co-edit-detail').value=item.detail||'';
+  document.getElementById('co-edit-type').value=item.type||'Note';
+  document.getElementById('co-edit-id').value=item.id||'';
+  modal.style.display='flex';
+}
+
+function _saveCalloutEditModal(){
+  const id=document.getElementById('co-edit-id').value||'';
+  const item=_initCalloutItems().find(c=>c.id===id);
+  if(!item) return;
+  const title=(document.getElementById('co-edit-title').value||'').trim();
+  if(!title) return;
+  item.title=title;
+  item.detail=(document.getElementById('co-edit-detail').value||'').trim();
+  item.type=document.getElementById('co-edit-type').value||'Note';
+  _saveCalloutToSheets(item);
+  document.getElementById('co-edit-modal').style.display='none';
+  buildCallouts();
+}
+
+function _archiveCallout(id){
+  const item=_initCalloutItems().find(c=>c.id===id);
+  if(!item) return;
+  item.status='Archived';
+  item.archivedAt=new Date().toISOString();
+  _saveCalloutToSheets(item);
+  buildCallouts();
+}
+
+function _deleteCallout(id){
+  if(!confirm('Delete this callout?')) return;
+  DASHBOARD_DATA.meta.calloutItems=_initCalloutItems().filter(c=>c.id!==id);
+  buildCallouts();
 }
 let _ganttPanelHandler=null;
 function _toggleGanttPanel(type){
