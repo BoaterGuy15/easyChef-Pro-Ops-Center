@@ -1375,9 +1375,9 @@ function showPage(id){
   sessionStorage.setItem('dgl_active_tab',id);
   try{localStorage.setItem('dgl_active_tab',id);}catch(_){}
   if(id==='raci') setTimeout(_raciStickyThTop,50);
-  if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom('90d'); },80); }
+  if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom(localStorage.getItem('dgl_gantt_zoom')||'90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
-  if(id==='lp'){ loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom('90d'); },80); }
+  if(id==='lp'){ loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
   if(id==='budget') loadBudgetFromSheets();
   if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } }
   if(id==='command'){
@@ -4011,6 +4011,7 @@ function _ganttSetZoom(z){
   document.querySelectorAll('[id^="zoom-"]').forEach(b=>b.classList.remove('active-zoom'));
   const btn=document.getElementById('zoom-'+z);
   if(btn) btn.classList.add('active-zoom');
+  try{localStorage.setItem('dgl_gantt_zoom',z);}catch(_){}
   buildRoadmap();
   requestAnimationFrame(_ganttScrollToday);
 }
@@ -14200,6 +14201,7 @@ function _lpSetZoom(z){
   document.querySelectorAll('[id^="lp-zoom-"]').forEach(b=>b.classList.remove('active-zoom'));
   const btn=document.getElementById('lp-zoom-'+z);
   if(btn) btn.classList.add('active-zoom');
+  try{localStorage.setItem('dgl_lp_zoom',z);}catch(_){}
   buildLaunchPlan();
   requestAnimationFrame(_lpScrollToday);
 }
