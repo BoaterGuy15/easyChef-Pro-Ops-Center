@@ -11724,6 +11724,7 @@ function saveTaskModal(taskId){
   closeModal();
   _autoLinkTaskChannels();
   masterRefresh();
+  _saveTasksNow();
   if(isNew&&window._lpAutoLinkAfterSave){
     const _barId=window._lpAutoLinkAfterSave;window._lpAutoLinkAfterSave=null;
     const _bar=(_lpCache&&_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===_barId);
@@ -11743,13 +11744,14 @@ function deleteTask(taskId){
 }
 
 // ── localStorage persistence ────────────────────────────────
-const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','sd','ed','notes','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','flagNotes','sd','ed','notes','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
 const PROTECTED_DATE_FIELDS=new Set(['sd','ed','lastStatusChange']);
 function _mergeTask(t,s){
   _PERSIST_FIELDS.forEach(f=>{
     const incoming=s[f];
-    if(incoming==null||incoming==='') return;
-    t[f]=(f==='sd'||f==='ed')?(_toYMD(incoming)||incoming):incoming;
+    if(incoming==null) return;                                      // skip null/undefined only
+    if(incoming===''&&(f==='sd'||f==='ed')) return;                 // dates must be non-empty
+    t[f]=(f==='sd'||f==='ed')?(_toYMD(incoming)||t[f]):incoming;   // empty string clears text fields
   });
 }
 
@@ -11853,7 +11855,8 @@ function _mergeFreshSheets(sheetsRows){
     const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(!t) return;
     const snap=(window._lastSheetsSnapshot||{})[s.id]||{};
     _PERSIST_FIELDS.forEach(f=>{
-      const sv=s[f]; if(sv==null||sv==='') return;
+      const sv=s[f]; if(sv==null) return;
+      if(sv===''&&(f==='sd'||f==='ed')) return;
       // Sheets changed this field AND we haven't changed it locally → accept the Sheets value
       if(sv!==snap[f]&&t[f]===snap[f]) t[f]=(f==='sd'||f==='ed')?(_toYMD(sv)||sv):sv;
     });
