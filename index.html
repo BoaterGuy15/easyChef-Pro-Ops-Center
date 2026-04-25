@@ -13745,7 +13745,7 @@ async function hrResetPassword(userKey,name){
 
 // ── LAUNCH PLAN (LP) TAB ────────────────────────────────────
 let _lpCache=[];
-let _lpDayPx=28;
+Object.defineProperty(window,'_lpDayPx',{get:()=>_ganttDayPx,set:()=>{}});
 
 const _LP_WORKSTREAMS=['Positioning & Brand','Website','Customer Discovery','App Onboarding (EUREKA)','Email Marketing','Beta (50 Real Families)','Social Media','Influencers & Alliances','Launch Ops & Infra'];
 
@@ -13822,11 +13822,7 @@ function _lpSaveBar(item){
 }
 
 function _lpSetZoom(z){
-  const daysMap={'2w':14,'90d':90,'6mo':182,'1yr':365};
-  const days=daysMap[z]||90;
-  const scroll=document.getElementById('lp-gantt-scroll');
-  const visW=scroll?scroll.clientWidth-_GANTT_LABEL_W:800;
-  _lpDayPx=Math.max(3,Math.round(visW/days));
+  _ganttSetZoom(z);
   document.querySelectorAll('[id^="lp-zoom-"]').forEach(b=>b.classList.remove('active-zoom'));
   const btn=document.getElementById('lp-zoom-'+z);
   if(btn) btn.classList.add('active-zoom');
