@@ -15158,16 +15158,19 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
     const barItem=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===lpId)||{};
     const wsName=barItem.workstream||workstreamId||'';
     const msg=`⚡ New Action assigned to ${assignedName} on ${wsName}: ${title}${bodyEl.value?' — '+bodyEl.value:''}`;
-    const payload={action:'workstream_action_write',item:{id,workstreamId,type:typeEl.value,title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}};
+    const now=new Date().toISOString();
+    const actionItem={id,workstreamId,type:typeEl.value,title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||'',createdAt:now};
+    const wsaPayload={action:'workstream_action_write',item:actionItem};
+    const actPayload={action:'action_write',id,taskId:'',agendaId:'',workstreamId,type:typeEl.value.toLowerCase(),title,body:bodyEl.value,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
+    console.log('[DGL] AddAction wsaPayload:', JSON.stringify(wsaPayload));
+    console.log('[DGL] AddAction actPayload:', JSON.stringify(actPayload));
     function _notifyAfterSave(){
       _autoLink('action',id,'workstream',workstreamId);
-      // DM to assigned person
       if(assignedKey){
         const dmCh=_getDMChannelId(assignedKey);
         _logNotification(id,assignedKey,dmCh,msg,'action');
         if(dmCh&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(dmCh)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(CONFIG.currentUser||'system')).catch(()=>{});
       }
-      // Post to workstream's linked Slack channel
       if(wsName&&CONFIG.sheetsUrl){
         const chs=_slackChannelsCache||[];
         const wsSlug=wsName.toLowerCase().replace(/\s+/g,'-');
@@ -15176,8 +15179,14 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
       }
     }
     if(CONFIG.sheetsUrl){
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
-        .then(()=>{_notifyAfterSave();_close();if(onSaved)onSaved();}).catch(()=>{_close();if(onSaved)onSaved();});
+      Promise.all([
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).then(r=>r.json()).then(d=>{console.log('[DGL] wsaPayload response:',d);return d;}),
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).then(r=>r.json()).then(d=>{console.log('[DGL] actPayload response:',d);return d;})
+      ]).then(([wsaR,actR])=>{
+        if(wsaR&&wsaR.ok&&actR&&actR.ok){_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action saved</div>',1800);}
+        else{_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:tomato">⚠️ Save partial — wsa:'+(wsaR&&wsaR.ok)+' act:'+(actR&&actR.ok)+'</div>',3000);}
+        _notifyAfterSave();_close();if(onSaved)onSaved();
+      }).catch(e=>{console.error('[DGL] AddAction save error:',e);_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:tomato">❌ Save failed: '+e.message+'</div>',3500);_close();if(onSaved)onSaved();});
     } else {_close();if(onSaved)onSaved();}
   };
   btns.appendChild(cancelBtn);btns.appendChild(saveBtn);form.appendChild(btns);
