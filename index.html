@@ -1014,6 +1014,8 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <button class="gantt-ctrl-btn active-zoom" id="lp-zoom-90d" onclick="_lpSetZoom('90d')">90D</button>
       <button class="gantt-ctrl-btn" id="lp-zoom-6mo" onclick="_lpSetZoom('6mo')">6MO</button>
       <button class="gantt-ctrl-btn" id="lp-zoom-1yr" onclick="_lpSetZoom('1yr')">1YR</button>
+      <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
+      <button class="gantt-ctrl-btn" onclick="_lpUndo()" title="Undo last move/resize (Ctrl+Z)">↩</button>
     </div>
     <div style="display:flex">
       <div style="width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:flex-end;padding:4px 8px">
@@ -13745,6 +13747,7 @@ async function hrResetPassword(userKey,name){
 
 // ── LAUNCH PLAN (LP) TAB ────────────────────────────────────
 let _lpCache=[];
+const _lpUndoStack=[];
 Object.defineProperty(window,'_lpDayPx',{get:()=>_ganttDayPx,set:()=>{}});
 
 const _LP_WORKSTREAMS=['Positioning & Brand','Website','Customer Discovery','App Onboarding (EUREKA)','Email Marketing','Beta (50 Real Families)','Social Media','Influencers & Alliances','Launch Ops & Infra'];
@@ -13956,6 +13959,7 @@ function buildLaunchPlan(){
     });
     document.addEventListener('mousemove',e=>{ if(!_pan) return; scroll.scrollLeft=_panL-(e.clientX-_panX); scroll.scrollTop=_panT-(e.clientY-_panY); },{passive:true});
     document.addEventListener('mouseup',()=>{ if(!_pan) return; _pan=false; scroll.style.cursor='grab'; });
+    document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='z'&&document.getElementById('page-lp')?.classList.contains('active')){ e.preventDefault(); _lpUndo(); } });
   }
 
   _initLPDrag();
@@ -14030,6 +14034,8 @@ function _initLPDrag(){
       if(mode==='move'){ newSd=_addDays(origSd,finalDelta); newEd=_addDays(origEd,finalDelta); }
       else if(mode==='left'){ newSd=_addDays(origSd,finalDelta); if(newSd>=origEd) newSd=_addDays(origEd,-1); }
       else { newEd=_addDays(origEd,finalDelta); if(newEd<=origSd) newEd=_addDays(origSd,1); }
+      _lpUndoStack.push({id:lpId,sd:origSd,ed:origEd});
+      if(_lpUndoStack.length>20) _lpUndoStack.shift();
       bar.style.left=(_ganttDayOff(newSd)*_lpDayPx)+'px'; bar.style.width=(_barW(newSd,newEd))+'px';
       bar.dataset.sd=newSd; bar.dataset.ed=newEd;
       _lpSaveBar({...item,sd:newSd,ed:newEd});
@@ -14040,6 +14046,17 @@ function _initLPDrag(){
     bar.addEventListener('pointerup',onUp);
     bar.addEventListener('pointercancel',onUp);
   },true);
+}
+
+function _lpUndo(){
+  if(!_lpUndoStack.length){ _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted)">Nothing to undo</div>',1800); return; }
+  const {id,sd,ed}=_lpUndoStack.pop();
+  const item=_lpCache.find(x=>x.id===id)||_LP_DEFAULTS.find(x=>x.id===id);
+  if(!item) return;
+  item.sd=sd; item.ed=ed;
+  _lpSaveBar({...item,sd,ed});
+  buildLaunchPlan();
+  _showToast(`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--gold)">↩ Undone — ${item.name} restored</div>`,2200);
 }
 
 function _renderLPMilestoneLines(){
