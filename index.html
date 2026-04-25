@@ -14126,7 +14126,7 @@ function _showLPAddMenu(cx,cy,sd,ed){
   row.onmouseover=()=>row.style.background='rgba(201,168,76,0.1)';
   row.onmouseout=()=>row.style.background='transparent';
   const ic=document.createElement('span');ic.style.cssText='font-size:13px;width:18px;text-align:center;flex-shrink:0';ic.textContent='➕';
-  const lb=document.createElement('span');lb.textContent='New Workstream Bar';
+  const lb=document.createElement('span');lb.textContent='New Workstream';
   row.appendChild(ic);row.appendChild(lb);
   row.onclick=()=>{_closeLPAddMenu();_showLPNewBarForm(sd,ed);};
   mnu.appendChild(row);
@@ -14139,7 +14139,7 @@ function _showLPNewBarForm(sd,ed){
   wrap.id='lp-new-bar-form';
   wrap.style.cssText="position:fixed;z-index:99999;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.65);padding:18px 20px;font-family:'DM Mono',monospace;font-size:11px;min-width:290px;max-width:350px";
   wrap.addEventListener('click',e=>e.stopPropagation());
-  const ttl=document.createElement('div');ttl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;font-weight:600";ttl.textContent='➕ New Workstream Bar';wrap.appendChild(ttl);
+  const ttl=document.createElement('div');ttl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;font-weight:600";ttl.textContent='➕ New Workstream';wrap.appendChild(ttl);
   function _field(label,el){const r=document.createElement('div');r.style.marginBottom='10px';const l=document.createElement('div');l.style.cssText='color:var(--muted);font-size:9px;letter-spacing:1px;margin-bottom:3px';l.textContent=label;r.appendChild(l);r.appendChild(el);wrap.appendChild(r);return el;}
   const inputCss="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:10px";
   const wsSelect=document.createElement('select');wsSelect.style.cssText=inputCss;
