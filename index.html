@@ -5859,14 +5859,17 @@ function closeAgendaEditModal(){
   if(window._agendaModalIsNew&&_agEditId){AGENDA_DATA=AGENDA_DATA.filter(x=>x.id!==_agEditId);}
   window._agendaModalIsNew=false;
   window._agendaModalOnSaved=null;
+  window._agendaModalFromLPId=null;
   document.getElementById('agenda-edit-modal-overlay').classList.remove('open');
   _agEditId=null;
 }
-function _openNewAgendaItemModal(taskId,onSaved){
+function _openNewAgendaItemModal(taskId,lpId,onSaved){
+  if(typeof lpId==='function'){onSaved=lpId;lpId='';}
   if(!canEditAgenda()) return;
   const item={id:_genAgendaId(),title:'',detail:'',decision:'',checked:false,owner:'',deadline:'',category:'Manual',taskId:taskId||'',flag:''};
   AGENDA_DATA.push(item);
   window._agendaModalIsNew=true;
+  window._agendaModalFromLPId=lpId||null;
   window._agendaModalOnSaved=onSaved||null;
   openAgendaEditModal(item.id);
   // Re-center within visible area (viewport minus 360px right panel)
@@ -5883,7 +5886,7 @@ function saveAgendaEditModal(){
   const idx=AGENDA_DATA.findIndex(x=>x.id===_agEditId); if(idx<0) return;
   const item=AGENDA_DATA[idx];
   const g=f=>document.getElementById(f);
-  const taskId=g('aem-taskid')?.value||'';
+  const taskId=(g('aem-taskid')?.value||'')||(window._agendaModalFromLPId||'');
   const task=taskId?DASHBOARD_DATA.tasks.find(t=>t.id===taskId):null;
   item.title=g('aem-title').value.trim()||item.title;
   item.detail=g('aem-detail').value.trim();
@@ -14657,6 +14660,21 @@ function _showLPBarCtxMenu(cx,cy,lpId){
   mnu.style.left=Math.max(4,Math.min(cx+4,window.innerWidth-192))+'px';
   mnu.style.top=Math.max(4,Math.min(cy+4,window.innerHeight-110))+'px';
   mnu.addEventListener('click',e=>e.stopPropagation());
+  // ── Breadcrumb header ──
+  const _bcTaskIds=Array.isArray(item.taskIds)?item.taskIds:[];
+  const _bcAgItems=AGENDA_DATA.filter(a=>a.taskId&&(_bcTaskIds.includes(a.taskId)||a.taskId===lpId));
+  const _bcAp=_actionPlansCache&&_actionPlansCache[_bcTaskIds[0]]?'1':'0';
+  const _bcHdr=document.createElement('div');
+  _bcHdr.style.cssText="padding:8px 14px 8px;border-bottom:1px solid var(--border);margin-bottom:2px";
+  _bcHdr.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);font-weight:600;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.name}</div>`+
+    `<div style="display:flex;gap:6px;flex-wrap:wrap">`+
+    [['📅','agenda',_bcAgItems.length+' agenda'],['📋','tasks',_bcTaskIds.length+' tasks'],['🎯','actionplan','action plan'],['⚡','actions','actions']].map(([ic,tab,lbl])=>
+      `<span data-tab="${tab}" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer;white-space:nowrap" onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">${ic} ${lbl}</span>`
+    ).join('')+`</div>`;
+  _bcHdr.querySelectorAll&&setTimeout(()=>{
+    _bcHdr.querySelectorAll('[data-tab]').forEach(s=>{s.onclick=()=>{_closeLPBarCtxMenu();_showStreamTaskPanel(lpId);setTimeout(()=>document.querySelector('.lp-panel-tab[data-tab="'+s.dataset.tab+'"]')?.click(),120);};});
+  },0);
+  mnu.appendChild(_bcHdr);
   function _row(icon,lbl,fn,color){
     const r=document.createElement('div');
     r.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;color:'+(color||'var(--text)');
@@ -14744,7 +14762,11 @@ function _showStreamTaskPanel(lpId){
   hdr.appendChild(ttl);hdr.appendChild(closeBtn);panel.appendChild(hdr);
   const sub=document.createElement('div');
   sub.style.cssText="padding:5px 14px 6px;background:var(--surface);border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0";
-  sub.textContent=(item.workstream||'')+' · '+(item.sd||'?')+' → '+(item.ed||'?');
+  const _subLinkedTaskIds=Array.isArray(item.taskIds)?item.taskIds:[];
+  const _subAgCount=AGENDA_DATA.filter(a=>a.taskId&&(_subLinkedTaskIds.includes(a.taskId)||a.taskId===lpId)).length;
+  const _subTaskCount=_subLinkedTaskIds.length;
+  const _subCrumb=`<span style="color:var(--gold);cursor:pointer" onclick="document.querySelector('.lp-panel-tab[data-tab=agenda]')?.click()">📅 ${_subAgCount}</span>  <span style="color:var(--gold);cursor:pointer" onclick="document.querySelector('.lp-panel-tab[data-tab=tasks]')?.click()">📋 ${_subTaskCount}</span>  <span style="color:var(--gold);cursor:pointer" onclick="document.querySelector('.lp-panel-tab[data-tab=actionplan]')?.click()">🎯</span>  <span style="color:var(--gold);cursor:pointer" onclick="document.querySelector('.lp-panel-tab[data-tab=actions]')?.click()">⚡</span>`;
+  sub.innerHTML=`<span>${item.workstream||''} · ${item.sd||'?'} → ${item.ed||'?'}</span>&nbsp;&nbsp;${_subCrumb}`;
   panel.appendChild(sub);
   const tabBar=document.createElement('div');
   tabBar.style.cssText="display:flex;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0";
@@ -14774,14 +14796,15 @@ function _showStreamTaskPanel(lpId){
 }
 function _renderLPAgendaTab(container,item){
   const linkedTaskIds=Array.isArray(item.taskIds)?item.taskIds:[];
-  const agItems=AGENDA_DATA.filter(a=>a.taskId&&linkedTaskIds.includes(a.taskId));
+  const lpId=item.id||'';
+  const agItems=AGENDA_DATA.filter(a=>a.taskId&&(linkedTaskIds.includes(a.taskId)||a.taskId===lpId));
   const addWrap=document.createElement('div');
   addWrap.style.cssText="padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0";
   const addBtn=document.createElement('button');addBtn.textContent='➕ Create Agenda Item';
   addBtn.style.cssText="background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";
   addBtn.onclick=()=>{
     const firstTaskId=linkedTaskIds[0]||'';
-    _openNewAgendaItemModal(firstTaskId,()=>{container.innerHTML='';_renderLPAgendaTab(container,item);});
+    _openNewAgendaItemModal(firstTaskId,lpId,()=>{container.innerHTML='';_renderLPAgendaTab(container,item);});
   };
   addWrap.appendChild(addBtn);container.appendChild(addWrap);
   if(!agItems.length){
