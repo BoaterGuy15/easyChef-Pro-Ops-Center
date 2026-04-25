@@ -3101,13 +3101,17 @@ function _docFileIcon(name){
 }
 function loadDocsForSource(sourceType,sourceId,callback){
   const key=sourceType+'_'+sourceId;
-  if(_docsCache[key]!==undefined){ _renderDocsList(sourceType,sourceId); if(callback) callback(); return; }
+  // Always re-fetch from Sheets so Drive state is current
   _docsCache[key]=[];
   if(!CONFIG.sheetsUrl){ _renderDocsList(sourceType,sourceId); if(callback) callback(); return; }
   const qp=sourceType==='task'?'taskId='+encodeURIComponent(sourceId):'agendaId='+encodeURIComponent(sourceId);
   fetch(CONFIG.sheetsUrl+'?action=docs_read&'+qp)
     .then(r=>r.json()).then(data=>{ if(Array.isArray(data.docs)) _docsCache[key]=data.docs; _renderDocsList(sourceType,sourceId); if(callback) callback(); })
     .catch(()=>{ _renderDocsList(sourceType,sourceId); if(callback) callback(); });
+}
+function _refreshDocsForSource(sourceType,sourceId){
+  delete _docsCache[sourceType+'_'+sourceId];
+  loadDocsForSource(sourceType,sourceId);
 }
 function _buildDocsListHtml(cacheKey){
   const sep=cacheKey.indexOf('_');
@@ -3235,24 +3239,10 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
         .then(r=>r.json()).then(data=>{
           const _d=data.doc||data;
-          const cacheKey=sourceType+'_'+sourceId;
-          if(!_docsCache[cacheKey]) _docsCache[cacheKey]=[];
           const _driveFileId=_d.driveFileId||_d.id||data.id||'';
-          _docsCache[cacheKey].push({
-            id:'doc-'+Date.now(),
-            name:file.name,
-            url:_d.url||data.url||'',
-            previewUrl:_d.previewUrl||data.previewUrl||'',
-            folderUrl:_d.folderUrl||data.folderUrl||'',
-            driveFileId:_driveFileId,
-            mimeType:file.type,
-            addedBy:window._DGL_USER||'unknown',
-            addedAt:new Date().toISOString()
-          });
-          console.log('[DGL] Doc saved:',{name:file.name,driveFileId:_driveFileId,url:_d.url||data.url||''});
-          console.log('[DGL] Doc uploaded, rendering list for',sourceType,sourceId,'cache:',_docsCache[cacheKey].length);
-          const container=document.getElementById('docs-list-'+sourceType+'-'+sourceId);
-          if(container) container.innerHTML=_buildDocsListHtml(cacheKey);
+          console.log('[DGL] Doc saved to Drive:',{name:file.name,driveFileId:_driveFileId,url:_d.url||data.url||''});
+          // Refresh from Sheets so all panels see the real Drive URL + preview
+          _refreshDocsForSource(sourceType,sourceId);
           const folderBtn=document.getElementById('docs-folder-btn-'+sourceType+'-'+sourceId);
           if(folderBtn&&_d.folderUrl){ folderBtn.href=_d.folderUrl; }
           _uploadNext();
@@ -10295,12 +10285,12 @@ function _showNotifActionMenu(event,notif){
       docsContainer.appendChild(upDz);
     }
     _renderMnuDocs();
-    // Fetch docs if cache empty
-    if(!docs.length&&CONFIG.sheetsUrl){
+    // Always re-fetch docs for live Drive state
+    if(CONFIG.sheetsUrl){
       fetch(CONFIG.sheetsUrl+'?action=docs_read&taskId='+encodeURIComponent(taskId))
         .then(r=>r.json()).then(data=>{
-          const fresh=data.docs||[];
-          if(fresh.length){_docsCache[cacheKey]=fresh;_renderMnuDocs();}
+          _docsCache[cacheKey]=data.docs||[];
+          _renderMnuDocs();
         }).catch(()=>{});
     }
     _sep();
@@ -10607,12 +10597,11 @@ function _handleStatusUpdateDrop(files,taskId,listEl,dzEl,modal){
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
         .then(r=>r.json()).then(data=>{
           const d=data.doc||data;
-          const doc={id:'doc-'+Date.now(),name:file.name,url:d.url||'',previewUrl:d.previewUrl||'',
+          const doc={id:d.id||('doc-'+Date.now()),name:file.name,url:d.url||'',previewUrl:d.previewUrl||'',
             driveFileId:d.driveFileId||d.id||'',mimeType:file.type,addedBy:window._DGL_USER||'unknown',addedAt:new Date().toISOString()};
-          const cacheKey='task_'+taskId;
-          if(!_docsCache[cacheKey]) _docsCache[cacheKey]=[];
-          _docsCache[cacheKey].push(doc);
           if(modal&&modal._uploadedDocs) modal._uploadedDocs.push({name:file.name,url:doc.url,previewUrl:doc.previewUrl,driveFileId:doc.driveFileId});
+          // Refresh from Sheets so all panels see the real Drive URL + preview
+          _refreshDocsForSource('task',taskId);
           if(listEl){
             const row=document.createElement('div');
             row.style.cssText="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(0,0,0,0.15);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text)";
@@ -11003,9 +10992,9 @@ function _showBriefingActionMenu(event,context){
       docsContainer.appendChild(folderRow);
     }
     _renderBrfDocs();
-    if(!(_docsCache&&_docsCache[cacheKey])&&CONFIG.sheetsUrl){
+    if(CONFIG.sheetsUrl){
       fetch(CONFIG.sheetsUrl+'?action=docs_read&taskId='+encodeURIComponent(taskId))
-        .then(r=>r.json()).then(data=>{const fresh=data.docs||[];if(fresh.length){if(!_docsCache)window._docsCache={};_docsCache[cacheKey]=fresh;_renderBrfDocs();}}).catch(()=>{});
+        .then(r=>r.json()).then(data=>{const fresh=data.docs||[];if(!_docsCache)window._docsCache={};_docsCache[cacheKey]=fresh;_renderBrfDocs();}).catch(()=>{});
     }
   } else if(context.type==='agenda'){
     const navToAgenda=()=>{_closeBriefingPanel();showPage('agenda');setTimeout(()=>{const el=document.getElementById('agenda-item-'+agendaId)||document.querySelector('[data-agenda-id="'+agendaId+'"]');if(el){el.click();setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),200);}},400);};
