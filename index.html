@@ -5412,14 +5412,8 @@ function _fetchActionPlan(sourceId,onSuccess){
       const plans=Array.isArray(data)?data:(data.plans||[]);
       if(plans.length){
         const latest=plans[plans.length-1];
-        if(latest.status==='complete'){
-          if(!window._completedPlansCache) window._completedPlansCache={};
-          window._completedPlansCache[sourceId]=latest;
-          if(onSuccess) onSuccess('');
-        } else {
-          _actionPlansCache[sourceId]={text:latest.text||'',sourceType:latest.sourceType||'',createdBy:latest.createdBy||'',createdAt:latest.createdAt||'',linkedTaskId:latest.linkedTaskId||'',linkedAgendaId:latest.linkedAgendaId||''};
-          if(onSuccess) onSuccess(_actionPlansCache[sourceId].text);
-        }
+        _actionPlansCache[sourceId]={text:latest.text||'',sourceType:latest.sourceType||'',createdBy:latest.createdBy||'',createdAt:latest.createdAt||'',linkedTaskId:latest.linkedTaskId||'',linkedAgendaId:latest.linkedAgendaId||''};
+        if(onSuccess) onSuccess(_actionPlansCache[sourceId].text);
       } else { if(onSuccess) onSuccess(_getActionPlanText(sourceId)); }
     })
     .catch(()=>{ if(onSuccess) onSuccess(_getActionPlanText(sourceId)); });
@@ -5432,12 +5426,7 @@ function loadActionPlansFromSheets(){
       const plans=Array.isArray(data)?data:(data.plans||[]);
       plans.forEach(p=>{
         if(!p.sourceId) return;
-        if(p.status==='complete'){
-          if(!window._completedPlansCache[p.sourceId]||p.completedAt>window._completedPlansCache[p.sourceId].completedAt) window._completedPlansCache[p.sourceId]=p;
-          delete _actionPlansCache[p.sourceId];
-        } else {
-          if(!_actionPlansCache[p.sourceId]||p.createdAt>_actionPlansCache[p.sourceId].createdAt) _actionPlansCache[p.sourceId]=p;
-        }
+        if(!_actionPlansCache[p.sourceId]||p.createdAt>_actionPlansCache[p.sourceId].createdAt) _actionPlansCache[p.sourceId]=p;
       });
       console.log('[DGL] Action plans loaded: '+Object.keys(_actionPlansCache).length+' active, '+Object.keys(window._completedPlansCache).length+' completed');
     })
