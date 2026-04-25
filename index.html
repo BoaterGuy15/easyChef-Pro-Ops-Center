@@ -5403,7 +5403,8 @@ function _saveActionPlan(sourceId,sourceType,text,linkedTaskId,linkedAgendaId){
 }
 function _fetchActionPlan(sourceId,onSuccess){
   if(!CONFIG.sheetsUrl){if(onSuccess)onSuccess(_getActionPlanText(sourceId));return;}
-  if(_actionPlansCache[sourceId]){if(onSuccess)onSuccess(_actionPlansCache[sourceId].text||'');return;}
+  if(_actionPlansCache[sourceId]&&_actionPlansCache[sourceId].text){if(onSuccess)onSuccess(_actionPlansCache[sourceId].text);return;}
+  console.log('[DGL] fetching action plan for',sourceId);
   fetch(CONFIG.sheetsUrl+'?action=action_plans_read&sourceId='+encodeURIComponent(sourceId))
     .then(r=>r.json())
     .then(data=>{
