@@ -416,7 +416,7 @@ tr.hidden-row{display:none}
 .warn{color:var(--amber)}
 
 /* ── TIMELINE GANTT ── */
-#page-roadmap,#page-lp{padding:16px 8px!important;max-width:none!important;width:100%!important;margin:0!important;box-sizing:border-box}
+#page-roadmap,#page-lp,#page-actions{padding:16px 8px!important;max-width:none!important;width:100%!important;margin:0!important;box-sizing:border-box}
 #gantt-sticky-bar{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%}
 .gantt-dropdown-panel{overflow:hidden;max-height:0;transition:max-height 0.25s ease-out;background:var(--surface);border-top:1px solid var(--border)}
 .gantt-dropdown-panel.open{max-height:520px;transition:max-height 0.3s ease-in}
@@ -683,6 +683,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')">Action Plans</div>
     <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('lp')">Workstreams</div>
+    <div class="nav-tab" data-tab-id="actions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actions')">⚡ Actions</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -1047,6 +1048,38 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
+<!-- ══ PAGE: ACTIONS GANTT ══ -->
+<div id="page-actions" class="page">
+  <div class="section-label">ACCOUNTABILITY — Team Actions &amp; RACI Responsibilities</div>
+  <div id="ac-gantt-sticky-bar" style="position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
+      <button class="gantt-ctrl-btn" onclick="_acScrollToday()">◀ Today</button>
+      <button class="gantt-ctrl-btn" onclick="_acScrollLaunch()">🚀 Launch</button>
+      <button class="gantt-ctrl-btn" id="ac-ms-btn" onclick="_toggleACPanel('ms')">📌 Milestones</button>
+      <button class="gantt-ctrl-btn" id="ac-co-btn" onclick="_toggleACPanel('co')" style="position:relative">⚠️ Callouts<span id="ac-co-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 2px"></span></button>
+      <div style="flex:1"></div>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
+      <button class="gantt-ctrl-btn" id="ac-zoom-2w" onclick="_acSetZoom('2w')">2W</button>
+      <button class="gantt-ctrl-btn active-zoom" id="ac-zoom-90d" onclick="_acSetZoom('90d')">90D</button>
+      <button class="gantt-ctrl-btn" id="ac-zoom-6mo" onclick="_acSetZoom('6mo')">6MO</button>
+      <button class="gantt-ctrl-btn" id="ac-zoom-1yr" onclick="_acSetZoom('1yr')">1YR</button>
+    </div>
+    <div style="display:flex">
+      <div style="width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:flex-end;padding:4px 8px">
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px">ACCOUNTABILITY</span>
+      </div>
+      <div id="ac-gantt-hdr-scroll" style="flex:1;overflow:hidden">
+        <div id="ac-gantt-hdr-canvas" style="position:relative;height:52px"></div>
+      </div>
+    </div>
+    <div id="ac-ms-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="ac-milestone-list"></div></div></div>
+    <div id="ac-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="ac-co-inner"></div></div></div>
+  </div>
+  <div id="ac-gantt-scroll" style="overflow:auto;cursor:grab;scrollbar-width:none;max-height:calc(100vh - 200px)">
+    <div id="ac-gantt-canvas"></div>
+  </div>
+</div>
+
 <!-- ══ PAGE: BUDGET ══ -->
 <div id="page-budget" class="page">
   <div class="section-label">Budget & Burn Rate</div>
@@ -1378,6 +1411,7 @@ function showPage(id){
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom(localStorage.getItem('dgl_gantt_zoom')||'90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
   if(id==='lp'){ loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
+  if(id==='actions'){ setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
   if(id==='budget') loadBudgetFromSheets();
   if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } }
   if(id==='command'){
@@ -16037,6 +16071,202 @@ function _lpUndo(){
   _lpSaveBar({...item,sd,ed});
   buildLaunchPlan();
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--gold)">↩ Undone — '+(item.name||id)+' restored</div>',2200);
+}
+
+// ── Actions Gantt (Accountability) ───────────────────────────
+let _acGanttDayPx=28;
+let _acWsActionsCache=null;
+const _acBarMap=new Map();
+
+function _acSetZoom(z){
+  const daysMap={'2w':14,'90d':90,'6mo':182,'1yr':365};
+  const days=daysMap[z]||90;
+  const scroll=document.getElementById('ac-gantt-scroll');
+  const visW=scroll?scroll.clientWidth-_GANTT_LABEL_W:800;
+  _acGanttDayPx=Math.max(2,Math.floor(visW/days));
+  ['2w','90d','6mo','1yr'].forEach(k=>{const b=document.getElementById('ac-zoom-'+k);if(b)b.classList.toggle('active-zoom',k===z);});
+  try{localStorage.setItem('dgl_ac_zoom',z);}catch(_){}
+  buildActionsGantt();
+}
+
+function _acScrollToday(){
+  const scroll=document.getElementById('ac-gantt-scroll');
+  if(!scroll) return;
+  const off=_ganttDayOff(_isoToday());
+  scroll.scrollLeft=Math.max(0,Math.round(off*_acGanttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+}
+
+function _acScrollLaunch(){
+  const scroll=document.getElementById('ac-gantt-scroll');
+  if(!scroll) return;
+  const off=_ganttDayOff(DASHBOARD_DATA.meta.milestoneDate||'2026-07-01');
+  scroll.scrollLeft=Math.max(0,Math.round(off*_acGanttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+}
+
+function _toggleACPanel(which){
+  ['ms','co'].forEach(k=>{
+    const panel=document.getElementById('ac-'+k+'-panel');
+    const btn=document.getElementById('ac-'+k+'-btn');
+    if(k===which){panel&&panel.classList.toggle('open');btn&&btn.classList.toggle('active-panel',!!(panel&&panel.classList.contains('open')));}
+    else{panel&&panel.classList.remove('open');btn&&btn.classList.remove('active-panel');}
+  });
+  if(which==='ms'){
+    const el=document.getElementById('ac-milestone-list');
+    if(el){
+      const items=DASHBOARD_DATA.meta.milestoneItems||[];
+      el.innerHTML=items.length?items.map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);width:80px;flex-shrink:0">${m.date||''}</span><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);flex:1">${m.title||''}</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${m.status||''}</span></div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">No milestones</div>';
+    }
+  }
+  if(which==='co') _acLoadCallouts();
+}
+
+function _acLoadCallouts(){
+  const el=document.getElementById('ac-co-inner');
+  if(!el) return;
+  const cos=window._coCache||[];
+  const open=cos.filter(c=>c.dismissed!=='true');
+  const badge=document.getElementById('ac-co-badge');
+  if(badge){badge.textContent=open.length;badge.style.display=open.length?'inline-flex':'none';}
+  el.innerHTML=open.length?open.map(c=>`<div style="padding:5px 0;border-bottom:1px solid var(--border)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)">[${c.type||'note'}]</span> <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${c.title||c.message||''}</span></div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">No open callouts</div>';
+}
+
+function _acBarClick(barId){
+  const bar=_acBarMap.get(barId);
+  if(!bar) return;
+  if(bar.taskId){_showGanttTaskPanel(bar.taskId);return;}
+  _showToast(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);max-width:280px"><div style="color:var(--gold);margin-bottom:4px">⚡ Action</div><div style="font-weight:600;margin-bottom:3px">${bar.label}</div><div style="color:var(--muted);font-size:10px">${bar.sd} → ${bar.ed}</div><div style="color:var(--muted);font-size:10px;margin-top:2px">${bar.type||''} · ${bar.status||'open'}</div></div>`,3000);
+}
+
+function buildActionsGantt(){
+  const hdrCanvas=document.getElementById('ac-gantt-hdr-canvas');
+  const canvas=document.getElementById('ac-gantt-canvas');
+  const scroll=document.getElementById('ac-gantt-scroll');
+  const hdrScroll=document.getElementById('ac-gantt-hdr-scroll');
+  if(!canvas||!scroll) return;
+
+  const totalTrackW=_GANTT_DAYS*_acGanttDayPx;
+  const today=_isoToday();
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function _toIso(v){
+    if(!v) return '';
+    if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const d=new Date(v);if(isNaN(d.getTime())) return '';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function _addD(iso,n){const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function _laneMap(bars){
+    const valid=bars.filter(b=>b.sd&&b.ed).sort((a,b)=>a.sd<b.sd?-1:a.sd>b.sd?1:0);
+    const laneEnds=[];const map=new Map();
+    valid.forEach(b=>{let lane=laneEnds.findIndex(e=>e<b.sd);if(lane<0)lane=laneEnds.length;laneEnds[lane]=b.ed;map.set(b.id,lane);});
+    bars.filter(b=>!b.sd||!b.ed).forEach(b=>map.set(b.id,0));
+    return{map,maxLane:Math.max(1,laneEnds.length)};
+  }
+
+  // Build header
+  if(hdrCanvas){
+    hdrCanvas.style.width=totalTrackW+'px';
+    let h='';
+    const gs=new Date(_GANTT_START+'T00:00:00');
+    let cur=new Date(gs.getFullYear(),gs.getMonth(),1);
+    while(true){
+      const sd=Math.max(0,(cur-gs)/86400000);if(sd>=_GANTT_DAYS) break;
+      const eRaw=new Date(cur.getFullYear(),cur.getMonth()+1,0);
+      const ed=Math.min(_GANTT_DAYS-1,(eRaw-gs)/86400000);
+      h+=`<div class="gantt-month-band" style="left:${sd*_acGanttDayPx}px;width:${(ed-sd+1)*_acGanttDayPx}px">${MO[cur.getMonth()]} ${cur.getFullYear()}</div>`;
+      cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+    }
+    for(let day=0;day<_GANTT_DAYS;day+=7){const td=new Date(_ganttStartMs()+day*86400000);h+=`<div class="gantt-week-tick" style="left:${day*_acGanttDayPx}px">${(td.getMonth()+1)+'/'+td.getDate()}</div>`;}
+    const tOff=_ganttDayOff(today);
+    if(tOff<_GANTT_DAYS) h+=`<div style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:0.6;pointer-events:none;left:${tOff*_acGanttDayPx}px"></div>`;
+    hdrCanvas.innerHTML=h;
+  }
+
+  const _TEAM=[
+    {key:'Taylor',color:'#c9a84c',bg:'rgba(201,168,76,0.07)'},
+    {key:'Steve', color:'#6b7280',bg:'rgba(107,114,128,0.07)'},
+    {key:'Adam',  color:'#3b82f6',bg:'rgba(59,130,246,0.07)'},
+    {key:'JR',    color:'#f59e0b',bg:'rgba(245,158,11,0.07)'},
+    {key:'Hammad',color:'#8b5cf6',bg:'rgba(139,92,246,0.07)'},
+    {key:'Searah',color:'#2dd4bf',bg:'rgba(45,212,191,0.07)'},
+    {key:'Sadee', color:'#ec4899',bg:'rgba(236,72,153,0.07)'},
+  ];
+
+  function _draw(wsActions){
+    _acBarMap.clear();
+    const allActs=[...(_actionsCache||[]),...(wsActions||[])];
+    const todayOff=_ganttDayOff(today);
+    let html='';
+
+    _TEAM.forEach(p=>{
+      const raciTasks=DASHBOARD_DATA.tasks.filter(t=>{const v=t[p.key]||'';return v==='R'||v==='A/R'||v==='R/A';});
+      const myActions=allActs.filter(a=>{const cb=(a.createdBy||a.assignedTo||'').trim().toLowerCase();return cb===p.key.toLowerCase();});
+
+      const bars=[];
+      raciTasks.forEach(t=>{
+        const sd=_toIso(t.sd),ed=_toIso(t.ed);if(!sd||!ed) return;
+        const sc=getStatusColors(t.status||'');
+        const bid='t_'+t.id;
+        bars.push({id:bid,sd,ed,label:t.id+' '+t.name,color:sc.color,bg:sc.bg||'rgba(107,114,128,0.07)',type:'task',taskId:t.id,status:t.status||''});
+      });
+      myActions.forEach(a=>{
+        const sd=_toIso(a.createdAt)||today;
+        const edRaw=_toIso(a.updatedAt)||sd;
+        const ed=edRaw>sd?edRaw:_addD(sd,2);
+        const bid='a_'+(a.id||Math.random().toString(36).slice(2));
+        bars.push({id:bid,sd,ed,label:a.title||a.type||'action',color:'#c9a84c',bg:'rgba(201,168,76,0.07)',type:'action',taskId:a.taskId||a.linkedTaskId||'',status:a.status||''});
+      });
+
+      bars.forEach(b=>_acBarMap.set(b.id,b));
+      const {map,maxLane}=_laneMap(bars);
+      const rowH=Math.max(44,(maxLane+1)*28+8);
+      let bHtml='';
+      for(let d=0;d<_GANTT_DAYS;d+=7) bHtml+=`<div class="gantt-col-bg" style="left:${d*_acGanttDayPx}px;height:${rowH}px"></div>`;
+      (DASHBOARD_DATA.meta.milestoneItems||[]).forEach(ms=>{const mo=_ganttDayOff(ms.date||'');if(mo>=0&&mo<_GANTT_DAYS)bHtml+=`<div class="gantt-ms-line" style="left:${mo*_acGanttDayPx}px;height:${rowH}px;background:rgba(201,168,76,0.2)"></div>`;});
+      if(todayOff>=0&&todayOff<_GANTT_DAYS) bHtml+=`<div style="position:absolute;left:${todayOff*_acGanttDayPx}px;top:0;height:${rowH}px;width:2px;background:var(--red);opacity:0.5;pointer-events:none;z-index:5"></div>`;
+
+      bars.forEach(bar=>{
+        const sdOff=_ganttDayOff(bar.sd),edOff=_ganttDayOff(bar.ed);
+        if(sdOff>=_GANTT_DAYS||edOff<0) return;
+        const barW=Math.max((edOff-sdOff+1)*_acGanttDayPx,Math.max(20,_acGanttDayPx));
+        const barL=sdOff*_acGanttDayPx;
+        const lane=map.get(bar.id)||0;
+        const barTop=6+lane*28;
+        const isDone=bar.status==='Done'||bar.status==='Complete'||bar.status==='complete';
+        const isOverdue=!isDone&&bar.ed<today;
+        const dot=isDone?'#22c55e':isOverdue?'#ef4444':'#f59e0b';
+        const lfs=_acGanttDayPx>=20?'11px':_acGanttDayPx>=10?'10px':'9px';
+        const maxC=Math.max(4,Math.floor((barW-10)/6));
+        const lbl=bar.label.length>maxC?bar.label.substring(0,maxC)+'…':bar.label;
+        const ico=bar.type==='action'?'⚡':'';
+        const bc=isOverdue?'#ef4444':bar.color;
+        const esc=bar.id.replace(/'/g,"\\'");
+        bHtml+=`<div class="rm-cell" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;border-color:${bc};background:${bar.bg};opacity:${isDone?0.55:1};cursor:pointer" onclick="_acBarClick('${esc}')" title="${bar.label.replace(/"/g,'&quot;')} · ${bar.sd}→${bar.ed}"><span style="position:absolute;top:2px;right:4px;width:5px;height:5px;border-radius:50%;background:${dot};pointer-events:none"></span><span class="gantt-mid" style="gap:3px"><span style="font-size:8px;flex-shrink:0;pointer-events:none">${ico}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${lfs};color:${bar.color}">${lbl}</span></span></div>`;
+      });
+
+      html+=`<div class="gantt-row" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${p.color};border-left:3px solid ${p.color};background:${p.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${p.key}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${bHtml}</div></div>`;
+    });
+
+    canvas.innerHTML=html;
+    canvas.style.width=(totalTrackW+_GANTT_LABEL_W)+'px';
+
+    if(scroll&&hdrScroll&&!scroll._acSynced){
+      scroll._acSynced=true;
+      scroll.addEventListener('scroll',()=>{hdrScroll.scrollLeft=scroll.scrollLeft;});
+    }
+    const off=_ganttDayOff(today);
+    scroll.scrollLeft=Math.max(0,Math.round(off*_acGanttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+    // update callout badge
+    _acLoadCallouts();
+  }
+
+  if(CONFIG.sheetsUrl&&_acWsActionsCache===null){
+    fetch(CONFIG.sheetsUrl+'?action=workstream_actions_read').then(r=>r.json()).then(data=>{
+      _acWsActionsCache=Array.isArray(data.actions)?data.actions:[];_draw(_acWsActionsCache);
+    }).catch(()=>{_acWsActionsCache=[];_draw([]);});
+  } else {
+    _draw(_acWsActionsCache||[]);
+  }
 }
 
 // ── Workflow Links ───────────────────────────────────────────
