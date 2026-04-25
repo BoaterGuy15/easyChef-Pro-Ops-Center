@@ -421,8 +421,8 @@ tr.hidden-row{display:none}
 .gantt-dropdown-panel.open{max-height:520px;transition:max-height 0.3s ease-in}
 .gantt-dropdown-panel-inner{padding:12px 16px}
 .gantt-ctrl-btn.active-panel{background:rgba(201,168,76,0.15)!important;color:var(--gold)!important}
-#lp-stream-panel{position:fixed;right:0;top:56px;bottom:0;width:360px;background:var(--card);border-left:1px solid var(--border);z-index:9000;transform:translateX(100%);transition:transform 0.25s ease;display:flex;flex-direction:column;overflow:hidden;box-shadow:-4px 0 20px rgba(0,0,0,0.4)}
-#lp-stream-panel.open{transform:translateX(0)}
+#lp-stream-panel{position:fixed;left:50%;top:15%;transform:translate(-50%,0);width:400px;height:500px;min-width:300px;min-height:300px;background:var(--card);border:1px solid var(--border);border-radius:8px;z-index:9000;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.6);opacity:0;transition:opacity 0.15s ease}
+#lp-stream-panel.open{opacity:1}
 .lp-panel-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:8px 14px;cursor:pointer;letter-spacing:1px}
 .lp-panel-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 #gantt-hdr-scroll{flex:1;overflow:hidden}
@@ -14669,10 +14669,32 @@ function _lpLogAction(lpId,type,title,body){
 }
 function _closeStreamTaskPanel(){
   const p=document.getElementById('lp-stream-panel');
-  if(p){p.classList.remove('open');setTimeout(()=>{if(p.parentNode)p.parentNode.removeChild(p);},260);}
+  if(p){p.classList.remove('open');setTimeout(()=>{if(p.parentNode)p.parentNode.removeChild(p);},160);}
   document.removeEventListener('keydown',_streamPanelEsc,true);
 }
 function _streamPanelEsc(e){if(e.key==='Escape')_closeStreamTaskPanel();}
+function _makePanelDraggable(panelEl){
+  const handle=panelEl.querySelector('div');
+  if(!handle) return;
+  handle.style.cursor='move';
+  let startX,startY,startL,startT;
+  function _clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+  handle.addEventListener('pointerdown',function(e){
+    if(e.button!==0||e.target.tagName==='BUTTON') return;
+    e.preventDefault();
+    const rect=panelEl.getBoundingClientRect();
+    startX=e.clientX;startY=e.clientY;startL=rect.left;startT=rect.top;
+    panelEl.style.left=startL+'px';panelEl.style.top=startT+'px';panelEl.style.transform='none';
+    handle.setPointerCapture(e.pointerId);
+    function onMove(ev){
+      panelEl.style.left=_clamp(startL+(ev.clientX-startX),0,window.innerWidth-panelEl.offsetWidth)+'px';
+      panelEl.style.top=_clamp(startT+(ev.clientY-startY),0,window.innerHeight-60)+'px';
+    }
+    function onUp(){handle.removeEventListener('pointermove',onMove);handle.removeEventListener('pointerup',onUp);}
+    handle.addEventListener('pointermove',onMove);
+    handle.addEventListener('pointerup',onUp);
+  });
+}
 function _showStreamTaskPanel(lpId){
   _closeStreamTaskPanel();
   const item=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===lpId);
@@ -14680,9 +14702,8 @@ function _showStreamTaskPanel(lpId){
   const panel=document.createElement('div');
   panel.id='lp-stream-panel';
   document.body.appendChild(panel);
-  requestAnimationFrame(()=>panel.classList.add('open'));
   const hdr=document.createElement('div');
-  hdr.style.cssText="padding:10px 14px 8px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;flex-shrink:0";
+  hdr.style.cssText="padding:10px 14px 8px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;cursor:move";
   const wsColor=(_LP_WS_COLORS[item.workstream]||{color:'#94a3b8'}).color;
   const ttl=document.createElement('div');
   ttl.style.cssText="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.2px;font-weight:600;color:"+wsColor;
@@ -14713,7 +14734,10 @@ function _showStreamTaskPanel(lpId){
     tabBar.appendChild(b);
   });
   panel.appendChild(tabBar);panel.appendChild(tabContent);
+  _makePanelDraggable(panel);
+  _makeResizable(panel);
   _switchPanelTab('tasks');
+  requestAnimationFrame(()=>panel.classList.add('open'));
   document.addEventListener('keydown',_streamPanelEsc,true);
 }
 function _renderLPTasksTab(container,item){
