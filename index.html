@@ -14673,13 +14673,6 @@ function _closeStreamTaskPanel(){
   document.removeEventListener('keydown',_streamPanelEsc,true);
 }
 function _streamPanelEsc(e){if(e.key==='Escape')_closeStreamTaskPanel();}
-function _snapPanelAside(){
-  const p=document.getElementById('lp-stream-panel');
-  if(!p) return;
-  p.style.transform='none';
-  p.style.left=Math.max(0,window.innerWidth-p.offsetWidth-12)+'px';
-  p.style.top='72px';
-}
 function _makePanelDraggable(panelEl){
   const handle=panelEl.querySelector('div');
   if(!handle) return;
@@ -14754,10 +14747,10 @@ function _renderLPTasksTab(container,item){
   addWrap.style.cssText="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-shrink:0";
   const nb=document.createElement('button');nb.textContent='➕ New Task';
   nb.style.cssText="background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";
-  nb.onclick=()=>{_snapPanelAside();_lpCreateAndLinkTask(item.id);};
+  nb.onclick=()=>{_closeStreamTaskPanel();_lpCreateAndLinkTask(item.id);};
   const lb=document.createElement('button');lb.textContent='🔗 Link Tasks';
   lb.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";
-  lb.onclick=()=>{_snapPanelAside();_showLPLinkTasksModal(item.id);};
+  lb.onclick=()=>{_closeStreamTaskPanel();_showLPLinkTasksModal(item.id);};
   addWrap.appendChild(nb);addWrap.appendChild(lb);container.appendChild(addWrap);
   if(!linked.length){
     const e=document.createElement('div');
@@ -14770,7 +14763,7 @@ function _renderLPTasksTab(container,item){
     row.style.cssText="padding:8px 14px;border-bottom:1px solid var(--border);cursor:pointer";
     row.onmouseover=()=>row.style.background='rgba(255,255,255,0.03)';
     row.onmouseout=()=>row.style.background='';
-    row.onclick=()=>{_snapPanelAside();showTaskModal(t.id);};
+    row.onclick=()=>{_closeStreamTaskPanel();showTaskModal(t.id);};
     const nameEl=document.createElement('div');nameEl.style.cssText="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-bottom:3px";nameEl.textContent=t.name||t.id;
     const meta=document.createElement('div');meta.style.cssText='display:flex;gap:6px;align-items:center';
     const idEl=document.createElement('span');idEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)";idEl.textContent=t.id;
@@ -14822,12 +14815,20 @@ function _renderLPActionsTab(container,lpId){
 }
 function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
   const existing=document.getElementById('lp-add-action-form');
-  if(existing){existing.remove();return;}
-  const iCss="width:100%;box-sizing:border-box;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:7px";
+  if(existing){existing.remove();document.getElementById('lp-add-action-ov')?.remove();return;}
+  const iCss="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:7px";
   const lCss='color:var(--muted);font-size:9px;letter-spacing:1px;display:block;margin-bottom:2px';
+  const ov=document.createElement('div');ov.id='lp-add-action-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.45)';
   const form=document.createElement('div');form.id='lp-add-action-form';
-  form.style.cssText="margin:10px 14px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace";
-  const ftl=document.createElement('div');ftl.style.cssText='color:var(--gold);font-size:9px;letter-spacing:1.5px;margin-bottom:10px;font-weight:600';ftl.textContent='ADD ACTION';form.appendChild(ftl);
+  form.style.cssText="position:fixed;z-index:9200;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;max-width:92vw;background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.65);padding:18px 20px;font-family:'DM Mono',monospace";
+  form.addEventListener('click',e=>e.stopPropagation());
+  const hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px';
+  const ftl=document.createElement('div');ftl.style.cssText='color:var(--gold);font-size:10px;letter-spacing:1.5px;font-weight:600';ftl.textContent='⚡ ADD ACTION';
+  const xBtn=document.createElement('button');xBtn.textContent='✕';xBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1";
+  function _close(){form.remove();ov.remove();}
+  xBtn.onclick=_close;ov.onclick=_close;
+  hdr.appendChild(ftl);hdr.appendChild(xBtn);form.appendChild(hdr);
   function _fld(lbl,el){const wrap=document.createElement('div');const l=document.createElement('label');l.style.cssText=lCss;l.textContent=lbl;wrap.appendChild(l);wrap.appendChild(el);form.appendChild(wrap);return el;}
   const typeEl=document.createElement('select');typeEl.style.cssText=iCss;
   ['Task','Decision','Note','Status Update','Risk','Blocker'].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;typeEl.appendChild(o);});
@@ -14836,8 +14837,8 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
   const bodyEl=document.createElement('textarea');bodyEl.rows=2;bodyEl.placeholder='Details…';bodyEl.style.cssText=iCss+';resize:vertical';_fld('NOTES',bodyEl);
   const assignEl=document.createElement('input');assignEl.type='text';assignEl.placeholder='Name…';assignEl.style.cssText=iCss;_fld('ASSIGNED TO',assignEl);
   const dueEl=document.createElement('input');dueEl.type='date';dueEl.style.cssText=iCss;_fld('DUE DATE',dueEl);
-  const btns=document.createElement('div');btns.style.cssText='display:flex;gap:6px;justify-content:flex-end;margin-top:4px';
-  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";cancelBtn.onclick=()=>form.remove();
+  const btns=document.createElement('div');btns.style.cssText='display:flex;gap:6px;justify-content:flex-end;margin-top:6px';
+  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";cancelBtn.onclick=_close;
   const saveBtn=document.createElement('button');saveBtn.textContent='💾 Save';saveBtn.style.cssText="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";
   saveBtn.onclick=()=>{
     const title=(titleEl.value||'').trim();
@@ -14846,13 +14847,12 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
     const payload={action:'workstream_action_write',item:{id,workstreamId,type:typeEl.value,title,body:bodyEl.value,assignedTo:assignEl.value,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}};
     if(CONFIG.sheetsUrl){
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-        .then(()=>{form.remove();if(onSaved)onSaved();}).catch(()=>{form.remove();if(onSaved)onSaved();});
-    } else {form.remove();if(onSaved)onSaved();}
+        .then(()=>{_close();if(onSaved)onSaved();}).catch(()=>{_close();if(onSaved)onSaved();});
+    } else {_close();if(onSaved)onSaved();}
   };
   btns.appendChild(cancelBtn);btns.appendChild(saveBtn);form.appendChild(btns);
-  const addWrap=container.querySelector('div');
-  if(addWrap) container.insertBefore(form,addWrap.nextSibling);
-  else container.appendChild(form);
+  document.body.appendChild(ov);
+  document.body.appendChild(form);
   titleEl.focus();
 }
 function _showLPEditBarForm(lpId){
