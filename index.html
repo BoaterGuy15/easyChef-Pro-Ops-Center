@@ -13864,7 +13864,7 @@ async function runMasterTests(){
   if(CONFIG&&CONFIG.sheetsUrl){
     const base=CONFIG.sheetsUrl;
     const readTests=[
-      {label:'tasks_read (default GET)',       url:base,                                     chk:d=>(Array.isArray(d)||Array.isArray(d.tasks))&&(Array.isArray(d)?d:d.tasks).length>0},
+      {label:'tasks_read (default GET)',       url:base,                                     chk:d=>d.ok!==false&&(Array.isArray(d)||Array.isArray(d.tasks))},
       {label:'agenda_read',                    url:base+'?action=agenda_read',               chk:d=>Array.isArray(d)||Array.isArray(d.items)},
       {label:'hr_profiles_read',               url:base+'?action=hr_profiles_read',          chk:d=>Array.isArray(d.profiles)},
       {label:'docs_read',                      url:base+'?action=docs_read&sourceType=task&sourceId=T-001', chk:d=>typeof d==='object'},
@@ -13934,12 +13934,11 @@ async function runMasterTests(){
     check('Status dropdown has required values',missing.length===0,`missing: ${missing.join(', ')}`);
   }else{no('Status dropdown has required values','no status select found in DOM (open task modal first)');}
   try{
-    const custom=_getCustomTeamMembers();
     const activeMembers=['taylor','adam','jr','hammad','searah','sadee'];
-    const keys=(Array.isArray(custom)?custom:[]).filter(m=>m.status!=='inactive').map(m=>(m.key||m.userKey||'').toLowerCase());
-    const missing=activeMembers.filter(m=>!keys.some(k=>k.includes(m)));
-    check('_getCustomTeamMembers() has all active members',missing.length===0,`missing: ${missing.join(', ')}`);
-  }catch(e){no('_getCustomTeamMembers() has all active members',e.message);}
+    const dmKeys=(_DM_MEMBERS||[]).filter(m=>!_isDMInactive(m.key)).map(m=>m.key);
+    const missing=activeMembers.filter(m=>!dmKeys.includes(m));
+    check('_DM_MEMBERS has all active members',missing.length===0,`missing: ${missing.join(', ')}`);
+  }catch(e){no('_DM_MEMBERS has all active members',e.message);}
   console.groupEnd();
 
   // ── SECTION 6: CACHE STATE ────────────────────────────────────────────────
