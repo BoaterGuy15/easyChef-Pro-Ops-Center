@@ -1484,6 +1484,7 @@ function _nowPST(){
 function _logStatusChange(taskId,fromStatus,toStatus,note){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'status_log_write',id:'sl-'+Date.now(),taskId,fromStatus,toStatus,changedBy:window._DGL_USER||'system',changedAt:_nowPST(),note:note||''})}).catch(()=>{});
+  _autoLink('statuschange','SC'+Date.now(),'task',taskId,(fromStatus||'')+'→'+(toStatus||''));
 }
 function _logNotification(taskId,toUser,channel,message,type){
   if(!CONFIG.sheetsUrl) return;
@@ -3497,6 +3498,7 @@ function _updateTaskFlag(taskId, emoji, notes){
   saveToLocal();
   _saveTasksNow();
   _syncFlagDisplay(taskId);
+  _autoLink('flag',taskId+'-flag','task',taskId,t.flag);
 }
 function _setFlagEmoji(taskId, newEmoji){
   _updateTaskFlag(taskId, newEmoji, undefined);
@@ -3763,6 +3765,7 @@ function addTaskComment(taskId){
   comments.push({user,name,ts,text});
   _saveTaskComments(taskId,comments);
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=comments_write&taskId='+encodeURIComponent(taskId)+'&user='+encodeURIComponent(user)+'&name='+encodeURIComponent(name)+'&ts='+encodeURIComponent(ts)+'&text='+encodeURIComponent(text)+'&type=task').catch(()=>{});
+  _autoLink('comment','C'+Date.now(),'task',taskId,'comment added');
   if(inp) inp.value='';
   const canAdmin=['taylor','steve','hammad','adam'].includes(user);
   const el=document.getElementById('raci-expand-comments-'+taskId);
