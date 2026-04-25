@@ -13980,8 +13980,10 @@ function buildLaunchPlan(){
 
 function _initLPDrag(){
   const canvas=document.getElementById('lp-gantt-canvas');
-  if(!canvas||canvas._lpDragInited) return;
-  canvas._lpDragInited=true;
+  if(!canvas) return;
+  // Remove stale listeners from previous render before re-attaching
+  if(canvas._lpDragHandler) canvas.removeEventListener('pointerdown',canvas._lpDragHandler,true);
+  if(canvas._lpMouseGuard) canvas.removeEventListener('mousedown',canvas._lpMouseGuard,true);
 
   function _addDays(iso,n){ const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function _daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
@@ -13990,9 +13992,11 @@ function _initLPDrag(){
   let _tip=document.getElementById('lp-drag-tooltip');
   if(!_tip){ _tip=document.createElement('div'); _tip.id='lp-drag-tooltip'; _tip.style.cssText='position:fixed;background:var(--card);border:1px solid var(--gold);border-radius:4px;padding:4px 8px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);pointer-events:none;display:none;z-index:9999'; document.body.appendChild(_tip); }
 
-  canvas.addEventListener('mousedown',e=>{ if(e.target.closest('[data-lp-id]')) e.stopPropagation(); },true);
+  const mouseGuard=e=>{ if(e.target.closest('[data-lp-id]')) e.stopPropagation(); };
+  canvas.addEventListener('mousedown',mouseGuard,true);
+  canvas._lpMouseGuard=mouseGuard;
 
-  canvas.addEventListener('pointerdown',e=>{
+  const dragHandler=e=>{
     if(e.button!==0) return;
     const handle=e.target.closest('.gantt-handle');
     const bar=e.target.closest('[data-lp-id]');
@@ -14015,7 +14019,7 @@ function _initLPDrag(){
       const delta=Math.round((ev.clientX-e.clientX)/_lpDayPx);
       if(delta===lastDelta) return; lastDelta=delta;
       let newSd=origSd,newEd=origEd,newL=origL,newW=origW;
-      if(mode==='move'){ newSd=_addDays(origSd,delta); newEd=_addDays(origEd,delta); newL=origL+delta*_lpDayPx; }
+      if(mode==='move'){ newSd=_addDays(origSd,delta); newEd=_addDays(origEd,delta); newL=origL+delta*_lpDayPx; newW=origW; }
       else if(mode==='left'){ newSd=_addDays(origSd,delta); if(newSd>=origEd) newSd=_addDays(origEd,-1); newL=_ganttDayOff(newSd)*_lpDayPx; newW=_barW(newSd,origEd); }
       else { newEd=_addDays(origEd,delta); if(newEd<=origSd) newEd=_addDays(origSd,1); newW=_barW(origSd,newEd); }
       bar.style.left=newL+'px'; bar.style.width=newW+'px';
@@ -14036,16 +14040,67 @@ function _initLPDrag(){
       else { newEd=_addDays(origEd,finalDelta); if(newEd<=origSd) newEd=_addDays(origSd,1); }
       _lpUndoStack.push({id:lpId,sd:origSd,ed:origEd});
       if(_lpUndoStack.length>20) _lpUndoStack.shift();
-      bar.style.left=(_ganttDayOff(newSd)*_lpDayPx)+'px'; bar.style.width=(_barW(newSd,newEd))+'px';
+      // Tentatively update cache so confirm/undo can reference current state
+      const cIdx=_lpCache.findIndex(x=>x.id===lpId);
+      if(cIdx>=0){ _lpCache[cIdx].sd=newSd; _lpCache[cIdx].ed=newEd; }
+      bar.style.left=(_ganttDayOff(newSd)*_lpDayPx)+'px'; bar.style.width=_barW(newSd,newEd)+'px';
       bar.dataset.sd=newSd; bar.dataset.ed=newEd;
-      _lpSaveBar({...item,sd:newSd,ed:newEd});
-      _showToast(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold)">${item.name}: ${newSd} → ${newEd}</div>`,2000);
+      _showLPMoveConfirm(lpId,origSd,origEd,newSd,newEd,item.name);
     }
 
     bar.addEventListener('pointermove',onMove,{passive:true});
     bar.addEventListener('pointerup',onUp);
     bar.addEventListener('pointercancel',onUp);
-  },true);
+  };
+  canvas.addEventListener('pointerdown',dragHandler,true);
+  canvas._lpDragHandler=dragHandler;
+}
+
+function _showLPMoveConfirm(lpId,oldSd,oldEd,newSd,newEd,name){
+  const existing=document.getElementById('lp-confirm-btns');
+  if(existing) existing.remove();
+
+  const wrap=document.createElement('div');
+  wrap.id='lp-confirm-btns';
+  wrap.style.cssText='position:fixed;z-index:9999;display:flex;gap:6px;padding:6px 10px;background:var(--card);border:1px solid var(--gold);border-radius:7px;font-family:\'DM Mono\',monospace;box-shadow:0 4px 18px rgba(0,0,0,0.55)';
+
+  const confirmBtn=document.createElement('button');
+  confirmBtn.textContent='✅ Confirm';
+  confirmBtn.style.cssText='background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:4px 12px;cursor:pointer';
+  confirmBtn.onclick=()=>{
+    wrap.remove();
+    const item=_lpCache.find(x=>x.id===lpId)||_LP_DEFAULTS.find(x=>x.id===lpId);
+    _lpSaveBar({...(item||{id:lpId}),sd:newSd,ed:newEd});
+    buildLaunchPlan();
+    _showToast(`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--green)">✅ Saved — ${name} → ${newSd}</div>`,1800);
+  };
+
+  const undoBtn=document.createElement('button');
+  undoBtn.textContent='↩ Undo';
+  undoBtn.style.cssText='background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:4px 12px;cursor:pointer';
+  undoBtn.onclick=()=>{
+    wrap.remove();
+    const cIdx=_lpCache.findIndex(x=>x.id===lpId);
+    if(cIdx>=0){ _lpCache[cIdx].sd=oldSd; _lpCache[cIdx].ed=oldEd; }
+    if(_lpUndoStack.length&&_lpUndoStack[_lpUndoStack.length-1].id===lpId) _lpUndoStack.pop();
+    buildLaunchPlan();
+  };
+
+  wrap.appendChild(confirmBtn);
+  wrap.appendChild(undoBtn);
+  document.body.appendChild(wrap);
+  requestAnimationFrame(()=>{
+    const bar=document.querySelector(`[data-lp-id="${lpId}"]`);
+    const rect=bar?bar.getBoundingClientRect():null;
+    const bw=wrap.offsetWidth||160, bh=wrap.offsetHeight||40;
+    if(rect){
+      let top=rect.top-bh-10, left=rect.right+8;
+      if(left+bw>window.innerWidth-8) left=rect.left-bw-8;
+      if(top<8) top=rect.bottom+8;
+      wrap.style.top=Math.max(8,top)+'px';
+      wrap.style.left=Math.max(8,Math.min(left,window.innerWidth-bw-8))+'px';
+    } else { wrap.style.bottom='24px'; wrap.style.right='24px'; }
+  });
 }
 
 function _lpUndo(){
