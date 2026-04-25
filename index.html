@@ -13828,6 +13828,165 @@ async function runDGLTests(){
   return {pass,fail,total};
 }
 window.runDGLTests=runDGLTests;
+
+// ── MASTER TEST SUITE ─────────────────────────────────────────────────────────
+async function runMasterTests(){
+  let pass=0,fail=0;
+  const results=[];
+  function ok(label){pass++;results.push({p:true,label});}
+  function no(label,reason){fail++;results.push({p:false,label,reason});}
+  function check(label,cond,reason){cond?ok(label):no(label,reason||'assertion failed');}
+
+  console.group('🧪 DGL Master Test Suite');
+
+  // ── SECTION 1: DATA INTEGRITY ──────────────────────────────────────────────
+  console.group('Section 1 — Data Integrity');
+  const tasks=DASHBOARD_DATA&&DASHBOARD_DATA.tasks;
+  const validRoles=new Set(['R','A','C','I','','A/R','R/A','A/C','C/I']);
+  const raciCols=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+  const validStatuses=new Set(['Not Started','In Progress','Started','In Review','Ready','Complete','Done','Blocked','Cancelled']);
+  if(Array.isArray(tasks)){
+    check('All 40 tasks loaded',tasks.length>=40,`found ${tasks.length}`);
+    const badFields=tasks.filter(t=>!t.id||!t.name||!t.sd||!t.ed||!t.cat);
+    check('All tasks have id, name, sd, ed, cat',badFields.length===0,`${badFields.length} tasks missing fields: ${badFields.slice(0,3).map(t=>t.id||'?').join(', ')}`);
+    const badStatus=tasks.filter(t=>!validStatuses.has(t.status));
+    check('All tasks have valid status',badStatus.length===0,`${badStatus.length} invalid: ${badStatus.slice(0,3).map(t=>t.id+':'+t.status).join(', ')}`);
+    const catNames=new Set((_settingsCache&&_settingsCache.categories||[]).map(c=>c.name));
+    if(catNames.size>0){const badCats=tasks.filter(t=>t.cat&&!catNames.has(t.cat));check('All task categories match _settingsCache',badCats.length===0,`${badCats.length} unknown: ${[...new Set(badCats.map(t=>t.cat))].slice(0,5).join(', ')}`);}
+    else{no('All task categories match _settingsCache','_settingsCache.categories empty — settings not loaded yet');}
+    const badRaci=tasks.filter(t=>raciCols.some(col=>!validRoles.has(t[col]??'')));
+    check('All RACI role values are valid',badRaci.length===0,`${badRaci.length} tasks with invalid roles: ${badRaci.slice(0,3).map(t=>t.id).join(', ')}`);
+  }else{['tasks loaded','fields valid','status valid','categories valid','RACI roles valid'].forEach(l=>no(l,'tasks not array'));}
+  console.groupEnd();
+
+  // ── SECTION 2: SHEETS CONNECTIVITY ────────────────────────────────────────
+  console.group('Section 2 — Sheets Connectivity');
+  if(CONFIG&&CONFIG.sheetsUrl){
+    const base=CONFIG.sheetsUrl;
+    const readTests=[
+      {label:'tasks_read (default GET)',       url:base,                                     chk:d=>(Array.isArray(d)||Array.isArray(d.tasks))&&(Array.isArray(d)?d:d.tasks).length>0},
+      {label:'agenda_read',                    url:base+'?action=agenda_read',               chk:d=>Array.isArray(d)||Array.isArray(d.items)},
+      {label:'hr_profiles_read',               url:base+'?action=hr_profiles_read',          chk:d=>Array.isArray(d.profiles)},
+      {label:'docs_read',                      url:base+'?action=docs_read&sourceType=task&sourceId=T-001', chk:d=>typeof d==='object'},
+      {label:'roadmap_read',                   url:base+'?action=roadmap_read',              chk:d=>typeof d==='object'},
+      {label:'settings_read',                  url:base+'?action=settings_read',             chk:d=>d.ok!==false&&Array.isArray(d.settings)},
+      {label:'channel_maps_read',              url:base+'?action=channel_maps_read',         chk:d=>typeof d==='object'},
+      {label:'notifications_read',             url:base+'?action=notifications_read',        chk:d=>typeof d==='object'},
+      {label:'completions_read',               url:base+'?action=completions_read',          chk:d=>typeof d==='object'},
+    ];
+    await Promise.all(readTests.map(async t=>{
+      try{const r=await fetch(t.url);const d=await r.json();t.chk(d)?ok(t.label):no(t.label,'unexpected response: '+JSON.stringify(d).slice(0,120));}
+      catch(e){no(t.label,e.message);}
+    }));
+  }else{no('Sheets connectivity','CONFIG.sheetsUrl not set');}
+  console.groupEnd();
+
+  // ── SECTION 3: WRITE OPERATIONS ───────────────────────────────────────────
+  console.group('Section 3 — Write Operations');
+  if(CONFIG&&CONFIG.sheetsUrl){
+    const base=CONFIG.sheetsUrl;
+    // settings_write → read back → delete
+    try{
+      await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'test',key:'master-test-sentinel',value:'pass-'+Date.now(),meta:''})});
+      const rd=await fetch(base+'?action=settings_read').then(r=>r.json());
+      const found=(rd.settings||[]).find(s=>s.type==='test'&&s.key==='master-test-sentinel');
+      check('settings_write → read back correctly',!!found,'sentinel not found in settings_read response');
+      await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'test',key:'master-test-sentinel',value:'',meta:'__delete__'})});
+      ok('settings_write cleanup (delete)');
+    }catch(e){no('settings_write round-trip',e.message);no('settings_write cleanup','skipped due to write error');}
+    // notification_write
+    try{
+      const wr=await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-test-'+Date.now(),taskId:'T-TEST',toUser:'test',channel:'',message:'[MASTER TEST] sentinel',sentBy:'test',sentAt:new Date().toISOString(),type:'test'})}).then(r=>r.json());
+      check('notification_write returns ok',wr&&wr.ok,'ok='+JSON.stringify(wr).slice(0,80));
+    }catch(e){no('notification_write',e.message);}
+    // status_log_write
+    try{
+      const sr=await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'status_log_write',id:'sl-test-'+Date.now(),taskId:'T-TEST',fromStatus:'Not Started',toStatus:'Started',changedBy:'test',changedAt:new Date().toISOString(),note:'[MASTER TEST] sentinel'})}).then(r=>r.json());
+      check('status_log_write returns ok',sr&&sr.ok,'ok='+JSON.stringify(sr).slice(0,80));
+    }catch(e){no('status_log_write',e.message);}
+  }else{['settings_write round-trip','settings_write cleanup','notification_write','status_log_write'].forEach(l=>no(l,'CONFIG.sheetsUrl not set'));}
+  console.groupEnd();
+
+  // ── SECTION 4: UI ELEMENTS ─────────────────────────────────────────────────
+  console.group('Section 4 — UI Elements');
+  ['agenda','command','raci','roadmap','budget','team','appdata','comms'].forEach(id=>{
+    check(`page-${id} exists in DOM`,!!document.getElementById('page-'+id),'element missing');
+  });
+  check('All 8 nav tab buttons present',document.querySelectorAll('.nav-tab[data-tab-id]').length>=8,`found ${document.querySelectorAll('.nav-tab[data-tab-id]').length}`);
+  check('RACI table has rows',document.querySelectorAll('#raci-body tr').length>0,'no rows in #raci-body');
+  check('roadmap-milestone-list exists',!!document.getElementById('roadmap-milestone-list'),'element missing');
+  check('Settings modal trigger exists',!!document.querySelector('[onclick*="openSettingsModal"]')||!!document.getElementById('settings-modal'),'no settings modal trigger found');
+  check('agenda-monday-list exists',!!document.getElementById('agenda-monday-list'),'element missing');
+  check('Category filter area exists',document.querySelectorAll('[data-cat],[class*="cat-filter"],[id*="raci-filter"]').length>0,'no category filter elements found');
+  console.groupEnd();
+
+  // ── SECTION 5: DROPDOWNS ──────────────────────────────────────────────────
+  console.group('Section 5 — Dropdowns');
+  const scCats=(_settingsCache&&_settingsCache.categories||[]).map(c=>c.name);
+  const tmCat=document.getElementById('tm-cat');
+  if(tmCat&&scCats.length){
+    const opts=[...tmCat.options].map(o=>o.value).filter(Boolean);
+    const missing=scCats.filter(c=>!opts.includes(c));
+    check('tm-cat dropdown has all _settingsCache categories',missing.length===0,`missing: ${missing.slice(0,5).join(', ')}`);
+  }else{check('tm-cat dropdown has all _settingsCache categories',!scCats.length||!!tmCat,!tmCat?'#tm-cat not in DOM (open task modal first)':'no settings cats loaded');}
+  const statusSel=document.getElementById('tm-status')||document.querySelector('select[onchange*="setTaskStatus"]');
+  if(statusSel){
+    const opts=[...statusSel.options].map(o=>o.value).filter(Boolean);
+    const need=['Not Started','In Progress','Started','Complete','Blocked'];
+    const missing=need.filter(s=>!opts.includes(s));
+    check('Status dropdown has required values',missing.length===0,`missing: ${missing.join(', ')}`);
+  }else{no('Status dropdown has required values','no status select found in DOM (open task modal first)');}
+  const ownerSel=document.getElementById('tm-owner')||document.querySelector('select[id*="owner"]');
+  if(ownerSel){
+    const opts=[...ownerSel.options].map(o=>o.value.toLowerCase()).filter(Boolean);
+    const activeMembers=['taylor','adam','jr','hammad','searah','sadee'];
+    const missing=activeMembers.filter(m=>!opts.some(o=>o.toLowerCase().includes(m)));
+    check('Owner dropdown has active team members',missing.length===0,`missing: ${missing.join(', ')}`);
+  }else{no('Owner dropdown has active team members','#tm-owner not in DOM (open task modal first)');}
+  console.groupEnd();
+
+  // ── SECTION 6: CACHE STATE ────────────────────────────────────────────────
+  console.group('Section 6 — Cache State');
+  check('_settingsCache.categories has 10+ entries',(_settingsCache&&_settingsCache.categories||[]).length>=10,`found ${(_settingsCache&&_settingsCache.categories||[]).length}`);
+  check('_slackChannelsCache has 40+ channels',(_slackChannelsCache||[]).length>=40,`found ${(_slackChannelsCache||[]).length} — open Comms tab to load`);
+  check('_hrProfilesCache has profiles',Object.keys(_hrProfilesCache||{}).length>0,'empty — Wave 2 may not have run');
+  check('_docsCache is an object',typeof _docsCache==='object'&&_docsCache!==null,`got ${typeof _docsCache}`);
+  check('_settingsCache.project exists',typeof(_settingsCache&&_settingsCache.project)==='object','missing or not loaded');
+  check('_lastSheetsLoadTime is set',(_lastSheetsLoadTime||0)>0,'sheets may not have loaded');
+  console.groupEnd();
+
+  // ── SECTION 7: KEY FUNCTIONS ──────────────────────────────────────────────
+  console.group('Section 7 — Key Functions');
+  ['masterRefresh','buildRaciTable','buildTeamGrid','buildAgendaPage','loadSettings','_saveTasksNow','_logNotification','_logStatusChange','_detectGaps'].forEach(fn=>{
+    let defined=false;try{defined=typeof eval(fn)==='function';}catch(e){}
+    check(`${fn} is defined`,defined,'not defined');
+  });
+  console.groupEnd();
+
+  // ── SECTION 8: AUTH ───────────────────────────────────────────────────────
+  console.group('Section 8 — Auth');
+  check('CREDS has 8 entries',Array.isArray(CREDS)&&CREDS.length===8,`found ${Array.isArray(CREDS)?CREDS.length:'undefined (CREDS not accessible)'}`);
+  if(Array.isArray(CREDS)) check('Each CRED has user and pw',CREDS.every(c=>c.user&&c.pw),'malformed entry found');
+  try{
+    const maryActive=(_DM_MEMBERS||[]).find(m=>m.key==='mary')&&!_isDMInactive('mary');
+    check('Mary is inactive in DM list',!maryActive,'Mary appears active in _DM_MEMBERS');
+  }catch(e){no('Mary inactive in DM list',e.message);}
+  try{
+    const custom=_getCustomTeamMembers();
+    const maryActive=(Array.isArray(custom)?custom:[]).find(m=>(m.key||m.userKey)==='mary'&&m.status!=='inactive');
+    check('Mary excluded from active custom team members',!maryActive,'Mary found as active in _getCustomTeamMembers()');
+  }catch(e){no('Mary excluded from active team',e.message);}
+  console.groupEnd();
+
+  // ── SUMMARY ───────────────────────────────────────────────────────────────
+  const total=pass+fail;
+  console.group(`%c🧪 Master Suite: ${pass}/${total} passed ${fail>0?'❌':'✅'}`,fail>0?'color:tomato;font-weight:bold':'color:#34d399;font-weight:bold');
+  results.forEach(r=>console.log(r.p?`  ✅ PASS  ${r.label}`:`  ❌ FAIL  ${r.label} — ${r.reason}`));
+  console.groupEnd();
+  console.groupEnd();
+  return {pass,fail,total,results};
+}
+window.runMasterTests=runMasterTests;
 </script>
 </body>
 </html>
