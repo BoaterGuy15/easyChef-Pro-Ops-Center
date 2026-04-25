@@ -15631,7 +15631,7 @@ function _buildWorkflowLinksHtml(links){
     if(_linksFilter!=='all'&&lk.fromType!==_linksFilter&&lk.toType!==_linksFilter)return false;
     if(_linksSearch){const s=_linksSearch.toLowerCase();if(![lk.fromType,lk.fromId,lk.toType,lk.toId,lk.notes||'',lk.createdBy||''].some(v=>(v||'').toLowerCase().includes(s)))return false;}
     return true;
-  });
+  }).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
   const rowsSt="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:10px;min-width:0";
   const rows=filtered.map(lk=>{
     const fn=_resolveLinkName(lk.fromType,lk.fromId);
