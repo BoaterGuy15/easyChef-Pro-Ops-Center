@@ -14328,8 +14328,8 @@ function _showLPNewBarForm(sd,ed){
   const existing=document.getElementById('lp-new-bar-form');if(existing)existing.remove();
   const wrap=document.createElement('div');
   wrap.id='lp-new-bar-form';
-  const _lpTop=Math.max(8,Math.min(window.innerHeight/2-160,window.innerHeight-300));
-  const _lpLeft=Math.max(8,Math.min(window.innerWidth/2-165,window.innerWidth-320));
+  const _lpTop=Math.max(60,(window.innerHeight-400)/2);
+  const _lpLeft=Math.max(20,(window.innerWidth-360)/2);
   wrap.style.cssText=`position:fixed;z-index:99999;top:${_lpTop}px;left:${_lpLeft}px;background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.65);padding:18px 20px;font-family:'DM Mono',monospace;font-size:11px;min-width:290px;max-width:350px`;
   wrap.addEventListener('click',e=>e.stopPropagation());
   const ttl=document.createElement('div');ttl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;font-weight:600";ttl.textContent='➕ New Workstream';wrap.appendChild(ttl);
