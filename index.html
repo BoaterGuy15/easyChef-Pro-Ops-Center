@@ -4127,7 +4127,7 @@ function buildRoadmap(){
       const name=t.name.length>maxChars?t.name.substring(0,maxChars)+'…':t.name;
       const flagIco=_flagEmoji(t.flag);
       const flagPin=flagIco?`<span style="font-size:9px;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
-      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" title="${t.name}${t.flag?' · '+t.flag:''} · ${sd} → ${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
+      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
     canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
@@ -4184,7 +4184,53 @@ function buildRoadmap(){
   }
 
   _initGanttDrag();
+  _initGanttHover();
   requestAnimationFrame(_renderGanttMilestoneLines);
+}
+
+function _initGanttHover(){
+  const canvas=document.getElementById('gantt-canvas');
+  if(!canvas||canvas._ganttHoverInited) return;
+  canvas._ganttHoverInited=true;
+  let _tip=document.getElementById('gantt-bar-tooltip');
+  if(!_tip){
+    _tip=document.createElement('div');_tip.id='gantt-bar-tooltip';
+    _tip.style.cssText="position:fixed;z-index:9998;max-width:320px;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.55);padding:10px 14px;font-family:'DM Mono',monospace;font-size:10px;pointer-events:none;display:none;line-height:1.5";
+    document.body.appendChild(_tip);
+  }
+  let _hoverTaskId=null;
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function _fmt(s){if(!s)return '—';const d=new Date(s+'T00:00:00');return MO[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();}
+  canvas.addEventListener('mousemove',e=>{
+    if(document.querySelector('.rm-cell.gantt-dragging')){_tip.style.display='none';_hoverTaskId=null;return;}
+    const bar=e.target.closest('[data-task-id]');
+    if(!bar){_tip.style.display='none';_hoverTaskId=null;return;}
+    const taskId=bar.dataset.taskId;
+    if(taskId!==_hoverTaskId){
+      _hoverTaskId=taskId;
+      const t=(DASHBOARD_DATA.tasks||[]).find(x=>x.id===taskId);
+      if(!t){_tip.style.display='none';return;}
+      const sc=getStatusColors(t.status||'');
+      let html=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:8px;height:8px;border-radius:50%;background:${sc.color};flex-shrink:0"></span><span style="color:var(--gold);font-weight:600;font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name||'—'}</span></div>`;
+      html+=`<div style="color:var(--muted);font-size:9px;margin-bottom:8px">${_fmt(t.sd)} → ${_fmt(t.ed)}</div>`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">`;
+      html+=`<span style="color:var(--muted);font-size:8px">ID: <span style="color:var(--text)">${t.id}</span></span>`;
+      if(t.owner) html+=`<span style="color:var(--muted);font-size:8px">· Owner: <span style="color:var(--text)">${t.owner}</span></span>`;
+      if(t.cat)   html+=`<span style="color:var(--muted);font-size:8px">· Cat: <span style="color:var(--text)">${t.cat}</span></span>`;
+      html+=`</div>`;
+      html+=`<span style="background:${sc.bg};color:${sc.color};font-size:8px;padding:2px 7px;border-radius:3px;white-space:nowrap">${t.status||'—'}</span>`;
+      if(t.flag) html+=` <span style="font-size:11px;margin-left:4px">${t.flag}</span>`;
+      if(t.deps) html+=`<div style="margin-top:7px;color:var(--muted);font-size:8px">Deps: <span style="color:var(--text)">${t.deps}</span></div>`;
+      html+=`<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;color:var(--muted);font-size:8px;font-style:italic">Right-click for more options</div>`;
+      _tip.innerHTML=html;
+    }
+    const tw=_tip.offsetWidth||280,th=_tip.offsetHeight||100;
+    let left=e.clientX+16,top=e.clientY-12;
+    if(left+tw>window.innerWidth-8)left=e.clientX-tw-12;
+    if(top+th>window.innerHeight-8)top=window.innerHeight-th-8;
+    _tip.style.left=Math.max(4,left)+'px';_tip.style.top=Math.max(4,top)+'px';_tip.style.display='block';
+  },{passive:true});
+  canvas.addEventListener('mouseleave',()=>{_tip.style.display='none';_hoverTaskId=null;});
 }
 
 function _renderGanttMilestoneLines(opts){
