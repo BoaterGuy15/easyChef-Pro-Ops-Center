@@ -14549,22 +14549,24 @@ function buildLaunchPlan(){
       const name=t.name.length>_maxChars?t.name.substring(0,_maxChars)+'…':t.name;
       const _lblFs=_ganttDayPx>=20?'11px':_ganttDayPx>=10?'10px':'9px';
       // ── Task-status tint ──
-      const _tids=(Array.isArray(t.taskIds)?t.taskIds:(String(t.taskIds||'')).split(',').map(s=>s.trim())).filter(Boolean);
+      const _tids=(Array.isArray(t.taskIds)?t.taskIds:String(t.taskIds||'').split(',')).map(s=>String(s).trim()).filter(Boolean);
       const _linkedTasks=_tids.map(tid=>(DASHBOARD_DATA.tasks||[]).find(tk=>tk.id===tid)).filter(Boolean);
       let _tintStyle='',_dotHtml='';
       if(_linkedTasks.length){
-        const _allDone=_linkedTasks.every(tk=>tk.status==='Done'||tk.status==='Complete');
-        const _anyBlocked=_linkedTasks.some(tk=>tk.status==='Blocked'||tk.status==='At Risk');
-        const _anyActive=_linkedTasks.some(tk=>['Started','In Progress','Ready','In Review'].includes(tk.status));
-        if(_anyBlocked){
+        const _todayIso=_isoToday();
+        const _isDoneStatus=s=>s==='Done'||s==='Complete';
+        const _allDone=_linkedTasks.every(tk=>_isDoneStatus(tk.status));
+        const _anyOverdue=_linkedTasks.some(tk=>!_isDoneStatus(tk.status)&&tk.ed&&String(tk.ed).slice(0,10)<_todayIso);
+        const _anyStarted=_linkedTasks.some(tk=>['Started','In Progress','Ready','In Review','Complete','Done'].includes(tk.status));
+        if(_anyOverdue){
           _tintStyle='background:rgba(239,68,68,0.18);box-shadow:inset 0 0 0 2px rgba(239,68,68,0.7);';
-          _dotHtml='<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:#ef4444;flex-shrink:0;pointer-events:none"></span>';
+          _dotHtml='<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:#ef4444;pointer-events:none"></span>';
         } else if(_allDone){
           _tintStyle='background:rgba(34,197,94,0.18);box-shadow:inset 0 0 0 2px rgba(34,197,94,0.6);';
-          _dotHtml='<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0;pointer-events:none"></span>';
-        } else if(_anyActive){
+          _dotHtml='<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:#22c55e;pointer-events:none"></span>';
+        } else if(_anyStarted){
           _tintStyle='background:rgba(245,158,11,0.18);box-shadow:inset 0 0 0 2px rgba(245,158,11,0.6);';
-          _dotHtml='<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:#f59e0b;flex-shrink:0;pointer-events:none"></span>';
+          _dotHtml='<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:#f59e0b;pointer-events:none"></span>';
         }
       }
       barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}${_tintStyle}" data-lp-id="${t.id}" data-sd="${sd}" data-ed="${ed}">${_dotHtml}<span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${_lblFs}">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
