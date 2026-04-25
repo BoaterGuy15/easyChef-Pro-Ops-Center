@@ -2174,8 +2174,11 @@ function _syncChannelToSheets(taskId,channelId,channelName,oldChannelName){
   const sessionHash=(user).slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId,channelName:channelName||'',changedBy,oldChannel:oldChannelName||'none',sessionHash})}).catch(()=>{});
 }
-function _batchSaveChannelsToSheets(){
+let _channelsBatchSaved=false;
+function _batchSaveChannelsToSheets(force){
   if(!CONFIG.sheetsUrl) return;
+  if(!force&&_channelsBatchSaved) return;
+  _channelsBatchSaved=true;
   const user=window._DGL_USER||'system';
   Object.entries(_slackLinksCache).forEach(([key,obj])=>{
     const taskId=key.replace('dgl_task_slack_','');
@@ -2339,7 +2342,7 @@ function _saveAllCategoryMappings(btn){
 }
 function _relinkAllTasks(){
   Object.keys(_slackLinksCache).forEach(k=>{ delete _slackLinksCache[k]; });
-  loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); });
+  loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(true); });
   const btn=document.getElementById('ccm-relink-btn');
   if(btn){ btn.textContent='↺ Linked ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='↺ Re-link All Tasks'; btn.disabled=false; },1500); }
 }
