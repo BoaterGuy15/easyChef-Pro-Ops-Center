@@ -15142,7 +15142,9 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
   _fld('TYPE',typeEl);
   const titleEl=document.createElement('input');titleEl.type='text';titleEl.placeholder='Brief summary…';titleEl.style.cssText=iCss;_fld('TITLE',titleEl);
   const bodyEl=document.createElement('textarea');bodyEl.rows=2;bodyEl.placeholder='Details…';bodyEl.style.cssText=iCss+';resize:vertical';_fld('NOTES',bodyEl);
-  const assignEl=document.createElement('input');assignEl.type='text';assignEl.placeholder='Name…';assignEl.style.cssText=iCss;_fld('ASSIGNED TO',assignEl);
+  const assignEl=document.createElement('select');assignEl.style.cssText=iCss;
+  (()=>{const none=document.createElement('option');none.value='';none.textContent='— Unassigned —';assignEl.appendChild(none);_DM_MEMBERS.filter(m=>!_isDMInactive(m.key)).forEach(m=>{const o=document.createElement('option');o.value=m.key;o.textContent=m.name;assignEl.appendChild(o);});})();
+  _fld('ASSIGNED TO',assignEl);
   const dueEl=document.createElement('input');dueEl.type='date';dueEl.style.cssText=iCss;_fld('DUE DATE',dueEl);
   const btns=document.createElement('div');btns.style.cssText='display:flex;gap:6px;justify-content:flex-end;margin-top:6px';
   const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";cancelBtn.onclick=_close;
@@ -15151,10 +15153,31 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
     const title=(titleEl.value||'').trim();
     if(!title){titleEl.focus();return;}
     const id='wsa-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
-    const payload={action:'workstream_action_write',item:{id,workstreamId,type:typeEl.value,title,body:bodyEl.value,assignedTo:assignEl.value,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}};
+    const assignedKey=assignEl.value;
+    const assignedName=assignedKey?(_DM_NAME_MAP[assignedKey]||assignedKey):'Unassigned';
+    const barItem=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===lpId)||{};
+    const wsName=barItem.workstream||workstreamId||'';
+    const msg=`⚡ New Action assigned to ${assignedName} on ${wsName}: ${title}${bodyEl.value?' — '+bodyEl.value:''}`;
+    const payload={action:'workstream_action_write',item:{id,workstreamId,type:typeEl.value,title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}};
+    function _notifyAfterSave(){
+      _autoLink('action',id,'workstream',workstreamId);
+      // DM to assigned person
+      if(assignedKey){
+        const dmCh=_getDMChannelId(assignedKey);
+        _logNotification(id,assignedKey,dmCh,msg,'action');
+        if(dmCh&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(dmCh)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(CONFIG.currentUser||'system')).catch(()=>{});
+      }
+      // Post to workstream's linked Slack channel
+      if(wsName&&CONFIG.sheetsUrl){
+        const chs=_slackChannelsCache||[];
+        const wsSlug=wsName.toLowerCase().replace(/\s+/g,'-');
+        const wsCh=chs.find(c=>(c.name||'').toLowerCase()===wsSlug)||chs.find(c=>(c.name||'').toLowerCase().includes(wsSlug.split('-')[0]));
+        if(wsCh) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(wsCh.id)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(CONFIG.currentUser||'system')).catch(()=>{});
+      }
+    }
     if(CONFIG.sheetsUrl){
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
-        .then(()=>{_autoLink('action',id,'workstream',workstreamId);_close();if(onSaved)onSaved();}).catch(()=>{_close();if(onSaved)onSaved();});
+        .then(()=>{_notifyAfterSave();_close();if(onSaved)onSaved();}).catch(()=>{_close();if(onSaved)onSaved();});
     } else {_close();if(onSaved)onSaved();}
   };
   btns.appendChild(cancelBtn);btns.appendChild(saveBtn);form.appendChild(btns);
