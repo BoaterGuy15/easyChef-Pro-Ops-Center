@@ -5396,6 +5396,8 @@ function _getActionPlanText(sourceId){
 function _saveActionPlan(sourceId,sourceType,text,linkedTaskId,linkedAgendaId){
   const plan={id:'ap-'+Date.now(),text,sourceType,createdBy:(window._DGL_USER||'Unknown'),createdAt:new Date().toISOString(),linkedTaskId:linkedTaskId||'',linkedAgendaId:linkedAgendaId||''};
   _actionPlansCache[sourceId]=plan;
+  const _apTask=DASHBOARD_DATA.tasks&&DASHBOARD_DATA.tasks.find(t=>t.id===sourceId);
+  if(_apTask) _apTask.actionPlan=text;
   if(!CONFIG.sheetsUrl) return;
   const payload=JSON.stringify({action:'action_plans_write',sourceId,...plan});
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload}).catch(()=>{});
@@ -16669,6 +16671,7 @@ function _coInit(){
       _coBooted=true;
       setTimeout(_coInit,800);
       setTimeout(_actionsFetch,1200);
+      setTimeout(loadActionPlansFromSheets,1000);
     }
   };
 })();
