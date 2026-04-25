@@ -4152,6 +4152,14 @@ function buildRoadmap(){
     scroll.addEventListener('scroll',()=>{ if(window._ganttPendingConfirmId) _repositionConfirmBubble(window._ganttPendingConfirmId); },{passive:true});
     scroll.addEventListener('dblclick',e=>{ if(!e.target.closest('[data-task-id]')) _ganttUndo(); });
     document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='z'&&document.getElementById('page-roadmap')?.classList.contains('active')){ e.preventDefault(); _ganttUndo(); } });
+    scroll.addEventListener('contextmenu',e=>{
+      if(e.target.closest('[data-task-id]')) return;
+      e.preventDefault();
+      const sd=_xToDate(e.clientX);
+      let ed='';
+      if(sd){ const d=new Date(sd+'T00:00:00'); d.setDate(d.getDate()+13); ed=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+      _showGanttAddMenu(e.clientX,e.clientY,sd,ed);
+    });
     scroll.style.cursor='grab';
     let _panning=false,_panX=0,_panY=0,_panLeft=0,_panTop=0;
     scroll.addEventListener('mousedown',e=>{
@@ -4272,6 +4280,44 @@ function _closeGanttContextMenu(){
   document.removeEventListener('keydown',_ganttCtxEsc,true);
 }
 function _ganttCtxEsc(e){ if(e.key==='Escape') _closeGanttContextMenu(); }
+function _closeGanttAddMenu(){
+  const m=document.getElementById('gantt-add-menu');
+  if(m) m.remove();
+  document.removeEventListener('click',_closeGanttAddMenu,false);
+  document.removeEventListener('keydown',_ganttAddMenuEsc,true);
+}
+function _ganttAddMenuEsc(e){ if(e.key==='Escape') _closeGanttAddMenu(); }
+function _showGanttAddMenu(cx,cy,sd,ed){
+  _closeGanttAddMenu();
+  const mnu=document.createElement('div');
+  mnu.id='gantt-add-menu';
+  mnu.style.cssText="position:fixed;z-index:99999;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:4px 0;font-family:'DM Mono',monospace;font-size:11px;min-width:180px";
+  const left=Math.min(cx+4,window.innerWidth-192);
+  const top=Math.min(cy+4,window.innerHeight-56);
+  mnu.style.left=Math.max(4,left)+'px'; mnu.style.top=Math.max(4,top)+'px';
+  mnu.addEventListener('click',e=>e.stopPropagation());
+  const row=document.createElement('div');
+  row.style.cssText="display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;color:var(--text)";
+  row.onmouseover=()=>row.style.background='rgba(201,168,76,0.1)';
+  row.onmouseout=()=>row.style.background='transparent';
+  const ic=document.createElement('span'); ic.style.cssText='font-size:13px;width:18px;text-align:center;flex-shrink:0'; ic.textContent='➕';
+  const lb=document.createElement('span'); lb.textContent='Add New Task';
+  row.appendChild(ic); row.appendChild(lb);
+  row.onclick=()=>{
+    _closeGanttAddMenu();
+    showTaskModal(null);
+    setTimeout(()=>{
+      const se=document.getElementById('tm-sd'); if(se&&sd) se.value=sd;
+      const ee=document.getElementById('tm-ed'); if(ee&&ed) ee.value=ed;
+    },0);
+  };
+  mnu.appendChild(row);
+  document.body.appendChild(mnu);
+  setTimeout(()=>{
+    document.addEventListener('click',_closeGanttAddMenu,false);
+    document.addEventListener('keydown',_ganttAddMenuEsc,true);
+  },0);
+}
 function _ctxEl(tag,css,text){ const e=document.createElement(tag); if(css) e.style.cssText=css; if(text!=null) e.textContent=text; return e; }
 function _showDocPreview(doc){
   const existing=document.getElementById('gantt-doc-preview');
