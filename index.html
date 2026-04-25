@@ -8710,7 +8710,7 @@ function saveBudgetToLocal(){
     if(CONFIG.sheetsUrl){
       fetch(CONFIG.sheetsUrl,{
         method:'POST',mode:'no-cors',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'text/plain'},
         body:JSON.stringify({action:'budget_write',budget:b})
       }).catch(()=>{});
     }
@@ -14665,7 +14665,7 @@ function _lpLogAction(lpId,type,title,body){
   const wsRow=_wsCache.find(w=>w.id===lpId)||_wsCache.find(w=>w.name===barItem.workstream)||null;
   const workstreamId=wsRow?wsRow.id:lpId;
   const id='wsa-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'workstream_action_write',item:{id,workstreamId,type,title,body:body||'',assignedTo:'',dueDate:'',status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}})}).catch(()=>{});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'workstream_action_write',item:{id,workstreamId,type,title,body:body||'',assignedTo:'',dueDate:'',status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}})}).catch(()=>{});
 }
 function _closeStreamTaskPanel(){
   const p=document.getElementById('lp-stream-panel');
@@ -14846,7 +14846,7 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
     const id='wsa-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
     const payload={action:'workstream_action_write',item:{id,workstreamId,type:typeEl.value,title,body:bodyEl.value,assignedTo:assignEl.value,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}};
     if(CONFIG.sheetsUrl){
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
         .then(()=>{_close();if(onSaved)onSaved();}).catch(()=>{_close();if(onSaved)onSaved();});
     } else {_close();if(onSaved)onSaved();}
   };
