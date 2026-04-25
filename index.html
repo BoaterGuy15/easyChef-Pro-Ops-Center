@@ -15482,29 +15482,6 @@ function _renderLPActionPlanTab(container,taskId,wsItem,onBack){
   else{
     const loadEl=document.createElement('div');loadEl.style.cssText="padding:20px 14px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px";loadEl.textContent='Loading…';body.appendChild(loadEl);
     _fetchActionPlan(taskId,function(){body.innerHTML='';_renderAPSteps();});
-    return;
-  }
-  // Background Sheets refresh — same as workstream combined view does per linked task
-  if(CONFIG.sheetsUrl){
-    _fetchActionPlan.__inProgress=_fetchActionPlan.__inProgress||{};
-    if(!_fetchActionPlan.__inProgress[taskId]){
-      _fetchActionPlan.__inProgress[taskId]=true;
-      fetch(CONFIG.sheetsUrl+'?action=action_plans_read&sourceId='+encodeURIComponent(taskId))
-        .then(r=>r.json())
-        .then(data=>{
-          delete _fetchActionPlan.__inProgress[taskId];
-          const plans=Array.isArray(data)?data:(data.plans||[]);
-          if(!plans.length) return;
-          const latest=plans.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))[0];
-          if(latest&&latest.status!=='complete'){
-            const newText=latest.text||'';
-            if(newText!==(_actionPlansCache[taskId]&&_actionPlansCache[taskId].text)){
-              _actionPlansCache[taskId]={text:newText,id:latest.id||'',sourceType:latest.sourceType||'',createdBy:latest.createdBy||'',createdAt:latest.createdAt||'',linkedTaskId:latest.linkedTaskId||''};
-              if(document.contains(body)){body.innerHTML='';_renderAPSteps();}
-            }
-          }
-        }).catch(()=>{delete _fetchActionPlan.__inProgress[taskId];});
-    }
   }
 }
 function _renderAPGaps(body,taskId){
