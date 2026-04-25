@@ -7555,8 +7555,9 @@ function _buildMilestonesHtml(canEditControls){
   const items=DASHBOARD_DATA.meta.milestoneItems;
   const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const showControls=canEditControls&&isAdmin;
+  const _msTypeIcon={Launch:'🚀',Beta:'🔬',Goal:'🏆',Milestone:'🎯'};
   let html='';
-  if(canEditControls) html+=`<div style="margin-bottom:16px"><button onclick="_openMilestoneModal()" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">➕ Add Milestone</button></div>`;
+  if(canEditControls) html+=`<div style="margin-bottom:14px"><button onclick="_openMilestoneModal()" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">➕ Add Milestone</button></div>`;
   if(!items.length){
     html+=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);padding:4px 0">No milestones — loading from Sheets...</div>`;
   } else {
@@ -7566,27 +7567,29 @@ function _buildMilestonesHtml(canEditControls){
       const date=_fmtMsDate(m.date);
       const type=m.type||'Milestone';
       const done=(m.status==='Complete'||m.status==='Achieved')||!!m.achievedDate;
-      const dotC=done?'var(--green)':m.status==='Active'?'var(--amber)':m.color||'var(--gold)';
-      const isLast=i===items.length-1;
       const cardColor=done?'#22c55e':_milestoneColor(m.color);
       const cardColorRgb=(()=>{ const h=cardColor.replace('#',''); if(h.length===6){ const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return r+','+g+','+b; } return '201,168,76'; })();
-      const typePill=`<span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(${cardColorRgb},0.12);color:${cardColor};padding:1px 5px;border-radius:3px;border:1px solid rgba(${cardColorRgb},0.25)">${type}</span>`;
-      const doneBadge=done?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green)">✓ ${m.achievedDate||'Complete'}</span>`:'';
+      const icon=_msTypeIcon[type]||'📌';
+      const statusBadge=done
+        ?`<span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(34,197,94,0.12);color:#22c55e;padding:1px 6px;border-radius:3px;border:1px solid rgba(34,197,94,0.3)">✓ Complete</span>`
+        :m.status==='Active'
+          ?`<span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(245,158,11,0.12);color:var(--amber);padding:1px 6px;border-radius:3px;border:1px solid rgba(245,158,11,0.3)">● Active</span>`
+          :`<span style="font-family:'DM Mono',monospace;font-size:8px;background:rgba(${cardColorRgb},0.1);color:${cardColor};padding:1px 6px;border-radius:3px;border:1px solid rgba(${cardColorRgb},0.25)">${type}</span>`;
       const editBtn=showControls?`<button onclick="_openMilestoneEditModal('${m.id}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✏️ Edit</button>`:'';
       const achieveBtn=showControls&&!done?`<button onclick="_achieveMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✅ Achieve</button>`:'';
       const deleteBtn=showControls?`<button onclick="_deleteMilestone(${i})" style="background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);padding:1px 6px;cursor:pointer" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑️</button>`:'';
-      return `<div style="display:flex;gap:14px;padding-bottom:${isLast?'0':'16px'}">
-        <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:80px">
-          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-bottom:6px">${date}</div>
-          <div style="width:10px;height:10px;border-radius:50%;background:${dotC};flex-shrink:0"></div>
-          ${!isLast?`<div style="width:1px;flex:1;background:var(--border);margin-top:4px"></div>`:''}
-        </div>
-        <div style="background:var(--surface);border:1px solid ${cardColor};border-left:3px solid ${cardColor};border-radius:8px;padding:12px 14px;flex:1;box-shadow:0 0 8px rgba(${cardColorRgb},0.18)">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${desc?'4px':'0'}">
-            <span style="font-size:13px;font-weight:500">${title}</span>
-            ${typePill}${doneBadge}${editBtn}${achieveBtn}${deleteBtn}
+      return `<div style="background:var(--surface);border:1px solid rgba(${cardColorRgb},0.4);border-left:3px solid ${cardColor};border-radius:8px;padding:12px 14px;margin-bottom:8px;box-shadow:0 0 10px rgba(${cardColorRgb},0.12)">
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <span style="font-size:16px;flex-shrink:0;margin-top:1px">${icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:${cardColor};margin-bottom:4px">${title}</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:${desc?'5px':'0'}">
+              ${statusBadge}
+              ${date?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)">📅 ${date}</span>`:''}
+            </div>
+            ${desc?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.55;margin-bottom:${showControls?'6px':'0'}">${desc}</div>`:''}
+            ${showControls?`<div style="display:flex;gap:4px;margin-top:4px">${editBtn}${achieveBtn}${deleteBtn}</div>`:''}
           </div>
-          ${desc?`<div style="font-size:11px;color:var(--muted)">${desc}</div>`:''}
         </div>
       </div>`;
     }).join('');
