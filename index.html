@@ -16272,6 +16272,185 @@ async function runMasterTests(){
   return {pass,fail,total,results};
 }
 window.runMasterTests=runMasterTests;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CALLOUTS NOTIFICATION SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+const _CO_TYPE_ICON={reminder:'🔔',shoutout:'📣',alert:'⚠️',note:'📝'};
+let _coCache=[];
+let _coOpen=false;
+let _coAutoTimer=null;
+let _coPageLoadTime=Date.now();
+let _coInteracted=false;
+let _coPollTimer=null;
+
+function _coFetch(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=callouts_read')
+    .then(r=>r.json())
+    .then(data=>{
+      _coCache=Array.isArray(data.callouts)?data.callouts:[];
+      _coRenderBadge();
+      _coRenderPanel();
+    }).catch(()=>{});
+}
+
+function _coUndismissed(){
+  const user=(window._DGL_USER||'').toLowerCase();
+  return _coCache.filter(c=>{
+    if(c.dismissed==='true'||c.dismissed===true) return false;
+    const tagged=(c.taggedUser||'').toLowerCase();
+    return !tagged||tagged===user||tagged==='all';
+  });
+}
+
+function _coRenderBadge(){
+  const btn=document.getElementById('co-float-btn');
+  const badge=document.getElementById('co-float-badge');
+  if(!btn||!badge) return;
+  const n=_coUndismissed().length;
+  badge.textContent=n;
+  badge.style.display=n>0?'flex':'none';
+}
+
+function _coRenderPanel(){
+  const panel=document.getElementById('co-slide-panel');
+  if(!panel) return;
+  const items=_coUndismissed();
+  if(!items.length){
+    panel.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);text-align:center;padding:32px 16px">No active callouts</div>';
+    return;
+  }
+  panel.innerHTML=items.map(c=>{
+    const icon=_CO_TYPE_ICON[c.type]||'📣';
+    const ts=c.createdAt?new Date(c.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    const task=c.taggedTask?`<div style="font-size:9px;color:var(--muted);margin-top:3px">🔗 Task: ${c.taggedTask}</div>`:'';
+    const person=c.taggedUser?`<div style="font-size:9px;color:var(--muted)">👤 ${c.taggedUser}</div>`:'';
+    const due=c.dueDate?`<div style="font-size:9px;color:var(--amber)">⏰ Due: ${c.dueDate}</div>`:'';
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;position:relative">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <span style="font-size:16px;flex-shrink:0;margin-top:1px">${icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:var(--gold);margin-bottom:3px">${c.title||''}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.55">${(c.message||'').replace(/</g,'&lt;')}</div>
+          ${person}${task}${due}
+          ${ts?`<div style="font-size:8px;color:var(--muted);margin-top:4px">${ts}</div>`:''}
+        </div>
+        <button onclick="_coDismiss('${c.id}')" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" title="Dismiss" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _coDismiss(id){
+  _coInteracted=true;
+  const user=window._DGL_USER||'';
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'callout_dismiss',id,dismissedBy:user,dismissedAt:new Date().toISOString()})
+    }).catch(()=>{});
+  }
+  const item=_coCache.find(c=>c.id===id);
+  if(item){item.dismissed='true';item.dismissedBy=user;item.dismissedAt=new Date().toISOString();}
+  _coRenderBadge();
+  _coRenderPanel();
+}
+
+function _coTogglePanel(){
+  _coInteracted=true;
+  _coOpen=!_coOpen;
+  const wrap=document.getElementById('co-panel-wrap');
+  const btn=document.getElementById('co-float-btn');
+  if(!wrap) return;
+  wrap.style.display=_coOpen?'block':'none';
+  if(btn) btn.style.background=_coOpen?'var(--gold)':_coUndismissed().length?'#dc2626':'var(--card)';
+  if(btn) btn.style.color=_coOpen?'#0b0d10':'var(--text)';
+  if(_coOpen) _coRenderPanel();
+}
+
+function _coAutoOpen(){
+  if(_coOpen) return;
+  if(_coUndismissed().length===0) return;
+  _coOpen=true;
+  const wrap=document.getElementById('co-panel-wrap');
+  const btn=document.getElementById('co-float-btn');
+  if(wrap) wrap.style.display='block';
+  if(btn){btn.style.background='var(--gold)';btn.style.color='#0b0d10';}
+  _coRenderPanel();
+  _coAutoTimer=setTimeout(()=>{
+    if(!_coInteracted){
+      _coOpen=false;
+      if(wrap) wrap.style.display='none';
+      if(btn){btn.style.background=_coUndismissed().length?'#dc2626':'var(--card)';btn.style.color='var(--text)';}
+    }
+    _coAutoTimer=null;
+  },8000);
+}
+
+function _coInit(){
+  // Floating button
+  const floatWrap=document.createElement('div');
+  floatWrap.style.cssText='position:fixed;bottom:20px;left:20px;z-index:99999;display:flex;flex-direction:column;align-items:flex-start;gap:0';
+
+  const btn=document.createElement('button');
+  btn.id='co-float-btn';
+  btn.title='Callouts';
+  btn.style.cssText="width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:20px;cursor:pointer;position:relative;box-shadow:0 4px 16px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;flex-shrink:0";
+  btn.innerHTML='📣<span id="co-float-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-family:\'DM Mono\',monospace;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;padding:0 3px">0</span>';
+  btn.onclick=_coTogglePanel;
+
+  // Slide-up panel
+  const panelWrap=document.createElement('div');
+  panelWrap.id='co-panel-wrap';
+  panelWrap.style.cssText='display:none;position:absolute;bottom:52px;left:0;width:320px;max-height:480px;background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden;display:none;flex-direction:column';
+
+  const panelHdr=document.createElement('div');
+  panelHdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);flex-shrink:0';
+  panelHdr.innerHTML='<span style="font-family:\'DM Mono\',monospace;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px">📣 CALLOUTS</span>';
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';closeBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0";
+  closeBtn.onclick=_coTogglePanel;
+  panelHdr.appendChild(closeBtn);
+
+  const panelBody=document.createElement('div');
+  panelBody.id='co-slide-panel';
+  panelBody.style.cssText='flex:1;overflow-y:auto;padding:10px 10px 12px';
+
+  panelWrap.appendChild(panelHdr);
+  panelWrap.appendChild(panelBody);
+  panelWrap.style.display='none';
+
+  floatWrap.appendChild(panelWrap);
+  floatWrap.appendChild(btn);
+  document.body.appendChild(floatWrap);
+
+  // Initial fetch
+  _coFetch();
+
+  // Poll every 5 minutes for new callouts
+  _coPollTimer=setInterval(()=>{
+    _coFetch();
+    // Auto-open if user has been on page 5+ minutes and has undismissed items
+    if(Date.now()-_coPageLoadTime>=5*60*1000){
+      _coInteracted=false;
+      _coAutoOpen();
+    }
+  },5*60*1000);
+}
+
+// Boot after login — hook into showDashboard
+(function _coBootWatcher(){
+  let _coBooted=false;
+  const _origSD=window.showDashboard;
+  window.showDashboard=function(user,showPopup){
+    _origSD&&_origSD.apply(this,arguments);
+    if(!_coBooted&&user&&user!=='view'){
+      _coBooted=true;
+      setTimeout(_coInit,800);
+    }
+  };
+})();
 </script>
 </body>
 </html>
