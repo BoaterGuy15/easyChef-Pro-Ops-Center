@@ -1373,6 +1373,7 @@ function showPage(id){
   const pg=document.getElementById('page-'+id);
   if(pg) pg.classList.add('active');
   sessionStorage.setItem('dgl_active_tab',id);
+  try{localStorage.setItem('dgl_active_tab',id);}catch(_){}
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom('90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
@@ -11455,6 +11456,12 @@ function masterRefresh(){
   saveToLocal();
   updateLiveDot();
   updateBellDot();
+  // Restore last active tab on refresh
+  if(!masterRefresh._tabRestored){
+    masterRefresh._tabRestored=true;
+    const _saved=localStorage.getItem('dgl_active_tab')||sessionStorage.getItem('dgl_active_tab');
+    if(_saved&&document.getElementById('page-'+_saved)) showPage(_saved);
+  }
 }
 
 // ── Task modal (new + edit) ─────────────────────────────────
