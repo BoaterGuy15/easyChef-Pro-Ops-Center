@@ -14074,6 +14074,96 @@ function _showLPNewBarForm(sd,ed){
   document.addEventListener('keydown',esc,true);
 }
 
+function _closeStreamRowCtxMenu(){
+  const m=document.getElementById('lp-stream-row-ctx-menu');if(m)m.remove();
+  document.removeEventListener('click',_closeStreamRowCtxMenu,false);
+  document.removeEventListener('keydown',_streamRowCtxEsc,true);
+}
+function _streamRowCtxEsc(e){if(e.key==='Escape')_closeStreamRowCtxMenu();}
+function _showStreamRowCtxMenu(e,ws){
+  e.preventDefault();e.stopPropagation();
+  _closeStreamRowCtxMenu();
+  const cx=e.clientX,cy=e.clientY;
+  const mnu=document.createElement('div');
+  mnu.id='lp-stream-row-ctx-menu';
+  mnu.style.cssText="position:fixed;z-index:99999;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:4px 0;font-family:'DM Mono',monospace;font-size:11px;min-width:210px";
+  mnu.style.left=Math.max(4,Math.min(cx+4,window.innerWidth-222))+'px';
+  mnu.style.top=Math.max(4,Math.min(cy+4,window.innerHeight-120))+'px';
+  mnu.addEventListener('click',ev=>ev.stopPropagation());
+  function _row(icon,lbl,fn,color){
+    const r=document.createElement('div');
+    r.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;color:'+(color||'var(--text)');
+    r.onmouseover=()=>r.style.background=color==='var(--red)'?'rgba(239,68,68,0.1)':'rgba(201,168,76,0.1)';
+    r.onmouseout=()=>r.style.background='transparent';
+    const ic=document.createElement('span');ic.style.cssText='font-size:12px;width:18px;text-align:center;flex-shrink:0';ic.textContent=icon;
+    const lb=document.createElement('span');lb.textContent=lbl;
+    r.appendChild(ic);r.appendChild(lb);r.onclick=()=>{_closeStreamRowCtxMenu();fn();};mnu.appendChild(r);
+  }
+  function _sep(){const s=document.createElement('div');s.style.cssText='height:1px;background:var(--border);margin:3px 0';mnu.appendChild(s);}
+  _row('✏️','Edit Stream',()=>_showStreamRenameForm(ws));
+  _sep();
+  _row('➕','Add New Stream Bar',()=>_showLPNewBarFormForWs(ws));
+  _sep();
+  const barCount=_lpCache.filter(b=>b.workstream===ws).length;
+  if(barCount>0){
+    const r=document.createElement('div');
+    r.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:not-allowed;color:var(--muted);opacity:0.5';
+    const ic=document.createElement('span');ic.style.cssText='font-size:12px;width:18px;text-align:center;flex-shrink:0';ic.textContent='🗑️';
+    const lb=document.createElement('span');lb.textContent='Delete Stream ('+barCount+' bar'+(barCount>1?'s':'')+')';
+    r.appendChild(ic);r.appendChild(lb);
+    r.title=barCount+' bar'+(barCount>1?'s':'')+' exist — delete them first';
+    mnu.appendChild(r);
+  } else {
+    _row('🗑️','Delete Stream',()=>{
+      const idx=_LP_WORKSTREAMS.indexOf(ws);
+      if(idx>=0) _LP_WORKSTREAMS.splice(idx,1);
+      buildLaunchPlan();
+      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Stream "'+ws+'" removed.</div>',1800);
+    },'var(--red)');
+  }
+  document.body.appendChild(mnu);
+  setTimeout(()=>{document.addEventListener('click',_closeStreamRowCtxMenu,false);document.addEventListener('keydown',_streamRowCtxEsc,true);},0);
+}
+function _showStreamRenameForm(ws){
+  const existing=document.getElementById('lp-stream-rename-form');if(existing)existing.remove();
+  const wrap=document.createElement('div');
+  wrap.id='lp-stream-rename-form';
+  wrap.style.cssText="position:fixed;z-index:99999;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.65);padding:18px 20px;font-family:'DM Mono',monospace;font-size:11px;min-width:290px;max-width:380px";
+  wrap.addEventListener('click',e=>e.stopPropagation());
+  const ttl=document.createElement('div');ttl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;font-weight:600";ttl.textContent='✏️ Rename Stream';wrap.appendChild(ttl);
+  const lbl=document.createElement('div');lbl.style.cssText='color:var(--muted);font-size:9px;letter-spacing:1px;margin-bottom:3px';lbl.textContent='STREAM NAME';wrap.appendChild(lbl);
+  const inp=document.createElement('input');inp.type='text';inp.value=ws;
+  inp.style.cssText="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:14px";
+  wrap.appendChild(inp);
+  const btns=document.createElement('div');btns.style.cssText='display:flex;gap:8px;justify-content:flex-end';
+  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;cursor:pointer";cancelBtn.onclick=()=>wrap.remove();
+  const saveBtn=document.createElement('button');saveBtn.textContent='✅ Rename';saveBtn.style.cssText="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;cursor:pointer";
+  saveBtn.onclick=()=>{
+    const newName=inp.value.trim();
+    if(!newName){inp.style.borderColor='var(--red)';inp.focus();return;}
+    if(newName===ws){wrap.remove();return;}
+    const idx=_LP_WORKSTREAMS.indexOf(ws);
+    if(idx>=0) _LP_WORKSTREAMS[idx]=newName;
+    _lpCache.forEach(b=>{ if(b.workstream===ws){ b.workstream=newName; _lpSaveBar(b); } });
+    if(_LP_WS_COLORS[ws]&&!_LP_WS_COLORS[newName]) _LP_WS_COLORS[newName]=_LP_WS_COLORS[ws];
+    wrap.remove();
+    buildLaunchPlan();
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Renamed to "'+newName+'"</div>',1800);
+  };
+  btns.appendChild(cancelBtn);btns.appendChild(saveBtn);wrap.appendChild(btns);
+  document.body.appendChild(wrap);
+  inp.focus();inp.select();
+  const esc=e=>{if(e.key==='Escape'){wrap.remove();document.removeEventListener('keydown',esc,true);}};
+  document.addEventListener('keydown',esc,true);
+}
+function _showLPNewBarFormForWs(ws){
+  _showLPNewBarForm('','');
+  setTimeout(()=>{
+    const form=document.getElementById('lp-new-bar-form');if(!form)return;
+    const sel=form.querySelector('select');if(sel)sel.value=ws;
+  },0);
+}
+
 function _lpScrollLaunch(){
   const scroll=document.getElementById('lp-gantt-scroll');
   if(!scroll) return;
@@ -14183,7 +14273,7 @@ function buildLaunchPlan(){
       barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-lp-id="${t.id}" data-sd="${sd}" data-ed="${ed}"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
-    canvasHtml+=`<div class="gantt-row" data-ws="${ws}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${ws}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
+    canvasHtml+=`<div class="gantt-row" data-ws="${ws}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showStreamRowCtxMenu(event,this.closest('[data-ws]').dataset.ws)">${ws}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
   });
   canvas.innerHTML=canvasHtml;
   _initLPHover();
@@ -14208,6 +14298,7 @@ function buildLaunchPlan(){
     document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='z'&&document.getElementById('page-lp')?.classList.contains('active')){ e.preventDefault(); _lpUndo(); } });
     scroll.addEventListener('contextmenu',e=>{
       if(e.target.closest('[data-lp-id]')) return;
+      if(e.target.closest('.gantt-row-label')) return;
       e.preventDefault();
       const sd=_lpXToDate(e.clientX);
       let ed='';
