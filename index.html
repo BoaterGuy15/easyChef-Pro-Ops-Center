@@ -4130,7 +4130,7 @@ function buildRoadmap(){
       barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
-    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showCatRowCtxMenu(event,${JSON.stringify(cat)})">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
+    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showCatRowCtxMenu(event,this.closest('[data-cat]').dataset.cat)">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
   });
   canvas.innerHTML=canvasHtml;
 
@@ -4154,6 +4154,7 @@ function buildRoadmap(){
     document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='z'&&document.getElementById('page-roadmap')?.classList.contains('active')){ e.preventDefault(); _ganttUndo(); } });
     scroll.addEventListener('contextmenu',e=>{
       if(e.target.closest('[data-task-id]')) return;
+      if(e.target.closest('.gantt-row-label')) return;
       e.preventDefault();
       const sd=_xToDate(e.clientX);
       let ed='';
