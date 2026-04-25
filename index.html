@@ -14673,6 +14673,13 @@ function _closeStreamTaskPanel(){
   document.removeEventListener('keydown',_streamPanelEsc,true);
 }
 function _streamPanelEsc(e){if(e.key==='Escape')_closeStreamTaskPanel();}
+function _snapPanelAside(){
+  const p=document.getElementById('lp-stream-panel');
+  if(!p) return;
+  p.style.transform='none';
+  p.style.left=Math.max(0,window.innerWidth-p.offsetWidth-12)+'px';
+  p.style.top='72px';
+}
 function _makePanelDraggable(panelEl){
   const handle=panelEl.querySelector('div');
   if(!handle) return;
@@ -14747,10 +14754,10 @@ function _renderLPTasksTab(container,item){
   addWrap.style.cssText="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-shrink:0";
   const nb=document.createElement('button');nb.textContent='➕ New Task';
   nb.style.cssText="background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";
-  nb.onclick=()=>_lpCreateAndLinkTask(item.id);
+  nb.onclick=()=>{_snapPanelAside();_lpCreateAndLinkTask(item.id);};
   const lb=document.createElement('button');lb.textContent='🔗 Link Tasks';
   lb.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";
-  lb.onclick=()=>_showLPLinkTasksModal(item.id);
+  lb.onclick=()=>{_snapPanelAside();_showLPLinkTasksModal(item.id);};
   addWrap.appendChild(nb);addWrap.appendChild(lb);container.appendChild(addWrap);
   if(!linked.length){
     const e=document.createElement('div');
@@ -14763,7 +14770,7 @@ function _renderLPTasksTab(container,item){
     row.style.cssText="padding:8px 14px;border-bottom:1px solid var(--border);cursor:pointer";
     row.onmouseover=()=>row.style.background='rgba(255,255,255,0.03)';
     row.onmouseout=()=>row.style.background='';
-    row.onclick=()=>showTaskModal(t.id);
+    row.onclick=()=>{_snapPanelAside();showTaskModal(t.id);};
     const nameEl=document.createElement('div');nameEl.style.cssText="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-bottom:3px";nameEl.textContent=t.name||t.id;
     const meta=document.createElement('div');meta.style.cssText='display:flex;gap:6px;align-items:center';
     const idEl=document.createElement('span');idEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)";idEl.textContent=t.id;
