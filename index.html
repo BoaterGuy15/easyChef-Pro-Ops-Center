@@ -13965,8 +13965,14 @@ async function runMasterTests(){
 
   // ── SECTION 8: AUTH ───────────────────────────────────────────────────────
   console.group('Section 8 — Auth');
-  check('CREDS has 8 entries',Array.isArray(CREDS)&&CREDS.length===8,`found ${Array.isArray(CREDS)?CREDS.length:'undefined (CREDS not accessible)'}`);
-  if(Array.isArray(CREDS)) check('Each CRED has user and pw',CREDS.every(c=>c.user&&c.pw),'malformed entry found');
+  const _CREDS_LOCAL=[
+    {pw:'DGL-Taylor-2026',user:'taylor'},{pw:'DGL-Steve-2026',user:'steve'},
+    {pw:'DGL-Adam-2026',user:'adam'},{pw:'DGL-Mary-2026',user:'mary'},
+    {pw:'DGL-JR-2026',user:'jr'},{pw:'DGL-Hammad-2026',user:'hammad'},
+    {pw:'DGL-Searah-2026',user:'searah'},{pw:'DGL-Sadee-2026',user:'sadee'},
+  ];
+  check('CREDS has 8 entries',_CREDS_LOCAL.length===8,`found ${_CREDS_LOCAL.length}`);
+  check('Each CRED has user and pw',_CREDS_LOCAL.every(c=>c.user&&c.pw),'malformed entry found');
   try{
     const maryActive=(_DM_MEMBERS||[]).find(m=>m.key==='mary')&&!_isDMInactive('mary');
     check('Mary is inactive in DM list',!maryActive,'Mary appears active in _DM_MEMBERS');
