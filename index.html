@@ -14171,15 +14171,17 @@ function _lpSaveBar(item){
     }
   }
   const _prevEntry=idx>=0?_lpCache[idx]:null;
-  const _prevTaskIds=_prevEntry?(Array.isArray(_prevEntry.taskIds)?_prevEntry.taskIds:[]):[];
+  const _prevTaskIds=_prevEntry?(Array.isArray(_prevEntry.taskIds)?_prevEntry.taskIds:String(_prevEntry.taskIds||'').split(',').map(s=>s.trim()).filter(Boolean)):[];
   if(idx>=0) _lpCache[idx]={..._lpCache[idx],...resolvedItem};
   else _lpCache.push(resolvedItem);
   if(!CONFIG.sheetsUrl) return;
   function _normDate(v){if(!v)return '';const s=String(v);return(s.includes('GMT')||s.includes('T00:00'))?new Date(v).toISOString().slice(0,10):s;}
-  const payload={...resolvedItem,sd:_normDate(resolvedItem.sd),ed:_normDate(resolvedItem.ed)};
+  function _normTaskIds(v){if(Array.isArray(v))return v.filter(Boolean).join(',');return String(v||'');}
+  const payload={...resolvedItem,sd:_normDate(resolvedItem.sd),ed:_normDate(resolvedItem.ed),taskIds:_normTaskIds(resolvedItem.taskIds)};
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
     body:JSON.stringify({action:'launchplan_write',item:payload})}).catch(()=>{});
-  (Array.isArray(resolvedItem.taskIds)?resolvedItem.taskIds:[]).filter(tid=>!_prevTaskIds.includes(tid)).forEach(tid=>_autoLink('workstream',resolvedItem.id,'task',tid));
+  const _resolvedTaskIds=Array.isArray(resolvedItem.taskIds)?resolvedItem.taskIds:String(resolvedItem.taskIds||'').split(',').map(s=>s.trim()).filter(Boolean);
+  _resolvedTaskIds.filter(tid=>!_prevTaskIds.includes(tid)).forEach(tid=>_autoLink('workstream',resolvedItem.id,'task',tid));
 }
 
 function _lpSetZoom(z){
@@ -14547,7 +14549,7 @@ function buildLaunchPlan(){
       const name=t.name.length>_maxChars?t.name.substring(0,_maxChars)+'…':t.name;
       const _lblFs=_ganttDayPx>=20?'11px':_ganttDayPx>=10?'10px':'9px';
       // ── Task-status tint ──
-      const _tids=Array.isArray(t.taskIds)?t.taskIds.filter(Boolean):[];
+      const _tids=(Array.isArray(t.taskIds)?t.taskIds:(String(t.taskIds||'')).split(',').map(s=>s.trim())).filter(Boolean);
       const _linkedTasks=_tids.map(tid=>(DASHBOARD_DATA.tasks||[]).find(tk=>tk.id===tid)).filter(Boolean);
       let _tintStyle='',_dotHtml='';
       if(_linkedTasks.length){
