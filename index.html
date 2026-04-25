@@ -5869,6 +5869,14 @@ function _openNewAgendaItemModal(taskId,onSaved){
   window._agendaModalIsNew=true;
   window._agendaModalOnSaved=onSaved||null;
   openAgendaEditModal(item.id);
+  // Re-center within visible area (viewport minus 360px right panel)
+  const _m=document.getElementById('agenda-edit-modal-inner');
+  if(_m){
+    const _panelW=360, _mw=Math.min(680,window.innerWidth*0.96);
+    const _availW=window.innerWidth-_panelW;
+    _m.style.transform='translateY(-50%)';
+    _m.style.left=Math.max(8,(_availW-_mw)/2)+'px';
+  }
 }
 function saveAgendaEditModal(){
   if(!_agEditId) return;
