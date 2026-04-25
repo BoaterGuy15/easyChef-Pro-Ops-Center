@@ -15422,22 +15422,28 @@ function _renderLPActionPlanTab(container,taskId,wsItem,onBack){
     if(aiItems.length){
       const sec=document.createElement('div');sec.style.cssText="padding:5px 14px 3px;font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1.5px;font-weight:600";sec.textContent='⚡ AI PLAN';body.appendChild(sec);
       const aiPlanId=aiPlan?aiPlan.id:'';
-      let completedAll=false;
-      function _markAllAIDone(){if(completedAll)return;completedAll=true;body.querySelectorAll('.ai-step-cb').forEach(x=>{x.checked=true;x.disabled=true;});}
+      const _stepsKey='dgl_ap_steps_'+taskId;
+      let _doneSteps;try{_doneSteps=new Set(JSON.parse(localStorage.getItem(_stepsKey)||'[]'));}catch(e){_doneSteps=new Set();}
+      function _saveDoneSteps(){try{localStorage.setItem(_stepsKey,JSON.stringify([..._doneSteps]));}catch(e){}}
       aiItems.forEach(item=>{
         if(item.type==='hdr'){const h=document.createElement('div');h.style.cssText="padding:7px 14px 3px;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;border-top:1px solid var(--border)";h.textContent=item.text;body.appendChild(h);return;}
-        const row=document.createElement('div');row.style.cssText="display:flex;gap:8px;align-items:flex-start;padding:7px 14px;border-bottom:1px solid var(--border)";
+        const stepIdx=item.num-1;
+        const isDone=_doneSteps.has(stepIdx);
+        const row=document.createElement('div');row.style.cssText="display:flex;gap:8px;align-items:flex-start;padding:7px 14px;border-bottom:1px solid var(--border)"+(isDone?';opacity:0.5':'');
         const numEl=document.createElement('span');numEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0;width:18px;text-align:right;padding-top:2px";numEl.textContent=item.num+'.';
-        const cb=document.createElement('input');cb.type='checkbox';cb.className='ai-step-cb';cb.style.cssText='flex-shrink:0;accent-color:var(--gold);width:14px;height:14px;cursor:pointer;margin-top:2px';
-        cb.onchange=()=>{if(cb.checked&&aiPlanId){_completeActionPlan(taskId,aiPlanId);_markAllAIDone();}else cb.checked=false;};
-        const txt=document.createElement('div');txt.style.cssText="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.5;flex:1;word-break:break-word";txt.textContent=item.text;
+        const cb=document.createElement('input');cb.type='checkbox';cb.className='ai-step-cb';cb.checked=isDone;cb.style.cssText='flex-shrink:0;accent-color:var(--gold);width:14px;height:14px;cursor:pointer;margin-top:2px';
+        const txt=document.createElement('div');txt.style.cssText="font-family:'DM Mono',monospace;font-size:10px;color:"+(isDone?'var(--muted)':'var(--text)')+";line-height:1.5;flex:1;word-break:break-word"+(isDone?';text-decoration:line-through':'');txt.textContent=item.text;
+        cb.onchange=()=>{
+          if(cb.checked){_doneSteps.add(stepIdx);_saveDoneSteps();row.style.opacity='0.5';txt.style.textDecoration='line-through';txt.style.color='var(--muted)';}
+          else{_doneSteps.delete(stepIdx);_saveDoneSteps();row.style.opacity='';txt.style.textDecoration='';txt.style.color='var(--text)';}
+        };
         row.appendChild(numEl);row.appendChild(cb);row.appendChild(txt);body.appendChild(row);
       });
       if(aiPlanId){
         const foot=document.createElement('div');foot.style.cssText="padding:7px 14px;border-bottom:1px solid var(--border);display:flex;gap:6px";
         const cBtn=document.createElement('button');cBtn.textContent='✅ Mark AI Plan Complete';
         cBtn.style.cssText="background:transparent;color:#22c55e;border:1px solid #22c55e;border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;cursor:pointer";
-        cBtn.onclick=()=>{_completeActionPlan(taskId,aiPlanId);_markAllAIDone();cBtn.disabled=true;};
+        cBtn.onclick=()=>{_completeActionPlan(taskId,aiPlanId);body.querySelectorAll('.ai-step-cb').forEach(x=>{x.checked=true;x.disabled=true;});cBtn.disabled=true;};
         foot.appendChild(cBtn);body.appendChild(foot);
       }
     }
