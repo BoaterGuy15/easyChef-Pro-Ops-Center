@@ -914,7 +914,6 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
   <div id="task-status-summary"></div>
   <div id="auto-gap-card" style="margin-top:24px"></div>
-  <div id="workflow-links-section" style="margin-top:24px"></div>
 
 </div>
 
@@ -1383,7 +1382,6 @@ function showPage(id){
     _renderMasterAICard();
     const stale=Date.now()-(_masterAiLastRun||+sessionStorage.getItem('dgl_master_ai_ts')||0)>2*60*60*1000;
     if(stale&&CONFIG.sheetsUrl) setTimeout(()=>{ const b=document.getElementById('master-ai-run-btn'); if(b) runMasterAI(b); },400);
-    _renderWorkflowLinks();
   }
 }
 let _navDragSrc=null;
@@ -13278,9 +13276,10 @@ function openSettingsModal(){
       tabBar.querySelectorAll('button').forEach(b=>{b.style.borderBottom=b.dataset.tab===t?'2px solid var(--gold)':'2px solid transparent';b.style.color=b.dataset.tab===t?'var(--gold)':'var(--muted)';});
       if(t==='workstreams') _renderSettingsWorkstreams(tabContent);
       else if(t==='categories') _renderSettingsCats(tabContent);
+      else if(t==='links'){tabContent.innerHTML='<div id="workflow-links-section"></div>';_renderWorkflowLinks();}
       else _renderSettingsProject(tabContent);
     }
-    [['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🏢 Project','project']].forEach(([lbl,t])=>{
+    [['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🏢 Project','project'],['🔗 Links','links']].forEach(([lbl,t])=>{
       const btn=document.createElement('button');
       btn.dataset.tab=t;
       btn.textContent=lbl;
