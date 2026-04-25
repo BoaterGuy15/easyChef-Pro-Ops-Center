@@ -5856,8 +5856,19 @@ function openAgendaEditModal(id){
   _initModal(document.getElementById('agenda-edit-modal-inner'), document.getElementById('aem-drag-handle'));
 }
 function closeAgendaEditModal(){
+  if(window._agendaModalIsNew&&_agEditId){AGENDA_DATA=AGENDA_DATA.filter(x=>x.id!==_agEditId);}
+  window._agendaModalIsNew=false;
+  window._agendaModalOnSaved=null;
   document.getElementById('agenda-edit-modal-overlay').classList.remove('open');
   _agEditId=null;
+}
+function _openNewAgendaItemModal(taskId,onSaved){
+  if(!canEditAgenda()) return;
+  const item={id:_genAgendaId(),title:'',detail:'',decision:'',checked:false,owner:'',deadline:'',category:'Manual',taskId:taskId||'',flag:''};
+  AGENDA_DATA.push(item);
+  window._agendaModalIsNew=true;
+  window._agendaModalOnSaved=onSaved||null;
+  openAgendaEditModal(item.id);
 }
 function saveAgendaEditModal(){
   if(!_agEditId) return;
@@ -5875,8 +5886,10 @@ function saveAgendaEditModal(){
   item.category=g('ag-category').value;
   item.checked=_agChecked;
   saveAgendaItemToSheets(item);
+  window._agendaModalIsNew=false;
   closeAgendaEditModal();
   buildMondayAgenda(); buildAgenda();
+  if(window._agendaModalOnSaved){const _cb=window._agendaModalOnSaved;window._agendaModalOnSaved=null;_cb();}
 }
 function agDeleteFromModal(){
   if(!_agEditId) return;
@@ -14757,9 +14770,8 @@ function _renderLPAgendaTab(container,item){
   const addBtn=document.createElement('button');addBtn.textContent='➕ Create Agenda Item';
   addBtn.style.cssText="background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";
   addBtn.onclick=()=>{
-    // find first linked task for optional taskId association
     const firstTaskId=linkedTaskIds[0]||'';
-    _showLPAgendaForm(container,item,firstTaskId,()=>{container.innerHTML='';_renderLPAgendaTab(container,item);});
+    _openNewAgendaItemModal(firstTaskId,()=>{container.innerHTML='';_renderLPAgendaTab(container,item);});
   };
   addWrap.appendChild(addBtn);container.appendChild(addWrap);
   if(!agItems.length){
@@ -14793,44 +14805,7 @@ function _renderLPAgendaTab(container,item){
     row.appendChild(titleEl);row.appendChild(meta);container.appendChild(row);
   });
 }
-function _showLPAgendaForm(container,wsItem,defaultTaskId,onSaved){
-  const overlay=document.createElement('div');
-  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9100";
-  const dialog=document.createElement('div');
-  dialog.style.cssText="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;width:320px;z-index:9200;font-family:'DM Mono',monospace";
-  const title=document.createElement('div');title.style.cssText="font-size:11px;color:var(--gold);letter-spacing:1px;font-weight:600;margin-bottom:14px";title.textContent='NEW AGENDA ITEM';
-  const iSt="width:100%;box-sizing:border-box;background:#0b0d10;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:6px 8px;margin-bottom:8px;outline:none";
-  const titleIn=document.createElement('input');titleIn.type='text';titleIn.placeholder='Title';titleIn.style.cssText=iSt;
-  const ownerIn=document.createElement('input');ownerIn.type='text';ownerIn.placeholder='Owner';ownerIn.style.cssText=iSt;
-  const deadlineIn=document.createElement('input');deadlineIn.type='date';deadlineIn.style.cssText=iSt;
-  // task selector
-  const tasks=DASHBOARD_DATA.tasks||[];
-  const linkedTaskIds=Array.isArray(wsItem.taskIds)?wsItem.taskIds:[];
-  const linkedTasks=linkedTaskIds.map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
-  const taskSel=document.createElement('select');taskSel.style.cssText=iSt+'cursor:pointer';
-  const noOpt=document.createElement('option');noOpt.value='';noOpt.textContent='— Link to task (optional) —';taskSel.appendChild(noOpt);
-  linkedTasks.forEach(t=>{const o=document.createElement('option');o.value=t.id;o.textContent=(t.name||t.id).slice(0,40);if(t.id===defaultTaskId)o.selected=true;taskSel.appendChild(o);});
-  const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:8px;margin-top:4px';
-  const saveBtn=document.createElement('button');saveBtn.textContent='Save';
-  saveBtn.style.cssText="flex:1;background:var(--gold);color:#0b0d10;border:none;border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;padding:7px;cursor:pointer;font-weight:600";
-  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';
-  cancelBtn.style.cssText="flex:1;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;padding:7px;cursor:pointer";
-  const close=()=>{overlay.remove();dialog.remove();};
-  cancelBtn.onclick=close;overlay.onclick=close;
-  saveBtn.onclick=()=>{
-    const t=titleIn.value.trim();if(!t)return;
-    const newItem={id:_genAgendaId(),title:t,detail:'',decision:'',checked:false,owner:ownerIn.value.trim(),deadline:deadlineIn.value||'',category:'Manual',taskId:taskSel.value||'',flag:''};
-    AGENDA_DATA.push(newItem);
-    saveAgendaItemToSheets(newItem);
-    close();if(onSaved)onSaved();
-  };
-  btnRow.appendChild(saveBtn);btnRow.appendChild(cancelBtn);
-  dialog.appendChild(title);dialog.appendChild(titleIn);dialog.appendChild(ownerIn);dialog.appendChild(deadlineIn);
-  if(linkedTasks.length)dialog.appendChild(taskSel);
-  dialog.appendChild(btnRow);
-  document.body.appendChild(overlay);document.body.appendChild(dialog);
-  titleIn.focus();
-}
+
 function _renderLPTasksTab(container,item,onTaskClick){
   const tasks=DASHBOARD_DATA.tasks||[];
   const linked=(Array.isArray(item.taskIds)?item.taskIds:[]).map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
