@@ -11816,12 +11816,14 @@ rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mer
         const _fetchKillCriteria=fetch(CONFIG.sheetsUrl+'?action=kill_criteria_read').then(r=>r.json()).then(data=>{ if(data.criteria){ _killCriteriaCache=data.criteria; _killCriteria=data.criteria; try{ localStorage.setItem('dgl_kill_criteria',JSON.stringify(data.criteria)); }catch(e){} } }).catch(()=>{});
         const _fetchRoadmap=fetch(CONFIG.sheetsUrl+'?action=roadmap_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(!rows.length) return; DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({id:r.id||('ms-'+r.title),title:r.title||r.label||'',date:r.date||'',type:r.type||'Milestone',status:r.status||'Upcoming',description:r.description||r.note||'',color:r.color||'',taskIds:r.taskIds||'',achievedDate:r.achievedDate||''})); }).catch(()=>{});
         const _fetchSettings=loadSettings();
+        const _fetchWorkstreams=loadWorkstreams();
         const _fetchLaunchPlan=fetch(CONFIG.sheetsUrl+'?action=launchplan_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(rows.length>0){ _lpCache=_LP_DEFAULTS.map(def=>{ const row=rows.find(r=>r.id===def.id); return row?{...def,...row}:{...def}; }); } else if(!_lpCache.length){ _lpCache=_LP_DEFAULTS.map(x=>({...x})); } }).catch(()=>{ if(!_lpCache.length) _lpCache=_LP_DEFAULTS.map(x=>({...x})); });
-        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings,_fetchLaunchPlan])
+        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings,_fetchLaunchPlan,_fetchWorkstreams])
           .then(()=>{
             renderKillCriteria();
             _debouncedBuildMilestones();
             buildMilestoneHistory();
+            if(_wsCache.length&&document.getElementById('page-lp')?.classList.contains('active')) buildLaunchPlan();
             _buildChannelMappingSection();
             _renderGanttMilestoneLines();
             _detectGaps();
@@ -13274,7 +13276,6 @@ function _renderSettingsWorkstreams(container){
     _settingsCache.workstreams=_LP_WORKSTREAMS.map(n=>({name:n,color:(_LP_WS_COLORS[n]||{color:'#94a3b8'}).color}));
   }
   let editingName=null;
-  function _hexBg(hex){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return'rgba('+r+','+g+','+b+',0.08)';}catch(e){return'rgba(148,163,184,0.08)';}}
   function _render(){
     container.innerHTML='';
     const addBtn=document.createElement('button');
@@ -13297,6 +13298,9 @@ function _renderSettingsWorkstreams(container){
       delBtn.onclick=()=>{
         if(barCount>0){_showToast('<div>⚠️ '+barCount+' bar'+(barCount>1?'s':'')+' use this workstream. Delete them first.</div>',3000);return;}
         if(!confirm('Delete workstream "'+ws+'"?')) return;
+        const _wsDel=_wsCache.find(w=>w.name===ws);
+        if(_wsDel&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'workstream_delete',id:_wsDel.id})}).catch(()=>{});
+        _wsCache=_wsCache.filter(w=>w.name!==ws);
         const idx=_LP_WORKSTREAMS.indexOf(ws);if(idx>=0)_LP_WORKSTREAMS.splice(idx,1);
         delete _LP_WS_COLORS[ws];
         _settingsCache.workstreams=_settingsCache.workstreams.filter(w=>w.name!==ws);
@@ -13323,7 +13327,9 @@ function _renderSettingsWorkstreams(container){
     saveBtn.onclick=()=>{
       const nm=(nameInp.value||'').trim();
       if(!nm){_showToast('<div>⚠️ Workstream name required.</div>',2000);return;}
-      const col=colorInp.value;const bg=_hexBg(col);
+      const col=colorInp.value;const bg=_wsHexBg(col);
+      const _wsEntry=_wsCache.find(w=>w.name===(existing||nm));
+      const _wsId=(_wsEntry&&_wsEntry.id)||('ws-'+Date.now());
       if(existing){
         if(nm!==existing){
           const idx=_LP_WORKSTREAMS.indexOf(existing);if(idx>=0)_LP_WORKSTREAMS[idx]=nm;
@@ -13335,11 +13341,16 @@ function _renderSettingsWorkstreams(container){
           const bars=_lpCache.length?_lpCache:_LP_DEFAULTS;
           bars.forEach(b=>{if(b.workstream===existing){b.color=col;_lpSaveBar(b);}});
         }
+        const wcIdx=_wsCache.findIndex(w=>w.name===existing);
+        if(wcIdx>=0)_wsCache[wcIdx]={..._wsCache[wcIdx],id:_wsId,name:nm,color:col};
+        else _wsCache.push({id:_wsId,name:nm,color:col});
       } else {
         if(_LP_WORKSTREAMS.includes(nm)){_showToast('<div>⚠️ Workstream already exists.</div>',2000);return;}
         _LP_WORKSTREAMS.push(nm);_LP_WS_COLORS[nm]={color:col,bg};
+        _wsCache.push({id:_wsId,name:nm,color:col});
       }
-      _settingsCache.workstreams=_LP_WORKSTREAMS.map(n=>({name:n,color:(_LP_WS_COLORS[n]||{color:'#94a3b8'}).color}));
+      if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'workstream_write',item:{id:_wsId,name:nm,color:col,order:_LP_WORKSTREAMS.indexOf(nm)}})}).catch(()=>{});
+      _settingsCache.workstreams=_LP_WORKSTREAMS.map(n=>({...(_wsCache.find(w=>w.name===n)||{}),name:n,color:(_LP_WS_COLORS[n]||{color:'#94a3b8'}).color}));
       buildLaunchPlan();_showToast('<div>✅ Workstream saved.</div>',1800);onDone();
     };
     const cancelBtn2=document.createElement('button');cancelBtn2.textContent='Cancel';cancelBtn2.style.cssText="padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer";cancelBtn2.onclick=onDone;
@@ -14005,6 +14016,7 @@ async function hrResetPassword(userKey,name){
 
 // ── LAUNCH PLAN (LP) TAB ────────────────────────────────────
 let _lpCache=[];
+let _wsCache=[];
 const _lpUndoStack=[];
 Object.defineProperty(window,'_lpDayPx',{get:()=>_ganttDayPx,set:()=>{}});
 
@@ -14068,6 +14080,21 @@ const _LP_DEFAULTS=[
   {id:'lp-ops-3',workstream:'Launch Ops & Infra',name:'Launch Day Playbook',sd:'2026-06-10',ed:'2026-07-01',status:'Not Started'},
 ];
 
+function _wsHexBg(hex){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return'rgba('+r+','+g+','+b+',0.08)';}catch(e){return'rgba(148,163,184,0.08)';}}
+function loadWorkstreams(){
+  if(!CONFIG.sheetsUrl) return Promise.resolve();
+  return fetch(CONFIG.sheetsUrl+'?action=workstreams_read')
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data.workstreams)?data.workstreams:[];
+      if(!rows.length) return;
+      _wsCache=rows;
+      const sorted=rows.slice().sort((a,b)=>{const ao=a.order!=null?+a.order:999,bo=b.order!=null?+b.order:999;return ao-bo||(a.name||'').localeCompare(b.name||'');});
+      _LP_WORKSTREAMS.length=0;
+      sorted.forEach(w=>{if(!w.name)return;_LP_WORKSTREAMS.push(w.name);if(w.color)_LP_WS_COLORS[w.name]={color:w.color,bg:_wsHexBg(w.color)};});
+      _settingsCache.workstreams=_wsCache.map(w=>({id:w.id,name:w.name,color:w.color}));
+    }).catch(()=>{});
+}
 function loadLaunchPlan(){
   if(!CONFIG.sheetsUrl){ _lpCache=_LP_DEFAULTS.map(x=>({...x})); buildLaunchPlan(); return; }
   fetch(CONFIG.sheetsUrl+'?action=launchplan_read').then(r=>r.json()).then(data=>{
