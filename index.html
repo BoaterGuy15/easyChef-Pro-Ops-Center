@@ -1493,7 +1493,13 @@ function _logNotification(taskId,toUser,channel,message,type){
 }
 function _logGap(taskId,type,description,agendaId){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:'gap-'+Date.now(),taskId:taskId||'',agendaId:agendaId||'',type:type||'general',description,status:'open',detectedBy:window._DGL_USER||'system',detectedAt:_nowPST()})}).catch(()=>{});
+  const _gapId='gap-'+Date.now();
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'gap_write',id:_gapId,taskId:taskId||'',agendaId:agendaId||'',type:type||'general',description,status:'open',detectedBy:window._DGL_USER||'system',detectedAt:_nowPST()})}).catch(()=>{});
+  if(taskId) _autoLink('gap',_gapId,'task',taskId);
+}
+function _autoLink(fromType,fromId,toType,toId,notes){
+  if(!fromId||!toId||fromId===toId||!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'link_write',id:'lnk-auto-'+Date.now(),fromType,fromId,toType,toId,notes:notes||'',createdBy:window._DGL_USER||'system',createdAt:new Date().toISOString()})}).catch(()=>{});
 }
 function _detectGaps(){
   const today=new Date().toISOString().slice(0,10);
@@ -5383,6 +5389,7 @@ function _saveActionPlan(sourceId,sourceType,text,linkedTaskId,linkedAgendaId){
   if(!CONFIG.sheetsUrl) return;
   const payload=JSON.stringify({action:'action_plans_write',sourceId,...plan});
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload}).catch(()=>{});
+  if(linkedTaskId) _autoLink('actionplan',sourceId,'task',linkedTaskId);
 }
 function _fetchActionPlan(sourceId,onSuccess){
   if(!CONFIG.sheetsUrl){if(onSuccess)onSuccess(_getActionPlanText(sourceId));return;}
@@ -5521,6 +5528,7 @@ function saveAgendaItemToSheets(item){
       .then(r=>r.json())
       .then(d=>{ console.log('[DGL] agenda_write response:', d); if(!d.ok) console.error('[DGL] agenda_write failed:', d); })
       .catch(e=>console.error('[DGL] agenda_write error:', e));
+    if(item.taskId) _autoLink('agenda',item.id,'task',item.taskId);
   },1500);
 }
 // Code.gs — add doPost handler for agenda_write:
@@ -11755,6 +11763,10 @@ function saveTaskModal(taskId){
   _autoLinkTaskChannels();
   masterRefresh();
   _saveTasksNow();
+  if(isNew){
+    _autoLink('task',id,'category',cat);
+    (deps||'').split(',').map(d=>d.trim()).filter(Boolean).forEach(depId=>_autoLink('task',id,'task',depId,'depends on'));
+  }
   if(isNew&&window._lpAutoLinkAfterSave){
     const _barId=window._lpAutoLinkAfterSave;window._lpAutoLinkAfterSave=null;
     const _bar=(_lpCache&&_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===_barId);
@@ -14145,6 +14157,8 @@ function loadLaunchPlan(){
 }
 
 function _lpSaveBar(item){
+  const _prevEntry=_lpCache.find(x=>x.id===item.id);
+  const _prevTaskIds=_prevEntry?(Array.isArray(_prevEntry.taskIds)?_prevEntry.taskIds:[]):[];
   const idx=_lpCache.findIndex(x=>x.id===item.id);
   if(idx>=0) _lpCache[idx]={..._lpCache[idx],...item};
   else _lpCache.push(item);
@@ -14153,6 +14167,7 @@ function _lpSaveBar(item){
   const payload={...item,sd:_normDate(item.sd),ed:_normDate(item.ed)};
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
     body:JSON.stringify({action:'launchplan_write',item:payload})}).catch(()=>{});
+  (Array.isArray(item.taskIds)?item.taskIds:[]).filter(tid=>!_prevTaskIds.includes(tid)).forEach(tid=>_autoLink('workstream',item.id,'task',tid));
 }
 
 function _lpSetZoom(z){
@@ -14714,6 +14729,7 @@ function _lpLogAction(lpId,type,title,body){
   const workstreamId=wsRow?wsRow.id:lpId;
   const id='wsa-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'workstream_action_write',item:{id,workstreamId,type,title,body:body||'',assignedTo:'',dueDate:'',status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}})}).catch(()=>{});
+  _autoLink('action',id,'workstream',workstreamId);
 }
 function _closeStreamTaskPanel(){
   const p=document.getElementById('lp-stream-panel');
@@ -15143,7 +15159,7 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved){
     const payload={action:'workstream_action_write',item:{id,workstreamId,type:typeEl.value,title,body:bodyEl.value,assignedTo:assignEl.value,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:'',createdBy:CONFIG.currentUser||''}};
     if(CONFIG.sheetsUrl){
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
-        .then(()=>{_close();if(onSaved)onSaved();}).catch(()=>{_close();if(onSaved)onSaved();});
+        .then(()=>{_autoLink('action',id,'workstream',workstreamId);_close();if(onSaved)onSaved();}).catch(()=>{_close();if(onSaved)onSaved();});
     } else {_close();if(onSaved)onSaved();}
   };
   btns.appendChild(cancelBtn);btns.appendChild(saveBtn);form.appendChild(btns);
