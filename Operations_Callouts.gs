@@ -26,6 +26,10 @@
 //     deleteCallout(body.id);
 //     return json({ ok: true });
 //   }
+//   if (body.action === 'callout_update') {
+//     updateCallout(body.id, body);
+//     return json({ ok: true });
+//   }
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -129,6 +133,31 @@ function addCallout(item) {
     '',
     ''
   ]]);
+}
+
+function updateCallout(id, fields) {
+  if (!id || !fields) return;
+  var sheet = _getCalloutsSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(id)) {
+      var ex = sheet.getRange(i + 2, 1, 1, CO_HEADERS.length).getValues()[0];
+      var rng = sheet.getRange(i + 2, 1, 1, CO_HEADERS.length);
+      rng.setNumberFormat('@');
+      rng.setValues([[
+        ex[0],
+        fields.type  !== undefined ? fields.type  : ex[1],
+        fields.title !== undefined ? fields.title : ex[2],
+        fields.message !== undefined ? fields.message : ex[3],
+        ex[4], ex[5], ex[6], ex[7],
+        fields.dueDate !== undefined ? fields.dueDate : ex[8],
+        ex[9], ex[10], ex[11]
+      ]]);
+      return;
+    }
+  }
 }
 
 function dismissCallout(id, dismissedBy, dismissedAt) {

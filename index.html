@@ -14247,7 +14247,56 @@ function _initCalloutItems(){
 }
 
 function _saveCalloutToSheets(item){
-  // TODO: wire to Sheets once callouts sheet is configured
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({
+      action:'callout_write',
+      id:item.id,
+      type:(item.type||'note').toLowerCase(),
+      title:item.title||'',
+      message:item.detail||item.message||'',
+      taggedUser:item.taggedUser||'all',
+      taggedTask:item.taggedTask||'',
+      createdBy:item.createdBy||window._DGL_USER||'',
+      createdAt:item.createdAt||new Date().toISOString(),
+      dueDate:item.date||item.dueDate||''
+    })
+  }).then(()=>_coFetch()).catch(()=>{});
+}
+
+function _updateCalloutInSheets(item){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({
+      action:'callout_update',
+      id:item.id,
+      type:(item.type||'note').toLowerCase(),
+      title:item.title||'',
+      message:item.detail||item.message||'',
+      dueDate:item.date||item.dueDate||''
+    })
+  }).then(()=>_coFetch()).catch(()=>{});
+}
+
+function _coMigrateDefaults(){
+  if(!CONFIG.sheetsUrl) return;
+  const now=new Date().toISOString();
+  const defaults=_LP_CALLOUTS.map((c,i)=>({
+    id:'co-default-'+i,
+    type:'note',
+    title:c.title||'',
+    message:c.detail||'',
+    taggedUser:'all',
+    taggedTask:'',
+    createdBy:'system',
+    createdAt:now,
+    dueDate:''
+  }));
+  Promise.all(defaults.map(item=>
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'callout_write',...item})
+    }).catch(()=>{})
+  )).then(()=>_coFetch()).catch(()=>{});
 }
 
 function _buildCalloutsHtml(canEditControls){
@@ -14419,7 +14468,7 @@ function _saveCalloutEditModal(){
   item.date=document.getElementById('co-edit-date').value||'';
   item.detail=(document.getElementById('co-edit-detail').value||'').trim();
   item.type=document.getElementById('co-edit-type').value||'Note';
-  _saveCalloutToSheets(item);
+  _updateCalloutInSheets(item);
   _closeCalloutEditModal();
   buildCallouts();
 }
@@ -14429,13 +14478,22 @@ function _archiveCallout(id){
   if(!item) return;
   item.status='Archived';
   item.archivedAt=new Date().toISOString();
-  _saveCalloutToSheets(item);
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'callout_dismiss',id,dismissedBy:window._DGL_USER||'',dismissedAt:item.archivedAt})
+    }).then(()=>_coFetch()).catch(()=>{});
+  }
   buildCallouts();
 }
 
 function _deleteCallout(id){
   if(!confirm('Delete this callout?')) return;
   DASHBOARD_DATA.meta.calloutItems=_initCalloutItems().filter(c=>c.id!==id);
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'callout_delete',id})
+    }).then(()=>_coFetch()).catch(()=>{});
+  }
   buildCallouts();
 }
 let _ganttPanelHandler=null;
@@ -16291,8 +16349,23 @@ function _coFetch(){
     .then(r=>r.json())
     .then(data=>{
       _coCache=Array.isArray(data.callouts)?data.callouts:[];
+      // If Sheet is empty, push the hardcoded defaults once
+      if(!_coCache.length){ _coMigrateDefaults(); return; }
+      // Sync Sheets data into toolbar callout store (field mapping)
+      DASHBOARD_DATA.meta.calloutItems=_coCache.map(c=>({
+        id:c.id,
+        title:c.title,
+        detail:c.message,
+        type:c.type,
+        status:(c.dismissed==='true'||c.dismissed===true)?'Archived':'Active',
+        color:'',
+        createdAt:c.createdAt,
+        archivedAt:c.dismissedAt||'',
+        date:c.dueDate||''
+      }));
       _coRenderBadge();
       _coRenderPanel();
+      buildCallouts();
     }).catch(()=>{});
 }
 
