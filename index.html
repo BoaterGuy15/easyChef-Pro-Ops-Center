@@ -11862,7 +11862,8 @@ rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mer
         const _fetchSettings=loadSettings();
         const _fetchWorkstreams=loadWorkstreams();
         const _fetchLaunchPlan=fetch(CONFIG.sheetsUrl+'?action=launchplan_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(rows.length>0){ _lpCache=rows; } else if(!_lpCache.length){ _lpCache=_LP_DEFAULTS.map(x=>({...x})); } }).catch(()=>{ if(!_lpCache.length) _lpCache=_LP_DEFAULTS.map(x=>({...x})); });
-        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings,_fetchLaunchPlan,_fetchWorkstreams])
+        const _fetchDocs=fetch(CONFIG.sheetsUrl+'?action=docs_read').then(r=>r.json()).then(data=>{ const docs=Array.isArray(data.docs)?data.docs:[]; docs.forEach(d=>{ if(d.taskId){ const k='task_'+d.taskId; if(!_docsCache[k]) _docsCache[k]=[]; _docsCache[k].push(d); } }); buildRoadmap(); buildLaunchPlan(); }).catch(()=>{});
+        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings,_fetchLaunchPlan,_fetchWorkstreams,_fetchDocs])
           .then(()=>{
             renderKillCriteria();
             _debouncedBuildMilestones();
