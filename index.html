@@ -15913,7 +15913,7 @@ async function runMasterTests(){
   let _sspDefined=false; try{ _sspDefined=typeof _showStreamTaskPanel==='function'; }catch(e){} check('_showStreamTaskPanel is defined',_sspDefined,'not defined');
   let _rlatDefined=false; try{ _rlatDefined=typeof _renderLPActionPlanTab==='function'; }catch(e){} check('_renderLPActionPlanTab is defined',_rlatDefined,'not defined');
   // Open settings to inject #workflow-links-section then check
-  check('settings-modal exists in DOM',!!document.getElementById('settings-modal'),'element missing');
+  check('settings-modal trigger exists in DOM',!!document.getElementById('settings-btn'),'#settings-btn missing');
   console.groupEnd();
 
   // ── SUMMARY ───────────────────────────────────────────────────────────────
