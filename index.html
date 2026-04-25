@@ -417,6 +417,10 @@ tr.hidden-row{display:none}
 /* ── TIMELINE GANTT ── */
 #page-roadmap,#page-lp{padding:16px 8px!important;max-width:none!important;width:100%!important;margin:0!important;box-sizing:border-box}
 #gantt-sticky-bar{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%}
+.gantt-dropdown-panel{overflow:hidden;max-height:0;transition:max-height 0.25s ease-out;background:var(--surface);border-top:1px solid var(--border)}
+.gantt-dropdown-panel.open{max-height:520px;transition:max-height 0.3s ease-in}
+.gantt-dropdown-panel-inner{padding:12px 16px}
+.gantt-ctrl-btn.active-panel{background:rgba(201,168,76,0.15)!important;color:var(--gold)!important}
 #gantt-hdr-scroll{flex:1;overflow:hidden}
 #gantt-hdr-canvas{position:relative;height:52px;background:var(--surface)}
 #gantt-scroll{overflow-x:auto;overflow-y:auto;position:relative;width:100%;max-height:calc(100vh - 200px);scrollbar-width:none}
@@ -976,6 +980,8 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
       <button class="gantt-ctrl-btn" onclick="_ganttScrollToday()">◀ Today</button>
       <button class="gantt-ctrl-btn" onclick="_ganttScrollLaunch()">🚀 Launch</button>
+      <button class="gantt-ctrl-btn" id="gantt-ms-btn" onclick="_toggleGanttPanel('ms')">📌 Milestones</button>
+      <button class="gantt-ctrl-btn" id="gantt-co-btn" onclick="_toggleGanttPanel('co')">⚠️ Callouts</button>
       <div style="flex:1"></div>
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
       <button class="gantt-ctrl-btn" id="zoom-2w" onclick="_ganttSetZoom('2w')">2W</button>
@@ -993,13 +999,11 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         <div id="gantt-hdr-canvas" style="position:relative;height:52px"></div>
       </div>
     </div>
+    <div id="gantt-ms-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="roadmap-milestone-list"></div></div></div>
+    <div id="gantt-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">No callouts configured.</div></div>
   </div>
   <div id="gantt-scroll">
     <div id="gantt-canvas"></div>
-  </div>
-  <div style="margin-top:32px">
-    <div class="section-label">Milestones</div>
-    <div id="roadmap-milestone-list"></div>
   </div>
 </div>
 
@@ -1011,6 +1015,8 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
       <button class="gantt-ctrl-btn" onclick="_lpScrollToday()">◀ Today</button>
       <button class="gantt-ctrl-btn" onclick="_lpScrollLaunch()">🚀 Launch</button>
+      <button class="gantt-ctrl-btn" id="lp-ms-btn" onclick="_toggleLPPanel('ms')">📌 Milestones</button>
+      <button class="gantt-ctrl-btn" id="lp-co-btn" onclick="_toggleLPPanel('co')">⚠️ Callouts</button>
       <div style="flex:1"></div>
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
       <button class="gantt-ctrl-btn" id="lp-zoom-2w" onclick="_lpSetZoom('2w')">2W</button>
@@ -1028,13 +1034,11 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         <div id="lp-gantt-hdr-canvas" style="position:relative;height:52px"></div>
       </div>
     </div>
+    <div id="lp-ms-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="lp-milestone-list"></div></div></div>
+    <div id="lp-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">No callouts configured.</div></div>
   </div>
   <div id="lp-gantt-scroll" style="overflow:auto;cursor:grab">
     <div id="lp-gantt-canvas"></div>
-  </div>
-  <div style="margin-top:32px">
-    <div class="section-label">Milestones</div>
-    <div id="lp-milestone-list"></div>
   </div>
 </div>
 
@@ -14013,6 +14017,57 @@ function _lpXToDate(clientX){
   const d=new Date(_ganttStartMs()+clamped*86400000);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+let _ganttPanelHandler=null;
+function _toggleGanttPanel(type){
+  const msP=document.getElementById('gantt-ms-panel');
+  const coP=document.getElementById('gantt-co-panel');
+  const msB=document.getElementById('gantt-ms-btn');
+  const coB=document.getElementById('gantt-co-btn');
+  if(!msP||!coP) return;
+  const isMs=type==='ms';
+  const panel=isMs?msP:coP, btn=isMs?msB:coB;
+  const other=isMs?coP:msP, otherBtn=isMs?coB:msB;
+  const opening=!panel.classList.contains('open');
+  other.classList.remove('open');if(otherBtn)otherBtn.classList.remove('active-panel');
+  panel.classList.toggle('open',opening);if(btn)btn.classList.toggle('active-panel',opening);
+  if(_ganttPanelHandler){document.removeEventListener('click',_ganttPanelHandler,true);_ganttPanelHandler=null;}
+  if(opening){
+    _ganttPanelHandler=e=>{
+      const bar=document.getElementById('gantt-sticky-bar');
+      if(bar&&bar.contains(e.target)) return;
+      msP.classList.remove('open');coP.classList.remove('open');
+      if(msB)msB.classList.remove('active-panel');if(coB)coB.classList.remove('active-panel');
+      document.removeEventListener('click',_ganttPanelHandler,true);_ganttPanelHandler=null;
+    };
+    setTimeout(()=>document.addEventListener('click',_ganttPanelHandler,true),0);
+  }
+}
+let _lpPanelHandler=null;
+function _toggleLPPanel(type){
+  const msP=document.getElementById('lp-ms-panel');
+  const coP=document.getElementById('lp-co-panel');
+  const msB=document.getElementById('lp-ms-btn');
+  const coB=document.getElementById('lp-co-btn');
+  if(!msP||!coP) return;
+  const isMs=type==='ms';
+  const panel=isMs?msP:coP, btn=isMs?msB:coB;
+  const other=isMs?coP:msP, otherBtn=isMs?coB:msB;
+  const opening=!panel.classList.contains('open');
+  other.classList.remove('open');if(otherBtn)otherBtn.classList.remove('active-panel');
+  panel.classList.toggle('open',opening);if(btn)btn.classList.toggle('active-panel',opening);
+  if(_lpPanelHandler){document.removeEventListener('click',_lpPanelHandler,true);_lpPanelHandler=null;}
+  if(opening){
+    _lpPanelHandler=e=>{
+      const bar=document.getElementById('lp-gantt-sticky-bar');
+      if(bar&&bar.contains(e.target)) return;
+      msP.classList.remove('open');coP.classList.remove('open');
+      if(msB)msB.classList.remove('active-panel');if(coB)coB.classList.remove('active-panel');
+      document.removeEventListener('click',_lpPanelHandler,true);_lpPanelHandler=null;
+    };
+    setTimeout(()=>document.addEventListener('click',_lpPanelHandler,true),0);
+  }
+}
+
 function _closeLPAddMenu(){
   const m=document.getElementById('lp-add-menu');if(m)m.remove();
   document.removeEventListener('click',_closeLPAddMenu,false);
