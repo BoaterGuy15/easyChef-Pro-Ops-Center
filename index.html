@@ -1005,7 +1005,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 
 <!-- ══ PAGE: LAUNCH PLAN (LP) ══ -->
 <div id="page-lp" class="page">
-  <div class="section-label">WORKSTREAM ROADMAP &nbsp;·&nbsp; <span id="lp-header-launch-label" style="font-weight:400;opacity:0.7"></span></div>
+  <div class="section-label">Launch Roadmap — easyChef Pro · Jul 1, 2026</div>
 
   <div id="lp-gantt-sticky-bar" style="position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%">
     <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
@@ -1349,8 +1349,6 @@ function updateCountdown(){
     const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     lbl.textContent = mo[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
   }
-  const lpLbl = document.getElementById('lp-header-launch-label');
-  if(lpLbl) lpLbl.textContent = 'Launch in '+diff+' days — '+mo[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
   const el = document.getElementById('meta-updated');
   if(el) el.textContent = DASHBOARD_DATA.meta.updated;
 }
