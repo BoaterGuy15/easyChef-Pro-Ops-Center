@@ -5363,7 +5363,7 @@ function loadAgendaFromSheets(){
       const metaRow=rows.find(r=>r.id==='__meta__');
       if(metaRow){ const _mc=_getMeetingMeta(); const _md=metaRow.detail||''; const _cleanDate=_md?_excelSerialToDate(_md):_mc.date; const _newMeta={..._mc,title:metaRow.title||_mc.title,date:_cleanDate||_mc.date,time:metaRow.owner||_mc.time}; _saveMeetingMeta(_newMeta); if(_md&&_cleanDate!==_md) _saveMeetingMetaToSheets(_newMeta); _applyMeetingMetaToHeader(); }
       const dataRows=rows.filter(r=>r.id!=='__meta__');
-      if(dataRows.length){ AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',taskPlan:r.taskPlan||'',taskPlans:(()=>{ try{ return r.taskPlans?JSON.parse(r.taskPlans):[]; }catch(_){ return []; } })()})); }
+      AGENDA_DATA=dataRows.map(r=>({id:r.id||_genAgendaId(),title:r.title||'',detail:r.detail||'',decision:r.decision||'',checked:r.checked==='true'||r.checked===true||false,owner:r.owner||'',deadline:_toInputDate(r.deadline||'')||_excelSerialToDate(r.deadline||'')||'',category:r.category||'Manual',taskId:r.taskId||'',flag:r.flag||'',taskPlan:r.taskPlan||'',taskPlans:(()=>{ try{ return r.taskPlans?JSON.parse(r.taskPlans):[]; }catch(_){ return []; } })()}));
       buildAgendaPage(); buildAgenda();
     })
     .catch(()=>{});
