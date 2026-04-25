@@ -4872,12 +4872,10 @@ function _initGanttDrag(){
 
       _ganttSaveUndo(taskId,oldSd,oldEd);
       t.sd=newSd; t.ed=newEd;
-      bar.style.left=(_ganttDayOff(newSd)*_ganttDayPx)+'px';
-      bar.style.width=_barW(newSd,newEd)+'px';
-      bar.dataset.sd=newSd; bar.dataset.ed=newEd;
       const sdEl=document.getElementById('raci-sd-'+taskId);
       const edEl=document.getElementById('raci-ed-'+taskId);
       if(sdEl) sdEl.value=newSd; if(edEl) edEl.value=newEd;
+      buildRoadmap();
       _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd);
     }
 
@@ -15549,9 +15547,7 @@ function _initLPDrag(){
 
       _lpSaveUndo(lpId,oldSd,oldEd);
       t.sd=newSd; t.ed=newEd;
-      bar.style.left=(_ganttDayOff(newSd)*_ganttDayPx)+'px';
-      bar.style.width=_barW(newSd,newEd)+'px';
-      bar.dataset.sd=newSd; bar.dataset.ed=newEd;
+      buildLaunchPlan();
       _showLPMoveConfirm(lpId,oldSd,oldEd,newSd,newEd,t.name);
     }
 
