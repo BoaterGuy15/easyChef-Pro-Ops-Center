@@ -1006,7 +1006,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 <!-- ══ PAGE: LAUNCH PLAN (LP) ══ -->
 <div id="page-lp" class="page">
   <div class="section-label">Launch Roadmap — easyChef Pro · Jul 1, 2026</div>
-  <div id="lp-callouts"></div>
+
   <div id="lp-gantt-sticky-bar" style="position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%">
     <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
       <button class="gantt-ctrl-btn" onclick="_lpScrollToday()">◀ Today</button>
@@ -13756,13 +13756,6 @@ let _lpCache=[];
 const _lpUndoStack=[];
 Object.defineProperty(window,'_lpDayPx',{get:()=>_ganttDayPx,set:()=>{}});
 
-const _LP_CALLOUTS=[
-  'CRITICAL DEPENDENCY — Beta must start May 11. Their 30 days of receipts power ALL launch social proof. Slip beta = slip everything.',
-  'DO NOT SLIP ONBOARDING — The less than 3-min First Strike is the conversion lever for every marketing dollar spent.',
-  'CONTENT ENGINE STARTS LATE — Social media prep begins W4 (May 11) deliberately. We need beta data first.',
-  'FOUNDER ON CAMERA — Taylor and Steve must commit 4hrs/month filming starting W2. Firefighter origin story is the uncopyable brand asset.',
-  'KILL CRITERIA — If by W8 (Jun 8): less than 30 beta families completed 30 days, or less than 5 hooks hit 5% share rate, or First Strike less than 40% — delay launch 4 weeks.'
-];
 
 const _LP_WORKSTREAMS=['Positioning & Brand','Website','Customer Discovery','App Onboarding (EUREKA)','Email Marketing','Beta (50 Real Families)','Social Media','Influencers & Alliances','Launch Ops & Infra'];
 
@@ -13871,22 +13864,11 @@ function _lpGanttSyncHeader(){
   if(scroll&&hdrScroll) hdrScroll.scrollLeft=scroll.scrollLeft;
 }
 
-function _renderLPCallouts(){
-  const el=document.getElementById('lp-callouts');
-  if(!el) return;
-  el.innerHTML=_LP_CALLOUTS.map((text,i)=>{
-    const id='lp-callout-'+i;
-    const label=text.split(' — ')[0]||text.substring(0,40);
-    const body=text.includes(' — ')?text.substring(text.indexOf(' — ')+3):text;
-    return `<div class="alert-banner amber" style="margin-bottom:6px;cursor:pointer;user-select:none" onclick="(function(){var b=document.getElementById('${id}');if(b){b.style.display=b.style.display==='none'?'inline':'none';}})()" title="Click to expand/collapse">⬤ &nbsp;<strong>${label}</strong><span id="${id}" style="display:none"> — ${body}</span></div>`;
-  }).join('');
-}
 
 function buildLaunchPlan(){
   const canvas=document.getElementById('lp-gantt-canvas');
   const hdrCanvas=document.getElementById('lp-gantt-hdr-canvas');
   if(!canvas) return;
-  _renderLPCallouts();
   const totalTrackW=_GANTT_DAYS*_ganttDayPx;
   const totalCanvasW=_GANTT_LABEL_W+totalTrackW;
   canvas.style.minWidth=totalCanvasW+'px';
