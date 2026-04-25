@@ -5894,10 +5894,12 @@ function saveAgendaEditModal(){
   item.category=g('ag-category').value;
   item.checked=_agChecked;
   saveAgendaItemToSheets(item);
+  const _pendingCb=window._agendaModalOnSaved;
   window._agendaModalIsNew=false;
+  window._agendaModalOnSaved=null;
   closeAgendaEditModal();
   buildMondayAgenda(); buildAgenda();
-  if(window._agendaModalOnSaved){const _cb=window._agendaModalOnSaved;window._agendaModalOnSaved=null;_cb();}
+  if(_pendingCb) _pendingCb();
 }
 function agDeleteFromModal(){
   if(!_agEditId) return;
