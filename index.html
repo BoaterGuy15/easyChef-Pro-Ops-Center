@@ -15297,7 +15297,7 @@ function _showLPLinkTasksModal(lpId){
   // Normalise to Sheets ID if a name-based match resolved a different entry
   const _resolvedLpId=item.id;
   const existing=document.getElementById('lp-link-tasks-overlay');if(existing)existing.remove();
-  const selected=new Set(Array.isArray(item.taskIds)?item.taskIds:[]);
+  const selected=new Set(Array.isArray(item.taskIds)?item.taskIds:String(item.taskIds||'').split(',').map(s=>s.trim()).filter(Boolean));
   let _sortKey='cat',_filterCat='',_filterOwner='',_filterStatus='',_searchQ='';
   const ov=document.createElement('div');ov.id='lp-link-tasks-overlay';
   ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
