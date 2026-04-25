@@ -668,6 +668,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')">App Data</div>
     <div class="nav-tab" data-tab-id="comms" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('comms')">Comms</div>
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')">Action Plans</div>
+    <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('lp')">Roadmap</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -994,6 +995,41 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div style="margin-top:32px">
     <div class="section-label">Milestones</div>
     <div id="roadmap-milestone-list"></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: LAUNCH PLAN (LP) ══ -->
+<div id="page-lp" class="page">
+  <div class="section-label">Launch Roadmap — easyChef Pro · Jul 1, 2026</div>
+  <div class="alert-banner amber" style="margin-bottom:6px">⬤ &nbsp;CRITICAL — Beta must start May 11. 30 days of family receipts are required for launch social proof. Slip beta = slip everything.</div>
+  <div class="alert-banner amber" style="margin-bottom:6px">⬤ &nbsp;WEBSITE — Must be live by Jun 1 to allow 30 days of SEO indexing before launch.</div>
+  <div class="alert-banner amber" style="margin-bottom:8px">⬤ &nbsp;INFLUENCERS — Outreach must close by May 15 to allow content production turnaround before launch.</div>
+  <div id="lp-gantt-sticky-bar" style="position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
+      <button class="gantt-ctrl-btn" onclick="_lpScrollToday()">◀ Today</button>
+      <button class="gantt-ctrl-btn" onclick="_lpScrollLaunch()">🚀 Launch</button>
+      <div style="flex:1"></div>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
+      <button class="gantt-ctrl-btn" id="lp-zoom-2w" onclick="_lpSetZoom('2w')">2W</button>
+      <button class="gantt-ctrl-btn active-zoom" id="lp-zoom-90d" onclick="_lpSetZoom('90d')">90D</button>
+      <button class="gantt-ctrl-btn" id="lp-zoom-6mo" onclick="_lpSetZoom('6mo')">6MO</button>
+      <button class="gantt-ctrl-btn" id="lp-zoom-1yr" onclick="_lpSetZoom('1yr')">1YR</button>
+    </div>
+    <div style="display:flex">
+      <div style="width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:flex-end;padding:4px 8px">
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px">WORKSTREAM</span>
+      </div>
+      <div id="lp-gantt-hdr-scroll" style="flex:1;overflow:hidden">
+        <div id="lp-gantt-hdr-canvas" style="position:relative;height:52px"></div>
+      </div>
+    </div>
+  </div>
+  <div id="lp-gantt-scroll" style="overflow:auto;cursor:grab">
+    <div id="lp-gantt-canvas"></div>
+  </div>
+  <div style="margin-top:32px">
+    <div class="section-label">Milestones</div>
+    <div id="lp-milestone-list"></div>
   </div>
 </div>
 
@@ -1326,6 +1362,7 @@ function showPage(id){
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom('90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
+  if(id==='lp'){ loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom('90d'); },80); }
   if(id==='budget') loadBudgetFromSheets();
   if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } }
   if(id==='command'){
@@ -11600,7 +11637,8 @@ rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mer
         const _fetchKillCriteria=fetch(CONFIG.sheetsUrl+'?action=kill_criteria_read').then(r=>r.json()).then(data=>{ if(data.criteria){ _killCriteriaCache=data.criteria; _killCriteria=data.criteria; try{ localStorage.setItem('dgl_kill_criteria',JSON.stringify(data.criteria)); }catch(e){} } }).catch(()=>{});
         const _fetchRoadmap=fetch(CONFIG.sheetsUrl+'?action=roadmap_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(!rows.length) return; DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({id:r.id||('ms-'+r.title),title:r.title||r.label||'',date:r.date||'',type:r.type||'Milestone',status:r.status||'Upcoming',description:r.description||r.note||'',color:r.color||'',taskIds:r.taskIds||'',achievedDate:r.achievedDate||''})); }).catch(()=>{});
         const _fetchSettings=loadSettings();
-        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings])
+        const _fetchLaunchPlan=fetch(CONFIG.sheetsUrl+'?action=launchplan_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(rows.length>0){ _lpCache=_LP_DEFAULTS.map(def=>{ const row=rows.find(r=>r.id===def.id); return row?{...def,...row}:{...def}; }); } else if(!_lpCache.length){ _lpCache=_LP_DEFAULTS.map(x=>({...x})); } }).catch(()=>{ if(!_lpCache.length) _lpCache=_LP_DEFAULTS.map(x=>({...x})); });
+        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings,_fetchLaunchPlan])
           .then(()=>{
             renderKillCriteria();
             _debouncedBuildMilestones();
@@ -13703,6 +13741,343 @@ async function hrResetPassword(userKey,name){
   _hrProfilesCache[userKey]={...(_hrProfilesCache[userKey]||{}),passwordHash:hash};
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey,passwordHash:hash})}).catch(()=>{});
   alert('✅ Password reset for '+name);
+}
+
+// ── LAUNCH PLAN (LP) TAB ────────────────────────────────────
+let _lpCache=[];
+let _lpDayPx=28;
+
+const _LP_WORKSTREAMS=['Positioning & Brand','Website','Customer Discovery','App Onboarding (EUREKA)','Email Marketing','Beta (50 Real Families)','Social Media','Influencers & Alliances','Launch Ops & Infra'];
+
+const _LP_WS_COLORS={
+  'Positioning & Brand':{color:'#c9a84c',bg:'rgba(201,168,76,0.08)'},
+  'Website':{color:'#4a9eff',bg:'rgba(74,158,255,0.08)'},
+  'Customer Discovery':{color:'#a78bfa',bg:'rgba(167,139,250,0.08)'},
+  'App Onboarding (EUREKA)':{color:'#34d399',bg:'rgba(52,211,153,0.08)'},
+  'Email Marketing':{color:'#f472b6',bg:'rgba(244,114,182,0.08)'},
+  'Beta (50 Real Families)':{color:'#ef4444',bg:'rgba(239,68,68,0.08)'},
+  'Social Media':{color:'#f59e0b',bg:'rgba(245,158,11,0.08)'},
+  'Influencers & Alliances':{color:'#2dd4bf',bg:'rgba(45,212,191,0.08)'},
+  'Launch Ops & Infra':{color:'#94a3b8',bg:'rgba(148,163,184,0.08)'},
+};
+
+const _LP_MILESTONES=[
+  {title:'Beta Starts',date:'2026-05-11',color:'red'},
+  {title:'Website Live',date:'2026-06-01',color:'blue'},
+  {title:'App Store Submit',date:'2026-06-15',color:'amber'},
+  {title:'🚀 Launch Day',date:'2026-07-01',color:'gold'},
+];
+
+const _LP_DEFAULTS=[
+  {id:'lp-pb-1',workstream:'Positioning & Brand',name:'Brand Identity & Style Guide',sd:'2026-04-20',ed:'2026-05-10',status:'In Progress'},
+  {id:'lp-pb-2',workstream:'Positioning & Brand',name:'Messaging & Positioning Deck',sd:'2026-04-21',ed:'2026-05-01',status:'In Progress'},
+  {id:'lp-pb-3',workstream:'Positioning & Brand',name:'Launch Creative Assets',sd:'2026-05-05',ed:'2026-06-15',status:'Not Started'},
+  {id:'lp-web-1',workstream:'Website',name:'Site Architecture & Copy',sd:'2026-04-21',ed:'2026-05-15',status:'In Progress'},
+  {id:'lp-web-2',workstream:'Website',name:'Design & Build',sd:'2026-05-05',ed:'2026-06-01',status:'Not Started'},
+  {id:'lp-web-3',workstream:'Website',name:'Go-Live & QA',sd:'2026-06-01',ed:'2026-06-15',status:'Not Started'},
+  {id:'lp-cd-1',workstream:'Customer Discovery',name:'User Interview Program',sd:'2026-04-20',ed:'2026-05-20',status:'In Progress'},
+  {id:'lp-cd-2',workstream:'Customer Discovery',name:'Persona Finalization',sd:'2026-05-10',ed:'2026-05-25',status:'Not Started'},
+  {id:'lp-cd-3',workstream:'Customer Discovery',name:'PMF Survey Analysis',sd:'2026-05-20',ed:'2026-06-10',status:'Not Started'},
+  {id:'lp-app-1',workstream:'App Onboarding (EUREKA)',name:'Onboarding Flow Design',sd:'2026-04-20',ed:'2026-05-01',status:'In Progress'},
+  {id:'lp-app-2',workstream:'App Onboarding (EUREKA)',name:'EUREKA Dev Sprint',sd:'2026-05-04',ed:'2026-05-25',status:'Not Started'},
+  {id:'lp-app-3',workstream:'App Onboarding (EUREKA)',name:'UAT & Bug Fix',sd:'2026-05-25',ed:'2026-06-15',status:'Not Started'},
+  {id:'lp-em-1',workstream:'Email Marketing',name:'List Building & Segmentation',sd:'2026-04-20',ed:'2026-05-10',status:'In Progress'},
+  {id:'lp-em-2',workstream:'Email Marketing',name:'Drip Sequence Write',sd:'2026-04-27',ed:'2026-05-17',status:'Not Started'},
+  {id:'lp-em-3',workstream:'Email Marketing',name:'Pre-Launch Email Campaign',sd:'2026-06-01',ed:'2026-07-01',status:'Not Started'},
+  {id:'lp-beta-1',workstream:'Beta (50 Real Families)',name:'Beta Recruitment',sd:'2026-04-20',ed:'2026-05-11',status:'In Progress'},
+  {id:'lp-beta-2',workstream:'Beta (50 Real Families)',name:'Beta Active Phase',sd:'2026-05-11',ed:'2026-06-10',status:'Not Started'},
+  {id:'lp-beta-3',workstream:'Beta (50 Real Families)',name:'Beta Debrief & Fixes',sd:'2026-06-10',ed:'2026-06-25',status:'Not Started'},
+  {id:'lp-sm-1',workstream:'Social Media',name:'Content Calendar',sd:'2026-04-27',ed:'2026-05-11',status:'Not Started'},
+  {id:'lp-sm-2',workstream:'Social Media',name:'Content Production',sd:'2026-05-11',ed:'2026-06-15',status:'Not Started'},
+  {id:'lp-sm-3',workstream:'Social Media',name:'Launch Week Blitz',sd:'2026-06-24',ed:'2026-07-07',status:'Not Started'},
+  {id:'lp-inf-1',workstream:'Influencers & Alliances',name:'Influencer Outreach',sd:'2026-04-20',ed:'2026-05-15',status:'In Progress'},
+  {id:'lp-inf-2',workstream:'Influencers & Alliances',name:'Contracts & Briefs',sd:'2026-05-12',ed:'2026-05-22',status:'Not Started'},
+  {id:'lp-inf-3',workstream:'Influencers & Alliances',name:'Content Review & Go-Live',sd:'2026-05-25',ed:'2026-07-01',status:'Not Started'},
+  {id:'lp-ops-1',workstream:'Launch Ops & Infra',name:'App Store Submissions',sd:'2026-05-25',ed:'2026-06-15',status:'Not Started'},
+  {id:'lp-ops-2',workstream:'Launch Ops & Infra',name:'Support Runbook',sd:'2026-05-18',ed:'2026-06-01',status:'Not Started'},
+  {id:'lp-ops-3',workstream:'Launch Ops & Infra',name:'Launch Day Playbook',sd:'2026-06-10',ed:'2026-07-01',status:'Not Started'},
+];
+
+function loadLaunchPlan(){
+  if(!CONFIG.sheetsUrl){ _lpCache=_LP_DEFAULTS.map(x=>({...x})); buildLaunchPlan(); return; }
+  fetch(CONFIG.sheetsUrl+'?action=launchplan_read').then(r=>r.json()).then(data=>{
+    const rows=Array.isArray(data)?data:(data.items||[]);
+    if(rows.length>0){
+      _lpCache=_LP_DEFAULTS.map(def=>{
+        const row=rows.find(r=>r.id===def.id);
+        return row?{...def,...row}:{...def};
+      });
+    } else { _lpCache=_LP_DEFAULTS.map(x=>({...x})); }
+    buildLaunchPlan();
+  }).catch(()=>{ _lpCache=_LP_DEFAULTS.map(x=>({...x})); buildLaunchPlan(); });
+}
+
+function _lpSaveBar(item){
+  if(!CONFIG.sheetsUrl) return;
+  const idx=_lpCache.findIndex(x=>x.id===item.id);
+  if(idx>=0) _lpCache[idx]={..._lpCache[idx],...item};
+  else _lpCache.push(item);
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'launchplan_write',item})}).catch(()=>{});
+}
+
+function _lpSetZoom(z){
+  const daysMap={'2w':14,'90d':90,'6mo':182,'1yr':365};
+  const days=daysMap[z]||90;
+  const scroll=document.getElementById('lp-gantt-scroll');
+  const visW=scroll?scroll.clientWidth-_GANTT_LABEL_W:800;
+  _lpDayPx=Math.max(3,Math.round(visW/days));
+  document.querySelectorAll('[id^="lp-zoom-"]').forEach(b=>b.classList.remove('active-zoom'));
+  const btn=document.getElementById('lp-zoom-'+z);
+  if(btn) btn.classList.add('active-zoom');
+  buildLaunchPlan();
+  requestAnimationFrame(_lpScrollToday);
+}
+
+function _lpScrollToday(){
+  const scroll=document.getElementById('lp-gantt-scroll');
+  if(!scroll) return;
+  const off=_ganttDayOff(_isoToday());
+  scroll.scrollLeft=Math.max(0,Math.round(off*_lpDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+}
+
+function _lpScrollLaunch(){
+  const scroll=document.getElementById('lp-gantt-scroll');
+  if(!scroll) return;
+  const off=_ganttDayOff('2026-07-01');
+  scroll.scrollLeft=Math.max(0,Math.round(off*_lpDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+}
+
+function _lpGanttSyncHeader(){
+  const scroll=document.getElementById('lp-gantt-scroll');
+  const hdrScroll=document.getElementById('lp-gantt-hdr-scroll');
+  if(scroll&&hdrScroll) hdrScroll.scrollLeft=scroll.scrollLeft;
+}
+
+function buildLaunchPlan(){
+  const canvas=document.getElementById('lp-gantt-canvas');
+  const hdrCanvas=document.getElementById('lp-gantt-hdr-canvas');
+  if(!canvas) return;
+  const totalTrackW=_GANTT_DAYS*_lpDayPx;
+  const totalCanvasW=_GANTT_LABEL_W+totalTrackW;
+  canvas.style.minWidth=totalCanvasW+'px';
+  const today=_isoToday();
+
+  function _lpDayOff(dateStr){ return _ganttDayOff(dateStr); }
+  function _lpAddDays(iso,n){ const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function _lpBarW(sd,ed){ const span=Math.max(1,Math.round((new Date(ed+'T00:00:00')-new Date(sd+'T00:00:00'))/86400000)+1);return Math.max(span*_lpDayPx,Math.max(20,_lpDayPx)); }
+
+  // ── Build header ──
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if(hdrCanvas){
+    hdrCanvas.style.width=totalTrackW+'px';
+    let hdrHtml='';
+    const ganttStart=new Date(_GANTT_START+'T00:00:00');
+    let cur=new Date(ganttStart.getFullYear(),ganttStart.getMonth(),1);
+    while(true){
+      const mStartDay=Math.max(0,(cur-ganttStart)/86400000);
+      if(mStartDay>=_GANTT_DAYS) break;
+      const mEndRaw=new Date(cur.getFullYear(),cur.getMonth()+1,0);
+      const mEndDay=Math.min(_GANTT_DAYS-1,(mEndRaw-ganttStart)/86400000);
+      const bandW=(mEndDay-mStartDay+1)*_lpDayPx;
+      hdrHtml+=`<div class="gantt-month-band" style="left:${mStartDay*_lpDayPx}px;width:${bandW}px">${MO[cur.getMonth()]} ${cur.getFullYear()}</div>`;
+      cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+    }
+    for(let day=0;day<_GANTT_DAYS;day+=7){
+      const td=new Date(_ganttStartMs()+day*86400000);
+      hdrHtml+=`<div class="gantt-week-tick" style="left:${day*_lpDayPx}px">${(td.getMonth()+1)+'/'+td.getDate()}</div>`;
+    }
+    const todayHdrOff=_lpDayOff(today);
+    if(todayHdrOff<_GANTT_DAYS) hdrHtml+=`<div id="lp-gantt-hdr-today" style="position:absolute;left:${todayHdrOff*_lpDayPx}px;top:0;bottom:0;width:2px;background:var(--red);opacity:0.6;pointer-events:none"></div>`;
+    hdrCanvas.innerHTML=hdrHtml;
+  }
+
+  // ── Lane packing ──
+  function _lpAssignLanes(items){
+    const valid=items.filter(t=>t.sd&&t.ed).sort((a,b)=>a.sd<b.sd?-1:a.sd>b.sd?1:0);
+    const laneEnds=[]; const map=new Map();
+    valid.forEach(t=>{ let lane=laneEnds.findIndex(e=>e<t.sd); if(lane<0) lane=laneEnds.length; laneEnds[lane]=t.ed; map.set(t.id,lane); });
+    items.filter(t=>!t.sd||!t.ed).forEach(t=>map.set(t.id,0));
+    return{map,maxLane:Math.max(1,laneEnds.length)};
+  }
+
+  const todayOff=_lpDayOff(today);
+  let canvasHtml='';
+
+  _LP_WORKSTREAMS.forEach(ws=>{
+    const items=(_lpCache.length?_lpCache:_LP_DEFAULTS).filter(t=>t.workstream===ws);
+    const cc=_LP_WS_COLORS[ws]||{color:'#94a3b8',bg:'rgba(148,163,184,0.08)'};
+    const {map,maxLane}=_lpAssignLanes(items);
+    const rowH=Math.max(44,(maxLane+1)*28+8);
+
+    let barsHtml='';
+    for(let day=0;day<_GANTT_DAYS;day+=7){
+      barsHtml+=`<div class="gantt-col-bg" style="left:${day*_lpDayPx}px;height:${rowH}px"></div>`;
+    }
+
+    items.forEach(t=>{
+      if(!t.sd||!t.ed) return;
+      const sdOff=_lpDayOff(t.sd); const edOff=_lpDayOff(t.ed);
+      const barW=_lpBarW(t.sd,t.ed);
+      const barL=sdOff*_lpDayPx;
+      const lane=map.get(t.id)||0;
+      const barTop=6+lane*28;
+      const isDone=t.status==='Done'||t.status==='Complete';
+      const isActive=['Started','In Progress','Ready','In Review'].includes(t.status);
+      const isOverdue=!isDone&&t.ed<today;
+      const cls=isDone?'rm-cell milestone':isActive?'rm-cell active':'rm-cell';
+      const ovStyle=isOverdue?'color:var(--red);border-color:rgba(248,113,113,0.4);':'';
+      const maxChars=Math.max(4,Math.floor(barW/_lpDayPx*1.2));
+      const dispName=t.name.length>maxChars?t.name.substring(0,maxChars)+'…':t.name;
+      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-lp-id="${t.id}" data-sd="${t.sd}" data-ed="${t.ed}" title="${t.name} · ${t.sd} → ${t.ed}"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${dispName}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
+    });
+
+    canvasHtml+=`<div class="gantt-row" data-ws="${ws}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${ws}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
+  });
+  canvas.innerHTML=canvasHtml;
+
+  // ── Today line ──
+  let todayLine=document.getElementById('lp-today-line');
+  if(todayLine) todayLine.remove();
+  if(todayOff<_GANTT_DAYS){
+    todayLine=document.createElement('div');
+    todayLine.id='lp-today-line';
+    todayLine.style.cssText=`position:absolute;left:${_GANTT_LABEL_W+todayOff*_lpDayPx}px;top:0;bottom:0;width:2px;background:var(--red);opacity:0.7;pointer-events:none;z-index:6`;
+    canvas.appendChild(todayLine);
+  }
+
+  // ── Scroll sync + pan ──
+  const scroll=document.getElementById('lp-gantt-scroll');
+  if(scroll&&!scroll._lpSynced){
+    scroll._lpSynced=true;
+    scroll.addEventListener('scroll',_lpGanttSyncHeader,{passive:true});
+    scroll.style.cursor='grab';
+    let _pan=false,_panX=0,_panY=0,_panL=0,_panT=0;
+    scroll.addEventListener('mousedown',e=>{
+      if(e.button!==0) return;
+      if(e.target.closest('[data-lp-id]')||e.target.closest('.gantt-handle')||e.target.closest('.gantt-mid')) return;
+      _pan=true; _panX=e.clientX; _panY=e.clientY; _panL=scroll.scrollLeft; _panT=scroll.scrollTop; scroll.style.cursor='grabbing'; e.preventDefault();
+    });
+    document.addEventListener('mousemove',e=>{ if(!_pan) return; scroll.scrollLeft=_panL-(e.clientX-_panX); scroll.scrollTop=_panT-(e.clientY-_panY); },{passive:true});
+    document.addEventListener('mouseup',()=>{ if(!_pan) return; _pan=false; scroll.style.cursor='grab'; });
+  }
+
+  _initLPDrag();
+  requestAnimationFrame(_renderLPMilestoneLines);
+
+  // ── Milestone list ──
+  const mlEl=document.getElementById('lp-milestone-list');
+  if(mlEl){
+    const _COLOR_MAP={'gold':'#c9a84c','red':'#ef4444','green':'#22c55e','blue':'#4a9eff','amber':'#f59e0b'};
+    mlEl.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">'+_LP_MILESTONES.map(m=>{
+      const c=_COLOR_MAP[m.color]||m.color||'#c9a84c';
+      const d=new Date(m.date+'T00:00:00');
+      const fmt=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
+      return `<div style="background:var(--surface);border:1px solid ${c};border-radius:6px;padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px"><span style="color:${c};font-weight:700">◆ ${m.title}</span><span style="color:var(--muted);margin-left:10px;font-size:9px">${fmt}</span></div>`;
+    }).join('')+'</div>';
+  }
+}
+
+function _initLPDrag(){
+  const canvas=document.getElementById('lp-gantt-canvas');
+  if(!canvas||canvas._lpDragInited) return;
+  canvas._lpDragInited=true;
+
+  function _addDays(iso,n){ const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function _daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+  function _barW(sd,ed){ return Math.max(Math.max(1,_daysBetween(sd,ed)+1)*_lpDayPx,Math.max(20,_lpDayPx)); }
+
+  let _tip=document.getElementById('lp-drag-tooltip');
+  if(!_tip){ _tip=document.createElement('div'); _tip.id='lp-drag-tooltip'; _tip.style.cssText='position:fixed;background:var(--card);border:1px solid var(--gold);border-radius:4px;padding:4px 8px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);pointer-events:none;display:none;z-index:9999'; document.body.appendChild(_tip); }
+
+  canvas.addEventListener('mousedown',e=>{ if(e.target.closest('[data-lp-id]')) e.stopPropagation(); },true);
+
+  canvas.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    const handle=e.target.closest('.gantt-handle');
+    const bar=e.target.closest('[data-lp-id]');
+    if(!bar) return;
+    const mode=handle?(handle.classList.contains('gantt-handle-left')?'left':'right'):'move';
+    const lpId=bar.dataset.lpId;
+    const item=_lpCache.find(x=>x.id===lpId)||_LP_DEFAULTS.find(x=>x.id===lpId);
+    if(!item) return;
+    const origSd=item.sd, origEd=item.ed;
+    const origL=parseFloat(bar.style.left)||0;
+    const origW=parseFloat(bar.style.width)||_barW(origSd,origEd);
+
+    bar.setPointerCapture(e.pointerId);
+    bar.classList.add('gantt-dragging');
+    bar.style.zIndex='10'; bar.style.boxShadow='0 4px 16px rgba(0,0,0,0.5)';
+    let lastDelta=0;
+    e.stopPropagation();
+
+    function onMove(ev){
+      const delta=Math.round((ev.clientX-e.clientX)/_lpDayPx);
+      if(delta===lastDelta) return; lastDelta=delta;
+      let newSd=origSd,newEd=origEd,newL=origL,newW=origW;
+      if(mode==='move'){ newSd=_addDays(origSd,delta); newEd=_addDays(origEd,delta); newL=origL+delta*_lpDayPx; }
+      else if(mode==='left'){ newSd=_addDays(origSd,delta); if(newSd>=origEd) newSd=_addDays(origEd,-1); newL=_ganttDayOff(newSd)*_lpDayPx; newW=_barW(newSd,origEd); }
+      else { newEd=_addDays(origEd,delta); if(newEd<=origSd) newEd=_addDays(origSd,1); newW=_barW(origSd,newEd); }
+      bar.style.left=newL+'px'; bar.style.width=newW+'px';
+      const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      function _fmt(s){ const d=new Date(s+'T00:00:00');return MO[d.getMonth()]+' '+d.getDate(); }
+      _tip.textContent=(mode==='right'?'End: '+_fmt(newEd):mode==='left'?'Start: '+_fmt(newSd):_fmt(newSd)+' → '+_fmt(newEd));
+      _tip.style.left=Math.min(ev.clientX+14,window.innerWidth-160)+'px'; _tip.style.top=(ev.clientY-34)+'px'; _tip.style.display='block';
+    }
+
+    function onUp(ev){
+      bar.removeEventListener('pointermove',onMove); bar.removeEventListener('pointerup',onUp); bar.removeEventListener('pointercancel',onUp);
+      bar.classList.remove('gantt-dragging'); bar.style.zIndex=''; bar.style.boxShadow=''; _tip.style.display='none';
+      const finalDelta=Math.round((ev.clientX-e.clientX)/_lpDayPx);
+      if(finalDelta===0) return;
+      let newSd=origSd,newEd=origEd;
+      if(mode==='move'){ newSd=_addDays(origSd,finalDelta); newEd=_addDays(origEd,finalDelta); }
+      else if(mode==='left'){ newSd=_addDays(origSd,finalDelta); if(newSd>=origEd) newSd=_addDays(origEd,-1); }
+      else { newEd=_addDays(origEd,finalDelta); if(newEd<=origSd) newEd=_addDays(origSd,1); }
+      bar.style.left=(_ganttDayOff(newSd)*_lpDayPx)+'px'; bar.style.width=(_barW(newSd,newEd))+'px';
+      bar.dataset.sd=newSd; bar.dataset.ed=newEd;
+      _lpSaveBar({...item,sd:newSd,ed:newEd});
+      _showToast(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold)">${item.name}: ${newSd} → ${newEd}</div>`,2000);
+    }
+
+    bar.addEventListener('pointermove',onMove,{passive:true});
+    bar.addEventListener('pointerup',onUp);
+    bar.addEventListener('pointercancel',onUp);
+  },true);
+}
+
+function _renderLPMilestoneLines(){
+  const canvas=document.getElementById('lp-gantt-canvas');
+  const hdrCanvas=document.getElementById('lp-gantt-hdr-canvas');
+  if(!canvas) return;
+  ['lp-ms-lines','lp-ms-lines-hdr'].forEach(id=>{ const el=document.getElementById(id); if(el) el.remove(); });
+  const totalTrackW=_GANTT_DAYS*_lpDayPx;
+  const canvasH=canvas.scrollHeight||canvas.offsetHeight||400;
+  const _COLOR_MAP={'gold':'#c9a84c','red':'#ef4444','green':'#22c55e','blue':'#4a9eff','amber':'#f59e0b'};
+
+  const linesOverlay=document.createElement('div');
+  linesOverlay.id='lp-ms-lines';
+  linesOverlay.style.cssText=`position:absolute;top:0;left:${_GANTT_LABEL_W}px;width:${totalTrackW}px;height:${canvasH}px;pointer-events:none;z-index:2;overflow:visible`;
+
+  const hdrOverlay=document.createElement('div');
+  hdrOverlay.id='lp-ms-lines-hdr';
+  hdrOverlay.style.cssText=`position:absolute;top:0;left:0;width:${totalTrackW}px;height:52px;pointer-events:none;z-index:4;overflow:visible`;
+
+  _LP_MILESTONES.forEach(m=>{
+    const off=_ganttDayOff(m.date);
+    if(off>=_GANTT_DAYS) return;
+    const x=Math.round(off*_lpDayPx);
+    const color=_COLOR_MAP[m.color]||m.color||'#c9a84c';
+    const line=document.createElement('div');
+    line.style.cssText=`position:absolute;left:${x}px;top:0;width:2px;height:100%;border-left:2px solid ${color};opacity:0.5;pointer-events:none`;
+    const hdrMarker=document.createElement('div');
+    hdrMarker.textContent='◆'; hdrMarker.title=m.title;
+    hdrMarker.style.cssText=`position:absolute;left:${x}px;top:32px;transform:translateX(-50%);font-size:10px;color:${color};opacity:0.8;line-height:1;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.6)`;
+    linesOverlay.appendChild(line); hdrOverlay.appendChild(hdrMarker);
+  });
+
+  canvas.appendChild(linesOverlay);
+  if(hdrCanvas) hdrCanvas.appendChild(hdrOverlay);
 }
 
 // ── DGL Test Suite ──────────────────────────────────────────
