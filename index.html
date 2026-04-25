@@ -986,7 +986,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <button class="gantt-ctrl-btn" onclick="_ganttScrollToday()">◀ Today</button>
       <button class="gantt-ctrl-btn" onclick="_ganttScrollLaunch()">🚀 Launch</button>
       <button class="gantt-ctrl-btn" id="gantt-ms-btn" onclick="_toggleGanttPanel('ms')">📌 Milestones</button>
-      <button class="gantt-ctrl-btn" id="gantt-co-btn" onclick="_toggleGanttPanel('co')">⚠️ Callouts</button>
+      <button class="gantt-ctrl-btn" id="gantt-co-btn" onclick="_coTogglePanel()" style="position:relative">⚠️ Callouts<span id="gantt-co-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 2px"></span></button>
       <div style="flex:1"></div>
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
       <button class="gantt-ctrl-btn" id="zoom-2w" onclick="_ganttSetZoom('2w')">2W</button>
@@ -1021,7 +1021,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <button class="gantt-ctrl-btn" onclick="_lpScrollToday()">◀ Today</button>
       <button class="gantt-ctrl-btn" onclick="_lpScrollLaunch()">🚀 Launch</button>
       <button class="gantt-ctrl-btn" id="lp-ms-btn" onclick="_toggleLPPanel('ms')">📌 Milestones</button>
-      <button class="gantt-ctrl-btn" id="lp-co-btn" onclick="_toggleLPPanel('co')">⚠️ Callouts</button>
+      <button class="gantt-ctrl-btn" id="lp-co-btn" onclick="_coTogglePanel()" style="position:relative">⚠️ Callouts<span id="lp-co-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 2px"></span></button>
       <div style="flex:1"></div>
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
       <button class="gantt-ctrl-btn" id="lp-zoom-2w" onclick="_lpSetZoom('2w')">2W</button>
@@ -16306,12 +16306,11 @@ function _coUndismissed(){
 }
 
 function _coRenderBadge(){
-  const btn=document.getElementById('co-float-btn');
-  const badge=document.getElementById('co-float-badge');
-  if(!btn||!badge) return;
   const n=_coUndismissed().length;
-  badge.textContent=n;
-  badge.style.display=n>0?'flex':'none';
+  const _setBadge=(badgeId)=>{const b=document.getElementById(badgeId);if(!b)return;b.textContent=n;b.style.display=n>0?'flex':'none';};
+  _setBadge('co-float-badge');
+  _setBadge('gantt-co-badge');
+  _setBadge('lp-co-badge');
 }
 
 function _coRenderPanel(){
