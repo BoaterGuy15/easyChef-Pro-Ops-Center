@@ -3803,7 +3803,7 @@ function buildRaciTable(){
     if(_fstRow) tr.style.borderLeft='3px solid '+_fstRow.color;
     const _flagBadge=_fstRow?(' <span class="flag-emoji-badge" title="'+_fstRow.label+'" style="font-size:11px;color:'+_fstRow.color+';cursor:default">'+_fstRow.emoji+'</span>'):'';
     tr.innerHTML = `
-      <td style="padding:4px 2px;text-align:center;width:28px"><span class="raci-no-expand" style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span>${(_docsCache['task_'+t.id]||[]).length>0?'<span style="font-size:10px;opacity:0.7;pointer-events:none">📎</span>':''}</td>
+      <td style="padding:4px 2px;text-align:center;width:28px"><span class="raci-no-expand" style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span>${(()=>{const _d=_docsCache['task_'+t.id]||[];const _u=_d.some(x=>x.driveFileId&&x.driveFileId!=='');const _l=_d.some(x=>!x.driveFileId||x.driveFileId==='');return (_u?'<span style="font-size:10px;opacity:0.7;pointer-events:none">📎</span>':'')+(_l?'<span style="font-size:10px;opacity:0.7;pointer-events:none">🔗</span>':'');})()}</td>
       <td class="tid">${t.id}</td>
       <td class="task-name">${t.name}${_flagBadge}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
       <td>${catSelect(t)}</td>
@@ -4130,7 +4130,8 @@ function buildRoadmap(){
       const _lblFs=_ganttDayPx>=20?'11px':_ganttDayPx>=10?'10px':'9px';
       const flagIco=_flagEmoji(t.flag);
       const flagPin=flagIco?`<span style="font-size:9px;flex-shrink:0;pointer-events:none">${flagIco}</span>`:'';
-      const _taskClipHtml=(_docsCache['task_'+t.id]||[]).length>0?'<span style="position:absolute;top:2px;left:4px;font-size:8px;line-height:1;pointer-events:none">📎</span>':'';
+      const _td=_docsCache['task_'+t.id]||[];const _tu=_td.some(x=>x.driveFileId&&x.driveFileId!=='');const _tl=_td.some(x=>!x.driveFileId||x.driveFileId==='');
+      const _taskClipHtml=(_tu||_tl)?'<span style="position:absolute;top:2px;left:4px;font-size:8px;line-height:1;pointer-events:none">'+(_tu?'📎':'')+(_tl?'🔗':'')+'</span>':'';
       barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">${_taskClipHtml}<span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${_lblFs}">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
@@ -14565,8 +14566,9 @@ function buildLaunchPlan(){
           _dotHtml='<span style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:#f59e0b;pointer-events:none"></span>';
         }
       }
-      const _hasDocs=_tids.some(tid=>(_docsCache['task_'+tid]||[]).length>0);
-      const _clipHtml=_hasDocs?'<span style="position:absolute;top:2px;left:4px;font-size:8px;line-height:1;pointer-events:none">📎</span>':'';
+      const _wsAllDocs=_tids.flatMap(tid=>_docsCache['task_'+tid]||[]);
+      const _wsHasUp=_wsAllDocs.some(x=>x.driveFileId&&x.driveFileId!=='');const _wsHasLk=_wsAllDocs.some(x=>!x.driveFileId||x.driveFileId==='');
+      const _clipHtml=(_wsHasUp||_wsHasLk)?'<span style="position:absolute;top:2px;left:4px;font-size:8px;line-height:1;pointer-events:none">'+(_wsHasUp?'📎':'')+(_wsHasLk?'🔗':'')+'</span>':'';
       const _barStyle=`position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;background:${_barBg};${_barBorder}${_barTextColor}`;
       barsHtml+=`<div class="rm-cell" style="${_barStyle}" data-lp-id="${t.id}" data-sd="${sd}" data-ed="${ed}">${_dotHtml}${_clipHtml}<span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${_lblFs}">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
