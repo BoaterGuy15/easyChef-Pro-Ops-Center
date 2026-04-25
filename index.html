@@ -7597,9 +7597,11 @@ function buildMilestones(){
   console.log('[DGL] buildMilestones called');
   const commandEl=document.getElementById('milestone-list');
   const roadmapEl=document.getElementById('roadmap-milestone-list');
-  if(!commandEl&&!roadmapEl) return;
+  const lpEl=document.getElementById('lp-milestone-list');
+  if(!commandEl&&!roadmapEl&&!lpEl) return;
   if(commandEl) commandEl.innerHTML=_buildMilestonesHtml(false);
   if(roadmapEl) roadmapEl.innerHTML=_buildMilestonesHtml(true);
+  if(lpEl) lpEl.innerHTML=`<div style="margin-bottom:12px"><button onclick="_showLPNewBarForm();_toggleLPPanel('ms')" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">➕ Add Workstream</button></div>`+_buildMilestonesHtml(true);
   if(document.getElementById('gantt-canvas')) requestAnimationFrame(_renderGanttMilestoneLines);
 }
 function _openMilestoneEditModal(milestoneId){
