@@ -15892,6 +15892,30 @@ async function runMasterTests(){
   }catch(e){no('Mary excluded from active team',e.message);}
   console.groupEnd();
 
+  // ── SECTION 9: NEW FEATURES ───────────────────────────────────────────────
+  console.group('Section 9 — New Features');
+  // Sheets reads
+  if(CONFIG&&CONFIG.sheetsUrl){
+    const base=CONFIG.sheetsUrl;
+    await Promise.all([
+      (async()=>{ try{ const d=await fetch(base+'?action=links_read').then(r=>r.json()); check('links_read returns ok+array',d.ok===true&&Array.isArray(d.links),'got: '+JSON.stringify(d).slice(0,120)); }catch(e){ no('links_read returns ok+array',e.message); } })(),
+      (async()=>{ try{ const d=await fetch(base+'?action=actions_read').then(r=>r.json()); check('actions_read returns ok+array',d.ok===true&&Array.isArray(d.actions),'got: '+JSON.stringify(d).slice(0,120)); }catch(e){ no('actions_read returns ok+array',e.message); } })(),
+      (async()=>{ try{ const d=await fetch(base+'?action=launchplan_read').then(r=>r.json()); const items=Array.isArray(d)?d:(d.items||[]); check('launchplan_read returns 69+ items',d.ok===true&&items.length>=69,`ok=${d.ok} items=${items.length}`); }catch(e){ no('launchplan_read returns 69+ items',e.message); } })(),
+      (async()=>{ try{ const d=await fetch(base+'?action=workstream_actions_read').then(r=>r.json()); check('workstream_actions_read returns ok+array',d.ok===true&&Array.isArray(d.actions),'got: '+JSON.stringify(d).slice(0,120)); }catch(e){ no('workstream_actions_read returns ok+array',e.message); } })(),
+    ]);
+  }else{
+    ['links_read','actions_read','launchplan_read','workstream_actions_read'].forEach(l=>no(l+' returns ok+array','CONFIG.sheetsUrl not set'));
+  }
+  // Cache / function checks
+  check('_wsCache has 9 entries',typeof _wsCache!=='undefined'&&(_wsCache||[]).length>=9,`found ${(_wsCache||[]).length} — open Workstreams tab to load`);
+  check('_lpCache has 69+ entries',typeof _lpCache!=='undefined'&&(_lpCache||[]).length>=69,`found ${(_lpCache||[]).length}`);
+  let _autoLinkDefined=false; try{ _autoLinkDefined=typeof _autoLink==='function'; }catch(e){} check('_autoLink is defined',_autoLinkDefined,'not defined');
+  let _sspDefined=false; try{ _sspDefined=typeof _showStreamTaskPanel==='function'; }catch(e){} check('_showStreamTaskPanel is defined',_sspDefined,'not defined');
+  let _rlatDefined=false; try{ _rlatDefined=typeof _renderLPActionPlanTab==='function'; }catch(e){} check('_renderLPActionPlanTab is defined',_rlatDefined,'not defined');
+  // Open settings to inject #workflow-links-section then check
+  check('settings-modal exists in DOM',!!document.getElementById('settings-modal'),'element missing');
+  console.groupEnd();
+
   // ── SUMMARY ───────────────────────────────────────────────────────────────
   const total=pass+fail;
   console.group(`%c🧪 Master Suite: ${pass}/${total} passed ${fail>0?'❌':'✅'}`,fail>0?'color:tomato;font-weight:bold':'color:#34d399;font-weight:bold');
