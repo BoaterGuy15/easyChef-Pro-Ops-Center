@@ -4870,7 +4870,7 @@ function _initGanttDrag(){
       _resetSiblings(t.cat||'',taskId);
 
       const finalDelta=Math.round((ev.clientX-e.clientX)/_ganttDayPx);
-      if(finalDelta===0) return;
+      if(finalDelta===0){if(mode==='move')_viewTaskDetails(taskId);return;}
 
       const oldSd=origSd,oldEd=origEd;
       let newSd=origSd,newEd=origEd;
@@ -14823,7 +14823,7 @@ function _showStreamTaskPanel(lpId){
   hdr.appendChild(ttl);hdr.appendChild(closeBtn);panel.appendChild(hdr);
   const sub=document.createElement('div');
   sub.style.cssText="padding:5px 14px 6px;background:var(--surface);border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0";
-  const _subLinkedTaskIds=Array.isArray(item.taskIds)?item.taskIds:[];
+  const _subLinkedTaskIds=_parseLPTaskIds(item);
   const _subAgCount=AGENDA_DATA.filter(a=>a.taskId&&(_subLinkedTaskIds.includes(a.taskId)||a.taskId===lpId)).length;
   const _subTaskCount=_subLinkedTaskIds.length;
   const _subCrumb=`<span style="color:var(--gold);cursor:pointer" onclick="document.querySelector('.lp-panel-tab[data-tab=agenda]')?.click()">📅 ${_subAgCount}</span>  <span style="color:var(--gold);cursor:pointer" onclick="document.querySelector('.lp-panel-tab[data-tab=tasks]')?.click()">📋 ${_subTaskCount}</span>  <span style="color:var(--gold);cursor:pointer" onclick="document.querySelector('.lp-panel-tab[data-tab=actionplan]')?.click()">🎯</span>  <span style="color:var(--gold);cursor:pointer" onclick="document.querySelector('.lp-panel-tab[data-tab=actions]')?.click()">⚡</span>`;
@@ -14855,8 +14855,14 @@ function _showStreamTaskPanel(lpId){
   requestAnimationFrame(()=>panel.classList.add('open'));
   document.addEventListener('keydown',_streamPanelEsc,true);
 }
+function _parseLPTaskIds(item){
+  const v=item&&item.taskIds;
+  if(Array.isArray(v)) return v.filter(Boolean);
+  if(typeof v==='string'&&v.trim()) return v.split(',').map(s=>s.trim()).filter(Boolean);
+  return [];
+}
 function _renderLPAgendaTab(container,item){
-  const linkedTaskIds=Array.isArray(item.taskIds)?item.taskIds:[];
+  const linkedTaskIds=_parseLPTaskIds(item);
   const lpId=item.id||'';
   const agItems=AGENDA_DATA.filter(a=>a.taskId&&(linkedTaskIds.includes(a.taskId)||a.taskId===lpId));
   const addWrap=document.createElement('div');
@@ -14902,7 +14908,7 @@ function _renderLPAgendaTab(container,item){
 
 function _renderLPTasksTab(container,item,onTaskClick){
   const tasks=DASHBOARD_DATA.tasks||[];
-  const linked=(Array.isArray(item.taskIds)?item.taskIds:[]).map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
+  const linked=_parseLPTaskIds(item).map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
   const addWrap=document.createElement('div');
   addWrap.style.cssText="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-shrink:0";
   const nb=document.createElement('button');nb.textContent='➕ New Task';
@@ -14942,8 +14948,51 @@ function _renderLPActionPlanTab(container,taskId,wsItem,onBack){
   crumb.textContent=(wsItem&&wsItem.workstream||'')+' › '+(task?task.name:taskId||'—');
   topBar.appendChild(crumb);container.appendChild(topBar);
   if(!taskId||!task){
-    const e=document.createElement('div');e.style.cssText="padding:28px 14px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px";
-    e.textContent='Select a task from the Tasks tab.';container.appendChild(e);return;
+    // Show combined action plans for all linked tasks
+    const _allLinkedIds=_parseLPTaskIds(wsItem);
+    const _allLinkedTasks=_allLinkedIds.map(id=>(DASHBOARD_DATA.tasks||[]).find(t=>t.id===id)).filter(Boolean);
+    if(!_allLinkedTasks.length){
+      const e=document.createElement('div');e.style.cssText="padding:28px 14px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px";
+      e.textContent='No action plans yet.';container.appendChild(e);return;
+    }
+    const body=document.createElement('div');body.style.cssText='overflow-y:auto;scrollbar-width:none;flex:1';container.appendChild(body);
+    let _pendingFetches=0;
+    function _renderCombined(){
+      body.innerHTML='';
+      let anyPlan=false;
+      _allLinkedTasks.forEach(tk=>{
+        const ap=_actionPlansCache[tk.id];
+        const planText=ap?ap.text:(tk.actionPlan||'');
+        if(!planText) return;
+        anyPlan=true;
+        const sc=getStatusColors(tk.status||'');
+        const hdr=document.createElement('div');hdr.style.cssText="padding:7px 14px 4px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0";
+        const tnEl=document.createElement('span');tnEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";tnEl.textContent=tk.id+' · '+tk.name;
+        const stEl=document.createElement('span');stEl.style.cssText="font-size:9px;color:"+sc.color+";border:1px solid "+sc.color+";border-radius:3px;padding:1px 5px;font-family:'DM Mono',monospace;flex-shrink:0";stEl.textContent=tk.status||'';
+        hdr.appendChild(tnEl);hdr.appendChild(stEl);body.appendChild(hdr);
+        const isDone=ap&&ap.status==='complete';
+        if(isDone&&ap.completedAt){const caEl=document.createElement('div');caEl.style.cssText="padding:2px 14px 4px;font-family:'DM Mono',monospace;font-size:9px;color:#22c55e";caEl.textContent='✅ Completed '+String(ap.completedAt).slice(0,10);body.appendChild(caEl);}
+        let stepNum=0;
+        planText.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+          const isHdr=line.length<60&&!line.match(/^\d/)&&line===line.toUpperCase().replace(/[^A-Z0-9\s:►—]/g,'').trim()&&line.replace(/[^A-Z]/g,'').length>2;
+          if(isHdr) return;
+          stepNum++;
+          const row=document.createElement('div');row.style.cssText="display:flex;gap:8px;align-items:flex-start;padding:5px 14px;border-bottom:1px solid var(--border)"+(isDone?';opacity:0.55':'');
+          const numEl=document.createElement('span');numEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0;width:18px;text-align:right;padding-top:2px";numEl.textContent=stepNum+'.';
+          const txt=document.createElement('div');txt.style.cssText="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.5;flex:1;word-break:break-word";txt.textContent=line.replace(/^\d+\.\s*/,'').replace(/^[-•*]\s*/,'');
+          row.appendChild(numEl);row.appendChild(txt);body.appendChild(row);
+        });
+      });
+      if(!anyPlan){const e=document.createElement('div');e.style.cssText="padding:28px 14px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px";e.textContent='No action plans yet.';body.appendChild(e);}
+    }
+    const loadEl=document.createElement('div');loadEl.style.cssText="padding:16px 14px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px";loadEl.textContent='Loading…';body.appendChild(loadEl);
+    _pendingFetches=_allLinkedTasks.filter(tk=>!_actionPlansCache[tk.id]&&!tk.actionPlan&&CONFIG.sheetsUrl).length||0;
+    if(_pendingFetches===0){_renderCombined();return;}
+    _allLinkedTasks.forEach(tk=>{
+      if(_actionPlansCache[tk.id]||tk.actionPlan||!CONFIG.sheetsUrl){if(--_pendingFetches<=0)_renderCombined();return;}
+      _fetchActionPlan(tk.id,()=>{if(--_pendingFetches<=0)_renderCombined();});
+    });
+    return;
   }
   const hdrEl=document.createElement('div');
   hdrEl.style.cssText="padding:9px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0";
@@ -15146,6 +15195,7 @@ function _renderLPActionsTab(container,lpId){
   const loadMsg=document.createElement('div');loadMsg.style.cssText="padding:20px 14px;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;text-align:center";loadMsg.textContent='Loading…';listEl.appendChild(loadMsg);
   // Collect all IDs this bar might have been saved under (ws-id, lp-id, workstream name)
   const _wsIds=new Set([lpId,workstreamId,barItem.workstream].filter(Boolean));
+  const _linkedTaskIds=new Set(_parseLPTaskIds(barItem));
   Promise.all([
     fetch(CONFIG.sheetsUrl+'?action=workstream_actions_read').then(r=>r.json()).catch(()=>({})),
     fetch(CONFIG.sheetsUrl+'?action=actions_read').then(r=>r.json()).catch(()=>({}))
@@ -15153,9 +15203,10 @@ function _renderLPActionsTab(container,lpId){
     listEl.innerHTML='';
     const wsaAll=Array.isArray(wsaData.actions)?wsaData.actions:[];
     const actAll=Array.isArray(actData.actions)?actData.actions:[];
-    // Filter both by any matching ID
-    const wsaFiltered=wsaAll.filter(a=>_wsIds.has(a.workstreamId)||_wsIds.has(a.workstream));
-    const actFiltered=actAll.filter(a=>_wsIds.has(a.workstreamId)||_wsIds.has(a.workstream));
+    // Filter both by workstreamId match OR any linked taskId match
+    const _matchA=a=>_wsIds.has(a.workstreamId)||_wsIds.has(a.workstream)||(_linkedTaskIds.size&&_linkedTaskIds.has(a.taskId));
+    const wsaFiltered=wsaAll.filter(_matchA);
+    const actFiltered=actAll.filter(_matchA);
     // Dedupe by id, merge — wsaFiltered takes precedence
     const seen=new Set();
     const acts=[...wsaFiltered,...actFiltered].filter(a=>{ if(!a.id||seen.has(a.id)) return false; seen.add(a.id); return true; });
