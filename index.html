@@ -15223,13 +15223,13 @@ function _showStreamTaskPanel(lpId){
   tabBar.style.cssText="display:flex;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0";
   const tabContent=document.createElement('div');
   tabContent.style.cssText='flex:1;overflow-y:auto;scrollbar-width:none';
-  let _panelSelTaskId=null;
+  let _panelSelTaskId=_parseLPTaskIds(item)[0]||null;
   function _switchPanelTab(t){
     tabBar.querySelectorAll('.lp-panel-tab').forEach(b=>{b.classList.toggle('active',b.dataset.tab===t);});
     tabContent.innerHTML='';
     if(t==='agenda') _renderLPAgendaTab(tabContent,item);
     else if(t==='tasks') _renderLPTasksTab(tabContent,item,tid=>{_panelSelTaskId=tid;_switchPanelTab('actionplan');});
-    else if(t==='actionplan') _renderLPActionPlanTab(tabContent,_panelSelTaskId,item,()=>_switchPanelTab('tasks'));
+    else if(t==='actionplan') _renderLPActionPlanTab(tabContent,_panelSelTaskId||_parseLPTaskIds(item)[0]||null,item,()=>_switchPanelTab('tasks'));
     else _renderLPActionsTab(tabContent,lpId);
   }
   [['📅 Agenda','agenda'],['📋 Tasks','tasks'],['🎯 Action Plan','actionplan'],['⚡ Actions','actions']].forEach(([lbl,key])=>{
