@@ -14672,7 +14672,7 @@ function _initLPHover(){
       _hoverLpId=lpId;
       const item=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===lpId);
       if(!item){_tip.style.display='none';return;}
-      const taskIds=Array.isArray(item.taskIds)?item.taskIds:[];
+      const taskIds=Array.isArray(item.taskIds)?item.taskIds:String(item.taskIds||'').split(',').map(s=>s.trim()).filter(Boolean);
       let html=`<div style="color:var(--gold);font-weight:600;font-size:11px;margin-bottom:3px">${item.name}</div>`;
       html+=`<div style="color:var(--muted);font-size:9px;margin-bottom:8px">${_fmt(item.sd)} → ${_fmt(item.ed)}</div>`;
       if(!taskIds.length){
