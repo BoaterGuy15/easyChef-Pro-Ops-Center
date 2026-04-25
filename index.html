@@ -13859,20 +13859,20 @@ function loadLaunchPlan(){
   fetch(CONFIG.sheetsUrl+'?action=launchplan_read').then(r=>r.json()).then(data=>{
     const rows=Array.isArray(data)?data:(data.items||[]);
     if(rows.length>0){
-      _lpCache=_LP_DEFAULTS.map(def=>{
-        const row=rows.find(r=>r.id===def.id);
-        return row?{...def,...row}:{...def};
-      });
+      const sheetIds=new Set(rows.map(r=>r.id));
+      const merged=rows.map(row=>{ const def=_LP_DEFAULTS.find(d=>d.id===row.id); return def?{...def,...row}:row; });
+      const extras=_LP_DEFAULTS.filter(d=>!sheetIds.has(d.id));
+      _lpCache=[...merged,...extras];
     } else { _lpCache=_LP_DEFAULTS.map(x=>({...x})); }
     buildLaunchPlan();
   }).catch(()=>{ _lpCache=_LP_DEFAULTS.map(x=>({...x})); buildLaunchPlan(); });
 }
 
 function _lpSaveBar(item){
-  if(!CONFIG.sheetsUrl) return;
   const idx=_lpCache.findIndex(x=>x.id===item.id);
   if(idx>=0) _lpCache[idx]={..._lpCache[idx],...item};
   else _lpCache.push(item);
+  if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
     body:JSON.stringify({action:'launchplan_write',item})}).catch(()=>{});
 }
@@ -13895,6 +13895,75 @@ function _lpScrollToday(){
   if(!scroll) return;
   const off=_ganttDayOff(_isoToday());
   scroll.scrollLeft=Math.max(0,Math.round(off*_lpDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+}
+function _lpXToDate(clientX){
+  const scroll=document.getElementById('lp-gantt-scroll');
+  if(!scroll) return _GANTT_START;
+  const rect=scroll.getBoundingClientRect();
+  const dayOff=Math.round((clientX-rect.left-_GANTT_LABEL_W+scroll.scrollLeft)/_ganttDayPx);
+  const clamped=Math.max(0,Math.min(_GANTT_DAYS-1,dayOff));
+  const d=new Date(_ganttStartMs()+clamped*86400000);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function _closeLPAddMenu(){
+  const m=document.getElementById('lp-add-menu');if(m)m.remove();
+  document.removeEventListener('click',_closeLPAddMenu,false);
+  document.removeEventListener('keydown',_lpAddMenuEsc,true);
+}
+function _lpAddMenuEsc(e){if(e.key==='Escape')_closeLPAddMenu();}
+function _showLPAddMenu(cx,cy,sd,ed){
+  _closeLPAddMenu();
+  const mnu=document.createElement('div');
+  mnu.id='lp-add-menu';
+  mnu.style.cssText="position:fixed;z-index:99999;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:4px 0;font-family:'DM Mono',monospace;font-size:11px;min-width:200px";
+  mnu.style.left=Math.max(4,Math.min(cx+4,window.innerWidth-212))+'px';
+  mnu.style.top=Math.max(4,Math.min(cy+4,window.innerHeight-56))+'px';
+  mnu.addEventListener('click',e=>e.stopPropagation());
+  const row=document.createElement('div');
+  row.style.cssText="display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;color:var(--text)";
+  row.onmouseover=()=>row.style.background='rgba(201,168,76,0.1)';
+  row.onmouseout=()=>row.style.background='transparent';
+  const ic=document.createElement('span');ic.style.cssText='font-size:13px;width:18px;text-align:center;flex-shrink:0';ic.textContent='➕';
+  const lb=document.createElement('span');lb.textContent='New Workstream Bar';
+  row.appendChild(ic);row.appendChild(lb);
+  row.onclick=()=>{_closeLPAddMenu();_showLPNewBarForm(sd,ed);};
+  mnu.appendChild(row);
+  document.body.appendChild(mnu);
+  setTimeout(()=>{document.addEventListener('click',_closeLPAddMenu,false);document.addEventListener('keydown',_lpAddMenuEsc,true);},0);
+}
+function _showLPNewBarForm(sd,ed){
+  const existing=document.getElementById('lp-new-bar-form');if(existing)existing.remove();
+  const wrap=document.createElement('div');
+  wrap.id='lp-new-bar-form';
+  wrap.style.cssText="position:fixed;z-index:99999;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.65);padding:18px 20px;font-family:'DM Mono',monospace;font-size:11px;min-width:290px;max-width:350px";
+  wrap.addEventListener('click',e=>e.stopPropagation());
+  const ttl=document.createElement('div');ttl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;font-weight:600";ttl.textContent='➕ New Workstream Bar';wrap.appendChild(ttl);
+  function _field(label,el){const r=document.createElement('div');r.style.marginBottom='10px';const l=document.createElement('div');l.style.cssText='color:var(--muted);font-size:9px;letter-spacing:1px;margin-bottom:3px';l.textContent=label;r.appendChild(l);r.appendChild(el);wrap.appendChild(r);return el;}
+  const inputCss="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:10px";
+  const wsSelect=document.createElement('select');wsSelect.style.cssText=inputCss;
+  _LP_WORKSTREAMS.forEach(ws=>{const o=document.createElement('option');o.value=ws;o.textContent=ws;wsSelect.appendChild(o);});
+  _field('WORKSTREAM',wsSelect);
+  const nameInput=document.createElement('input');nameInput.type='text';nameInput.placeholder='Bar label…';nameInput.style.cssText=inputCss;_field('NAME',nameInput);
+  const sdInput=document.createElement('input');sdInput.type='date';sdInput.value=sd||'';sdInput.style.cssText=inputCss;_field('START DATE',sdInput);
+  const edInput=document.createElement('input');edInput.type='date';edInput.value=ed||'';edInput.style.cssText=inputCss;_field('END DATE',edInput);
+  const btns=document.createElement('div');btns.style.cssText='display:flex;gap:8px;margin-top:14px;justify-content:flex-end';
+  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;cursor:pointer";cancelBtn.onclick=()=>wrap.remove();
+  const saveBtn=document.createElement('button');saveBtn.textContent='✅ Add Bar';saveBtn.style.cssText="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;cursor:pointer";
+  saveBtn.onclick=()=>{
+    const ws=wsSelect.value,name=nameInput.value.trim(),sdVal=sdInput.value,edVal=edInput.value;
+    if(!name){nameInput.style.borderColor='var(--red)';nameInput.focus();return;}
+    if(!sdVal||!edVal){return;}
+    const cc=_LP_WS_COLORS[ws]||{color:'#94a3b8'};
+    _lpSaveBar({id:'lp-'+Date.now(),workstream:ws,name,sd:sdVal,ed:edVal,status:'Not Started',color:cc.color,notes:''});
+    wrap.remove();
+    buildLaunchPlan();
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Added — '+name+'</div>',1800);
+  };
+  btns.appendChild(cancelBtn);btns.appendChild(saveBtn);wrap.appendChild(btns);
+  document.body.appendChild(wrap);
+  nameInput.focus();
+  const esc=e=>{if(e.key==='Escape'){wrap.remove();document.removeEventListener('keydown',esc,true);}};
+  document.addEventListener('keydown',esc,true);
 }
 
 function _lpScrollLaunch(){
@@ -14028,6 +14097,14 @@ function buildLaunchPlan(){
     scroll.addEventListener('scroll',()=>{ if(window._lpPendingConfirmId) _lpRepositionConfirmBubble(window._lpPendingConfirmId); },{passive:true});
     scroll.addEventListener('dblclick',e=>{ if(!e.target.closest('[data-lp-id]')) _lpUndo(); });
     document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='z'&&document.getElementById('page-lp')?.classList.contains('active')){ e.preventDefault(); _lpUndo(); } });
+    scroll.addEventListener('contextmenu',e=>{
+      if(e.target.closest('[data-lp-id]')) return;
+      e.preventDefault();
+      const sd=_lpXToDate(e.clientX);
+      let ed='';
+      if(sd){const d=new Date(sd+'T00:00:00');d.setDate(d.getDate()+13);ed=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+      _showLPAddMenu(e.clientX,e.clientY,sd,ed);
+    });
     scroll.style.cursor='grab';
     let _panning=false,_panX=0,_panY=0,_panLeft=0,_panTop=0;
     scroll.addEventListener('mousedown',e=>{
