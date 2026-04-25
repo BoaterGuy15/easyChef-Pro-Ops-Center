@@ -914,6 +914,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
   <div id="task-status-summary"></div>
   <div id="auto-gap-card" style="margin-top:24px"></div>
+  <div id="workflow-links-section" style="margin-top:24px"></div>
 
 </div>
 
@@ -1382,6 +1383,7 @@ function showPage(id){
     _renderMasterAICard();
     const stale=Date.now()-(_masterAiLastRun||+sessionStorage.getItem('dgl_master_ai_ts')||0)>2*60*60*1000;
     if(stale&&CONFIG.sheetsUrl) setTimeout(()=>{ const b=document.getElementById('master-ai-run-btn'); if(b) runMasterAI(b); },400);
+    _renderWorkflowLinks();
   }
 }
 let _navDragSrc=null;
@@ -15483,6 +15485,126 @@ function _lpUndo(){
   _lpSaveBar({...item,sd,ed});
   buildLaunchPlan();
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--gold)">↩ Undone — '+(item.name||id)+' restored</div>',2200);
+}
+
+// ── Workflow Links ───────────────────────────────────────────
+let _linksCache=null,_linksFilter='all',_linksSearch='';
+function _linkTypeIcon(t){return{workstream:'🌊',task:'📋',actionplan:'🎯',action:'⚡',agenda:'📅',gap:'⚠️',flag:'🚩'}[t]||'🔗';}
+function _resolveLinkName(type,id){
+  if(!id)return id;
+  if(type==='task'){const t=DASHBOARD_DATA.tasks.find(x=>x.id===id);return t?id+' · '+t.name:id;}
+  if(type==='workstream'){const w=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===id);if(w)return w.name;const ws=_wsCache.find(x=>x.id===id);return ws?ws.name:id;}
+  if(type==='agenda'){const a=AGENDA_DATA.find(x=>x.id===id);return a?(a.title||id):id;}
+  if(type==='actionplan'){const ap=_actionPlansCache[id];return ap?(ap.text||'').slice(0,50)||id:id;}
+  if(type==='gap'){const g=(window._briefingGapsCache||[]).find(x=>x.id===id);return g?(g.description||'').slice(0,50)||id:id;}
+  return id;
+}
+function _renderWorkflowLinks(){
+  const el=document.getElementById('workflow-links-section');if(!el)return;
+  el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:12px">Loading links…</div>';
+  if(!CONFIG.sheetsUrl){el.innerHTML=_buildWorkflowLinksHtml([]);return;}
+  fetch(CONFIG.sheetsUrl+'?action=links_read')
+    .then(r=>r.json())
+    .then(data=>{_linksCache=Array.isArray(data.links)?data.links:[];el.innerHTML=_buildWorkflowLinksHtml(_linksCache);})
+    .catch(()=>{_linksCache=_linksCache||[];el.innerHTML=_buildWorkflowLinksHtml(_linksCache);});
+}
+function _buildWorkflowLinksHtml(links){
+  const fBtnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid;cursor:pointer;margin-right:4px;margin-bottom:4px;background:transparent";
+  const iSt="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px 9px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;margin-bottom:10px";
+  const filterTypes=['all','workstream','task','actionplan','action','agenda','gap','flag'];
+  const filterBtns=filterTypes.map(t=>{
+    const act=_linksFilter===t;
+    const lbl=t==='all'?'All':_linkTypeIcon(t)+' '+t;
+    return `<button onclick="_linksFilter='${t}';_buildAndRenderLinks()" style="${fBtnSt};color:${act?'var(--gold)':'var(--muted)'};border-color:${act?'var(--gold)':'var(--border)'}">${lbl}</button>`;
+  }).join('');
+  const filtered=links.filter(lk=>{
+    if(_linksFilter!=='all'&&lk.fromType!==_linksFilter&&lk.toType!==_linksFilter)return false;
+    if(_linksSearch){const s=_linksSearch.toLowerCase();if(![lk.fromType,lk.fromId,lk.toType,lk.toId,lk.notes||'',lk.createdBy||''].some(v=>(v||'').toLowerCase().includes(s)))return false;}
+    return true;
+  });
+  const rowsSt="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:10px;min-width:0";
+  const rows=filtered.map(lk=>{
+    const fn=_resolveLinkName(lk.fromType,lk.fromId);
+    const tn=_resolveLinkName(lk.toType,lk.toId);
+    const dt=(lk.createdAt||'').slice(0,10);
+    return `<div style="${rowsSt}">
+      <span title="${lk.fromType}" style="flex-shrink:0">${_linkTypeIcon(lk.fromType)}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)" title="${lk.fromId}">${_h(fn)}</span>
+      <span style="color:var(--gold);flex-shrink:0;font-size:12px">→</span>
+      <span title="${lk.toType}" style="flex-shrink:0">${_linkTypeIcon(lk.toType)}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)" title="${lk.toId}">${_h(tn)}</span>
+      <span style="color:var(--border);font-size:9px;flex-shrink:0">${_h(lk.createdBy||'')}</span>
+      <span style="color:var(--border);font-size:9px;flex-shrink:0">${dt}</span>
+      <button onclick="_deleteLink('${lk.id}')" title="Delete" style="background:transparent;border:none;cursor:pointer;font-size:11px;padding:1px 3px;color:var(--border);flex-shrink:0" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--border)'">🗑️</button>
+    </div>`;
+  }).join('')||`<div style="padding:18px 12px;font-family:'DM Mono',monospace;font-size:10px;color:var(--border)">No links found.</div>`;
+  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--gold)">🔗 WORKFLOW LINKS</span>
+    <button onclick="_openAddLinkModal()" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">➕ Add Link</button>
+  </div>
+  <div style="margin-bottom:8px">${filterBtns}</div>
+  <input id="links-search" value="${_h(_linksSearch)}" oninput="_linksSearch=this.value;_buildAndRenderLinks()" placeholder="Search by ID, type, owner…" style="${iSt}">
+  <div style="border:1px solid var(--border);border-radius:5px;overflow:hidden">${rows}</div>
+  <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border);margin-top:8px">${filtered.length} of ${links.length} link${links.length!==1?'s':''}</div></div>`;
+}
+function _buildAndRenderLinks(){
+  const el=document.getElementById('workflow-links-section');if(!el)return;
+  el.innerHTML=_buildWorkflowLinksHtml(_linksCache||[]);
+  const si=document.getElementById('links-search');if(si){si.focus();const v=si.value.length;si.setSelectionRange(v,v);}
+}
+function _openAddLinkModal(){
+  document.getElementById('add-link-modal-overlay')?.remove();
+  const overlay=document.createElement('div');
+  overlay.id='add-link-modal-overlay';
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9100;display:flex;align-items:center;justify-content:center";
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  const iSt="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:6px 8px;margin-bottom:6px;outline:none";
+  const types=['workstream','task','agenda','actionplan','action','gap','flag'];
+  const typeOpts=types.map(t=>`<option value="${t}">${_linkTypeIcon(t)} ${t}</option>`).join('');
+  const dialog=document.createElement('div');
+  dialog.style.cssText="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;width:420px;max-width:90vw;font-family:'DM Mono',monospace";
+  dialog.innerHTML=`<div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:14px;font-weight:600">➕ ADD WORKFLOW LINK</div>
+    <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">FROM</div>
+    <div style="display:grid;grid-template-columns:130px 1fr;gap:8px"><select id="alm-from-type" style="${iSt}">${typeOpts}</select><input id="alm-from-id" placeholder="ID (e.g. T-001)" style="${iSt}"></div>
+    <div id="alm-from-preview" style="font-size:9px;color:var(--gold);min-height:14px;margin-bottom:10px"></div>
+    <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">TO</div>
+    <div style="display:grid;grid-template-columns:130px 1fr;gap:8px"><select id="alm-to-type" style="${iSt}">${typeOpts}</select><input id="alm-to-id" placeholder="ID (e.g. T-001)" style="${iSt}"></div>
+    <div id="alm-to-preview" style="font-size:9px;color:var(--gold);min-height:14px;margin-bottom:10px"></div>
+    <input id="alm-notes" placeholder="Notes (optional)" style="${iSt}">
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button onclick="_saveLink()" style="flex:1;background:var(--gold);color:#0b0d10;border:none;border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;padding:7px;cursor:pointer;font-weight:600">Save Link</button>
+      <button onclick="document.getElementById('add-link-modal-overlay')?.remove()" style="flex:1;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;padding:7px;cursor:pointer">Cancel</button>
+    </div>`;
+  function _upPrev(tid,iid,pid){const t=document.getElementById(tid)?.value||'';const id=(document.getElementById(iid)?.value||'').trim();const pv=document.getElementById(pid);if(pv)pv.textContent=id?_resolveLinkName(t,id):'';}
+  dialog.querySelector('#alm-from-type').oninput=()=>_upPrev('alm-from-type','alm-from-id','alm-from-preview');
+  dialog.querySelector('#alm-from-id').oninput=()=>_upPrev('alm-from-type','alm-from-id','alm-from-preview');
+  dialog.querySelector('#alm-to-type').oninput=()=>_upPrev('alm-to-type','alm-to-id','alm-to-preview');
+  dialog.querySelector('#alm-to-id').oninput=()=>_upPrev('alm-to-type','alm-to-id','alm-to-preview');
+  overlay.appendChild(dialog);document.body.appendChild(overlay);
+  document.getElementById('alm-from-id')?.focus();
+}
+function _saveLink(){
+  const g=f=>document.getElementById(f);
+  const fromType=g('alm-from-type')?.value||'';
+  const fromId=(g('alm-from-id')?.value||'').trim();
+  const toType=g('alm-to-type')?.value||'';
+  const toId=(g('alm-to-id')?.value||'').trim();
+  const notes=(g('alm-notes')?.value||'').trim();
+  if(!fromId||!toId){alert('From ID and To ID are required.');return;}
+  const link={id:'lnk-'+Date.now(),fromType,fromId,toType,toId,notes,createdBy:window._DGL_USER||'',createdAt:new Date().toISOString()};
+  if(!_linksCache)_linksCache=[];
+  _linksCache.push(link);
+  document.getElementById('add-link-modal-overlay')?.remove();
+  _buildAndRenderLinks();
+  if(CONFIG.sheetsUrl)fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'link_write',...link})})
+    .then(r=>r.json()).then(d=>console.log('[DGL] link_write:',d)).catch(e=>console.error('[DGL] link_write error:',e));
+}
+function _deleteLink(id){
+  if(!confirm('Remove this link?'))return;
+  if(_linksCache)_linksCache=_linksCache.filter(lk=>lk.id!==id);
+  _buildAndRenderLinks();
+  if(CONFIG.sheetsUrl)fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'link_delete',id})})
+    .then(r=>r.json()).then(d=>console.log('[DGL] link_delete:',d)).catch(e=>console.error('[DGL] link_delete error:',e));
 }
 
 // ── DGL Test Suite ──────────────────────────────────────────
