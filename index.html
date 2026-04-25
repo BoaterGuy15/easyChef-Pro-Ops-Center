@@ -14779,13 +14779,10 @@ function _renderLPActionPlanTab(container,taskId,wsItem,onBack){
   // ── breadcrumb + back ─────────────────────────────────────────────────────
   const topBar=document.createElement('div');
   topBar.style.cssText="padding:7px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0";
-  const backBtn=document.createElement('button');backBtn.textContent='← Back to Tasks';
-  backBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;cursor:pointer;flex-shrink:0";
-  backBtn.onclick=onBack;
   const crumb=document.createElement('span');
   crumb.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
   crumb.textContent=(wsItem&&wsItem.workstream||'')+' › '+(task?task.name:taskId||'—');
-  topBar.appendChild(backBtn);topBar.appendChild(crumb);container.appendChild(topBar);
+  topBar.appendChild(crumb);container.appendChild(topBar);
   if(!taskId||!task){
     const e=document.createElement('div');e.style.cssText="padding:28px 14px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px";
     e.textContent='Select a task from the Tasks tab.';container.appendChild(e);return;
