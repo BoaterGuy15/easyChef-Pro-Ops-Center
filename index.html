@@ -2175,18 +2175,6 @@ function _syncChannelToSheets(taskId,channelId,channelName,oldChannelName){
   const sessionHash=(user).slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId,channelName:channelName||'',changedBy,oldChannel:oldChannelName||'none',sessionHash})}).catch(()=>{});
 }
-let _channelsBatchSaved=false;
-function _batchSaveChannelsToSheets(force){
-  if(!CONFIG.sheetsUrl) return;
-  if(!force&&_channelsBatchSaved) return;
-  _channelsBatchSaved=true;
-  const user=window._DGL_USER||'system';
-  Object.entries(_slackLinksCache).forEach(([key,obj])=>{
-    const taskId=key.replace('dgl_task_slack_','');
-    const sessionHash=user.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_map_write',taskId,channelId:obj.channelId||'',channelName:obj.channelName||'',changedBy:user,oldChannel:'none',sessionHash})}).catch(()=>{});
-  });
-}
 function _loadChannelAssignmentsFromSheets(){
   // Code.gs doGet: case 'channel_map_read' — read LockLogs sheet, return latest assignment per taskId as JSON array [{taskId, channelId, channelName}]
   if(!CONFIG.sheetsUrl) return;
@@ -2343,7 +2331,7 @@ function _saveAllCategoryMappings(btn){
 }
 function _relinkAllTasks(){
   Object.keys(_slackLinksCache).forEach(k=>{ delete _slackLinksCache[k]; });
-  loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(true); });
+  loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); });
   const btn=document.getElementById('ccm-relink-btn');
   if(btn){ btn.textContent='↺ Linked ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='↺ Re-link All Tasks'; btn.disabled=false; },1500); }
 }
@@ -3580,7 +3568,7 @@ function _raciExpandLoadChannels(taskId){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); _populate(); }); })
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(); }); })
     .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('raci-chpicker-'+taskId); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
 }
 function raciLinkSlack(taskId,sel){
@@ -6095,7 +6083,7 @@ function _agendaExpandLoadChannels(id){
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
-    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); _populate(); }); })
+    .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(); }); })
     .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('agenda-chpicker-'+id); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
 }
 function agendaLinkSlack(id,sel){
@@ -12985,7 +12973,7 @@ function _slackLoadChannels(){
       if(data.error){ sel.innerHTML=`<option value="">Error: ${data.error}</option>`; return; }
       const chs=data.channels||[];
       _slackChannelsCache=chs;
-      loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _batchSaveChannelsToSheets(); _buildChannelMappingSection(); });
+      loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _buildChannelMappingSection(); });
       sel.innerHTML='<option value="">— Select channel —</option>'+
         chs.map(c=>`<option value="${c.id}">#${c.name} (${c.member_count||0})</option>`).join('');
       if(_slackChannelId){
