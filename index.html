@@ -14291,66 +14291,122 @@ function _renderCalloutsPanel(containerId){
   el.innerHTML=_buildCalloutsHtml(true);
 }
 
+function _closeCalloutModal(){
+  const ov=document.getElementById('co-add-overlay');
+  if(ov){if(ov._cleanup)ov._cleanup();ov.remove();}
+}
 function _openCalloutModal(){
-  let modal=document.getElementById('co-add-modal');
-  if(!modal){
-    modal=document.createElement('div');
-    modal.id='co-add-modal';
-    modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)';
-    const IS="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:8px";
-    modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px 28px;width:420px;max-width:95vw">
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">ADD CALLOUT</div>
-      <input id="co-modal-title" type="text" placeholder="Title" style="${IS}">
-      <textarea id="co-modal-detail" placeholder="Detail / body text" rows="4" style="${IS}resize:vertical"></textarea>
-      <select id="co-modal-type" style="${IS}"><option value="Note">Note</option><option value="Risk">Risk</option><option value="Dependency">Dependency</option><option value="Warning">Warning</option></select>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button onclick="_saveCalloutModal()" style="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;padding:6px 16px;cursor:pointer">Save</button>
-        <button onclick="document.getElementById('co-add-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 16px;cursor:pointer">Cancel</button>
-      </div>
-    </div>`;
-    document.body.appendChild(modal);
-  }
-  ['co-modal-title','co-modal-detail'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  modal.style.display='flex';
+  _closeCalloutModal();
+  const IS="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;margin-bottom:10px";
+  const lbl=t=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:3px">${t}</div>`;
+  const ov=document.createElement('div');
+  ov.id='co-add-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
+  const modal=document.createElement('div');
+  modal.style.cssText="position:fixed;z-index:99999;width:520px;height:480px;left:calc(50% - 260px);top:calc(50% - 240px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:340px;min-height:300px";
+  // Header / drag handle
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:move;user-select:none;flex-shrink:0';
+  hdr.innerHTML='<span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1.5px">ADD CALLOUT</span>';
+  const closeX=document.createElement('button');
+  closeX.textContent='✕';closeX.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px";
+  closeX.onclick=_closeCalloutModal;
+  hdr.appendChild(closeX);
+  hdr.addEventListener('pointerdown',e=>{
+    e.preventDefault();hdr.setPointerCapture(e.pointerId);
+    const r=modal.getBoundingClientRect();let L=r.left,T=r.top,sx=e.clientX,sy=e.clientY;
+    const onMove=e=>{if(!hdr.hasPointerCapture(e.pointerId))return;modal.style.left=(L+e.clientX-sx)+'px';modal.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{hdr.releasePointerCapture(e.pointerId);hdr.removeEventListener('pointermove',onMove);hdr.removeEventListener('pointerup',onUp);};
+    hdr.addEventListener('pointermove',onMove);hdr.addEventListener('pointerup',onUp);
+  });
+  modal.appendChild(hdr);
+  // Body
+  const body=document.createElement('div');
+  body.style.cssText='flex:1;overflow:auto;padding:18px 20px';
+  body.innerHTML=`${lbl('TITLE')}<input id="co-modal-title" type="text" placeholder="Title" style="${IS}">${lbl('DATE')}<input id="co-modal-date" type="date" style="${IS}">${lbl('TYPE')}<select id="co-modal-type" style="${IS}"><option value="Note">Note</option><option value="Risk">Risk</option><option value="Dependency">Dependency</option><option value="Warning">Warning</option></select>${lbl('DETAIL')}<textarea id="co-modal-detail" placeholder="Detail / body text" rows="5" style="${IS}resize:vertical;min-height:100px"></textarea>`;
+  modal.appendChild(body);
+  // Footer
+  const foot=document.createElement('div');
+  foot.style.cssText='display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0';
+  const saveBtn=document.createElement('button');saveBtn.textContent='Save';saveBtn.style.cssText="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;padding:6px 18px;cursor:pointer";
+  saveBtn.onclick=_saveCalloutModal;
+  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 18px;cursor:pointer";
+  cancelBtn.onclick=_closeCalloutModal;
+  foot.appendChild(cancelBtn);foot.appendChild(saveBtn);
+  modal.appendChild(foot);
+  _makeResizable(modal);
+  ov.appendChild(modal);
+  document.body.appendChild(ov);
+  const _esc=e=>{if(e.key==='Escape')_closeCalloutModal();};
+  document.addEventListener('keydown',_esc);
+  ov._cleanup=()=>document.removeEventListener('keydown',_esc);
+  setTimeout(()=>document.getElementById('co-modal-title')&&document.getElementById('co-modal-title').focus(),50);
 }
 
 function _saveCalloutModal(){
   const title=(document.getElementById('co-modal-title').value||'').trim();
   if(!title) return;
-  const item={id:'co-'+Date.now(),title,detail:(document.getElementById('co-modal-detail').value||'').trim(),type:document.getElementById('co-modal-type').value||'Note',status:'Active',color:'',createdAt:new Date().toISOString(),archivedAt:''};
+  const item={id:'co-'+Date.now(),title,date:document.getElementById('co-modal-date').value||'',detail:(document.getElementById('co-modal-detail').value||'').trim(),type:document.getElementById('co-modal-type').value||'Note',status:'Active',color:'',createdAt:new Date().toISOString(),archivedAt:''};
   _initCalloutItems().push(item);
   _saveCalloutToSheets(item);
-  document.getElementById('co-add-modal').style.display='none';
+  _closeCalloutModal();
   buildCallouts();
 }
 
+function _closeCalloutEditModal(){
+  const ov=document.getElementById('co-edit-overlay');
+  if(ov){if(ov._cleanup)ov._cleanup();ov.remove();}
+}
 function _openCalloutEditModal(id){
   const item=_initCalloutItems().find(c=>c.id===id);
   if(!item) return;
-  let modal=document.getElementById('co-edit-modal');
-  if(!modal){
-    modal=document.createElement('div');
-    modal.id='co-edit-modal';
-    modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)';
-    const IS="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box;margin-bottom:8px";
-    modal.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px 28px;width:420px;max-width:95vw">
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">EDIT CALLOUT</div>
-      <input id="co-edit-title" type="text" placeholder="Title" style="${IS}">
-      <textarea id="co-edit-detail" placeholder="Detail / body text" rows="4" style="${IS}resize:vertical"></textarea>
-      <select id="co-edit-type" style="${IS}"><option value="Note">Note</option><option value="Risk">Risk</option><option value="Dependency">Dependency</option><option value="Warning">Warning</option></select>
-      <input id="co-edit-id" type="hidden">
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button onclick="_saveCalloutEditModal()" style="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;padding:6px 16px;cursor:pointer">Save</button>
-        <button onclick="document.getElementById('co-edit-modal').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 16px;cursor:pointer">Cancel</button>
-      </div>
-    </div>`;
-    document.body.appendChild(modal);
-  }
+  _closeCalloutEditModal();
+  const IS="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;margin-bottom:10px";
+  const lbl=t=>`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:3px">${t}</div>`;
+  const ov=document.createElement('div');
+  ov.id='co-edit-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
+  const modal=document.createElement('div');
+  modal.style.cssText="position:fixed;z-index:99999;width:520px;height:480px;left:calc(50% - 260px);top:calc(50% - 240px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:340px;min-height:300px";
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:move;user-select:none;flex-shrink:0';
+  hdr.innerHTML='<span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1.5px">EDIT CALLOUT</span>';
+  const closeX=document.createElement('button');
+  closeX.textContent='✕';closeX.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px";
+  closeX.onclick=_closeCalloutEditModal;
+  hdr.appendChild(closeX);
+  hdr.addEventListener('pointerdown',e=>{
+    e.preventDefault();hdr.setPointerCapture(e.pointerId);
+    const r=modal.getBoundingClientRect();let L=r.left,T=r.top,sx=e.clientX,sy=e.clientY;
+    const onMove=e=>{if(!hdr.hasPointerCapture(e.pointerId))return;modal.style.left=(L+e.clientX-sx)+'px';modal.style.top=(T+e.clientY-sy)+'px';};
+    const onUp=e=>{hdr.releasePointerCapture(e.pointerId);hdr.removeEventListener('pointermove',onMove);hdr.removeEventListener('pointerup',onUp);};
+    hdr.addEventListener('pointermove',onMove);hdr.addEventListener('pointerup',onUp);
+  });
+  modal.appendChild(hdr);
+  const body=document.createElement('div');
+  body.style.cssText='flex:1;overflow:auto;padding:18px 20px';
+  body.innerHTML=`${lbl('TITLE')}<input id="co-edit-title" type="text" placeholder="Title" style="${IS}">${lbl('DATE')}<input id="co-edit-date" type="date" style="${IS}">${lbl('TYPE')}<select id="co-edit-type" style="${IS}"><option value="Note">Note</option><option value="Risk">Risk</option><option value="Dependency">Dependency</option><option value="Warning">Warning</option></select>${lbl('DETAIL')}<textarea id="co-edit-detail" placeholder="Detail / body text" rows="5" style="${IS}resize:vertical;min-height:100px"></textarea><input id="co-edit-id" type="hidden">`;
+  modal.appendChild(body);
+  const foot=document.createElement('div');
+  foot.style.cssText='display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0';
+  const saveBtn=document.createElement('button');saveBtn.textContent='Save';saveBtn.style.cssText="background:var(--gold);color:#0b0d10;border:none;border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;padding:6px 18px;cursor:pointer";
+  saveBtn.onclick=_saveCalloutEditModal;
+  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 18px;cursor:pointer";
+  cancelBtn.onclick=_closeCalloutEditModal;
+  foot.appendChild(cancelBtn);foot.appendChild(saveBtn);
+  modal.appendChild(foot);
+  _makeResizable(modal);
+  ov.appendChild(modal);
+  document.body.appendChild(ov);
+  const _esc=e=>{if(e.key==='Escape')_closeCalloutEditModal();};
+  document.addEventListener('keydown',_esc);
+  ov._cleanup=()=>document.removeEventListener('keydown',_esc);
+  // Populate fields
   document.getElementById('co-edit-title').value=item.title||'';
-  document.getElementById('co-edit-detail').value=item.detail||'';
+  document.getElementById('co-edit-date').value=item.date||'';
   document.getElementById('co-edit-type').value=item.type||'Note';
+  document.getElementById('co-edit-detail').value=item.detail||'';
   document.getElementById('co-edit-id').value=item.id||'';
-  modal.style.display='flex';
 }
 
 function _saveCalloutEditModal(){
@@ -14360,10 +14416,11 @@ function _saveCalloutEditModal(){
   const title=(document.getElementById('co-edit-title').value||'').trim();
   if(!title) return;
   item.title=title;
+  item.date=document.getElementById('co-edit-date').value||'';
   item.detail=(document.getElementById('co-edit-detail').value||'').trim();
   item.type=document.getElementById('co-edit-type').value||'Note';
   _saveCalloutToSheets(item);
-  document.getElementById('co-edit-modal').style.display='none';
+  _closeCalloutEditModal();
   buildCallouts();
 }
 
