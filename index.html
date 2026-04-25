@@ -14525,9 +14525,11 @@ function buildLaunchPlan(){
       const isOverdue=!isDone&&ed<today;
       const cls=isDone?'rm-cell milestone':isActive?'rm-cell active':'rm-cell';
       const ovStyle=isOverdue?'color:var(--red);border-color:rgba(248,113,113,0.4);':'';
-      const maxChars=Math.max(4,Math.floor(barW/_ganttDayPx*1.2));
-      const name=t.name.length>maxChars?t.name.substring(0,maxChars)+'…':t.name;
-      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-lp-id="${t.id}" data-sd="${sd}" data-ed="${ed}"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
+      const _charPx=6;
+      const _maxChars=Math.max(4,Math.floor((barW-10)/_charPx));
+      const name=t.name.length>_maxChars?t.name.substring(0,_maxChars)+'…':t.name;
+      const _lblFs=_ganttDayPx>=20?'11px':_ganttDayPx>=10?'10px':'9px';
+      barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-lp-id="${t.id}" data-sd="${sd}" data-ed="${ed}"><span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${_lblFs}">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
     canvasHtml+=`<div class="gantt-row" data-ws="${ws}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showStreamRowCtxMenu(event,this.closest('[data-ws]').dataset.ws)">${ws}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
