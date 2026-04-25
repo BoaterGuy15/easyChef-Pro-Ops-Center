@@ -11712,6 +11712,11 @@ function saveTaskModal(taskId){
   closeModal();
   _autoLinkTaskChannels();
   masterRefresh();
+  if(isNew&&window._lpAutoLinkAfterSave){
+    const _barId=window._lpAutoLinkAfterSave;window._lpAutoLinkAfterSave=null;
+    const _bar=(_lpCache&&_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===_barId);
+    if(_bar){const _tids=new Set(Array.isArray(_bar.taskIds)?_bar.taskIds:[]);_tids.add(id);_lpSaveBar({..._bar,taskIds:[..._tids]});buildLaunchPlan();_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">🔗 '+id+' linked to '+_bar.name+'</div>',2200);}
+  }
 }
 
 function deleteTask(taskId){
@@ -14515,11 +14520,23 @@ function _showLPBarCtxMenu(cx,cy,lpId){
   function _sep(){const s=document.createElement('div');s.style.cssText='height:1px;background:var(--border);margin:3px 0';mnu.appendChild(s);}
   _row('🔗','Link Tasks',()=>_showLPLinkTasksModal(lpId));
   _sep();
+  _row('➕','New Task',()=>_lpCreateAndLinkTask(lpId));
+  _sep();
   _row('✏️','Edit Bar',()=>_showLPEditBarForm(lpId));
   _sep();
   _row('🗑️','Delete Bar',()=>{if(confirm('Delete "'+item.name+'"?'))_lpDeleteBar(lpId);},'var(--red)');
   document.body.appendChild(mnu);
   setTimeout(()=>{document.addEventListener('click',_closeLPBarCtxMenu,false);document.addEventListener('keydown',_lpBarCtxEsc,true);},0);
+}
+function _lpCreateAndLinkTask(lpId){
+  const item=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===lpId);
+  if(!item) return;
+  window._lpAutoLinkAfterSave=lpId;
+  showTaskModal(null);
+  setTimeout(()=>{
+    const n=document.getElementById('tm-notes');
+    if(n&&!n.value) n.value='[Workstream: '+item.workstream+']';
+  },60);
 }
 function _showLPEditBarForm(lpId){
   const item=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===lpId);
@@ -14595,7 +14612,9 @@ function _showLPLinkTasksModal(lpId){
     _lpSaveBar({...item,taskIds:[...selected]});ov.remove();buildLaunchPlan();
     _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">🔗 Linked '+selected.size+' task'+(selected.size!==1?'s':'')+' to '+item.name+'</div>',2000);
   };
-  footer.appendChild(cancelBtn);footer.appendChild(saveBtn);modal.appendChild(footer);
+  const createLinkBtn=document.createElement('button');createLinkBtn.textContent='➕ Create & Link New Task';createLinkBtn.style.cssText="background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;cursor:pointer;margin-right:auto";
+  createLinkBtn.onclick=()=>{_lpSaveBar({...item,taskIds:[...selected]});ov.remove();_lpCreateAndLinkTask(lpId);};
+  footer.appendChild(createLinkBtn);footer.appendChild(cancelBtn);footer.appendChild(saveBtn);modal.appendChild(footer);
   _makeResizable(modal);
   function _renderRows(){
     const tasks=DASHBOARD_DATA.tasks||[];
