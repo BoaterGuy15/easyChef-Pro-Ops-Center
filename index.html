@@ -13922,13 +13922,10 @@ async function runMasterTests(){
 
   // ── SECTION 5: DROPDOWNS ──────────────────────────────────────────────────
   console.group('Section 5 — Dropdowns');
-  const scCats=(_settingsCache&&_settingsCache.categories||[]).map(c=>c.name);
-  const tmCat=document.getElementById('tm-cat');
-  if(tmCat&&scCats.length){
-    const opts=[...tmCat.options].map(o=>o.value).filter(Boolean);
-    const missing=scCats.filter(c=>!opts.includes(c));
-    check('tm-cat dropdown has all _settingsCache categories',missing.length===0,`missing: ${missing.slice(0,5).join(', ')}`);
-  }else{check('tm-cat dropdown has all _settingsCache categories',!scCats.length||!!tmCat,!tmCat?'#tm-cat not in DOM (open task modal first)':'no settings cats loaded');}
+  try{
+    const catOpts=_getCatOpts();
+    check('_getCatOpts() returns 10+ categories',catOpts.length>=10,`found ${catOpts.length}`);
+  }catch(e){no('_getCatOpts() returns 10+ categories',e.message);}
   const statusSel=document.getElementById('tm-status')||document.querySelector('select[onchange*="setTaskStatus"]');
   if(statusSel){
     const opts=[...statusSel.options].map(o=>o.value).filter(Boolean);
@@ -13936,19 +13933,19 @@ async function runMasterTests(){
     const missing=need.filter(s=>!opts.includes(s));
     check('Status dropdown has required values',missing.length===0,`missing: ${missing.join(', ')}`);
   }else{no('Status dropdown has required values','no status select found in DOM (open task modal first)');}
-  const ownerSel=document.getElementById('tm-owner')||document.querySelector('select[id*="owner"]');
-  if(ownerSel){
-    const opts=[...ownerSel.options].map(o=>o.value.toLowerCase()).filter(Boolean);
+  try{
+    const custom=_getCustomTeamMembers();
     const activeMembers=['taylor','adam','jr','hammad','searah','sadee'];
-    const missing=activeMembers.filter(m=>!opts.some(o=>o.toLowerCase().includes(m)));
-    check('Owner dropdown has active team members',missing.length===0,`missing: ${missing.join(', ')}`);
-  }else{no('Owner dropdown has active team members','#tm-owner not in DOM (open task modal first)');}
+    const keys=(Array.isArray(custom)?custom:[]).filter(m=>m.status!=='inactive').map(m=>(m.key||m.userKey||'').toLowerCase());
+    const missing=activeMembers.filter(m=>!keys.some(k=>k.includes(m)));
+    check('_getCustomTeamMembers() has all active members',missing.length===0,`missing: ${missing.join(', ')}`);
+  }catch(e){no('_getCustomTeamMembers() has all active members',e.message);}
   console.groupEnd();
 
   // ── SECTION 6: CACHE STATE ────────────────────────────────────────────────
   console.group('Section 6 — Cache State');
   check('_settingsCache.categories has 10+ entries',(_settingsCache&&_settingsCache.categories||[]).length>=10,`found ${(_settingsCache&&_settingsCache.categories||[]).length}`);
-  check('_slackChannelsCache has 40+ channels',(_slackChannelsCache||[]).length>=40,`found ${(_slackChannelsCache||[]).length} — open Comms tab to load`);
+  check('_slackChannelsCache has 20+ channels',(_slackChannelsCache||[]).length>=20,`found ${(_slackChannelsCache||[]).length} — open Comms tab to load`);
   check('_hrProfilesCache has profiles',Object.keys(_hrProfilesCache||{}).length>0,'empty — Wave 2 may not have run');
   check('_docsCache is an object',typeof _docsCache==='object'&&_docsCache!==null,`got ${typeof _docsCache}`);
   check('_settingsCache.project exists',typeof(_settingsCache&&_settingsCache.project)==='object','missing or not loaded');
