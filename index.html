@@ -13828,7 +13828,11 @@ function _lpSaveBar(item){
 }
 
 function _lpSetZoom(z){
-  _ganttSetZoom(z);
+  const daysMap={'2w':14,'90d':90,'6mo':182,'1yr':365};
+  const days=daysMap[z]||90;
+  const scroll=document.getElementById('lp-gantt-scroll');
+  const visW=scroll?scroll.clientWidth-_GANTT_LABEL_W:800;
+  _ganttDayPx=Math.max(3,Math.round(visW/days));
   document.querySelectorAll('[id^="lp-zoom-"]').forEach(b=>b.classList.remove('active-zoom'));
   const btn=document.getElementById('lp-zoom-'+z);
   if(btn) btn.classList.add('active-zoom');
