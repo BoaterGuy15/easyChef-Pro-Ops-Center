@@ -13864,7 +13864,7 @@ async function runMasterTests(){
   if(CONFIG&&CONFIG.sheetsUrl){
     const base=CONFIG.sheetsUrl;
     const readTests=[
-      {label:'tasks_read (default GET)',       url:base,                                     chk:d=>d.ok!==false&&(Array.isArray(d)||Array.isArray(d.tasks))},
+      {label:'tasks_read (default GET)',       url:base,                                     chk:d=>d.ok===true&&Array.isArray(d.tasks)&&d.tasks.length>0},
       {label:'agenda_read',                    url:base+'?action=agenda_read',               chk:d=>Array.isArray(d)||Array.isArray(d.items)},
       {label:'hr_profiles_read',               url:base+'?action=hr_profiles_read',          chk:d=>Array.isArray(d.profiles)},
       {label:'docs_read',                      url:base+'?action=docs_read&sourceType=task&sourceId=T-001', chk:d=>typeof d==='object'},
