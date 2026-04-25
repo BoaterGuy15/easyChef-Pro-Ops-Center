@@ -1410,8 +1410,8 @@ function showPage(id){
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom(localStorage.getItem('dgl_gantt_zoom')||'90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
-  if(id==='lp'){ loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
-  if(id==='actions'){ setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
+  if(id==='lp'){ _debouncedBuildMilestones(); loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
+  if(id==='actions'){ _debouncedBuildMilestones(); setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
   if(id==='budget') loadBudgetFromSheets();
   if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } }
   if(id==='command'){
@@ -4306,7 +4306,8 @@ function _renderGanttMilestoneLines(opts){
   const items=(DASHBOARD_DATA.meta.milestoneItems||[]).filter(m=>m.date);
   if(!items.length) return;
 
-  const totalTrackW=_GANTT_DAYS*_ganttDayPx;
+  const _dpx=(opts&&opts.dayPx)||_ganttDayPx;
+  const totalTrackW=_GANTT_DAYS*_dpx;
   const canvasH=canvas.scrollHeight||canvas.offsetHeight||400;
   const _COLOR_MAP={'gold':'#c9a84c','red':'#ef4444','green':'#22c55e','blue':'#4a9eff','amber':'#f59e0b','purple':'#a78bfa','teal':'#2dd4bf','pink':'#f472b6'};
   function _resolveColor(raw){ if(!raw) return '#c9a84c'; return _COLOR_MAP[raw.toLowerCase()]||raw; }
@@ -4333,7 +4334,7 @@ function _renderGanttMilestoneLines(opts){
   items.forEach(m=>{
     const off=_ganttDayOff(m.date);
     if(off>=_GANTT_DAYS){ console.warn('[DGL] Milestone out of range:',m.title,m.date); return; }
-    const x=Math.round(off*_ganttDayPx);
+    const x=Math.round(off*_dpx);
     const isDone=m.status==='Complete'||m.status==='Done';
     const color=isDone?'#22c55e':_resolveColor(m.color);
     const marker=isDone?'✓':'◆';
@@ -7647,11 +7648,15 @@ function buildMilestones(){
   const commandEl=document.getElementById('milestone-list');
   const roadmapEl=document.getElementById('roadmap-milestone-list');
   const lpEl=document.getElementById('lp-milestone-list');
-  if(!commandEl&&!roadmapEl&&!lpEl) return;
+  const acEl=document.getElementById('ac-milestone-list');
+  if(!commandEl&&!roadmapEl&&!lpEl&&!acEl) return;
   if(commandEl) commandEl.innerHTML=_buildMilestonesHtml(false);
   if(roadmapEl) roadmapEl.innerHTML=_buildMilestonesHtml(true);
   if(lpEl) lpEl.innerHTML=_buildMilestonesHtml(true);
+  if(acEl) acEl.innerHTML=_buildMilestonesHtml(true);
   if(document.getElementById('gantt-canvas')) requestAnimationFrame(_renderGanttMilestoneLines);
+  if(document.getElementById('lp-gantt-canvas')) requestAnimationFrame(()=>_renderGanttMilestoneLines({canvasId:'lp-gantt-canvas',hdrCanvasId:'lp-gantt-hdr-canvas',prefix:'lp-gantt',dayPx:_ganttDayPx}));
+  if(document.getElementById('ac-gantt-canvas')) requestAnimationFrame(()=>_renderGanttMilestoneLines({canvasId:'ac-gantt-canvas',hdrCanvasId:'ac-gantt-hdr-canvas',prefix:'ac-gantt',dayPx:_acGanttDayPx}));
 }
 function _openMilestoneEditModal(milestoneId){
   console.log('[DGL] Opening milestone edit:', milestoneId);
@@ -16119,13 +16124,7 @@ function _toggleACPanel(which){
     if(k===which){panel&&panel.classList.toggle('open');btn&&btn.classList.toggle('active-panel',!!(panel&&panel.classList.contains('open')));}
     else{panel&&panel.classList.remove('open');btn&&btn.classList.remove('active-panel');}
   });
-  if(which==='ms'){
-    const el=document.getElementById('ac-milestone-list');
-    if(el){
-      const items=DASHBOARD_DATA.meta.milestoneItems||[];
-      el.innerHTML=items.length?items.map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);width:80px;flex-shrink:0">${m.date||''}</span><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);flex:1">${m.title||''}</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${m.status||''}</span></div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">No milestones</div>';
-    }
-  }
+  if(which==='ms') _debouncedBuildMilestones();
   if(which==='co') _acLoadCallouts();
 }
 
