@@ -680,7 +680,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')">Budget &amp; Burn</div>
     <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')">Team</div>
     <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')">App Data</div>
-    <div class="nav-tab" data-tab-id="comms" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('comms')">Comms</div>
+
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')">Action Plans</div>
     <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('lp')">Workstreams</div>
   </div>
@@ -13235,6 +13235,8 @@ function loadSettings(){
     }).catch(()=>{});
 }
 function _closeSettingsModal(){
+  const pc=document.getElementById('page-comms');
+  if(pc&&pc._settingsParent){pc._settingsParent.insertBefore(pc,pc._settingsNextSib||null);pc.style.display='none';delete pc._settingsParent;delete pc._settingsNextSib;}
   const ov=document.getElementById('settings-overlay');
   if(ov){if(ov._cleanup)ov._cleanup();ov.remove();}
 }
@@ -13250,7 +13252,7 @@ function openSettingsModal(){
   ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
   ov.onclick=e=>{if(e.target===ov)_closeSettingsModal();};
   const modal=document.createElement('div');
-  modal.style.cssText="position:fixed;z-index:99999;width:700px;height:520px;left:calc(50% - 350px);top:calc(50% - 260px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:400px;min-height:300px";
+  modal.style.cssText="position:fixed;z-index:99999;width:780px;height:620px;left:calc(50% - 390px);top:calc(50% - 310px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:400px;min-height:300px";
   // Header
   const hdr=document.createElement('div');
   hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:move;user-select:none;flex-shrink:0';
@@ -13279,14 +13281,20 @@ function openSettingsModal(){
     tabContent.style.cssText='flex:1;overflow:auto;padding:18px';
     let activeTab='project';
     function _switchTab(t){
+      // Restore page-comms if navigating away from it
+      if(activeTab==='comms'){const pc=document.getElementById('page-comms');if(pc&&pc._settingsParent){pc._settingsParent.insertBefore(pc,pc._settingsNextSib||null);pc.style.display='none';delete pc._settingsParent;delete pc._settingsNextSib;}}
       activeTab=t;
       tabBar.querySelectorAll('button').forEach(b=>{b.style.borderBottom=b.dataset.tab===t?'2px solid var(--gold)':'2px solid transparent';b.style.color=b.dataset.tab===t?'var(--gold)':'var(--muted)';});
       if(t==='workstreams') _renderSettingsWorkstreams(tabContent);
       else if(t==='categories') _renderSettingsCats(tabContent);
       else if(t==='links'){tabContent.innerHTML='<div id="workflow-links-section"></div>';_renderWorkflowLinks();}
+      else if(t==='comms'){
+        const pc=document.getElementById('page-comms');
+        if(pc){pc._settingsParent=pc.parentNode;pc._settingsNextSib=pc.nextSibling;tabContent.innerHTML='';pc.style.display='block';pc.style.padding='0';tabContent.appendChild(pc);if(typeof buildSlack==='function')buildSlack();if(typeof _buildChannelMappingSection==='function')_buildChannelMappingSection();}
+      }
       else _renderSettingsProject(tabContent);
     }
-    [['🏢 Project','project'],['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🔗 Links','links']].forEach(([lbl,t])=>{
+    [['🏢 Project','project'],['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🔗 Links','links'],['💬 Comms','comms']].forEach(([lbl,t])=>{
       const btn=document.createElement('button');
       btn.dataset.tab=t;
       btn.textContent=lbl;
