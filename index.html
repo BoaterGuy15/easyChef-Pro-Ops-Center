@@ -1000,7 +1000,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       </div>
     </div>
     <div id="gantt-ms-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="roadmap-milestone-list"></div></div></div>
-    <div id="gantt-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">No callouts configured.</div></div>
+    <div id="gantt-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="gantt-co-inner"></div></div></div>
   </div>
   <div id="gantt-scroll">
     <div id="gantt-canvas"></div>
@@ -1035,7 +1035,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       </div>
     </div>
     <div id="lp-ms-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="lp-milestone-list"></div></div></div>
-    <div id="lp-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">No callouts configured.</div></div>
+    <div id="lp-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="lp-co-inner"></div></div></div>
   </div>
   <div id="lp-gantt-scroll" style="overflow:auto;cursor:grab">
     <div id="lp-gantt-canvas"></div>
@@ -13916,6 +13916,14 @@ Object.defineProperty(window,'_lpDayPx',{get:()=>_ganttDayPx,set:()=>{}});
 
 
 const _LP_WORKSTREAMS=['Positioning & Brand','Website','Customer Discovery','App Onboarding (EUREKA)','Email Marketing','Beta (50 Real Families)','Social Media','Influencers & Alliances','Launch Ops & Infra'];
+const _LP_CALLOUTS=[
+  {title:'THE CRITICAL DEPENDENCY',detail:'The 50-family beta MUST start by May 11 (W4). Their 30 days of documented receipts produce the social proof that powers the social campaign (W9), website testimonials (W6), email sequences (W7), and app store reviews on launch day. Slip the beta = slip the entire launch.'},
+  {title:'THE CONTENT ENGINE STARTS LATE',detail:"Social media prep doesn't begin until W4 (May 11) — a deliberate choice. We need beta data first or we're posting marketing claims, not real outcomes. Once the engine starts: 90 micro-content pieces/week, hypothesize-test-pivot weekly, shares as the only KPI."},
+  {title:'DO NOT SLIP ONBOARDING',detail:'The <3-minute Three-Ingredient Start is the conversion lever for every dollar spent on social, email, and influencers. If onboarding ships with friction, every other workstream wastes its budget. App must be in beta hands by W4.'},
+  {title:'RUNNING METRICS',detail:'Weekly review every Friday: (1) website conversion, (2) waitlist growth, (3) Day-7 First Strike rate (beta), (4) social share rate, (5) email open + click. Anything below threshold gets killed or fixed within 7 days.'},
+  {title:'FOUNDER ON CAMERA — NON-NEGOTIABLE',detail:'Taylor + Steve must commit to 4 hours of filming per month starting W2. Firefighter origin story is the uncopyable brand asset across website, social, YouTube, and influencer co-creation. Without their face on camera, we are just another meal app.'},
+  {title:'KILL CRITERIA BEFORE JULY 1',detail:'If by W8 (Jun 8): (a) <30 beta families have completed 30 days of logged receipts, OR (b) <5 hooks have hit 5%+ share rate in tests, OR (c) onboarding First Strike <40% — delay launch by 4 weeks and fix.'}
+];
 
 const _LP_WS_COLORS={
   'Positioning & Brand':{color:'#c9a84c',bg:'rgba(201,168,76,0.08)'},
@@ -14017,6 +14025,30 @@ function _lpXToDate(clientX){
   const d=new Date(_ganttStartMs()+clamped*86400000);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+function _toggleCallout(card){
+  const detail=card.querySelector('.co-detail');
+  const chevron=card.querySelector('.co-chevron');
+  const opening=!card.classList.contains('open');
+  card.classList.toggle('open',opening);
+  if(detail){detail.style.maxHeight=opening?'300px':'0';detail.style.padding=opening?'4px 14px 12px':'0 14px';}
+  if(chevron) chevron.style.transform=opening?'rotate(90deg)':'';
+}
+function _renderCalloutsPanel(containerId){
+  const el=document.getElementById(containerId);
+  if(!el||el.dataset.rendered) return;
+  el.dataset.rendered='1';
+  el.innerHTML='<div style="display:flex;flex-direction:column;gap:5px;padding-bottom:2px">'+
+    _LP_CALLOUTS.map(c=>{
+      const safe=c.detail.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return `<div class="lp-callout-card" style="border:1px solid rgba(245,158,11,0.3);border-radius:6px;background:rgba(245,158,11,0.04);overflow:hidden">
+        <div onclick="_toggleCallout(this.parentNode)" style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-family:'DM Mono',monospace;font-size:9px;color:#f59e0b;font-weight:700;letter-spacing:0.8px;user-select:none">
+          <span class="co-chevron" style="font-size:8px;transition:transform 0.2s;flex-shrink:0">▶</span>
+          <span>${c.title}</span>
+        </div>
+        <div class="co-detail" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease-out,padding 0.25s ease-out;padding:0 14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.65">${safe}</div>
+      </div>`;
+    }).join('')+'</div>';
+}
 let _ganttPanelHandler=null;
 function _toggleGanttPanel(type){
   const msP=document.getElementById('gantt-ms-panel');
@@ -14030,6 +14062,7 @@ function _toggleGanttPanel(type){
   const opening=!panel.classList.contains('open');
   other.classList.remove('open');if(otherBtn)otherBtn.classList.remove('active-panel');
   panel.classList.toggle('open',opening);if(btn)btn.classList.toggle('active-panel',opening);
+  if(opening&&!isMs) _renderCalloutsPanel('gantt-co-inner');
   if(_ganttPanelHandler){document.removeEventListener('click',_ganttPanelHandler,true);_ganttPanelHandler=null;}
   if(opening){
     _ganttPanelHandler=e=>{
@@ -14055,6 +14088,7 @@ function _toggleLPPanel(type){
   const opening=!panel.classList.contains('open');
   other.classList.remove('open');if(otherBtn)otherBtn.classList.remove('active-panel');
   panel.classList.toggle('open',opening);if(btn)btn.classList.toggle('active-panel',opening);
+  if(opening&&!isMs) _renderCalloutsPanel('lp-co-inner');
   if(_lpPanelHandler){document.removeEventListener('click',_lpPanelHandler,true);_lpPanelHandler=null;}
   if(opening){
     _lpPanelHandler=e=>{
