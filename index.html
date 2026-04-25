@@ -14717,8 +14717,8 @@ function _showLPBarCtxMenu(cx,cy,lpId){
   const mnu=document.createElement('div');
   mnu.id='lp-bar-ctx-menu';
   mnu.style.cssText="position:fixed;z-index:99999;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:4px 0;font-family:'DM Mono',monospace;font-size:11px;min-width:180px";
-  mnu.style.left=Math.max(4,Math.min(cx+4,window.innerWidth-192))+'px';
-  mnu.style.top=Math.max(4,Math.min(cy+4,window.innerHeight-110))+'px';
+  mnu.style.left=Math.max(20,(window.innerWidth-220)/2)+'px';
+  mnu.style.top=Math.max(60,(window.innerHeight-320)/2)+'px';
   mnu.addEventListener('click',e=>e.stopPropagation());
   // ── Breadcrumb header ──
   const _bcTaskIds=Array.isArray(item.taskIds)?item.taskIds:[];
