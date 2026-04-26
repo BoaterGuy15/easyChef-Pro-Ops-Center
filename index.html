@@ -3060,6 +3060,74 @@ function _shareCompletionToSlack(taskId){
   fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(window._DGL_USER||'system')).catch(()=>{});
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--accent)">📤 Completion record shared to Slack</div>',3000);
 }
+function _loadAllCompletionsSection(taskId){
+  const el=document.getElementById('completions-section-'+taskId);
+  if(!el) return;
+  if((window._allCompletionsCache||{})[taskId]){_renderAllCompletionsSection(el,taskId,window._allCompletionsCache[taskId]);return;}
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=completions_read&taskId='+encodeURIComponent(taskId))
+    .then(r=>r.json())
+    .then(data=>{
+      const rows=Array.isArray(data)?data:(data.completions||data.items||[]);
+      const recs=rows.filter(function(r){return String(r.taskId)===String(taskId);});
+      if(!window._allCompletionsCache) window._allCompletionsCache={};
+      window._allCompletionsCache[taskId]=recs;
+      _renderAllCompletionsSection(el,taskId,recs);
+    }).catch(function(){});
+}
+function _renderAllCompletionsSection(el,taskId,recs){
+  if(!el||!recs||!recs.length){if(el)el.innerHTML='';return;}
+  if(!window._compDetailCache) window._compDetailCache={};
+  const cards=recs.map(function(r,i){
+    const key=taskId+'_'+i;
+    window._compDetailCache[key]=r;
+    const docs=(_docsCache['task_'+taskId]||[]);
+    const driveDoc=docs.find(function(d){return d.name&&d.name.indexOf('COMPLETION_RECORD')>=0&&(!r.completedDate||d.name.indexOf(r.completedDate)>=0);});
+    const driveUrl=driveDoc?driveDoc.url:'';
+    return '<div style="background:rgba(34,197,94,0.04);border:1px solid rgba(34,197,94,0.18);border-radius:6px;padding:8px 10px;margin-bottom:6px">'
+      +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:#22c55e;margin-bottom:3px">✅ Completed by '+(r.completedBy||'—').replace(/</g,'&lt;')+' on '+(r.completedDate||'—').replace(/</g,'&lt;')+'</div>'
+      +'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">Quality: '+(r.qualityScore||'—')+'/10</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      +'<button onclick="_openCompletionDetailModal(\''+key+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">📄 View Record</button>'
+      +(driveUrl?'<a href="'+driveUrl+'" target="_blank" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;text-decoration:none">🔗 Open in Drive</a>':'')
+      +'</div></div>';
+  }).join('');
+  el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:8px;margin-top:14px">✅ COMPLETIONS ('+recs.length+')</div>'+cards;
+}
+function _openCompletionDetailModal(key){
+  const r=(window._compDetailCache||{})[key];
+  if(!r) return;
+  const existing=document.getElementById('comp-detail-modal');
+  if(existing) existing.remove();
+  const ov=document.createElement('div');
+  ov.id='comp-detail-modal';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55)';
+  const mo=document.createElement('div');
+  mo.style.cssText='background:#0b0d10;border:1px solid rgba(201,168,76,0.4);border-radius:10px;width:520px;max-width:94vw;max-height:82vh;overflow-y:auto;padding:20px 22px;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.7)';
+  const fRow=function(label,val){return val?'<div style="display:flex;gap:8px;margin-bottom:5px;border-bottom:1px solid rgba(201,168,76,0.07);padding-bottom:5px"><span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--gold);min-width:110px;letter-spacing:1px">'+label+'</span><span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text)">'+String(val).replace(/</g,'&lt;')+'</span></div>':'';};
+  mo.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+    +'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--gold);letter-spacing:2px">📋 COMPLETION RECORD — '+(r.taskId||'').replace(/</g,'&lt;')+'</div>'
+    +'<button onclick="document.getElementById(\'comp-detail-modal\')?.remove()" style="background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1">✕</button>'
+    +'</div>'
+    +fRow('Task Name',r.taskName)
+    +fRow('Completed By',r.completedBy)
+    +fRow('Completed Date',r.completedDate)
+    +fRow('Team',r.involvedTeam)
+    +fRow('Description',r.description)
+    +fRow('Deliverable Type',r.deliverableType)
+    +fRow('File Attached',r.fileAttached)
+    +fRow('Time Spent',r.timeSpent)
+    +fRow('Blockers',r.blockers)
+    +fRow('Quality Score',r.qualityScore?r.qualityScore+'/10':'')
+    +fRow('Next Steps',r.nextSteps)
+    +fRow('Unlocked Tasks',r.unlockedTasks)
+    +fRow('Notified',r.notified)
+    +fRow('Logged',r.timestamp);
+  ov.appendChild(mo);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+  if(typeof _makeResizable==='function') _makeResizable(mo);
+}
 function toggleTaskExpand(taskId,trEl){
   _raciInjectExpandStyles();
   const panelExists=!!document.getElementById('raci-expand-row-'+taskId);
@@ -3087,6 +3155,7 @@ function toggleTaskExpand(taskId,trEl){
   trEl.after(expandTr);
   setTimeout(()=>loadDocsForSource('task',taskId),100);
   setTimeout(()=>_fetchAndInjectCompletionRecord(taskId),150);
+  setTimeout(()=>_loadAllCompletionsSection(taskId),200);
   // Fill action plan from cache first, then fetch latest from Sheets
   setTimeout(()=>{ if(_completedPlansCache[taskId]) return; const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(!_ap) return; const _apText=_getActionPlanText(taskId); if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } _fetchActionPlan(taskId,t=>{ const el=document.getElementById('raci-task-actionplan-'+taskId); if(el&&t){ el.value=t; el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,400)+'px'; } }); },50);
   if(!cached){
@@ -3468,6 +3537,7 @@ function _buildTaskExpandHtml(taskId){
         ${lbl('💬 DIRECT MESSAGE')}
         ${_renderDMSection(taskId,'raci-dm-'+taskId)}
         ${_buildDocsSection('task',taskId,t.name)}
+        <div id="completions-section-${taskId}"></div>
       </div>
     </div>
   </div>`;
