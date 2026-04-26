@@ -1522,6 +1522,26 @@ function _logStatusChange(taskId,fromStatus,toStatus,note){
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'status_log_write',id:'sl-'+Date.now(),taskId,fromStatus,toStatus,changedBy:window._DGL_USER||'system',changedAt:_nowPST(),note:note||''})}).catch(()=>{});
   _autoLink('statuschange','SC'+Date.now(),'task',taskId,(fromStatus||'')+'→'+(toStatus||''));
 }
+function _workflowConfirm(stepLabel,previewText){
+  return new Promise(function(resolve){
+    const old=document.getElementById('_wf-confirm-panel');
+    if(old) old.remove();
+    const panel=document.createElement('div');
+    panel.id='_wf-confirm-panel';
+    panel.style.cssText='position:fixed;bottom:80px;right:20px;width:400px;max-width:calc(100vw - 40px);background:#0e1117;border:1px solid var(--gold);border-radius:8px;z-index:9999;font-family:\'DM Mono\',monospace;box-shadow:0 8px 32px rgba(0,0,0,0.7)';
+    const safe=(previewText||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    panel.innerHTML=
+      '<div style="padding:11px 14px;border-bottom:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:bold;display:flex;align-items:center;gap:8px">⚡ AI WORKFLOW<span style="color:var(--muted);font-weight:400">—</span>'+stepLabel+'</div>'+
+      '<div style="padding:10px 14px;max-height:200px;overflow-y:auto;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.55;border-bottom:1px solid var(--border)">'+safe+'</div>'+
+      '<div style="padding:10px 14px;display:flex;gap:8px;justify-content:flex-end">'+
+      '<button id="_wf-skip" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">⏭ Skip</button>'+
+      '<button id="_wf-post" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 16px;border-radius:4px;border:1px solid var(--gold);background:rgba(201,168,76,0.12);color:var(--gold);cursor:pointer">✅ Post to Messages</button>'+
+      '</div>';
+    document.body.appendChild(panel);
+    document.getElementById('_wf-post').onclick=function(){panel.remove();resolve(true);};
+    document.getElementById('_wf-skip').onclick=function(){panel.remove();resolve(false);};
+  });
+}
 async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t||!CONFIG.sheetsUrl) return;
@@ -1541,20 +1561,26 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
     const archSection=archMsgs.length?'\n\nSLACK ARCHIVE:\n'+archMsgs.map(function(a){return '['+a.date+'] #'+a.channel+' '+a.user+': '+a.message;}).join('\n'):'';
     const taskCtx='Task: '+t.id+' — '+t.name+'\nStatus changed: '+oldStatus+' → '+newStatus+'\nPriority: '+t.pri+' | Owner: '+(t.owner||'—')+'\nNotes: '+(t.notes||'none')+'\nDecision: '+(t.decision||'none');
     // 2. AI Find Relevant
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--gold)">🔍 Running AI Find Relevant…</div>',6000);
     const findResp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:'You are analyzing internal team messages and task data for relevance to '+t.id+' '+t.name+' ('+t.cat+'). Status just changed from '+oldStatus+' to '+newStatus+'. Surface only information directly related to this task. Plain text only. No markdown. Use ALL CAPS headers. Numbered lists.',prompt:'Analyze the internal team messages and task data below. Identify relevant discussion, decisions, blockers, and action items.\n\n'+taskCtx+internalSection+archSection})}).then(r=>r.json()).catch(()=>({}));
     const findText=_stripMarkdown(findResp.response||findResp.result||findResp.text||findResp.content||'');
-    // 3. Post AI Find to Messages
+    // 3. Confirm + post AI Find to Messages
     if(findText){
       const findMsg='🔍 AI FIND RELEVANT ('+oldStatus+' → '+newStatus+'):\n\n'+findText;
-      const ts1=new Date().toISOString();
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+Date.now(),taskId,fromUser:user,fromName:'🔍 AI ('+fromName+')',text:findMsg,createdAt:ts1,type:'ai'})}).catch(()=>{});
-      if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
-      _taskMsgCache[taskId].push({user,name:'🔍 AI ('+fromName+')',ts:ts1,text:findMsg});
-      _raciAiSummaries[taskId]=findText;
-      const log=document.getElementById('raci-discussion-'+taskId+'-entries');
-      if(log){log.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log.scrollTop=log.scrollHeight;}
+      const doPost=await _workflowConfirm('STEP 1 — AI Find Relevant',findMsg);
+      if(doPost){
+        const ts1=new Date().toISOString();
+        await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+Date.now(),taskId,fromUser:user,fromName:'🔍 AI ('+fromName+')',text:findMsg,createdAt:ts1,type:'ai'})}).catch(()=>{});
+        if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
+        _taskMsgCache[taskId].push({ts:ts1,user,name:'🔍 AI ('+fromName+')',text:findMsg});
+        _raciAiSummaries[taskId]=findText;
+        const log=document.getElementById('raci-discussion-'+taskId+'-entries');
+        if(log){log.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log.scrollTop=log.scrollHeight;}
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 1 posted to Messages.</div>',3000);
+      }
     }
     // 4. Super AI action plan
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--gold)">⚡ Running Super AI Action Plan…</div>',8000);
     const depIds=(t.deps||'').split(',').map(function(d){return d.trim();}).filter(Boolean);
     const depDetails=depIds.map(function(did){const d=DASHBOARD_DATA.tasks.find(function(x){return x.id===did;});return d?did+' '+d.name+' ('+d.status+')':did;}).join(', ')||'None';
     const blocksIds=DASHBOARD_DATA.tasks.filter(function(x){return x.id!==taskId&&(x.deps||'').split(',').map(function(d){return d.trim();}).includes(taskId);});
@@ -1562,33 +1588,41 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
     const superCtx='TASK: '+t.id+' — '+t.name+'\nSTATUS: '+oldStatus+' → '+newStatus+' | PRIORITY: '+t.pri+' | OWNER: '+(t.owner||'—')+'\nNOTES: '+(t.notes||'None')+'\nDECISION: '+(t.decision||'None')+'\nDEPENDS ON: '+depDetails+'\nBLOCKS: '+blocksDetails+internalSection+archSection+(findText?'\n\nAI FIND SUMMARY:\n'+findText.slice(0,500):'');
     const superResp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:'You are the DGL operations AI. Generate a focused action plan for task '+t.id+' '+t.name+' after status changed to '+newStatus+'. Be specific about people, deadlines, next steps. Plain text only. No markdown. ALL CAPS headers.',prompt:'Generate a focused action plan based on the data below.\n\n'+superCtx+'\n\n1. THE SINGLE MOST IMPORTANT ACTION TODAY\n2. THREE ACTIONS THIS WEEK (named owners)\n3. ONE RISK\n4. DEPENDENCY ALERT if blockers remain'})}).then(r=>r.json()).catch(()=>({}));
     const superText=_stripMarkdown(superResp.response||superResp.result||superResp.text||superResp.content||'');
-    // 5. Post Super AI to Messages + save action plan
+    // 5. Confirm + post Super AI to Messages + save action plan
     if(superText){
       const superMsg='⚡ SUPER AI ACTION PLAN ('+oldStatus+' → '+newStatus+'):\n\n'+superText;
-      const ts2=new Date().toISOString();
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+(Date.now()+1),taskId,fromUser:user,fromName:'⚡ Super AI ('+fromName+')',text:superMsg,createdAt:ts2,type:'ai'})}).catch(()=>{});
-      if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
-      _taskMsgCache[taskId].push({user,name:'⚡ Super AI ('+fromName+')',ts:ts2,text:superMsg});
-      const log2=document.getElementById('raci-discussion-'+taskId+'-entries');
-      if(log2){log2.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log2.scrollTop=log2.scrollHeight;}
+      const doPost2=await _workflowConfirm('STEP 2 — Super AI Action Plan',superMsg);
+      if(doPost2){
+        const ts2=new Date().toISOString();
+        await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+(Date.now()+1),taskId,fromUser:user,fromName:'⚡ Super AI ('+fromName+')',text:superMsg,createdAt:ts2,type:'ai'})}).catch(()=>{});
+        if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
+        _taskMsgCache[taskId].push({ts:ts2,user,name:'⚡ Super AI ('+fromName+')',text:superMsg});
+        const log2=document.getElementById('raci-discussion-'+taskId+'-entries');
+        if(log2){log2.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log2.scrollTop=log2.scrollHeight;}
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 2 posted to Messages.</div>',3000);
+      }
       _saveActionPlan(taskId,'task',superText,taskId,'');
       _refreshAPSection(taskId,superText);
     }
-    // 6. DM the accountable person
+    // 6. Confirm + DM the accountable person
     const ownerName=(t.owner||'').split('/')[0].trim();
     const ownerKey=(_DM_MEMBERS.find(function(m){return m.name.toLowerCase()===ownerName.toLowerCase();})||{}).key||'';
     const dmMsg='['+taskId+' — '+t.name+'] Status: '+oldStatus+' → '+newStatus+' by '+fromName+'.\nAI has run analysis + action plan. Check TEAM MESSAGES in '+taskId+'.';
     if(ownerKey&&ownerKey!==user){
-      const chId=_getDMChannelId(ownerKey);
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:'__dm__',type:'dm',user,name:'DM to '+ownerName,recipient:ownerKey,text:dmMsg,ts:new Date().toISOString()})}).catch(()=>{});
-      if(chId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(dmMsg)+'&user='+encodeURIComponent(user)).catch(()=>{});
-      _logNotification(taskId,ownerKey,chId||'',dmMsg,'dm');
+      const doDM=await _workflowConfirm('STEP 3 — DM to '+ownerName,dmMsg);
+      if(doDM){
+        const chId=_getDMChannelId(ownerKey);
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:'__dm__',type:'dm',user,name:'DM to '+ownerName,recipient:ownerKey,text:dmMsg,ts:new Date().toISOString()})}).catch(()=>{});
+        if(chId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(dmMsg)+'&user='+encodeURIComponent(user)).catch(()=>{});
+        _logNotification(taskId,ownerKey,chId||'',dmMsg,'dm');
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 3 — DM sent to '+ownerName+'.</div>',3000);
+      }
     }
     // 7. Alert/callout
     const alertMsg='⚡ AI workflow complete — '+taskId+' '+t.name+'. Status: '+oldStatus+' → '+newStatus+'. Action plan saved.';
     _logNotification(taskId,user,'',alertMsg,'statuschange');
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'callout_write',id:'co-'+Date.now(),type:'statuschange',title:taskId+' Status: '+oldStatus+' → '+newStatus,message:alertMsg,taggedUser:ownerKey||user,taggedTask:taskId,createdBy:user,createdAt:new Date().toISOString(),dueDate:''})}).catch(()=>{});
-    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ AI workflow complete — '+taskId+' action plan saved, '+(ownerName||'owner')+' notified.</div>',5000);
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ AI workflow complete — '+taskId+' done.</div>',5000);
   }catch(e){ console.error('[DGL] Status AI workflow failed:',e); }
 }
 function _logNotification(taskId,toUser,channel,message,type){
