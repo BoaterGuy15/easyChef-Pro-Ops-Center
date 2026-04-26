@@ -1528,18 +1528,45 @@ function _workflowConfirm(stepLabel,previewText){
     if(old) old.remove();
     const panel=document.createElement('div');
     panel.id='_wf-confirm-panel';
-    panel.style.cssText='position:fixed;bottom:80px;right:20px;width:400px;max-width:calc(100vw - 40px);background:#0e1117;border:1px solid var(--gold);border-radius:8px;z-index:9999;font-family:\'DM Mono\',monospace;box-shadow:0 8px 32px rgba(0,0,0,0.7)';
+    panel.style.cssText='position:fixed;bottom:80px;right:20px;width:420px;max-width:calc(100vw - 40px);background:#0e1117;border:1px solid var(--gold);border-radius:8px;z-index:9999;font-family:\'DM Mono\',monospace;box-shadow:0 8px 32px rgba(0,0,0,0.7)';
     const safe=(previewText||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     panel.innerHTML=
       '<div style="padding:11px 14px;border-bottom:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:bold;display:flex;align-items:center;gap:8px">⚡ AI WORKFLOW<span style="color:var(--muted);font-weight:400">—</span>'+stepLabel+'</div>'+
-      '<div style="padding:10px 14px;max-height:200px;overflow-y:auto;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.55;border-bottom:1px solid var(--border)">'+safe+'</div>'+
-      '<div style="padding:10px 14px;display:flex;gap:8px;justify-content:flex-end">'+
+      '<div id="_wf-preview" style="padding:10px 14px;max-height:200px;overflow-y:auto;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.55;border-bottom:1px solid var(--border)">'+safe+'</div>'+
+      '<textarea id="_wf-editor" style="display:none;width:100%;box-sizing:border-box;padding:10px 14px;max-height:200px;min-height:120px;font-size:10px;font-family:\'DM Mono\',monospace;color:var(--text);background:var(--surface);border:none;border-bottom:1px solid var(--border);outline:none;resize:vertical;line-height:1.55"></textarea>'+
+      '<div style="padding:10px 14px;display:flex;gap:8px;justify-content:flex-end;align-items:center">'+
       '<button id="_wf-skip" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">⏭ Skip</button>'+
+      '<button id="_wf-edit" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer">✏️ Edit</button>'+
       '<button id="_wf-post" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 16px;border-radius:4px;border:1px solid var(--gold);background:rgba(201,168,76,0.12);color:var(--gold);cursor:pointer">✅ Post to Messages</button>'+
       '</div>';
     document.body.appendChild(panel);
-    document.getElementById('_wf-post').onclick=function(){panel.remove();resolve(true);};
-    document.getElementById('_wf-skip').onclick=function(){panel.remove();resolve(false);};
+    let _editing=false;
+    document.getElementById('_wf-edit').onclick=function(){
+      const preview=document.getElementById('_wf-preview');
+      const editor=document.getElementById('_wf-editor');
+      const btn=document.getElementById('_wf-edit');
+      _editing=!_editing;
+      if(_editing){
+        editor.value=previewText||'';
+        editor.style.display='block';
+        preview.style.display='none';
+        btn.textContent='👁 Preview';
+        editor.focus();
+      } else {
+        previewText=editor.value;
+        preview.innerHTML=(previewText||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        editor.style.display='none';
+        preview.style.display='block';
+        btn.textContent='✏️ Edit';
+      }
+    };
+    document.getElementById('_wf-post').onclick=function(){
+      const editor=document.getElementById('_wf-editor');
+      const finalText=_editing?(editor.value||previewText):previewText;
+      panel.remove();
+      resolve(finalText);
+    };
+    document.getElementById('_wf-skip').onclick=function(){panel.remove();resolve(null);};
   });
 }
 async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
@@ -1567,12 +1594,12 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
     // 3. Confirm + post AI Find to Messages
     if(findText){
       const findMsg='🔍 AI FIND RELEVANT ('+oldStatus+' → '+newStatus+'):\n\n'+findText;
-      const doPost=await _workflowConfirm('STEP 1 — AI Find Relevant',findMsg);
-      if(doPost){
+      const editedFind=await _workflowConfirm('STEP 1 — AI Find Relevant',findMsg);
+      if(editedFind!==null){
         const ts1=new Date().toISOString();
-        await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+Date.now(),taskId,fromUser:user,fromName:'🔍 AI ('+fromName+')',text:findMsg,createdAt:ts1,type:'ai'})}).catch(()=>{});
+        await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+Date.now(),taskId,fromUser:user,fromName:'🔍 AI ('+fromName+')',text:editedFind,createdAt:ts1,type:'ai'})}).catch(()=>{});
         if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
-        _taskMsgCache[taskId].push({ts:ts1,user,name:'🔍 AI ('+fromName+')',text:findMsg});
+        _taskMsgCache[taskId].push({ts:ts1,user,name:'🔍 AI ('+fromName+')',text:editedFind});
         _raciAiSummaries[taskId]=findText;
         const log=document.getElementById('raci-discussion-'+taskId+'-entries');
         if(log){log.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log.scrollTop=log.scrollHeight;}
@@ -1591,12 +1618,12 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
     // 5. Confirm + post Super AI to Messages + save action plan
     if(superText){
       const superMsg='⚡ SUPER AI ACTION PLAN ('+oldStatus+' → '+newStatus+'):\n\n'+superText;
-      const doPost2=await _workflowConfirm('STEP 2 — Super AI Action Plan',superMsg);
-      if(doPost2){
+      const editedSuper=await _workflowConfirm('STEP 2 — Super AI Action Plan',superMsg);
+      if(editedSuper!==null){
         const ts2=new Date().toISOString();
-        await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+(Date.now()+1),taskId,fromUser:user,fromName:'⚡ Super AI ('+fromName+')',text:superMsg,createdAt:ts2,type:'ai'})}).catch(()=>{});
+        await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+(Date.now()+1),taskId,fromUser:user,fromName:'⚡ Super AI ('+fromName+')',text:editedSuper,createdAt:ts2,type:'ai'})}).catch(()=>{});
         if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
-        _taskMsgCache[taskId].push({ts:ts2,user,name:'⚡ Super AI ('+fromName+')',text:superMsg});
+        _taskMsgCache[taskId].push({ts:ts2,user,name:'⚡ Super AI ('+fromName+')',text:editedSuper});
         const log2=document.getElementById('raci-discussion-'+taskId+'-entries');
         if(log2){log2.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log2.scrollTop=log2.scrollHeight;}
         _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 2 posted to Messages.</div>',3000);
@@ -1609,12 +1636,12 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
     const ownerKey=(_DM_MEMBERS.find(function(m){return m.name.toLowerCase()===ownerName.toLowerCase();})||{}).key||'';
     const dmMsg='['+taskId+' — '+t.name+'] Status: '+oldStatus+' → '+newStatus+' by '+fromName+'.\nAI has run analysis + action plan. Check TEAM MESSAGES in '+taskId+'.';
     if(ownerKey&&ownerKey!==user){
-      const doDM=await _workflowConfirm('STEP 3 — DM to '+ownerName,dmMsg);
-      if(doDM){
+      const editedDM=await _workflowConfirm('STEP 3 — DM to '+ownerName,dmMsg);
+      if(editedDM!==null){
         const chId=_getDMChannelId(ownerKey);
-        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:'__dm__',type:'dm',user,name:'DM to '+ownerName,recipient:ownerKey,text:dmMsg,ts:new Date().toISOString()})}).catch(()=>{});
-        if(chId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(dmMsg)+'&user='+encodeURIComponent(user)).catch(()=>{});
-        _logNotification(taskId,ownerKey,chId||'',dmMsg,'dm');
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:'__dm__',type:'dm',user,name:'DM to '+ownerName,recipient:ownerKey,text:editedDM,ts:new Date().toISOString()})}).catch(()=>{});
+        if(chId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(editedDM)+'&user='+encodeURIComponent(user)).catch(()=>{});
+        _logNotification(taskId,ownerKey,chId||'',editedDM,'dm');
         _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 3 — DM sent to '+ownerName+'.</div>',3000);
       }
     }
@@ -1632,7 +1659,7 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
     if(Object.keys(raciJson).length){
       const raciPreview='PROPOSED RACI ASSIGNMENTS\n\n'+raciMembers.map(m=>{const v=raciJson[m]||'—';return m.padEnd(10)+v;}).join('\n')+'\n\n(Current: '+raciMembers.filter(m=>t[m]).map(m=>m+':'+t[m]).join(', ')||'none'+')';
       const doRaci=await _workflowConfirm('STEP 4 — RACI Assignments',raciPreview);
-      if(doRaci){
+      if(doRaci!==null){
         raciMembers.forEach(m=>{ if(raciJson[m]!==undefined) t[m]=raciJson[m]||''; });
         saveToLocal();
         masterRefresh();
@@ -1642,9 +1669,10 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
     // 8. Add to Agenda — confirm
     const agendaTitle='DISCUSS: '+taskId+' '+t.name+' — Status → '+newStatus+(superText?'. '+superText.split('\n')[0].slice(0,80):'');
     const agendaPreview='AGENDA ITEM TO ADD\n\n'+agendaTitle+'\n\nThis will appear in the next Monday Agenda under RACI.';
-    const doAgenda=await _workflowConfirm('STEP 5 — Add to Agenda',agendaPreview);
-    if(doAgenda){
-      _addAgendaItem(agendaTitle,null,'📅 Add to Agenda','RACI');
+    const editedAgenda=await _workflowConfirm('STEP 5 — Add to Agenda',agendaPreview);
+    if(editedAgenda!==null){
+      const _agTitle=editedAgenda.replace(/^AGENDA ITEM TO ADD\n\n/,'').split('\n')[0]||agendaTitle;
+      _addAgendaItem(_agTitle,null,'📅 Add to Agenda','RACI');
       _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 5 — Added to Agenda.</div>',3000);
     }
     // 9. Alert/callout
