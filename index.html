@@ -1528,7 +1528,7 @@ function _workflowConfirm(stepLabel,previewText){
     if(old) old.remove();
     const panel=document.createElement('div');
     panel.id='_wf-confirm-panel';
-    panel.style.cssText='position:fixed;bottom:80px;right:20px;width:420px;max-width:calc(100vw - 40px);background:#0e1117;border:1px solid var(--gold);border-radius:8px;z-index:9999;font-family:\'DM Mono\',monospace;box-shadow:0 8px 32px rgba(0,0,0,0.7)';
+    panel.style.cssText='position:fixed;bottom:20px;left:20px;width:420px;max-width:calc(100vw - 80px);background:#0e1117;border:1px solid var(--gold);border-radius:8px;z-index:9999;font-family:\'DM Mono\',monospace;box-shadow:0 8px 32px rgba(0,0,0,0.7)';
     const safe=(previewText||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     panel.innerHTML=
       '<div style="padding:11px 14px;border-bottom:1px solid var(--border);color:var(--gold);font-size:11px;font-weight:bold;display:flex;align-items:center;gap:8px">⚡ AI WORKFLOW<span style="color:var(--muted);font-weight:400">—</span>'+stepLabel+'</div>'+
