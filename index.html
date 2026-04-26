@@ -2135,7 +2135,9 @@ function _submitDM(sourceId,cid){
   const feed=document.getElementById('dm-feed-'+cid);
   if(feed){ const prev=feed.innerHTML.includes('No messages')||feed.innerHTML.includes('Loading')?'':feed.innerHTML; feed.innerHTML=_dmEntryHtml('DM to '+toName,new Date().toISOString(),text)+prev; }
   if(btn){ btn.textContent='✅ Sent to '+toName; btn.style.color='#22c55e'; btn.style.borderColor='#22c55e'; setTimeout(()=>{ btn.textContent='📤 Message Team Member'; btn.style.color=''; btn.style.borderColor=''; btn._dglSubmitting=false; },2500); }
-  const slackMsg=`@${toName} — [${sourceId}] message from ${fromName}: ${text}`;
+  const _dmTask=(DASHBOARD_DATA&&DASHBOARD_DATA.tasks)?DASHBOARD_DATA.tasks.find(t=>t.id===sourceId):null;
+  const _dmLabel=_dmTask?sourceId+' — '+(_dmTask.name||'')+' | '+(_dmTask.cat||''):sourceId;
+  const slackMsg=`@${toName} — [${_dmLabel}] message from ${fromName}: ${text}`;
   if(CONFIG.sheetsUrl){
     if(channelId){ fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(sender)).catch(()=>{}); _logNotification(sourceId,toKey,channelId,slackMsg,'dm'); }
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:sourceId,type:'dm',user:sender,name:'DM to '+toName,recipient:toName,text:slackMsg,ts:new Date().toISOString()})}).catch(()=>{});
