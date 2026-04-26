@@ -13815,7 +13815,7 @@ function _getTeamSlackStats(userKey){
   const myTasks=DASHBOARD_DATA.tasks.filter(t=>t[raciKey]==='R'||t[raciKey]==='A/R');
   const channels=new Map();
   myTasks.forEach(t=>{
-    const lk=_slackLinksCache['dgl_task_slack_'+t.id]||_slackLinksCache[t.id];
+    const lk=_slackLinksCache['dgl_task_slack_'+t.id];
     if(lk&&lk.channelId) channels.set(lk.channelId,lk.channelName||lk.channelId);
   });
   return {linkedChannels:channels.size,channelNames:[...channels.values()]};
@@ -14106,7 +14106,7 @@ async function runHRAnalysis(userKey,btn){
   let slackContext='No Slack message data available.';
   if(CONFIG.sheetsUrl&&_slackChannelsCache&&_slackChannelsCache.length){
     const chIds=new Set();
-    myTasks.forEach(t=>{ const lk=_slackLinksCache['dgl_task_slack_'+t.id]||_slackLinksCache[t.id]; if(lk) chIds.add(lk.channelId); });
+    myTasks.forEach(t=>{ const lk=_slackLinksCache['dgl_task_slack_'+t.id]; if(lk) chIds.add(lk.channelId); });
     const ids=[...chIds].filter(id=>!id.startsWith('D')).slice(0,3);
     if(ids.length){
       try{
