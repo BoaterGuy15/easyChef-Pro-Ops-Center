@@ -10075,61 +10075,169 @@ async function _loadNotifLog(){
 async function _loadUserDMs(userKey){
   if(!CONFIG.sheetsUrl||!userKey||userKey==='view') return;
   try{
-    const r=await fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId=all&type=dm');
-    const d=await r.json();
-    const all=Array.isArray(d)?d:(d.comments||[]);
-    // Filter to messages involving this user, group by taskId
-    const mine=all.filter(m=>m.user===userKey||m.recipient===userKey);
-    const taskGroups={};
-    mine.forEach(msg=>{
-      const key=msg.taskId||'__nodm__';
-      if(!taskGroups[key]) taskGroups[key]={msgs:[],taskId:msg.taskId||''};
-      taskGroups[key].msgs.push(msg);
-    });
+    const [d1,d2]=await Promise.all([
+      fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId=all&type=dm').then(r=>r.json()).catch(()=>[]),
+      fetch(CONFIG.sheetsUrl+'?action=notifications_read').then(r=>r.json()).catch(()=>[])
+    ]);
+    // Normalize Comments DMs (type=dm)
+    const cDms=(Array.isArray(d1)?d1:(d1.comments||[])).filter(m=>m.type==='dm'&&(m.user===userKey||m.recipient===userKey)).map(m=>({fromKey:m.user||'',toKey:m.recipient||'',text:m.text||'',ts:m.ts||'',taskId:m.taskId||'',_ck:(m.ts||'')+'|'+(m.text||'').slice(0,20)}));
+    // Normalize Notifications sheet DMs (type=dm)
+    const nDms=(Array.isArray(d2)?d2:(d2.notifications||[])).filter(n=>n.type==='dm'&&(n.sentBy===userKey||n.toUser===userKey)).map(n=>({fromKey:n.sentBy||'',toKey:n.toUser||'',text:n.message||'',ts:n.sentAt||n.ts||'',taskId:n.taskId||'',_ck:(n.sentAt||n.ts||'')+'|'+(n.message||'').slice(0,20)}));
+    const seenCk=new Set(cDms.map(m=>m._ck));
+    const all=[...cDms,...nDms.filter(m=>!seenCk.has(m._ck))];
+    // Group by the other person in each conversation
+    const personMap={};
+    all.forEach(m=>{const o=m.fromKey===userKey?m.toKey:m.fromKey;if(o){if(!personMap[o])personMap[o]=[];personMap[o].push(m);}});
     const readD=_readDMIds();
-    window._userDMs=Object.values(taskGroups)
-      .map(g=>{
-        const sorted=g.msgs.sort((a,b)=>new Date(b.ts||0)-new Date(a.ts||0));
-        const last=sorted[0]||{};
-        const unread=sorted.filter(m=>m.recipient===userKey&&!readD.has(m.ts||m.id||'')).length;
-        const task=DASHBOARD_DATA.tasks.find(t=>t.id===g.taskId)||null;
-        return {taskId:g.taskId,taskName:task?task.name:'',msgs:sorted,last,unread};
+    const excl=new Set(['mary',userKey,'']);
+    window._userDMs=_DM_MEMBERS
+      .filter(m=>!excl.has(m.key))
+      .map(m=>{
+        const msgs=(personMap[m.key]||[]).sort((a,b)=>new Date(a.ts||0)-new Date(b.ts||0));
+        const last=msgs[msgs.length-1]||null;
+        const unread=msgs.filter(msg=>msg.toKey===userKey&&!readD.has(msg.ts||'')).length;
+        return {personKey:m.key,personName:m.name,msgs,last,unread};
       })
-      .sort((a,b)=>new Date(b.last.ts||0)-new Date(a.last.ts||0));
+      .sort((a,b)=>(b.last?new Date(b.last.ts||0):0)-(a.last?new Date(a.last.ts||0):0));
     _mailboxBadgeUpdate();
     if(document.getElementById('mailbox-panel')?.classList.contains('open')&&_mbActiveTab==='dm') _renderDMTab();
   }catch(_){}
 }
+function _buildThreadHtml(msgs,userKey){
+  if(!msgs||!msgs.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:24px 0;text-align:center">No messages yet. Send one below.</div>';
+  return msgs.map(function(m){
+    const isMe=!m._slack&&(m.fromKey===userKey);
+    const taskId=m.taskId?((m.taskId||'').match(/T-\d+/)||[])[0]||m.taskId:'';
+    const task=taskId?DASHBOARD_DATA.tasks.find(function(t){return t.id===taskId;}):null;
+    const taskCtx=taskId?'<div style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);margin-bottom:2px">📎 '+taskId+(task?' · '+task.name.slice(0,28):'')+' <button onclick="event.stopPropagation();_viewTaskDetails(\''+taskId+'\')" style="font-size:8px;background:none;border:none;color:var(--gold);cursor:pointer;padding:0;text-decoration:underline">View</button></div>':'';
+    return '<div style="display:flex;flex-direction:column;align-items:'+(isMe?'flex-end':'flex-start')+';margin-bottom:10px">'+taskCtx+'<div style="max-width:82%;background:'+(isMe?'rgba(201,168,76,0.12)':'var(--surface)')+';border:1px solid '+(isMe?'rgba(201,168,76,0.3)':'var(--border)')+';border-radius:'+(isMe?'10px 2px 10px 10px':'2px 10px 10px 10px')+';padding:7px 10px"><div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;word-break:break-word">'+String(m.text||'').replace(/</g,'&lt;')+'</div><div style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-top:3px;text-align:'+(isMe?'right':'left')+'">'+_relativeTime(m.ts)+'</div></div></div>';
+  }).join('');
+}
 function _renderDMTab(){
   const el=document.getElementById('mb-dm-list'); if(!el) return;
-  const dms=window._userDMs||[];
-  if(!dms.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No direct messages yet.</div>'; return; }
-  el.innerHTML=dms.map(d=>{
-    const isRead=d.unread===0;
-    const last=d.last||{};
-    const sender=last.user||'?';
-    const recipient=last.recipient||'?';
-    const preview=(last.text||'').slice(0,90)+((last.text||'').length>90?'…':'');
-    const initials=(sender||'?').slice(0,2).toUpperCase();
-    const replyBtn=d.taskId?`<button onclick="_viewTaskDetails('${d.taskId}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Reply →</button>`:'';
-    return `<div style="padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid ${isRead?'transparent':'var(--gold)'}">
-      <div style="display:flex;gap:10px;align-items:flex-start">
-        <div style="width:30px;height:30px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);flex-shrink:0">${initials}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-            <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);font-weight:${isRead?400:700}">${sender} → ${recipient}</span>
-            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0">${_relativeTime(last.ts)}</span>
-          </div>
-          ${d.taskId?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:3px">📎 ${d.taskId}${d.taskName?' · '+d.taskName.slice(0,32):''}</div>`:''}
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px">${preview||'No message'}</div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-            ${d.unread>0?`<span style="font-family:'DM Mono',monospace;font-size:8px;background:var(--red);color:#fff;border-radius:8px;padding:1px 5px">${d.unread} unread</span>`:''}
-            ${replyBtn}
-          </div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  el.style.cssText='flex:1;overflow-y:auto;display:block';
+  if(window._mbThreadTimer){clearInterval(window._mbThreadTimer);window._mbThreadTimer=null;}
+  const dms=window._userDMs;
+  if(!dms){
+    el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">Loading…</div>';
+    const u=window._DGL_USER||'';if(u&&u!=='view')_loadUserDMs(u);
+    return;
+  }
+  el.innerHTML=dms.map(function(d){
+    const initial=(d.personName||'?').slice(0,1).toUpperCase();
+    const last=d.last;
+    const preview=last?(last.text||'').slice(0,80)+((last.text||'').length>80?'…':''):'No messages yet';
+    const hasUnread=d.unread>0;
+    return '<div style="padding:12px 20px;border-bottom:1px solid rgba(37,42,53,0.3);border-left:3px solid '+(hasUnread?'var(--gold)':'transparent')+';cursor:pointer" onclick="_openDMThread(\''+d.personKey+'\')">'
+      +'<div style="display:flex;gap:10px;align-items:flex-start">'
+      +'<div style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:\'DM Mono\',monospace;font-size:12px;color:var(--gold);flex-shrink:0">'+initial+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
+      +'<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);font-weight:'+(hasUnread?700:400)+'">'+d.personName+'</span>'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+      +(hasUnread?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;background:var(--red);color:#fff;border-radius:8px;padding:1px 5px">'+d.unread+'</span>':'')
+      +'<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">'+(last?_relativeTime(last.ts):'')+'</span>'
+      +'</div></div>'
+      +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+preview+'</div>'
+      +'</div></div></div>';
+  }).join('')||'<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No direct messages yet.</div>';
+}
+function _openDMThread(personKey){
+  const el=document.getElementById('mb-dm-list'); if(!el) return;
+  const userKey=window._DGL_USER||'';
+  const personEntry=_DM_MEMBERS.find(function(m){return m.key===personKey;});
+  const personName=personEntry?personEntry.name:personKey;
+  const entry=(window._userDMs||[]).find(function(d){return d.personKey===personKey;});
+  // Mark received messages as read
+  if(entry&&entry.msgs){
+    const readD=_readDMIds();
+    entry.msgs.filter(function(m){return m.toKey===userKey;}).forEach(function(m){if(m.ts)readD.add(m.ts);});
+    _saveDMIds(readD);entry.unread=0;_mailboxBadgeUpdate();
+  }
+  const iSt='background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;width:100%;box-sizing:border-box;resize:none';
+  el.style.cssText='flex:1;overflow:hidden;display:flex;flex-direction:column';
+  el.innerHTML='<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:rgba(201,168,76,0.04);flex-shrink:0">'
+    +'<button onclick="_renderDMTab()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;line-height:1" title="Back">←</button>'
+    +'<div style="width:26px;height:26px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--gold)">'+personName.slice(0,1).toUpperCase()+'</div>'
+    +'<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);font-weight:600">'+personName+'</span>'
+    +'</div>'
+    +'<div id="mb-thread-msgs-'+personKey+'" style="flex:1;overflow-y:auto;padding:14px 16px">'+_buildThreadHtml(entry&&entry.msgs||[],userKey)+'</div>'
+    +'<div style="padding:10px 16px;border-top:1px solid var(--border);flex-shrink:0">'
+    +'<textarea id="mb-thread-input-'+personKey+'" rows="2" placeholder="Message '+personName+'…" style="'+iSt+'" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();_sendDMFromThread(\''+personKey+'\');}"></textarea>'
+    +'<div style="display:flex;justify-content:flex-end;margin-top:5px"><button id="mb-thread-send-'+personKey+'" onclick="_sendDMFromThread(\''+personKey+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:4px 14px;border-radius:5px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer">📤 Send</button></div>'
+    +'</div>';
+  setTimeout(function(){const m=document.getElementById('mb-thread-msgs-'+personKey);if(m)m.scrollTop=m.scrollHeight;},50);
+  // Fetch Slack DM history and merge
+  const chId=_getDMChannelId(personKey);
+  if(chId&&!chId.startsWith('D')&&CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(chId)+'&limit=20').then(function(r){return r.json();}).then(function(data){
+      const slackNorm=(Array.isArray(data)?data:(data.messages||[])).map(function(m){return {fromKey:'_slack',toKey:userKey,text:m.text||'',ts:String(Math.round(parseFloat(m.ts||0)*1000)),taskId:'',_slack:true};});
+      const base=entry&&entry.msgs||[];
+      const seenK=new Set(base.map(function(m){return (m.ts||'')+'|'+(m.text||'').slice(0,20);}));
+      const merged=[...base,...slackNorm.filter(function(m){return !seenK.has(m.ts+'|'+m.text.slice(0,20));})].sort(function(a,b){return new Date(a.ts||0)-new Date(b.ts||0);});
+      const el2=document.getElementById('mb-thread-msgs-'+personKey);
+      if(el2){el2.innerHTML=_buildThreadHtml(merged,userKey);setTimeout(function(){el2.scrollTop=el2.scrollHeight;},30);}
+    }).catch(function(){});
+  }
+  // 30s poll — no faster
+  if(window._mbThreadTimer){clearInterval(window._mbThreadTimer);window._mbThreadTimer=null;}
+  window._mbThreadPersonKey=personKey;
+  window._mbThreadTimer=setInterval(function(){_refreshDMThread(personKey);},30000);
+}
+function _sendDMFromThread(personKey){
+  const inp=document.getElementById('mb-thread-input-'+personKey);
+  const text=(inp?inp.value:'').trim(); if(!text) return;
+  const userKey=window._DGL_USER||'unknown';
+  const personName=(_DM_MEMBERS.find(function(m){return m.key===personKey;})||{}).name||personKey;
+  const fromName=_DM_NAME_MAP[userKey]||userKey;
+  const channelId=_getDMChannelId(personKey);
+  const ts=new Date().toISOString();
+  const msg='@'+personName+' — message from '+fromName+': '+text;
+  if(inp) inp.value='';
+  const msgDiv=document.getElementById('mb-thread-msgs-'+personKey);
+  if(msgDiv){
+    msgDiv.innerHTML+='<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:10px"><div style="max-width:82%;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);border-radius:10px 2px 10px 10px;padding:7px 10px"><div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;word-break:break-word">'+text.replace(/</g,'&lt;')+'</div><div style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-top:3px;text-align:right">just now</div></div></div>';
+    msgDiv.scrollTop=msgDiv.scrollHeight;
+  }
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'comments_write',taskId:'__dm__',type:'dm',user:userKey,name:'DM to '+personName,recipient:personKey,text:msg,ts})}).catch(function(){});
+    if(channelId){fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(userKey)).catch(function(){});}
+    _logNotification('',personKey,channelId||'',msg,'dm');
+  }
+  const newMsg={fromKey:userKey,toKey:personKey,text:msg,ts,taskId:''};
+  if(!window._userDMs) window._userDMs=[];
+  const entry=window._userDMs.find(function(d){return d.personKey===personKey;});
+  if(entry){entry.msgs=[...entry.msgs,newMsg];entry.last=newMsg;}
+  else{const pe=_DM_MEMBERS.find(function(m){return m.key===personKey;});window._userDMs.unshift({personKey,personName:pe?pe.name:personKey,msgs:[newMsg],last:newMsg,unread:0});}
+}
+function _refreshDMThread(personKey){
+  if(!document.getElementById('mb-thread-msgs-'+personKey)){clearInterval(window._mbThreadTimer);window._mbThreadTimer=null;return;}
+  const userKey=window._DGL_USER||'';
+  const el2=document.getElementById('mb-thread-msgs-'+personKey);
+  Promise.all([
+    CONFIG.sheetsUrl?fetch(CONFIG.sheetsUrl+'?action=comments_read&taskId=all&type=dm').then(function(r){return r.json();}).catch(function(){return [];}):Promise.resolve([]),
+    CONFIG.sheetsUrl?fetch(CONFIG.sheetsUrl+'?action=notifications_read').then(function(r){return r.json();}).catch(function(){return [];}):Promise.resolve([])
+  ]).then(function(results){
+    const d1=results[0],d2=results[1];
+    const cDms=(Array.isArray(d1)?d1:(d1.comments||[])).filter(function(m){return m.type==='dm'&&((m.user===userKey&&m.recipient===personKey)||(m.user===personKey&&m.recipient===userKey));}).map(function(m){return {fromKey:m.user||'',toKey:m.recipient||'',text:m.text||'',ts:m.ts||'',taskId:m.taskId||''};});
+    const nDms=(Array.isArray(d2)?d2:(d2.notifications||[])).filter(function(n){return n.type==='dm'&&((n.sentBy===userKey&&n.toUser===personKey)||(n.sentBy===personKey&&n.toUser===userKey));}).map(function(n){return {fromKey:n.sentBy||'',toKey:n.toUser||'',text:n.message||'',ts:n.sentAt||n.ts||'',taskId:n.taskId||''};});
+    const seen=new Set(cDms.map(function(m){return (m.ts||'')+'|'+(m.text||'').slice(0,20);}));
+    const merged=[...cDms,...nDms.filter(function(m){return !seen.has((m.ts||'')+'|'+(m.text||'').slice(0,20));})].sort(function(a,b){return new Date(a.ts||0)-new Date(b.ts||0);});
+    const entry=(window._userDMs||[]).find(function(d){return d.personKey===personKey;});
+    if(entry){entry.msgs=merged;entry.last=merged[merged.length-1]||null;}
+    if(!el2||!document.contains(el2)) return;
+    const chId=_getDMChannelId(personKey);
+    if(chId&&!chId.startsWith('D')&&CONFIG.sheetsUrl){
+      fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(chId)+'&limit=20').then(function(r){return r.json();}).then(function(data){
+        const slackNorm=(Array.isArray(data)?data:(data.messages||[])).map(function(m){return {fromKey:'_slack',toKey:userKey,text:m.text||'',ts:String(Math.round(parseFloat(m.ts||0)*1000)),taskId:'',_slack:true};});
+        const seenK=new Set(merged.map(function(m){return (m.ts||'')+'|'+(m.text||'').slice(0,20);}));
+        const all=[...merged,...slackNorm.filter(function(m){return !seenK.has(m.ts+'|'+m.text.slice(0,20));})].sort(function(a,b){return new Date(a.ts||0)-new Date(b.ts||0);});
+        if(document.contains(el2)){el2.innerHTML=_buildThreadHtml(all,userKey);el2.scrollTop=el2.scrollHeight;}
+      }).catch(function(){if(document.contains(el2)){el2.innerHTML=_buildThreadHtml(merged,userKey);el2.scrollTop=el2.scrollHeight;}});
+    } else {
+      if(document.contains(el2)){el2.innerHTML=_buildThreadHtml(merged,userKey);el2.scrollTop=el2.scrollHeight;}
+    }
+  }).catch(function(){});
 }
 function _renderAlertsTab(){
   const el=document.getElementById('mb-alerts-list');
