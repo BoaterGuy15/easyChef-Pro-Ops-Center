@@ -6,10 +6,14 @@
 // SHEET SETUP: Run _setupActionsSheet() once from the Apps Script editor
 // (Run → Run function → _setupActionsSheet) to create the sheet.
 //
+// Hierarchy: Agenda → Task → Action
+// An Action is a small, assignable to-do that comes out of a Task.
+// e.g. "Ask Taylor for approval", "Send budget to Steve"
+//
 // ── doGet additions (paste inside your existing doGet(e) if/else block) ──────
 //
 //   if (action === 'actions_read') {
-//     return json({ ok: true, actions: getActions(e.parameter.taskId || '', e.parameter.workstreamId || '') });
+//     return json({ ok: true, actions: getActions(e.parameter.taskId||'', e.parameter.agendaId||'') });
 //   }
 //
 // ── doPost additions (paste inside your existing doPost(e) if/else block) ────
@@ -29,143 +33,95 @@
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-var ACTIONS_SHEET = 'Actions';
-
+var ACTIONS_SHEET   = 'Actions';
 var ACTIONS_HEADERS = [
-  'id', 'taskId', 'agendaId', 'workstreamId',
-  'type', 'title', 'body', 'status',
-  'createdBy', 'createdAt', 'updatedAt'
-];
-
-var ACTIONS_VALID_TYPES = [
-  'comment', 'flag', 'statuschange', 'note',
-  'decision', 'blocker', 'risk', 'completion'
+  'id', 'taskId', 'agendaId',
+  'title', 'assignedTo', 'dueDate',
+  'status', 'priority', 'createdBy', 'createdAt'
 ];
 
 // ── Sheet bootstrap ───────────────────────────────────────────────────────────
 
 function _setupActionsSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(ACTIONS_SHEET);
-  if (!sheet) {
-    sheet = ss.insertSheet(ACTIONS_SHEET);
-  }
-  // DGL dark styling
-  var hdrRange = sheet.getRange(1, 1, 1, ACTIONS_HEADERS.length);
-  hdrRange.setValues([ACTIONS_HEADERS]);
-  hdrRange.setBackground('#0b0d10');
-  hdrRange.setFontColor('#c9a84c');
-  hdrRange.setFontFamily('Courier New');
-  hdrRange.setFontWeight('bold');
-  hdrRange.setFontSize(10);
+  if (!sheet) sheet = ss.insertSheet(ACTIONS_SHEET);
+  var hdr = sheet.getRange(1, 1, 1, ACTIONS_HEADERS.length);
+  hdr.setValues([ACTIONS_HEADERS]);
+  hdr.setBackground('#0b0d10');
+  hdr.setFontColor('#c9a84c');
+  hdr.setFontFamily('Courier New');
+  hdr.setFontWeight('bold');
+  hdr.setFontSize(10);
   sheet.setFrozenRows(1);
-  for (var i = 1; i <= ACTIONS_HEADERS.length; i++) {
-    sheet.setColumnWidth(i, 140);
-  }
+  for (var i = 1; i <= ACTIONS_HEADERS.length; i++) sheet.setColumnWidth(i, 160);
   SpreadsheetApp.getUi().alert('Actions sheet is ready.');
   return sheet;
 }
 
 function _getActionsSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(ACTIONS_SHEET);
   if (!sheet) {
     sheet = ss.insertSheet(ACTIONS_SHEET);
-    var hdrRange = sheet.getRange(1, 1, 1, ACTIONS_HEADERS.length);
-    hdrRange.setValues([ACTIONS_HEADERS]);
-    hdrRange.setBackground('#0b0d10');
-    hdrRange.setFontColor('#c9a84c');
-    hdrRange.setFontFamily('Courier New');
-    hdrRange.setFontWeight('bold');
-    hdrRange.setFontSize(10);
+    var hdr = sheet.getRange(1, 1, 1, ACTIONS_HEADERS.length);
+    hdr.setValues([ACTIONS_HEADERS]);
+    hdr.setFontWeight('bold');
     sheet.setFrozenRows(1);
-    for (var i = 1; i <= ACTIONS_HEADERS.length; i++) {
-      sheet.setColumnWidth(i, 140);
-    }
   }
   return sheet;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function _actionsNow() {
-  return new Date().toISOString();
-}
-
-function _actionsGenId() {
-  return 'act-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
-}
-
-function _actionsRowToObj(r) {
-  return {
-    id:           r[0],
-    taskId:       r[1],
-    agendaId:     r[2],
-    workstreamId: r[3],
-    type:         r[4],
-    title:        r[5],
-    body:         r[6],
-    status:       r[7],
-    createdBy:    r[8],
-    createdAt:    r[9],
-    updatedAt:    r[10]
-  };
-}
-
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
-/**
- * Returns all actions. Pass taskId and/or workstreamId to filter.
- * Either filter alone returns rows matching that field.
- * Both filters together: row must match both.
- */
-function getActions(taskId, workstreamId) {
-  var sheet = _getActionsSheet();
+function getActions(taskId, agendaId) {
+  var sheet   = _getActionsSheet();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   var rows = sheet.getRange(2, 1, lastRow - 1, ACTIONS_HEADERS.length).getValues();
   return rows
     .filter(function(r) {
       if (!r[0]) return false;
-      if (taskId       && r[1] !== taskId)       return false;
-      if (workstreamId && r[3] !== workstreamId) return false;
+      if (taskId   && r[1] !== taskId)   return false;
+      if (agendaId && r[2] !== agendaId) return false;
       return true;
     })
-    .map(_actionsRowToObj);
+    .map(function(r) {
+      return {
+        id:         String(r[0]),
+        taskId:     String(r[1]),
+        agendaId:   String(r[2]),
+        title:      String(r[3]),
+        assignedTo: String(r[4]),
+        dueDate:    String(r[5]),
+        status:     String(r[6]),
+        priority:   String(r[7]),
+        createdBy:  String(r[8]),
+        createdAt:  String(r[9])
+      };
+    });
 }
 
-/**
- * Appends a new action row. Auto-generates id if not provided.
- * type must be one of ACTIONS_VALID_TYPES; defaults to 'note' if unrecognised.
- */
 function addAction(item) {
   if (!item) return;
   var sheet = _getActionsSheet();
-  var now   = _actionsNow();
-  var id    = item.id || _actionsGenId();
-  var type  = ACTIONS_VALID_TYPES.indexOf(item.type) >= 0 ? item.type : 'note';
-
-  var rng = sheet.getRange(sheet.getLastRow() + 1, 1, 1, ACTIONS_HEADERS.length);
+  var now   = new Date().toISOString();
+  var rng   = sheet.getRange(sheet.getLastRow() + 1, 1, 1, ACTIONS_HEADERS.length);
   rng.setNumberFormat('@');
   rng.setValues([[
-    id,
-    item.taskId       || '',
-    item.agendaId     || '',
-    item.workstreamId || '',
-    type,
-    item.title        || '',
-    item.body         || '',
-    item.status       || 'open',
-    item.createdBy    || '',
-    item.createdAt    || now,
-    now
+    item.id         || ('act-' + Date.now()),
+    item.taskId     || '',
+    item.agendaId   || '',
+    item.title      || '',
+    item.assignedTo || '',
+    item.dueDate    || '',
+    item.status     || 'open',
+    item.priority   || 'medium',
+    item.createdBy  || '',
+    item.createdAt  || now
   ]]);
 }
 
-/**
- * Updates specific fields on an existing action row.
- * id and createdAt/createdBy are never overwritten.
- */
 function updateAction(id, fields) {
   if (!id || !fields) return;
   var sheet   = _getActionsSheet();
@@ -175,33 +131,22 @@ function updateAction(id, fields) {
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]) === String(id)) {
       var ex  = sheet.getRange(i + 2, 1, 1, ACTIONS_HEADERS.length).getValues()[0];
-      var now = _actionsNow();
-      var type = fields.type !== undefined
-        ? (ACTIONS_VALID_TYPES.indexOf(fields.type) >= 0 ? fields.type : ex[4])
-        : ex[4];
       var rng = sheet.getRange(i + 2, 1, 1, ACTIONS_HEADERS.length);
       rng.setNumberFormat('@');
       rng.setValues([[
-        ex[0],                                                        // id — immutable
-        fields.taskId       !== undefined ? fields.taskId       : ex[1],
-        fields.agendaId     !== undefined ? fields.agendaId     : ex[2],
-        fields.workstreamId !== undefined ? fields.workstreamId : ex[3],
-        type,
-        fields.title        !== undefined ? fields.title        : ex[5],
-        fields.body         !== undefined ? fields.body         : ex[6],
-        fields.status       !== undefined ? fields.status       : ex[7],
-        ex[8],                                                        // createdBy — immutable
-        ex[9],                                                        // createdAt — immutable
-        now
+        ex[0], ex[1], ex[2],
+        fields.title      !== undefined ? fields.title      : ex[3],
+        fields.assignedTo !== undefined ? fields.assignedTo : ex[4],
+        fields.dueDate    !== undefined ? fields.dueDate    : ex[5],
+        fields.status     !== undefined ? fields.status     : ex[6],
+        fields.priority   !== undefined ? fields.priority   : ex[7],
+        ex[8], ex[9]
       ]]);
       return;
     }
   }
 }
 
-/**
- * Deletes an action row by id.
- */
 function deleteAction(id) {
   if (!id) return;
   var sheet   = _getActionsSheet();
