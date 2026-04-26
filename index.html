@@ -3786,12 +3786,18 @@ function raciAiFind(taskId){
       if(btn) btn.textContent='Analyzing…';
       const msgs=(data.messages||[]).reverse();
       const msgText=msgs.map(m=>(m.user||'bot')+': '+(m.text||'')).join('\n');
-      const taskCtx=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nNotes: ${t.flag||'none'}`;
-      let slackSection=`Here are the last ${msgs.length} messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${msgText}`;
-      const base=`${taskCtx}\n\n${slackSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`;
-      const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const candidate=`${taskCtx}\n\nHere are the most recent messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`; if(candidate.length<=3000) return candidate; lines=lines.slice(1); } return `${taskCtx}\n\n${lines.join('\n')}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task.`; })():base;
-      const system=`You are analyzing Slack messages ONLY for relevance to ${t.id} ${t.name} (${t.cat}). Filter ruthlessly — only surface messages directly related to this specific task's deliverable. Ignore messages about other tasks. Be specific and concise. Format your response as plain text only. No markdown symbols (##, ###, **, *, ---, backticks). Use ALL CAPS for section headers. Use numbered lists. Keep formatting clean for Slack posting.`;
-      return fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
+      return fetch(CONFIG.sheetsUrl+'?action=slack_archive_search&query='+encodeURIComponent(t.name))
+        .then(r=>r.json()).catch(()=>({messages:[]}))
+        .then(archData=>{
+          const archMsgs=(archData.messages||[]).slice(0,25);
+          const archSection=archMsgs.length?'\n\nSLACK ARCHIVE (historical messages mentioning this task):\n'+archMsgs.map(function(a){return '['+a.date+'] #'+a.channel+' '+a.user+': '+a.message;}).join('\n'):'';
+          const taskCtx=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nNotes: ${t.flag||'none'}`;
+          let slackSection=`Here are the last ${msgs.length} messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${msgText}`;
+          const base=`${taskCtx}\n\n${slackSection}${archSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`;
+          const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const candidate=`${taskCtx}\n\nHere are the most recent messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${lines.join('\n')}${archSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`; if(candidate.length<=3000) return candidate; lines=lines.slice(1); } return `${taskCtx}\n\n${lines.join('\n')}${archSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task.`; })():base;
+          const system=`You are analyzing Slack messages ONLY for relevance to ${t.id} ${t.name} (${t.cat}). Filter ruthlessly — only surface messages directly related to this specific task's deliverable. Ignore messages about other tasks. Be specific and concise. Format your response as plain text only. No markdown symbols (##, ###, **, *, ---, backticks). Use ALL CAPS for section headers. Use numbered lists. Keep formatting clean for Slack posting.`;
+          return fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
+        });
     })
     .then(r=>r.json())
     .then(data=>{
