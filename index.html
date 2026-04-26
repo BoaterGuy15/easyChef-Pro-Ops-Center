@@ -10267,7 +10267,7 @@ function _renderAlertsTab(){
     const channelId=n.channel||'';
     const rawTs=n.sentAt||n.ts||'';
     const tsDate=rawTs?new Date(rawTs):null;
-    const tsFmt=tsDate&&!isNaN(tsDate)?tsDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+tsDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):'';
+    const tsFmt=tsDate&&!isNaN(tsDate)?tsDate.toLocaleString('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     const viewTaskBtn=taskId?`<button onclick="_viewTaskDetails('${taskId}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔗 View Task</button>`:'';
     const markReadBtn=!isRead?`<button onclick="_markAlertRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark read</button>`:'';
     const card=document.createElement('div');
@@ -10281,7 +10281,7 @@ function _renderAlertsTab(){
             ${taskName?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-left:5px">${taskName}</span>`:''}
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            ${tsFmt?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap">${tsFmt}</span>`:`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap">${_relativeTime(rawTs)}</span>`}
+            <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap">${tsFmt?'Sent: '+tsFmt:_relativeTime(rawTs)}</span>
             <button data-del-id="${n.id}" title="Delete" style="font-size:12px;background:transparent;border:none;cursor:pointer;color:var(--muted);padding:0 2px;line-height:1">🗑️</button>
           </div>
         </div>
