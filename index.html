@@ -1618,8 +1618,37 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
         _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 3 — DM sent to '+ownerName+'.</div>',3000);
       }
     }
-    // 7. Alert/callout
-    const alertMsg='⚡ AI workflow complete — '+taskId+' '+t.name+'. Status: '+oldStatus+' → '+newStatus+'. Action plan saved.';
+    // 7. AI RACI — generate and confirm
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--gold)">🔲 Generating RACI assignments…</div>',6000);
+    const raciMembers=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+    const raciCtx='TASK: '+t.id+' — '+t.name+'\nCATEGORY: '+(t.cat||'—')+'\nSTATUS: '+newStatus+'\nOWNER: '+(t.owner||'—')+'\nNOTES: '+(t.notes||'—')+'\n'+(superText?'ACTION PLAN:\n'+superText.slice(0,400):'');
+    const raciResp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:'You are a RACI assignment assistant. Assign roles for each team member. R=Does the work, A=Owns the outcome, C=Consulted for input, I=Informed of progress. Rules: exactly ONE A (or A/R) per task. Return ONLY valid JSON, no explanation.',prompt:'Assign RACI roles for this task. Team members: Taylor, Steve, Adam, Mary, JR, Hammad, Searah, Sadee.\nReturn ONLY JSON like: {"Taylor":"A","Steve":"R","Adam":"C","Mary":"I","JR":"","Hammad":"C","Searah":"","Sadee":""}\n\nTask context:\n'+raciCtx})}).then(r=>r.json()).catch(()=>({}));
+    let raciJson={};
+    try{
+      const raw=raciResp.response||raciResp.result||raciResp.text||raciResp.content||'';
+      const match=raw.match(/\{[^}]+\}/);
+      if(match) raciJson=JSON.parse(match[0]);
+    }catch(_){}
+    if(Object.keys(raciJson).length){
+      const raciPreview='PROPOSED RACI ASSIGNMENTS\n\n'+raciMembers.map(m=>{const v=raciJson[m]||'—';return m.padEnd(10)+v;}).join('\n')+'\n\n(Current: '+raciMembers.filter(m=>t[m]).map(m=>m+':'+t[m]).join(', ')||'none'+')';
+      const doRaci=await _workflowConfirm('STEP 4 — RACI Assignments',raciPreview);
+      if(doRaci){
+        raciMembers.forEach(m=>{ if(raciJson[m]!==undefined) t[m]=raciJson[m]||''; });
+        saveToLocal();
+        masterRefresh();
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 4 — RACI updated.</div>',3000);
+      }
+    }
+    // 8. Add to Agenda — confirm
+    const agendaTitle='DISCUSS: '+taskId+' '+t.name+' — Status → '+newStatus+(superText?'. '+superText.split('\n')[0].slice(0,80):'');
+    const agendaPreview='AGENDA ITEM TO ADD\n\n'+agendaTitle+'\n\nThis will appear in the next Monday Agenda under RACI.';
+    const doAgenda=await _workflowConfirm('STEP 5 — Add to Agenda',agendaPreview);
+    if(doAgenda){
+      _addAgendaItem(agendaTitle,null,'📅 Add to Agenda','RACI');
+      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 5 — Added to Agenda.</div>',3000);
+    }
+    // 9. Alert/callout
+    const alertMsg='⚡ AI workflow complete — '+taskId+' '+t.name+'. Status: '+oldStatus+' → '+newStatus+'. Action plan, RACI, and agenda updated.';
     _logNotification(taskId,user,'',alertMsg,'statuschange');
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'callout_write',id:'co-'+Date.now(),type:'statuschange',title:taskId+' Status: '+oldStatus+' → '+newStatus,message:alertMsg,taggedUser:ownerKey||user,taggedTask:taskId,createdBy:user,createdAt:new Date().toISOString(),dueDate:''})}).catch(()=>{});
     _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ AI workflow complete — '+taskId+' done.</div>',5000);
