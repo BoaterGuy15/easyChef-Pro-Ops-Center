@@ -1525,7 +1525,7 @@ function _logStatusChange(taskId,fromStatus,toStatus,note){
 function _logNotification(taskId,toUser,channel,message,type){
   if(!CONFIG.sheetsUrl) return;
   const chName=(channel||'').replace('#','');
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-'+Date.now(),taskId:taskId||'',toUser:toUser||'',channel:channel||'',message:message||'',sentBy:window._DGL_USER||'system',sentAt:new Date().toLocaleString('en-CA',{timeZone:'America/Los_Angeles'}),type:type||'general'})}).catch(()=>{});
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'notification_write',id:'notif-'+Date.now(),taskId:taskId||'',toUser:toUser||'',channel:channel||'',message:message||'',sentBy:window._DGL_USER||'system',sentAt:new Date().toISOString(),type:type||'general'})}).catch(()=>{});
   if(chName){const ch=(_slackChannelsCache||[]).find(c=>c.name===chName);if(ch?.id)fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+ch.id+'&text='+encodeURIComponent(message||'')+'&user='+(window._DGL_USER||'')).catch(()=>{});}
 }
 function _logGap(taskId,type,description,agendaId){
@@ -10266,8 +10266,9 @@ function _renderAlertsTab(){
     const taskName=task?(task.name||'').slice(0,38):'';
     const channelId=n.channel||'';
     const rawTs=n.sentAt||n.ts||'';
-    const tsDate=rawTs?new Date(rawTs):null;
-    const tsFmt=tsDate&&!isNaN(tsDate)?tsDate.toLocaleString('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    const _tsParsed=rawTs?new Date(rawTs.replace(/,\s*/,' ').replace(/\s+a\.m\./,' AM').replace(/\s+p\.m\./,' PM')):null;
+    const tsDate=_tsParsed&&!isNaN(_tsParsed)?_tsParsed:null;
+    const tsFmt=tsDate?tsDate.toLocaleString('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     const viewTaskBtn=taskId?`<button onclick="_viewTaskDetails('${taskId}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 9px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔗 View Task</button>`:'';
     const markReadBtn=!isRead?`<button onclick="_markAlertRead('${n.id}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Mark read</button>`:'';
     const card=document.createElement('div');
