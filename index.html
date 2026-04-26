@@ -2032,6 +2032,59 @@ function _appendNote(taskId,text,type='note'){
 }
 function _noteEntryHtml(e){ const d=(e.ts||'').slice(0,10); return `<div style="padding:5px 0;border-bottom:1px solid rgba(37,42,53,0.4)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${d} · </span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);font-weight:600">${(e.name||e.user||'').replace(/</g,'&lt;')}</span><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);white-space:pre-wrap;word-break:break-word;margin-top:2px">${(e.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`; }
 function _notesInputSetColor(cid,color){ const el=document.getElementById('nl-input-'+cid); if(el) el.style.color=color; }
+// ── Task Messages (Messages sheet) — separate from Comments ──────────────────
+const _taskMsgCache={};
+function _renderTaskMessagesLog(taskId,cid,canAdd,placeholder){
+  const entries=_taskMsgCache[taskId]||[];
+  const iSt="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;box-sizing:border-box";
+  const _eSt2="font-size:13px;background:transparent;border:none;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;opacity:0.75";
+  const _swSt2="width:11px;height:11px;border-radius:50%;cursor:pointer;border:none;padding:0;flex-shrink:0";
+  const _barSt="display:flex;gap:2px;align-items:center;padding:3px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;flex-wrap:wrap";
+  const _eicons=['✓','⚠️','⛔','🔵','💡','🎯'];
+  const _esw=[{c:'var(--text)',t:'Default'},{c:'var(--green)',t:'Green'},{c:'var(--amber)',t:'Amber'},{c:'var(--red)',t:'Red'},{c:'var(--gold)',t:'Gold'},{c:'var(--muted)',t:'Muted'},{c:'#60a5fa',t:'Blue'},{c:'#c084fc',t:'Purple'}];
+  const _ebar=`<div style="${_barSt}">${_eicons.map(i=>`<button style="${_eSt2}" onclick="_insertAtCursor('nl-input-${cid}','${i}')">${i}</button>`).join('')}<span style="width:1px;height:12px;background:var(--border);margin:0 3px;display:inline-block"></span>${_esw.map(s=>`<button style="${_swSt2};background:${s.c}" onclick="_notesInputSetColor('${cid}','${s.c}')" title="${s.t}"></button>`).join('')}</div>`;
+  const logHtml=entries.length?entries.map(_noteEntryHtml).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No messages yet.</div>';
+  const _ph=placeholder||'Add a message…';
+  const addHtml=canAdd?`<div style="margin-top:8px">${_ebar}<textarea id="nl-input-${cid}" rows="2" style="${iSt};resize:vertical" placeholder="${_ph}"></textarea><button onclick="_submitTaskMessage('${taskId}','${cid}')" style="margin-top:5px;font-family:'DM Mono',monospace;font-size:10px;padding:4px 12px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">Update Discussion</button></div>`:'';
+  if(CONFIG.sheetsUrl) setTimeout(function(){
+    fetch(CONFIG.sheetsUrl+'?action=messages_read&taskId='+encodeURIComponent(taskId))
+      .then(function(r){return r.json();}).then(function(data){
+        const rows=(data.messages||[]);
+        if(!rows.length) return;
+        const merged=rows.map(function(r){return {user:r.fromUser||'',name:r.fromName||r.fromUser||'',ts:r.createdAt||r.ts||'',text:r.text||''};});
+        merged.sort(function(a,b){return (a.ts||'')<(b.ts||'')?-1:1;});
+        _taskMsgCache[taskId]=merged;
+        const log=document.getElementById(cid+'-entries');
+        if(log) log.innerHTML=merged.map(_noteEntryHtml).join('');
+      }).catch(function(){});
+  },250);
+  return `<div id="${cid}-entries" style="max-height:180px;overflow-y:auto">${logHtml}</div>${addHtml}`;
+}
+function _submitTaskMessage(taskId,cid){
+  const inp=document.getElementById('nl-input-'+cid);
+  const text=(inp?inp.value:'').trim(); if(!text) return;
+  const submitBtn=inp?inp.parentElement&&inp.parentElement.querySelector('button[onclick*="_submitTaskMessage"]'):null;
+  if(submitBtn){ if(submitBtn._dglSubmitting) return; submitBtn._dglSubmitting=true; setTimeout(function(){ submitBtn._dglSubmitting=false; },2000); }
+  const user=window._DGL_USER||'anonymous';
+  const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
+  const fromName=(info.name||user).split(' ')[0];
+  const ts=new Date().toISOString();
+  const id='msg-'+Date.now();
+  if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
+  _taskMsgCache[taskId].push({user,name:fromName,ts,text});
+  if(inp) inp.value='';
+  const log=document.getElementById(cid+'-entries');
+  if(log){ log.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join(''); log.scrollTop=log.scrollHeight; }
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id,taskId,fromUser:user,fromName,text,createdAt:ts,type:'task'})}).catch(function(){});
+    const linked=_getTaskSlackLink(taskId);
+    if(linked.channelId){
+      const slackMsg='['+taskId+'] Message from '+fromName+': '+text;
+      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(user)).catch(function(){});
+      _logNotification(taskId,'',linked.channelId,slackMsg,'discussion');
+    }
+  }
+}
 function _submitNote(taskId,cid){
   const inp=document.getElementById('nl-input-'+cid);
   const text=(inp?inp.value:'').trim(); if(!text) return;
@@ -3550,8 +3603,8 @@ function _buildTaskExpandHtml(taskId){
           <button onclick="raciAiFind('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
         </div>
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
-        ${lbl('TEAM DISCUSSION')}
-        ${_renderNotesLog(taskId,'raci-discussion-'+taskId,!!window._DGL_USER&&window._DGL_USER!=='view','Add a comment — posts here and to the linked Slack channel')}
+        ${lbl('💬 TEAM MESSAGES')}
+        ${_renderTaskMessagesLog(taskId,'raci-discussion-'+taskId,!!window._DGL_USER&&window._DGL_USER!=='view','Add a message — posts here and to the linked Slack channel')}
         ${lbl('💬 DIRECT MESSAGE')}
         ${_renderDMSection(taskId,'raci-dm-'+taskId)}
         ${_buildDocsSection('task',taskId,t.name)}
