@@ -2798,33 +2798,59 @@ function _markTaskComplete(taskId){
       reviewNeeded:'false'
     })}).catch(()=>{});
 
+    // d. POST completion summary .txt to Drive (all form fields)
+    const _compSummary=[
+      'COMPLETION RECORD — '+taskId+' '+(t.name||''),
+      'Completed: '+(date||'')+' by '+deliveredBy,
+      'Team: '+involved.join(', '),
+      'Description: '+(delivery||''),
+      'Deliverable Type: '+(format||''),
+      'File Attached: '+fileAttached,
+      'Time Spent: '+(duration||''),
+      'Blockers: '+(blockers||''),
+      'Quality Score: '+quality,
+      'Next Steps: '+(nextAction||''),
+      'Unlocked Tasks: '+unblocked.map(function(u){return u.id+' — '+u.name;}).join(', '),
+      'Notified: '+toNotify.join(', ')
+    ].join('\n');
+    const _csSummaryB64=btoa(unescape(encodeURIComponent(_compSummary)));
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+      action:'file_upload',
+      docName:taskId+'_SUMMARY_'+date+'.txt',
+      filename:taskId+'_SUMMARY_'+date+'.txt',
+      mimeType:'text/plain',
+      base64data:_csSummaryB64,
+      taskId,
+      agendaId:'',
+      sourceType:'task',
+      sourceId:taskId,
+      sourceName:t.name||taskId,
+      addedBy:window._DGL_USER||'system',
+      reviewNeeded:'false'
+    })}).catch(()=>{});
+    // e. Log summary to task's linked Slack channel via notifications sheet
+    const _csLinked=_getTaskSlackLink(taskId);
+    if(_csLinked&&_csLinked.channelId) _logNotification(taskId,'',_csLinked.channelId,_compSummary,'completion');
+
     _saveActionPlan(taskId,'raci','COMPLETION RECORD: '+delivery,taskId,'');
   }
 
   // Build unified Slack message
   const _logBy=window._DGL_USER||'system';
+  const _teamStr=involved.length?involved.join(', '):'—';
+  const _unblockedStr=unblocked.length?unblocked.map(u=>u.id+' — '+u.name).join(', '):'—';
+  const _fileStr=(fileAttached&&fileAttached!=='No')?'yes':'no';
   const slackMsg=[
-    '✅ TASK COMPLETE — '+taskId+' · '+(t.name||''),
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    '👤 Completed by: '+deliveredBy,
-    (involved.length?'🤝 Also involved: '+involved.join(', '):''),
-    '',
-    '📦 What was delivered:',
-    delivery,
-    '',
-    '📁 Format: '+(format||'—'),
-    '📎 File attached: '+fileAttached,
-    '⭐ Quality: '+quality+'/5 — '+qualityLabel,
-    '⏱ Time taken: '+(duration||'—'),
-    '',
-    (unlocks?'🔓 This unlocks:\n'+unlocks:''),
-    (blockers?'⚠️ Blockers encountered:\n'+blockers:''),
-    (nextAction?'➡️ Next step: '+nextAction:''),
-    '',
-    '📅 Completed: '+date,
-    '🔔 Notified: '+toNotify.join(', '),
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-  ].filter(Boolean).join('\n');
+    '✅ TASK COMPLETE — '+(t.name||taskId)+' ('+taskId+')',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '👤 WHO: '+deliveredBy+' + team: '+_teamStr,
+    '📦 WHAT: '+(delivery||'—')+' | Type: '+(format||'—'),
+    '📅 WHEN: '+(date||'—')+' | Time spent: '+(duration||'—'),
+    '💥 IMPACT: '+quality+'/10 quality',
+    '🔓 NEXT: '+(nextAction||'—')+' | Unlocks: '+_unblockedStr,
+    '📎 File: '+_fileStr,
+    '🔗 '+_taskUrl(taskId),
+  ].join('\n');
 
   // Post to task's linked Slack channel
   if(CONFIG.sheetsUrl){
@@ -14384,8 +14410,10 @@ function _buildCalloutsHtml(canEditControls){
 function buildCallouts(){
   const ganttEl=document.getElementById('gantt-co-inner');
   const lpEl=document.getElementById('lp-co-inner');
+  const acEl=document.getElementById('ac-co-inner');
   if(ganttEl) ganttEl.innerHTML=_buildCalloutsHtml(true);
   if(lpEl) lpEl.innerHTML=_buildCalloutsHtml(true);
+  if(acEl) acEl.innerHTML=_buildCalloutsHtml(true);
 }
 
 function _renderCalloutsPanel(containerId){
@@ -16125,18 +16153,9 @@ function _toggleACPanel(which){
     else{panel&&panel.classList.remove('open');btn&&btn.classList.remove('active-panel');}
   });
   if(which==='ms') _debouncedBuildMilestones();
-  if(which==='co') _acLoadCallouts();
+  if(which==='co') _renderCalloutsPanel('ac-co-inner');
 }
 
-function _acLoadCallouts(){
-  const el=document.getElementById('ac-co-inner');
-  if(!el) return;
-  const cos=window._coCache||[];
-  const open=cos.filter(c=>c.dismissed!=='true');
-  const badge=document.getElementById('ac-co-badge');
-  if(badge){badge.textContent=open.length;badge.style.display=open.length?'inline-flex':'none';}
-  el.innerHTML=open.length?open.map(c=>`<div style="padding:5px 0;border-bottom:1px solid var(--border)"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold)">[${c.type||'note'}]</span> <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text)">${c.title||c.message||''}</span></div>`).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">No open callouts</div>';
-}
 
 function _acBarClick(barId){
   const bar=_acBarMap.get(barId);
@@ -16257,7 +16276,7 @@ function buildActionsGantt(){
     const off=_ganttDayOff(today);
     scroll.scrollLeft=Math.max(0,Math.round(off*_acGanttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
     // update callout badge
-    _acLoadCallouts();
+    if(typeof _coRenderBadge==='function')_coRenderBadge();
     _initACGanttHover();
   }
 
@@ -16984,6 +17003,7 @@ function _coRenderBadge(){
   _setBadge('co-float-badge');
   _setBadge('gantt-co-badge');
   _setBadge('lp-co-badge');
+  _setBadge('ac-co-badge');
 }
 
 function _coRenderPanel(){
