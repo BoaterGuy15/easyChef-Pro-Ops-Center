@@ -3860,7 +3860,7 @@ function raciAiFind(taskId){
       const text=_stripMarkdown(data.response||data.result||data.text||data.content||JSON.stringify(data));
       _raciAiSummaries[taskId]=text;
       const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap";
-      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Slack</button></div>`+_renderSuperAiBtn(taskId,'raci',t.name,t.status,t.owner||'—');
+      el.innerHTML=`<div style="border:1px solid var(--gold);border-radius:5px;padding:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">AI SUMMARY</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.5;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div id="raci-ai-actions-${taskId}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="raciAiPostToSlack('${taskId}',this)" style="${_bSt}">📤 Post to Messages</button></div>`+_renderSuperAiBtn(taskId,'raci',t.name,t.status,t.owner||'—');
     })
     .catch(()=>{ if(btn){ btn.textContent='🔍 AI Find Relevant'; btn.disabled=false; } if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--red);padding:4px">Analysis failed.</div>'; });
 }
@@ -3930,15 +3930,25 @@ function raciAiStatusConfirm(taskId,btn){
 function raciAiPostToSlack(taskId,btn){
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId); if(!t) return;
   const linked=_getTaskSlackLink(taskId);
-  if(!linked.channelId){ alert('Link a Slack channel first.'); return; }
   const summary=_raciAiSummaries[taskId]||'';
   if(!summary){ alert('No AI summary to post.'); return; }
   const text=`🤖 AI Analysis for [${t.id} ${t.name}]:\n\n${summary}`;
+  const user=window._DGL_USER||'system';
+  const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
+  const fromName=(info.name||user).split(' ')[0];
+  const createdAt=new Date().toISOString();
   btn.textContent='Posting…'; btn.disabled=true;
-  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(text)+'&user='+encodeURIComponent(window._DGL_USER||''))
-    .then(r=>r.json())
-    .then(()=>{ _raciConfirmBtn(btn,'📤 Post to Slack'); })
-    .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
+  // Write to Messages sheet
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+Date.now(),taskId,fromUser:user,fromName:'🔍 AI ('+fromName+')',text,createdAt,type:'ai'})}).catch(()=>{});
+    if(linked.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(text)+'&user='+encodeURIComponent(user)).catch(()=>{});
+  }
+  // Update live TEAM MESSAGES display
+  if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
+  _taskMsgCache[taskId].push({user,name:'🔍 AI ('+fromName+')',ts:createdAt,text});
+  const log=document.getElementById('raci-discussion-'+taskId+'-entries');
+  if(log){ log.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join(''); log.scrollTop=log.scrollHeight; }
+  _raciConfirmBtn(btn,'📤 Post to Messages');
 }
 function _addAgendaItem(text,btn,origLabel,category){
   const item={id:_genAgendaId(),title:text,detail:'',decision:'',checked:false,owner:'',deadline:'',category:category||'Manual'};
@@ -6917,7 +6927,7 @@ ${globalCtx}`;
 function _renderSuperAiResult(id, type, text, ts){
   const resultEl=document.getElementById('super-ai-result-'+id); if(!resultEl) return;
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
-  resultEl.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">⚡ SUPER AI ACTION PLAN</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${ts}</div><div id="super-ai-text-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="_superAiPostToSlack('${id}','${type}',this)" style="${_bSt}">📤 Post to Slack</button><button onclick="_superAiSave('${id}','${type}',this)" style="${_bSt}">💾 Add Action Plan</button></div>`;
+  resultEl.innerHTML=`<div style="border-left:3px solid var(--gold);border-radius:0 5px 5px 0;padding:10px 12px;background:var(--surface);margin-top:8px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:4px">⚡ SUPER AI ACTION PLAN</div><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px">${ts}</div><div id="super-ai-text-${id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;line-height:1.6;user-select:text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button onclick="_superAiPostToSlack('${id}','${type}',this)" style="${_bSt}">${type==='raci'?'📤 Post to Messages':'📤 Post to Slack'}</button><button onclick="_superAiSave('${id}','${type}',this)" style="${_bSt}">💾 Add Action Plan</button></div>`;
 }
 function _superAiRestore(id, type){
   const _srTask=DASHBOARD_DATA.tasks.find(t=>t.id===id);
@@ -7016,14 +7026,24 @@ function _superAiPostToSlack(id, type, btn){
   if(type==='raci'){ const lk=_getTaskSlackLink(id); channelId=lk.channelId; }
   else if(type==='agenda'){ const lk=_getTaskSlackLink('agenda_'+id); channelId=lk.channelId; }
   else channelId=_slackChannelId||'';
-  if(!channelId){ alert('Link a Slack channel first.'); return; }
   const el=document.getElementById('super-ai-text-'+id);
   const text=el?el.textContent:''; if(!text) return;
+  const user=window._DGL_USER||'system';
+  const info=typeof _getMemberInfo==='function'?_getMemberInfo(user):{name:user};
+  const fromName=(info.name||user).split(' ')[0];
+  const createdAt=new Date().toISOString();
+  const fullText='⚡ Super AI Action Plan:\n\n'+text;
   btn.textContent='Posting…'; btn.disabled=true;
-  fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent('⚡ Super AI Action Plan:\n\n'+text)+'&user='+encodeURIComponent(window._DGL_USER||''))
-    .then(r=>r.json())
-    .then(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; })
-    .catch(()=>{ btn.textContent='📤 Post to Slack'; btn.disabled=false; });
+  // For task panel — write to Messages sheet
+  if(type==='raci'){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+Date.now(),taskId:id,fromUser:user,fromName:'⚡ Super AI ('+fromName+')',text:fullText,createdAt,type:'ai'})}).catch(()=>{});
+    if(!_taskMsgCache[id]) _taskMsgCache[id]=[];
+    _taskMsgCache[id].push({user,name:'⚡ Super AI ('+fromName+')',ts:createdAt,text:fullText});
+    const log=document.getElementById('raci-discussion-'+id+'-entries');
+    if(log){ log.innerHTML=_taskMsgCache[id].map(_noteEntryHtml).join(''); log.scrollTop=log.scrollHeight; }
+  }
+  if(channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(channelId)+'&text='+encodeURIComponent(fullText)+'&user='+encodeURIComponent(user)).catch(()=>{});
+  btn.textContent='📤 Post to Messages'; btn.disabled=false;
 }
 function _superAiSave(id, type, btn){
   const el=document.getElementById('super-ai-text-'+id);
