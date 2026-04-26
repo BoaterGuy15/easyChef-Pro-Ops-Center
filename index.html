@@ -3827,35 +3827,22 @@ function raciAiFind(taskId){
   if(!t||!CONFIG.sheetsUrl) return;
   const btn=event.target;
   const aiEl=document.getElementById('raci-expand-ai-'+taskId);
-  const linked=_getTaskSlackLink(taskId);
-  if(!linked.channelId||linked.channelId.startsWith('D')){
-    if(aiEl) aiEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);padding:4px">'+(linked.channelId&&linked.channelId.startsWith('D')?'DM channel history unavailable (bot scope removed).':'Link a Slack channel first to enable AI analysis.')+'</div>';
-    return;
-  }
   if(btn){ btn.textContent='Fetching messages…'; btn.disabled=true; }
-  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(linked.channelId)+'&limit=20')
-    .then(r=>r.json())
-    .then(data=>{
-      if(btn) btn.textContent='Analyzing…';
-      const msgs=(data.messages||[]).reverse();
-      const msgText=msgs.map(m=>(m.user||'bot')+': '+(m.text||'')).join('\n');
-      return fetch(CONFIG.sheetsUrl+'?action=slack_archive_search&query='+encodeURIComponent(t.name))
-        .then(r=>r.json()).catch(()=>({messages:[]}))
-        .then(archData=>{
-          const archMsgs=(archData.messages||[]).slice(0,25);
-          const archSection=archMsgs.length?'\n\nSLACK ARCHIVE (historical messages mentioning this task):\n'+archMsgs.map(function(a){return '['+a.date+'] #'+a.channel+' '+a.user+': '+a.message;}).join('\n'):'';
-          return fetch(CONFIG.sheetsUrl+'?action=messages_read&taskId='+encodeURIComponent(taskId))
-            .then(function(r){return r.json();}).catch(function(){return {messages:[]};})
-            .then(function(internalData){
-              const internalMsgs=(internalData.messages||[]);
-              const internalSection=internalMsgs.length?'\n\nINTERNAL TEAM MESSAGES:\n'+internalMsgs.map(function(m){return '['+(m.createdAt||m.ts||'').slice(0,10)+'] '+(m.fromName||m.fromUser||'?')+': '+(m.text||'');}).join('\n'):'';
-              const taskCtx=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nNotes: ${t.flag||'none'}`;
-              let slackSection=`Here are the last ${msgs.length} messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${msgText}`;
-              const base=`${taskCtx}\n\n${slackSection}${internalSection}${archSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`;
-              const prompt=base.length>3000?(()=>{ let lines=msgText.split('\n'); while(lines.length>1){ const candidate=`${taskCtx}\n\nHere are the most recent messages from #${(linked.channelName||'').replace(/^#/,'').split(' ')[0]}:\n\n${lines.join('\n')}${internalSection}${archSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.`; if(candidate.length<=3000) return candidate; lines=lines.slice(1); } return `${taskCtx}\n\n${lines.join('\n')}${internalSection}${archSection}\n\nIdentify relevant discussion, decisions made, blockers, and action items specific to this task.`; })():base;
-              const system=`You are analyzing both internal team messages and Slack history for relevance to ${t.id} ${t.name} (${t.cat}). Filter ruthlessly — only surface messages directly related to this specific task's deliverable. Ignore messages about other tasks. Be specific and concise. Format your response as plain text only. No markdown symbols (##, ###, **, *, ---, backticks). Use ALL CAPS for section headers. Use numbered lists. Keep formatting clean for Slack posting.`;
-              return fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
-            });
+  fetch(CONFIG.sheetsUrl+'?action=slack_archive_search&query='+encodeURIComponent(t.name))
+    .then(r=>r.json()).catch(()=>({messages:[]}))
+    .then(function(archData){
+      const archMsgs=(archData.messages||[]).slice(0,25);
+      const archSection=archMsgs.length?'\n\nSLACK ARCHIVE (historical messages mentioning this task):\n'+archMsgs.map(function(a){return '['+a.date+'] #'+a.channel+' '+a.user+': '+a.message;}).join('\n'):'';
+      return fetch(CONFIG.sheetsUrl+'?action=messages_read&taskId='+encodeURIComponent(taskId))
+        .then(function(r){return r.json();}).catch(function(){return {messages:[]};})
+        .then(function(internalData){
+          if(btn) btn.textContent='Analyzing…';
+          const internalMsgs=(internalData.messages||[]);
+          const internalSection=internalMsgs.length?'\nINTERNAL TEAM MESSAGES:\n'+internalMsgs.map(function(m){return '['+(m.createdAt||m.ts||'').slice(0,10)+'] '+(m.fromName||m.fromUser||'?')+': '+(m.text||'');}).join('\n'):'\nINTERNAL TEAM MESSAGES:\nNo messages yet.';
+          const taskCtx=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nNotes: ${t.notes||'none'}\nDecision: ${t.decision||'none'}`;
+          const prompt=`Analyze the internal team messages and task data below. Identify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.\n\n${taskCtx}${internalSection}${archSection}`;
+          const system=`You are analyzing internal team messages and task data for relevance to ${t.id} ${t.name} (${t.cat}). Filter ruthlessly — only surface information directly related to this specific task's deliverable. Be specific and concise. Format your response as plain text only. No markdown symbols (##, ###, **, *, ---, backticks). Use ALL CAPS for section headers. Use numbered lists.`;
+          return fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
         });
     })
     .then(r=>r.json())
