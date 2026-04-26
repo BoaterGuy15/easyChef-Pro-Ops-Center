@@ -16,7 +16,7 @@
   const FIELDS = [
     'id','name','cat','pri','status','owner','deps','notes',
     'Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',
-    'flag','flagColor','sd','ed','lastStatusChange'
+    'flag','flagColor','sd','ed','lastStatusChange','decision'
   ];
   // Budget fields persisted as key/value rows. Array/object values are JSON strings.
   const BUDGET_FIELDS = [
@@ -3695,6 +3695,7 @@ function saveTaskDecision(taskId){
   if(!t) return;
   t.decision=el.value;
   saveToLocal();
+  _saveTasksNow();
   _syncTaskToAgenda(taskId);
 }
 function _insertAtCursor(elId,ch){
@@ -12080,7 +12081,7 @@ function deleteTask(taskId){
 }
 
 // ── localStorage persistence ────────────────────────────────
-const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','flagNotes','sd','ed','notes','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+const _PERSIST_FIELDS=['status','pri','cat','owner','flag','flagColor','flagNotes','sd','ed','notes','decision','lastStatusChange','Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
 const PROTECTED_DATE_FIELDS=new Set(['sd','ed','lastStatusChange']);
 function _mergeTask(t,s){
   _PERSIST_FIELDS.forEach(f=>{
