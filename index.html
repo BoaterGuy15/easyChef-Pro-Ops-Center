@@ -1766,6 +1766,7 @@ function setTaskStatus(id,val,el){
   task.status=val;
   const _p=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   task.lastStatusChange=_p.getFullYear()+'-'+String(_p.getMonth()+1).padStart(2,'0')+'-'+String(_p.getDate()).padStart(2,'0');
+  saveToLocal();
   _logStatusChange(id,_oldStatus,val,'Manual change by '+(window._DGL_USER||'system'));
   setTimeout(function(){ _runStatusAIWorkflow(id,val,_oldStatus); },800);
   masterRefresh();
