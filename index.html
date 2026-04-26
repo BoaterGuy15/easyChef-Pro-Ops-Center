@@ -10243,7 +10243,8 @@ function _renderAlertsTab(){
   const el=document.getElementById('mb-alerts-list');
   console.log('[DGL] Alerts container found:', !!el);
   if(!el) return;
-  const notifs=window._userNotifications||[];
+  const _parseNotifTs=v=>{ if(!v) return 0; const d=new Date(String(v).replace(/,\s*/,' ').replace(/\s+a\.m\./,' AM').replace(/\s+p\.m\./,' PM')); return isNaN(d)?0:d.getTime(); };
+  const notifs=(window._userNotifications||[]).slice().sort((a,b)=>_parseNotifTs(b.sentAt||b.ts)-_parseNotifTs(a.sentAt||a.ts));
   console.log('[DGL] Rendering', notifs.length, 'alerts into #mb-alerts-list');
   if(!notifs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No notifications yet.</div>'; return; }
   const read=_readNotifIds();
