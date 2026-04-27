@@ -28,7 +28,40 @@
 
   function doGet(e) {
     try {
+      // ── Slack OAuth callback (Slack redirects here after user authorizes) ──
+      // Slack sends ?code=...&state=<username> — no 'action' param
+      if (e && e.parameter && e.parameter.code) {
+        var slackCode  = e.parameter.code;
+        var slackState = e.parameter.state || ''; // username e.g. 'steve'
+        var clientId   = '6011668670116.10944470791062';
+        var clientSecret = PropertiesService.getScriptProperties().getProperty('SLACK_CLIENT_SECRET') || '';
+        var redirectUri  = 'https://script.google.com/macros/s/AKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw/exec';
+        var stored = false;
+        if (clientSecret) {
+          var tokenResp = UrlFetchApp.fetch('https://slack.com/api/oauth.v2.access', {
+            method: 'post',
+            payload: { client_id: clientId, client_secret: clientSecret, code: slackCode, redirect_uri: redirectUri }
+          });
+          var tokenData = JSON.parse(tokenResp.getContentText());
+          if (tokenData.ok && tokenData.authed_user && tokenData.authed_user.access_token) {
+            PropertiesService.getScriptProperties().setProperty('SLACK_USER_TOKEN_' + slackState, tokenData.authed_user.access_token);
+            stored = true;
+          }
+        }
+        return HtmlService.createHtmlOutput(
+          '<html><body style="font-family:monospace;background:#0d0d0d;color:#e0e0e0;padding:40px;text-align:center">' +
+          (stored ? '<p style="color:#4caf50">✓ Slack connected! You can close this tab.</p>' : '<p style="color:#e57373">⚠ Connection failed. Check SLACK_CLIENT_SECRET in Script Properties.</p>') +
+          '<script>try{window.opener&&window.opener.postMessage("slack_connected","*");}catch(x){}setTimeout(function(){window.close();},2000);</script>' +
+          '</body></html>'
+        );
+      }
       const action = e && e.parameter && e.parameter.action ? e.parameter.action : 'tasks';
+      // ── Slack token check ──────────────────────────────────────────────────
+      if (action === 'slack_check_token') {
+        var u = e.parameter.user || '';
+        var tok = PropertiesService.getScriptProperties().getProperty('SLACK_USER_TOKEN_' + u);
+        return respond(tok ? { connected: true } : { connected: false });
+      }
       if (action === 'budget_read') {
         return respond({ ok: true, budget: getBudget() });
       }
@@ -1413,7 +1446,7 @@ function showPage(id){
   if(id==='lp'){ _debouncedBuildMilestones(); loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
   if(id==='actions'){ _debouncedBuildMilestones(); setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
   if(id==='budget') loadBudgetFromSheets();
-  if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } }
+  if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } _slackCheckToken(); }
   if(id==='command'){
     _renderMasterAICard();
     const stale=Date.now()-(_masterAiLastRun||+sessionStorage.getItem('dgl_master_ai_ts')||0)>2*60*60*1000;
@@ -13522,6 +13555,12 @@ function _slackOAuthUrl(){
 //   var user    = e.parameter.user    || '';
 //   result = sendSlackMessage(channel, text, user);
 // }
+function _slackConnectPopup(){
+  const popup=window.open(_slackOAuthUrl(),'slack_oauth','width=600,height=700,left=200,top=100');
+  if(!popup){ window.open(_slackOAuthUrl(),'_blank'); return; }
+  const poll=setInterval(()=>{ try{ if(popup.closed){ clearInterval(poll); setTimeout(_slackCheckToken,500); } }catch(e){ clearInterval(poll); } },800);
+}
+window.addEventListener('message',e=>{ if(e.data==='slack_connected') setTimeout(_slackCheckToken,500); });
 function _slackCheckToken(){
   const user=window._DGL_USER;
   if(!user||!CONFIG.sheetsUrl) return;
@@ -13552,7 +13591,7 @@ function renderSlackCard(){
   const iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:12px;outline:none;box-sizing:border-box';
   el.innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <a id="slack-connect-btn" href="${_slackOAuthUrl()}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;text-decoration:none;white-space:nowrap">Connect My Slack Account</a>
+      <a id="slack-connect-btn" href="#" onclick="event.preventDefault();_slackConnectPopup()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;text-decoration:none;white-space:nowrap">Connect My Slack Account</a>
       <span id="slack-connect-badge" style="display:none;font-family:'DM Mono',monospace;font-size:10px;color:var(--green);padding:3px 10px;border:1px solid var(--green);border-radius:5px;white-space:nowrap"></span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
