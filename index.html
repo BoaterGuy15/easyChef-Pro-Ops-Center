@@ -3971,6 +3971,26 @@ function raciLinkSlack(taskId,sel){
 function _raciExpandLoadSlackFeed(taskId,channelId){
   const feedEl=document.getElementById('raci-expand-slack-feed-'+taskId);
   if(!feedEl||!CONFIG.sheetsUrl) return;
+  // If channelId is a name slug (not a real Slack ID like C/G/D/W), resolve it
+  if(channelId&&!/^[CGDWB]/i.test(channelId)){
+    const slug=channelId.replace(/^#/,'').toLowerCase();
+    const found=(_slackChannelsCache||[]).find(c=>(c.name||'').toLowerCase()===slug);
+    if(found){
+      channelId=found.id;
+      _saveTaskSlackLink(taskId,{channelId:found.id,channelName:'#'+found.name});
+      _syncChannelToSheets(taskId,found.id,'#'+found.name,slug);
+    } else {
+      feedEl.style.display='block';
+      feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Resolving #'+slug+'…</div>';
+      fetch(CONFIG.sheetsUrl+'?action=slack_channels').then(r=>r.json()).then(data=>{
+        const chs=data.channels||[]; _slackChannelsCache=chs; _buildChannelMappingSection();
+        const ch=chs.find(c=>(c.name||'').toLowerCase()===slug);
+        if(ch){ _saveTaskSlackLink(taskId,{channelId:ch.id,channelName:'#'+ch.name}); _syncChannelToSheets(taskId,ch.id,'#'+ch.name,slug); _raciExpandLoadSlackFeed(taskId,ch.id); }
+        else{ feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--amber)">#'+slug+' not found via API — ensure the Slack bot is a member of this channel.</div>'; }
+      }).catch(()=>{ feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Could not resolve channel.</div>'; });
+      return;
+    }
+  }
   if(channelId.startsWith('D')){feedEl.style.display='block';feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">DM channel history unavailable (bot scope removed).</div>';return;}
   feedEl.style.display='block';
   feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Loading…</div>';
