@@ -13659,7 +13659,10 @@ function _slackLoadMessages(channelId){
   fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=25')
     .then(r=>r.json())
     .then(data=>{
-      if(data.error){ feed.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--red);padding:8px">Error: ${data.error}</div>`; return; }
+      if(data.error){
+        const hint=data.error==='not_in_channel'?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);margin-top:6px">The bot needs to be invited to this channel first.<br>In Slack, go to the channel and type: <b>/invite @easychef</b> (or your bot\'s name)</div>':'';
+        feed.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--red);padding:8px">Error: ${data.error}${hint}</div>`; return;
+      }
       const msgs=data.messages||[];
       if(!msgs.length){ feed.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);text-align:center;padding:20px 0">No messages</div>'; return; }
       feed.innerHTML=msgs.map((m,i)=>{
