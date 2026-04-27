@@ -2517,6 +2517,9 @@ function _renderRaciChannelPicker(taskId){
     c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:4px"><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);flex:1">${chName.replace(/</g,'&lt;')} 🔒</span>${lockBtn}</div>`;
   }
   _buildChannelHistory(taskId,'raci-ch-history-'+taskId);
+  // Trigger feed load if channel is linked and feed hasn't started yet
+  const _feedEl=document.getElementById('raci-expand-slack-feed-'+taskId);
+  if(linked.channelId&&_feedEl&&_feedEl.style.display==='none') _raciExpandLoadSlackFeed(taskId,linked.channelId);
 }
 function _renderAgendaChannelPicker(id){
   const c=document.getElementById('agenda-chpicker-'+id); if(!c) return;
@@ -3777,7 +3780,7 @@ function _buildTaskExpandHtml(taskId){
         </div>
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
         ${lbl('CATEGORY → SLACK CHANNEL MAPPING')}
-        <div id="channel-mapping-section-task" style="margin-bottom:14px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Loading…</div></div>
+        <div id="channel-mapping-section-task" style="margin-bottom:14px"></div>
         ${lbl('💬 TEAM MESSAGES')}
         ${_renderTaskMessagesLog(taskId,'raci-discussion-'+taskId,!!window._DGL_USER&&window._DGL_USER!=='view','Add a message — posts here and to the linked Slack channel')}
         ${lbl('💬 DIRECT MESSAGE')}
@@ -3947,11 +3950,11 @@ function _raciExpandLoadChannels(taskId){
   const linked=_getTaskSlackLink(taskId);
   function _populate(){ requestAnimationFrame(()=>{ _renderRaciChannelPicker(taskId); _buildChannelMappingSection(); }); }
   if(_slackChannelsCache){ loadTaskChannelLinks().then(_populate); return; }
-  if(!CONFIG.sheetsUrl) return;
+  if(!CONFIG.sheetsUrl){ requestAnimationFrame(()=>{ const c=document.getElementById('raci-chpicker-'+taskId); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Not connected — configure Sheets URL in settings</div>'; const _cm=document.getElementById('channel-mapping-section-task'); if(_cm) _cm.innerHTML=''; }); return; }
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
     .then(r=>r.json())
     .then(data=>{ const chs=data.channels||[]; _slackChannelsCache=chs; loadTaskChannelLinks().then(()=>{ _autoLinkTaskChannels(); _buildChannelMappingSection(); _populate(); }); })
-    .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('raci-chpicker-'+taskId); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; }); });
+    .catch(()=>{ requestAnimationFrame(()=>{ const c=document.getElementById('raci-chpicker-'+taskId); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Channels unavailable</div>'; const _cm=document.getElementById('channel-mapping-section-task'); if(_cm) _cm.innerHTML=''; }); });
 }
 function raciLinkSlack(taskId,sel){
   const oldLinked=_getTaskSlackLink(taskId);
