@@ -13556,8 +13556,10 @@ function _slackOAuthUrl(){
 //   result = sendSlackMessage(channel, text, user);
 // }
 function _slackConnectPopup(){
-  const popup=window.open(_slackOAuthUrl(),'slack_oauth','width=600,height=700,left=200,top=100');
-  if(!popup){ window.open(_slackOAuthUrl(),'_blank'); return; }
+  const url=_slackOAuthUrl();
+  console.log('[DGL] Slack OAuth URL being opened for user='+window._DGL_USER+':', url);
+  const popup=window.open(url,'slack_oauth','width=600,height=700,left=200,top=100');
+  if(!popup){ window.open(url,'_blank'); return; }
   const poll=setInterval(()=>{ try{ if(popup.closed){ clearInterval(poll); setTimeout(_slackCheckToken,500); } }catch(e){ clearInterval(poll); } },800);
 }
 window.addEventListener('message',e=>{ if(e.data==='slack_connected') setTimeout(_slackCheckToken,500); });
