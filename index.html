@@ -2600,8 +2600,7 @@ function _relinkAllTasks(){
 }
 function _buildChannelMappingSection(){
   const el=document.getElementById('channel-mapping-section');
-  const elTask=document.getElementById('channel-mapping-section-task');
-  if(!el&&!elTask) return;
+  if(!el) return;
   const canAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER);
   const unlocked=_commsIsUnlocked();
   const canEdit=canAdmin&&unlocked;
@@ -2636,8 +2635,7 @@ function _buildChannelMappingSection(){
     ${subhead}${noChannels}${rows||`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No mappings defined.</div>`}
     ${addBtn}
   </div>`;
-  if(el) el.innerHTML=cardHtml;
-  if(elTask) elTask.innerHTML=cardHtml;
+  el.innerHTML=cardHtml;
   _buildDMChannelMappingSection();
 }
 function _loadDMChannelMap(){
@@ -3779,8 +3777,6 @@ function _buildTaskExpandHtml(taskId){
           <button onclick="raciAiFind('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
         </div>
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
-        ${lbl('CATEGORY → SLACK CHANNEL MAPPING')}
-        <div id="channel-mapping-section-task" style="margin-bottom:14px"></div>
         ${lbl('💬 TEAM MESSAGES')}
         ${_renderTaskMessagesLog(taskId,'raci-discussion-'+taskId,!!window._DGL_USER&&window._DGL_USER!=='view','Add a message — posts here and to the linked Slack channel')}
         ${lbl('💬 DIRECT MESSAGE')}
@@ -3948,7 +3944,7 @@ function _raciExpandLoadChannels(taskId){
   const _canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
   _loadCommentsFromSheets(taskId,taskId,merged=>{ const el=document.getElementById('raci-expand-comments-'+taskId); if(el) el.innerHTML=_buildTaskCommentsHtml(taskId,merged,_canAdmin); });
   const linked=_getTaskSlackLink(taskId);
-  function _populate(){ requestAnimationFrame(()=>{ _renderRaciChannelPicker(taskId); _buildChannelMappingSection(); }); }
+  function _populate(){ requestAnimationFrame(()=>{ _renderRaciChannelPicker(taskId); }); }
   if(_slackChannelsCache){ loadTaskChannelLinks().then(_populate); return; }
   if(!CONFIG.sheetsUrl){ requestAnimationFrame(()=>{ const c=document.getElementById('raci-chpicker-'+taskId); if(c) c.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Not connected — configure Sheets URL in settings</div>'; const _cm=document.getElementById('channel-mapping-section-task'); if(_cm) _cm.innerHTML=''; }); return; }
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
