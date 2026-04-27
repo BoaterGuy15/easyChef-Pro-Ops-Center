@@ -2222,6 +2222,28 @@ function _renderTaskMessagesLog(taskId,cid,canAdd,placeholder){
   },250);
   return `<div id="${cid}-entries" style="max-height:180px;overflow-y:auto">${logHtml}</div>${addHtml}`;
 }
+function _resolvedChannelId(taskId){
+  const linked=_getTaskSlackLink(taskId);
+  let chId=linked.channelId||'';
+  // Resolve name slug to real Slack ID from cache
+  if(chId&&!/^[CGDWB]/i.test(chId)){
+    const slug=chId.replace(/^#/,'').toLowerCase();
+    const found=(_slackChannelsCache||[]).find(c=>(c.name||'').toLowerCase()===slug);
+    if(found) chId=found.id;
+  }
+  // If still empty, derive from category channel map
+  if(!chId){
+    const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
+    if(t){
+      const catSlug=(_getCategoryChannelMap()[t.cat||'']||'').replace('#','').toLowerCase();
+      if(catSlug){
+        const ch=(_slackChannelsCache||[]).find(c=>(c.name||'').toLowerCase().includes(catSlug));
+        chId=ch?ch.id:catSlug;
+      }
+    }
+  }
+  return chId;
+}
 function _submitTaskMessage(taskId,cid){
   const inp=document.getElementById('nl-input-'+cid);
   const text=(inp?inp.value:'').trim(); if(!text) return;
@@ -2239,11 +2261,11 @@ function _submitTaskMessage(taskId,cid){
   if(log){ log.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join(''); log.scrollTop=log.scrollHeight; }
   if(CONFIG.sheetsUrl){
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id,taskId,fromUser:user,fromName,text,createdAt:ts,type:'task'})}).catch(function(){});
-    const linked=_getTaskSlackLink(taskId);
-    if(linked.channelId){
+    const chId=_resolvedChannelId(taskId);
+    if(chId){
       const slackMsg='['+taskId+'] Message from '+fromName+': '+text;
-      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(user)).catch(function(){});
-      _logNotification(taskId,'',linked.channelId,slackMsg,'discussion');
+      fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(user)).catch(function(){});
+      _logNotification(taskId,'',chId,slackMsg,'discussion');
     }
   }
 }
@@ -2260,11 +2282,11 @@ function _submitNote(taskId,cid){
   if(log){ log.innerHTML=entries.length?entries.map(_noteEntryHtml).join(''):'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No notes yet.</div>'; log.scrollTop=log.scrollHeight; }
   // Post to linked Slack channel
   const user=window._DGL_USER||'unknown';
-  const linked=_getTaskSlackLink(taskId);
-  if(linked.channelId&&CONFIG.sheetsUrl){
+  const chId=_resolvedChannelId(taskId);
+  if(chId&&CONFIG.sheetsUrl){
     const slackMsg='['+taskId+'] Note from '+user+': '+text;
-    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(user)).catch(()=>{});
-    _logNotification(taskId,'',linked.channelId,slackMsg,'discussion');
+    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(slackMsg)+'&user='+encodeURIComponent(user)).catch(()=>{});
+    _logNotification(taskId,'',chId,slackMsg,'discussion');
   }
 }
 const _DM_MEMBERS=[{key:'taylor',name:'Taylor'},{key:'steve',name:'Steve'},{key:'adam',name:'Adam'},{key:'mary',name:'Mary'},{key:'jr',name:'JR'},{key:'hammad',name:'Hammad'},{key:'searah',name:'Searah'},{key:'sadee',name:'Sadee'}];
@@ -4176,10 +4198,9 @@ function addTaskComment(taskId){
   const canAdmin=['taylor','steve','hammad','adam'].includes(user);
   const el=document.getElementById('raci-expand-comments-'+taskId);
   if(el) el.innerHTML=_buildTaskCommentsHtml(taskId,comments,canAdmin);
-  const linked=_getTaskSlackLink(taskId);
-  if(linked.channelId&&CONFIG.sheetsUrl){
-    const msg=text;
-    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(user)).catch(()=>{});
+  const chId=_resolvedChannelId(taskId);
+  if(chId&&CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(chId)+'&text='+encodeURIComponent(text)+'&user='+encodeURIComponent(user)).catch(()=>{});
   }
 }
 function deleteTaskComment(taskId,idx){
@@ -7217,8 +7238,8 @@ function _superAiAddToAgenda(id, btn){
 function _superAiPostToSlack(id, type, btn){
   if(!CONFIG.sheetsUrl){ alert('No Sheets URL configured.'); return; }
   let channelId='';
-  if(type==='raci'){ const lk=_getTaskSlackLink(id); channelId=lk.channelId; }
-  else if(type==='agenda'){ const lk=_getTaskSlackLink('agenda_'+id); channelId=lk.channelId; }
+  if(type==='raci'){ channelId=_resolvedChannelId(id); }
+  else if(type==='agenda'){ const lk=_getTaskSlackLink('agenda_'+id); channelId=lk.channelId||''; }
   else channelId=_slackChannelId||'';
   const el=document.getElementById('super-ai-text-'+id);
   const text=el?el.textContent:''; if(!text) return;
