@@ -2504,7 +2504,7 @@ function _renderRaciChannelPicker(taskId){
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
   if(canEdit&&unlocked&&chs.length){
     const minsLeft=Math.max(1,Math.ceil((parseInt(sessionStorage.getItem('dgl_channel_unlock_'+taskId)||'0')-Date.now())/60000));
-    const opts='<option value="">— No linked channel —</option>'+chs.map(ch=>`<option value="${ch.id}"${ch.id===savedChannelId?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
+    const opts='<option value="">— No linked channel —</option>'+chs.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(ch=>`<option value="${ch.id}"${ch.id===savedChannelId?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
     c.innerHTML=`<select id="raci-expand-slack-${taskId}" style="${iSt};margin-bottom:4px" onchange="raciLinkSlack('${taskId}',this)">${opts}</select><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">🔓 Unlocked · ${minsLeft} min remaining</div>`;
   } else {
     const lockBtn=canEdit?`<button onclick="_showChannelAuthModal('${taskId}',()=>_renderRaciChannelPicker('${taskId}'))" style="${_bSt}">🔒 Change Channel</button>`:'';
@@ -2524,7 +2524,7 @@ function _renderAgendaChannelPicker(id){
   const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap";
   if(canEdit&&unlocked&&chs.length){
     const minsLeft=Math.max(1,Math.ceil((parseInt(sessionStorage.getItem('dgl_channel_unlock_'+_agTid)||'0')-Date.now())/60000));
-    const opts='<option value="">— No linked channel —</option>'+chs.map(ch=>`<option value="${ch.id}"${linked.channelId===ch.id?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
+    const opts='<option value="">— No linked channel —</option>'+chs.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(ch=>`<option value="${ch.id}"${linked.channelId===ch.id?' selected':''}>#${ch.name} (${ch.member_count||0})</option>`).join('');
     c.innerHTML=`<select id="agenda-expand-slack-${id}" style="${iSt};margin-bottom:4px" onchange="agendaLinkSlack('${id}',this)">${opts}</select><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--amber)">🔓 Unlocked · ${minsLeft} min remaining</div>`;
   } else {
     const lockBtn=canEdit?`<button onclick="_showChannelAuthModal('${_agTid}',()=>_renderAgendaChannelPicker('${id}'))" style="${_bSt}">🔒 Change Channel</button>`:'';
