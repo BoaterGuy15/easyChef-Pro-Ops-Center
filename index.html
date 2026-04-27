@@ -4033,10 +4033,18 @@ function raciAiFind(taskId){
           if(btn) btn.textContent='Analyzing…';
           const internalMsgs=(internalData.messages||[]);
           const internalSection=internalMsgs.length?'\nINTERNAL TEAM MESSAGES:\n'+internalMsgs.map(function(m){return '['+(m.createdAt||m.ts||'').slice(0,10)+'] '+(m.fromName||m.fromUser||'?')+': '+(m.text||'');}).join('\n'):'\nINTERNAL TEAM MESSAGES:\nNo messages yet.';
-          const taskCtx=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nNotes: ${t.notes||'none'}\nDecision: ${t.decision||'none'}`;
-          const prompt=`Analyze the internal team messages and task data below. Identify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.\n\n${taskCtx}${internalSection}${archSection}`;
-          const system=`You are analyzing internal team messages and task data for relevance to ${t.id} ${t.name} (${t.cat}). Filter ruthlessly — only surface information directly related to this specific task's deliverable. Be specific and concise. Format your response as plain text only. No markdown symbols (##, ###, **, *, ---, backticks). Use ALL CAPS for section headers. Use numbered lists.`;
-          return fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
+          const linked=_getTaskSlackLink(taskId);
+          const chId=linked.channelId||'';
+          const chName=(linked.channelName||chId).replace(/^#/,'');
+          const slackChFetch=chId&&CONFIG.sheetsUrl?fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(chId)+'&limit=25').then(function(r){return r.json();}).catch(function(){return {messages:[]};}):Promise.resolve({messages:[]});
+          return slackChFetch.then(function(slackChData){
+            const slackChMsgs=(slackChData.messages||[]);
+            const slackChSection=slackChMsgs.length?'\n\nSLACK CHANNEL MESSAGES (#'+chName+'):\n'+slackChMsgs.map(function(m){return '['+(m.ts?new Date(parseFloat(m.ts)*1000).toISOString().slice(0,10):'?')+'] '+(m.user||'?')+': '+(m.text||'');}).join('\n'):'';
+            const taskCtx=`Task: ${t.id} — ${t.name}\nStatus: ${t.status} | Priority: ${t.pri} | Owner: ${t.owner||'—'}\nNotes: ${t.notes||'none'}\nDecision: ${t.decision||'none'}`;
+            const prompt=`Analyze the internal team messages and task data below. Identify relevant discussion, decisions made, blockers, and action items specific to this task. Be specific and concise.\n\n${taskCtx}${internalSection}${archSection}${slackChSection}`;
+            const system=`You are analyzing internal team messages and task data for relevance to ${t.id} ${t.name} (${t.cat}). Filter ruthlessly — only surface information directly related to this specific task's deliverable. Be specific and concise. Format your response as plain text only. No markdown symbols (##, ###, **, *, ---, backticks). Use ALL CAPS for section headers. Use numbered lists.`;
+            return fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system,prompt})});
+          });
         });
     })
     .then(r=>r.json())
