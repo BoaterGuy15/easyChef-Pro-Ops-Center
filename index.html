@@ -2491,9 +2491,15 @@ async function _submitChannelAuth(){
     const inp=document.getElementById('cauth-pw'); if(inp){ inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.value=''; }
   }
 }
+function _mergedChannelList(){
+  const chs=_slackChannelsCache||[];
+  const catSlugs=Object.values(_getCategoryChannelMap()).filter(Boolean).map(s=>s.replace('#','').toLowerCase());
+  const extras=catSlugs.filter(s=>!chs.find(c=>(c.name||'').toLowerCase()===s)).map(s=>({id:s,name:s,member_count:0,_synthetic:true}));
+  return [...chs,...extras];
+}
 function _renderRaciChannelPicker(taskId){
   const c=document.getElementById('raci-chpicker-'+taskId); if(!c) return;
-  const chs=_slackChannelsCache||[];
+  const chs=_mergedChannelList();
   const linked=_getTaskSlackLink(taskId);
   const savedChannelId=linked.channelId||'';
   console.log('[DGL] Building channel dropdown for',taskId,'saved:',savedChannelId);
@@ -2514,7 +2520,7 @@ function _renderRaciChannelPicker(taskId){
 }
 function _renderAgendaChannelPicker(id){
   const c=document.getElementById('agenda-chpicker-'+id); if(!c) return;
-  const chs=_slackChannelsCache||[];
+  const chs=_mergedChannelList();
   const linked=_getTaskSlackLink('agenda_'+id);
   const chName=linked.channelName||linked.channelId||'Not linked';
   const canEdit=['taylor','steve','adam','hammad'].includes(window._DGL_USER);
