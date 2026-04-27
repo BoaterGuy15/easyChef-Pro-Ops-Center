@@ -2553,6 +2553,7 @@ function _getCategoryChannelMap(){
 function _saveCategoryChannel(cat,slug){
   const oldSlug=(_getCategoryChannelMap()[cat])||'none';
   _categoryChannelMapOverrides[cat]=slug;
+  _updateCatChannelHint();
   if(CONFIG.sheetsUrl){
     const user=window._DGL_USER||'unknown';
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'category',key:cat,channelId:slug||'',channelName:slug||'',changedBy:user})}).catch(()=>{});
@@ -2589,7 +2590,9 @@ function _relinkAllTasks(){
   if(btn){ btn.textContent='↺ Linked ✓'; btn.disabled=true; setTimeout(()=>{ btn.textContent='↺ Re-link All Tasks'; btn.disabled=false; },1500); }
 }
 function _buildChannelMappingSection(){
-  const el=document.getElementById('channel-mapping-section'); if(!el) return;
+  const el=document.getElementById('channel-mapping-section');
+  const elTask=document.getElementById('channel-mapping-section-task');
+  if(!el&&!elTask) return;
   const canAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER);
   const unlocked=_commsIsUnlocked();
   const canEdit=canAdmin&&unlocked;
@@ -2599,7 +2602,7 @@ function _buildChannelMappingSection(){
   const _selSt="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;padding:3px 6px;border-radius:4px;outline:none";
   const _chOpts=cur=>'<option value="">— none —</option>'+chs.map(c=>`<option value="${c.name}"${c.name===cur?' selected':''}>#${c.name}</option>`).join('');
   const noChannels=!chs.length?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">Channels load when the Slack section is open. Dropdowns will populate automatically.</div>`:'';
-  const _cats=(_settingsCache&&_settingsCache.categories&&_settingsCache.categories.length)?_settingsCache.categories.map(c=>c.name):Object.keys(map);
+  const _cats=((_settingsCache&&_settingsCache.categories&&_settingsCache.categories.length)?_settingsCache.categories.map(c=>c.name):Object.keys(map)).slice().sort((a,b)=>a.localeCompare(b));
   const rows=_cats.map(cat=>{const slug=map[cat]||'';return `
     <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);min-width:200px;flex-shrink:0">${cat.replace(/</g,'&lt;')}</div>
@@ -2616,7 +2619,7 @@ function _buildChannelMappingSection(){
   const unlockBtn=canAdmin&&!unlocked?`<button onclick="openCommsAuthModal()" style="${_bSt};border-color:var(--accent);color:var(--accent)">🔒 Unlock to Edit</button>`:'';
   const unlockedBadge=canAdmin&&unlocked?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#22c55e;margin-left:8px">🔓 Unlocked · ${_getCommsUnlockMinutes()}min remaining</span>`:'';
   const subhead=!canEdit?`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px">${canAdmin?'Locked — click Unlock to Edit.':'View only — Taylor or Steve can edit.'}</div>`:'';
-  el.innerHTML=`<div class="card" style="padding:16px">
+  const cardHtml=`<div class="card" style="padding:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:2px">CATEGORY → SLACK CHANNEL MAPPING</div>${lockIcon}${unlockedBadge}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${unlockBtn}${canEdit?`<button onclick="_saveAllCategoryMappings(this)" style="${_bSt}">💾 Save Mappings</button>`:''}<button id="ccm-relink-btn" onclick="_relinkAllTasks()" style="${_bSt}">↺ Re-link All Tasks</button></div>
@@ -2624,6 +2627,8 @@ function _buildChannelMappingSection(){
     ${subhead}${noChannels}${rows||`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">No mappings defined.</div>`}
     ${addBtn}
   </div>`;
+  if(el) el.innerHTML=cardHtml;
+  if(elTask) elTask.innerHTML=cardHtml;
   _buildDMChannelMappingSection();
 }
 function _loadDMChannelMap(){
@@ -3765,6 +3770,8 @@ function _buildTaskExpandHtml(taskId){
           <button onclick="raciAiFind('${taskId}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">🔍 AI Find Relevant</button>
         </div>
         <div id="raci-expand-ai-${taskId}" style="margin-bottom:14px"></div>
+        ${lbl('CATEGORY → SLACK CHANNEL MAPPING')}
+        <div id="channel-mapping-section-task" style="margin-bottom:14px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">Loading…</div></div>
         ${lbl('💬 TEAM MESSAGES')}
         ${_renderTaskMessagesLog(taskId,'raci-discussion-'+taskId,!!window._DGL_USER&&window._DGL_USER!=='view','Add a message — posts here and to the linked Slack channel')}
         ${lbl('💬 DIRECT MESSAGE')}
@@ -3932,7 +3939,7 @@ function _raciExpandLoadChannels(taskId){
   const _canAdmin=['taylor','steve','hammad','adam'].includes(window._DGL_USER||'');
   _loadCommentsFromSheets(taskId,taskId,merged=>{ const el=document.getElementById('raci-expand-comments-'+taskId); if(el) el.innerHTML=_buildTaskCommentsHtml(taskId,merged,_canAdmin); });
   const linked=_getTaskSlackLink(taskId);
-  function _populate(){ requestAnimationFrame(()=>_renderRaciChannelPicker(taskId)); }
+  function _populate(){ requestAnimationFrame(()=>{ _renderRaciChannelPicker(taskId); _buildChannelMappingSection(); }); }
   if(_slackChannelsCache){ loadTaskChannelLinks().then(_populate); return; }
   if(!CONFIG.sheetsUrl) return;
   fetch(CONFIG.sheetsUrl+'?action=slack_channels')
@@ -12113,7 +12120,7 @@ function _openAddTaskModal(){
 function _updateCatChannelHint(){
   const el=document.getElementById('tm-cat-channel-hint'); if(!el) return;
   const cat=document.getElementById('tm-cat')?.value||'';
-  const slug=(CATEGORY_CHANNEL_MAP[cat]||'').toLowerCase();
+  const slug=(_getCategoryChannelMap()[cat]||'').toLowerCase();
   if(!slug){ el.textContent=''; return; }
   const ch=_slackChannelsCache&&_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes(slug));
   el.textContent=ch?'Will link to #'+ch.name:'Will link to #'+slug+' (pending channel load)';
@@ -12294,7 +12301,7 @@ function saveTaskModal(taskId){
       window._pendingAiTaskData=null;
     }
     // Auto-link Slack channel by category
-    const _catSlug=(CATEGORY_CHANNEL_MAP[cat]||'').toLowerCase();
+    const _catSlug=(_getCategoryChannelMap()[cat]||'').toLowerCase();
     if(_catSlug&&_slackChannelsCache&&_slackChannelsCache.length){
       const _ch=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes(_catSlug));
       if(_ch){
