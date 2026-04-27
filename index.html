@@ -3997,10 +3997,10 @@ function _raciExpandLoadSlackFeed(taskId,channelId){
   if(channelId.startsWith('D')){feedEl.style.display='block';feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">DM channel history unavailable (bot scope removed).</div>';return;}
   feedEl.style.display='block';
   feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Loading…</div>';
-  const _oldest30=Math.floor((Date.now()-30*24*60*60*1000)/1000);
-  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=50&oldest='+_oldest30)
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=50')
     .then(r=>r.json())
     .then(data=>{
+      console.log('[DGL] slack_messages response for',taskId,channelId,data);
       const el=document.getElementById('raci-expand-slack-feed-'+taskId);
       if(!el) return;
       const msgs=data.messages||[];
@@ -6563,8 +6563,7 @@ function _agendaExpandLoadSlackFeed(id,channelId){
   if(channelId.startsWith('D')){feedEl.style.display='block';feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">DM channel history unavailable (bot scope removed).</div>';return;}
   feedEl.style.display='block';
   feedEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">Loading…</div>';
-  const _oldest30=Math.floor((Date.now()-30*24*60*60*1000)/1000);
-  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=50&oldest='+_oldest30)
+  fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=50')
     .then(r=>r.json())
     .then(data=>{
       const el=document.getElementById('agenda-expand-slack-feed-'+id); if(!el) return;
