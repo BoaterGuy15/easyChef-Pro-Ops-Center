@@ -10491,7 +10491,10 @@ async function _loadUserDMs(userKey){
       })
       .sort((a,b)=>(b.last?new Date(b.last.ts||0):0)-(a.last?new Date(a.last.ts||0):0));
     _mailboxBadgeUpdate();
-    if(document.getElementById('mailbox-panel')?.classList.contains('open')&&_mbActiveTab==='dm') _renderDMTab();
+    if(document.getElementById('mailbox-panel')?.classList.contains('open')&&_mbActiveTab==='dm'){
+      if(window._mbThreadPersonKey) _refreshDMThread(window._mbThreadPersonKey);
+      else _renderDMTab();
+    }
   }catch(_){}
 }
 function _buildThreadHtml(msgs,userKey){
