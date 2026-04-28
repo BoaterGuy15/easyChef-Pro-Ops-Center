@@ -341,8 +341,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .nav-tab{padding:0 20px;display:flex;align-items:center;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;white-space:nowrap}
 .nav-tab:hover{color:var(--text)}
 .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
-.lp-hub-bar{display:flex;gap:2px;padding:8px 16px 0;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;flex-shrink:0}
-.lp-hub-tab{padding:6px 14px;border:none;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;transition:all 0.2s;white-space:nowrap}
+.lp-hub-bar{position:sticky;top:56px;z-index:99;background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;gap:2px;flex-shrink:0}
+.lp-hub-tab{padding:8px 16px;border:none;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;transition:all 0.2s;white-space:nowrap}
 .lp-hub-tab:hover{color:var(--text)}
 .lp-hub-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:16px}
@@ -734,6 +734,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="live-dot" id="live-dot" title="Live data"></div>
   </div>
 </nav>
+<div id="lp-hub-bar" class="lp-hub-bar" style="display:none"></div>
 
 <!-- ══════════════════════════════════════════════
      DATA LAYER — swap this object for Google Sheets API fetch
@@ -1445,7 +1446,7 @@ function showPage(id){
   if(pg) pg.classList.add('active');
   sessionStorage.setItem('dgl_active_tab',id);
   try{localStorage.setItem('dgl_active_tab',id);}catch(_){}
-  if(typeof _LP_HUB_SET!=='undefined'&&_LP_HUB_SET.has(id)) _upsertLPHubBar(id);
+  if(typeof _LP_HUB_SET!=='undefined'&&_LP_HUB_SET.has(id)){ _upsertLPHubBar(id); }else{ const _hb=document.getElementById('lp-hub-bar'); if(_hb) _hb.style.display='none'; }
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom(localStorage.getItem('dgl_gantt_zoom')||'90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
@@ -14821,11 +14822,10 @@ const _LP_HUB_TABS=[
 ];
 const _LP_HUB_SET=new Set(_LP_HUB_TABS.map(t=>t.id));
 function _upsertLPHubBar(activeId){
-  const pg=document.getElementById('page-'+activeId);
-  if(!pg) return;
-  let bar=pg.querySelector('.lp-hub-bar');
-  if(!bar){bar=document.createElement('div');bar.className='lp-hub-bar';pg.prepend(bar);}
+  const bar=document.getElementById('lp-hub-bar');
+  if(!bar) return;
   bar.innerHTML=_LP_HUB_TABS.map(t=>'<button class="lp-hub-tab'+(t.id===activeId?' active':'')+'" onclick="showPage(\''+t.id+'\')">'+t.label+'</button>').join('');
+  bar.style.display='flex';
 }
 const _LP_CALLOUTS=[
   {title:'THE CRITICAL DEPENDENCY',detail:'The 50-family beta MUST start by May 11 (W4). Their 30 days of documented receipts produce the social proof that powers the social campaign (W9), website testimonials (W6), email sequences (W7), and app store reviews on launch day. Slip the beta = slip the entire launch.'},
