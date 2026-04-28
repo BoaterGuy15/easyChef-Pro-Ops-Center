@@ -14019,7 +14019,7 @@ function openSettingsModal(){
     function _switchTab(t){
       // Restore page-comms or page-team if navigating away
       if(activeTab==='comms'){const pc=document.getElementById('page-comms');if(pc&&pc._settingsParent){pc._settingsParent.insertBefore(pc,pc._settingsNextSib||null);pc.style.display='none';delete pc._settingsParent;delete pc._settingsNextSib;}}
-      if(activeTab==='team'){const pt=document.getElementById('page-team');if(pt&&pt._settingsParent){pt._settingsParent.insertBefore(pt,pt._settingsNextSib||null);pt.style.display='none';delete pt._settingsParent;delete pt._settingsNextSib;}}
+      if(activeTab==='team'){const pt=document.getElementById('page-team');if(pt&&pt._settingsParent){pt._settingsParent.insertBefore(pt,pt._settingsNextSib||null);pt.style.display='none';delete pt._settingsParent;delete pt._settingsNextSib;}modal.style.width='780px';modal.style.height='620px';modal.style.left='calc(50% - 390px)';modal.style.top='calc(50% - 310px)';}
       activeTab=t;
       tabBar.querySelectorAll('button').forEach(b=>{b.style.borderBottom=b.dataset.tab===t?'2px solid var(--gold)':'2px solid transparent';b.style.color=b.dataset.tab===t?'var(--gold)':'var(--muted)';});
       if(t==='workstreams') _renderSettingsWorkstreams(tabContent);
@@ -14030,6 +14030,8 @@ function openSettingsModal(){
         if(pc){pc._settingsParent=pc.parentNode;pc._settingsNextSib=pc.nextSibling;tabContent.innerHTML='';pc.style.display='block';pc.style.padding='0';tabContent.appendChild(pc);if(typeof buildSlack==='function')buildSlack();if(typeof _buildChannelMappingSection==='function')_buildChannelMappingSection();}
       }
       else if(t==='team'){
+        const vw=Math.min(window.innerWidth*0.92,1200);const vh=Math.min(window.innerHeight*0.88,900);
+        modal.style.width=vw+'px';modal.style.height=vh+'px';modal.style.left=((window.innerWidth-vw)/2)+'px';modal.style.top=((window.innerHeight-vh)/2)+'px';
         const pt=document.getElementById('page-team');
         if(pt){pt._settingsParent=pt.parentNode;pt._settingsNextSib=pt.nextSibling;tabContent.innerHTML='';pt.style.display='block';pt.style.padding='0';tabContent.appendChild(pt);if(typeof buildTeamGrid==='function')buildTeamGrid();}
       }
