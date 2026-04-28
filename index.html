@@ -16068,6 +16068,57 @@ function _renderLPTasksTab(container,item,onTaskClick){
     row.appendChild(nameEl);row.appendChild(meta);container.appendChild(row);
   });
 }
+function _createActionFromStep(stepTitle,taskId,wsItem,assignedKey,dueDate){
+  const id='wsa-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
+  const barItem=wsItem||{};
+  const wsRow=_wsCache.find(w=>w.name===barItem.workstream)||null;
+  const workstreamId=wsRow?wsRow.id:(barItem.id||'');
+  const assignedName=assignedKey?(_DM_NAME_MAP[assignedKey]||assignedKey):'Unassigned';
+  const now=new Date().toISOString();
+  const entry={id,taskId:taskId||'',linkedTaskId:taskId||'',agendaId:'',workstreamId,type:'task',title:stepTitle,body:'',assignedTo:assignedKey,dueDate:dueDate||'',status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
+  _actionsCache.push(entry);
+  if(document.getElementById('page-actions')?.classList.contains('active')) buildActionsGantt();
+  if(!CONFIG.sheetsUrl){_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action added — '+assignedName+'</div>',2000);return;}
+  const wsaPayload={action:'workstream_action_write',item:{id,workstreamId,type:'Task',title:stepTitle,body:'',assignedTo:assignedKey,dueDate:dueDate||'',status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId||'',createdBy:CONFIG.currentUser||'',createdAt:now}};
+  const actPayload={action:'action_write',id,taskId:taskId||'',agendaId:'',workstreamId,type:'task',title:stepTitle,body:'',status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted)">⏳ Saving action…</div>',1500);
+  Promise.all([
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).then(r=>r.json()),
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).then(r=>r.json())
+  ]).then(([wsaR,actR])=>{
+    if(wsaR?.ok&&actR?.ok){
+      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action saved · @'+assignedName+'</div>',2500);
+      if(assignedKey){const dmCh=_getDMChannelId(assignedKey);const msg='⚡ Action assigned to you: '+stepTitle;_logNotification(id,assignedKey,dmCh,msg,'action');if(dmCh)fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(dmCh)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(CONFIG.currentUser||'system')).catch(()=>{});}
+    } else {
+      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:tomato">⚠️ Partial save — check console</div>',3000);
+      console.warn('[DGL] _createActionFromStep partial fail',wsaR,actR);
+    }
+  }).catch(e=>{_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:tomato">❌ Save failed: '+e.message+'</div>',4000);console.error('[DGL] _createActionFromStep error',e);});
+}
+function _showActionStepAssignForm(anchorRow,opts){
+  document.getElementById('action-step-assign-form')?.remove();
+  const {stepText,task,onConfirm,onCancel}=opts;
+  const form=document.createElement('div');form.id='action-step-assign-form';
+  form.style.cssText="padding:8px 14px 10px;background:rgba(201,168,76,0.06);border-bottom:1px solid var(--border);border-left:3px solid var(--gold)";
+  const hdrEl=document.createElement('div');hdrEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1.5px;margin-bottom:6px;font-weight:600";hdrEl.textContent='⚡ ADD TO ACTIONS';form.appendChild(hdrEl);
+  const previewEl=document.createElement('div');previewEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";previewEl.textContent=stepText.slice(0,90)+(stepText.length>90?'…':'');form.appendChild(previewEl);
+  const row2=document.createElement('div');row2.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px';
+  const iSt="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:'DM Mono',monospace;font-size:9px;outline:none";
+  const assignSel=document.createElement('select');assignSel.style.cssText=iSt+';flex:1;min-width:100px';
+  const noneOpt=document.createElement('option');noneOpt.value='';noneOpt.textContent='— Assign to —';assignSel.appendChild(noneOpt);
+  _getActiveTeamMembers().forEach(m=>{const o=document.createElement('option');o.value=m.key;o.textContent=m.name;assignSel.appendChild(o);});
+  if(task?.owner){const ownerKey=task.owner.split('/')[0].trim().toLowerCase();const found=[...assignSel.options].find(o=>o.value===ownerKey);if(found)found.selected=true;}
+  const dueInp=document.createElement('input');dueInp.type='date';dueInp.style.cssText=iSt;
+  row2.appendChild(assignSel);row2.appendChild(dueInp);form.appendChild(row2);
+  const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:6px;justify-content:flex-end';
+  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;cursor:pointer";
+  const saveBtn=document.createElement('button');saveBtn.textContent='✅ Add Action';saveBtn.style.cssText="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;cursor:pointer";
+  cancelBtn.onclick=()=>{form.remove();if(onCancel)onCancel();};
+  saveBtn.onclick=()=>{form.remove();if(onConfirm)onConfirm(assignSel.value,dueInp.value);};
+  btnRow.appendChild(cancelBtn);btnRow.appendChild(saveBtn);form.appendChild(btnRow);
+  anchorRow.insertAdjacentElement('afterend',form);
+  assignSel.focus();
+}
 function _renderLPActionPlanTab(container,taskId,wsItem,onBack){
   const task=(DASHBOARD_DATA.tasks||[]).find(t=>t.id===taskId);
   const topBar=document.createElement('div');
@@ -16181,9 +16232,23 @@ function _renderLPActionPlanTab(container,taskId,wsItem,onBack){
         const numEl=document.createElement('span');numEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0;width:18px;text-align:right;padding-top:2px";numEl.textContent=item.num+'.';
         const cb=document.createElement('input');cb.type='checkbox';cb.className='ai-step-cb';cb.checked=isDone;cb.style.cssText='flex-shrink:0;accent-color:var(--gold);width:14px;height:14px;cursor:pointer;margin-top:2px';
         const txt=document.createElement('div');txt.style.cssText="font-family:'DM Mono',monospace;font-size:10px;color:"+(isDone?'var(--muted)':'var(--text)')+";line-height:1.5;flex:1;word-break:break-word"+(isDone?';text-decoration:line-through':'');txt.textContent=item.text;
+        if(isDone){cb.disabled=true;}
         cb.onchange=()=>{
-          if(cb.checked){_doneSteps.add(stepIdx);_saveDoneSteps();row.style.opacity='0.5';txt.style.textDecoration='line-through';txt.style.color='var(--muted)';}
-          else{_doneSteps.delete(stepIdx);_saveDoneSteps();row.style.opacity='';txt.style.textDecoration='';txt.style.color='var(--text)';}
+          if(cb.checked){
+            cb.checked=false;
+            _showActionStepAssignForm(row,{
+              stepText:item.text,task,
+              onConfirm:(assignedKey,dueDate)=>{
+                _doneSteps.add(stepIdx);_saveDoneSteps();
+                row.style.opacity='0.5';txt.style.textDecoration='line-through';txt.style.color='var(--muted)';
+                cb.checked=true;cb.disabled=true;
+                _createActionFromStep(item.text,taskId,wsItem,assignedKey,dueDate);
+              },
+              onCancel:()=>{cb.checked=false;}
+            });
+          } else {
+            _doneSteps.delete(stepIdx);_saveDoneSteps();row.style.opacity='';txt.style.textDecoration='';txt.style.color='var(--text)';
+          }
         };
         row.appendChild(numEl);row.appendChild(cb);row.appendChild(txt);body.appendChild(row);
       });
