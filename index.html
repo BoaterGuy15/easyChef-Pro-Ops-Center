@@ -8467,8 +8467,10 @@ function _onPhotoInputChange(inp,userKey){
         const profile={..._hrProfilesCache[userKey],photo:d.url,userKey};
         fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',...profile})})
           .then(r=>r.json()).then(r=>console.log('[DGL] Photo saved to Sheets:',r.ok));
-        const imgEl=document.getElementById('profile-photo-'+userKey)||document.querySelector('[data-photo-user="'+userKey+'"]');
-        if(imgEl) imgEl.src=d.url;
+        const _thumbUrl='https://drive.google.com/thumbnail?id='+(d.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]||d.url.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1]||'')+'&sz=w200';
+        const _finalUrl=_thumbUrl.includes('id=&')||_thumbUrl.endsWith('id=')?(d.url):_thumbUrl;
+        const imgEl=document.getElementById('tmm-avatar')||document.getElementById('profile-modal-avatar')||document.getElementById('profile-photo-'+userKey)||document.querySelector('[data-photo-user="'+userKey+'"]');
+        if(imgEl){if(imgEl.tagName==='IMG'){imgEl.src=_finalUrl;}else{const ni=document.createElement('img');ni.id=imgEl.id;ni.src=_finalUrl;ni.style.cssText=imgEl.style.cssText+'object-fit:cover';imgEl.parentNode.replaceChild(ni,imgEl);}}
         buildTeamGrid();
         _showToast('<div>✅ Photo saved</div>',1800);
       }else{
@@ -9124,7 +9126,8 @@ function _resolvePhotoUrl(userKey){
   const k=userKey||'';
   const hrC=_hrProfilesCache[k]||_hrProfilesCache[Object.keys(_hrProfilesCache).find(x=>x.toLowerCase()===k.toLowerCase())||'']||{};
   const raw=hrC.photo||'';
-  const fid=raw.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+  // Handle /file/d/FILE_ID format and ?id= / &id= formats
+  const fid=raw.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]||raw.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1];
   return fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w200':raw;
 }
 function _imgErr(el,initials,color){const sz=parseInt(el.style.width)||52;const fs=Math.round(sz*0.38);const mb=el.style.marginBottom;const d=document.createElement('div');d.style.cssText='width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:'+fs+'px'+(mb?';margin-bottom:'+mb:'');d.textContent=initials;if(el.parentNode)el.parentNode.replaceChild(d,el);}
