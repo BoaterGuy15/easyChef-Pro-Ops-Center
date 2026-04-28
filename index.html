@@ -8418,7 +8418,7 @@ function _buildProfileWorkload(userKey,raciKey){
   const later=items.filter(i=>!i._date||(i._date>w14));
   const _ico={task:'📋',action:'⚡',agenda:'📅'};
   function _row(i){
-    const onclick=i._type==='task'?`onclick="closeProfileModal();setTimeout(()=>_viewTaskDetails('${i.id}'),150)"`:i._type==='action'?`onclick="closeProfileModal();showPage('actions')"`:i._type==='agenda'?`onclick="closeProfileModal();showPage('agenda')"`:'' ;
+    const onclick=i._type==='task'?`onclick="closeProfileModal();_closeSettingsModal();setTimeout(()=>_viewTaskDetails('${i.id}'),150)"`:i._type==='action'?`onclick="closeProfileModal();_closeSettingsModal();showPage('actions')"`:i._type==='agenda'?`onclick="closeProfileModal();_closeSettingsModal();showPage('agenda')"`:'';
     return `<div style="display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;margin-bottom:1px;background:rgba(255,255,255,0.02);cursor:pointer" ${onclick}>
       <span style="flex-shrink:0;font-size:9px">${_ico[i._type]}</span>
       ${i.id?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);flex-shrink:0;min-width:44px">${i.id}</span>`:''}
@@ -14041,8 +14041,7 @@ function loadSettings(){
     }).catch(()=>{});
 }
 function _closeSettingsModal(){
-  const pc=document.getElementById('page-comms');
-  if(pc&&pc._settingsParent){pc._settingsParent.insertBefore(pc,pc._settingsNextSib||null);pc.style.display='none';delete pc._settingsParent;delete pc._settingsNextSib;}
+  ['page-comms','page-team'].forEach(pid=>{const pg=document.getElementById(pid);if(pg&&pg._settingsParent){pg._settingsParent.insertBefore(pg,pg._settingsNextSib||null);pg.style.display='none';delete pg._settingsParent;delete pg._settingsNextSib;}});
   const ov=document.getElementById('settings-overlay');
   if(ov){if(ov._cleanup)ov._cleanup();ov.remove();}
 }
