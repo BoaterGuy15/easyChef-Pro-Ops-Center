@@ -15682,20 +15682,7 @@ function buildLaunchPlan(){
 
   _initLPDrag();
   requestAnimationFrame(()=>_renderGanttMilestoneLines({canvasId:'lp-gantt-canvas',hdrCanvasId:'lp-gantt-hdr-canvas',prefix:'lp-gantt'}));
-
-  // ── Milestone list ──
-  const mlEl=document.getElementById('lp-milestone-list');
-  if(mlEl){
-    const msItems=(DASHBOARD_DATA.meta.milestoneItems||[]).filter(m=>m.date);
-    if(msItems.length){
-      const _CM={'gold':'#c9a84c','red':'#ef4444','green':'#22c55e','blue':'#4a9eff','amber':'#f59e0b','purple':'#a78bfa','teal':'#2dd4bf','pink':'#f472b6'};
-      mlEl.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">'+msItems.map(m=>{
-        const c=_CM[m.color]||m.color||'#c9a84c';
-        const fmt=typeof _fmtMsDate==='function'?_fmtMsDate(m.date):m.date;
-        return `<div style="background:var(--surface);border:1px solid ${c};border-radius:6px;padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px"><span style="color:${c};font-weight:700">◆ ${m.title}</span><span style="color:var(--muted);margin-left:10px;font-size:9px">${fmt}</span></div>`;
-      }).join('')+'</div>';
-    } else { mlEl.innerHTML=''; }
-  }
+  _debouncedBuildMilestones();
 }
 
 function _initLPHover(){
