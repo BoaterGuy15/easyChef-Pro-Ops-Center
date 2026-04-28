@@ -7553,7 +7553,8 @@ function _bulkCreateTasks(){
   const srcTask=srcType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===srcId):null;
   const srcAgenda=srcType==='agenda'?AGENDA_DATA.find(a=>a.id===srcId):null;
   const srcLinkedTask=srcAgenda&&srcAgenda.taskId?DASHBOARD_DATA.tasks.find(t=>t.id===srcAgenda.taskId):null;
-  const srcCat=(srcTask||srcLinkedTask)?.cat||'Launch Ops';
+  // Resolve category: source task → linked task (via agenda) → agenda's own cat field → fallback
+  const srcCat=(srcTask?.cat)||(srcLinkedTask?.cat)||(srcAgenda?.cat)||'Launch Ops';
   const _raciKeys=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',..._getCustomTeamMembers().map(m=>m.raciKey)];
   const _flagMap={risk:'⛔',week:'⚠️',today:'',decision:'',general:''};
   const prog=document.getElementById('bulk-create-progress');
@@ -7591,7 +7592,12 @@ function _bulkCreateTasks(){
   }
   // Push all at once — single DASHBOARD_DATA mutation, no mid-loop renders
   newTasks.forEach(t=>{ const rowIdx=t._rowIdx; delete t._rowIdx; DASHBOARD_DATA.tasks.push(t); const res=document.getElementById('bcp-result-'+rowIdx); if(res) res.textContent='✦ '+t.id; });
-  console.log('[DGL] bulk create: pushed '+newTasks.length+' tasks to DASHBOARD_DATA');
+  console.log('[DGL] bulk create: pushed '+newTasks.length+' tasks (cat='+srcCat+') to DASHBOARD_DATA');
+  // Auto-link new tasks to Slack channels based on category
+  _autoLinkTaskChannels();
+  const _catMap=_getCategoryChannelMap();
+  const _catSlug=(_catMap[srcCat]||'').replace('#','').toLowerCase();
+  if(_catSlug) newTasks.forEach(t=>{ const ch=(_slackChannelsCache||[]).find(c=>(c.name||'').toLowerCase().includes(_catSlug)); if(ch&&!_slackLinksCache['dgl_task_slack_'+t.id]){ _saveTaskSlackLink(t.id,{channelId:ch.id,channelName:'#'+ch.name}); _syncChannelToSheets(t.id,ch.id,'#'+ch.name,_catSlug); } });
   // Show completion message immediately before any refresh (so a refresh error can't hide it)
   const srcAgendaId=(srcType==='agenda'?srcId:'')|| (srcTask?AGENDA_DATA.find(a=>a.taskId===srcId)?.id:'') || '';
   const srcApText=_getActionPlanText(srcId);
