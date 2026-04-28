@@ -15285,7 +15285,7 @@ function _closeLPAddMenu(){
   document.removeEventListener('keydown',_lpAddMenuEsc,true);
 }
 function _lpAddMenuEsc(e){if(e.key==='Escape')_closeLPAddMenu();}
-function _showLPAddMenu(cx,cy,sd,ed){
+function _showLPAddMenu(cx,cy,sd,ed,wsHint){
   _closeLPAddMenu();
   const mnu=document.createElement('div');
   mnu.id='lp-add-menu';
@@ -15298,14 +15298,14 @@ function _showLPAddMenu(cx,cy,sd,ed){
   row.onmouseover=()=>row.style.background='rgba(201,168,76,0.1)';
   row.onmouseout=()=>row.style.background='transparent';
   const ic=document.createElement('span');ic.style.cssText='font-size:13px;width:18px;text-align:center;flex-shrink:0';ic.textContent='➕';
-  const lb=document.createElement('span');lb.textContent='New Workstream';
+  const lb=document.createElement('span');lb.textContent=wsHint?'New Bar in "'+wsHint+'"':'New Bar';
   row.appendChild(ic);row.appendChild(lb);
-  row.onclick=()=>{_closeLPAddMenu();_showLPNewBarForm(sd,ed);};
+  row.onclick=()=>{_closeLPAddMenu();_showLPNewBarForm(sd,ed,wsHint);};
   mnu.appendChild(row);
   document.body.appendChild(mnu);
   setTimeout(()=>{document.addEventListener('click',_closeLPAddMenu,false);document.addEventListener('keydown',_lpAddMenuEsc,true);},0);
 }
-function _showLPNewBarForm(sd,ed){
+function _showLPNewBarForm(sd,ed,wsHint){
   const existing=document.getElementById('lp-new-bar-form');if(existing)existing.remove();
   const wrap=document.createElement('div');
   wrap.id='lp-new-bar-form';
@@ -15313,11 +15313,12 @@ function _showLPNewBarForm(sd,ed){
   const _lpLeft=Math.max(20,(window.innerWidth-360)/2);
   wrap.style.cssText=`position:fixed;z-index:99999;top:${_lpTop}px;left:${_lpLeft}px;background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.65);padding:18px 20px;font-family:'DM Mono',monospace;font-size:11px;min-width:290px;max-width:350px`;
   wrap.addEventListener('click',e=>e.stopPropagation());
-  const ttl=document.createElement('div');ttl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;font-weight:600";ttl.textContent='➕ New Workstream';wrap.appendChild(ttl);
+  const ttl=document.createElement('div');ttl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;font-weight:600";ttl.textContent='➕ New Bar';wrap.appendChild(ttl);
   function _field(label,el){const r=document.createElement('div');r.style.marginBottom='10px';const l=document.createElement('div');l.style.cssText='color:var(--muted);font-size:9px;letter-spacing:1px;margin-bottom:3px';l.textContent=label;r.appendChild(l);r.appendChild(el);wrap.appendChild(r);return el;}
   const inputCss="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:10px";
   const wsSelect=document.createElement('select');wsSelect.style.cssText=inputCss;
   _LP_WORKSTREAMS.forEach(ws=>{const o=document.createElement('option');o.value=ws;o.textContent=ws;wsSelect.appendChild(o);});
+  if(wsHint&&_LP_WORKSTREAMS.includes(wsHint))wsSelect.value=wsHint;
   _field('WORKSTREAM',wsSelect);
   const nameInput=document.createElement('input');nameInput.type='text';nameInput.placeholder='Bar label…';nameInput.style.cssText=inputCss;_field('NAME',nameInput);
   const sdInput=document.createElement('input');sdInput.type='date';sdInput.value=sd||'';sdInput.style.cssText=inputCss;_field('START DATE',sdInput);
@@ -15368,9 +15369,11 @@ function _showStreamRowCtxMenu(e,ws){
     r.appendChild(ic);r.appendChild(lb);r.onclick=()=>{_closeStreamRowCtxMenu();fn();};mnu.appendChild(r);
   }
   function _sep(){const s=document.createElement('div');s.style.cssText='height:1px;background:var(--border);margin:3px 0';mnu.appendChild(s);}
-  _row('➕','Add Workstream Bar',()=>_showLPNewBarFormForWs(ws));
+  _row('➕','New Workstream',()=>_showLPNewStreamForm());
   _sep();
-  _row('✏️','Edit Stream Bar',()=>_showStreamRenameForm(ws));
+  _row('📌','Add Bar to Stream',()=>_showLPNewBarFormForWs(ws));
+  _sep();
+  _row('✏️','Rename Workstream',()=>_showStreamRenameForm(ws));
   _sep();
   const barCount=_lpCache.filter(b=>b.workstream===ws).length;
   if(barCount>0){
@@ -15425,11 +15428,40 @@ function _showStreamRenameForm(ws){
   document.addEventListener('keydown',esc,true);
 }
 function _showLPNewBarFormForWs(ws){
-  _showLPNewBarForm('','');
-  setTimeout(()=>{
-    const form=document.getElementById('lp-new-bar-form');if(!form)return;
-    const sel=form.querySelector('select');if(sel)sel.value=ws;
-  },0);
+  _showLPNewBarForm('','',ws);
+}
+function _showLPNewStreamForm(){
+  const existing=document.getElementById('lp-new-stream-form');if(existing)existing.remove();
+  const wrap=document.createElement('div');wrap.id='lp-new-stream-form';
+  wrap.style.cssText="position:fixed;z-index:99999;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.65);padding:18px 20px;font-family:'DM Mono',monospace;font-size:11px;min-width:290px;max-width:360px";
+  wrap.addEventListener('click',e=>e.stopPropagation());
+  const ttl=document.createElement('div');ttl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;font-weight:600";ttl.textContent='➕ New Workstream';wrap.appendChild(ttl);
+  const iCss="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-family:'DM Mono',monospace;font-size:10px";
+  const nmLbl=document.createElement('div');nmLbl.style.cssText='color:var(--muted);font-size:9px;letter-spacing:1px;margin-bottom:3px';nmLbl.textContent='NAME';wrap.appendChild(nmLbl);
+  const inp=document.createElement('input');inp.type='text';inp.placeholder='e.g. Mobile Build';inp.style.cssText=iCss+';margin-bottom:10px';wrap.appendChild(inp);
+  const colRow=document.createElement('div');colRow.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:14px';
+  const colLbl=document.createElement('span');colLbl.style.cssText='color:var(--muted);font-size:9px;letter-spacing:1px';colLbl.textContent='COLOR';
+  const colInp=document.createElement('input');colInp.type='color';colInp.value='#4a9eff';colInp.style.cssText='width:36px;height:24px;border:none;background:none;cursor:pointer;padding:0';
+  colRow.appendChild(colLbl);colRow.appendChild(colInp);wrap.appendChild(colRow);
+  const btns=document.createElement('div');btns.style.cssText='display:flex;gap:8px;justify-content:flex-end';
+  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;cursor:pointer";cancelBtn.onclick=()=>wrap.remove();
+  const saveBtn=document.createElement('button');saveBtn.textContent='✅ Create';saveBtn.style.cssText="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;cursor:pointer";
+  saveBtn.onclick=()=>{
+    const nm=inp.value.trim();
+    if(!nm){inp.style.borderColor='var(--red)';inp.focus();return;}
+    if(_LP_WORKSTREAMS.includes(nm)){_showToast('<div>⚠️ Workstream "'+nm+'" already exists.</div>',2000);return;}
+    const col=colInp.value;const bg=_wsHexBg(col);
+    const _wsId='ws-'+Date.now();
+    _LP_WORKSTREAMS.push(nm);_LP_WS_COLORS[nm]={color:col,bg};_wsCache.push({id:_wsId,name:nm,color:col});
+    _settingsCache.workstreams=_LP_WORKSTREAMS.map(n=>({...(_wsCache.find(w=>w.name===n)||{}),name:n,color:(_LP_WS_COLORS[n]||{color:'#94a3b8'}).color}));
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'workstream_write',item:{id:_wsId,name:nm,color:col,order:_LP_WORKSTREAMS.indexOf(nm)}})}).catch(()=>{});
+    wrap.remove();buildLaunchPlan();
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Workstream "'+nm+'" created.</div>',2000);
+  };
+  btns.appendChild(cancelBtn);btns.appendChild(saveBtn);wrap.appendChild(btns);document.body.appendChild(wrap);
+  inp.focus();
+  const esc=e=>{if(e.key==='Escape'){wrap.remove();document.removeEventListener('keydown',esc,true);}};
+  document.addEventListener('keydown',esc,true);
 }
 
 function _lpScrollLaunch(){
@@ -15593,7 +15625,8 @@ function buildLaunchPlan(){
       const sd=_lpXToDate(e.clientX);
       let ed='';
       if(sd){const d=new Date(sd+'T00:00:00');d.setDate(d.getDate()+13);ed=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-      _showLPAddMenu(e.clientX,e.clientY,sd,ed);
+      const wsHint=e.target.closest('[data-ws]')?.dataset.ws||'';
+      _showLPAddMenu(e.clientX,e.clientY,sd,ed,wsHint);
     });
     scroll.style.cursor='grab';
     let _panning=false,_panX=0,_panY=0,_panLeft=0,_panTop=0;
