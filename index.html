@@ -1648,12 +1648,14 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
       if(editedFind!==null){
         const ts1=new Date().toISOString();
         await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+Date.now(),taskId,fromUser:user,fromName:'🔍 AI ('+fromName+')',text:editedFind,createdAt:ts1,type:'ai'})}).catch(()=>{});
+        const _lk1=_getTaskSlackLink(taskId);
+        if(_lk1.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(_lk1.channelId)+'&text='+encodeURIComponent(editedFind)+'&user='+encodeURIComponent(user)).catch(()=>{});
         if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
         _taskMsgCache[taskId].push({ts:ts1,user,name:'🔍 AI ('+fromName+')',text:editedFind});
         _raciAiSummaries[taskId]=findText;
         const log=document.getElementById('raci-discussion-'+taskId+'-entries');
         if(log){log.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log.scrollTop=log.scrollHeight;}
-        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 1 posted to Messages.</div>',3000);
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 1 posted'+(_lk1.channelId?' to Messages + #'+(_lk1.channelName||_lk1.channelId):' to Messages')+'.</div>',3000);
       }
     }
     // 4. Super AI action plan
@@ -1672,14 +1674,16 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
       if(editedSuper!==null){
         const ts2=new Date().toISOString();
         await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+(Date.now()+1),taskId,fromUser:user,fromName:'⚡ Super AI ('+fromName+')',text:editedSuper,createdAt:ts2,type:'ai'})}).catch(()=>{});
+        const _lk2=_getTaskSlackLink(taskId);
+        if(_lk2.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(_lk2.channelId)+'&text='+encodeURIComponent(editedSuper)+'&user='+encodeURIComponent(user)).catch(()=>{});
         if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
         _taskMsgCache[taskId].push({ts:ts2,user,name:'⚡ Super AI ('+fromName+')',text:editedSuper});
         const log2=document.getElementById('raci-discussion-'+taskId+'-entries');
         if(log2){log2.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log2.scrollTop=log2.scrollHeight;}
-        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 2 posted to Messages.</div>',3000);
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 2 posted'+(_lk2.channelId?' to Messages + #'+(_lk2.channelName||_lk2.channelId):' to Messages')+'.</div>',3000);
       }
-      _saveActionPlan(taskId,'task',superText,taskId,'');
-      _refreshAPSection(taskId,superText);
+      _saveActionPlan(taskId,'task',editedSuper||superText,taskId,'');
+      _refreshAPSection(taskId,editedSuper||superText);
     }
     // 6. Confirm + DM the accountable person
     const ownerName=(t.owner||'').split('/')[0].trim();
