@@ -999,7 +999,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <table id="raci-table">
       <thead><tr>
         <th style="width:28px;padding:4px 2px"></th><th>ID</th><th>Task</th><th>Category</th><th>Pri</th><th>Status</th><th>Owner</th>
-        <th class="raci-person-col" title="Taylor — R=Responsible A=Accountable C=Consulted I=Informed">Tay</th><th class="raci-person-col" title="Steve — R=Responsible A=Accountable C=Consulted I=Informed">Stv</th><th class="raci-person-col" title="Adam — R=Responsible A=Accountable C=Consulted I=Informed">Adm</th><th class="raci-person-col" title="Mary — R=Responsible A=Accountable C=Consulted I=Informed">Mry</th><th class="raci-person-col" title="JR — R=Responsible A=Accountable C=Consulted I=Informed">JR</th><th class="raci-person-col" title="Hammad — R=Responsible A=Accountable C=Consulted I=Informed">Hmd</th><th class="raci-person-col" title="Searah — R=Responsible A=Accountable C=Consulted I=Informed">Sea</th><th class="raci-person-col" title="Sadee — R=Responsible A=Accountable C=Consulted I=Informed">Sde</th>
+        <th class="raci-person-col" data-member="Taylor" title="Taylor — R=Responsible A=Accountable C=Consulted I=Informed">Tay</th><th class="raci-person-col" data-member="Steve" title="Steve — R=Responsible A=Accountable C=Consulted I=Informed">Stv</th><th class="raci-person-col" data-member="Adam" title="Adam — R=Responsible A=Accountable C=Consulted I=Informed">Adm</th><th class="raci-person-col" data-member="Mary" title="Mary — R=Responsible A=Accountable C=Consulted I=Informed">Mry</th><th class="raci-person-col" data-member="JR" title="JR — R=Responsible A=Accountable C=Consulted I=Informed">JR</th><th class="raci-person-col" data-member="Hammad" title="Hammad — R=Responsible A=Accountable C=Consulted I=Informed">Hmd</th><th class="raci-person-col" data-member="Searah" title="Searah — R=Responsible A=Accountable C=Consulted I=Informed">Sea</th><th class="raci-person-col" data-member="Sadee" title="Sadee — R=Responsible A=Accountable C=Consulted I=Informed">Sde</th>
         <th>Timeline</th><th>ICS Flags / Notes</th>
       </tr></thead>
       <tbody id="raci-body"></tbody>
@@ -1680,9 +1680,10 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
     }
     // 7. AI RACI — generate and confirm
     _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--gold)">🔲 Generating RACI assignments…</div>',6000);
-    const raciMembers=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
+    const raciMembers=_getActiveTeamMembers().map(m=>m.raciKey);
     const raciCtx='TASK: '+t.id+' — '+t.name+'\nCATEGORY: '+(t.cat||'—')+'\nSTATUS: '+newStatus+'\nOWNER: '+(t.owner||'—')+'\nNOTES: '+(t.notes||'—')+'\n'+(superText?'ACTION PLAN:\n'+superText.slice(0,400):'');
-    const raciResp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:'You are a RACI assignment assistant. Assign roles for each team member. R=Does the work, A=Owns the outcome, C=Consulted for input, I=Informed of progress. Rules: exactly ONE A (or A/R) per task. Return ONLY valid JSON, no explanation.',prompt:'Assign RACI roles for this task. Team members: Taylor, Steve, Adam, Mary, JR, Hammad, Searah, Sadee.\nReturn ONLY JSON like: {"Taylor":"A","Steve":"R","Adam":"C","Mary":"I","JR":"","Hammad":"C","Searah":"","Sadee":""}\n\nTask context:\n'+raciCtx})}).then(r=>r.json()).catch(()=>({}));
+    const _ic=_getIncidentCommander();const _icRaciKey=_ic?_ic.raciKey:'Taylor';const _icName=_ic?_ic.name:_icRaciKey;
+    const raciResp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:'You are a RACI assignment assistant enforcing ICS (Incident Command System) structure. RULES: 1) '+_icName+' is the Founder/CEO (Incident Commander) and is ALWAYS "A" — never R, C, I, or blank. 2) '+_icName+' is the ONLY person who can ever be "A/R". 3) Exactly ONE "R" per task (the task lead who does the work). 4) Assistants to R = "C". 5) People affected or kept informed = "I". 6) Not involved = "-" (never blank). 7) Only ONE "A" per task. Return ONLY valid JSON, no explanation.',prompt:'Assign RACI roles for this task following ICS structure. Team members: '+raciMembers.join(', ')+'.\nReturn ONLY JSON like: {"'+_icRaciKey+'":"A","Steve":"R","Adam":"C","Mary":"I","JR":"-","Hammad":"C","Searah":"-","Sadee":"-"}\n\nTask context:\n'+raciCtx})}).then(r=>r.json()).catch(()=>({}));
     let raciJson={};
     try{
       const raw=raciResp.response||raciResp.result||raciResp.text||raciResp.content||'';
@@ -1796,12 +1797,21 @@ function _handleDeepLink(){
   },500);
 }
 function _getRACIUsers(task){
-  const people=['Taylor','Steve','Adam','JR','Hammad','Searah','Sadee'];
-  const keyMap={Taylor:'taylor',Steve:'steve',Adam:'adam',JR:'jr',Hammad:'hammad',Searah:'searah',Sadee:'sadee'};
+  const _atm=_getActiveTeamMembers();
+  const people=_atm.map(m=>m.raciKey);
+  const keyMap=Object.fromEntries(_atm.map(m=>[m.raciKey,m.key]));
   const responsible=people.filter(p=>{ const v=task[p]||''; return v==='R'||v==='AR'||v==='RA'||v==='A/R'; }).map(p=>keyMap[p]);
   const accountable=people.filter(p=>{ const v=task[p]||''; return v==='A'||v==='AR'||v==='RA'||v==='A/R'; }).map(p=>keyMap[p]);
+  const _icKey=_getIncidentCommander()?.userKey||'taylor';
+  if(!accountable.includes(_icKey)) accountable.push(_icKey);
   const both=[...new Set([...responsible,...accountable])];
   return {responsible,accountable,both};
+}
+function _notifyRaciAll(taskId,message,type){
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
+  if(!task) return;
+  const _atm=_getActiveTeamMembers();
+  _atm.forEach(m=>{ const v=(task[m.raciKey]||'').trim(); if(v&&v!=='-') _logNotification(taskId,m.key,'',message,type||'raci'); });
 }
 function _sendOverdueSlack(t){
   if(!CONFIG.sheetsUrl) return;
@@ -1950,7 +1960,7 @@ function catSelect(t){
 const OWNER_COLORS={Taylor:'var(--gold)',Steve:'var(--green)',Adam:'var(--amber)',Mary:'#c084fc',JR:'#60a5fa',Hammad:'var(--red)',Searah:'#f97316',Sadee:'#2dd4bf',TBD:'var(--muted)'};
 function ownerColor(name){return OWNER_COLORS[name]||'var(--text)';}
 function ownerSelect(t){
-  const owners=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
+  const owners=[..._getActiveTeamMembers().map(m=>m.raciKey),'TBD'];
   const inList=owners.includes(t.owner);
   return `<select class="status-select" style="background:var(--surface);color:${ownerColor(t.owner)};max-width:90px"
     onchange="setTaskOwner('${t.id}',this.value,this)">${
@@ -2157,6 +2167,11 @@ function setRaciValue(val){
   if(!_rpTaskId||!_rpPerson||!_rpCellEl) return;
   const task=DASHBOARD_DATA.tasks.find(t=>t.id===_rpTaskId);
   if(!task) return;
+  const _icRK=_getIncidentCommander()?.raciKey||'Taylor';
+  if(_rpPerson===_icRK&&val!=='A'&&val!=='A/R'){
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--red)">⚠️ ICS Rule: '+_icRK+' (Founder/CEO) must be A or A/R — corrected.</div>',3000);
+    val='A';
+  }
   task[_rpPerson]=val;
   hideRaciPopover();
   masterRefresh();
@@ -2322,7 +2337,8 @@ function _submitNote(taskId,cid){
     _logNotification(taskId,'',chId,slackMsg,'discussion');
   }
 }
-const _DM_MEMBERS=[{key:'taylor',name:'Taylor'},{key:'steve',name:'Steve'},{key:'adam',name:'Adam'},{key:'mary',name:'Mary'},{key:'jr',name:'JR'},{key:'hammad',name:'Hammad'},{key:'searah',name:'Searah'},{key:'sadee',name:'Sadee'}];
+let _DM_MEMBERS=[{key:'taylor',name:'Taylor'},{key:'steve',name:'Steve'},{key:'adam',name:'Adam'},{key:'jr',name:'JR'},{key:'hammad',name:'Hammad'},{key:'searah',name:'Searah'},{key:'sadee',name:'Sadee'}];
+function _refreshDMMembers(){ try{ _DM_MEMBERS=_getActiveTeamMembers().map(m=>({key:m.key,name:m.raciKey})); }catch(e){} }
 const _DM_NAME_MAP={taylor:'Taylor',steve:'Steve',adam:'Adam',mary:'Mary',jr:'JR',hammad:'Hammad',searah:'Searah',sadee:'Sadee'};
 let _DM_CHANNEL_MAP={taylor:'raci-taylor',steve:'leadership',adam:'raci-adam',mary:'general',jr:'raci-jr',hammad:'raci-hammad',searah:'brand-design',sadee:'customer-service'};
 function _isDMInactive(key){ return (_hrProfilesCache[key]||{}).status==='inactive'||key==='mary'; }
@@ -2844,12 +2860,13 @@ function _openMarkCompleteModal(taskId){
   const owner=t.owner||_USER_RACI_MAP[window._DGL_USER||'']||window._DGL_USER||'';
   const unblocked=DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(taskId));
 
+  const _mcAtm=_getActiveTeamMembers();
   // Team member dropdown options
-  const memberOpts=_DGL_TEAM_NAMES.map(n=>`<option value="${n}"${n===owner?'selected':''}>${n}</option>`).join('');
+  const memberOpts=_mcAtm.map(m=>`<option value="${m.raciKey}"${m.raciKey===owner?'selected':''}>${m.raciKey}</option>`).join('');
   // Multi-select checkboxes for "also involved"
-  const involvedBoxes=_DGL_TEAM_NAMES.map(n=>`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:pointer"><input type="checkbox" value="${n}" id="mc-inv-${n.toLowerCase()}" style="accent-color:var(--gold)">${n}</label>`).join('');
+  const involvedBoxes=_mcAtm.map(m=>`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:pointer"><input type="checkbox" value="${m.raciKey}" id="mc-inv-${m.key}" style="accent-color:var(--gold)">${m.raciKey}</label>`).join('');
   // Notify checkboxes
-  const notifyBoxes=_DGL_TEAM_NAMES.filter(n=>n!=='Mary').map(n=>{const locked=n==='Taylor'||n==='Steve';return`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:${locked?'default':'pointer'}"><input type="checkbox" value="${n}" id="mc-notify-${n.toLowerCase()}" style="accent-color:var(--accent)"${locked?' checked disabled':''}>${n}${locked?'<span style="font-size:7px;color:var(--gold);margin-left:2px">★</span>':''}</label>`;}).join('');
+  const notifyBoxes=_mcAtm.map(m=>{const locked=m.raciKey==='Taylor'||m.raciKey==='Steve';return`<label style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);margin-right:10px;margin-bottom:4px;cursor:${locked?'default':'pointer'}"><input type="checkbox" value="${m.raciKey}" id="mc-notify-${m.key}" style="accent-color:var(--accent)"${locked?' checked disabled':''}>${m.raciKey}${locked?'<span style="font-size:7px;color:var(--gold);margin-left:2px">★</span>':''}</label>`;}).join('');
   // Downstream tasks list — pre-fill text for editable textarea
   const downstreamDefault=unblocked.length?unblocked.map(u=>u.id+' — '+u.name+' ('+u.status+')').join('\n'):'';
 
@@ -2958,7 +2975,8 @@ function _markTaskComplete(taskId){
   if(!t) return;
 
   // Collect all form fields
-  const involved=_DGL_TEAM_NAMES.filter(n=>document.getElementById('mc-inv-'+n.toLowerCase())?.checked);
+  const _mcAtm2=_getActiveTeamMembers();
+  const involved=_mcAtm2.filter(m=>document.getElementById('mc-inv-'+m.key)?.checked).map(m=>m.raciKey);
   const format=document.getElementById('mc-format')?.value||'';
   const fileAttached=document.getElementById('mc-file-already')?.checked?'Already uploaded':'No';
   const duration=document.getElementById('mc-duration')?.value||'';
@@ -2967,7 +2985,7 @@ function _markTaskComplete(taskId){
   const qualityLabel={'1':'Needs Review','2':'Needs Review','3':'Solid','4':'Solid','5':'Excellent'}[quality]||'Solid';
   const nextAction=(document.getElementById('mc-next')?.value||'').trim();
   const unlocks=(document.getElementById('delivery-unlocks')?.value||'').trim();
-  const toNotify=_DGL_TEAM_NAMES.filter(n=>document.getElementById('mc-notify-'+n.toLowerCase())?.checked);
+  const toNotify=_mcAtm2.filter(m=>document.getElementById('mc-notify-'+m.key)?.checked).map(m=>m.raciKey);
   const unblocked=DASHBOARD_DATA.tasks.filter(d=>(d.deps||'').split(',').map(x=>x.trim()).includes(taskId));
 
   const _oldStatusDB=t.status;
@@ -4252,18 +4270,26 @@ function buildRaciTable(){
   tbody.innerHTML = '';
   // Inject custom member columns into thead
   const theadTr=document.querySelector('#raci-table thead tr');
+  const customMembers=_getCustomTeamMembers();
+  const _atmBoth=_getActiveTeamMembers();
+  const _customRaciKeysSet=new Set(customMembers.map(m=>m.raciKey));
+  const _atmDefault=_atmBoth.filter(m=>!_customRaciKeysSet.has(m.raciKey));
+  const _activeDefaultKeys=new Set(_atmDefault.map(m=>m.raciKey));
   if(theadTr){
     document.querySelectorAll('#raci-table thead th.raci-custom-col').forEach(th=>th.remove());
+    // Show/hide static member columns
+    document.querySelectorAll('#raci-table thead th[data-member]').forEach(th=>{
+      th.style.display=_activeDefaultKeys.has(th.dataset.member)?'':'none';
+    });
     const ths=Array.from(theadTr.children);
     const timelineTh=ths.find(th=>th.textContent.trim()==='Timeline');
-    _getCustomTeamMembers().forEach(cm=>{
+    customMembers.forEach(cm=>{
       const th=document.createElement('th');
       th.className='raci-person-col raci-custom-col';
       th.textContent=cm.raciKey.slice(0,3);
       if(timelineTh) theadTr.insertBefore(th,timelineTh); else theadTr.appendChild(th);
     });
   }
-  const customMembers=_getCustomTeamMembers();
   DASHBOARD_DATA.tasks.forEach(t=>{
     const flagIsGood = t.flag.startsWith('✓');
     const flagIsWarn = t.flag.startsWith('⚠️') || t.flag.startsWith('⛔');
@@ -4284,15 +4310,21 @@ function buildRaciTable(){
     const _fstRow=_getFlagState(t.flag);
     if(_fstRow) tr.style.borderLeft='3px solid '+_fstRow.color;
     const _flagBadge=_fstRow?(' <span class="flag-emoji-badge" title="'+_fstRow.label+'" style="font-size:11px;color:'+_fstRow.color+';cursor:default">'+_fstRow.emoji+'</span>'):'';
+    const _allRaciP=_getActiveTeamMembers().map(m=>m.raciKey);
+    const _rCount=_allRaciP.filter(p=>{const v=t[p]||'';return v==='R'||v==='A/R';}).length;
+    const _icRaciKey2=_getIncidentCommander()?.raciKey||'Taylor';
+    const _tVal=t[_icRaciKey2]||'';
+    const _taylorViol=_tVal!==''&&_tVal!=='-'&&_tVal!=='A'&&_tVal!=='A/R';
+    const _raciWarnBadge=(_taylorViol||_rCount>1)?('<span title="ICS violation: '+(_taylorViol?_icRaciKey2+'='+_tVal+' (Founder/CEO must be A or A/R)':'')+(_taylorViol&&_rCount>1?' · ':'')+(_rCount>1?_rCount+' R values (need exactly 1)':'')+'" style="font-size:9px;color:var(--red);margin-left:4px;cursor:help;vertical-align:middle">⚠️</span>'):'';
     tr.innerHTML = `
       <td style="padding:4px 2px;text-align:center;width:28px"><span class="raci-no-expand" style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span>${(()=>{const _d=_docsCache['task_'+t.id]||[];const _u=_d.some(x=>x.driveFileId&&x.driveFileId!=='');const _l=_d.some(x=>!x.driveFileId||x.driveFileId==='');return (_u?'<span style="font-size:10px;opacity:0.7;pointer-events:none">📎</span>':'')+(_l?'<span style="font-size:10px;opacity:0.7;pointer-events:none">🔗</span>':'');})()}</td>
       <td class="tid">${t.id}</td>
-      <td class="task-name">${t.name}${_flagBadge}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
+      <td class="task-name">${t.name}${_flagBadge}${_raciWarnBadge}<small>${t.deps ? 'Deps: '+t.deps : ''}</small></td>
       <td>${catSelect(t)}</td>
       <td>${priSelect(t)}</td>
       <td>${statusSelect(t)}</td>
       <td>${ownerSelect(t)}</td>
-      ${raciCell(t.Taylor,t.id,'Taylor')}${raciCell(t.Steve,t.id,'Steve')}${raciCell(t.Adam,t.id,'Adam')}${raciCell(t.Mary,t.id,'Mary')}${raciCell(t.JR,t.id,'JR')}${raciCell(t.Hammad,t.id,'Hammad')}${raciCell(t.Searah,t.id,'Searah')}${raciCell(t.Sadee,t.id,'Sadee')}${customMembers.map(cm=>raciCell(t[cm.raciKey]||'',t.id,cm.raciKey)).join('')}
+      ${_atmDefault.map(m=>raciCell(t[m.raciKey]||'',t.id,m.raciKey)).join('')}${customMembers.map(cm=>raciCell(t[cm.raciKey]||'',t.id,cm.raciKey)).join('')}
       ${taskProgress(t)}
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()" oninput="_onIcsFlagInput('${t.id}',this)">${t.flag||''}</div></td>
     `;
@@ -6319,7 +6351,7 @@ function saveAgendaItemTeam(){
 let _agOwners=[], _agEditId=null, _agChecked=false;
 function _renderAgOwnerChips(){
   const wrap=document.getElementById('aem-owner'); if(!wrap) return;
-  const all=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
+  const all=[..._getActiveTeamMembers().map(m=>m.raciKey),'TBD'];
   const chips=_agOwners.map(o=>`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(212,175,55,0.12);border:1px solid var(--gold);border-radius:4px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--gold)">${o}<span onclick="agRemoveOwner('${o}')" style="cursor:pointer;font-size:11px;line-height:1;color:var(--gold)">×</span></span>`).join('');
   const addOpts=all.map(o=>`<option value="${o}"${_agOwners.includes(o)?' disabled':''}>${o}</option>`).join('');
   wrap.innerHTML=chips+`<select onchange="agAddOwner(this.value);this.value=''" style="background:transparent;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;outline:none"><option value="">＋ add</option>${addOpts}</select>`;
@@ -7492,7 +7524,7 @@ function _showBulkCreateModal(id,type){
     return DASHBOARD_DATA.tasks.find(t=>{const tw=_keyWords(t.name||'');return kw.filter(w=>tw.some(x=>x.includes(w)||w.includes(x))).length>=2;})||null;
   };
   const _bSt2="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";
-  const _owners=['Taylor','Adam','Steve','Hammad','JR','Mary','Searah','Sadee','TBD'];
+  const _owners=[..._getActiveTeamMembers().map(m=>m.raciKey),'TBD'];
   const _pris=['High','Medium','Low'];
   const srcTaskId=type==='task'?id:(src.taskId||'');
   const srcTask=srcTaskId?DASHBOARD_DATA.tasks.find(t=>t.id===srcTaskId):null;
@@ -7555,7 +7587,7 @@ function _bulkCreateTasks(){
   const srcLinkedTask=srcAgenda&&srcAgenda.taskId?DASHBOARD_DATA.tasks.find(t=>t.id===srcAgenda.taskId):null;
   // Resolve category: source task → linked task (via agenda) → agenda's own cat field → fallback
   const srcCat=(srcTask?.cat)||(srcLinkedTask?.cat)||(srcAgenda?.cat)||'Launch Ops';
-  const _raciKeys=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee',..._getCustomTeamMembers().map(m=>m.raciKey)];
+  const _raciKeys=_getActiveTeamMembers().map(m=>m.raciKey);
   const _flagMap={risk:'⛔',week:'⚠️',today:'',decision:'',general:''};
   const prog=document.getElementById('bulk-create-progress');
   const todayStr=_toYMD(new Date());
@@ -8280,6 +8312,31 @@ const DEFAULT_TEAM_MEMBERS={
   'searah':{user:'searah',raciKey:'Searah',name:'Searah Teitgen', role:'Marketing Operations Associate',email:'searah@DGL.dev',color:'amber',accessLevel:'Member'},
   'sadee': {user:'sadee', raciKey:'Sadee', name:'Sadee Tison',    role:'PA · Support & Beta Ops',email:'sadee@DGL.dev',color:'teal',accessLevel:'Member'},
 };
+function _getActiveTeamMembers(){
+  const cache=_hrProfilesCache||{};
+  const hasCacheData=Object.keys(cache).length>0;
+  const defaultOrder=Object.keys(DEFAULT_TEAM_MEMBERS);
+  let members;
+  if(hasCacheData){
+    members=defaultOrder
+      .filter(k=>k!=='mary')
+      .filter(k=>{ const p=cache[k]; return !p||p.status==='active'; })
+      .map(k=>{ const def=DEFAULT_TEAM_MEMBERS[k]; const p=cache[k]||{}; return {key:k,name:p.name||def.name,raciKey:def.raciKey}; });
+  } else {
+    members=defaultOrder.filter(k=>k!=='mary').map(k=>{ const def=DEFAULT_TEAM_MEMBERS[k]; return {key:k,name:def.name,raciKey:def.raciKey}; });
+  }
+  _getCustomTeamMembers().filter(cm=>(cm.user||cm.key)!=='mary').forEach((cm,i)=>{
+    const k=cm.user||cm.key;
+    const p=cache[k];
+    if(!p||p.status==='active') members.push({key:k,name:cm.name,raciKey:cm.raciKey,_order:1000+i});
+  });
+  return members;
+}
+function _getIncidentCommander(){
+  const all=[...Object.values(DEFAULT_TEAM_MEMBERS),..._getCustomTeamMembers()];
+  const ic=all.find(m=>/(founder|ceo)/i.test(m.role||''))||all.find(m=>m.accessLevel==='Founder');
+  return ic?{userKey:ic.user||ic.userKey,raciKey:ic.raciKey,name:ic.name}:null;
+}
 function _getDefaultTeamEdits(){ try{const r=localStorage.getItem('dgl_default_team_edits');if(r)return JSON.parse(r);}catch(e){} return {}; }
 function _saveDefaultTeamEdits(obj){ try{localStorage.setItem('dgl_default_team_edits',JSON.stringify(obj));}catch(e){} }
 let _profilesCache={};
@@ -8536,9 +8593,7 @@ function _initCustomTeamExtensions(){
 function _rebuildRaciPersonFilter(){
   const bar=document.getElementById('raci-person-filter-bar');
   if(!bar) return;
-  const defaultPeople=['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee'];
-  const customPeople=_getCustomTeamMembers().map(m=>m.raciKey);
-  const all=[...defaultPeople,...customPeople];
+  const all=_getActiveTeamMembers().map(m=>m.raciKey);
   bar.innerHTML=`<span class="filter-label">Filter by person:</span>`
     +`<button class="filter-btn${raciPersonFilter==='all'?' active':''}" onclick="filterRaci('all',this)">All</button>`
     +all.map(k=>`<button class="filter-btn${raciPersonFilter===k?' active':''}" onclick="filterRaci('${k}',this)">${k}</button>`).join('');
@@ -12121,7 +12176,7 @@ let _tmOwners = [];
 function _renderTmOwnerChips(){
   const wrap = document.getElementById('tm-owner-chips');
   if(!wrap) return;
-  const all = ['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee','TBD'];
+  const all = [..._getActiveTeamMembers().map(m=>m.raciKey),'TBD'];
   const chips = _tmOwners.map(o=>`<span style="display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;background:var(--card);border:1px solid rgba(201,168,76,0.45);border-radius:4px;padding:3px 7px;color:var(--text);white-space:nowrap">${o}<span style="cursor:pointer;color:var(--muted);font-size:12px;line-height:1;margin-left:1px" onclick="tmRemoveOwner('${o}')">×</span></span>`).join('');
   const addOpts = all.map(o=>`<option value="${o}"${_tmOwners.includes(o)?' disabled':''}>${o}</option>`).join('');
   wrap.innerHTML = chips+`<select style="background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:2px 4px;cursor:pointer;outline:none;margin-left:2px" onchange="tmAddOwner(this.value);this.value=''"><option value="">＋ add</option>${addOpts}</select>`;
@@ -12275,7 +12330,7 @@ function showTaskModal(taskId){
         </div>
         <div class="modal-field" style="grid-column:1/3">
           <label>RACI Assignments</label>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${[['Taylor',task?.Taylor||''],['Steve',task?.Steve||''],['Adam',task?.Adam||''],['Mary',task?.Mary||''],['JR',task?.JR||''],['Hammad',task?.Hammad||''],['Searah',task?.Searah||''],['Sadee',task?.Sadee||'']].map(([name,val])=>`<div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">${name.toUpperCase()}</span><select id="tm-raci-${name.toLowerCase()}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 6px;border-radius:4px;outline:none"><option value=""${!val?' selected':''}>—</option><option value="R"${val==='R'?' selected':''}>R</option><option value="A"${val==='A'?' selected':''}>A</option><option value="A/R"${val==='A/R'?' selected':''}>A/R</option><option value="C"${val==='C'?' selected':''}>C</option><option value="I"${val==='I'?' selected':''}>I</option></select></div>`).join('')}</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${_getActiveTeamMembers().map(m=>{const val=task?.[m.raciKey]||'';return`<div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">${m.raciKey.toUpperCase()}</span><select id="tm-raci-${m.raciKey.toLowerCase()}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:4px 6px;border-radius:4px;outline:none"><option value=""${!val?' selected':''}>—</option><option value="R"${val==='R'?' selected':''}>R</option><option value="A"${val==='A'?' selected':''}>A</option><option value="A/R"${val==='A/R'?' selected':''}>A/R</option><option value="C"${val==='C'?' selected':''}>C</option><option value="I"${val==='I'?' selected':''}>I</option></select></div>`;}).join('')}</div>
         </div>
         <div class="modal-field" style="grid-column:1/3">
           <label>FLAG</label>
@@ -12373,7 +12428,10 @@ function saveTaskModal(taskId){
   const notes = (document.getElementById('tm-notes').value||'').trim();
   const actionPlan = (document.getElementById('tm-action-plan')?.value||'').trim();
   const _rg=n=>document.getElementById('tm-raci-'+n.toLowerCase())?.value||'';
-  const raciFields={Taylor:_rg('Taylor'),Steve:_rg('Steve'),Adam:_rg('Adam'),Mary:_rg('Mary'),JR:_rg('JR'),Hammad:_rg('Hammad'),Searah:_rg('Searah'),Sadee:_rg('Sadee')};
+  const _tmAtm=_getActiveTeamMembers();
+  const raciFields={};
+  _tmAtm.forEach(m=>{ raciFields[m.raciKey]=_rg(m.raciKey); });
+  if(!isNew){ const _existT=DASHBOARD_DATA.tasks.find(t=>t.id===taskId); if(_existT){ const _activeKeys=new Set(_tmAtm.map(m=>m.key)); Object.keys(DEFAULT_TEAM_MEMBERS).filter(k=>!_activeKeys.has(k)).forEach(k=>{ const rk=DEFAULT_TEAM_MEMBERS[k].raciKey; raciFields[rk]=_existT[rk]||''; }); } }
   const _flagEmoji=document.getElementById('tm-flag')?.value||'';
   const _flagNotesVal=(document.getElementById('tm-flag-notes')?.value||'').trim();
   const flag=_flagEmoji?(_flagEmoji+(_flagNotesVal?' '+_flagNotesVal:'')):_flagNotesVal;
@@ -12521,6 +12579,8 @@ rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mer
         const _fetchDocs=fetch(CONFIG.sheetsUrl+'?action=docs_read').then(r=>r.json()).then(data=>{ const docs=Array.isArray(data.docs)?data.docs:[]; docs.forEach(d=>{ if(d.taskId){ const k='task_'+d.taskId; if(!_docsCache[k]) _docsCache[k]=[]; _docsCache[k].push(d); } }); buildRaciTable(); buildRoadmap(); buildLaunchPlan(); }).catch(()=>{});
         Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings,_fetchLaunchPlan,_fetchWorkstreams,_fetchDocs])
           .then(()=>{
+            _refreshDMMembers();
+            _rebuildRaciPersonFilter();
             renderKillCriteria();
             _debouncedBuildMilestones();
             buildMilestoneHistory();
@@ -16177,7 +16237,7 @@ function _showManualStepForm(taskId,onSaved){
   const notesIn=document.createElement('textarea');notesIn.placeholder='Notes (optional)';notesIn.rows=3;notesIn.style.cssText=iSt+'resize:vertical';
   const assignSel=document.createElement('select');assignSel.style.cssText=iSt+'cursor:pointer';
   const noOpt=document.createElement('option');noOpt.value='';noOpt.textContent='— Assign to —';assignSel.appendChild(noOpt);
-  (_DGL_TEAM_NAMES||[]).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;assignSel.appendChild(o);});
+  _getActiveTeamMembers().forEach(m=>{const o=document.createElement('option');o.value=m.raciKey;o.textContent=m.raciKey;assignSel.appendChild(o);});
   const dueIn=document.createElement('input');dueIn.type='date';dueIn.style.cssText=iSt;
   const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:8px;margin-top:4px';
   const saveBtn=document.createElement('button');saveBtn.textContent='Save';saveBtn.style.cssText="flex:1;background:var(--gold);color:#0b0d10;border:none;border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;padding:7px;cursor:pointer;font-weight:600";
