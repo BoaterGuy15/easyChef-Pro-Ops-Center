@@ -1304,7 +1304,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 </div>
 
 <div class="modal-overlay" id="profile-modal-overlay" onclick="if(event.target===this)closeProfileModal()">
-  <div class="modal" style="max-width:700px;width:92%">
+  <div class="modal" style="max-width:860px;width:92%">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
       <div>
         <span id="profile-modal-name" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--gold);letter-spacing:2px"></span>
@@ -8375,6 +8375,64 @@ function _getMemberInfo(userKey){
   return custom||{name:userKey,role:'',email:''};
 }
 let _profileClockInterval=null;
+function _buildProfileWorkload(userKey,raciKey){
+  const today=_isoToday();
+  function _addD(iso,n){const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  const w7=_addD(today,7),w14=_addD(today,14);
+  const _td=v=>{const s=_toYMD(v);return s||'';};
+  const _fmt=s=>{if(!s)return'';const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];const d=new Date(s+'T00:00:00');return mo[d.getMonth()]+' '+d.getDate();};
+  // Gather items
+  const items=[];
+  // Tasks where responsible
+  (DASHBOARD_DATA.tasks||[]).forEach(t=>{
+    const v=(t[raciKey]||'').trim();
+    if(v!=='R'&&v!=='A/R'&&v!=='R/A') return;
+    if(t.status==='Done'||t.status==='Complete') return;
+    const date=_td(t.ed);
+    items.push({_type:'task',id:t.id,title:t.name,_date:date,status:t.status||'Not Started',_sc:getStatusColors(t.status||'')});
+  });
+  const _taskIds=new Set((DASHBOARD_DATA.tasks||[]).filter(t=>{const v=(t[raciKey]||'').trim();return v==='R'||v==='A/R'||v==='R/A';}).map(t=>t.id));
+  // Actions assigned to user
+  (_actionsCache||[]).forEach(a=>{
+    if((a.assignedTo||'').toLowerCase()!==userKey.toLowerCase()) return;
+    if(a.status==='Done'||a.status==='Complete') return;
+    const date=_td(a.dueDate)||_td(a.createdAt);
+    items.push({_type:'action',id:'',title:a.title||a.type||'Action',_date:date,status:a.status||'open',_sc:{color:'#c9a84c',bg:'rgba(201,168,76,0.08)'}});
+  });
+  // Agenda items with deadlines owned by or linked to this user
+  (AGENDA_DATA||[]).forEach(a=>{
+    if(a.checked||!a.deadline) return;
+    const isOwner=a.owner&&a.owner===raciKey;
+    const isLinked=a.taskId&&_taskIds.has(a.taskId);
+    if(!isOwner&&!isLinked) return;
+    const date=_td(a.deadline);
+    items.push({_type:'agenda',id:'',title:a.title,_date:date,status:a.flag||'',_sc:{color:'#4a9eff',bg:'rgba(74,158,255,0.08)'}});
+  });
+  if(!items.length) return '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--border);padding:4px 0">No open tasks, actions, or agenda items found.</div>';
+  // Sort by date asc (empty dates last)
+  items.sort((a,b)=>(a._date||'9999')+(a._type)<(b._date||'9999')+(b._type)?-1:1);
+  // Bucket
+  const overdue=items.filter(i=>i._date&&i._date<today);
+  const thisWeek=items.filter(i=>i._date>=today&&i._date<=w7);
+  const nextWeek=items.filter(i=>i._date>w7&&i._date<=w14);
+  const later=items.filter(i=>!i._date||(i._date>w14));
+  const _ico={task:'📋',action:'⚡',agenda:'📅'};
+  function _row(i){
+    const onclick=i._type==='task'?`onclick="closeProfileModal();setTimeout(()=>_viewTaskDetails('${i.id}'),150)"`:i._type==='action'?`onclick="closeProfileModal();showPage('actions')"`:i._type==='agenda'?`onclick="closeProfileModal();showPage('agenda')"`:'' ;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;margin-bottom:1px;background:rgba(255,255,255,0.02);cursor:pointer" ${onclick}>
+      <span style="flex-shrink:0;font-size:9px">${_ico[i._type]}</span>
+      ${i.id?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);flex-shrink:0;min-width:44px">${i.id}</span>`:''}
+      <span style="flex:1;font-family:'DM Mono',monospace;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.title}</span>
+      ${i._date?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);flex-shrink:0">${_fmt(i._date)}</span>`:''}
+      ${i.status&&i._type!=='agenda'?`<span style="font-family:'DM Mono',monospace;font-size:7px;padding:1px 4px;border-radius:2px;background:${i._sc.bg};color:${i._sc.color};flex-shrink:0;white-space:nowrap">${i.status}</span>`:''}
+    </div>`;
+  }
+  function _section(label,color,list){
+    if(!list.length) return '';
+    return `<div style="margin-bottom:12px"><div style="font-family:'DM Mono',monospace;font-size:8px;color:${color};letter-spacing:1.5px;font-weight:700;margin-bottom:5px">${label} · ${list.length}</div>${list.map(_row).join('')}</div>`;
+  }
+  return _section('🔴 OVERDUE','#ef4444',overdue)+_section('📅 DUE THIS WEEK','#f59e0b',thisWeek)+_section('🗓️ DUE NEXT WEEK','#60a5fa',nextWeek)+_section('🔜 UPCOMING','var(--muted)',later);
+}
 function _onPhotoInputChange(inp,userKey){
   const file=inp.files[0];
   if(!file) return;
@@ -8431,6 +8489,7 @@ function openProfileModal(userKey){
   const _pmPhotoUrl=_resolvePhotoUrl(userKey);
   const _pmAvHtml=_pmPhotoUrl?`<img id="profile-modal-avatar" src="${_pmPhotoUrl}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:8px;display:block" onerror="_imgErr(this,'${_pmIni}','${_pmHex}')">`:`<div id="profile-modal-avatar" style="width:72px;height:72px;border-radius:50%;background:${_pmHex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:22px;display:flex;align-items:center;justify-content:center;margin-bottom:8px">${_pmIni}</div>`;
   const _pmUpHtml=canWrite?`${_pmAvHtml}<input type="file" id="tc-photo-input" accept="image/*" style="display:none" onchange="_onPhotoInputChange(this,'${userKey}')"><button onclick="_uploadTeamPhoto('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-bottom:14px">📷 Upload Photo</button>`:_pmAvHtml;
+  const _wlHtml=_buildProfileWorkload(userKey,info.raciKey||'');
   document.getElementById('profile-modal-body').innerHTML=`
     <div>
       ${_pmUpHtml}
@@ -8456,6 +8515,10 @@ function openProfileModal(userKey){
         ${canWrite?`<button onclick="addProfileLog('${userKey}')" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap">+ Add</button>`:''}
       </div>
       <div id="profile-log-list" style="max-height:180px;overflow-y:auto">${logHtml}</div>
+    </div>
+    <div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">LIVE WORKLOAD — TASKS · ACTIONS · AGENDA</div>
+      ${_wlHtml}
     </div>`;
   overlay.classList.add('open');
   if(_profileClockInterval) clearInterval(_profileClockInterval);
