@@ -7559,44 +7559,45 @@ function _bulkCreateTasks(){
   const prog=document.getElementById('bulk-create-progress');
   const todayStr=_toYMD(new Date());
   const edDef=_toYMD(new Date(Date.now()+30*24*60*60*1000));
-  let createCount=0; const createdIds=[]; let prevTaskId=''; let skippedCount=0;
+  let skippedCount=0;
   const totalChecked=plans.filter((_,i)=>{ const c=document.getElementById('bcp-chk-'+i); return c&&c.checked; }).length;
+  // Pre-compute IDs from current max so duplicate check runs against ORIGINAL task list only
+  let _maxId=DASHBOARD_DATA.tasks.map(t=>parseInt((t.id||'').replace('T-',''))||0).reduce((a,b)=>Math.max(a,b),0);
+  const newTasks=[]; const createdIds=[]; let prevTaskId=''; let collectCount=0;
+  if(prog) prog.textContent='Preparing '+totalChecked+' task'+(totalChecked===1?'':'s')+'…';
   for(let i=0;i<plans.length;i++){
     const chk=document.getElementById('bcp-chk-'+i); if(!chk||!chk.checked) continue;
     const name=(document.getElementById('bcp-name-'+i)?.value||'').trim(); if(!name) continue;
     const owner=document.getElementById('bcp-owner-'+i)?.value||(srcTask||srcLinkedTask)?.owner||'TBD';
     const pri=document.getElementById('bcp-pri-'+i)?.value||'High';
     const ed=document.getElementById('bcp-date-'+i)?.value||edDef;
-    if(prog) prog.textContent='Creating '+(createCount+1)+' of '+totalChecked+'…';
-    // Skip if duplicate exists in current task list
+    // Duplicate check against ORIGINAL list only (not newly staged tasks)
     const _dup=_findDupTask(name);
     if(_dup){ const res=document.getElementById('bcp-result-'+i); if(res) res.innerHTML='<span style="color:var(--amber)">⏭ Skipped · '+_dup.id+'</span>'; skippedCount++; continue; }
-    const tid=nextTaskId();
+    _maxId++;
+    const tid='T-'+String(_maxId).padStart(3,'0');
     const p=plans[i];
     const raciCols={};
     _raciKeys.forEach(k=>{ raciCols[k]=(srcTask||srcLinkedTask)?((srcTask||srcLinkedTask)[k]||''):''; });
-    // Sequential chain: first task deps on source, each subsequent deps on source + immediately preceding task
     const manualDeps=document.getElementById('bcp-deps-'+i)?.value.trim();
     let deps;
-    if(manualDeps){
-      deps=manualDeps;
-    } else if(srcId){
-      deps=createCount===0?srcId:(srcId+', '+prevTaskId);
-    } else {
-      deps=prevTaskId;
-    }
+    if(manualDeps){ deps=manualDeps; }
+    else if(srcId){ deps=collectCount===0?srcId:(srcId+', '+prevTaskId); }
+    else { deps=prevTaskId; }
     const breadcrumb='\n[From: '+srcId+' action plan, created '+todayStr+']';
-    DASHBOARD_DATA.tasks.push({id:tid,name,cat:srcCat,pri,status:'Not Started',owner,deps,notes:(p.description||'')+breadcrumb,actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:_flagMap[p.section]||'',flagColor:'',slackChannel:'',lastStatusChange:new Date().toISOString().slice(0,16),...raciCols});
-    const res=document.getElementById('bcp-result-'+i); if(res) res.textContent='✦ '+tid;
-    createCount++; createdIds.push(tid); prevTaskId=tid;
-    console.log('[DGL] bulk create: created '+tid+' ('+name+')');
+    newTasks.push({id:tid,name,cat:srcCat,pri,status:'Not Started',owner,deps,notes:(p.description||'')+breadcrumb,actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:_flagMap[p.section]||'',flagColor:'',slackChannel:'',lastStatusChange:new Date().toISOString().slice(0,16),...raciCols,_rowIdx:i});
+    createdIds.push(tid); prevTaskId=tid; collectCount++;
+    console.log('[DGL] bulk create staged: '+tid+' ('+name+')');
   }
+  // Push all at once — single DASHBOARD_DATA mutation, no mid-loop renders
+  newTasks.forEach(t=>{ const rowIdx=t._rowIdx; delete t._rowIdx; DASHBOARD_DATA.tasks.push(t); const res=document.getElementById('bcp-result-'+rowIdx); if(res) res.textContent='✦ '+t.id; });
+  console.log('[DGL] bulk create: pushed '+newTasks.length+' tasks to DASHBOARD_DATA');
   // Show completion message immediately before any refresh (so a refresh error can't hide it)
   const srcAgendaId=(srcType==='agenda'?srcId:'')|| (srcTask?AGENDA_DATA.find(a=>a.taskId===srcId)?.id:'') || '';
   const srcApText=_getActionPlanText(srcId);
   const _lnkSt="color:var(--gold);cursor:pointer;text-decoration:underline;font-family:'DM Mono',monospace;font-size:10px";
   const createdLinks=createdIds.map(tid=>{ const t=DASHBOARD_DATA.tasks.find(x=>x.id===tid); return '<span style="'+_lnkSt+'" onclick="document.getElementById(\'bulk-create-overlay\')?.remove();_jumpToTask(\''+tid+'\')">'+tid+(t?' · '+(t.name||'').slice(0,30):'')+' </span>'; }).join('<br>');
-  const _sumCreated=createdIds.length?'✅ Done — '+createdIds.length+' task'+(createdIds.length===1?'':'s')+' created<br>'+createdLinks:'✦ No tasks created';
+  const _sumCreated=createdIds.length?'✅ Done — '+createdIds.length+' of '+totalChecked+' task'+(totalChecked===1?'':'s')+' created<br>'+createdLinks:'✦ No tasks created';
   const _sumSkipped=skippedCount?'<span style="color:var(--amber)"> | ⚠️ Skipped: '+skippedCount+' duplicate'+(skippedCount===1?'':'s')+'</span>':'';
   if(prog) prog.innerHTML='<span style="color:var(--green)">'+_sumCreated+'</span>'+_sumSkipped;
   if(createdIds.length){
