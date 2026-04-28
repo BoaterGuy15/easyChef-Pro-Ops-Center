@@ -8428,7 +8428,7 @@ function openProfileModal(userKey){
   const _pmHex=_pmCHex[_pmHrC.color||info.color||'gold']||'#c9a84c';
   const _pmPts=(info.name||userKey).trim().split(/\s+/);
   const _pmIni=((_pmPts[0]||'?')[0]+(((_pmPts.length>1?_pmPts[_pmPts.length-1]:'')||' ')[0])).toUpperCase().trim();
-  const _pmAvHtml=_pmHrC.photo?`<img id="profile-modal-avatar" src="${_pmHrC.photo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:8px;display:block">`:`<div id="profile-modal-avatar" style="width:72px;height:72px;border-radius:50%;background:${_pmHex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:22px;display:flex;align-items:center;justify-content:center;margin-bottom:8px">${_pmIni}</div>`;
+  const _pmAvHtml=_pmHrC.photo?`<img id="profile-modal-avatar" src="${_pmHrC.photo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:8px;display:block" onerror="_imgErr(this,'${_pmIni}','${_pmHex}')">`:`<div id="profile-modal-avatar" style="width:72px;height:72px;border-radius:50%;background:${_pmHex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:22px;display:flex;align-items:center;justify-content:center;margin-bottom:8px">${_pmIni}</div>`;
   const _pmUpHtml=canWrite?`${_pmAvHtml}<input type="file" id="tc-photo-input" accept="image/*" style="display:none" onchange="_onPhotoInputChange(this,'${userKey}')"><button onclick="_uploadTeamPhoto('${userKey}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-bottom:14px">📷 Upload Photo</button>`:_pmAvHtml;
   document.getElementById('profile-modal-body').innerHTML=`
     <div>
@@ -8520,7 +8520,7 @@ function openDefaultTeamMemberModal(user){
   const _dmHex=_dmCHex[cur.color||'gold']||'#c9a84c';
   const _dmPts=(cur.name||user).trim().split(/\s+/);
   const _dmIni=((_dmPts[0]||'?')[0]+(((_dmPts.length>1?_dmPts[_dmPts.length-1]:'')||' ')[0])).toUpperCase().trim();
-  const _dmAvHtml=_dmHrC.photo?`<img id="tmm-avatar" src="${_dmHrC.photo}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">`:`<div id="tmm-avatar" style="width:56px;height:56px;border-radius:50%;background:${_dmHex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:18px;display:flex;align-items:center;justify-content:center">${_dmIni}</div>`;
+  const _dmAvHtml=_dmHrC.photo?`<img id="tmm-avatar" src="${_dmHrC.photo}" style="width:56px;height:56px;border-radius:50%;object-fit:cover" onerror="_imgErr(this,'${_dmIni}','${_dmHex}')">`:`<div id="tmm-avatar" style="width:56px;height:56px;border-radius:50%;background:${_dmHex};color:#fff;font-weight:bold;font-family:'DM Mono',monospace;font-size:18px;display:flex;align-items:center;justify-content:center">${_dmIni}</div>`;
   document.getElementById('tmm-modal-body').innerHTML=`
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
       ${_dmAvHtml}
@@ -8911,7 +8911,7 @@ function _buildWorkSummaryHtml(userKey,raciKey,myTasks){
     </div>
   </div>`;
 }
-function _imgErr(el,initials,color){const d=document.createElement('div');d.style.cssText='width:52px;height:52px;border-radius:50%;background:'+color+';display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:18px;margin-bottom:8px';d.textContent=initials;if(el.parentNode)el.parentNode.replaceChild(d,el);}
+function _imgErr(el,initials,color){const sz=parseInt(el.style.width)||52;const fs=Math.round(sz*0.38);const mb=el.style.marginBottom;const d=document.createElement('div');d.style.cssText='width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+color+';display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:'+fs+'px'+(mb?';margin-bottom:'+mb:'');d.textContent=initials;if(el.parentNode)el.parentNode.replaceChild(d,el);}
 function buildTeamGrid(){
   const el = document.getElementById('team-grid');
   if(!el) return;
