@@ -715,7 +715,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="raci" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')" style="display:none">Tasks</div>
     <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')" style="display:none">Task Tracker</div>
     <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')">Budget &amp; Burn</div>
-    <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')">Team</div>
+    <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')" style="display:none">Team</div>
     <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')">App Data</div>
 
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')" style="display:none">Action Plans</div>
@@ -14017,8 +14017,9 @@ function openSettingsModal(){
     tabContent.style.cssText='flex:1;overflow:auto;padding:18px';
     let activeTab='project';
     function _switchTab(t){
-      // Restore page-comms if navigating away from it
+      // Restore page-comms or page-team if navigating away
       if(activeTab==='comms'){const pc=document.getElementById('page-comms');if(pc&&pc._settingsParent){pc._settingsParent.insertBefore(pc,pc._settingsNextSib||null);pc.style.display='none';delete pc._settingsParent;delete pc._settingsNextSib;}}
+      if(activeTab==='team'){const pt=document.getElementById('page-team');if(pt&&pt._settingsParent){pt._settingsParent.insertBefore(pt,pt._settingsNextSib||null);pt.style.display='none';delete pt._settingsParent;delete pt._settingsNextSib;}}
       activeTab=t;
       tabBar.querySelectorAll('button').forEach(b=>{b.style.borderBottom=b.dataset.tab===t?'2px solid var(--gold)':'2px solid transparent';b.style.color=b.dataset.tab===t?'var(--gold)':'var(--muted)';});
       if(t==='workstreams') _renderSettingsWorkstreams(tabContent);
@@ -14028,9 +14029,13 @@ function openSettingsModal(){
         const pc=document.getElementById('page-comms');
         if(pc){pc._settingsParent=pc.parentNode;pc._settingsNextSib=pc.nextSibling;tabContent.innerHTML='';pc.style.display='block';pc.style.padding='0';tabContent.appendChild(pc);if(typeof buildSlack==='function')buildSlack();if(typeof _buildChannelMappingSection==='function')_buildChannelMappingSection();}
       }
+      else if(t==='team'){
+        const pt=document.getElementById('page-team');
+        if(pt){pt._settingsParent=pt.parentNode;pt._settingsNextSib=pt.nextSibling;tabContent.innerHTML='';pt.style.display='block';pt.style.padding='0';tabContent.appendChild(pt);if(typeof buildTeamGrid==='function')buildTeamGrid();}
+      }
       else _renderSettingsProject(tabContent);
     }
-    [['🏢 Project','project'],['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🔗 Links','links'],['💬 Comms','comms']].forEach(([lbl,t])=>{
+    [['🏢 Project','project'],['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🔗 Links','links'],['💬 Comms','comms'],['👥 Team','team']].forEach(([lbl,t])=>{
       const btn=document.createElement('button');
       btn.dataset.tab=t;
       btn.textContent=lbl;
