@@ -14133,7 +14133,7 @@ function _renderSettingsWorkstreams(container){
       }
       if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'workstream_write',item:{id:_wsId,name:nm,color:col,order:_LP_WORKSTREAMS.indexOf(nm)}})}).catch(()=>{});
       _settingsCache.workstreams=_LP_WORKSTREAMS.map(n=>({...(_wsCache.find(w=>w.name===n)||{}),name:n,color:(_LP_WS_COLORS[n]||{color:'#94a3b8'}).color}));
-      buildLaunchPlan();_showToast('<div>✅ Workstream saved.</div>',1800);onDone();
+      buildLaunchPlan();['lp-new-bar-form','lp-edit-bar-form'].forEach(fid=>{const f=document.getElementById(fid);if(!f)return;const s=f.querySelector('select');if(!s)return;const cur=s.value;s.innerHTML=_LP_WORKSTREAMS.map(ws=>`<option value="${ws}"${ws===cur?' selected':''}>${ws}</option>`).join('');});_showToast('<div>✅ Workstream saved.</div>',1800);onDone();
     };
     const cancelBtn2=document.createElement('button');cancelBtn2.textContent='Cancel';cancelBtn2.style.cssText="padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer";cancelBtn2.onclick=onDone;
     btnRow.appendChild(saveBtn);btnRow.appendChild(cancelBtn2);
@@ -14263,6 +14263,7 @@ function _renderSettingsCats(container){
         if(ch) CATEGORY_CHANNEL_MAP[nm]=ch.name;
       }
       _rebuildCategoryOptions();
+      document.querySelectorAll('.dgl-cat-select').forEach(sel=>{const cc=getCatColors(sel.value);sel.style.background=cc.bg;sel.style.color=cc.color;});
       _showToast('<div>✅ Category saved.</div>',1800);
       onDone();
     };
