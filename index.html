@@ -341,6 +341,10 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .nav-tab{padding:0 20px;display:flex;align-items:center;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;white-space:nowrap}
 .nav-tab:hover{color:var(--text)}
 .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.lp-hub-bar{display:flex;gap:2px;padding:8px 16px 0;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;flex-shrink:0}
+.lp-hub-tab{padding:6px 14px;border:none;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;transition:all 0.2s;white-space:nowrap}
+.lp-hub-tab:hover{color:var(--text)}
+.lp-hub-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:16px}
 .countdown{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
 .countdown span{color:var(--red);font-weight:500}
@@ -706,17 +710,17 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="topbar-name">easyChef Pro</div>
   </div>
   <div class="nav-tabs">
-    <div class="nav-tab active" data-tab-id="agenda" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('agenda')">Agenda</div>
+    <div class="nav-tab active" data-tab-id="agenda" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('agenda')" style="display:none">Agenda</div>
     <div class="nav-tab" data-tab-id="command" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('command')">Command</div>
-    <div class="nav-tab" data-tab-id="raci" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')">Tasks</div>
-    <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')">Task Tracker</div>
+    <div class="nav-tab" data-tab-id="raci" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')" style="display:none">Tasks</div>
+    <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')" style="display:none">Task Tracker</div>
     <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')">Budget &amp; Burn</div>
     <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')">Team</div>
     <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')">App Data</div>
 
-    <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')">Action Plans</div>
-    <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('lp')">Workstreams</div>
-    <div class="nav-tab" data-tab-id="actions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actions')">⚡ Actions</div>
+    <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')" style="display:none">Action Plans</div>
+    <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')">Workstreams</div>
+    <div class="nav-tab" data-tab-id="actions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actions')" style="display:none">⚡ Actions</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -1432,14 +1436,16 @@ updateCountdown();
 // ── Page navigation ────────────────────────────────────────
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const _navId=(typeof _LP_HUB_SET!=='undefined'&&_LP_HUB_SET.has(id))?'lp':id;
   document.querySelectorAll('.nav-tab').forEach(t=>{
     t.classList.remove('active');
-    if(t.getAttribute('onclick')==="showPage('"+id+"')") t.classList.add('active');
+    if(t.dataset.tabId===_navId) t.classList.add('active');
   });
   const pg=document.getElementById('page-'+id);
   if(pg) pg.classList.add('active');
   sessionStorage.setItem('dgl_active_tab',id);
   try{localStorage.setItem('dgl_active_tab',id);}catch(_){}
+  if(typeof _LP_HUB_SET!=='undefined'&&_LP_HUB_SET.has(id)) _upsertLPHubBar(id);
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom(localStorage.getItem('dgl_gantt_zoom')||'90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
@@ -14805,6 +14811,22 @@ Object.defineProperty(window,'_lpDayPx',{get:()=>_ganttDayPx,set:()=>{}});
 
 
 const _LP_WORKSTREAMS=['Positioning & Brand','Website','Customer Discovery','App Onboarding (EUREKA)','Email Marketing','Beta (50 Real Families)','Social Media','Influencers & Alliances','Launch Ops & Infra'];
+const _LP_HUB_TABS=[
+  {id:'agenda',label:'📅 Agenda'},
+  {id:'raci',label:'📋 Tasks'},
+  {id:'roadmap',label:'🗓️ Task Tracker'},
+  {id:'actionplans',label:'🎯 Action Plans'},
+  {id:'lp',label:'🚀 Workstreams'},
+  {id:'actions',label:'⚡ Actions'}
+];
+const _LP_HUB_SET=new Set(_LP_HUB_TABS.map(t=>t.id));
+function _upsertLPHubBar(activeId){
+  const pg=document.getElementById('page-'+activeId);
+  if(!pg) return;
+  let bar=pg.querySelector('.lp-hub-bar');
+  if(!bar){bar=document.createElement('div');bar.className='lp-hub-bar';pg.prepend(bar);}
+  bar.innerHTML=_LP_HUB_TABS.map(t=>'<button class="lp-hub-tab'+(t.id===activeId?' active':'')+'" onclick="showPage(\''+t.id+'\')">'+t.label+'</button>').join('');
+}
 const _LP_CALLOUTS=[
   {title:'THE CRITICAL DEPENDENCY',detail:'The 50-family beta MUST start by May 11 (W4). Their 30 days of documented receipts produce the social proof that powers the social campaign (W9), website testimonials (W6), email sequences (W7), and app store reviews on launch day. Slip the beta = slip the entire launch.'},
   {title:'THE CONTENT ENGINE STARTS LATE',detail:"Social media prep doesn't begin until W4 (May 11) — a deliberate choice. We need beta data first or we're posting marketing claims, not real outcomes. Once the engine starts: 90 micro-content pieces/week, hypothesize-test-pivot weekly, shares as the only KPI."},
