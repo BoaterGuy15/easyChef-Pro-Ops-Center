@@ -8927,7 +8927,7 @@ function buildTeamGrid(){
       const _notSt=myTasks.filter(t=>_toYMD(t.sd)&&_toYMD(t.sd)<_tdStr&&t.status==='Not Started').sort((a,b)=>_toYMD(a.sd).localeCompare(_toYMD(b.sd)));
       const _cmUp=myTasks.filter(t=>_toYMD(t.sd)>_tdStr&&_toYMD(t.sd)<=_w14).sort((a,b)=>_toYMD(a.sd).localeCompare(_toYMD(b.sd)));
       const _dueWkHtml=_mkTCSec('🗓️ DUE THIS WEEK','var(--amber)',_dueWk.slice(0,4).map(t=>_tcRow(t,'Due '+_toYMD(t.ed)+' · <span style="color:'+_sColor(t.status)+'">'+t.status+'</span>')));
-      const _ovrdHtml=_mkTCSec('⚠️ OVERDUE','var(--red)',_ovrd.slice(0,4).map(t=>{const days=Math.ceil((_tdStr-_toYMD(t.ed)).split('').reduce(()=>0,0)||((new Date(_tdStr)-new Date(_toYMD(t.ed)))/86400000));return _tcRow(t,_toYMD(t.ed)+' · '+Math.max(1,Math.round((new Date(_tdStr)-new Date(_toYMD(t.ed)))/86400000))+'d overdue');}));
+      const _ovrdHtml=_mkTCSec('⚠️ OVERDUE','var(--red)',_ovrd.slice(0,4).map(t=>{const _ed=_toYMD(t.ed);const days=(_ed&&_tdStr)?Math.max(1,Math.round((new Date(_tdStr)-new Date(_ed))/86400000)):1;return _tcRow(t,_ed+' · '+days+'d overdue');}));
       const _notStHtml=_mkTCSec('📌 NOT STARTED','var(--muted)',_notSt.slice(0,4).map(t=>_tcRow(t,'Should have started '+_toYMD(t.sd))));
       const _cmUpHtml=_mkTCSec('🔜 COMING UP','#60a5fa',_cmUp.slice(0,4).map(t=>_tcRow(t,'Starts '+_toYMD(t.sd))));
       const _cu=window._DGL_USER||sessionStorage.getItem('dgl_user')||'';
