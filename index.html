@@ -3790,25 +3790,47 @@ function _loadSharedDocs(){
 }
 function _renderSharedDocs(){
   const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
-  // Derive filter tabs dynamically from whatever tags exist in the data
   const tagSet=new Set(_sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean));
-  const cats=['All',...Array.from(tagSet).sort()];
-  // If current filter no longer exists in data, reset to All
   if(_sharedDocsFilter!=='All'&&!tagSet.has(_sharedDocsFilter)) _sharedDocsFilter='All';
   const filterBar=document.getElementById('docs-filter-tabs');
-  if(filterBar){
-    filterBar.innerHTML=cats.map(c=>{
-      const active=_sharedDocsFilter===c;
-      return `<button onclick="_setDocsFilter('${c.replace(/'/g,"\\'")}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${c}</button>`;
-    }).join('');
-  }
   const grid=document.getElementById('docs-grid');
   if(!grid) return;
+
+  // ── ROOT VIEW: no folder selected, no search → show folder tiles ──
+  if(_sharedDocsFilter==='All'&&!q){
+    if(filterBar) filterBar.innerHTML='';
+    const tags=[...tagSet].sort();
+    if(!tags.length){
+      grid.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">No documents yet — upload a file or paste a URL above.</div>';
+      return;
+    }
+    grid.innerHTML=tags.map(tag=>{
+      const count=_sharedDocsCache.filter(d=>_sharedDocTag(d)===tag).length;
+      const isTaskFolder=_sharedDocsCache.some(d=>_sharedDocTag(d)===tag&&!!d.taskId);
+      const folderIcon=isTaskFolder?'📋':'📁';
+      const safeTag=tag.replace(/'/g,"\\'");
+      return `<div onclick="_setDocsFilter('${safeTag}')" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;transition:border-color 0.15s,background 0.15s;user-select:none" onmouseover="this.style.borderColor='var(--gold)';this.style.background='var(--gold-dim)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+        <span style="font-size:36px;line-height:1">${folderIcon}</span>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--text);text-align:center;word-break:break-word;max-width:160px">${tag}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${count} doc${count===1?'':'s'}</div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  // ── FOLDER / SEARCH VIEW: show back button + breadcrumb + doc cards ──
+  if(filterBar){
+    const crumb=_sharedDocsFilter!=='All'
+      ?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);padding:0 4px">/ ${_sharedDocsFilter}</span>`
+      :`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:0 4px">Search results</span>`;
+    filterBar.innerHTML=`<button onclick="_setDocsFilter('All')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">← Folders</button>${crumb}`;
+  }
+
   let docs=_sharedDocsCache.slice();
   if(_sharedDocsFilter!=='All') docs=docs.filter(d=>_sharedDocTag(d)===_sharedDocsFilter);
   if(q) docs=docs.filter(d=>(d.name||'').toLowerCase().includes(q)||_sharedDocTag(d).toLowerCase().includes(q));
   if(!docs.length){
-    grid.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">No documents yet — upload a file or paste a URL above.</div>';
+    grid.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">${q?'No docs match your search.':'This folder is empty.'}</div>`;
     return;
   }
   const cu=window._DGL_USER||'';
@@ -3820,7 +3842,6 @@ function _renderSharedDocs(){
     const badge=d.driveFileId
       ?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:#22c55e;border:1px solid #22c55e;border-radius:3px;padding:0 4px">🔒 Drive</span>`
       :`<span style="font-family:'DM Mono',monospace;font-size:8px;color:#d4a017;border:1px solid #d4a017;border-radius:3px;padding:0 4px">🔗 Link</span>`;
-    // Task-linked docs get a gold 📋 pill; folder/category docs get a muted pill
     const tagChip=`<span style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 7px;border-radius:99px;border:1px solid ${isTaskDoc?'var(--gold)':'var(--border)'};color:${isTaskDoc?'var(--gold-light)':'var(--muted)'};${isTaskDoc?'background:var(--gold-dim);':''}">${isTaskDoc?'📋 ':''}${tag}</span>`;
     const safeName=(d.name||d.filename||'Untitled').replace(/"/g,'&quot;');
     const canDel=isAdmin||(d.addedBy&&d.addedBy===cu);
