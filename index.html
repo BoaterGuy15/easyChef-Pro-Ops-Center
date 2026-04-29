@@ -350,6 +350,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-grad
 .countdown span{color:var(--red);font-weight:500}
 .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes dgl-run{0%,100%{transform:translateY(0) rotate(-8deg)}25%{transform:translateY(-5px) rotate(0deg)}50%{transform:translateY(0) rotate(8deg)}75%{transform:translateY(-5px) rotate(0deg)}}
+.dgl-runner{display:inline-block;animation:dgl-run 0.45s linear infinite;font-size:18px;vertical-align:middle}
 
 /* ── LAYOUT ── */
 .page{display:none;padding:32px;max-width:1200px;margin:0 auto}
@@ -1303,7 +1305,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <input id="docs-search" type="text" placeholder="Search docs…" oninput="_renderSharedDocs()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;width:160px">
   </div>
   <div id="docs-dz-shared-team" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:20px;cursor:pointer;transition:border-color 0.15s" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'shared','team','Team Documents')" onclick="const _dfi=document.getElementById('docs-fi-shared-team');if(_dfi)_dfi.click()">
-    📎 Drop files here or click to upload to shared library
+    <span class="dz-label">📎 Drop files here or click to upload to shared library</span>
     <input id="docs-fi-shared-team" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
   </div>
   <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;min-height:80px"></div>
@@ -3712,6 +3714,15 @@ function _saveDocLink(url,name,sourceType,sourceId){
   if(urlEl) urlEl.value=''; if(nameEl) nameEl.value='';
   _docLinkUrlCheck(sourceType,sourceId);
 }
+function _dzSetLabel(dz,html,color){
+  if(!dz) return;
+  const lbl=dz.querySelector('.dz-label');
+  if(lbl){ lbl.innerHTML=html; dz.style.color=color||''; }
+  // no fallback textContent — that would destroy the <input> child
+}
+function _dzResetLabel(dz){
+  _dzSetLabel(dz,'📎 Drop files here or click to upload','');
+}
 function _handleDocUpload(files,sourceType,sourceId,sourceName){
   console.log('[DGL] Doc upload sourceName:',sourceName,'sourceType:',sourceType,'sourceId:',sourceId);
   if(!files||!files.length) return;
@@ -3720,11 +3731,12 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
   let idx=0;
   function _uploadNext(){
     if(idx>=fileArr.length){
-      if(dz){ dz.textContent='✅ All uploaded'; dz.style.color='var(--green)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to upload'; dz.style.color=''; },1800); }
+      _dzSetLabel(dz,'✅ All uploaded!','var(--green)');
+      setTimeout(()=>_dzResetLabel(dz),2000);
       return;
     }
     const file=fileArr[idx++];
-    if(dz){ dz.textContent='Uploading '+file.name+'…'; dz.style.color='var(--gold)'; }
+    _dzSetLabel(dz,'<span class="dgl-runner">🏃</span>&nbsp; Uploading <strong>'+file.name+'</strong>…','var(--gold)');
     const reader=new FileReader();
     reader.onload=ev=>{
       const b64=ev.target.result.split(',')[1];
@@ -3744,9 +3756,9 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
           console.log('[DGL] Doc saved to Drive:',{name:file.name,driveFileId:_driveFileId,url:_url});
           if(data.ok===false){
             const _errMsg=data.error||'Apps Script error';
-            if(dz){ dz.textContent='❌ Upload failed: '+_errMsg; dz.style.color='var(--red)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to upload'; dz.style.color=''; },6000); }
+            _dzSetLabel(dz,'❌ Upload failed: '+_errMsg,'var(--red)'); setTimeout(()=>_dzResetLabel(dz),6000);
           } else if(!_url){
-            if(dz){ dz.textContent='⚠️ Upload succeeded but Drive link was not returned — check Apps Script permissions'; dz.style.color='var(--amber)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to upload'; dz.style.color=''; },6000); }
+            _dzSetLabel(dz,'⚠️ Uploaded but Drive link missing — check Apps Script permissions','var(--amber)'); setTimeout(()=>_dzResetLabel(dz),6000);
           }
           // Refresh from Sheets so all panels see the real Drive URL + preview
           _refreshDocsForSource(sourceType,sourceId);
@@ -3754,7 +3766,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
           if(folderBtn&&_d.folderUrl){ folderBtn.href=_d.folderUrl; }
           _uploadNext();
         })
-        .catch(()=>{ if(dz){ dz.textContent='❌ Failed: '+file.name; dz.style.color='var(--red)'; } setTimeout(_uploadNext,1500); });
+        .catch(()=>{ _dzSetLabel(dz,'❌ Failed: '+file.name,'var(--red)'); setTimeout(_uploadNext,1500); });
     };
     reader.readAsDataURL(file);
   }
@@ -4069,7 +4081,7 @@ function _showGridCtxMenu(e){
   menu.innerHTML=
     (inFolder&&parentFolder?`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_addSharedFolder('${parentFolder.replace(/'/g,"\\'")}')">📁&nbsp; New subfolder here</button>${sep}`:'')
     +`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_openSharedDocPasteModal()">🔗&nbsp; Paste URL</button>`
-    +`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();document.getElementById('docs-fi-shared-team').click()">📎&nbsp; Upload file</button>`
+    +`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();const _cfi=document.getElementById('docs-fi-shared-team');if(_cfi)_cfi.click()">📎&nbsp; Upload file</button>`
     +(!inFolder?sep+`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_addSharedFolder('')">📂&nbsp; New folder</button>`:'');
   const x=Math.min(e.clientX,window.innerWidth-200);
   const y=Math.min(e.clientY,window.innerHeight-180);
