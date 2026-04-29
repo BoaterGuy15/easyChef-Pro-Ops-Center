@@ -3769,26 +3769,44 @@ function deleteDoc(docId,sourceType,sourceId){
 // ── Shared Team Documents (📁 Docs tab) ─────────────────────
 let _sharedDocsCache=[];
 let _sharedDocsFilter='All';
+// Resolve a display tag for any doc — category, task name, agenda, or General
+function _sharedDocTag(d){
+  if(d.category) return d.category;
+  if(d.taskId){
+    const t=(DASHBOARD_DATA.tasks||[]).find(x=>x.id===d.taskId);
+    return t?t.name:d.taskId;
+  }
+  if(d.agendaId) return 'Agenda';
+  return 'General';
+}
 function _loadSharedDocs(){
   if(!CONFIG.sheetsUrl){ _renderSharedDocs(); return; }
-  fetch(CONFIG.sheetsUrl+'?action=docs_read&shared=true')
+  // No filter — fetch all docs so task-linked and shared docs appear together
+  fetch(CONFIG.sheetsUrl+'?action=docs_read')
     .then(r=>r.json()).then(data=>{
       _sharedDocsCache=Array.isArray(data.docs)?data.docs:[];
       _renderSharedDocs();
     }).catch(()=>{ _renderSharedDocs(); });
 }
 function _renderSharedDocs(){
-  const cats=['All','Marketing','Development','Finance','Design','HR','Strategy','Legal','Other'];
+  const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
+  // Derive filter tabs dynamically from whatever tags exist in the data
+  const tagSet=new Set(_sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean));
+  const cats=['All',...Array.from(tagSet).sort()];
+  // If current filter no longer exists in data, reset to All
+  if(_sharedDocsFilter!=='All'&&!tagSet.has(_sharedDocsFilter)) _sharedDocsFilter='All';
   const filterBar=document.getElementById('docs-filter-tabs');
   if(filterBar){
-    filterBar.innerHTML=cats.map(c=>`<button onclick="_setDocsFilter('${c}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${_sharedDocsFilter===c?'var(--gold)':'var(--border)'};background:${_sharedDocsFilter===c?'var(--gold-dim)':'transparent'};color:${_sharedDocsFilter===c?'var(--gold-light)':'var(--muted)'};cursor:pointer">${c}</button>`).join('');
+    filterBar.innerHTML=cats.map(c=>{
+      const active=_sharedDocsFilter===c;
+      return `<button onclick="_setDocsFilter('${c.replace(/'/g,"\\'")}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${c}</button>`;
+    }).join('');
   }
-  const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
   const grid=document.getElementById('docs-grid');
   if(!grid) return;
   let docs=_sharedDocsCache.slice();
-  if(_sharedDocsFilter!=='All') docs=docs.filter(d=>d.category===_sharedDocsFilter);
-  if(q) docs=docs.filter(d=>(d.name||'').toLowerCase().includes(q)||(d.category||'').toLowerCase().includes(q));
+  if(_sharedDocsFilter!=='All') docs=docs.filter(d=>_sharedDocTag(d)===_sharedDocsFilter);
+  if(q) docs=docs.filter(d=>(d.name||'').toLowerCase().includes(q)||_sharedDocTag(d).toLowerCase().includes(q));
   if(!docs.length){
     grid.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">No documents yet — upload a file or paste a URL above.</div>';
     return;
@@ -3797,10 +3815,13 @@ function _renderSharedDocs(){
   const isAdmin=['taylor','steve','adam','hammad'].includes(cu);
   grid.innerHTML=docs.map(d=>{
     const icon=_docFileIcon(d.name||d.filename||'');
+    const isTaskDoc=!!(d.taskId);
+    const tag=_sharedDocTag(d);
     const badge=d.driveFileId
       ?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:#22c55e;border:1px solid #22c55e;border-radius:3px;padding:0 4px">🔒 Drive</span>`
       :`<span style="font-family:'DM Mono',monospace;font-size:8px;color:#d4a017;border:1px solid #d4a017;border-radius:3px;padding:0 4px">🔗 Link</span>`;
-    const cat=d.category?`<span style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 7px;border-radius:99px;border:1px solid var(--border);color:var(--muted)">${d.category}</span>`:'';
+    // Task-linked docs get a gold 📋 pill; folder/category docs get a muted pill
+    const tagChip=`<span style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 7px;border-radius:99px;border:1px solid ${isTaskDoc?'var(--gold)':'var(--border)'};color:${isTaskDoc?'var(--gold-light)':'var(--muted)'};${isTaskDoc?'background:var(--gold-dim);':''}">${isTaskDoc?'📋 ':''}${tag}</span>`;
     const safeName=(d.name||d.filename||'Untitled').replace(/"/g,'&quot;');
     const canDel=isAdmin||(d.addedBy&&d.addedBy===cu);
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px">
@@ -3811,7 +3832,7 @@ function _renderSharedDocs(){
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">${d.addedBy||''} · ${(d.addedAt||'').slice(0,10)}</div>
         </div>
       </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${badge}${cat}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${badge}${tagChip}</div>
       <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
         ${d.url?`<a href="${d.url}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--gold);color:var(--gold-light);text-decoration:none;background:var(--gold-dim)">↗️ Open</a>`:''}
         ${canDel?`<button onclick="_deleteSharedDoc('${d.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer">🗑️</button>`:''}
@@ -3833,13 +3854,15 @@ function _openSharedDocPasteModal(){
   const ov=document.getElementById('modal-overlay');
   const mc=document.getElementById('modal-content');
   if(!ov||!mc) return;
+  // Build datalist from existing tags in cache + default suggestions
+  const existingTags=[...new Set(_sharedDocsCache.map(d=>d.category).filter(Boolean))];
+  const defaultTags=['Marketing','Development','Finance','Design','HR','Strategy','Legal','Other'];
+  const allSuggestions=[...new Set([...existingTags,...defaultTags])].sort();
   mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">PASTE DOCUMENT URL</div>
     <input id="sdoc-url" type="url" placeholder="https://docs.google.com/…" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px">
     <input id="sdoc-name" type="text" placeholder="Document name (optional)" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px">
-    <select id="sdoc-cat" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:16px">
-      <option value="">Category (optional)</option>
-      ${['Marketing','Development','Finance','Design','HR','Strategy','Legal','Other'].map(c=>`<option value="${c}">${c}</option>`).join('')}
-    </select>
+    <input id="sdoc-cat" type="text" list="sdoc-cat-list" placeholder="Folder / category — type or pick one" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:16px">
+    <datalist id="sdoc-cat-list">${allSuggestions.map(c=>`<option value="${c}">`).join('')}</datalist>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>
       <button onclick="_saveSharedDocLink()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer">Save</button>
@@ -3849,7 +3872,7 @@ function _openSharedDocPasteModal(){
 function _saveSharedDocLink(){
   const url=((document.getElementById('sdoc-url')||{}).value||'').trim();
   let name=((document.getElementById('sdoc-name')||{}).value||'').trim();
-  const cat=((document.getElementById('sdoc-cat')||{}).value||'');
+  const cat=((document.getElementById('sdoc-cat')||{}).value||'').trim();
   if(!url){ alert('Please paste a URL first.'); return; }
   if(!name) name=decodeURIComponent(url.split('/').filter(Boolean).pop()||'Untitled');
   const driveMatch=url.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
