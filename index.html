@@ -3742,10 +3742,11 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       const sp=dz&&dz.querySelector('.dz-pct');
       if(sp) sp.textContent=Math.round(_pct)+'%';
     }
-    function _crawlTo(target){
+    function _crawlTo(){
       if(_pctTimer) clearInterval(_pctTimer);
+      // constant 0.25%/tick so movement is always visible; reaches 99% in ~23s
       _pctTimer=setInterval(()=>{
-        _pct=Math.min(target,_pct+(target-_pct)*0.06+0.15);
+        _pct=Math.min(99,_pct+0.25);
         const sp=dz&&dz.querySelector('.dz-pct');
         if(sp) sp.textContent=Math.round(_pct)+'%';
       },60);
@@ -3756,7 +3757,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
     reader.onprogress=ev=>{ if(ev.lengthComputable) _setPct((ev.loaded/ev.total)*55); };
     reader.onload=ev=>{
       _setPct(60);
-      _crawlTo(99);
+      _crawlTo();
       const b64=ev.target.result.split(',')[1];
       const _sn=sourceName||(sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===sourceId)||{}).title||'');
       console.log('[DGL] Resolved _sn:',_sn,'(param was:',sourceName,')');
@@ -3764,9 +3765,11 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
         taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',
         sourceType:sourceType,sourceId:sourceId,sourceName:_sn,addedBy:window._DGL_USER||'unknown'};
       if(!CONFIG.sheetsUrl){ _stopCrawl(); _setPct(100); setTimeout(_uploadNext,300); return; }
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+      const _abortCtrl=new AbortController();
+      const _abortTimer=setTimeout(()=>_abortCtrl.abort(),150000); // 2.5min timeout
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload),signal:_abortCtrl.signal})
         .then(r=>r.json()).then(data=>{
-          _stopCrawl(); _setPct(100);
+          clearTimeout(_abortTimer); _stopCrawl(); _setPct(100);
           console.log('[DGL] Doc upload full response:', data);
           const _d=data.doc||data;
           const _driveFileId=_d.driveFileId||_d.id||data.id||'';
@@ -3783,7 +3786,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
           if(folderBtn&&_d.folderUrl){ folderBtn.href=_d.folderUrl; }
           setTimeout(_uploadNext,350);
         })
-        .catch(()=>{ _stopCrawl(); _dzSetLabel(dz,'❌ Failed: '+file.name,'var(--red)'); setTimeout(_uploadNext,1500); });
+        .catch(err=>{ clearTimeout(_abortTimer); _stopCrawl(); const msg=err&&err.name==='AbortError'?'⏱️ Timed out — check your connection or try a smaller file':'❌ Failed: '+file.name; _dzSetLabel(dz,msg,'var(--red)'); setTimeout(_uploadNext,2500); });
     };
     reader.readAsDataURL(file);
   }
