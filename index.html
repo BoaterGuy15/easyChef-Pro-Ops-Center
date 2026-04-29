@@ -3828,14 +3828,15 @@ function _renderSharedDocs(){
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-size:22px;flex-shrink:0;line-height:1">${icon}</span>
         <div style="flex:1;overflow:hidden">
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safeName}">${safeName}</div>
+          <div id="sdoc-name-${d.id}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safeName}">${safeName}</div>
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">${d.addedBy||''} · ${(d.addedAt||'').slice(0,10)}</div>
         </div>
       </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${badge}${tagChip}</div>
       <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
         ${d.url?`<a href="${d.url}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--gold);color:var(--gold-light);text-decoration:none;background:var(--gold-dim)">↗️ Open</a>`:''}
-        ${canDel?`<button onclick="_deleteSharedDoc('${d.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer">🗑️</button>`:''}
+        <button onclick="_editSharedDoc('${d.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer" title="Rename">✏️</button>
+        ${canDel?`<button onclick="_deleteSharedDoc('${d.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer" title="Delete">🗑️</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -3849,6 +3850,24 @@ function _deleteSharedDoc(docId){
   _sharedDocsCache=_sharedDocsCache.filter(d=>d.id!==docId);
   _renderSharedDocs();
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).catch(()=>{});
+}
+function _editSharedDoc(docId){
+  const el=document.getElementById('sdoc-name-'+docId);
+  if(!el) return;
+  const cur=el.textContent;
+  el.outerHTML=`<input id="sdoc-edit-${docId}" type="text" value="${cur.replace(/"/g,'&quot;')}"
+    style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--text);background:var(--bg);border:1px solid var(--gold);border-radius:4px;padding:2px 6px;outline:none;width:100%;box-sizing:border-box"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.dataset.cancel='1';_renderSharedDocs();}"
+    onblur="if(!this.dataset.cancel)_saveSharedDocName('${docId}',this.value)">`;
+  setTimeout(()=>{const i=document.getElementById('sdoc-edit-'+docId);if(i){i.focus();i.select();}},10);
+}
+function _saveSharedDocName(docId,val){
+  val=(val||'').trim();
+  const doc=_sharedDocsCache.find(d=>d.id===docId);
+  if(!doc){_renderSharedDocs();return;}
+  if(val&&val!==doc.name) doc.name=val;
+  _renderSharedDocs();
+  if(val&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_update',id:docId,name:val})}).catch(()=>{});
 }
 function _openSharedDocPasteModal(){
   const ov=document.getElementById('modal-overlay');
