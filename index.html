@@ -3731,28 +3731,49 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
   let idx=0;
   function _uploadNext(){
     if(idx>=fileArr.length){
-      _dzSetLabel(dz,'✅ All uploaded!','var(--green)');
-      setTimeout(()=>_dzResetLabel(dz),2000);
+      _dzSetLabel(dz,'✅ All done! 100%','var(--green)');
+      setTimeout(()=>_dzResetLabel(dz),2200);
       return;
     }
     const file=fileArr[idx++];
-    _dzSetLabel(dz,'<span class="dgl-runner">🏃</span>&nbsp; Uploading <strong>'+file.name+'</strong>…','var(--gold)');
+    let _pct=0,_pctTimer=null;
+    function _setPct(p){
+      _pct=Math.min(100,p);
+      const sp=dz&&dz.querySelector('.dz-pct');
+      if(sp) sp.textContent=Math.round(_pct)+'%';
+    }
+    function _crawlTo(target,ms){
+      if(_pctTimer) clearInterval(_pctTimer);
+      const interval=60;
+      const ticks=Math.max(1,Math.round(ms/interval));
+      _pctTimer=setInterval(()=>{
+        _pct=Math.min(target,_pct+(target-_pct)*0.08+0.3);
+        const sp=dz&&dz.querySelector('.dz-pct');
+        if(sp) sp.textContent=Math.round(_pct)+'%';
+        if(_pct>=target-0.5){ clearInterval(_pctTimer); _pctTimer=null; }
+      },interval);
+    }
+    function _stopCrawl(){ if(_pctTimer){ clearInterval(_pctTimer); _pctTimer=null; } }
+    _dzSetLabel(dz,'<span class="dgl-runner">🏃</span>&nbsp; Uploading <strong>'+file.name+'</strong>&nbsp;<span class="dz-pct" style="font-family:\'DM Mono\',monospace;font-weight:700">0%</span>','var(--gold)');
     const reader=new FileReader();
+    reader.onprogress=ev=>{ if(ev.lengthComputable) _setPct((ev.loaded/ev.total)*55); };
     reader.onload=ev=>{
+      _setPct(60);
+      _crawlTo(90,4000);
       const b64=ev.target.result.split(',')[1];
       const _sn=sourceName||(sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===sourceId)||{}).title||'');
       console.log('[DGL] Resolved _sn:',_sn,'(param was:',sourceName,')');
       const payload={action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,
         taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',
         sourceType:sourceType,sourceId:sourceId,sourceName:_sn,addedBy:window._DGL_USER||'unknown'};
-      if(!CONFIG.sheetsUrl){ _uploadNext(); return; }
+      if(!CONFIG.sheetsUrl){ _stopCrawl(); _setPct(100); setTimeout(_uploadNext,300); return; }
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
         .then(r=>r.json()).then(data=>{
+          _stopCrawl(); _setPct(100);
           console.log('[DGL] Doc upload full response:', data);
           const _d=data.doc||data;
           const _driveFileId=_d.driveFileId||_d.id||data.id||'';
           const _url=_d.url||data.url||'';
-          const _previewUrl=_d.previewUrl||'';
           console.log('[DGL] Doc saved to Drive:',{name:file.name,driveFileId:_driveFileId,url:_url});
           if(data.ok===false){
             const _errMsg=data.error||'Apps Script error';
@@ -3760,13 +3781,12 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
           } else if(!_url){
             _dzSetLabel(dz,'⚠️ Uploaded but Drive link missing — check Apps Script permissions','var(--amber)'); setTimeout(()=>_dzResetLabel(dz),6000);
           }
-          // Refresh from Sheets so all panels see the real Drive URL + preview
           _refreshDocsForSource(sourceType,sourceId);
           const folderBtn=document.getElementById('docs-folder-btn-'+sourceType+'-'+sourceId);
           if(folderBtn&&_d.folderUrl){ folderBtn.href=_d.folderUrl; }
-          _uploadNext();
+          setTimeout(_uploadNext,350);
         })
-        .catch(()=>{ _dzSetLabel(dz,'❌ Failed: '+file.name,'var(--red)'); setTimeout(_uploadNext,1500); });
+        .catch(()=>{ _stopCrawl(); _dzSetLabel(dz,'❌ Failed: '+file.name,'var(--red)'); setTimeout(_uploadNext,1500); });
     };
     reader.readAsDataURL(file);
   }
