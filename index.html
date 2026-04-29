@@ -1306,8 +1306,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     📎 Drop files here or click to upload to shared library
     <input id="docs-fi-shared-team" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
   </div>
-  <div id="docs-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px"></div>
-  <div id="docs-ctx-menu" style="position:fixed;z-index:99999;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:10px;padding:4px 0;min-width:170px;box-shadow:0 8px 28px rgba(0,0,0,0.5);display:none"></div>
+  <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;min-height:80px"></div>
 </div>
 
 <!-- ══ PAGE: AGENDA ══ -->
@@ -3997,6 +3996,17 @@ function _saveSharedDocName(docId,val){
   if(val&&CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_update',id:docId,name:val})}).catch(()=>{});
 }
 // ── Docs right-click context menu ────────────────────────────
+function _getDocsCtxMenu(){
+  let m=document.getElementById('docs-ctx-menu');
+  if(!m||m.parentNode!==document.body){
+    if(m) m.remove();
+    m=document.createElement('div');
+    m.id='docs-ctx-menu';
+    m.style.cssText='position:fixed;z-index:99999;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:10px;padding:4px 0;min-width:180px;box-shadow:0 8px 28px rgba(0,0,0,0.55);display:none';
+    document.body.appendChild(m);
+  }
+  return m;
+}
 function _docsCtxEsc(e){ if(e.key==='Escape') _hideDocsCtxMenu(); }
 function _hideDocsCtxMenu(){
   const m=document.getElementById('docs-ctx-menu');
@@ -4012,18 +4022,16 @@ function _showDocsCtxMenu(e,docId){
   const cu=window._DGL_USER||'';
   const isAdmin=['taylor','steve','adam','hammad'].includes(cu);
   const canDel=isAdmin||(doc.addedBy&&doc.addedBy===cu);
-  const menu=document.getElementById('docs-ctx-menu');
-  if(!menu) return;
+  const menu=_getDocsCtxMenu();
   const iS="display:block;width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:10px;padding:8px 16px;background:none;border:none;color:var(--text);cursor:pointer;white-space:nowrap;box-sizing:border-box";
   const sep=`<div style="border-top:1px solid var(--border);margin:3px 0"></div>`;
   menu.innerHTML=
-    (doc.url?`<button style="${iS}" onclick="_hideDocsCtxMenu();window.open('${doc.url.replace(/'/g,"\\'")}','_blank')">↗️&nbsp; Open</button>${sep}`:'')
-    +`<button style="${iS}" onclick="_hideDocsCtxMenu();_editSharedDoc('${docId}')">✏️&nbsp; Rename</button>`
-    +`<button style="${iS}" onclick="_hideDocsCtxMenu();_moveDocToFolder('${docId}')">📁&nbsp; Move to folder</button>`
-    +(canDel?sep+`<button style="${iS};color:var(--red,#ef4444)" onclick="_hideDocsCtxMenu();_deleteSharedDoc('${docId}')">🗑️&nbsp; Delete</button>`:'');
-  // Position at cursor, clamp to viewport
-  const x=Math.min(e.clientX,window.innerWidth-190);
-  const y=Math.min(e.clientY,window.innerHeight-180);
+    (doc.url?`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();window.open('${doc.url.replace(/'/g,"\\'")}','_blank')">↗️&nbsp; Open</button>${sep}`:'')
+    +`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_editSharedDoc('${docId}')">✏️&nbsp; Rename</button>`
+    +`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_moveDocToFolder('${docId}')">📁&nbsp; Move to folder</button>`
+    +(canDel?sep+`<button style="${iS};color:var(--red,#ef4444)" onmouseenter="this.style.background='rgba(239,68,68,0.1)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_deleteSharedDoc('${docId}')">🗑️&nbsp; Delete</button>`:'');
+  const x=Math.min(e.clientX,window.innerWidth-200);
+  const y=Math.min(e.clientY,window.innerHeight-200);
   menu.style.left=x+'px';
   menu.style.top=y+'px';
   menu.style.display='block';
@@ -4035,19 +4043,44 @@ function _showDocsCtxMenu(e,docId){
 function _showFolderCtxMenu(e,folderName){
   e.preventDefault();
   e.stopPropagation();
-  const menu=document.getElementById('docs-ctx-menu');
-  if(!menu) return;
+  const menu=_getDocsCtxMenu();
   const isRoot=!folderName.includes('/');
   const iS="display:block;width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:10px;padding:8px 16px;background:none;border:none;color:var(--text);cursor:pointer;white-space:nowrap;box-sizing:border-box";
   const sep=`<div style="border-top:1px solid var(--border);margin:3px 0"></div>`;
   const safeN=folderName.replace(/'/g,"\\'");
   menu.innerHTML=
-    `<button style="${iS}" onclick="_hideDocsCtxMenu();_editSharedFolder('${safeN}')">✏️&nbsp; Rename folder</button>`
-    +(isRoot?`<button style="${iS}" onclick="_hideDocsCtxMenu();_addSharedFolder('${safeN}')">📁&nbsp; Add subfolder</button>`:'')
+    `<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_editSharedFolder('${safeN}')">✏️&nbsp; Rename folder</button>`
+    +(isRoot?`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_addSharedFolder('${safeN}')">📁&nbsp; Add subfolder</button>`:'')
     +sep
-    +`<button style="${iS};color:var(--red,#ef4444)" onclick="_hideDocsCtxMenu();_deleteSharedFolder('${safeN}')">🗑️&nbsp; Delete folder</button>`;
-  const x=Math.min(e.clientX,window.innerWidth-190);
-  const y=Math.min(e.clientY,window.innerHeight-140);
+    +`<button style="${iS};color:var(--red,#ef4444)" onmouseenter="this.style.background='rgba(239,68,68,0.1)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_deleteSharedFolder('${safeN}')">🗑️&nbsp; Delete folder</button>`;
+  const x=Math.min(e.clientX,window.innerWidth-200);
+  const y=Math.min(e.clientY,window.innerHeight-160);
+  menu.style.left=x+'px';
+  menu.style.top=y+'px';
+  menu.style.display='block';
+  setTimeout(()=>{
+    document.addEventListener('click',_hideDocsCtxMenu,false);
+    document.addEventListener('keydown',_docsCtxEsc,true);
+  },10);
+}
+function _showGridCtxMenu(e){
+  // Only fire when clicking the grid background, not a doc card
+  if(e.target.closest('[oncontextmenu]')!==document.getElementById('docs-grid')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const menu=_getDocsCtxMenu();
+  const iS="display:block;width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:10px;padding:8px 16px;background:none;border:none;color:var(--text);cursor:pointer;white-space:nowrap;box-sizing:border-box";
+  const sep=`<div style="border-top:1px solid var(--border);margin:3px 0"></div>`;
+  const cur=_sharedDocsFilter||'All';
+  const inFolder=cur!=='All'&&cur!=='Linked Files';
+  const parentFolder=inFolder&&!cur.includes('/')?cur:'';
+  menu.innerHTML=
+    (inFolder&&parentFolder?`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_addSharedFolder('${parentFolder.replace(/'/g,"\\'")}')">📁&nbsp; New subfolder here</button>${sep}`:'')
+    +`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_openSharedDocPasteModal()">🔗&nbsp; Paste URL</button>`
+    +`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();document.getElementById('docs-fi-shared-team').click()">📎&nbsp; Upload file</button>`
+    +(!inFolder?sep+`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_addSharedFolder('')">📂&nbsp; New folder</button>`:'');
+  const x=Math.min(e.clientX,window.innerWidth-200);
+  const y=Math.min(e.clientY,window.innerHeight-180);
   menu.style.left=x+'px';
   menu.style.top=y+'px';
   menu.style.display='block';
