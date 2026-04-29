@@ -3742,16 +3742,13 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       const sp=dz&&dz.querySelector('.dz-pct');
       if(sp) sp.textContent=Math.round(_pct)+'%';
     }
-    function _crawlTo(target,ms){
+    function _crawlTo(target){
       if(_pctTimer) clearInterval(_pctTimer);
-      const interval=60;
-      const ticks=Math.max(1,Math.round(ms/interval));
       _pctTimer=setInterval(()=>{
-        _pct=Math.min(target,_pct+(target-_pct)*0.08+0.3);
+        _pct=Math.min(target,_pct+(target-_pct)*0.06+0.15);
         const sp=dz&&dz.querySelector('.dz-pct');
         if(sp) sp.textContent=Math.round(_pct)+'%';
-        if(_pct>=target-0.5){ clearInterval(_pctTimer); _pctTimer=null; }
-      },interval);
+      },60);
     }
     function _stopCrawl(){ if(_pctTimer){ clearInterval(_pctTimer); _pctTimer=null; } }
     _dzSetLabel(dz,'<span class="dgl-runner">🏃</span>&nbsp; Uploading <strong>'+file.name+'</strong>&nbsp;<span class="dz-pct" style="font-family:\'DM Mono\',monospace;font-weight:700">0%</span>','var(--gold)');
@@ -3759,7 +3756,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
     reader.onprogress=ev=>{ if(ev.lengthComputable) _setPct((ev.loaded/ev.total)*55); };
     reader.onload=ev=>{
       _setPct(60);
-      _crawlTo(90,4000);
+      _crawlTo(99);
       const b64=ev.target.result.split(',')[1];
       const _sn=sourceName||(sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===sourceId)||{}).title||'');
       console.log('[DGL] Resolved _sn:',_sn,'(param was:',sourceName,')');
