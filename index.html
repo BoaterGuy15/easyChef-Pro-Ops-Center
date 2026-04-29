@@ -3760,9 +3760,11 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       const b64=ev.target.result.split(',')[1];
       const _sn=sourceName||(sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===sourceId)||{}).title||'');
       console.log('[DGL] Resolved _sn:',_sn,'(param was:',sourceName,')');
+      const _activeFolder=(sourceType==='shared'&&_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files')?_sharedDocsFilter:'';
       const payload={action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,
         taskId:sourceType==='task'?sourceId:'',agendaId:sourceType==='agenda'?sourceId:'',
-        sourceType:sourceType,sourceId:sourceId,sourceName:_sn,addedBy:window._DGL_USER||'unknown'};
+        sourceType:sourceType,sourceId:sourceId,sourceName:_sn,addedBy:window._DGL_USER||'unknown',
+        category:_activeFolder};
       if(!CONFIG.sheetsUrl){ _stopCrawl(); _setPct(100); setTimeout(_uploadNext,300); return; }
       const _isVideo=/^video\//i.test(file.type)||/\.(mp4|mov|avi|wmv|mkv|webm|m4v)$/i.test(file.name);
       // Videos need up to 8 min (Apps Script receives huge base64 payload); docs 3 min
@@ -4240,7 +4242,7 @@ function _openSharedDocPasteModal(){
   mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">PASTE DOCUMENT URL</div>
     <input id="sdoc-url" type="url" placeholder="https://docs.google.com/…" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px">
     <input id="sdoc-name" type="text" placeholder="Document name (optional)" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px">
-    <input id="sdoc-cat" type="text" list="sdoc-cat-list" placeholder="Folder / category — type or pick one" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:16px">
+    <input id="sdoc-cat" type="text" list="sdoc-cat-list" placeholder="Folder / category — type or pick one" value="${(_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files')?_sharedDocsFilter:''}" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:16px">
     <datalist id="sdoc-cat-list">${allSuggestions.map(c=>`<option value="${c}">`).join('')}</datalist>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>
