@@ -3793,34 +3793,41 @@ function _renderSharedDocs(){
   const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
   const tagSet=new Set(_sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean));
   const linkedCount=_sharedDocsCache.filter(d=>!d.driveFileId||d.driveFileId==='').length;
-  // Reset stale filter (preserve Linked Files and any defined folder)
+  // Merge defined folders with live tag data; preserve Linked Files always
   const allCats=[...new Set([..._sharedFolderDefs,...tagSet])].sort();
   if(_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files'&&!allCats.includes(_sharedDocsFilter)) _sharedDocsFilter='All';
   const filterBar=document.getElementById('docs-filter-tabs');
   const grid=document.getElementById('docs-grid');
   if(!grid) return;
 
-  // ── Filter pill bar: All | 🔗 Linked Files | category pills (with edit) | + Folder ──
+  // ── Filter pill bar ──
   if(filterBar){
     const simplePill=(val,label,active)=>`<button onclick="_setDocsFilter('${val}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap;flex-shrink:0">${label}</button>`;
-    const allPill=simplePill('All','All',_sharedDocsFilter==='All');
-    const linkedPill=linkedCount>0?simplePill('Linked Files','🔗 Linked Files',_sharedDocsFilter==='Linked Files'):'';
-    const catPills=allCats.map(t=>{
-      const safeT=t.replace(/'/g,"\\'");
-      const active=_sharedDocsFilter===t;
-      return `<span style="display:inline-flex;align-items:center;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};overflow:hidden;flex-shrink:0">
-        <button onclick="_setDocsFilter('${safeT}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:${active?'var(--gold-dim)':'transparent'};border:none;color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${t}</button>
-        <button onclick="_editSharedFolder('${safeT}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:3px 5px;background:transparent;border:none;border-left:1px solid ${active?'rgba(212,160,23,0.35)':'var(--border)'};color:var(--muted);cursor:pointer;line-height:1" title="Edit folder">✏️</button>
+    const splitPill=(val,label,active,indent)=>{
+      const safeV=val.replace(/'/g,"\\'");
+      const prefix=indent?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border);padding-left:2px">↳</span>`:'';
+      return `${prefix}<span style="display:inline-flex;align-items:center;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};overflow:hidden;flex-shrink:0">
+        <button onclick="_setDocsFilter('${safeV}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:${active?'var(--gold-dim)':'transparent'};border:none;color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${label}</button>
+        <button onclick="_editSharedFolder('${safeV}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:3px 5px;background:transparent;border:none;border-left:1px solid ${active?'rgba(212,160,23,0.35)':'var(--border)'};color:var(--muted);cursor:pointer;line-height:1" title="Edit folder">✏️</button>
       </span>`;
-    }).join('');
+    };
+    // Build two-level hierarchy: roots then their children indented with ↳
+    const roots=allCats.filter(c=>!c.includes('/'));
+    const childrenOf=p=>allCats.filter(c=>c.startsWith(p+'/')&&c.split('/').length===p.split('/').length+1);
+    const orphans=allCats.filter(c=>c.includes('/')&&!roots.includes(c.split('/')[0]));
+    const catPills=roots.map(r=>{
+      const rActive=_sharedDocsFilter===r||_sharedDocsFilter.startsWith(r+'/');
+      const subPills=childrenOf(r).map(sub=>splitPill(sub,sub.split('/').pop(),_sharedDocsFilter===sub,true)).join('');
+      return splitPill(r,r,rActive,false)+subPills;
+    }).join('')+orphans.map(o=>splitPill(o,o,_sharedDocsFilter===o,false)).join('');
     const addBtn=`<button onclick="_addSharedFolder()" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0">+ Folder</button>`;
-    filterBar.innerHTML=allPill+linkedPill+catPills+addBtn;
+    filterBar.innerHTML=simplePill('All','All',_sharedDocsFilter==='All')+(linkedCount>0?simplePill('Linked Files','🔗 Linked Files',_sharedDocsFilter==='Linked Files'):'')+catPills+addBtn;
   }
 
-  // ── Filter docs ──
+  // ── Filter docs (parent filter includes all subfolders) ──
   let docs=_sharedDocsCache.slice();
   if(_sharedDocsFilter==='Linked Files') docs=docs.filter(d=>!d.driveFileId||d.driveFileId==='');
-  else if(_sharedDocsFilter!=='All') docs=docs.filter(d=>_sharedDocTag(d)===_sharedDocsFilter);
+  else if(_sharedDocsFilter!=='All') docs=docs.filter(d=>_sharedDocTag(d)===_sharedDocsFilter||_sharedDocTag(d).startsWith(_sharedDocsFilter+'/'));
   if(q) docs=docs.filter(d=>(d.name||'').toLowerCase().includes(q)||_sharedDocTag(d).toLowerCase().includes(q));
 
   if(!docs.length){
@@ -3870,9 +3877,12 @@ function _addSharedFolder(){
   const ov=document.getElementById('modal-overlay');
   const mc=document.getElementById('modal-content');
   if(!ov||!mc) return;
-  const iSt='width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:16px';
+  const iSt='width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px';
+  const roots=_sharedFolderDefs.filter(f=>!f.includes('/'));
+  const parentOpts=roots.length?`<select id="new-folder-parent" style="${iSt};margin-bottom:16px;cursor:pointer"><option value="">No parent — top-level folder</option>${roots.map(r=>`<option value="${r.replace(/"/g,'&quot;')}">${r}</option>`).join('')}</select>`:`<input type="hidden" id="new-folder-parent" value="">`;
   mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">NEW FOLDER</div>
     <input id="new-folder-name" type="text" placeholder="Folder name" style="${iSt}" onkeydown="if(event.key==='Enter')_createSharedFolder();if(event.key==='Escape')closeModal()">
+    ${parentOpts}
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>
       <button onclick="_createSharedFolder()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer">Create</button>
@@ -3883,10 +3893,12 @@ function _addSharedFolder(){
 function _createSharedFolder(){
   const name=((document.getElementById('new-folder-name')||{}).value||'').trim();
   if(!name) return;
-  if(!_sharedFolderDefs.includes(name)) _sharedFolderDefs.push(name);
+  const parent=((document.getElementById('new-folder-parent')||{}).value||'').trim();
+  const fullName=parent?parent+'/'+name:name;
+  if(!_sharedFolderDefs.includes(fullName)) _sharedFolderDefs.push(fullName);
   _saveFolderDefs();
   closeModal();
-  _sharedDocsFilter=name;
+  _sharedDocsFilter=fullName;
   _renderSharedDocs();
 }
 function _editSharedFolder(name){
@@ -3910,37 +3922,44 @@ function _editSharedFolder(name){
 function _renameSharedFolder(oldName){
   const newName=((document.getElementById('edit-folder-name')||{}).value||'').trim();
   if(!newName||newName===oldName){closeModal();return;}
-  // Update defs list
-  const idx=_sharedFolderDefs.indexOf(oldName);
-  if(idx>=0) _sharedFolderDefs[idx]=newName; else _sharedFolderDefs.push(newName);
+  // Rename this folder and any children (e.g. Marketing/Brand → NewName/Brand)
+  _sharedFolderDefs=_sharedFolderDefs.map(f=>{
+    if(f===oldName) return newName;
+    if(f.startsWith(oldName+'/')) return newName+f.slice(oldName.length);
+    return f;
+  });
+  if(!_sharedFolderDefs.includes(newName)) _sharedFolderDefs.push(newName);
   _saveFolderDefs();
-  // Update category on all matching docs
+  // Update category on all docs in this folder and subfolders
   _sharedDocsCache.forEach(d=>{
-    if(d.category===oldName){
-      d.category=newName;
-      if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_update',id:d.id,category:newName})}).catch(()=>{});
+    let updated='';
+    if(d.category===oldName) updated=newName;
+    else if(d.category&&d.category.startsWith(oldName+'/')) updated=newName+d.category.slice(oldName.length);
+    if(updated){
+      d.category=updated;
+      if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_update',id:d.id,category:updated})}).catch(()=>{});
     }
   });
-  if(_sharedDocsFilter===oldName) _sharedDocsFilter=newName;
+  if(_sharedDocsFilter===oldName||_sharedDocsFilter.startsWith(oldName+'/')) _sharedDocsFilter=_sharedDocsFilter===oldName?newName:newName+_sharedDocsFilter.slice(oldName.length);
   closeModal();
   _renderSharedDocs();
 }
 function _deleteSharedFolder(name){
-  const docCount=_sharedDocsCache.filter(d=>d.category===name).length;
-  const msg=docCount>0
-    ?`Delete "${name}" folder?\n\n${docCount} doc${docCount===1?'':'s'} will lose their folder tag but won't be deleted.`
-    :`Delete "${name}" folder?`;
+  const affected=_sharedDocsCache.filter(d=>d.category===name||d.category.startsWith(name+'/'));
+  const subCount=_sharedFolderDefs.filter(f=>f.startsWith(name+'/')).length;
+  let msg=`Delete "${name}" folder?`;
+  if(subCount) msg+=`\n\nThis will also delete ${subCount} subfolder${subCount===1?'':'s'}.`;
+  if(affected.length) msg+=`\n\n${affected.length} doc${affected.length===1?'':'s'} will lose their folder tag but won't be deleted.`;
   if(!confirm(msg)) return;
-  _sharedFolderDefs=_sharedFolderDefs.filter(f=>f!==name);
+  // Remove this folder and all children from defs
+  _sharedFolderDefs=_sharedFolderDefs.filter(f=>f!==name&&!f.startsWith(name+'/'));
   _saveFolderDefs();
-  // Clear category from docs (docs stay, just lose the tag)
-  _sharedDocsCache.forEach(d=>{
-    if(d.category===name){
-      d.category='';
-      if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_update',id:d.id,category:''})}).catch(()=>{});
-    }
+  // Clear category from all affected docs
+  affected.forEach(d=>{
+    d.category='';
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_update',id:d.id,category:''})}).catch(()=>{});
   });
-  if(_sharedDocsFilter===name) _sharedDocsFilter='All';
+  if(_sharedDocsFilter===name||_sharedDocsFilter.startsWith(name+'/')) _sharedDocsFilter='All';
   closeModal();
   _renderSharedDocs();
 }
