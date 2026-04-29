@@ -3784,12 +3784,18 @@ function _sharedDocTag(d){
 }
 function _loadSharedDocs(){
   if(!CONFIG.sheetsUrl){ _renderSharedDocs(); return; }
-  // No filter — fetch all docs so task-linked and shared docs appear together
-  fetch(CONFIG.sheetsUrl+'?action=docs_read')
-    .then(r=>r.json()).then(data=>{
-      _sharedDocsCache=Array.isArray(data.docs)?data.docs:[];
-      _renderSharedDocs();
-    }).catch(()=>{ _renderSharedDocs(); });
+  // Fetch docs and folder defs in parallel — Sheets is the source of truth for both
+  Promise.all([
+    fetch(CONFIG.sheetsUrl+'?action=docs_read').then(r=>r.json()).catch(()=>({})),
+    fetch(CONFIG.sheetsUrl+'?action=folders_read').then(r=>r.json()).catch(()=>({}))
+  ]).then(([docsData,foldersData])=>{
+    _sharedDocsCache=Array.isArray(docsData.docs)?docsData.docs:[];
+    if(Array.isArray(foldersData.folders)){
+      _sharedFolderDefs=foldersData.folders;
+      try{localStorage.setItem('dgl_folder_defs',JSON.stringify(_sharedFolderDefs));}catch(_){}
+    }
+    _renderSharedDocs();
+  }).catch(()=>{ _renderSharedDocs(); });
 }
 function _renderSharedDocs(){
   const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
