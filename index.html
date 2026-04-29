@@ -15303,7 +15303,9 @@ function _coMigrateDefaults(){
 }
 
 function _buildCalloutsHtml(canEditControls){
-  const items=_initCalloutItems();
+  const items=_coCache.length
+    ?_coCache.map(c=>({id:c.id,title:c.title,detail:c.message||'',type:c.type,status:(c.dismissed==='true'||c.dismissed===true)?'Archived':'Active',color:'',createdAt:c.createdAt,date:c.dueDate||''}))
+    :_initCalloutItems();
   const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const showControls=canEditControls&&isAdmin;
   const active=items.filter(c=>c.status!=='Archived');
@@ -18088,9 +18090,10 @@ let _coPollTimer=null;
 
 function _coFetch(){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl+'?action=callouts_read')
+  fetch(CONFIG.sheetsUrl+'?action=callouts_read&user='+encodeURIComponent(window._DGL_USER||''))
     .then(r=>r.json())
     .then(data=>{
+      console.log('[DGL] callouts fetched:', data.callouts?.length);
       _coCache=Array.isArray(data.callouts)?data.callouts:[];
       // If Sheet is empty, push the hardcoded defaults once
       if(!_coCache.length){ _coMigrateDefaults(); return; }
