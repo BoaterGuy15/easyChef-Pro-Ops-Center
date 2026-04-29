@@ -3791,50 +3791,30 @@ function _loadSharedDocs(){
 function _renderSharedDocs(){
   const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
   const tagSet=new Set(_sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean));
+  const linkedCount=_sharedDocsCache.filter(d=>!d.driveFileId||d.driveFileId==='').length;
+  // Reset stale filter (but preserve Linked Files — it's always valid)
   if(_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files'&&!tagSet.has(_sharedDocsFilter)) _sharedDocsFilter='All';
   const filterBar=document.getElementById('docs-filter-tabs');
   const grid=document.getElementById('docs-grid');
   if(!grid) return;
 
-  // ── ROOT VIEW: no folder selected, no search → show folder tiles ──
-  if(_sharedDocsFilter==='All'&&!q){
-    if(filterBar) filterBar.innerHTML='';
-    const tags=[...tagSet].sort();
-    const linkedCount=_sharedDocsCache.filter(d=>!d.driveFileId||d.driveFileId==='').length;
-    if(!tags.length&&!linkedCount){
-      grid.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">No documents yet — upload a file or paste a URL above.</div>';
-      return;
-    }
-    const _folderTile=(onclick,icon,label,count,pinned)=>`<div onclick="${onclick}" style="background:var(--surface);border:1px solid ${pinned?'rgba(212,160,23,0.35)':'var(--border)'};border-radius:12px;padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;transition:border-color 0.15s,background 0.15s;user-select:none" onmouseover="this.style.borderColor='var(--gold)';this.style.background='var(--gold-dim)'" onmouseout="this.style.borderColor='${pinned?'rgba(212,160,23,0.35)':'var(--border)'}';this.style.background='var(--surface)'">
-      <span style="font-size:36px;line-height:1">${icon}</span>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--text);text-align:center;word-break:break-word;max-width:160px">${label}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)">${count} doc${count===1?'':'s'}</div>
-    </div>`;
-    // Linked Files is always pinned first
-    const linkedTile=linkedCount>0?_folderTile("_setDocsFilter('Linked Files')",'🔗','Linked Files',linkedCount,true):'';
-    const tagTiles=tags.map(tag=>{
-      const count=_sharedDocsCache.filter(d=>_sharedDocTag(d)===tag).length;
-      const isTaskFolder=_sharedDocsCache.some(d=>_sharedDocTag(d)===tag&&!!d.taskId);
-      return _folderTile(`_setDocsFilter('${tag.replace(/'/g,"\\'")}')`,isTaskFolder?'📋':'📁',tag,count,false);
-    }).join('');
-    grid.innerHTML=linkedTile+tagTiles;
-    return;
-  }
-
-  // ── FOLDER / SEARCH VIEW: show back button + breadcrumb + doc cards ──
+  // ── Filter pill bar: All | 🔗 Linked Files (pinned) | dynamic category pills ──
   if(filterBar){
-    const crumb=_sharedDocsFilter!=='All'
-      ?`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);padding:0 4px">/ ${_sharedDocsFilter}</span>`
-      :`<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:0 4px">Search results</span>`;
-    filterBar.innerHTML=`<button onclick="_setDocsFilter('All')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">← Folders</button>${crumb}`;
+    const pill=(val,label,active)=>`<button onclick="_setDocsFilter('${val}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${label}</button>`;
+    const allPill=pill('All','All',_sharedDocsFilter==='All');
+    const linkedPill=linkedCount>0?pill('Linked Files','🔗 Linked Files',_sharedDocsFilter==='Linked Files'):'';
+    const catPills=[...tagSet].sort().map(t=>pill(t.replace(/'/g,"\\'"),t,_sharedDocsFilter===t)).join('');
+    filterBar.innerHTML=allPill+linkedPill+catPills;
   }
 
+  // ── Filter docs ──
   let docs=_sharedDocsCache.slice();
   if(_sharedDocsFilter==='Linked Files') docs=docs.filter(d=>!d.driveFileId||d.driveFileId==='');
   else if(_sharedDocsFilter!=='All') docs=docs.filter(d=>_sharedDocTag(d)===_sharedDocsFilter);
   if(q) docs=docs.filter(d=>(d.name||'').toLowerCase().includes(q)||_sharedDocTag(d).toLowerCase().includes(q));
+
   if(!docs.length){
-    grid.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">${q?'No docs match your search.':'This folder is empty.'}</div>`;
+    grid.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">${_sharedDocsCache.length?'No docs match.':'No documents yet — upload a file or paste a URL above.'}</div>`;
     return;
   }
   const cu=window._DGL_USER||'';
