@@ -1305,7 +1305,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <input id="docs-search" type="text" placeholder="Search docs…" oninput="_renderSharedDocs()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;width:160px">
   </div>
   <div id="docs-dz-shared-team" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:20px;cursor:pointer;transition:border-color 0.15s" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'shared','team','Team Documents')" onclick="const _dfi=document.getElementById('docs-fi-shared-team');if(_dfi)_dfi.click()">
-    <span class="dz-label">📎 Drop files here or click to upload to shared library</span>
+    <span class="dz-label">📎 Drop files here or click to upload &nbsp;·&nbsp; 🎬 Videos: paste Drive URL</span>
     <input id="docs-fi-shared-team" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
   </div>
   <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;min-height:80px"></div>
@@ -3736,6 +3736,13 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       return;
     }
     const file=fileArr[idx++];
+    const _isVideo=/^video\//i.test(file.type)||/\.(mp4|mov|avi|wmv|mkv|webm|m4v)$/i.test(file.name);
+    if(_isVideo){
+      _dzSetLabel(dz,'🎬 Videos can\'t upload directly — paste a Drive link instead','var(--amber)');
+      setTimeout(()=>{ _dzResetLabel(dz); if(sourceType==='shared') _openSharedDocPasteModal(); },2500);
+      setTimeout(_uploadNext,500); // skip video, process next file
+      return;
+    }
     let _pct=0,_pctTimer=null;
     function _setPct(p){
       _pct=Math.min(100,p);
@@ -3766,11 +3773,8 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
         sourceType:sourceType,sourceId:sourceId,sourceName:_sn,addedBy:window._DGL_USER||'unknown',
         category:_activeFolder};
       if(!CONFIG.sheetsUrl){ _stopCrawl(); _setPct(100); setTimeout(_uploadNext,300); return; }
-      const _isVideo=/^video\//i.test(file.type)||/\.(mp4|mov|avi|wmv|mkv|webm|m4v)$/i.test(file.name);
-      // Videos need up to 8 min (Apps Script receives huge base64 payload); docs 3 min
-      const _timeoutMs=_isVideo?480000:180000;
       const _abortCtrl=new AbortController();
-      const _abortTimer=setTimeout(()=>_abortCtrl.abort(),_timeoutMs);
+      const _abortTimer=setTimeout(()=>_abortCtrl.abort(),180000); // 3min for docs
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload),signal:_abortCtrl.signal})
         .then(r=>r.json()).then(data=>{
           clearTimeout(_abortTimer); _stopCrawl(); _setPct(100);
@@ -3790,7 +3794,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
           if(folderBtn&&_d.folderUrl){ folderBtn.href=_d.folderUrl; }
           setTimeout(_uploadNext,350);
         })
-        .catch(err=>{ clearTimeout(_abortTimer); _stopCrawl(); const msg=err&&err.name==='AbortError'?(_isVideo?'⏱️ Video timed out — try a shorter clip or compress first':'⏱️ Timed out — check your connection'):'❌ Failed: '+file.name; _dzSetLabel(dz,msg,'var(--red)'); setTimeout(_uploadNext,3000); });
+        .catch(err=>{ clearTimeout(_abortTimer); _stopCrawl(); const msg=err&&err.name==='AbortError'?'⏱️ Timed out — check your connection':'❌ Failed: '+file.name; _dzSetLabel(dz,msg,'var(--red)'); setTimeout(_uploadNext,3000); });
     };
     reader.readAsDataURL(file);
   }
