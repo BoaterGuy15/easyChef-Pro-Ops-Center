@@ -3712,7 +3712,10 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
           const _url=_d.url||data.url||'';
           const _previewUrl=_d.previewUrl||'';
           console.log('[DGL] Doc saved to Drive:',{name:file.name,driveFileId:_driveFileId,url:_url});
-          if(!_url&&data.ok!==false){
+          if(data.ok===false){
+            const _errMsg=data.error||'Apps Script error';
+            if(dz){ dz.textContent='❌ Upload failed: '+_errMsg; dz.style.color='var(--red)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to upload'; dz.style.color=''; },6000); }
+          } else if(!_url){
             if(dz){ dz.textContent='⚠️ Upload succeeded but Drive link was not returned — check Apps Script permissions'; dz.style.color='var(--amber)'; setTimeout(()=>{ dz.textContent='📎 Drop files here or click to upload'; dz.style.color=''; },6000); }
           }
           // If Apps Script returned a Drive URL, write the doc record explicitly to the Documents sheet
