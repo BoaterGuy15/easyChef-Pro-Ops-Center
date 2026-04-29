@@ -1308,7 +1308,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <span class="dz-label">📎 Drop files here or click to upload &nbsp;·&nbsp; 🎬 Videos: paste Drive URL</span>
     <input id="docs-fi-shared-team" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
   </div>
-  <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;min-height:80px"></div>
+  <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;min-height:80px"></div>
 </div>
 
 <!-- ══ PAGE: AGENDA ══ -->
@@ -3875,6 +3875,7 @@ function _renderSharedDocs(){
   const isAdmin=['taylor','steve','adam','hammad'].includes(cu);
   grid.innerHTML=docs.map(d=>{
     const icon=_docFileIcon(d.name||d.filename||'');
+    const isVideoDoc=icon==='🎬';
     const isTaskDoc=!!(d.taskId);
     const tag=_sharedDocTag(d);
     const badge=d.driveFileId
@@ -3883,7 +3884,15 @@ function _renderSharedDocs(){
     const tagChip=`<span style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 7px;border-radius:99px;border:1px solid ${isTaskDoc?'var(--gold)':'var(--border)'};color:${isTaskDoc?'var(--gold-light)':'var(--muted)'};${isTaskDoc?'background:var(--gold-dim);':''}">${isTaskDoc?'📋 ':''}${tag}</span>`;
     const safeName=(d.name||d.filename||'Untitled').replace(/"/g,'&quot;');
     const canDel=isAdmin||(d.addedBy&&d.addedBy===cu);
+    // Extract Drive file ID from url or driveFileId field, build embed URL
+    const _fid=d.driveFileId||((d.url||'').match(/\/d\/([a-zA-Z0-9_-]{10,})/)||[])[1]||'';
+    const _embedUrl=_fid?'https://drive.google.com/file/d/'+_fid+'/preview':'';
+    const videoPlayer=isVideoDoc&&_embedUrl
+      ?`<div style="border-radius:8px;overflow:hidden;background:#000;position:relative;padding-top:56.25%">
+          <iframe src="${_embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none" allow="autoplay" allowfullscreen loading="lazy"></iframe>
+        </div>`:'';
     return `<div oncontextmenu="_showDocsCtxMenu(event,'${d.id}')" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px">
+      ${videoPlayer}
       <div style="display:flex;gap:8px;align-items:flex-start">
         <span style="font-size:22px;flex-shrink:0;line-height:1">${icon}</span>
         <div style="flex:1;overflow:hidden">
