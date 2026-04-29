@@ -3808,7 +3808,7 @@ function _renderSharedDocs(){
     const splitPill=(val,label,active,indent)=>{
       const safeV=val.replace(/'/g,"\\'");
       const prefix=indent?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border);padding-left:2px">↳</span>`:'';
-      return `${prefix}<span style="display:inline-flex;align-items:center;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};overflow:hidden;flex-shrink:0">
+      return `${prefix}<span oncontextmenu="_showFolderCtxMenu(event,'${safeV}')" style="display:inline-flex;align-items:center;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};overflow:hidden;flex-shrink:0">
         <button onclick="_setDocsFilter('${safeV}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:${active?'var(--gold-dim)':'transparent'};border:none;color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${label}</button>
         <button onclick="_editSharedFolder('${safeV}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:3px 5px;background:transparent;border:none;border-left:1px solid ${active?'rgba(212,160,23,0.35)':'var(--border)'};color:var(--muted);cursor:pointer;line-height:1" title="Edit folder">✏️</button>
       </span>`;
@@ -3875,14 +3875,14 @@ function _saveFolderDefs(){
   // POST to Sheets for team-wide persistence (requires folders_write handler in Apps Script)
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'folders_write',folders:_sharedFolderDefs})}).catch(()=>{});
 }
-function _addSharedFolder(){
+function _addSharedFolder(defaultParent=''){
   const ov=document.getElementById('modal-overlay');
   const mc=document.getElementById('modal-content');
   if(!ov||!mc) return;
   const iSt='width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px';
   const _allLiveCats=[...new Set([..._sharedFolderDefs,..._sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean)])];
   const roots=_allLiveCats.filter(f=>!f.includes('/')).sort();
-  const parentOpts=roots.length?`<select id="new-folder-parent" style="${iSt};margin-bottom:16px;cursor:pointer"><option value="">No parent — top-level folder</option>${roots.map(r=>`<option value="${r.replace(/"/g,'&quot;')}">${r}</option>`).join('')}</select>`:`<input type="hidden" id="new-folder-parent" value="">`;
+  const parentOpts=roots.length?`<select id="new-folder-parent" style="${iSt};margin-bottom:16px;cursor:pointer"><option value="">No parent — top-level folder</option>${roots.map(r=>`<option value="${r.replace(/"/g,'&quot;')}"${r===defaultParent?' selected':''}>${r}</option>`).join('')}</select>`:`<input type="hidden" id="new-folder-parent" value="${defaultParent}">`;
   mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">NEW FOLDER</div>
     <input id="new-folder-name" type="text" placeholder="Folder name" style="${iSt}" onkeydown="if(event.key==='Enter')_createSharedFolder();if(event.key==='Escape')closeModal()">
     ${parentOpts}
@@ -4018,6 +4018,30 @@ function _showDocsCtxMenu(e,docId){
   // Position at cursor, clamp to viewport
   const x=Math.min(e.clientX,window.innerWidth-190);
   const y=Math.min(e.clientY,window.innerHeight-180);
+  menu.style.left=x+'px';
+  menu.style.top=y+'px';
+  menu.style.display='block';
+  setTimeout(()=>{
+    document.addEventListener('click',_hideDocsCtxMenu,false);
+    document.addEventListener('keydown',_docsCtxEsc,true);
+  },10);
+}
+function _showFolderCtxMenu(e,folderName){
+  e.preventDefault();
+  e.stopPropagation();
+  const menu=document.getElementById('docs-ctx-menu');
+  if(!menu) return;
+  const isRoot=!folderName.includes('/');
+  const iS="display:block;width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:10px;padding:8px 16px;background:none;border:none;color:var(--text);cursor:pointer;white-space:nowrap;box-sizing:border-box";
+  const sep=`<div style="border-top:1px solid var(--border);margin:3px 0"></div>`;
+  const safeN=folderName.replace(/'/g,"\\'");
+  menu.innerHTML=
+    `<button style="${iS}" onclick="_hideDocsCtxMenu();_editSharedFolder('${safeN}')">✏️&nbsp; Rename folder</button>`
+    +(isRoot?`<button style="${iS}" onclick="_hideDocsCtxMenu();_addSharedFolder('${safeN}')">📁&nbsp; Add subfolder</button>`:'')
+    +sep
+    +`<button style="${iS};color:var(--red,#ef4444)" onclick="_hideDocsCtxMenu();_deleteSharedFolder('${safeN}')">🗑️&nbsp; Delete folder</button>`;
+  const x=Math.min(e.clientX,window.innerWidth-190);
+  const y=Math.min(e.clientY,window.innerHeight-140);
   menu.style.left=x+'px';
   menu.style.top=y+'px';
   menu.style.display='block';
