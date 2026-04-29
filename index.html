@@ -3594,6 +3594,7 @@ function _docFileIcon(name){
   if(['xls','xlsx','csv'].includes(ext)) return '📊';
   if(['pdf'].includes(ext)) return '📑';
   if(['png','jpg','jpeg','gif','webp','svg'].includes(ext)) return '🖼️';
+  if(['mp4','mov','avi','wmv','mkv','webm','m4v'].includes(ext)) return '🎬';
   return '🔗';
 }
 function loadDocsForSource(sourceType,sourceId,callback){
@@ -4060,7 +4061,7 @@ function _openSharedDocPasteModal(){
   if(!ov||!mc) return;
   // Build datalist from existing tags in cache + default suggestions
   const existingTags=[...new Set(_sharedDocsCache.map(d=>d.category).filter(Boolean))];
-  const defaultTags=['Marketing','Development','Finance','Design','HR','Strategy','Legal','Other'];
+  const defaultTags=['Design','Development','Finance','HR','Legal','Marketing','Other','Strategy','Training'];
   const allSuggestions=[...new Set([...existingTags,...defaultTags])].sort();
   mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">PASTE DOCUMENT URL</div>
     <input id="sdoc-url" type="url" placeholder="https://docs.google.com/…" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px">
