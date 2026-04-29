@@ -725,6 +725,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')" style="display:none">Task Tracker</div>
     <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')">Budget &amp; Burn</div>
     <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')" style="display:none">Team</div>
+    <div class="nav-tab" data-tab-id="docs" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('docs')">📁 Docs</div>
     <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')">App Data</div>
 
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')" style="display:none">Action Plans</div>
@@ -1282,6 +1283,32 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
+<!-- ══ PAGE: DOCS ══ -->
+<div id="page-docs" class="page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900">Team <span style="color:var(--gold)">Documents</span></h2>
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px">Shared library for easyChef Pro</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="_openSharedDocPasteModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">🔗 Paste URL</button>
+      <label style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer">
+        📎 Upload
+        <input type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
+      </label>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+    <div id="docs-filter-tabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
+    <input id="docs-search" type="text" placeholder="Search docs…" oninput="_renderSharedDocs()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;width:160px">
+  </div>
+  <div id="docs-dz-shared-team" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:20px;cursor:pointer;transition:border-color 0.15s" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'shared','team','Team Documents')" onclick="document.getElementById('docs-fi-shared-team').click()">
+    📎 Drop files here or click to upload to shared library
+    <input id="docs-fi-shared-team" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
+  </div>
+  <div id="docs-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px"></div>
+</div>
+
 <!-- ══ PAGE: AGENDA ══ -->
 <div id="page-agenda" class="page active">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
@@ -1460,6 +1487,7 @@ function showPage(id){
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom(localStorage.getItem('dgl_gantt_zoom')||'90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
+  if(id==='docs') _loadSharedDocs();
   if(id==='lp'){ _debouncedBuildMilestones(); loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
   if(id==='actions'){ _debouncedBuildMilestones(); setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
   if(id==='budget') loadBudgetFromSheets();
@@ -3578,6 +3606,7 @@ function loadDocsForSource(sourceType,sourceId,callback){
     .catch(()=>{ _renderDocsList(sourceType,sourceId); if(callback) callback(); });
 }
 function _refreshDocsForSource(sourceType,sourceId){
+  if(sourceType==='shared'){ _loadSharedDocs(); return; }
   delete _docsCache[sourceType+'_'+sourceId];
   loadDocsForSource(sourceType,sourceId);
 }
@@ -3737,6 +3766,103 @@ function deleteDoc(docId,sourceType,sourceId){
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).then(r=>r.json()).then(d=>{console.log('[DGL] Doc deleted:',docId,'result:',d.ok);}).catch(()=>{});
   _renderDocsList(sourceType,sourceId);
 }
+// ── Shared Team Documents (📁 Docs tab) ─────────────────────
+let _sharedDocsCache=[];
+let _sharedDocsFilter='All';
+function _loadSharedDocs(){
+  if(!CONFIG.sheetsUrl){ _renderSharedDocs(); return; }
+  fetch(CONFIG.sheetsUrl+'?action=docs_read&shared=true')
+    .then(r=>r.json()).then(data=>{
+      _sharedDocsCache=Array.isArray(data.docs)?data.docs:[];
+      _renderSharedDocs();
+    }).catch(()=>{ _renderSharedDocs(); });
+}
+function _renderSharedDocs(){
+  const cats=['All','Marketing','Development','Finance','Design','HR','Strategy','Legal','Other'];
+  const filterBar=document.getElementById('docs-filter-tabs');
+  if(filterBar){
+    filterBar.innerHTML=cats.map(c=>`<button onclick="_setDocsFilter('${c}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${_sharedDocsFilter===c?'var(--gold)':'var(--border)'};background:${_sharedDocsFilter===c?'var(--gold-dim)':'transparent'};color:${_sharedDocsFilter===c?'var(--gold-light)':'var(--muted)'};cursor:pointer">${c}</button>`).join('');
+  }
+  const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
+  const grid=document.getElementById('docs-grid');
+  if(!grid) return;
+  let docs=_sharedDocsCache.slice();
+  if(_sharedDocsFilter!=='All') docs=docs.filter(d=>d.category===_sharedDocsFilter);
+  if(q) docs=docs.filter(d=>(d.name||'').toLowerCase().includes(q)||(d.category||'').toLowerCase().includes(q));
+  if(!docs.length){
+    grid.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">No documents yet — upload a file or paste a URL above.</div>';
+    return;
+  }
+  const cu=window._DGL_USER||'';
+  const isAdmin=['taylor','steve','adam','hammad'].includes(cu);
+  grid.innerHTML=docs.map(d=>{
+    const icon=_docFileIcon(d.name||d.filename||'');
+    const badge=d.driveFileId
+      ?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:#22c55e;border:1px solid #22c55e;border-radius:3px;padding:0 4px">🔒 Drive</span>`
+      :`<span style="font-family:'DM Mono',monospace;font-size:8px;color:#d4a017;border:1px solid #d4a017;border-radius:3px;padding:0 4px">🔗 Link</span>`;
+    const cat=d.category?`<span style="font-family:'DM Mono',monospace;font-size:8px;padding:2px 7px;border-radius:99px;border:1px solid var(--border);color:var(--muted)">${d.category}</span>`:'';
+    const safeName=(d.name||d.filename||'Untitled').replace(/"/g,'&quot;');
+    const canDel=isAdmin||(d.addedBy&&d.addedBy===cu);
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <span style="font-size:22px;flex-shrink:0;line-height:1">${icon}</span>
+        <div style="flex:1;overflow:hidden">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safeName}">${safeName}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">${d.addedBy||''} · ${(d.addedAt||'').slice(0,10)}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${badge}${cat}</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
+        ${d.url?`<a href="${d.url}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--gold);color:var(--gold-light);text-decoration:none;background:var(--gold-dim)">↗️ Open</a>`:''}
+        ${canDel?`<button onclick="_deleteSharedDoc('${d.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer">🗑️</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function _setDocsFilter(cat){
+  _sharedDocsFilter=cat;
+  _renderSharedDocs();
+}
+function _deleteSharedDoc(docId){
+  if(!confirm('Remove this document from the shared library?')) return;
+  _sharedDocsCache=_sharedDocsCache.filter(d=>d.id!==docId);
+  _renderSharedDocs();
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).catch(()=>{});
+}
+function _openSharedDocPasteModal(){
+  const ov=document.getElementById('modal-overlay');
+  const mc=document.getElementById('modal-content');
+  if(!ov||!mc) return;
+  mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">PASTE DOCUMENT URL</div>
+    <input id="sdoc-url" type="url" placeholder="https://docs.google.com/…" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px">
+    <input id="sdoc-name" type="text" placeholder="Document name (optional)" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px">
+    <select id="sdoc-cat" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:16px">
+      <option value="">Category (optional)</option>
+      ${['Marketing','Development','Finance','Design','HR','Strategy','Legal','Other'].map(c=>`<option value="${c}">${c}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>
+      <button onclick="_saveSharedDocLink()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer">Save</button>
+    </div>`;
+  ov.classList.add('open');
+}
+function _saveSharedDocLink(){
+  const url=((document.getElementById('sdoc-url')||{}).value||'').trim();
+  let name=((document.getElementById('sdoc-name')||{}).value||'').trim();
+  const cat=((document.getElementById('sdoc-cat')||{}).value||'');
+  if(!url){ alert('Please paste a URL first.'); return; }
+  if(!name) name=decodeURIComponent(url.split('/').filter(Boolean).pop()||'Untitled');
+  const driveMatch=url.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  const fileId=driveMatch?driveMatch[1]:'';
+  const previewUrl=fileId?'https://drive.google.com/file/d/'+fileId+'/preview':'';
+  const doc={id:'doc-'+Date.now(),taskId:'',agendaId:'',shared:'true',sourceType:'shared',sourceId:'team',
+    name,url,previewUrl,driveFileId:fileId,category:cat,addedBy:window._DGL_USER||'unknown',addedAt:new Date().toISOString()};
+  _sharedDocsCache.unshift(doc);
+  _renderSharedDocs();
+  closeModal();
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_write',...doc})}).catch(()=>{});
+}
+
 function _buildDocsSection(sourceType,sourceId,sourceName){
   const sn=(sourceName||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const dzId='docs-dz-'+sourceType+'-'+sourceId;
@@ -6988,7 +7114,8 @@ function _buildDGLContext(){
   // Section 13: Dependency Chain
   const depChainTasks=tasks.filter(t=>(t.deps&&t.deps.trim())||tasks.some(x=>x.id!==t.id&&(x.deps||'').split(',').map(d=>d.trim()).includes(t.id)));
   const depChainLines=depChainTasks.slice(0,20).map(t=>{ const blockedBy=(t.deps||'').split(',').map(d=>d.trim()).filter(Boolean); const blocks=tasks.filter(x=>x.id!==t.id&&(x.deps||'').split(',').map(d=>d.trim()).filter(Boolean).includes(t.id)).map(x=>x.id); return `  ${t.id} [${t.cat||'—'}] → depends on ${blockedBy.length?blockedBy.join(', '):'nothing'} → blocks ${blocks.length?blocks.join(', '):'nothing'}`; }).join('\n')||'  None';
-  return `easyChef Pro | ${today.toISOString().slice(0,10)} | ${daysToLaunch}d to launch\nTasks: ${tasks.length} total | ${complete} done | ${inProg} active | ${blocked} blocked | ${overdue} overdue\nBudget: $${(b.capital||0).toLocaleString()} capital | $${(b.adBudget||0).toLocaleString()} ad | $${(b.payoneer||0).toLocaleString()} Payoneer | $${(b.monthlyRevenue||0).toLocaleString()}/mo revenue\nGaps (${gaps.length}):\n${gapLines}\nTeam:\n${teamLines}\nTask Notes (${notesTasks.length}):\n${taskNoteLines}\nOpen Agenda:\n${agendaOpen}\nAgenda Details (${AGENDA_DATA.filter(x=>!x.checked).length} open):\n${agendaDetails}\nTask Decisions (${decisionTasks.length}):\n${taskDecisionLines}\nRecent Team Comments:\n${recentComments}\nDependency Chain (${depChainTasks.length} tasks with deps):\n${depChainLines}`;
+  const sharedDocsLines=(_sharedDocsCache||[]).slice(0,10).map(d=>`  [${d.category||'General'}] ${d.name||'Untitled'} — added by ${d.addedBy||'?'} on ${(d.addedAt||'').slice(0,10)}`).join('\n')||'  None';
+  return `easyChef Pro | ${today.toISOString().slice(0,10)} | ${daysToLaunch}d to launch\nTasks: ${tasks.length} total | ${complete} done | ${inProg} active | ${blocked} blocked | ${overdue} overdue\nBudget: $${(b.capital||0).toLocaleString()} capital | $${(b.adBudget||0).toLocaleString()} ad | $${(b.payoneer||0).toLocaleString()} Payoneer | $${(b.monthlyRevenue||0).toLocaleString()}/mo revenue\nGaps (${gaps.length}):\n${gapLines}\nTeam:\n${teamLines}\nTask Notes (${notesTasks.length}):\n${taskNoteLines}\nOpen Agenda:\n${agendaOpen}\nAgenda Details (${AGENDA_DATA.filter(x=>!x.checked).length} open):\n${agendaDetails}\nTask Decisions (${decisionTasks.length}):\n${taskDecisionLines}\nRecent Team Comments:\n${recentComments}\nDependency Chain (${depChainTasks.length} tasks with deps):\n${depChainLines}\nShared Documents (${(_sharedDocsCache||[]).length}):\n${sharedDocsLines}`;
 }
 function _renderSuperAiBtn(id, type, title, status, owner){
   const _saTask=DASHBOARD_DATA.tasks.find(t=>t.id===id);
