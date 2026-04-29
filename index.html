@@ -4679,7 +4679,7 @@ function buildRoadmap(){
       barsHtml+=`<div class="${cls}" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;${ovStyle}" data-task-id="${t.id}" data-sd="${sd}" data-ed="${ed}" oncontextmenu="event.preventDefault();event.stopPropagation();_showGanttContextMenu(event,'${t.id}')">${_taskClipHtml}<span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid">${flagPin}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${_lblFs}">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
-    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showCatRowCtxMenu(event,this.closest('[data-cat]').dataset.cat)">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
+    canvasHtml+=`<div class="gantt-row" data-cat="${cat}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg},var(--surface);padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showCatRowCtxMenu(event,this.closest('[data-cat]').dataset.cat)">${rowLabel}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
   });
   canvas.innerHTML=canvasHtml;
 
@@ -15881,7 +15881,7 @@ function buildLaunchPlan(){
       barsHtml+=`<div class="rm-cell" style="${_barStyle}" data-lp-id="${t.id}" data-sd="${sd}" data-ed="${ed}">${_dotHtml}${_clipHtml}<span class="gantt-handle gantt-handle-left"></span><span class="gantt-mid"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${_lblFs}">${name}</span></span><span class="gantt-handle gantt-handle-right"></span></div>`;
     });
 
-    canvasHtml+=`<div class="gantt-row" data-ws="${ws}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showStreamRowCtxMenu(event,this.closest('[data-ws]').dataset.ws)">${ws}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
+    canvasHtml+=`<div class="gantt-row" data-ws="${ws}" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${cc.color};border-left:3px solid ${cc.color};background:${cc.bg},var(--surface);padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px;cursor:context-menu" oncontextmenu="_showStreamRowCtxMenu(event,this.closest('[data-ws]').dataset.ws)">${ws}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${barsHtml}</div></div>`;
   });
   canvas.innerHTML=canvasHtml;
   _initLPHover();
@@ -17398,7 +17398,7 @@ function buildActionsGantt(){
         bHtml+=`<div class="rm-cell" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;border-color:${bc};background:${bar.bg};opacity:${isDone?0.55:1};cursor:pointer" data-bar-id="${esc}" onclick="_acBarClick('${esc}')" oncontextmenu="event.preventDefault();event.stopPropagation();_showACContextMenu(event,'${esc}')" title="${bar.label.replace(/"/g,'&quot;')} · ${bar.sd}→${bar.ed}"><span style="position:absolute;top:2px;right:4px;width:5px;height:5px;border-radius:50%;background:${dot};pointer-events:none"></span><span class="gantt-mid" style="gap:3px"><span style="font-size:8px;flex-shrink:0;pointer-events:none">${ico}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${lfs};color:${bar.color}">${lbl}</span></span></div>`;
       });
 
-      html+=`<div class="gantt-row" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${p.color};border-left:3px solid ${p.color};background:${p.bg};padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${p.key}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${bHtml}</div></div>`;
+      html+=`<div class="gantt-row" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${p.color};border-left:3px solid ${p.color};background:${p.bg},var(--surface);padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${p.key}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${bHtml}</div></div>`;
     });
 
     canvas.innerHTML=html;
