@@ -15091,14 +15091,7 @@ function _upsertLPHubBar(activeId){
   bar.innerHTML=_LP_HUB_TABS.map(t=>'<button class="lp-hub-tab'+(t.id===activeId?' active':'')+'" onclick="showPage(\''+t.id+'\')">'+t.label+'</button>').join('');
   bar.style.display='flex';
 }
-const _LP_CALLOUTS=[
-  {title:'THE CRITICAL DEPENDENCY',detail:'The 50-family beta MUST start by May 11 (W4). Their 30 days of documented receipts produce the social proof that powers the social campaign (W9), website testimonials (W6), email sequences (W7), and app store reviews on launch day. Slip the beta = slip the entire launch.'},
-  {title:'THE CONTENT ENGINE STARTS LATE',detail:"Social media prep doesn't begin until W4 (May 11) — a deliberate choice. We need beta data first or we're posting marketing claims, not real outcomes. Once the engine starts: 90 micro-content pieces/week, hypothesize-test-pivot weekly, shares as the only KPI."},
-  {title:'DO NOT SLIP ONBOARDING',detail:'The <3-minute Three-Ingredient Start is the conversion lever for every dollar spent on social, email, and influencers. If onboarding ships with friction, every other workstream wastes its budget. App must be in beta hands by W4.'},
-  {title:'RUNNING METRICS',detail:'Weekly review every Friday: (1) website conversion, (2) waitlist growth, (3) Day-7 First Strike rate (beta), (4) social share rate, (5) email open + click. Anything below threshold gets killed or fixed within 7 days.'},
-  {title:'FOUNDER ON CAMERA — NON-NEGOTIABLE',detail:'Taylor + Steve must commit to 4 hours of filming per month starting W2. Firefighter origin story is the uncopyable brand asset across website, social, YouTube, and influencer co-creation. Without their face on camera, we are just another meal app.'},
-  {title:'KILL CRITERIA BEFORE JULY 1',detail:'If by W8 (Jun 8): (a) <30 beta families have completed 30 days of logged receipts, OR (b) <5 hooks have hit 5%+ share rate in tests, OR (c) onboarding First Strike <40% — delay launch by 4 weeks and fix.'}
-];
+const _LP_CALLOUTS=[];
 
 const _LP_WS_COLORS={
   'Positioning & Brand':{color:'#c9a84c',bg:'rgba(201,168,76,0.08)'},
@@ -15292,31 +15285,10 @@ function _updateCalloutInSheets(item){
   }).then(()=>_coFetch()).catch(()=>{});
 }
 
-function _coMigrateDefaults(){
-  if(!CONFIG.sheetsUrl) return;
-  const now=new Date().toISOString();
-  const defaults=_LP_CALLOUTS.map((c,i)=>({
-    id:'co-default-'+i,
-    type:'note',
-    title:c.title||'',
-    message:c.detail||'',
-    taggedUser:'all',
-    taggedTask:'',
-    createdBy:'system',
-    createdAt:now,
-    dueDate:''
-  }));
-  Promise.all(defaults.map(item=>
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({action:'callout_write',...item})
-    }).catch(()=>{})
-  )).then(()=>_coFetch()).catch(()=>{});
-}
+function _coMigrateDefaults(){}
 
 function _buildCalloutsHtml(canEditControls){
-  const items=_coCache.length
-    ?_coCache.map(c=>({id:c.id,title:c.title,detail:c.message||'',type:c.type,status:(c.dismissed==='true'||c.dismissed===true)?'Archived':'Active',color:'',createdAt:c.createdAt,date:c.dueDate||''}))
-    :_initCalloutItems();
+  const items=_coCache.map(c=>({id:c.id,title:c.title,detail:c.message||'',type:c.type,status:(c.dismissed==='true'||c.dismissed===true)?'Archived':'Active',color:'',createdAt:c.createdAt,date:c.dueDate||''}));
   const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
   const showControls=canEditControls&&isAdmin;
   const active=items.filter(c=>c.status!=='Archived');
@@ -18127,8 +18099,7 @@ function _coFetch(){
 }
 
 function _coUndismissed(){
-  const src=_coCache.length?_coCache:_LP_CALLOUTS.map((c,i)=>({id:'co-default-'+i,type:'note',title:c.title,message:c.detail,dismissed:false}));
-  return src.filter(c=>{
+  return _coCache.filter(c=>{
     if(c.dismissed==='true'||c.dismissed===true) return false;
     if(c.type==='statuschange') return false;
     return true;
