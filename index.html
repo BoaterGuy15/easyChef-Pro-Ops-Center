@@ -3769,6 +3769,7 @@ function deleteDoc(docId,sourceType,sourceId){
 // ── Shared Team Documents (📁 Docs tab) ─────────────────────
 let _sharedDocsCache=[];
 let _sharedDocsFilter='All';
+let _sharedFolderDefs=(()=>{try{return JSON.parse(localStorage.getItem('dgl_folder_defs')||'[]');}catch(_){return[];}})();
 // Resolve a display tag for any doc — category, task name, agenda, or General
 function _sharedDocTag(d){
   if(d.category) return d.category;
@@ -3792,19 +3793,28 @@ function _renderSharedDocs(){
   const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
   const tagSet=new Set(_sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean));
   const linkedCount=_sharedDocsCache.filter(d=>!d.driveFileId||d.driveFileId==='').length;
-  // Reset stale filter (but preserve Linked Files — it's always valid)
-  if(_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files'&&!tagSet.has(_sharedDocsFilter)) _sharedDocsFilter='All';
+  // Reset stale filter (preserve Linked Files and any defined folder)
+  const allCats=[...new Set([..._sharedFolderDefs,...tagSet])].sort();
+  if(_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files'&&!allCats.includes(_sharedDocsFilter)) _sharedDocsFilter='All';
   const filterBar=document.getElementById('docs-filter-tabs');
   const grid=document.getElementById('docs-grid');
   if(!grid) return;
 
-  // ── Filter pill bar: All | 🔗 Linked Files (pinned) | dynamic category pills ──
+  // ── Filter pill bar: All | 🔗 Linked Files | category pills (with edit) | + Folder ──
   if(filterBar){
-    const pill=(val,label,active)=>`<button onclick="_setDocsFilter('${val}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${label}</button>`;
-    const allPill=pill('All','All',_sharedDocsFilter==='All');
-    const linkedPill=linkedCount>0?pill('Linked Files','🔗 Linked Files',_sharedDocsFilter==='Linked Files'):'';
-    const catPills=[...tagSet].sort().map(t=>pill(t.replace(/'/g,"\\'"),t,_sharedDocsFilter===t)).join('');
-    filterBar.innerHTML=allPill+linkedPill+catPills;
+    const simplePill=(val,label,active)=>`<button onclick="_setDocsFilter('${val}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap;flex-shrink:0">${label}</button>`;
+    const allPill=simplePill('All','All',_sharedDocsFilter==='All');
+    const linkedPill=linkedCount>0?simplePill('Linked Files','🔗 Linked Files',_sharedDocsFilter==='Linked Files'):'';
+    const catPills=allCats.map(t=>{
+      const safeT=t.replace(/'/g,"\\'");
+      const active=_sharedDocsFilter===t;
+      return `<span style="display:inline-flex;align-items:center;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};overflow:hidden;flex-shrink:0">
+        <button onclick="_setDocsFilter('${safeT}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:${active?'var(--gold-dim)':'transparent'};border:none;color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${t}</button>
+        <button onclick="_editSharedFolder('${safeT}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:3px 5px;background:transparent;border:none;border-left:1px solid ${active?'rgba(212,160,23,0.35)':'var(--border)'};color:var(--muted);cursor:pointer;line-height:1" title="Edit folder">✏️</button>
+      </span>`;
+    }).join('');
+    const addBtn=`<button onclick="_addSharedFolder()" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0">+ Folder</button>`;
+    filterBar.innerHTML=allPill+linkedPill+catPills+addBtn;
   }
 
   // ── Filter docs ──
@@ -3848,6 +3858,90 @@ function _renderSharedDocs(){
 }
 function _setDocsFilter(cat){
   _sharedDocsFilter=cat;
+  _renderSharedDocs();
+}
+// ── Folder management ────────────────────────────────────────
+function _saveFolderDefs(){
+  try{localStorage.setItem('dgl_folder_defs',JSON.stringify(_sharedFolderDefs));}catch(_){}
+  // POST to Sheets for team-wide persistence (requires folders_write handler in Apps Script)
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'folders_write',folders:_sharedFolderDefs})}).catch(()=>{});
+}
+function _addSharedFolder(){
+  const ov=document.getElementById('modal-overlay');
+  const mc=document.getElementById('modal-content');
+  if(!ov||!mc) return;
+  const iSt='width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:16px';
+  mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">NEW FOLDER</div>
+    <input id="new-folder-name" type="text" placeholder="Folder name" style="${iSt}" onkeydown="if(event.key==='Enter')_createSharedFolder();if(event.key==='Escape')closeModal()">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>
+      <button onclick="_createSharedFolder()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer">Create</button>
+    </div>`;
+  ov.classList.add('open');
+  setTimeout(()=>{const i=document.getElementById('new-folder-name');if(i)i.focus();},10);
+}
+function _createSharedFolder(){
+  const name=((document.getElementById('new-folder-name')||{}).value||'').trim();
+  if(!name) return;
+  if(!_sharedFolderDefs.includes(name)) _sharedFolderDefs.push(name);
+  _saveFolderDefs();
+  closeModal();
+  _sharedDocsFilter=name;
+  _renderSharedDocs();
+}
+function _editSharedFolder(name){
+  const ov=document.getElementById('modal-overlay');
+  const mc=document.getElementById('modal-content');
+  if(!ov||!mc) return;
+  const safeN=name.replace(/"/g,'&quot;');
+  const iSt='width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:16px';
+  mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">EDIT FOLDER</div>
+    <input id="edit-folder-name" type="text" value="${safeN}" style="${iSt}" onkeydown="if(event.key==='Enter')_renameSharedFolder('${name.replace(/'/g,"\\'")}');if(event.key==='Escape')closeModal()">
+    <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+      <button onclick="_deleteSharedFolder('${name.replace(/'/g,"\\'")}') " style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 14px;border-radius:99px;border:1px solid var(--red,#ef4444);background:transparent;color:var(--red,#ef4444);cursor:pointer">🗑️ Delete</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>
+        <button onclick="_renameSharedFolder('${name.replace(/'/g,"\\'")}') " style="font-family:'DM Mono',monospace;font-size:10px;padding:6px 16px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer">Save</button>
+      </div>
+    </div>`;
+  ov.classList.add('open');
+  setTimeout(()=>{const i=document.getElementById('edit-folder-name');if(i){i.focus();i.select();}},10);
+}
+function _renameSharedFolder(oldName){
+  const newName=((document.getElementById('edit-folder-name')||{}).value||'').trim();
+  if(!newName||newName===oldName){closeModal();return;}
+  // Update defs list
+  const idx=_sharedFolderDefs.indexOf(oldName);
+  if(idx>=0) _sharedFolderDefs[idx]=newName; else _sharedFolderDefs.push(newName);
+  _saveFolderDefs();
+  // Update category on all matching docs
+  _sharedDocsCache.forEach(d=>{
+    if(d.category===oldName){
+      d.category=newName;
+      if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_update',id:d.id,category:newName})}).catch(()=>{});
+    }
+  });
+  if(_sharedDocsFilter===oldName) _sharedDocsFilter=newName;
+  closeModal();
+  _renderSharedDocs();
+}
+function _deleteSharedFolder(name){
+  const docCount=_sharedDocsCache.filter(d=>d.category===name).length;
+  const msg=docCount>0
+    ?`Delete "${name}" folder?\n\n${docCount} doc${docCount===1?'':'s'} will lose their folder tag but won't be deleted.`
+    :`Delete "${name}" folder?`;
+  if(!confirm(msg)) return;
+  _sharedFolderDefs=_sharedFolderDefs.filter(f=>f!==name);
+  _saveFolderDefs();
+  // Clear category from docs (docs stay, just lose the tag)
+  _sharedDocsCache.forEach(d=>{
+    if(d.category===name){
+      d.category='';
+      if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_update',id:d.id,category:''})}).catch(()=>{});
+    }
+  });
+  if(_sharedDocsFilter===name) _sharedDocsFilter='All';
+  closeModal();
   _renderSharedDocs();
 }
 function _deleteSharedDoc(docId){
