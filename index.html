@@ -3742,22 +3742,21 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       const sp=dz&&dz.querySelector('.dz-pct');
       if(sp) sp.textContent=Math.round(_pct)+'%';
     }
-    function _crawlTo(){
+    function _startTimer(){
       if(_pctTimer) clearInterval(_pctTimer);
-      // constant 0.25%/tick so movement is always visible; reaches 99% in ~23s
+      const t0=Date.now();
       _pctTimer=setInterval(()=>{
-        _pct=Math.min(99,_pct+0.25);
         const sp=dz&&dz.querySelector('.dz-pct');
-        if(sp) sp.textContent=Math.round(_pct)+'%';
-      },60);
+        if(sp) sp.textContent='⏳ '+Math.round((Date.now()-t0)/1000)+'s';
+      },500);
     }
     function _stopCrawl(){ if(_pctTimer){ clearInterval(_pctTimer); _pctTimer=null; } }
     _dzSetLabel(dz,'<span class="dgl-runner">🏃</span>&nbsp; Uploading <strong>'+file.name+'</strong>&nbsp;<span class="dz-pct" style="font-family:\'DM Mono\',monospace;font-weight:700">0%</span>','var(--gold)');
     const reader=new FileReader();
-    reader.onprogress=ev=>{ if(ev.lengthComputable) _setPct((ev.loaded/ev.total)*55); };
+    reader.onprogress=ev=>{ if(ev.lengthComputable) _setPct((ev.loaded/ev.total)*100); };
     reader.onload=ev=>{
-      _setPct(60);
-      _crawlTo();
+      _setPct(100);
+      _startTimer();
       const b64=ev.target.result.split(',')[1];
       const _sn=sourceName||(sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===sourceId)||{}).title||'');
       console.log('[DGL] Resolved _sn:',_sn,'(param was:',sourceName,')');
