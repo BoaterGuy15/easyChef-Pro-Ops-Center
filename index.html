@@ -3878,7 +3878,8 @@ function _addSharedFolder(){
   const mc=document.getElementById('modal-content');
   if(!ov||!mc) return;
   const iSt='width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;outline:none;box-sizing:border-box;margin-bottom:8px';
-  const roots=_sharedFolderDefs.filter(f=>!f.includes('/'));
+  const _allLiveCats=[...new Set([..._sharedFolderDefs,..._sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean)])];
+  const roots=_allLiveCats.filter(f=>!f.includes('/')).sort();
   const parentOpts=roots.length?`<select id="new-folder-parent" style="${iSt};margin-bottom:16px;cursor:pointer"><option value="">No parent — top-level folder</option>${roots.map(r=>`<option value="${r.replace(/"/g,'&quot;')}">${r}</option>`).join('')}</select>`:`<input type="hidden" id="new-folder-parent" value="">`;
   mc.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:16px">NEW FOLDER</div>
     <input id="new-folder-name" type="text" placeholder="Folder name" style="${iSt}" onkeydown="if(event.key==='Enter')_createSharedFolder();if(event.key==='Escape')closeModal()">
