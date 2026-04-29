@@ -16809,6 +16809,45 @@ function _showLPEditBarForm(lpId){
   const esc=e=>{if(e.key==='Escape'){wrap.remove();document.removeEventListener('keydown',esc,true);}};
   document.addEventListener('keydown',esc,true);
 }
+function _lpGetUnlinkedTasks(){
+  const allLinked=new Set();
+  (_lpCache.length?_lpCache:_LP_DEFAULTS).forEach(bar=>_parseLPTaskIds(bar).forEach(id=>allLinked.add(id)));
+  return (DASHBOARD_DATA.tasks||[]).filter(t=>!allLinked.has(t.id)&&t.status!=='Complete'&&t.status!=='Done');
+}
+function _lpSmartSuggest(item){
+  const unlinked=_lpGetUnlinkedTasks();
+  const wsName=(item.workstream||'').toLowerCase();
+  const barName=(item.name||'').toLowerCase();
+  const allWords=new Set([wsName,barName].join(' ').split(/\W+/).filter(w=>w.length>3));
+  const linkedIds=_parseLPTaskIds(item);
+  const linkedOwners=new Set(linkedIds.map(id=>{const t=(DASHBOARD_DATA.tasks||[]).find(x=>x.id===id);return t?t.owner:'';}).filter(Boolean));
+  const linkedCats=new Set(linkedIds.map(id=>{const t=(DASHBOARD_DATA.tasks||[]).find(x=>x.id===id);return t?t.cat:'';}).filter(Boolean));
+  return unlinked.map(t=>{
+    let score=0;const reasons=[];
+    const nameWords=(t.name||'').toLowerCase().split(/\W+/);
+    const catWords=(t.cat||'').toLowerCase().split(/\W+/);
+    let nameHits=0; nameWords.forEach(w=>{if(w.length>3&&allWords.has(w))nameHits++;});
+    let catHits=0; catWords.forEach(w=>{if(w.length>2&&allWords.has(w))catHits++;});
+    if(catHits>0){score+=3;reasons.push('Category "'+t.cat+'" aligns with this workstream');}
+    if(nameHits>0){score+=nameHits*2;reasons.push('Task name overlaps with "'+item.name+'"');}
+    if(linkedCats.has(t.cat)&&t.cat){score+=2;if(!reasons.length)reasons.push('Same category as other tasks in this bar');}
+    if(linkedOwners.has(t.owner)&&t.owner){score+=2;reasons.push('Shared owner ('+t.owner+') with linked tasks');}
+    if(t.pri==='High'||t.pri==='Critical')score+=1;
+    if(['Started','In Progress','Not Started'].includes(t.status))score+=1;
+    return {task:t,score,reason:reasons.slice(0,2).join(' · ')||'Possible match based on workstream context'};
+  }).filter(r=>r.score>0).sort((a,b)=>b.score-a.score).slice(0,6);
+}
+async function _lpAISuggest(item,unlinkedTasks){
+  if(!CONFIG.sheetsUrl||!unlinkedTasks.length) return [];
+  const linkedIds=_parseLPTaskIds(item);
+  const wsCtx='Workstream: '+item.workstream+'\nBar: '+item.name+'\nDates: '+(item.sd||'?')+' → '+(item.ed||'?');
+  const linkedCtx=linkedIds.length?'Already linked: '+linkedIds.map(id=>{const t=(DASHBOARD_DATA.tasks||[]).find(x=>x.id===id);return t?id+' '+t.name:id;}).join(', '):'No tasks linked yet.';
+  const taskList=unlinkedTasks.slice(0,40).map(t=>t.id+' | '+t.name+' | '+(t.cat||'—')+' | '+(t.owner||'—')+' | '+(t.status||'—')).join('\n');
+  const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:'You are a project management AI. Suggest which unlinked tasks best belong to a given workstream activity bar based on name, category, and context. Return ONLY a valid JSON array, no extra text.',prompt:wsCtx+'\n'+linkedCtx+'\n\nUNLINKED TASKS:\n'+taskList+'\n\nReturn JSON array of top 5 best matches (fewer if fewer fit). Be selective — only include tasks that genuinely belong.\n[{"id":"T-001","reason":"one-sentence explanation"},...]'})}).then(r=>r.json()).catch(()=>({}));
+  const raw=resp.response||resp.result||resp.text||resp.content||'';
+  try{const m=raw.match(/\[[\s\S]*?\]/);if(m){return JSON.parse(m[0]).filter(x=>x&&x.id&&x.reason).map(x=>({task:unlinkedTasks.find(t=>t.id===x.id),reason:x.reason})).filter(x=>x.task);}}catch(_){}
+  return [];
+}
 function _showLPLinkTasksModal(lpId){
   const _pool=_lpCache.length?_lpCache:_LP_DEFAULTS;
   const item=_pool.find(x=>x.id===lpId)||_pool.find(x=>{ const d=_LP_DEFAULTS.find(dd=>dd.id===lpId); return d&&x.name===d.name; });
@@ -16821,7 +16860,7 @@ function _showLPLinkTasksModal(lpId){
   const ov=document.createElement('div');ov.id='lp-link-tasks-overlay';
   ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.5)';
   const modal=document.createElement('div');
-  modal.style.cssText="position:fixed;z-index:99999;width:700px;height:540px;left:calc(50% - 350px);top:calc(50% - 270px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:420px;min-height:320px";
+  modal.style.cssText="position:fixed;z-index:99999;width:700px;height:620px;left:calc(50% - 350px);top:calc(50% - 310px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.6);font-family:'DM Mono',monospace;display:flex;flex-direction:column;overflow:hidden;min-width:420px;min-height:360px";
   const hdr=document.createElement('div');hdr.style.cssText="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;cursor:move;flex-shrink:0";
   const hdrTtl=document.createElement('div');hdrTtl.style.cssText="color:var(--gold);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600";hdrTtl.textContent='🔗 Link Tasks to '+item.name;
   const closeX=document.createElement('button');closeX.textContent='✕';closeX.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 4px";closeX.onclick=()=>ov.remove();
@@ -16844,6 +16883,83 @@ function _showLPLinkTasksModal(lpId){
     sortBar.appendChild(b);
   });
   modal.appendChild(sortBar);
+  // ── AI SUGGESTIONS SECTION ──
+  const _unlinkedAll=_lpGetUnlinkedTasks();
+  const _smartInit=_lpSmartSuggest(item);
+  const suggSection=document.createElement('div');
+  suggSection.style.cssText='border-bottom:2px solid rgba(201,168,76,0.25);flex-shrink:0;max-height:230px;overflow-y:auto;scrollbar-width:none;background:rgba(201,168,76,0.03)';
+  const suggHdr=document.createElement('div');
+  suggHdr.style.cssText='padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;position:sticky;top:0;background:rgba(201,168,76,0.06);z-index:1';
+  const suggLbl=document.createElement('span');suggLbl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1.5px;font-weight:600";suggLbl.textContent='⚡ SUGGESTED UNLINKED TASKS';
+  const suggCnt=document.createElement('span');suggCnt.style.cssText="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)";suggCnt.textContent='('+_smartInit.length+' smart matches)';
+  const aiSuggBtn=document.createElement('button');aiSuggBtn.textContent='🤖 Ask AI';
+  aiSuggBtn.style.cssText="margin-left:auto;background:transparent;color:var(--gold);border:1px solid rgba(201,168,76,0.5);border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;cursor:pointer;flex-shrink:0";
+  aiSuggBtn.title='Use Claude AI for smarter suggestions with explanations';
+  const suggToggle=document.createElement('span');suggToggle.style.cssText="font-size:10px;color:var(--muted);flex-shrink:0";suggToggle.textContent='▾';
+  suggHdr.appendChild(suggLbl);suggHdr.appendChild(suggCnt);suggHdr.appendChild(aiSuggBtn);suggHdr.appendChild(suggToggle);
+  const suggBody=document.createElement('div');suggBody.style.cssText='padding:4px 8px 6px';
+  let _suggOpen=true;
+  suggHdr.onclick=e=>{if(e.target===aiSuggBtn)return;_suggOpen=!_suggOpen;suggBody.style.display=_suggOpen?'block':'none';suggToggle.textContent=_suggOpen?'▾':'▴';};
+  function _renderSugg(results){
+    suggBody.innerHTML='';
+    if(!results.length){
+      const empty=document.createElement('div');empty.style.cssText="padding:10px 4px;color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;text-align:center";
+      empty.textContent='No unlinked tasks matched this workstream — all tasks may already be linked, or try Ask AI for broader matching.';
+      suggBody.appendChild(empty);return;
+    }
+    results.forEach(({task:t,reason})=>{
+      if(!t) return;
+      const sc=getStatusColors(t.status||'');
+      const isLinked=selected.has(t.id);
+      const card=document.createElement('div');
+      card.style.cssText='display:flex;align-items:flex-start;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.1s';
+      card.onmouseover=()=>card.style.background='rgba(255,255,255,0.03)';card.onmouseout=()=>card.style.background='';
+      const cb=document.createElement('input');cb.type='checkbox';cb.checked=isLinked;cb.style.cssText='flex-shrink:0;accent-color:var(--gold);margin-top:3px;cursor:pointer';
+      const info=document.createElement('div');info.style.cssText='flex:1;min-width:0';
+      const topRow=document.createElement('div');topRow.style.cssText='display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:2px';
+      const idEl=document.createElement('span');idEl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);flex-shrink:0";idEl.textContent=t.id;
+      const nmEl=document.createElement('span');nmEl.style.cssText="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px";nmEl.textContent=t.name||'—';
+      const catEl=document.createElement('span');catEl.style.cssText="font-size:8px;color:var(--muted);background:var(--surface);border-radius:2px;padding:1px 4px;font-family:'DM Mono',monospace;flex-shrink:0";catEl.textContent=t.cat||'—';
+      const stEl=document.createElement('span');stEl.style.cssText='font-size:8px;padding:1px 4px;border-radius:2px;background:'+sc.bg+';color:'+sc.color+";font-family:'DM Mono',monospace;flex-shrink:0";stEl.textContent=t.status||'—';
+      topRow.appendChild(idEl);topRow.appendChild(nmEl);topRow.appendChild(catEl);topRow.appendChild(stEl);
+      const reasonEl=document.createElement('div');reasonEl.style.cssText="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);line-height:1.4;margin-top:1px";reasonEl.textContent='Why: '+reason;
+      info.appendChild(topRow);info.appendChild(reasonEl);
+      const linkBtn=document.createElement('button');
+      linkBtn.textContent=isLinked?'✓ Linked':'＋ Link';
+      linkBtn.style.cssText='background:transparent;color:'+(isLinked?'var(--green)':'var(--gold)')+';border:1px solid '+(isLinked?'var(--green)':'var(--gold)')+";border-radius:3px;font-family:'DM Mono',monospace;font-size:8px;padding:2px 8px;cursor:pointer;flex-shrink:0;white-space:nowrap;transition:all 0.15s";
+      function _toggle(){
+        if(!selected.has(t.id))selected.add(t.id); else selected.delete(t.id);
+        cb.checked=selected.has(t.id);
+        linkBtn.textContent=selected.has(t.id)?'✓ Linked':'＋ Link';
+        linkBtn.style.color=selected.has(t.id)?'var(--green)':'var(--gold)';
+        linkBtn.style.borderColor=selected.has(t.id)?'var(--green)':'var(--gold)';
+        _updateSaveBtn();_renderRows();
+      }
+      linkBtn.onclick=_toggle;cb.onchange=_toggle;
+      card.appendChild(cb);card.appendChild(info);card.appendChild(linkBtn);
+      suggBody.appendChild(card);
+    });
+  }
+  _renderSugg(_smartInit);
+  aiSuggBtn.onclick=async e=>{
+    e.stopPropagation();
+    if(!CONFIG.sheetsUrl){_showToast('<div>No Apps Script URL — cannot run AI</div>',2000);return;}
+    aiSuggBtn.textContent='⏳ Asking AI…';aiSuggBtn.disabled=true;
+    try{
+      const aiRes=await _lpAISuggest(item,_unlinkedAll);
+      if(aiRes.length){
+        suggCnt.textContent='('+aiRes.length+' AI matches)';
+        _renderSugg(aiRes);
+        aiSuggBtn.textContent='✓ AI Done';
+      } else {
+        suggCnt.textContent='(no AI matches)';_renderSugg([]);aiSuggBtn.textContent='🤖 Ask AI';
+      }
+    }catch(_){aiSuggBtn.textContent='🤖 Ask AI';}
+    aiSuggBtn.disabled=false;
+  };
+  suggSection.appendChild(suggHdr);suggSection.appendChild(suggBody);
+  modal.appendChild(suggSection);
+  // ── END SUGGESTIONS ──
   const countBar=document.createElement('div');countBar.style.cssText='padding:4px 12px 2px;font-size:9px;color:var(--muted);flex-shrink:0';modal.appendChild(countBar);
   const listEl=document.createElement('div');listEl.style.cssText='flex:1;overflow-y:auto;padding:0 4px 8px;scrollbar-width:none';modal.appendChild(listEl);
   const footer=document.createElement('div');footer.style.cssText='padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;background:var(--surface)';
