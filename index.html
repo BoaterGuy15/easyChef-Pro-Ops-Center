@@ -3771,6 +3771,7 @@ function deleteDoc(docId,sourceType,sourceId){
 let _sharedDocsCache=[];
 let _sharedDocsFilter='All';
 let _sharedFolderDefs=(()=>{try{return JSON.parse(localStorage.getItem('dgl_folder_defs')||'[]');}catch(_){return[];}})();
+let _docsTreeExpanded=new Set();
 // Resolve a display tag for any doc — category, task name, agenda, or General
 function _sharedDocTag(d){
   if(d.category) return d.category;
@@ -3810,25 +3811,14 @@ function _renderSharedDocs(){
   // ── Filter pill bar ──
   if(filterBar){
     const simplePill=(val,label,active)=>`<button onclick="_setDocsFilter('${val}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap;flex-shrink:0">${label}</button>`;
-    const splitPill=(val,label,active,indent)=>{
-      const safeV=val.replace(/'/g,"\\'");
-      const prefix=indent?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border);padding-left:2px">↳</span>`:'';
-      return `${prefix}<span oncontextmenu="_showFolderCtxMenu(event,'${safeV}')" style="display:inline-flex;align-items:center;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};overflow:hidden;flex-shrink:0">
-        <button onclick="_setDocsFilter('${safeV}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;background:${active?'var(--gold-dim)':'transparent'};border:none;color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap">${label}</button>
-        <button onclick="_editSharedFolder('${safeV}')" style="font-family:'DM Mono',monospace;font-size:8px;padding:3px 5px;background:transparent;border:none;border-left:1px solid ${active?'rgba(212,160,23,0.35)':'var(--border)'};color:var(--muted);cursor:pointer;line-height:1" title="Edit folder">✏️</button>
-      </span>`;
-    };
-    // Build two-level hierarchy: roots then their children indented with ↳
-    const roots=allCats.filter(c=>!c.includes('/'));
-    const childrenOf=p=>allCats.filter(c=>c.startsWith(p+'/')&&c.split('/').length===p.split('/').length+1);
-    const orphans=allCats.filter(c=>c.includes('/')&&!roots.includes(c.split('/')[0]));
-    const catPills=roots.map(r=>{
-      const rActive=_sharedDocsFilter===r||_sharedDocsFilter.startsWith(r+'/');
-      const subPills=childrenOf(r).map(sub=>splitPill(sub,sub.split('/').pop(),_sharedDocsFilter===sub,true)).join('');
-      return splitPill(r,r,rActive,false)+subPills;
-    }).join('')+orphans.map(o=>splitPill(o,o,_sharedDocsFilter===o,false)).join('');
-    const addBtn=`<button onclick="_addSharedFolder()" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0">+ Folder</button>`;
-    filterBar.innerHTML=simplePill('All','All',_sharedDocsFilter==='All')+(linkedCount>0?simplePill('Linked Files','🔗 Linked Files',_sharedDocsFilter==='Linked Files'):'')+catPills+addBtn;
+    const inFolder=_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files';
+    const activeCrumb=inFolder
+      ?`<span style="display:inline-flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);flex-shrink:0">
+          📁 ${_sharedDocsFilter.split('/').pop()}
+          <button onclick="_setDocsFilter('All')" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:11px;padding:0;line-height:1;margin-top:-1px">×</button>
+        </span>`:'';
+    const folderTreeBtn=`<button id="docs-folder-tree-btn" onclick="_toggleFolderTree(this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0">📂 Folders ▾</button>`;
+    filterBar.innerHTML=simplePill('All','All',_sharedDocsFilter==='All')+(linkedCount>0?simplePill('Linked Files','🔗 Linked Files',_sharedDocsFilter==='Linked Files'):'')+folderTreeBtn+activeCrumb;
   }
 
   // ── Filter docs (parent filter includes all subfolders) ──
@@ -3873,6 +3863,8 @@ function _renderSharedDocs(){
 function _setDocsFilter(cat){
   _sharedDocsFilter=cat;
   _renderSharedDocs();
+  const p=document.getElementById('docs-folder-panel');
+  if(p&&p.style.display!=='none') _renderFolderTreeInPanel();
 }
 // ── Folder management ────────────────────────────────────────
 function _saveFolderDefs(){
@@ -4088,6 +4080,91 @@ function _showGridCtxMenu(e){
     document.addEventListener('click',_hideDocsCtxMenu,false);
     document.addEventListener('keydown',_docsCtxEsc,true);
   },10);
+}
+// ── Floating folder tree panel ───────────────────────────────
+function _getDocsFolderPanel(){
+  let p=document.getElementById('docs-folder-panel');
+  if(!p||p.parentNode!==document.body){
+    if(p) p.remove();
+    p=document.createElement('div');
+    p.id='docs-folder-panel';
+    p.style.cssText='position:fixed;z-index:9998;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:12px;min-width:230px;max-width:270px;max-height:440px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.65)';
+    document.body.appendChild(p);
+  }
+  return p;
+}
+function _docsFolderPanelOutside(e){
+  const panel=document.getElementById('docs-folder-panel');
+  const btn=document.getElementById('docs-folder-tree-btn');
+  if(panel&&!panel.contains(e.target)&&btn&&!btn.contains(e.target)){
+    panel.style.display='none';
+    document.removeEventListener('mousedown',_docsFolderPanelOutside,true);
+  }
+}
+function _toggleFolderTree(btn){
+  const panel=_getDocsFolderPanel();
+  if(panel.style.display!=='none'){
+    panel.style.display='none';
+    document.removeEventListener('mousedown',_docsFolderPanelOutside,true);
+    return;
+  }
+  const r=btn.getBoundingClientRect();
+  panel.style.left=Math.min(r.left,window.innerWidth-280)+'px';
+  panel.style.top=(r.bottom+6)+'px';
+  panel.style.display='flex';
+  _renderFolderTreeInPanel();
+  setTimeout(()=>{ document.addEventListener('mousedown',_docsFolderPanelOutside,true); },10);
+}
+function _renderFolderTreeInPanel(){
+  const panel=_getDocsFolderPanel();
+  if(!panel||panel.style.display==='none') return;
+  const tagSet=new Set(_sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean));
+  const allCats=[...new Set([..._sharedFolderDefs,...tagSet])].sort();
+  const roots=allCats.filter(c=>!c.includes('/'));
+  const childrenOf=p=>allCats.filter(c=>c.startsWith(p+'/')&&c.split('/').length===p.split('/').length+1);
+  const rowStyle=(active,depth)=>`display:flex;align-items:center;gap:6px;width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:10px;padding:7px 14px 7px ${14+depth*18}px;background:${active?'rgba(212,160,23,0.15)':'none'};border:none;color:${active?'var(--gold-light)':'var(--text)'};cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid ${active?'var(--gold)':'transparent'}`;
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0">
+    <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px">FOLDERS</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="_addSharedFolder()" title="New folder" style="font-family:'DM Mono',monospace;font-size:8px;padding:3px 8px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">+ New</button>
+      <button onclick="document.getElementById('docs-folder-panel').style.display='none';document.removeEventListener('mousedown',_docsFolderPanelOutside,true)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1">×</button>
+    </div>
+  </div>
+  <div style="overflow-y:auto;max-height:380px;padding:4px 0">`;
+  if(!roots.length){
+    html+=`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:24px;text-align:center">No folders yet.<br>Click + New to create one.</div>`;
+  } else {
+    roots.forEach(r=>{
+      const kids=childrenOf(r);
+      const hasKids=kids.length>0;
+      const expanded=_docsTreeExpanded.has(r);
+      const active=_sharedDocsFilter===r;
+      const ancestorActive=_sharedDocsFilter.startsWith(r+'/');
+      const safeR=r.replace(/'/g,"\\'");
+      const chevron=hasKids
+        ?`<span onclick="event.stopPropagation();_toggleTreeNode('${safeR}')" style="font-size:7px;cursor:pointer;color:var(--muted);display:inline-block;transform:rotate(${expanded?'90':'0'}deg);transition:transform 0.15s;flex-shrink:0">▶</span>`
+        :`<span style="font-size:7px;opacity:0;flex-shrink:0">▶</span>`;
+      html+=`<div oncontextmenu="_showFolderCtxMenu(event,'${safeR}');event.stopPropagation()">
+        <button onclick="_setDocsFilter('${safeR}')" style="${rowStyle(active||ancestorActive,0)}">${chevron}<span style="flex:1">${r}</span>${ancestorActive&&!active?`<span style="font-size:8px;color:var(--muted)">●</span>`:''}</button>
+      </div>`;
+      if(hasKids&&expanded){
+        kids.forEach(sub=>{
+          const safeS=sub.replace(/'/g,"\\'");
+          const subActive=_sharedDocsFilter===sub;
+          html+=`<div oncontextmenu="_showFolderCtxMenu(event,'${safeS}');event.stopPropagation()">
+            <button onclick="_setDocsFilter('${safeS}')" style="${rowStyle(subActive,1)}"><span style="color:var(--muted);font-size:9px;flex-shrink:0">↳</span><span style="flex:1">${sub.split('/').pop()}</span></button>
+          </div>`;
+        });
+      }
+    });
+  }
+  html+=`</div>`;
+  panel.innerHTML=html;
+}
+function _toggleTreeNode(folderName){
+  if(_docsTreeExpanded.has(folderName)) _docsTreeExpanded.delete(folderName);
+  else _docsTreeExpanded.add(folderName);
+  _renderFolderTreeInPanel();
 }
 function _moveDocToFolder(docId){
   const doc=_sharedDocsCache.find(d=>d.id===docId);
