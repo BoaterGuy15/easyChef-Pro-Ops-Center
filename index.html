@@ -18116,12 +18116,10 @@ function _coFetch(){
 }
 
 function _coUndismissed(){
-  const user=(window._DGL_USER||'').toLowerCase();
   return _coCache.filter(c=>{
     if(c.dismissed==='true'||c.dismissed===true) return false;
     if(c.type==='statuschange') return false;
-    const tagged=(c.taggedUser||'').toLowerCase();
-    return !tagged||tagged===user||tagged==='all';
+    return true;
   });
 }
 
