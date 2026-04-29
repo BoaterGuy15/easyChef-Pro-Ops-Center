@@ -3901,8 +3901,9 @@ function _renderSharedDocs(){
         </div>
       </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${badge}${tagChip}</div>
-      <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
+      <div style="display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap">
         ${d.url?`<a href="${d.url}" target="_blank" rel="noopener" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--gold);color:var(--gold-light);text-decoration:none;background:var(--gold-dim)">↗️ Open</a>`:''}
+        ${isVideoDoc&&_fid?`<a href="https://drive.google.com/uc?export=download&id=${_fid}" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);text-decoration:none;background:transparent" title="Download to open in media player">⬇️ Download</a>`:''}
         <button onclick="_editSharedDoc('${d.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer" title="Rename">✏️</button>
         ${canDel?`<button onclick="_deleteSharedDoc('${d.id}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer" title="Delete">🗑️</button>`:''}
       </div>
