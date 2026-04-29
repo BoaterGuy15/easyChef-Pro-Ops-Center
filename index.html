@@ -18116,7 +18116,8 @@ function _coFetch(){
 }
 
 function _coUndismissed(){
-  return _coCache.filter(c=>{
+  const src=_coCache.length?_coCache:_LP_CALLOUTS.map((c,i)=>({id:'co-default-'+i,type:'note',title:c.title,message:c.detail,dismissed:false}));
+  return src.filter(c=>{
     if(c.dismissed==='true'||c.dismissed===true) return false;
     if(c.type==='statuschange') return false;
     return true;
