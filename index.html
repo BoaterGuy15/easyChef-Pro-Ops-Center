@@ -19801,18 +19801,18 @@ function _submitInfoResponse(reqId){
   var params=new URLSearchParams(window.location.search);
   var reqId=params.get('respond');
   if(!reqId) return;
-  var _tryOpen=function(){
-    if(!window._DGL_USER){
-      var _origSD=window.showDashboard;
-      window.showDashboard=function(){
-        _origSD&&_origSD.apply(this,arguments);
-        setTimeout(function(){ _openInfoResponseModal(reqId); },600);
-      };
-    } else {
-      setTimeout(function(){ _openInfoResponseModal(reqId); },600);
-    }
-  };
-  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',_tryOpen); } else { _tryOpen(); }
+  var _opened=false;
+  var _attempts=0;
+  var _timer=setInterval(function(){
+    _attempts++;
+    if(_opened||_attempts>50){ clearInterval(_timer); return; }
+    // Wait until the dashboard nav is in the DOM (means the app has rendered)
+    var nav=document.querySelector('.nav-tab');
+    if(!nav||typeof _openInfoResponseModal!=='function') return;
+    clearInterval(_timer);
+    _opened=true;
+    setTimeout(function(){ _openInfoResponseModal(reqId); },500);
+  },200);
 })();
 
 // ── Task Panel Actions ────────────────────────────────────────────────────────
