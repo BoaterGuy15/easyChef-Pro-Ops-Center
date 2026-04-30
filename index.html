@@ -19764,20 +19764,20 @@ function _taskActDelete(actId,taskId){
 function _parseDecisionFromPlanText(planText){
   if(!planText) return [];
   var results=[];
-  // Match "ONE DECISION ONLY [NAME] CAN MAKE\n..." or "DECISION:\n..." sections
+  // Stop at: blank line + (number + dot, or 4+ uppercase chars, or end)
+  var stop='(?=\\n{2,}(?:\\d+\\.|[A-Z]{4,})|$)';
   var patterns=[
-    /ONE DECISION ONLY[^\n]*CAN MAKE[^\n]*\n+([\s\S]+?)(?:\n{2,}[A-Z][A-Z\s]{3,}:|$)/i,
-    /DECISIONS?:[^\n]*\n+([\s\S]+?)(?:\n{2,}[A-Z][A-Z\s]{3,}:|$)/i,
-    /ONLY [A-Z][A-Z]+ CAN DECIDE[^\n]*\n+([\s\S]+?)(?:\n{2,}[A-Z][A-Z\s]{3,}:|$)/i
+    new RegExp('(?:\\d+\\.\\s*)?ONE DECISION ONLY[^\\n]*CAN MAKE[^\\n]*\\n+([\\s\\S]+?)'+stop,'i'),
+    new RegExp('(?:\\d+\\.\\s*)?DECISIONS?:[^\\n]*\\n+([\\s\\S]+?)'+stop,'i'),
+    new RegExp('ONLY [A-Z][a-z]+ CAN DECIDE[^\\n]*\\n+([\\s\\S]+?)'+stop,'i')
   ];
   patterns.forEach(function(re){
     var m=planText.match(re);
     if(m&&m[1]){
-      var text=m[1].trim().replace(/^\d+\.\s*/,'');
+      var text=m[1].trim().replace(/^\d+\.\s*/,'').trim();
       if(text.length>10&&!results.find(function(r){return r.text===text;})){
-        // Try to extract owner name from the header line
-        var hdrMatch=planText.match(/ONE DECISION ONLY ([A-Z][a-z]+)/);
-        results.push({ownerName:hdrMatch?hdrMatch[1]:'',text:text});
+        var hdrMatch=planText.match(/ONE DECISION ONLY ([A-Z][a-z]+)/i);
+        results.push({ownerName:hdrMatch?hdrMatch[1]:'Taylor',text:text});
       }
     }
   });
@@ -19857,7 +19857,7 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
     var dueDate=act.dueDate||'';
     var actId='act-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
     var wsaPayload={action:'workstream_action_write',item:{id:actId,workstreamId:workstreamId,type:'Medium',title:act.title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
-    var actPayload={action:'action_write',id:actId,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:'medium',title:act.title,body:'',status:'open',createdBy:user,createdAt:now};
+    var actPayload={action:'action_write',id:actId,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:'medium',title:act.title,body:'',assignedTo:assignedKey,status:'open',createdBy:user,createdAt:now};
     var newEntry={id:actId,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:'Medium',title:act.title,body:'',status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,createdBy:user,createdAt:now};
     if(CONFIG.sheetsUrl){
       await Promise.all([
@@ -19888,19 +19888,17 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
     decisionTexts.push(dec.text);
     var decOwnerMatch=(_DM_MEMBERS||[]).find(function(m){ return m.name.toLowerCase()===((dec.ownerName||'').toLowerCase()); });
     var decOwnerKey=decOwnerMatch?decOwnerMatch.key:'';
-    // Set decision textarea + save to task
+    // Always update live task object by ID so saves are never lost on stale refs
+    var liveTask=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||t;
+    var decStamp='[AI EXTRACTED — '+new Date().toLocaleDateString()+']\n'+dec.text;
+    liveTask.decision=(liveTask.decision?liveTask.decision+'\n\n':'')+decStamp;
+    if(typeof saveToLocal==='function') saveToLocal();
+    if(typeof _saveTasksNow==='function') _saveTasksNow();
+    // Also fill the textarea if the panel is open
     var decEl=document.getElementById('raci-task-decision-'+taskId);
     if(decEl){
-      decEl.value=(decEl.value?decEl.value+'\n\n':'')+'[AI EXTRACTED — '+new Date().toLocaleDateString()+']\n'+dec.text;
+      decEl.value=liveTask.decision;
       decEl.style.height='auto'; decEl.style.height=Math.min(decEl.scrollHeight,300)+'px';
-      t.decision=decEl.value;
-      if(typeof saveToLocal==='function') saveToLocal();
-      if(typeof _saveTasksNow==='function') _saveTasksNow();
-    } else {
-      // Panel not open — save directly to task object
-      t.decision=(t.decision?t.decision+'\n\n':'')+'[AI EXTRACTED — '+new Date().toLocaleDateString()+']\n'+dec.text;
-      if(typeof saveToLocal==='function') saveToLocal();
-      if(typeof _saveTasksNow==='function') _saveTasksNow();
     }
     // Create callout so it shows in daily briefing
     if(CONFIG.sheetsUrl){
