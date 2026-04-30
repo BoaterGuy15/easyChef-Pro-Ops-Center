@@ -17674,8 +17674,8 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
   const typeEl=document.createElement('select');typeEl.style.cssText=iCss;
   ['Task','Decision','Note','Status Update','Risk','Blocker'].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;typeEl.appendChild(o);});
   _fld('TYPE',typeEl);
-  const titleEl=document.createElement('input');titleEl.type='text';titleEl.placeholder='Brief summary…';titleEl.style.cssText=iCss;_fld('TITLE',titleEl);
-  const bodyEl=document.createElement('textarea');bodyEl.rows=2;bodyEl.placeholder='Details…';bodyEl.style.cssText=iCss+';resize:vertical';_fld('NOTES',bodyEl);
+  const titleEl=document.createElement('input');titleEl.type='text';titleEl.placeholder='Short action label (max 8 words)';titleEl.style.cssText=iCss;_fld('TITLE',titleEl);
+  const bodyEl=document.createElement('textarea');bodyEl.rows=3;bodyEl.placeholder='Describe what needs to be done, why it matters, and any key details or dependencies…';bodyEl.style.cssText=iCss+';resize:vertical';_fld('DETAILS',bodyEl);
   const assignEl=document.createElement('select');assignEl.style.cssText=iCss;
   (()=>{const none=document.createElement('option');none.value='';none.textContent='— Unassigned —';assignEl.appendChild(none);_DM_MEMBERS.filter(m=>!_isDMInactive(m.key)).forEach(m=>{const o=document.createElement('option');o.value=m.key;o.textContent=m.name;assignEl.appendChild(o);});})();
   _fld('ASSIGNED TO',assignEl);
@@ -18248,7 +18248,7 @@ function _acBarClick(barId){
   const bar=_acBarMap.get(barId);
   if(!bar) return;
   if(bar.taskId){_showGanttTaskPanel(bar.taskId);return;}
-  _showToast(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);max-width:280px"><div style="color:var(--gold);margin-bottom:4px">⚡ Action</div><div style="font-weight:600;margin-bottom:3px">${bar.label}</div><div style="color:var(--muted);font-size:10px">${bar.sd} → ${bar.ed}</div><div style="color:var(--muted);font-size:10px;margin-top:2px">${bar.type||''} · ${bar.status||'open'}</div></div>`,3000);
+  _showToast(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);max-width:320px"><div style="color:var(--gold);margin-bottom:4px">⚡ Action</div><div style="font-weight:600;margin-bottom:3px">${bar.label}</div>${bar.body?`<div style="color:var(--text);font-size:10px;margin-bottom:4px;line-height:1.4">${bar.body.replace(/</g,'&lt;')}</div>`:''}<div style="color:var(--muted);font-size:10px">${bar.sd} → ${bar.ed}</div><div style="color:var(--muted);font-size:10px;margin-top:2px">${bar.type||''} · ${bar.status||'open'}</div></div>`,4000);
 }
 
 function buildActionsGantt(){
@@ -18321,7 +18321,7 @@ function buildActionsGantt(){
         const edRaw=_toIso(a.updatedAt)||sd;
         const ed=edRaw>sd?edRaw:_addD(sd,2);
         const bid='a_'+(a.id||Math.random().toString(36).slice(2));
-        bars.push({id:bid,sd,ed,label:a.title||a.type||'action',color:'#c9a84c',bg:'rgba(201,168,76,0.07)',type:'action',taskId:a.taskId||a.linkedTaskId||'',status:a.status||'',personKey:p.key});
+        bars.push({id:bid,sd,ed,label:a.title||a.type||'action',body:a.body||'',color:'#c9a84c',bg:'rgba(201,168,76,0.07)',type:'action',taskId:a.taskId||a.linkedTaskId||'',status:a.status||'',personKey:p.key});
       });
 
       bars.forEach(b=>_acBarMap.set(b.id,b));
@@ -19833,7 +19833,7 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
   var taskDueDate=t.ed?String(t.ed).slice(0,10):'';
   var now=new Date().toISOString();
   // Call AI to extract actions and decisions
-  var extractPrompt='Parse this action plan and return ONLY valid JSON with no extra text:\n{\n  "actions": [\n    {"title":"short imperative title max 80 chars","assignedName":"FirstName only","dueDate":"YYYY-MM-DD or empty string","priority":"High|Medium|Low"}\n  ],\n  "decisions": [\n    {"ownerName":"FirstName only","text":"full decision text that must be made"}\n  ]\n}\nRules: assignedName must be a real first name from the plan. dueDate in ISO format from any date mention. priority based on urgency language. decisions only if explicitly stated as a decision/approval needed. Empty arrays if none found.\n\nACTION PLAN:\n'+planText.slice(0,2000);
+  var extractPrompt='Parse this action plan and return ONLY valid JSON with no extra text:\n{\n  "actions": [\n    {"title":"short imperative verb-phrase, max 8 words","body":"2-3 sentence description of what needs to be done, why it matters, and any key details or dependencies from the plan","assignedName":"FirstName only","dueDate":"YYYY-MM-DD or empty string","priority":"High|Medium|Low"}\n  ],\n  "decisions": [\n    {"ownerName":"FirstName only","text":"full decision text that must be made"}\n  ]\n}\nRules:\n- title: concise action label (e.g. "Finalize supplier contract", "Review beta feedback"). Max 8 words.\n- body: fuller context — what specifically must be done, why, any constraints or dependencies from the plan. 2-3 sentences.\n- assignedName must be a real first name from the plan.\n- dueDate in ISO format from any date mention.\n- priority based on urgency language.\n- decisions only if explicitly stated as a decision/approval needed.\n- Empty arrays if none found.\n\nACTION PLAN:\n'+planText.slice(0,2000);
   var resp={};
   try{
     if(CONFIG.sheetsUrl){
@@ -19863,9 +19863,10 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
     var dueDate=act.dueDate||taskDueDate;
     var priority=(['High','Medium','Low'].indexOf(act.priority)>=0?act.priority:'Medium');
     var actId='act-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
-    var wsaPayload={action:'workstream_action_write',item:{id:actId,workstreamId:workstreamId,type:priority,title:act.title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
-    var actPayload={action:'action_write',id:actId,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:'task',title:act.title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'open',createdBy:user,createdAt:now};
-    var newEntry={id:actId,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority,title:act.title,body:'',status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,priority:priority,createdBy:user,createdAt:now};
+    var actBody=act.body||'';
+    var wsaPayload={action:'workstream_action_write',item:{id:actId,workstreamId:workstreamId,type:priority,title:act.title,body:actBody,assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
+    var actPayload={action:'action_write',id:actId,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:'task',title:act.title,body:actBody,assignedTo:assignedKey,dueDate:dueDate,status:'open',createdBy:user,createdAt:now};
+    var newEntry={id:actId,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority,title:act.title,body:actBody,status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,priority:priority,createdBy:user,createdAt:now};
     if(CONFIG.sheetsUrl){
       await Promise.all([
         fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).catch(function(){}),
