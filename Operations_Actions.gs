@@ -34,7 +34,7 @@ var ACTIONS_SHEET = 'Actions';
 var ACTIONS_HEADERS = [
   'id', 'taskId', 'agendaId', 'workstreamId',
   'type', 'title', 'body', 'status',
-  'createdBy', 'createdAt', 'updatedAt'
+  'createdBy', 'createdAt', 'updatedAt', 'assignedTo'
 ];
 
 var ACTIONS_VALID_TYPES = [
@@ -108,7 +108,8 @@ function _actionsRowToObj(r) {
     status:       r[7],
     createdBy:    r[8],
     createdAt:    r[9],
-    updatedAt:    r[10]
+    updatedAt:    r[10],
+    assignedTo:   r[11] || ''
   };
 }
 
@@ -158,7 +159,8 @@ function addAction(item) {
     item.status       || 'open',
     item.createdBy    || '',
     item.createdAt    || now,
-    now
+    now,
+    item.assignedTo   || ''
   ]]);
 }
 
@@ -192,7 +194,8 @@ function updateAction(id, fields) {
         fields.status       !== undefined ? fields.status       : ex[7],
         ex[8],                                                        // createdBy — immutable
         ex[9],                                                        // createdAt — immutable
-        now
+        now,
+        fields.assignedTo   !== undefined ? fields.assignedTo   : (ex[11] || '')
       ]]);
       return;
     }

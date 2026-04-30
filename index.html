@@ -17680,9 +17680,11 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
   const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";cancelBtn.onclick=_close;
   const saveBtn=document.createElement('button');saveBtn.textContent='💾 Save';saveBtn.style.cssText="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;cursor:pointer";
   saveBtn.onclick=async()=>{
+    if(saveBtn.disabled) return;
+    saveBtn.disabled=true;saveBtn.textContent='Saving…';
     try{
       const title=(titleEl.value||'').trim();
-      if(!title){titleEl.focus();return;}
+      if(!title){titleEl.focus();saveBtn.disabled=false;saveBtn.textContent='💾 Save';return;}
       const id='wsa-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
       const assignedKey=assignEl.value;
       const assignedName=assignedKey?(_DM_NAME_MAP[assignedKey]||assignedKey):'Unassigned';
@@ -17693,7 +17695,7 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
       const now=new Date().toISOString();
       const _actTaskId=(opts&&opts.taskId)||'';
       const wsaPayload={action:'workstream_action_write',item:{id,workstreamId:workstreamId||'',type:typeEl.value,title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:_actTaskId,createdBy:CONFIG.currentUser||'',createdAt:now}};
-      const actPayload={action:'action_write',id,taskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
+      const actPayload={action:'action_write',id,taskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
       console.log('[DGL] AddAction wsaPayload:',JSON.stringify(wsaPayload));
       if(!CONFIG.sheetsUrl){_close();if(onSaved)onSaved();return;}
       // Step 1 — WorkstreamActions sheet
@@ -17708,7 +17710,7 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
       if(!actR||!actR.ok) throw new Error('action_write failed: '+JSON.stringify(actR));
       // Success
       _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action saved</div>',1800);
-      _actionsCache.push({id,taskId:_actTaskId,linkedTaskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now});
+      _actionsCache.push({id,taskId:_actTaskId,linkedTaskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now});
       // Notifications (fire-and-forget)
       _autoLink('action',id,'workstream',workstreamId);
       if(assignedKey){
@@ -17726,6 +17728,7 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
     }catch(e){
       console.error('[DGL] AddAction save error:',e);
       _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:tomato">❌ Save failed: '+e.message+'</div>',4000);
+      saveBtn.disabled=false;saveBtn.textContent='💾 Save';
     }
   };
   btns.appendChild(cancelBtn);btns.appendChild(saveBtn);form.appendChild(btns);
@@ -18293,13 +18296,14 @@ function buildActionsGantt(){
 
   function _draw(wsActions){
     _acBarMap.clear();
-    const allActs=[...(_actionsCache||[]),...(wsActions||[])];
+    const _seenAct=new Set();
+    const allActs=[...(_actionsCache||[]),...(wsActions||[])].filter(a=>{if(!a.id||_seenAct.has(a.id))return false;_seenAct.add(a.id);return true;});
     const todayOff=_ganttDayOff(today);
     let html='';
 
     _TEAM.forEach(p=>{
       const raciTasks=DASHBOARD_DATA.tasks.filter(t=>{const v=t[p.key]||'';return v==='R'||v==='A/R'||v==='R/A';});
-      const myActions=allActs.filter(a=>{const cb=(a.createdBy||a.assignedTo||'').trim().toLowerCase();return cb===p.key.toLowerCase();});
+      const myActions=allActs.filter(a=>{const key=((a.assignedTo||'').trim()||(a.createdBy||'').trim()).toLowerCase();return key===p.key.toLowerCase();});
 
       const bars=[];
       raciTasks.forEach(t=>{
@@ -18422,7 +18426,7 @@ function _initACGanttHover(){
       html+=`<span style="background:${sc.bg||'rgba(107,114,128,0.1)'};color:${stColor};font-size:8px;padding:2px 7px;border-radius:3px">${stLabel}</span>`;
       if(info.type==='task') html+=`<span style="margin-left:6px;font-size:8px;color:var(--muted)">RACI-R task</span>`;
       if(info.personKey){
-        const myActs=(_actionsCache||[]).filter(a=>(a.createdBy||'').trim().toLowerCase()===info.personKey.toLowerCase()).slice(-5);
+        const myActs=(_actionsCache||[]).filter(a=>{const key=((a.assignedTo||'').trim()||(a.createdBy||'').trim()).toLowerCase();return key===info.personKey.toLowerCase();}).slice(-5);
         if(myActs.length){
           html+=`<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">RECENT ACTIONS (${info.personKey})</div>`;
           myActs.forEach(a=>{
@@ -18534,7 +18538,7 @@ function _showACAllActionsPanel(personKey){
   const existing=document.getElementById('ac-all-actions-panel');if(existing)existing.remove();
   if(!personKey) return;
   const pc=_AC_TEAM.find(p=>p.key===personKey)||{key:personKey,color:'var(--gold)',bg:'rgba(201,168,76,0.07)'};
-  const allActs=(_actionsCache||[]).filter(a=>(a.createdBy||'').trim().toLowerCase()===personKey.toLowerCase());
+  const allActs=(_actionsCache||[]).filter(a=>{const key=((a.assignedTo||'').trim()||(a.createdBy||'').trim()).toLowerCase();return key===personKey.toLowerCase();});
   let _filter='all';
   const today=_isoToday();
 
