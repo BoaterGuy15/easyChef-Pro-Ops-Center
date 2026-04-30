@@ -3737,27 +3737,23 @@ async function _chunkUploadToDrive(file,dz,ctx){
       addedBy:window._DGL_USER||'unknown',category:_cat})
   }).then(r=>r.json());
   if(!sess.uploadUrl) throw new Error(sess.error||'No upload URL — add drive_create_upload_session to Apps Script');
-  // Phase 2: PUT chunks directly to Drive (no Apps Script in the middle)
+  // Phase 2: send chunks to Apps Script → Apps Script PUTs to Drive
+  // (direct browser→Drive PUT is blocked by CORS; Apps Script proxies each chunk)
   let offset=0,fileId='';
   while(offset<file.size){
     const end=Math.min(offset+CHUNK,file.size);
     const pct=Math.round(end/file.size*100);
     _dzSetLabel(dz,'<span class="dgl-runner">🏃</span>&nbsp; Uploading <strong>'+file.name+'</strong>&nbsp;<span class="dz-pct" style="font-family:\'DM Mono\',monospace;font-weight:700">⬆️ '+pct+'%</span>','var(--gold)');
-    const resp=await fetch(sess.uploadUrl,{method:'PUT',
-      headers:{'Content-Range':'bytes '+offset+'-'+(end-1)+'/'+file.size,'Content-Type':file.type||'application/octet-stream'},
-      body:file.slice(offset,end)});
-    if(resp.status===200||resp.status===201){
-      const data=await resp.json().catch(()=>({}));
-      fileId=data.id||'';
-      break;
-    } else if(resp.status===308){
-      // Resume Incomplete — continue to next chunk
-      const range=resp.headers.get('Range');
-      offset=range?parseInt(range.split('-')[1])+1:end;
-    } else {
-      const errText=await resp.text().catch(()=>'');
-      throw new Error('Chunk failed at '+pct+'%: HTTP '+resp.status+(errText?' — '+errText.slice(0,120):''));
-    }
+    // Read chunk as base64
+    const b64=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(file.slice(offset,end)); });
+    const cr=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'drive_upload_chunk',uploadUrl:sess.uploadUrl,
+        base64chunk:b64,offset,totalSize:file.size,
+        mimeType:file.type||'application/octet-stream'})
+    }).then(r=>r.json());
+    if(cr.done){ fileId=cr.fileId||''; break; }
+    else if(cr.ok){ offset=end; }
+    else throw new Error(cr.error||'Chunk failed at '+pct+'%');
   }
   if(!fileId) throw new Error('Upload complete but Drive returned no file ID');
   // Phase 3: save doc record to Sheets + update local cache
