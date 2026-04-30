@@ -19377,15 +19377,24 @@ function _openInfoResponseModal(reqId){
     '</div>';
   overlay.appendChild(box);
   document.body.appendChild(overlay);
+  var infoEl=document.getElementById('ir-resp-task-info');
   if(CONFIG.sheetsUrl){
     fetch(CONFIG.sheetsUrl+'?action=ir_read&id='+encodeURIComponent(reqId))
       .then(function(r){return r.json();})
       .then(function(d){
         var req=(d.requests||[])[0]||d.request||{};
-        var infoEl=document.getElementById('ir-resp-task-info');
-        if(infoEl&&req.message){ infoEl.innerHTML='<span style="color:var(--gold);font-weight:600">'+(req.taskId||'')+'</span><br><span style="color:var(--text);white-space:pre-wrap">'+(req.message||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>'; }
+        if(!infoEl) return;
+        if(req.message){
+          infoEl.innerHTML='<span style="color:var(--gold);font-weight:600">'+(req.taskId||reqId)+'</span><br><span style="color:var(--text);white-space:pre-wrap">'+(req.message||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>';
+        } else {
+          infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+'<br>Fill in your response below.</span>';
+        }
       })
-      .catch(function(){});
+      .catch(function(){
+        if(infoEl) infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+'<br>Could not load details \u2014 fill in your response below.</span>';
+      });
+  } else {
+    if(infoEl) infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+'<br>Fill in your response below.</span>';
   }
 }
 
