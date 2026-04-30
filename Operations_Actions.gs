@@ -132,7 +132,19 @@ function getActions(taskId, workstreamId) {
       if (workstreamId && r[3] !== workstreamId) return false;
       return true;
     })
-    .map(_actionsRowToObj);
+    .map(function(r) {
+      var obj = _actionsRowToObj(r);
+      if (obj.dueDate && obj.dueDate instanceof Date) {
+        obj.dueDate = Utilities.formatDate(obj.dueDate, 'America/Los_Angeles', 'yyyy-MM-dd');
+      }
+      if (obj.createdAt && obj.createdAt instanceof Date) {
+        obj.createdAt = Utilities.formatDate(obj.createdAt, 'America/Los_Angeles', 'yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
+      }
+      if (obj.updatedAt && obj.updatedAt instanceof Date) {
+        obj.updatedAt = Utilities.formatDate(obj.updatedAt, 'America/Los_Angeles', 'yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
+      }
+      return obj;
+    });
 }
 
 /**
