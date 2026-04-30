@@ -15441,37 +15441,48 @@ function buildHRPage(){
     _buildHRExpenseTable(members,expAssocs)+
     '<div class="section-label" style="margin-top:8px">Private Notes Log</div>'+
     _buildHRNotesSection(members);
-  if(window._DGL_USER==='taylor'){
-    const _aceDiv=document.createElement('div');
-    _aceDiv.innerHTML=_buildAgentConstitutionEditor();
-    el.appendChild(_aceDiv);
-  }
+  if(window._DGL_USER==='taylor') el.appendChild(_buildAgentConstitutionEditor());
 }
 
 function _refreshACEDropdown(){
   const sel=document.getElementById('ace-agent-select');
   if(!sel||!window._VERA_AGENTS||!window._VERA_AGENTS.length) return;
   const cur=sel.value;
-  sel.innerHTML=window._VERA_AGENTS.map(a=>{ const n=a.displayName||a.name||a.id; return '<option'+(n===cur?' selected':'')+'>'+n+'</option>'; }).join('');
+  const agents=window._VERA_AGENTS.map(a=>a.displayName||a.name||a.id);
+  while(sel.firstChild) sel.removeChild(sel.firstChild);
+  agents.forEach(n=>{ const o=document.createElement('option'); o.textContent=n; if(n===cur) o.selected=true; sel.appendChild(o); });
 }
 function _buildAgentConstitutionEditor(){
-  const regAgents=window._VERA_AGENTS&&window._VERA_AGENTS.length?window._VERA_AGENTS.map(a=>a.displayName||a.name||a.id):['Vera','Prime','Meridian','Nexus','Forge','Atlas','Crown','HRMS','DNI Core','Vera Builder','EasyChef Code','EasyChef Content','EasyChef Design','Recipe Analyzer','Recipe Validator','NutriSync Code','NutriSync Ops'];
-  const agents=regAgents;
-  const opts=agents.map(a=>'<option>'+a+'</option>').join('');
-  const purple='#a78bfa';
-  const btnBase='font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:5px;cursor:pointer;transition:background 0.15s';
-  return '<div class="section-label" style="margin-top:28px;color:'+purple+';border-color:rgba(167,139,250,0.25)">Agent Constitution Editor</div>'+
-    '<div style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.18);border-radius:8px;padding:20px;margin-top:6px">'+
-      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">'+
-        '<label style="font-family:\'DM Mono\',monospace;font-size:9px;color:'+purple+';letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap">Agent</label>'+
-        '<select id="ace-agent-select" onchange="_agentConstitutionLoad()" style="font-family:\'DM Mono\',monospace;font-size:10px;background:#161625;color:#e2e0ff;border:1px solid rgba(167,139,250,0.35);border-radius:5px;padding:5px 10px;cursor:pointer;outline:none;min-width:160px">'+opts+'</select>'+
-        '<button id="ace-load-btn" onclick="_agentConstitutionLoad()" style="'+btnBase+';border:1px solid rgba(167,139,250,0.4);background:rgba(167,139,250,0.08);color:'+purple+'" onmouseover="this.style.background=\'rgba(167,139,250,0.18)\'" onmouseout="this.style.background=\'rgba(167,139,250,0.08)\'">Load Current</button>'+
-      '</div>'+
-      '<textarea id="ace-textarea" placeholder="Select an agent and click Load Current, or type a new constitution and save." style="width:100%;min-height:300px;background:#111118;color:#e2e0ff;border:1px solid rgba(167,139,250,0.22);border-radius:6px;padding:14px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:1.65;resize:vertical;box-sizing:border-box;outline:none;display:block"></textarea>'+
-      '<div style="display:flex;justify-content:flex-end;margin-top:10px">'+
-        '<button id="ace-save-btn" onclick="_agentConstitutionSave()" style="'+btnBase+';padding:7px 22px;border:1px solid rgba(167,139,250,0.55);background:rgba(167,139,250,0.14);color:'+purple+';font-weight:600" onmouseover="this.style.background=\'rgba(167,139,250,0.28)\'" onmouseout="this.style.background=\'rgba(167,139,250,0.14)\'">Save Constitution</button>'+
-      '</div>'+
-    '</div>';
+  const agents=window._VERA_AGENTS&&window._VERA_AGENTS.length
+    ?window._VERA_AGENTS.map(a=>a.displayName||a.name||a.id)
+    :['Vera','Prime','Meridian','Nexus','Forge','Atlas','Crown','HRMS','DNI Core','Vera Builder','EasyChef Code','EasyChef Content','EasyChef Design','Recipe Analyzer','Recipe Validator','NutriSync Code','NutriSync Ops'];
+  const P='#a78bfa';
+  const mSt=function(base,over){ const el=document.createElement('button'); el.style.cssText=base; el.addEventListener('mouseover',()=>{el.style.background=over;}); el.addEventListener('mouseout',()=>{ const bg=base.match(/background:([^;]+)/); if(bg) el.style.background=bg[1]; }); return el; };
+  const wrap=document.createElement('div');
+  // Label
+  const lbl=document.createElement('div'); lbl.className='section-label'; lbl.style.cssText='margin-top:28px;color:'+P; lbl.textContent='Agent Constitution Editor'; wrap.appendChild(lbl);
+  // Card
+  const card=document.createElement('div'); card.style.cssText='background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.18);border-radius:8px;padding:20px;margin-top:6px';
+  // Row
+  const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px';
+  const agLbl=document.createElement('label'); agLbl.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:"+P+";letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap"; agLbl.textContent='Agent'; row.appendChild(agLbl);
+  const sel=document.createElement('select'); sel.id='ace-agent-select'; sel.style.cssText="font-family:'DM Mono',monospace;font-size:10px;background:#161625;color:#e2e0ff;border:1px solid rgba(167,139,250,0.35);border-radius:5px;padding:5px 10px;cursor:pointer;outline:none;min-width:160px";
+  agents.forEach(a=>{ const o=document.createElement('option'); o.textContent=a; sel.appendChild(o); });
+  sel.addEventListener('change',()=>_agentConstitutionLoad());
+  row.appendChild(sel);
+  const loadBtn=document.createElement('button'); loadBtn.id='ace-load-btn'; loadBtn.textContent='Load Current'; loadBtn.style.cssText="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;cursor:pointer;border:1px solid rgba(167,139,250,0.4);background:rgba(167,139,250,0.08);color:"+P;
+  loadBtn.addEventListener('mouseover',()=>loadBtn.style.background='rgba(167,139,250,0.18)'); loadBtn.addEventListener('mouseout',()=>loadBtn.style.background='rgba(167,139,250,0.08)');
+  loadBtn.addEventListener('click',()=>_agentConstitutionLoad()); row.appendChild(loadBtn);
+  card.appendChild(row);
+  // Textarea
+  const ta=document.createElement('textarea'); ta.id='ace-textarea'; ta.placeholder='Select an agent and click Load Current, or type a new constitution and save.'; ta.style.cssText="width:100%;min-height:300px;background:#111118;color:#e2e0ff;border:1px solid rgba(167,139,250,0.22);border-radius:6px;padding:14px;font-family:'DM Mono',monospace;font-size:11px;line-height:1.65;resize:vertical;box-sizing:border-box;outline:none;display:block"; card.appendChild(ta);
+  // Save row
+  const saveRow=document.createElement('div'); saveRow.style.cssText='display:flex;justify-content:flex-end;margin-top:10px';
+  const saveBtn=document.createElement('button'); saveBtn.id='ace-save-btn'; saveBtn.textContent='Save Constitution'; saveBtn.style.cssText="font-family:'DM Mono',monospace;font-size:10px;padding:7px 22px;border-radius:5px;cursor:pointer;border:1px solid rgba(167,139,250,0.55);background:rgba(167,139,250,0.14);color:"+P+";font-weight:600";
+  saveBtn.addEventListener('mouseover',()=>saveBtn.style.background='rgba(167,139,250,0.28)'); saveBtn.addEventListener('mouseout',()=>saveBtn.style.background='rgba(167,139,250,0.14)');
+  saveBtn.addEventListener('click',()=>_agentConstitutionSave()); saveRow.appendChild(saveBtn); card.appendChild(saveRow);
+  wrap.appendChild(card);
+  return wrap;
 }
 
 function _agentConstitutionLoad(){
