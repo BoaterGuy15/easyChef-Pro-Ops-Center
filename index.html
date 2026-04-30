@@ -19824,10 +19824,12 @@ function _fillDecisionFromPlan(taskId){
 async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fromName){
   if(!planText||!taskId) return;
   var t=task||(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||{};
-  var workstreamId=t.workstream||'';
+  var _wsRow=(_wsCache||[]).find(function(w){return w.name===t.cat||w.id===t.cat;})||null;
+  var workstreamId=_wsRow?_wsRow.id:(t.cat||'');
+  var taskDueDate=t.ed?String(t.ed).slice(0,10):'';
   var now=new Date().toISOString();
   // Call AI to extract actions and decisions
-  var extractPrompt='Parse this action plan and return ONLY valid JSON with no extra text:\n{\n  "actions": [\n    {"title":"short imperative title max 80 chars","assignedName":"FirstName only","dueDate":"YYYY-MM-DD or empty string"}\n  ],\n  "decisions": [\n    {"ownerName":"FirstName only","text":"full decision text that must be made"}\n  ]\n}\nRules: assignedName must be a real first name from the plan. dueDate in ISO format from any date mention. decisions only if explicitly stated as a decision/approval needed. Empty arrays if none found.\n\nACTION PLAN:\n'+planText.slice(0,2000);
+  var extractPrompt='Parse this action plan and return ONLY valid JSON with no extra text:\n{\n  "actions": [\n    {"title":"short imperative title max 80 chars","assignedName":"FirstName only","dueDate":"YYYY-MM-DD or empty string","priority":"High|Medium|Low"}\n  ],\n  "decisions": [\n    {"ownerName":"FirstName only","text":"full decision text that must be made"}\n  ]\n}\nRules: assignedName must be a real first name from the plan. dueDate in ISO format from any date mention. priority based on urgency language. decisions only if explicitly stated as a decision/approval needed. Empty arrays if none found.\n\nACTION PLAN:\n'+planText.slice(0,2000);
   var resp={};
   try{
     if(CONFIG.sheetsUrl){
@@ -19854,11 +19856,12 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
     var memberMatch=(_DM_MEMBERS||[]).find(function(m){ return m.name.toLowerCase()===((act.assignedName||'').toLowerCase()); });
     var assignedKey=memberMatch?memberMatch.key:'';
     var assignedName=memberMatch?memberMatch.name:(act.assignedName||'');
-    var dueDate=act.dueDate||'';
+    var dueDate=act.dueDate||taskDueDate;
+    var priority=(['High','Medium','Low'].indexOf(act.priority)>=0?act.priority:'Medium');
     var actId='act-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
-    var wsaPayload={action:'workstream_action_write',item:{id:actId,workstreamId:workstreamId,type:'Medium',title:act.title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
-    var actPayload={action:'action_write',id:actId,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:'medium',title:act.title,body:'',assignedTo:assignedKey,status:'open',createdBy:user,createdAt:now};
-    var newEntry={id:actId,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:'Medium',title:act.title,body:'',status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,createdBy:user,createdAt:now};
+    var wsaPayload={action:'workstream_action_write',item:{id:actId,workstreamId:workstreamId,type:priority,title:act.title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
+    var actPayload={action:'action_write',id:actId,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:'task',title:act.title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'open',createdBy:user,createdAt:now};
+    var newEntry={id:actId,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority,title:act.title,body:'',status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,priority:priority,createdBy:user,createdAt:now};
     if(CONFIG.sheetsUrl){
       await Promise.all([
         fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).catch(function(){}),
