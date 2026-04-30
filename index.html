@@ -14487,10 +14487,12 @@ function renderSlackCard(){
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--border);text-align:center;padding:20px 0">Select a channel to load messages</div>
     </div>
     ${_slackCanSend()?`
-    <div style="display:flex;gap:8px">
-      <input type="text" id="slack-send-input" style="${iSt};flex:1" placeholder="Send a message…">
+    <div style="display:flex;gap:8px;align-items:center">
+      <label title="Attach file" style="cursor:pointer;padding:5px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);font-size:14px;line-height:1;flex-shrink:0;display:flex;align-items:center" onmouseenter="this.style.borderColor='var(--gold)'" onmouseleave="this.style.borderColor='var(--border)'">📎<input type="file" style="display:none" onchange="_slackSendFile(this)"></label>
+      <input type="text" id="slack-send-input" style="${iSt};flex:1" placeholder="Send a message…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();slackSend();}">
       <button onclick="slackSend()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 16px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;white-space:nowrap">Send</button>
-    </div>`:''}`;
+    </div>
+    <div id="slack-upload-bar" style="display:none;font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);margin-top:8px;padding:6px 10px;border-radius:5px;border:1px solid var(--border)"></div>`:''}`;
   _slackLoadChannels();
   _slackCheckToken();
 }
@@ -14644,6 +14646,56 @@ function slackSend(){
       }
     })
     .catch(()=>{ if(btn){ btn.textContent='Send'; btn.disabled=false; } alert('Send failed'); });
+}
+
+// ── Slack file upload (video, docs, images) ──────────────────
+function _slackSendFile(input){
+  const file=input&&input.files&&input.files[0];
+  input.value=''; // reset so same file can be picked again
+  if(!file||!_slackChannelId){ alert('Select a channel first.'); return; }
+  _slackUploadFile(file,_slackChannelId);
+}
+async function _slackUploadFile(file,channelId){
+  if(!CONFIG.sheetsUrl) return;
+  const bar=document.getElementById('slack-upload-bar');
+  const _bar=(html,color)=>{ if(bar){ bar.style.display='block'; bar.style.color=color||'var(--gold)'; bar.innerHTML=html; } };
+  const _barHide=()=>{ if(bar) setTimeout(()=>{ bar.style.display='none'; bar.innerHTML=''; },3000); };
+  let _pct=0,_pctTimer=null;
+  const _startTimer=()=>{
+    if(_pctTimer) clearInterval(_pctTimer);
+    const t0=Date.now();
+    _pctTimer=setInterval(()=>{ const sp=bar&&bar.querySelector('.sup-pct'); if(sp) sp.textContent='⏳ '+Math.round((Date.now()-t0)/1000)+'s'; },500);
+  };
+  const _stopTimer=()=>{ if(_pctTimer){ clearInterval(_pctTimer); _pctTimer=null; } };
+  try{
+    // Phase 1: read file for size, show 0%
+    _bar('<span class="dgl-runner">🏃</span>&nbsp; Reading <strong>'+file.name+'</strong>&nbsp;<span class="sup-pct">0%</span>');
+    // Phase 1a: get upload URL from Apps Script (Slack returns a pre-signed URL)
+    _bar('<span class="dgl-runner">🏃</span>&nbsp; Preparing upload… <span class="sup-pct">—</span>');
+    const urlData=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'slack_get_upload_url',filename:file.name,length:file.size,user:window._DGL_USER||''})
+    }).then(r=>r.json());
+    if(!urlData.ok||!urlData.upload_url) throw new Error(urlData.error||'Could not get upload URL — add slack_get_upload_url handler to Apps Script');
+    // Phase 2: upload raw bytes directly to Slack (no Apps Script in the middle — no size limit)
+    _bar('<span class="dgl-runner">🏃</span>&nbsp; Uploading <strong>'+file.name+'</strong>&nbsp;<span class="sup-pct"></span>');
+    _startTimer();
+    const uploadResp=await fetch(urlData.upload_url,{method:'POST',body:file,headers:{'Content-Type':file.type||'application/octet-stream'}});
+    _stopTimer();
+    if(!uploadResp.ok) throw new Error('Upload to Slack failed: HTTP '+uploadResp.status);
+    // Phase 3: complete — tells Slack which channel to post to
+    _bar('✅ Finalizing…','var(--green)');
+    const done=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'slack_complete_upload',fileId:urlData.file_id,filename:file.name,title:file.name,channel:channelId,user:window._DGL_USER||''})
+    }).then(r=>r.json());
+    if(!done.ok) throw new Error(done.error||'Could not complete upload — add slack_complete_upload handler to Apps Script');
+    _bar('✅ Posted to Slack!','var(--green)');
+    _barHide();
+    setTimeout(()=>_slackLoadMessages(channelId),2000);
+  } catch(err){
+    _stopTimer();
+    _bar('❌ '+err.message,'var(--red,#ef4444)');
+    _barHide();
+  }
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
