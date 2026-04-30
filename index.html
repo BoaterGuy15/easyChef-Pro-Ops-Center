@@ -19805,13 +19805,14 @@ function _submitInfoResponse(reqId){
   var _attempts=0;
   var _timer=setInterval(function(){
     _attempts++;
-    if(_opened||_attempts>50){ clearInterval(_timer); return; }
-    // Wait until the dashboard nav is in the DOM (means the app has rendered)
-    var nav=document.querySelector('.nav-tab');
-    if(!nav||typeof _openInfoResponseModal!=='function') return;
+    if(_opened||_attempts>150){ clearInterval(_timer); return; } // up to 30 seconds
+    if(typeof _openInfoResponseModal!=='function') return;
+    // Wait until the login overlay is gone (user is logged in or viewing as guest)
+    var lo=document.getElementById('login-overlay');
+    if(lo&&lo.style.display!=='none') return;
     clearInterval(_timer);
     _opened=true;
-    setTimeout(function(){ _openInfoResponseModal(reqId); },500);
+    setTimeout(function(){ _openInfoResponseModal(reqId); },400);
   },200);
 })();
 
