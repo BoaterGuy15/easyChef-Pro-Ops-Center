@@ -71,6 +71,10 @@ function setSetting(type, key, value, meta) {
 //   if (action === 'settings_read') {
 //     return json({ ok: true, settings: getSettings() });
 //   }
+//
+//   if (action === 'agent_constitution_read') {
+//     return json(agentConstitutionRead(e.parameter.agent));
+//   }
 
 // ── ADD TO doPost switch/if block ─────────────────────────────────────────────
 // In your existing doPost(e) function, add this case:
@@ -79,3 +83,25 @@ function setSetting(type, key, value, meta) {
 //     setSetting(body.type, body.key, body.value, body.meta || '');
 //     return json({ ok: true });
 //   }
+//
+//   if (body.action === 'agent_constitution_write') {
+//     return json(agentConstitutionWrite(body.agent, body.instructions));
+//   }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent Constitution helpers — store constitutions in the Settings sheet
+// type = 'agent_constitution', key = agent name, value = instructions text
+// ─────────────────────────────────────────────────────────────────────────────
+
+function agentConstitutionRead(agent) {
+  if (!agent) return { ok: false, error: 'agent is required' };
+  var rows = getSettings();
+  var row = rows.filter(function(r) { return r.type === 'agent_constitution' && r.key === agent; })[0];
+  return { ok: true, agent: agent, instructions: row ? row.value : '' };
+}
+
+function agentConstitutionWrite(agent, instructions) {
+  if (!agent) return { ok: false, error: 'agent is required' };
+  setSetting('agent_constitution', agent, instructions || '', '');
+  return { ok: true, agent: agent };
+}

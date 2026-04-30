@@ -15434,6 +15434,68 @@ function buildHRPage(){
     _buildHRExpenseTable(members,expAssocs)+
     '<div class="section-label" style="margin-top:8px">Private Notes Log</div>'+
     _buildHRNotesSection(members);
+  if(window._DGL_USER==='taylor'){
+    const _aceDiv=document.createElement('div');
+    _aceDiv.innerHTML=_buildAgentConstitutionEditor();
+    el.appendChild(_aceDiv);
+  }
+}
+
+function _buildAgentConstitutionEditor(){
+  const agents=['Vera','Prime','Meridian','Nexus','Forge','Atlas','Crown','HRMS','DNI Core','Vera Builder','EasyChef Code','EasyChef Content','EasyChef Design','Recipe Analyzer','Recipe Validator','NutriSync Code','NutriSync Ops'];
+  const opts=agents.map(a=>'<option>'+a+'</option>').join('');
+  const purple='#a78bfa';
+  const btnBase='font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:5px;cursor:pointer;transition:background 0.15s';
+  return '<div class="section-label" style="margin-top:28px;color:'+purple+';border-color:rgba(167,139,250,0.25)">Agent Constitution Editor</div>'+
+    '<div style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.18);border-radius:8px;padding:20px;margin-top:6px">'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">'+
+        '<label style="font-family:\'DM Mono\',monospace;font-size:9px;color:'+purple+';letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap">Agent</label>'+
+        '<select id="ace-agent-select" onchange="_agentConstitutionLoad()" style="font-family:\'DM Mono\',monospace;font-size:10px;background:#161625;color:#e2e0ff;border:1px solid rgba(167,139,250,0.35);border-radius:5px;padding:5px 10px;cursor:pointer;outline:none;min-width:160px">'+opts+'</select>'+
+        '<button id="ace-load-btn" onclick="_agentConstitutionLoad()" style="'+btnBase+';border:1px solid rgba(167,139,250,0.4);background:rgba(167,139,250,0.08);color:'+purple+'" onmouseover="this.style.background=\'rgba(167,139,250,0.18)\'" onmouseout="this.style.background=\'rgba(167,139,250,0.08)\'">Load Current</button>'+
+      '</div>'+
+      '<textarea id="ace-textarea" placeholder="Select an agent and click Load Current, or type a new constitution and save." style="width:100%;min-height:300px;background:#111118;color:#e2e0ff;border:1px solid rgba(167,139,250,0.22);border-radius:6px;padding:14px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:1.65;resize:vertical;box-sizing:border-box;outline:none;display:block"></textarea>'+
+      '<div style="display:flex;justify-content:flex-end;margin-top:10px">'+
+        '<button id="ace-save-btn" onclick="_agentConstitutionSave()" style="'+btnBase+';padding:7px 22px;border:1px solid rgba(167,139,250,0.55);background:rgba(167,139,250,0.14);color:'+purple+';font-weight:600" onmouseover="this.style.background=\'rgba(167,139,250,0.28)\'" onmouseout="this.style.background=\'rgba(167,139,250,0.14)\'">Save Constitution</button>'+
+      '</div>'+
+    '</div>';
+}
+
+function _agentConstitutionLoad(){
+  const sel=document.getElementById('ace-agent-select');
+  const agent=sel?sel.value:'';
+  if(!agent) return;
+  if(!CONFIG.sheetsUrl){ _showToast('<span style="color:#a78bfa">No Sheets URL configured</span>',2500); return; }
+  const btn=document.getElementById('ace-load-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
+  fetch(CONFIG.sheetsUrl+'?action=agent_constitution_read&agent='+encodeURIComponent(agent))
+    .then(r=>r.json())
+    .then(d=>{
+      const ta=document.getElementById('ace-textarea');
+      if(ta) ta.value=d.instructions||'';
+      if(!d.instructions) _showToast('<span style="color:#a78bfa">No constitution saved for '+agent+'</span>',2500);
+      else _showToast('<span style="color:#a78bfa">Loaded constitution for '+agent+'</span>',2000);
+    })
+    .catch(e=>{ _showToast('<span style="color:var(--red)">Load error: '+e.message+'</span>',3000); })
+    .finally(()=>{ if(btn){ btn.disabled=false; btn.textContent='Load Current'; } });
+}
+
+function _agentConstitutionSave(){
+  const sel=document.getElementById('ace-agent-select');
+  const agent=sel?sel.value:'';
+  const ta=document.getElementById('ace-textarea');
+  const instructions=(ta?ta.value:'').trim();
+  if(!agent){ _showToast('<span style="color:var(--red)">Select an agent first</span>',2500); return; }
+  if(!CONFIG.sheetsUrl){ _showToast('<span style="color:#a78bfa">No Sheets URL configured</span>',2500); return; }
+  const btn=document.getElementById('ace-save-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'agent_constitution_write',agent,instructions})})
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.ok) _showToast('<span style="color:#a78bfa">Constitution saved for '+agent+'</span>',2500);
+      else _showToast('<span style="color:var(--red)">Save failed: '+(d.error||'unknown')+'</span>',3000);
+    })
+    .catch(e=>{ _showToast('<span style="color:var(--red)">Save error: '+e.message+'</span>',3000); })
+    .finally(()=>{ if(btn){ btn.disabled=false; btn.textContent='Save Constitution'; } });
 }
 
 function _getTeamActivityStats(userKey){
