@@ -19580,8 +19580,24 @@ function _taskActsLoad(taskId){
     var actFiltered=actAll.filter(function(a){return a.taskId===taskId;});
     var seen=new Set(); var acts=[];
     wsaFiltered.concat(actFiltered).forEach(function(a){ if(!a.id||seen.has(a.id)) return; seen.add(a.id); acts.push(a); });
-    _taskWsaCache[taskId]=acts;
-    _taskActsRender(taskId,acts);
+    // Deduplicate by normalized title — keep first, delete extras from sheet
+    var titleSeen={}; var deduped=[]; var toDelete=[];
+    acts.forEach(function(a){
+      var norm=(a.title||'').toLowerCase().replace(/\s+/g,' ').trim();
+      if(!norm){deduped.push(a);return;}
+      if(!titleSeen[norm]){titleSeen[norm]=true;deduped.push(a);}
+      else{toDelete.push(a.id);}
+    });
+    if(toDelete.length&&CONFIG.sheetsUrl){
+      toDelete.forEach(function(did){
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_delete',id:did})}).catch(function(){});
+        // Remove from _actionsCache too
+        var ci=(_actionsCache||[]).findIndex(function(x){return x.id===did;});
+        if(ci>=0) _actionsCache.splice(ci,1);
+      });
+    }
+    _taskWsaCache[taskId]=deduped;
+    _taskActsRender(taskId,deduped);
   });
 }
 
