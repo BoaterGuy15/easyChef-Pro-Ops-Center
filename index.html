@@ -19543,13 +19543,12 @@ function _irAIGenerate(taskId){
     var userMsg='TASK CONTEXT:\n'+taskContext+'\n\nRECENT MESSAGES:\n'+(msgs||'(none)')+'\n\nUSER REQUEST INTENT: '+(userIntent||'general status and missing information')+'\n\nRECIPIENT: '+recipName+'\nSENDER: '+senderName+'\n\nWrite the structured information request now.';
 
     statusEl.textContent='\u26A1 Drafting with AI\u2026'; statusEl.style.color='var(--gold)';
-    fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':CONFIG.claudeApiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:CONFIG.claudeModel||'claude-haiku-4-5-20251001',max_tokens:600,system:systemPrompt,messages:[{role:'user',content:userMsg}]})})
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:systemPrompt,prompt:userMsg})})
       .then(function(r){return r.json();})
       .then(function(data){
-        var text=(data.content&&data.content[0]&&data.content[0].text)||'';
+        var text=data.reply||data.response||data.text||(data.content&&data.content[0]&&data.content[0].text)||'';
         if(text){
           msgEl.value=text.trim();
-          // Auto-resize textarea to show the full draft
           msgEl.style.height='auto';
           msgEl.style.height=Math.min(400,msgEl.scrollHeight)+'px';
           statusEl.textContent='\u2713 Draft ready \u2014 edit as needed'; statusEl.style.color='#22c55e';
