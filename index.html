@@ -19775,7 +19775,7 @@ function _showActionEditPanel(actId){
 
   var panel=document.createElement('div');
   panel.id='action-edit-panel';
-  panel.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:440px;max-width:calc(100vw - 24px);max-height:88vh;background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.75);z-index:99995;display:flex;flex-direction:column;overflow:hidden;font-family:\'DM Mono\',monospace';
+  panel.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:640px;max-width:calc(100vw - 24px);max-height:95vh;min-width:340px;min-height:300px;background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.75);z-index:99995;display:flex;flex-direction:column;overflow:hidden;font-family:\'DM Mono\',monospace';
 
   // Header
   var hdr=document.createElement('div');
@@ -19869,6 +19869,7 @@ function _showActionEditPanel(actId){
   panel.appendChild(footer);
   document.body.appendChild(panel);
   _makePanelDraggable(panel);
+  _makeResizable(panel);
   setTimeout(function(){titleInp.focus();},50);
 }
 
