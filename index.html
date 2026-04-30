@@ -19591,16 +19591,19 @@ function _sendInfoRequest(taskId){
   var responseUrl=window.location.href.split('?')[0]+'?respond='+reqId;
   statusEl.textContent='\u23F3 Sending\u2026'; statusEl.style.color='var(--gold)';
   var reqPayload={action:'ir_write',id:reqId,taskId:taskId,recipientKey:recipKey,recipientName:recipName,message:message,requestedBy:requestedBy,requestedAt:requestedAt,status:'pending',responseUrl:responseUrl};
-  var dmPayload={action:'slack_send',to:recipKey,channel:'',text:message+'\n\n\uD83D\uDD17 To respond: '+responseUrl,fromUser:requestedBy,taskId:taskId,direct:true};
   // Post to task Messages feed so LLM + team can see it
   var msgPayload={action:'message_write',id:'msg-ir-'+reqId,taskId:taskId,fromUser:requestedBy,fromName:'\uD83D\uDCCB Info Request \u2192 '+recipName,text:message,createdAt:requestedAt,type:'note'};
-  // Fire a callout alert to the recipient
-  var coPayload={action:'callout_write',id:'co-ir-'+reqId,type:'flag',title:'\uD83D\uDCCB Info Requested: '+t.name,message:message,taggedUser:recipKey,taggedTask:taskId,createdBy:requestedBy,createdAt:requestedAt,dueDate:''};
+  // Callout alert to recipient
+  var coPayload={action:'callout_write',id:'co-ir-'+reqId,type:'flag',title:'\uD83D\uDCCB Info Requested: '+t.name,message:message+'\n\n\uD83D\uDD17 Respond: '+responseUrl,taggedUser:recipKey,taggedTask:taskId,createdBy:requestedBy,createdAt:requestedAt,dueDate:''};
+  // Slack DM \u2014 resolve channel via _getDMChannelId (same pattern as all other DMs in the app)
+  var dmChId=typeof _getDMChannelId==='function'?_getDMChannelId(recipKey):'';
+  var dmText='\uD83D\uDCCB Info Requested for task '+taskId+' ('+t.name+')\nFrom: '+requestedBy+'\n\n'+message+'\n\n\uD83D\uDD17 Click to respond: '+responseUrl;
   var saves=CONFIG.sheetsUrl?[
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(reqPayload)}).then(function(r){return r.json();}).catch(function(){}),
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(dmPayload)}).then(function(r){return r.json();}).catch(function(){}),
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(msgPayload)}).then(function(r){return r.json();}).catch(function(){}),
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(coPayload)}).then(function(r){return r.json();}).catch(function(){})
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(coPayload)}).then(function(r){return r.json();}).catch(function(){}),
+    // Slack DM via correct GET query-param pattern
+    dmChId?fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(dmChId)+'&text='+encodeURIComponent(dmText)+'&user='+encodeURIComponent(requestedBy)).catch(function(){}):Promise.resolve()
   ]:[];
   Promise.all(saves).then(function(){
     var oldStatus=t.status;
