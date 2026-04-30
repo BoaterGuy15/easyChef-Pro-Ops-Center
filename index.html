@@ -17030,9 +17030,11 @@ function _buildActionCard(a){
   const assignedName=a.assignedTo?(_DM_NAME_MAP[a.assignedTo]||a.assignedTo):'';
   const due=a.dueDate?String(a.dueDate).slice(0,10):'';
   const card=document.createElement('div');
-  card.style.cssText=`padding:10px 14px 9px;border-bottom:1px solid var(--border);border-left:2px solid ${tc};transition:background 0.15s`;
-  card.onmouseenter=()=>card.style.background='rgba(201,168,76,0.04)';
+  card.style.cssText=`padding:10px 14px 9px;border-bottom:1px solid var(--border);border-left:2px solid ${tc};transition:background 0.15s;cursor:pointer`;
+  card.title='Click to edit action';
+  card.onmouseenter=()=>card.style.background='rgba(201,168,76,0.06)';
   card.onmouseleave=()=>card.style.background='';
+  if(a.id) card.onclick=(e)=>{if(!e.target.closest('button,input,select,textarea')) _showActionEditPanel(a.id);};
   // meta row
   const meta=document.createElement('div');
   meta.style.cssText='display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap';
@@ -18267,7 +18269,8 @@ function _toggleACPanel(which){
 function _acBarClick(barId){
   const bar=_acBarMap.get(barId);
   if(!bar) return;
-  if(bar.taskId){_showGanttTaskPanel(bar.taskId,bar.type==='action'?'actions':'tasks');return;}
+  if(bar.type==='action'&&bar.actionId){_showActionEditPanel(bar.actionId);return;}
+  if(bar.taskId){_showGanttTaskPanel(bar.taskId,'tasks');return;}
   _showToast(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);max-width:320px"><div style="color:var(--gold);margin-bottom:4px">⚡ Action</div><div style="font-weight:600;margin-bottom:3px">${bar.label}</div>${bar.body?`<div style="color:var(--text);font-size:10px;margin-bottom:4px;line-height:1.4">${bar.body.replace(/</g,'&lt;')}</div>`:''}<div style="color:var(--muted);font-size:10px">${bar.sd} → ${bar.ed}</div><div style="color:var(--muted);font-size:10px;margin-top:2px">${bar.type||''} · ${bar.status||'open'}</div></div>`,4000);
 }
 
@@ -18341,7 +18344,7 @@ function buildActionsGantt(){
         const edRaw=_toIso(a.updatedAt)||sd;
         const ed=edRaw>sd?edRaw:_addD(sd,2);
         const bid='a_'+(a.id||Math.random().toString(36).slice(2));
-        bars.push({id:bid,sd,ed,label:a.title||a.type||'action',body:a.body||'',color:'#c9a84c',bg:'rgba(201,168,76,0.07)',type:'action',taskId:a.taskId||a.linkedTaskId||'',status:a.status||'',personKey:p.key});
+        bars.push({id:bid,sd,ed,label:a.title||a.type||'action',body:a.body||'',color:'#c9a84c',bg:'rgba(201,168,76,0.07)',type:'action',actionId:a.id||'',taskId:a.taskId||a.linkedTaskId||'',status:a.status||'',personKey:p.key});
       });
 
       bars.forEach(b=>_acBarMap.set(b.id,b));
@@ -18610,7 +18613,7 @@ function _showACAllActionsPanel(personKey){
       const row=document.createElement('div');
       row.style.cssText=`display:flex;gap:8px;align-items:flex-start;padding:8px 14px;border-bottom:1px solid var(--border);cursor:${a.taskId?'pointer':'default'};opacity:${isDone?0.65:1}`;
       row.onmouseover=()=>{if(a.taskId)row.style.background='rgba(201,168,76,0.05)';};row.onmouseout=()=>row.style.background='transparent';
-      row.onclick=()=>{if(a.taskId){document.getElementById('ac-all-actions-panel').remove();_showGanttTaskPanel(a.taskId,'actions');}};
+      row.onclick=()=>{if(a.id) _showActionEditPanel(a.id);};
       const ico=document.createElement('span');ico.style.cssText='font-size:12px;flex-shrink:0;padding-top:1px';ico.textContent=_tIco2[a.type]||'•';
       const body=document.createElement('div');body.style.cssText='flex:1;min-width:0';
       const titleRow=document.createElement('div');titleRow.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap';
@@ -19745,7 +19748,7 @@ function _taskActsRender(taskId,acts){
       var pc=priorityColor[(a.type||'medium').toLowerCase()]||'var(--muted)';
       return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--surface)">'+
         '<input type="checkbox"'+(isDone?' checked':'')+' onchange="_taskActToggle(\''+a.id+'\',\''+taskId+'\',this.checked)" style="flex-shrink:0;cursor:pointer;accent-color:var(--green)">'+
-        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+(isDone?'var(--border)':'var(--text)')+';flex:1;'+(isDone?'text-decoration:line-through;':'')+'word-break:break-word;cursor:pointer" title="Open task panel" onclick="_showGanttTaskPanel(\''+taskId+'\',\'tasks\')" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\''+(isDone?'line-through':'none')+'\'">'+( a.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+(isDone?'var(--border)':'var(--text)')+';flex:1;'+(isDone?'text-decoration:line-through;':'')+'word-break:break-word;cursor:pointer" title="Click to edit action" onclick="_showActionEditPanel(\''+a.id+'\')" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\''+(isDone?'line-through':'none')+'\'">'+( a.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>'+
         (assignedName?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:0 4px;flex-shrink:0">'+assignedName+'</span>':'')+
         (dueStr?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);flex-shrink:0">'+dueStr+'</span>':'')+
         (a.type&&a.type.toLowerCase()!=='task'?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:'+pc+';flex-shrink:0">'+a.type+'</span>':'')+
@@ -19754,6 +19757,119 @@ function _taskActsRender(taskId,acts){
     }).join('');
   }
   el.innerHTML=html;
+}
+
+function _showActionEditPanel(actId){
+  var existing=document.getElementById('action-edit-panel');
+  if(existing){existing.remove();return;}
+  var act=(_actionsCache||[]).find(function(a){return a.id===actId;});
+  if(!act){
+    var found=null;
+    Object.values(_taskWsaCache||{}).forEach(function(arr){if(!found)found=(arr||[]).find(function(a){return a.id===actId;});});
+    act=found;
+  }
+  if(!act){_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--amber)">⚠ Action not found in local cache.</div>',2500);return;}
+  var linkedTask=act.taskId?(DASHBOARD_DATA.tasks||[]).find(function(t){return t.id===act.taskId;}):null;
+  var iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 8px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;outline:none;box-sizing:border-box';
+  var lSt='display:block;font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;margin-top:10px';
+
+  var panel=document.createElement('div');
+  panel.id='action-edit-panel';
+  panel.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:440px;max-width:calc(100vw - 24px);max-height:88vh;background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.75);z-index:99995;display:flex;flex-direction:column;overflow:hidden;font-family:\'DM Mono\',monospace';
+
+  // Header
+  var hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:move;flex-shrink:0;user-select:none';
+  hdr.innerHTML='<span style="font-size:14px;flex-shrink:0">⚡</span>'+
+    '<span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;flex:1">EDIT ACTION</span>'+
+    (act.taskId?'<span style="font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:1px 6px">'+act.taskId+(linkedTask?' · '+linkedTask.name.slice(0,20)+(linkedTask.name.length>20?'…':''):'')+'</span>':'')+
+    '<button onclick="document.getElementById(\'action-edit-panel\').remove()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;padding:0;margin-left:6px">✕</button>';
+  panel.appendChild(hdr);
+
+  // Body
+  var body=document.createElement('div');
+  body.style.cssText='padding:4px 14px 10px;overflow-y:auto;flex:1;scrollbar-width:none';
+
+  function _lbl(text){var l=document.createElement('span');l.style.cssText=lSt;l.textContent=text;return l;}
+
+  // TYPE
+  body.appendChild(_lbl('TYPE'));
+  var typeSel=document.createElement('select');typeSel.style.cssText=iSt;
+  ['comment','flag','note','decision','blocker','risk','completion','task','statuschange'].forEach(function(t){var o=document.createElement('option');o.value=t;o.textContent=t.charAt(0).toUpperCase()+t.slice(1);if(t===(act.type||'note'))o.selected=true;typeSel.appendChild(o);});
+  body.appendChild(typeSel);
+
+  // TITLE
+  body.appendChild(_lbl('TITLE — max 8 words'));
+  var titleInp=document.createElement('input');titleInp.type='text';titleInp.value=act.title||'';titleInp.style.cssText=iSt;titleInp.placeholder='Short action title';body.appendChild(titleInp);
+
+  // BODY
+  body.appendChild(_lbl('BODY'));
+  var bodyTa=document.createElement('textarea');bodyTa.rows=4;bodyTa.value=act.body||'';bodyTa.style.cssText=iSt+';resize:vertical';bodyTa.placeholder='What needs to be done, why it matters, any dependencies';body.appendChild(bodyTa);
+
+  // STATUS + ASSIGNED
+  var grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px';
+  var stDiv=document.createElement('div');
+  stDiv.appendChild(_lbl('STATUS'));
+  var stSel=document.createElement('select');stSel.style.cssText=iSt;
+  ['open','in progress','complete','blocked','closed'].forEach(function(s){var o=document.createElement('option');o.value=s;o.textContent=s.charAt(0).toUpperCase()+s.slice(1);if(s===(act.status||'open').toLowerCase())o.selected=true;stSel.appendChild(o);});
+  stDiv.appendChild(stSel);grid.appendChild(stDiv);
+  var asDiv=document.createElement('div');
+  asDiv.appendChild(_lbl('ASSIGNED TO'));
+  var asSel=document.createElement('select');asSel.style.cssText=iSt;
+  var emptyO=document.createElement('option');emptyO.value='';emptyO.textContent='— Unassigned';asSel.appendChild(emptyO);
+  (_DM_MEMBERS||[]).forEach(function(m){var o=document.createElement('option');o.value=m.key;o.textContent=m.name;if(m.key===(act.assignedTo||''))o.selected=true;asSel.appendChild(o);});
+  asDiv.appendChild(asSel);grid.appendChild(asDiv);
+  body.appendChild(grid);
+
+  // DUE DATE
+  body.appendChild(_lbl('DUE DATE'));
+  var dueInp=document.createElement('input');dueInp.type='date';dueInp.value=(act.dueDate||'').slice(0,10);dueInp.style.cssText=iSt;body.appendChild(dueInp);
+
+  // Meta
+  var metaEl=document.createElement('div');
+  metaEl.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--border);margin-top:10px;line-height:1.8';
+  metaEl.textContent='ID: '+(act.id||'—')+' · Created by: '+(act.createdBy||'—')+' · '+(act.createdAt||'').slice(0,10);
+  body.appendChild(metaEl);
+  panel.appendChild(body);
+
+  // Footer
+  var footer=document.createElement('div');
+  footer.style.cssText='display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--border);background:rgba(0,0,0,0.12);flex-shrink:0;flex-wrap:wrap;align-items:center';
+  var bSt='font-family:\'DM Mono\',monospace;font-size:9px;padding:5px 12px;border-radius:4px;border:1px solid;background:transparent;cursor:pointer';
+  var saveBtn=document.createElement('button');saveBtn.textContent='💾 Save';saveBtn.style.cssText=bSt+';border-color:var(--gold);color:var(--gold)';
+  var doneBtn=document.createElement('button');doneBtn.textContent='✅ Mark Complete';doneBtn.style.cssText=bSt+';border-color:#22c55e;color:#22c55e';
+  var delBtn=document.createElement('button');delBtn.textContent='🗑 Delete';delBtn.style.cssText=bSt+';border-color:var(--border);color:var(--muted)';
+  delBtn.onmouseover=function(){delBtn.style.color='#ef4444';delBtn.style.borderColor='#ef4444';};delBtn.onmouseout=function(){delBtn.style.color='var(--muted)';delBtn.style.borderColor='var(--border)';};
+  var statusLine=document.createElement('span');statusLine.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-left:auto';
+
+  function _doSave(overrideStatus){
+    var updates={type:typeSel.value,title:titleInp.value.trim(),body:bodyTa.value.trim(),status:overrideStatus||stSel.value,assignedTo:asSel.value,dueDate:dueInp.value,updatedAt:new Date().toISOString()};
+    var cached=(_actionsCache||[]).find(function(a){return a.id===actId;});
+    if(cached) Object.assign(cached,updates);
+    Object.keys(_taskWsaCache||{}).forEach(function(tid){var wa=(_taskWsaCache[tid]||[]).find(function(a){return a.id===actId;});if(wa) Object.assign(wa,updates);if(document.getElementById('task-acts-'+tid)) _taskActsRender(tid,_taskWsaCache[tid]);});
+    if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(Object.assign({action:'action_update',id:actId},updates))}).catch(function(){});
+    statusLine.textContent='✓ Saved';
+    setTimeout(function(){statusLine.textContent='';},2000);
+    if(overrideStatus==='complete') setTimeout(function(){panel.remove();},800);
+  }
+
+  saveBtn.onclick=function(){_doSave();};
+  doneBtn.onclick=function(){stSel.value='complete';_doSave('complete');};
+  delBtn.onclick=function(){
+    if(!confirm('Delete this action permanently?')) return;
+    var i=(_actionsCache||[]).findIndex(function(a){return a.id===actId;});if(i>=0) _actionsCache.splice(i,1);
+    Object.keys(_taskWsaCache||{}).forEach(function(tid){if(_taskWsaCache[tid]) _taskWsaCache[tid]=_taskWsaCache[tid].filter(function(a){return a.id!==actId;});if(document.getElementById('task-acts-'+tid)) _taskActsRender(tid,_taskWsaCache[tid]);});
+    if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_delete',id:actId})}).catch(function(){});
+    panel.remove();
+  };
+
+  footer.appendChild(saveBtn);footer.appendChild(doneBtn);footer.appendChild(delBtn);footer.appendChild(statusLine);
+  panel.appendChild(footer);
+  document.body.appendChild(panel);
+  _makePanelDraggable(panel);
+  setTimeout(function(){titleInp.focus();},50);
 }
 
 function _taskActsOpenAddForm(taskId){
