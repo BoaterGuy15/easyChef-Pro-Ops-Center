@@ -15879,7 +15879,10 @@ const _LP_HUB_SET=new Set(_LP_HUB_TABS.map(t=>t.id));
 function _upsertLPHubBar(activeId){
   const bar=document.getElementById('lp-hub-bar');
   if(!bar) return;
-  bar.innerHTML=_LP_HUB_TABS.map(t=>'<button class="lp-hub-tab'+(t.id===activeId?' active':'')+'" onclick="showPage(\''+t.id+'\')">'+t.label+'</button>').join('');
+  bar.innerHTML=_LP_HUB_TABS.map(t=>{
+    const url=location.pathname+'#'+t.id;
+    return '<button class="lp-hub-tab'+(t.id===activeId?' active':'')+'" onclick="showPage(\''+t.id+'\')">'+t.label+'<span class="tab-popout" title="Open in new window" onclick="event.stopPropagation();window.open(\''+url+'\',\'_blank\')">↗</span></button>';
+  }).join('');
   bar.style.display='flex';
 }
 const _LP_CALLOUTS=[];
