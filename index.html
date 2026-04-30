@@ -1688,14 +1688,12 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
       if(editedFind!==null){
         const ts1=new Date().toISOString();
         await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+Date.now(),taskId,fromUser:user,fromName:'🔍 AI ('+fromName+')',text:editedFind,createdAt:ts1,type:'ai'})}).catch(()=>{});
-        const _lk1=_getTaskSlackLink(taskId);
-        if(_lk1.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(_lk1.channelId)+'&text='+encodeURIComponent(editedFind)+'&user='+encodeURIComponent(user)).catch(()=>{});
         if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
         _taskMsgCache[taskId].push({ts:ts1,user,name:'🔍 AI ('+fromName+')',text:editedFind});
         _raciAiSummaries[taskId]=findText;
         const log=document.getElementById('raci-discussion-'+taskId+'-entries');
         if(log){log.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log.scrollTop=log.scrollHeight;}
-        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 1 posted'+(_lk1.channelId?' to Messages + #'+(_lk1.channelName||_lk1.channelId):' to Messages')+'.</div>',3000);
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 1 — AI analysis saved to Messages (no Slack).</div>',3000);
       }
     }
     // 4. Super AI action plan
@@ -1714,13 +1712,11 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
       if(editedSuper!==null){
         const ts2=new Date().toISOString();
         await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-'+(Date.now()+1),taskId,fromUser:user,fromName:'⚡ Super AI ('+fromName+')',text:editedSuper,createdAt:ts2,type:'ai'})}).catch(()=>{});
-        const _lk2=_getTaskSlackLink(taskId);
-        if(_lk2.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(_lk2.channelId)+'&text='+encodeURIComponent(editedSuper)+'&user='+encodeURIComponent(user)).catch(()=>{});
         if(!_taskMsgCache[taskId]) _taskMsgCache[taskId]=[];
         _taskMsgCache[taskId].push({ts:ts2,user,name:'⚡ Super AI ('+fromName+')',text:editedSuper});
         const log2=document.getElementById('raci-discussion-'+taskId+'-entries');
         if(log2){log2.innerHTML=_taskMsgCache[taskId].map(_noteEntryHtml).join('');log2.scrollTop=log2.scrollHeight;}
-        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 2 posted'+(_lk2.channelId?' to Messages + #'+(_lk2.channelName||_lk2.channelId):' to Messages')+'.</div>',3000);
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✅ Step 2 — Action plan saved to Messages (no Slack).</div>',3000);
       }
       _saveActionPlan(taskId,'task',editedSuper||superText,taskId,'');
       _refreshAPSection(taskId,editedSuper||superText);
@@ -1728,11 +1724,11 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
       _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--gold)">\u26A1 Extracting actions and decisions from plan\u2026</div>',4000);
       await _aiExtractAndCreateActionsDecisions(taskId,editedSuper||superText,t,user,fromName);
     }
-    // 6. Confirm + DM the accountable person
+    // 6. DM the accountable person — only on completion (not every status change)
     const ownerName=(t.owner||'').split('/')[0].trim();
     const ownerKey=(_DM_MEMBERS.find(function(m){return m.name.toLowerCase()===ownerName.toLowerCase();})||{}).key||'';
     const dmMsg='['+taskId+' — '+t.name+'] Status: '+oldStatus+' → '+newStatus+' by '+fromName+'.\nAI has run analysis + action plan. Check TEAM MESSAGES in '+taskId+'.';
-    if(ownerKey&&ownerKey!==user){
+    if(newStatus==='Complete'&&ownerKey&&ownerKey!==user){
       const editedDM=await _workflowConfirm('STEP 3 — DM to '+ownerName,dmMsg);
       if(editedDM!==null){
         const chId=_getDMChannelId(ownerKey);
@@ -4450,7 +4446,7 @@ function _buildTaskExpandHtml(taskId){
         <textarea id="raci-task-notes-${taskId}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note — visible to all team members and readable by AI" onblur="saveTaskNotes('${taskId}')">${(t.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
         ${_agDecItem&&_agDecItem.detail?`${lbl('AGENDA NOTES — from Monday Meeting')}<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-style:italic;padding:7px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.15);border-radius:6px;min-height:36px;white-space:pre-wrap"><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1px;font-style:normal">[${_agDecItem.id}] </span>${(_agDecItem.detail||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`:''}
         ${lbl('DECISION')}
-        ${canAdmin?`<textarea id="raci-task-decision-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Record a decision made about this task — syncs to the linked agenda item" onblur="saveTaskDecision('${taskId}')">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(t.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
+        ${(()=>{const _d=_parseDecision(t.decision||'');const _dT=(_d.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');const _dB=(_d.body||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');return canAdmin?`<div style="display:flex;flex-direction:column;gap:4px"><input id="raci-task-decision-title-${taskId}" type="text" value="${_dT}" style="${iSt}" placeholder="Decision title — max 8 words" onblur="saveTaskDecision('${taskId}')"><textarea id="raci-task-decision-body-${taskId}" rows="2" style="${iSt};resize:vertical" placeholder="Body — what was decided, why it matters, any key constraints" onblur="saveTaskDecision('${taskId}')">${_dB}</textarea></div>`:t.decision?`<div style="border-left:3px solid #a78bfa;padding:6px 10px;background:rgba(167,139,250,0.05);border-radius:0 6px 6px 0"><div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:bold;color:var(--text);margin-bottom:${_d.body?'4px':'0'}">${_dT}</div>${_d.body?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:pre-wrap">${_dB}</div>`:''}</div>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px;font-style:italic">No decision recorded</div>`;})()}
         ${lbl('ACTION PLAN')}
         ${(()=>{
           const _cp=(window._completedPlansCache||{})[taskId];
@@ -4630,11 +4626,13 @@ function saveTaskNotes(taskId){
   _syncTaskToAgenda(taskId);
 }
 function saveTaskDecision(taskId){
-  const el=document.getElementById('raci-task-decision-'+taskId);
-  if(!el) return;
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t) return;
-  t.decision=el.value;
+  const titleEl=document.getElementById('raci-task-decision-title-'+taskId);
+  const bodyEl=document.getElementById('raci-task-decision-body-'+taskId);
+  const title=(titleEl?titleEl.value:'').trim();
+  const body=(bodyEl?bodyEl.value:'').trim();
+  t.decision=title+(body?'\n---\n'+body:'');
   saveToLocal();
   _saveTasksNow();
   _syncTaskToAgenda(taskId);
@@ -6972,7 +6970,7 @@ function _agendaItemHtml(it,i,canEdit){
         ${catBadge}${taskBadge}${taskLinkSel}${editBtn}${delBtn}
       </div>
       <textarea onblur="updateAgendaField('${it.id}','detail',this.value.trim())" onfocus="this.rows=4" rows="${it.detail?'2':'1'}" ${!canEdit?'readonly':''} placeholder="${canEdit?'Add detail…':''}" style="width:100%;background:transparent;border:none;border-bottom:${canEdit?'1px solid var(--border)':'none'};color:#9ca3af;font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.6;resize:none;outline:none;padding:1px 0;box-sizing:border-box;display:block;margin-bottom:${it.detail||canEdit?'4px':'0'}">${(it.detail||'').replace(/</g,'&lt;')}</textarea>
-      <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','decision',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'};outline:none${!it.decision&&!canEdit?';display:none':''}">${it.decision||''}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:${done?'var(--border)':'var(--gold)'};${!it.decision?'display:none':''}">${(()=>{var _ds=it.decision||'';var _sep=_ds.indexOf('\n---\n');return (_sep!==-1?_ds.slice(0,_sep):_ds.split('\n')[0]).replace(/</g,'&lt;');})()}</div>
       <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
         <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)">Owner</span>
         <div contenteditable="${canEdit?'true':'false'}" onblur="updateAgendaField('${it.id}','owner',this.innerText.trim())" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);outline:none;min-width:16px">${it.owner||''}</div>
@@ -7195,7 +7193,7 @@ function _buildAgendaExpandHtml(id){
         ${canAdmin?`<textarea id="agenda-expand-detail-${id}" rows="3" style="${iSt};resize:vertical" placeholder="Add a note about this agenda item — visible to team and AI" onblur="updateAgendaField('${id}','detail',this.value)">${detailVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:44px">${detailVal.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
         ${linkedTask&&linkedTask.notes?`${lbl('TASK NOTES — from RACI')}<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);font-style:italic;padding:7px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.15);border-radius:6px;min-height:36px;white-space:pre-wrap"><span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:1px;font-style:normal">[${linkedTask.id}] </span>${(linkedTask.notes||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`:''}
         ${lbl('DECISION')}
-        ${canAdmin?`<textarea id="agenda-expand-decision-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Record the decision made on this agenda item — syncs to the linked task" onblur="updateAgendaField('${id}','decision',this.value)">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px">${(it.decision||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`}
+        ${(()=>{const _d=_parseDecision(it.decision||'');const _dT=(_d.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');const _dB=(_d.body||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');return canAdmin?`<div style="display:flex;flex-direction:column;gap:4px"><input id="agenda-expand-decision-title-${id}" type="text" value="${_dT}" style="${iSt}" placeholder="Decision title — max 8 words" onblur="_saveAgendaDecision('${id}')"><textarea id="agenda-expand-decision-body-${id}" rows="2" style="${iSt};resize:vertical" placeholder="Body — what was decided, why it matters, any key constraints" onblur="_saveAgendaDecision('${id}')">${_dB}</textarea></div>`:it.decision?`<div style="border-left:3px solid #a78bfa;padding:6px 10px;background:rgba(167,139,250,0.05);border-radius:0 6px 6px 0"><div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:bold;color:var(--text);margin-bottom:${_d.body?'4px':'0'}">${_dT}</div>${_d.body?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:pre-wrap">${_dB}</div>`:''}</div>`:`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:36px;font-style:italic">No decision recorded</div>`;})()}
         ${lbl('ACTION PLAN')}
         ${(()=>{
           const _cp=(window._completedPlansCache||{})[id]||(linkedTask&&(window._completedPlansCache||{})[linkedTask.id])||null;
@@ -17096,7 +17094,7 @@ function _renderGanttTaskActionsTab(container,taskId){
   }).catch(e=>{listEl.innerHTML='';const err=document.createElement('div');err.style.cssText="padding:16px;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px";err.textContent='Failed to load actions: '+e.message;listEl.appendChild(err);});
 }
 
-function _showGanttTaskPanel(taskId){
+function _showGanttTaskPanel(taskId,defaultTab){
   _closeGanttTaskPanel();
   const t=(DASHBOARD_DATA.tasks||[]).find(x=>x.id===taskId);
   if(!t) return;
@@ -17145,7 +17143,7 @@ function _showGanttTaskPanel(taskId){
   panel.appendChild(tabBar);panel.appendChild(tabContent);
   _makePanelDraggable(panel);
   _makeResizable(panel);
-  _switchTab('agenda');
+  _switchTab(defaultTab||'agenda');
   requestAnimationFrame(()=>panel.classList.add('open'));
   document.addEventListener('keydown',_ganttTaskPanelEsc,true);
 }
@@ -18269,7 +18267,7 @@ function _toggleACPanel(which){
 function _acBarClick(barId){
   const bar=_acBarMap.get(barId);
   if(!bar) return;
-  if(bar.taskId){_showGanttTaskPanel(bar.taskId);return;}
+  if(bar.taskId){_showGanttTaskPanel(bar.taskId,bar.type==='action'?'actions':'tasks');return;}
   _showToast(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);max-width:320px"><div style="color:var(--gold);margin-bottom:4px">⚡ Action</div><div style="font-weight:600;margin-bottom:3px">${bar.label}</div>${bar.body?`<div style="color:var(--text);font-size:10px;margin-bottom:4px;line-height:1.4">${bar.body.replace(/</g,'&lt;')}</div>`:''}<div style="color:var(--muted);font-size:10px">${bar.sd} → ${bar.ed}</div><div style="color:var(--muted);font-size:10px;margin-top:2px">${bar.type||''} · ${bar.status||'open'}</div></div>`,4000);
 }
 
@@ -18540,11 +18538,8 @@ function _showACContextMenu(event,barId){
     _sep();
   }
 
-  _item('➕','Add Action',()=>{if(info.taskId){_showGanttTaskPanel(info.taskId);}});
-  if(info.taskId) _item('🎯','View Action Plan',()=>{
-    _showGanttTaskPanel(info.taskId);
-    setTimeout(()=>{const btn=document.querySelector('#gantt-task-panel .lp-panel-tab[data-tab="actionplan"]');if(btn)btn.click();},350);
-  });
+  _item('➕','Add Action',()=>{if(info.taskId){_showGanttTaskPanel(info.taskId,'actions');}});
+  if(info.taskId) _item('🎯','View Action Plan',()=>{_showGanttTaskPanel(info.taskId,'actionplan');});
   _sep();
   _item('⚡','All Actions for '+pc.key,()=>_showACAllActionsPanel(pc.key||info.personKey));
 
@@ -18615,7 +18610,7 @@ function _showACAllActionsPanel(personKey){
       const row=document.createElement('div');
       row.style.cssText=`display:flex;gap:8px;align-items:flex-start;padding:8px 14px;border-bottom:1px solid var(--border);cursor:${a.taskId?'pointer':'default'};opacity:${isDone?0.65:1}`;
       row.onmouseover=()=>{if(a.taskId)row.style.background='rgba(201,168,76,0.05)';};row.onmouseout=()=>row.style.background='transparent';
-      row.onclick=()=>{if(a.taskId){document.getElementById('ac-all-actions-panel').remove();_showGanttTaskPanel(a.taskId);}};
+      row.onclick=()=>{if(a.taskId){document.getElementById('ac-all-actions-panel').remove();_showGanttTaskPanel(a.taskId,'actions');}};
       const ico=document.createElement('span');ico.style.cssText='font-size:12px;flex-shrink:0;padding-top:1px';ico.textContent=_tIco2[a.type]||'•';
       const body=document.createElement('div');body.style.cssText='flex:1;min-width:0';
       const titleRow=document.createElement('div');titleRow.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap';
@@ -19148,25 +19143,110 @@ function _coRenderPanel(){
     panel.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);text-align:center;padding:32px 16px">No active callouts</div>';
     return;
   }
+  const _bSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid;background:transparent;cursor:pointer";
+  const _taSt="width:100%;background:var(--bg,#0b0d10);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:6px 8px;border-radius:5px;outline:none;resize:vertical;box-sizing:border-box;margin-bottom:6px;display:block";
   panel.innerHTML=items.map(c=>{
     const icon=_CO_TYPE_ICON[c.type]||'📣';
     const ts=c.createdAt?new Date(c.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     const task=c.taggedTask?`<div style="font-size:9px;color:var(--muted);margin-top:3px">🔗 Task: ${c.taggedTask}</div>`:'';
     const person=c.taggedUser?`<div style="font-size:9px;color:var(--muted)">👤 ${c.taggedUser}</div>`:'';
     const due=c.dueDate?`<div style="font-size:9px;color:var(--amber)">⏰ Due: ${c.dueDate}</div>`:'';
-    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;position:relative">
+    return `<div id="co-card-${c.id}" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;position:relative;transition:border-color 0.3s,opacity 0.3s">
       <div style="display:flex;align-items:flex-start;gap:8px">
         <span style="font-size:16px;flex-shrink:0;margin-top:1px">${icon}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:var(--gold);margin-bottom:3px">${c.title||''}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:var(--gold);margin-bottom:3px">${(c.title||'').replace(/</g,'&lt;')}</div>
           <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.55">${(c.message||'').replace(/</g,'&lt;')}</div>
           ${person}${task}${due}
           ${ts?`<div style="font-size:8px;color:var(--muted);margin-top:4px">${ts}</div>`:''}
         </div>
         <button onclick="_coDismiss('${c.id}')" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" title="Dismiss" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">✕</button>
       </div>
+      <div style="display:flex;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <button onclick="_coMarkDone('${c.id}')" style="${_bSt};border-color:#22c55e;color:#22c55e" title="Mark done and dismiss">✓ Done</button>
+        <button id="co-reply-btn-${c.id}" onclick="_coToggleReply('${c.id}')" style="${_bSt};border-color:var(--gold);color:var(--gold)" title="Reply or give feedback to AI">💬 Reply</button>
+        <button onclick="_coDelete('${c.id}')" style="${_bSt};border-color:var(--border);color:var(--muted)" onmouseover="this.style.color='#ef4444';this.style.borderColor='#ef4444'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'" title="Delete permanently">🗑</button>
+      </div>
+      <div id="co-reply-${c.id}" style="display:none;margin-top:8px">
+        <textarea id="co-reply-ta-${c.id}" rows="2" placeholder="Add an update, decision, or feedback…" style="${_taSt}"></textarea>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="_coSendReply('${c.id}')" style="${_bSt};border-color:var(--gold);color:var(--gold)">⚡ Send to AI</button>
+          <span id="co-reply-status-${c.id}" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)"></span>
+        </div>
+        <div id="co-reply-ai-${c.id}" style="display:none;margin-top:8px;border-left:2px solid var(--gold);padding:6px 10px;background:rgba(201,168,76,0.05);border-radius:0 5px 5px 0;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);line-height:1.55;white-space:pre-wrap"></div>
+      </div>
     </div>`;
   }).join('');
+}
+
+function _coMarkDone(id){
+  _coInteracted=true;
+  const card=document.getElementById('co-card-'+id);
+  if(card){card.style.borderColor='#22c55e';card.style.opacity='0.5';}
+  const user=window._DGL_USER||'';
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'callout_dismiss',id,dismissedBy:user,dismissedAt:new Date().toISOString()})
+    }).catch(()=>{});
+  }
+  const item=_coCache.find(c=>c.id===id);
+  if(item){item.dismissed='true';item.dismissedBy=user;item.dismissedAt=new Date().toISOString();}
+  setTimeout(()=>{_coRenderBadge();_coRenderPanel();},700);
+}
+
+function _coDelete(id){
+  _coInteracted=true;
+  if(!confirm('Delete this alert permanently?')) return;
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'callout_delete',id})
+    }).catch(()=>{});
+  }
+  _coCache=_coCache.filter(c=>c.id!==id);
+  _coRenderBadge();
+  _coRenderPanel();
+}
+
+function _coToggleReply(id){
+  const replyDiv=document.getElementById('co-reply-'+id);
+  const btn=document.getElementById('co-reply-btn-'+id);
+  if(!replyDiv) return;
+  const open=replyDiv.style.display==='none';
+  replyDiv.style.display=open?'block':'none';
+  if(btn){btn.style.borderColor=open?'#60a5fa':'var(--gold)';btn.style.color=open?'#60a5fa':'var(--gold)';}
+  if(open){const ta=document.getElementById('co-reply-ta-'+id);if(ta) ta.focus();}
+}
+
+async function _coSendReply(id){
+  const ta=document.getElementById('co-reply-ta-'+id);
+  const statusEl=document.getElementById('co-reply-status-'+id);
+  const aiEl=document.getElementById('co-reply-ai-'+id);
+  const text=(ta?ta.value:'').trim();
+  if(!text||!CONFIG.sheetsUrl) return;
+  if(statusEl) statusEl.textContent='⏳ Sending…';
+  if(aiEl){aiEl.style.display='none';aiEl.textContent='';}
+  const c=_coCache.find(x=>x.id===id);
+  const user=window._DGL_USER||'system';
+  if(c&&c.taggedTask){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'message_write',id:'msg-co-'+Date.now(),taskId:c.taggedTask,fromUser:user,fromName:user,text:'[Alert Reply] '+text,createdAt:new Date().toISOString(),type:'note'})
+    }).catch(()=>{});
+  }
+  const ctx=c?'ALERT TITLE: '+(c.title||'')+'\nMESSAGE: '+(c.message||'')+'\nTYPE: '+(c.type||'')+'\nTASK: '+(c.taggedTask||'none')+'\nTAGGED USER: '+(c.taggedUser||'none')+(c.dueDate?'\nDUE: '+c.dueDate:''):'';
+  try{
+    const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'anthropic',
+        system:'You are the DGL operations AI. A team member has responded to an internal alert. Acknowledge their update concisely, confirm any next steps required, and flag anything that still needs action. Plain text only. No markdown. Under 150 words.',
+        prompt:'ALERT CONTEXT:\n'+ctx+'\n\nRESPONSE FROM '+user+':\n'+text+'\n\nAcknowledge this and provide brief guidance or confirmation.'
+      })
+    }).then(r=>r.json());
+    const reply=resp.response||resp.result||resp.text||resp.content||'';
+    if(reply&&aiEl){aiEl.textContent=reply;aiEl.style.display='block';}
+    if(statusEl) statusEl.textContent='✓ Sent';
+    if(ta) ta.value='';
+  }catch(e){
+    if(statusEl) statusEl.textContent='⚠ Error';
+  }
 }
 
 function _coDismiss(id){
@@ -19665,7 +19745,7 @@ function _taskActsRender(taskId,acts){
       var pc=priorityColor[(a.type||'medium').toLowerCase()]||'var(--muted)';
       return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--surface)">'+
         '<input type="checkbox"'+(isDone?' checked':'')+' onchange="_taskActToggle(\''+a.id+'\',\''+taskId+'\',this.checked)" style="flex-shrink:0;cursor:pointer;accent-color:var(--green)">'+
-        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+(isDone?'var(--border)':'var(--text)')+';flex:1;'+(isDone?'text-decoration:line-through;':'')+'word-break:break-word">'+(a.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+(isDone?'var(--border)':'var(--text)')+';flex:1;'+(isDone?'text-decoration:line-through;':'')+'word-break:break-word;cursor:pointer" title="Open task panel" onclick="_showGanttTaskPanel(\''+taskId+'\',\'tasks\')" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\''+(isDone?'line-through':'none')+'\'">'+( a.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>'+
         (assignedName?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:0 4px;flex-shrink:0">'+assignedName+'</span>':'')+
         (dueStr?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);flex-shrink:0">'+dueStr+'</span>':'')+
         (a.type&&a.type.toLowerCase()!=='task'?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:'+pc+';flex-shrink:0">'+a.type+'</span>':'')+
@@ -19815,6 +19895,24 @@ function _taskActDelete(actId,taskId){
   }
 }
 
+// ── Decision string parser: splits "title\n---\nbody" into {title, body} ──────
+function _parseDecision(str){
+  if(!str) return {title:'',body:''};
+  var sep=str.indexOf('\n---\n');
+  if(sep!==-1) return {title:str.slice(0,sep).trim(),body:str.slice(sep+5).trim()};
+  var nl=str.indexOf('\n');
+  if(nl===-1) return {title:str.trim(),body:''};
+  return {title:str.slice(0,nl).trim(),body:str.slice(nl+1).trim()};
+}
+
+function _saveAgendaDecision(id){
+  var titleEl=document.getElementById('agenda-expand-decision-title-'+id);
+  var bodyEl=document.getElementById('agenda-expand-decision-body-'+id);
+  var title=(titleEl?titleEl.value:'').trim();
+  var body=(bodyEl?bodyEl.value:'').trim();
+  updateAgendaField(id,'decision',title+(body?'\n---\n'+body:''));
+}
+
 // ── Decision text extraction (regex, no AI needed) ───────────────────────────
 function _parseDecisionFromPlanText(planText){
   if(!planText) return [];
@@ -19849,18 +19947,15 @@ function _fillDecisionFromPlan(taskId){
   var user=window._DGL_USER||'system';
   var now=new Date().toISOString();
   decisions.forEach(function(dec){
-    var decText='[Decision extracted '+new Date().toLocaleDateString()+(dec.ownerName?' — owner: '+dec.ownerName:'')+']\n'+dec.text;
-    // Fill decision textarea
-    var decEl=document.getElementById('raci-task-decision-'+taskId);
-    if(decEl){
-      decEl.value=decText;
-      decEl.style.height='auto';
-      decEl.style.height=Math.min(decEl.scrollHeight,300)+'px';
-      decEl.style.borderColor='#a78bfa';
-      setTimeout(function(){if(decEl) decEl.style.borderColor='';},2000);
-    }
+    var decTitle=dec.text.split(/[.\n]/)[0].split(' ').slice(0,8).join(' ');
+    var decBody='[Extracted '+new Date().toLocaleDateString()+(dec.ownerName?' — owner: '+dec.ownerName:'')+'] '+dec.text;
+    // Fill two-field form
+    var decTitleEl=document.getElementById('raci-task-decision-title-'+taskId);
+    var decBodyEl=document.getElementById('raci-task-decision-body-'+taskId);
+    if(decTitleEl){ decTitleEl.value=decTitle; decTitleEl.style.borderColor='#a78bfa'; setTimeout(function(){if(decTitleEl) decTitleEl.style.borderColor='';},2000); }
+    if(decBodyEl){ decBodyEl.value=decBody; decBodyEl.style.height='auto'; decBodyEl.style.height=Math.min(decBodyEl.scrollHeight,200)+'px'; decBodyEl.style.borderColor='#a78bfa'; setTimeout(function(){if(decBodyEl) decBodyEl.style.borderColor='';},2000); }
     // Save to task object + Sheets
-    t.decision=decText;
+    t.decision=decTitle+'\n---\n'+decBody;
     if(typeof saveToLocal==='function') saveToLocal();
     if(typeof _saveTasksNow==='function') _saveTasksNow();
     // Create callout
@@ -19884,7 +19979,7 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
   var taskDueDate=t.ed?String(t.ed).slice(0,10):'';
   var now=new Date().toISOString();
   // Call AI to extract actions and decisions
-  var extractPrompt='Parse this action plan and return ONLY valid JSON with no extra text:\n{\n  "actions": [\n    {"title":"short imperative verb-phrase, max 8 words","body":"2-3 sentence description of what needs to be done, why it matters, and any key details or dependencies from the plan","assignedName":"FirstName only","dueDate":"YYYY-MM-DD or empty string","priority":"High|Medium|Low"}\n  ],\n  "decisions": [\n    {"ownerName":"FirstName only","text":"full decision text that must be made"}\n  ]\n}\nRules:\n- title: concise action label (e.g. "Finalize supplier contract", "Review beta feedback"). Max 8 words.\n- body: fuller context — what specifically must be done, why, any constraints or dependencies from the plan. 2-3 sentences.\n- assignedName must be a real first name from the plan.\n- dueDate in ISO format from any date mention.\n- priority based on urgency language.\n- decisions only if explicitly stated as a decision/approval needed.\n- Empty arrays if none found.\n\nACTION PLAN:\n'+planText.slice(0,2000);
+  var extractPrompt='Parse this action plan and return ONLY valid JSON with no extra text:\n{\n  "actions": [\n    {"title":"short imperative verb-phrase, max 8 words","body":"2-3 sentence description of what needs to be done, why it matters, and any key details or dependencies from the plan","assignedName":"FirstName only","dueDate":"YYYY-MM-DD or empty string","priority":"High|Medium|Low"}\n  ],\n  "decisions": [\n    {"title":"short decision phrase, max 8 words","ownerName":"FirstName only","text":"full decision text that must be made, including context and constraints"}\n  ]\n}\nRules:\n- title: concise action label (e.g. "Finalize supplier contract", "Review beta feedback"). Max 8 words.\n- body: fuller context — what specifically must be done, why, any constraints or dependencies from the plan. 2-3 sentences.\n- assignedName must be a real first name from the plan.\n- dueDate in ISO format from any date mention.\n- priority based on urgency language.\n- decisions only if explicitly stated as a decision/approval needed.\n- Empty arrays if none found.\n\nACTION PLAN:\n'+planText.slice(0,2000);
   var resp={};
   try{
     if(CONFIG.sheetsUrl){
@@ -19949,16 +20044,16 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
     var decOwnerKey=decOwnerMatch?decOwnerMatch.key:'';
     // Always update live task object by ID so saves are never lost on stale refs
     var liveTask=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||t;
-    var decStamp='[AI EXTRACTED — '+new Date().toLocaleDateString()+']\n'+dec.text;
-    liveTask.decision=(liveTask.decision?liveTask.decision+'\n\n':'')+decStamp;
+    var decTitle=dec.title||(dec.text.split(/[.\n]/)[0].split(' ').slice(0,8).join(' '));
+    var decBody=dec.text;
+    liveTask.decision=decTitle+'\n---\n'+'[AI — '+new Date().toLocaleDateString()+(dec.ownerName?' · owner: '+dec.ownerName:'')+'] '+decBody;
     if(typeof saveToLocal==='function') saveToLocal();
     if(typeof _saveTasksNow==='function') _saveTasksNow();
-    // Also fill the textarea if the panel is open
-    var decEl=document.getElementById('raci-task-decision-'+taskId);
-    if(decEl){
-      decEl.value=liveTask.decision;
-      decEl.style.height='auto'; decEl.style.height=Math.min(decEl.scrollHeight,300)+'px';
-    }
+    // Also fill the two-field form if the panel is open
+    var decTitleEl=document.getElementById('raci-task-decision-title-'+taskId);
+    var decBodyEl=document.getElementById('raci-task-decision-body-'+taskId);
+    if(decTitleEl) decTitleEl.value=decTitle;
+    if(decBodyEl){ decBodyEl.value='[AI — '+new Date().toLocaleDateString()+(dec.ownerName?' · owner: '+dec.ownerName:'')+'] '+decBody; decBodyEl.style.height='auto'; decBodyEl.style.height=Math.min(decBodyEl.scrollHeight,200)+'px'; }
     // Create callout so it shows in daily briefing
     if(CONFIG.sheetsUrl){
       var coId='co-dec-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,5);
