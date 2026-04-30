@@ -19388,15 +19388,28 @@ function _irRenderList(taskId){
   el.innerHTML=items.map(function(req){
     var sc=scMap[req.status]||'var(--muted)';
     var canReview=(req.status==='submitted')&&(window._DGL_USER===req.requestedBy||window._DGL_USER==='admin'||window._DGL_USER==='taylor'||window._DGL_USER==='steve');
-    var reviewHtml=canReview?('<div style="display:flex;gap:6px;margin-top:4px"><button onclick="_irApprove(\''+req.id+'\',\''+taskId+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer">\u2713 Approve</button><button onclick="_irReject(\''+req.id+'\',\''+taskId+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer">\u2717 Request More</button></div>'):'';
-    var respNote=req.responseNote?(req.responseNote.slice(0,80)+(req.responseNote.length>80?'\u2026':'')):'' ;
-    var respHtml=req.status!=='pending'?('<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:2px">'+respNote+(req.responseUrl?' <a href="'+req.responseUrl+'" target="_blank" style="color:var(--accent)">\uD83D\uDD17 View</a>':'')+'</div>'):'';
-    return '<div style="padding:5px 0;border-top:1px solid var(--surface)">'+
+    var reviewHtml=canReview?(
+      '<div style="margin-top:8px;padding:8px;background:var(--surface);border-radius:5px;border:1px solid var(--border);border-left:3px solid var(--accent)">'+
+      '<div style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--accent);letter-spacing:1px;margin-bottom:4px">SUBMITTED RESPONSE</div>'+
+      (req.responseNote?'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);white-space:pre-wrap;word-break:break-word;margin-bottom:4px">'+(req.responseNote||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>':'')+
+      (req.responseUrl?'<div style="margin-bottom:6px"><a href="'+req.responseUrl+'" target="_blank" style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--accent);text-decoration:none">\uD83D\uDD17 '+req.responseUrl.slice(0,60)+'\u2026</a></div>':'')+
+      '<div style="display:flex;gap:6px;margin-top:6px">'+
+      '<button onclick="_irApprove(\''+req.id+'\',\''+taskId+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid #22c55e;background:transparent;color:#22c55e;cursor:pointer;font-weight:600">\u2713 Approve + Save to Task</button>'+
+      '<button onclick="_irReject(\''+req.id+'\',\''+taskId+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer">\u21A9 Request More</button>'+
+      '</div></div>'
+    ):'';
+    var respHtml=(!canReview&&req.status!=='pending')?(
+      '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:3px">'+
+      (req.responseNote?(req.responseNote.slice(0,100)+(req.responseNote.length>100?'\u2026':'')):'')+
+      (req.responseUrl?' <a href="'+req.responseUrl+'" target="_blank" style="color:var(--accent)">\uD83D\uDD17 View</a>':'')+
+      '</div>'
+    ):'';
+    return '<div style="padding:6px 0;border-top:1px solid var(--surface)">'+
       '<div style="display:flex;justify-content:space-between;align-items:baseline">'+
       '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--gold)">'+(req.recipientName||req.recipientKey)+'</span>'+
       '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:'+sc+';font-weight:600">'+((req.status||'pending').toUpperCase())+'</span>'+
       '</div>'+
-      '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);margin-top:2px;word-break:break-word">'+(req.message||'').slice(0,120)+((req.message||'').length>120?'\u2026':'')+'</div>'+
+      '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:2px;word-break:break-word">'+(req.message||'').slice(0,100)+((req.message||'').length>100?'\u2026':'')+'</div>'+
       respHtml+reviewHtml+
       '</div>';
   }).join('');
@@ -19611,7 +19624,29 @@ function _sendInfoRequest(taskId){
 }
 
 function _irApprove(reqId,taskId){
-  _irUpdateStatus(reqId,taskId,'approved','');
+  var items=_irCache[taskId]||[];
+  var req=items.find(function(r){return r.id===reqId;})||{};
+  var moveToComplete=confirm('Move task to COMPLETED?\n\nOK = Completed\nCancel = In Progress');
+  var newTaskStatus=moveToComplete?'Complete':'In Progress';
+  // Save the response data to the task messages as an approved record
+  if(CONFIG.sheetsUrl&&taskId){
+    var now=new Date().toISOString();
+    var approver=window._DGL_USER||'taylor';
+    var responseBody=['[✅ INFO REQUEST APPROVED by '+approver+']'];
+    if(req.recipientName) responseBody.push('Submitted by: '+req.recipientName);
+    if(req.responseNote) responseBody.push('\n'+req.responseNote);
+    if(req.responseUrl) responseBody.push('URL: '+req.responseUrl);
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-irapprove-'+reqId,taskId:taskId,fromUser:approver,fromName:'✅ Request Approved ('+approver+')',text:responseBody.join('\n'),createdAt:now,type:'note'})}).catch(function(){});
+    // Also update task notes with the approved response
+    var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;});
+    if(t&&req.responseNote){
+      var stamp='[Response '+now.slice(0,10)+']: '+req.responseNote+(req.responseUrl?'\n'+req.responseUrl:'');
+      t.notes=(t.notes?t.notes+'\n\n'+stamp:stamp);
+      if(typeof saveToLocal==='function') saveToLocal();
+      if(typeof _saveTasksNow==='function') _saveTasksNow();
+    }
+  }
+  _irUpdateStatus(reqId,taskId,'approved',newTaskStatus); // newTaskStatus passed as note to carry chosen status
 }
 
 function _irReject(reqId,taskId){
@@ -19628,89 +19663,134 @@ function _irUpdateStatus(reqId,taskId,newStatus,note){
   _irRenderList(taskId);
   if(newStatus==='approved'){
     var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;});
-    if(t&&t.status==='In Review'){ t.status='In Progress'; if(typeof saveToLocal==='function') saveToLocal(); if(typeof masterRefresh==='function') masterRefresh(); }
+    var moveToStatus=note||'In Progress'; // note field repurposed to carry chosen status from _irApprove
+    if(t&&t.status==='In Review'){ t.status=moveToStatus; if(typeof saveToLocal==='function') saveToLocal(); if(typeof masterRefresh==='function') masterRefresh(); }
   }
 }
+
+var _irCurrentReq={};
 
 function _openInfoResponseModal(reqId){
   var existing=document.getElementById('ir-response-modal');
   if(existing) existing.remove();
-  var iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box';
+  var iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box;box-sizing:border-box';
+  var lbl=function(t){return '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;margin-top:12px">'+t+'</div>';};
   var overlay=document.createElement('div');
   overlay.id='ir-response-modal';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99995;pointer-events:none';
   var box=document.createElement('div');
-  var bW=440, bH=520;
+  var bW=520;
   var bLeft=Math.max(0,Math.round((window.innerWidth-bW)/2));
-  var bTop=Math.max(0,Math.round((window.innerHeight-bH)/2));
-  box.style.cssText='position:fixed;top:'+bTop+'px;left:'+bLeft+'px;width:440px;max-width:calc(100vw - 40px);max-height:90vh;overflow-y:auto;background:var(--card);border:1px solid var(--gold);border-radius:12px;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.8);z-index:99996;pointer-events:all';
-  box.innerHTML=
-    '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:grab">'+
-    '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px">\uD83D\uDCCB INFO REQUEST RESPONSE</span>'+
-    '<button onclick="_irCloseResponseModal()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer">\u2715</button>'+
-    '</div>'+
-    '<div style="padding:16px">'+
-    '<div id="ir-resp-task-info" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);margin-bottom:12px;padding:8px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">Loading request details\u2026</div>'+
-    '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">YOUR RESPONSE</div>'+
-    '<textarea id="ir-resp-note" rows="4" style="'+iSt+';resize:vertical;margin-bottom:10px" placeholder="Describe what you\'ve provided or any relevant context\u2026"></textarea>'+
-    '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">ATTACHMENT URL (optional)</div>'+
-    '<input id="ir-resp-url" type="url" placeholder="https://drive.google.com/\u2026" style="'+iSt+';margin-bottom:10px">'+
-    '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">FILE UPLOAD (optional)</div>'+
-    '<div id="ir-resp-dz-'+reqId+'" style="border:2px dashed var(--border);border-radius:6px;padding:14px;text-align:center;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);cursor:pointer;transition:border-color 0.15s;margin-bottom:6px" onclick="document.getElementById(\'ir-resp-fi-'+reqId+'\').click()" ondragover="event.preventDefault();this.style.borderColor=\'var(--gold)\'" ondragleave="this.style.borderColor=\'\'" ondrop="event.preventDefault();this.style.borderColor=\'\';_handleDocUpload(event.dataTransfer.files,\'request\',\''+reqId+'\',\'InfoRequest\')">'+
-    '\uD83D\uDCCE Drop files here or click to upload</div>'+
+  var bTop=Math.max(0,Math.round((window.innerHeight-560)/2));
+  box.style.cssText='position:fixed;top:'+bTop+'px;left:'+bLeft+'px;width:'+bW+'px;max-width:calc(100vw - 40px);height:580px;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--gold);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.8);z-index:99996;pointer-events:all;overflow:hidden';
+  var header='<div id="ir-resp-drag" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:grab;flex-shrink:0">'+
+    '<div><div style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1.5px">\uD83D\uDCCB TASK INFO REQUEST \u2014 RESPONSE</div>'+
+    '<div id="ir-resp-subtitle" style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-top:2px">Loading request\u2026</div></div>'+
+    '<button onclick="_irCloseResponseModal()" style="background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;flex-shrink:0">\u2715</button></div>';
+  var body='<div style="flex:1;overflow-y:auto;padding:16px 18px;scrollbar-width:thin;scrollbar-color:var(--border) transparent">'+
+    // Request summary card
+    '<div id="ir-resp-task-info" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);margin-bottom:4px;padding:10px 12px;background:var(--surface);border-radius:6px;border:1px solid var(--border);border-left:3px solid var(--gold)">Loading request details\u2026</div>'+
+    lbl('YOUR RESPONSE \u2014 SUMMARY')+
+    '<textarea id="ir-resp-note" rows="4" style="'+iSt+';resize:vertical" placeholder="Summarise what you are providing and any important context\u2026"></textarea>'+
+    lbl('TIMELINE / ETA')+
+    '<input id="ir-resp-eta" type="text" placeholder="e.g. Delivering full doc by Friday May 3 \u2014 mockups ready now" style="'+iSt+'">'+
+    lbl('PRIMARY DOCUMENT URL')+
+    '<input id="ir-resp-url" type="url" placeholder="https://drive.google.com/\u2026 \u2014 main deliverable" style="'+iSt+'">'+
+    lbl('SECONDARY / REFERENCE URLS  (one per line)')+
+    '<textarea id="ir-resp-refs" rows="2" style="'+iSt+';resize:vertical" placeholder="https://notion.so/\u2026&#10;https://figma.com/\u2026"></textarea>'+
+    lbl('FILE UPLOAD \u2014 DRAG & DROP OR BROWSE')+
+    '<div id="ir-resp-dz-'+reqId+'" style="border:2px dashed var(--border);border-radius:6px;padding:18px;text-align:center;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);cursor:pointer;transition:border-color 0.15s,color 0.15s;margin-bottom:6px" onclick="document.getElementById(\'ir-resp-fi-'+reqId+'\').click()" ondragover="event.preventDefault();this.style.borderColor=\'var(--gold)\';this.style.color=\'var(--gold)\'" ondragleave="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--muted)\'" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';this.style.color=\'var(--muted)\';_handleDocUpload(event.dataTransfer.files,\'request\',\''+reqId+'\',\'InfoRequest\')">'+
+    '<span style="font-size:22px;display:block;margin-bottom:4px">\uD83D\uDCC2</span>Drop files here or <span style="color:var(--gold);text-decoration:underline">Browse</span><br><span style="font-size:8px;color:var(--border)">PDF \u00B7 DOCX \u00B7 XLSX \u00B7 PNG \u00B7 JPG \u00B7 any file</span></div>'+
     '<input id="ir-resp-fi-'+reqId+'" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,\'request\',\''+reqId+'\',\'InfoRequest\');this.value=\'\'">'+
-    '<div id="docs-list-request-'+reqId+'" style="margin-bottom:10px"></div>'+
-    '<div id="ir-resp-status" style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);min-height:14px;margin-bottom:10px"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-    '<button onclick="_irCloseResponseModal()" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>'+
-    '<button onclick="_submitInfoResponse(\''+reqId+'\')" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 14px;border-radius:5px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-weight:600">\u2705 Submit Response</button>'+
-    '</div>'+
+    '<div id="docs-list-request-'+reqId+'" style="margin-bottom:6px"></div>'+
+    '<div id="ir-resp-status" style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);min-height:16px;margin-top:8px"></div>'+
     '</div>';
+  var footer='<div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--border);background:rgba(0,0,0,0.1);flex-shrink:0">'+
+    '<button onclick="_irCloseResponseModal()" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>'+
+    '<button onclick="_submitInfoResponse(\''+reqId+'\')" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 18px;border-radius:5px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-weight:600">\u2705 Submit Response</button>'+
+    '</div>';
+  box.innerHTML=header+body+footer;
   document.body.appendChild(overlay);
   document.body.appendChild(box);
-  _irMakeDraggableModal(box,overlay);
+  // Drag by header
+  var dragHdr=document.getElementById('ir-resp-drag');
+  if(dragHdr){
+    var _dX,_dY,_dL,_dT,_dd=false;
+    dragHdr.addEventListener('mousedown',function(e){if(e.target.tagName==='BUTTON') return;_dd=true;_dX=e.clientX;_dY=e.clientY;_dL=parseInt(box.style.left)||0;_dT=parseInt(box.style.top)||0;dragHdr.style.cursor='grabbing';e.preventDefault();});
+    document.addEventListener('mousemove',function(e){if(!_dd) return;box.style.left=Math.max(0,Math.min(window.innerWidth-box.offsetWidth,_dL+(e.clientX-_dX)))+'px';box.style.top=Math.max(0,Math.min(window.innerHeight-box.offsetHeight,_dT+(e.clientY-_dY)))+'px';});
+    document.addEventListener('mouseup',function(){if(_dd){_dd=false;dragHdr.style.cursor='grab';}});
+  }
   setTimeout(function(){ loadDocsForSource('request',reqId); },200);
-  var infoEl=document.getElementById('ir-resp-task-info');
+  // Load request details
   if(CONFIG.sheetsUrl){
     fetch(CONFIG.sheetsUrl+'?action=ir_read&id='+encodeURIComponent(reqId))
       .then(function(r){return r.json();})
       .then(function(d){
         var req=(d.requests||[])[0]||d.request||{};
-        if(!infoEl) return;
-        if(req.message){
-          infoEl.innerHTML='<span style="color:var(--gold);font-weight:600">'+(req.taskId||reqId)+'</span><br><span style="color:var(--text);white-space:pre-wrap">'+(req.message||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>';
-        } else {
-          infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+'<br>Fill in your response below.</span>';
+        _irCurrentReq=req;
+        var sub=document.getElementById('ir-resp-subtitle');
+        if(sub) sub.textContent=(req.taskId||reqId)+(req.requestedBy?' \u00B7 from '+req.requestedBy:'');
+        var infoEl=document.getElementById('ir-resp-task-info');
+        if(infoEl){
+          if(req.message){
+            infoEl.innerHTML='<div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin-bottom:6px">'+
+              '<span style="color:var(--muted)">TASK</span><span style="color:var(--gold);font-weight:600">'+(req.taskId||'\u2014')+'</span>'+
+              '<span style="color:var(--muted)">FROM</span><span style="color:var(--text)">'+(req.requestedBy||'\u2014')+'</span>'+
+              '</div>'+
+              '<div style="color:var(--text);white-space:pre-wrap;border-top:1px solid var(--border);padding-top:6px;margin-top:2px">'+(req.message||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>';
+          } else {
+            infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+' \u2014 fill in your response below.</span>';
+          }
         }
       })
       .catch(function(){
-        if(infoEl) infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+'<br>Could not load details \u2014 fill in your response below.</span>';
+        _irCurrentReq={};
+        var infoEl=document.getElementById('ir-resp-task-info');
+        if(infoEl) infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+' \u2014 could not load details.</span>';
       });
   } else {
-    if(infoEl) infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+'<br>Fill in your response below.</span>';
+    _irCurrentReq={};
+    var infoEl=document.getElementById('ir-resp-task-info');
+    if(infoEl) infoEl.innerHTML='<span style="color:var(--muted)">Request ID: '+reqId+'</span>';
   }
 }
 
 function _submitInfoResponse(reqId){
   var noteEl=document.getElementById('ir-resp-note');
   var urlEl=document.getElementById('ir-resp-url');
+  var refsEl=document.getElementById('ir-resp-refs');
+  var etaEl=document.getElementById('ir-resp-eta');
   var statusEl=document.getElementById('ir-resp-status');
   if(!statusEl) return;
   var note=(noteEl&&noteEl.value||'').trim();
   var manualUrl=(urlEl&&urlEl.value||'').trim();
-  // Pull first uploaded doc URL from docs cache
+  var refs=(refsEl&&refsEl.value||'').trim();
+  var eta=(etaEl&&etaEl.value||'').trim();
   var uploadedDocs=(_docsCache['request_'+reqId]||[]);
   var uploadedUrl=(uploadedDocs[0]&&uploadedDocs[0].url)||'';
   var finalUrl=manualUrl||uploadedUrl;
-  // Collect all uploaded doc URLs as a comma-separated list if multiple
   if(uploadedDocs.length>1) finalUrl=uploadedDocs.map(function(d){return d.url||'';}).filter(Boolean).join(', ')||manualUrl;
-  if(!note&&!finalUrl){ statusEl.textContent='Please provide a response note, URL, or upload a file.'; statusEl.style.color='var(--amber)'; return; }
+  if(!note&&!finalUrl&&!refs){ statusEl.textContent='Please add a response, URL, or upload a file.'; statusEl.style.color='var(--amber)'; return; }
   statusEl.textContent='\u23F3 Submitting\u2026'; statusEl.style.color='var(--gold)';
-  var payload={action:'ir_update',id:reqId,status:'submitted',responseNote:note,responseUrl:finalUrl,responseAt:new Date().toISOString(),reviewedBy:'',reviewedAt:''};
-  var p=CONFIG.sheetsUrl?fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).catch(function(){}):Promise.resolve();
-  p.then(function(){
-    statusEl.textContent='\u2705 Response submitted! The requester has been notified.'; statusEl.style.color='var(--green)';
-    setTimeout(function(){ _irCloseResponseModal(); },2500);
+  var now=new Date().toISOString();
+  var responder=window._DGL_USER||'team';
+  var req=_irCurrentReq||{};
+  var taskId=req.taskId||'';
+  var allUrls=[finalUrl,refs].filter(Boolean).join('\n');
+  var fullNote=[note,eta?'ETA: '+eta:'',allUrls?'URLS:\n'+allUrls:''].filter(Boolean).join('\n\n');
+  var payload={action:'ir_update',id:reqId,status:'submitted',responseNote:fullNote,responseUrl:finalUrl,responseEta:eta,responseRefs:refs,responseAt:now,respondedBy:responder,reviewedBy:'',reviewedAt:''};
+  var saves=CONFIG.sheetsUrl?[
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).catch(function(){}),
+    // Post to task messages so Taylor/Steve can see it inline
+    taskId?fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-irresp-'+reqId,taskId:taskId,fromUser:responder,fromName:'\uD83D\uDCCB Response Submitted ('+responder+')',text:'[INFO REQUEST RESPONSE]\n'+fullNote,createdAt:now,type:'note'})}).catch(function(){}):Promise.resolve(),
+    // Callout alert \u2192 Taylor
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'callout_write',id:'co-irr-t-'+reqId,type:'flag',title:'\uD83D\uDCCB Review Response: '+(taskId||reqId),message:responder+' submitted a response. Review and approve to save data to the task.\n\n'+(note?note.slice(0,120):''),taggedUser:'taylor',taggedTask:taskId,createdBy:responder,createdAt:now,dueDate:''})}).catch(function(){}),
+    // Callout alert \u2192 Steve
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'callout_write',id:'co-irr-s-'+reqId,type:'flag',title:'\uD83D\uDCCB Review Response: '+(taskId||reqId),message:responder+' submitted a response. Review and approve to save data to the task.\n\n'+(note?note.slice(0,120):''),taggedUser:'steve',taggedTask:taskId,createdBy:responder,createdAt:now,dueDate:''})}).catch(function(){})
+  ]:[];
+  Promise.all(saves).then(function(){
+    statusEl.textContent='\u2705 Submitted! Taylor & Steve have been notified to review.'; statusEl.style.color='var(--green)';
+    setTimeout(function(){ _irCloseResponseModal(); },2800);
   });
 }
 
