@@ -17664,114 +17664,103 @@ function _renderLPActionsTab(container,lpId){
 }
 function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
   const existing=document.getElementById('lp-add-action-form');
-  if(existing){existing.remove();document.getElementById('lp-add-action-ov')?.remove();return;}
-  const iCss="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:4px;outline:none";
-  const lCss='color:var(--muted);font-size:9px;letter-spacing:1px;display:block;margin-bottom:2px';
-  const ov=document.createElement('div');ov.id='lp-add-action-ov';
-  ov.style.cssText='position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.45)';
-  const form=document.createElement('div');form.id='lp-add-action-form';
-  form.style.cssText="position:fixed;z-index:9200;top:50%;left:50%;transform:translate(-50%,-50%);width:420px;max-width:94vw;max-height:90vh;overflow-y:auto;background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,0.65);padding:18px 20px;font-family:'DM Mono',monospace";
-  form.addEventListener('click',e=>e.stopPropagation());
-  const hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px';
-  const ftl=document.createElement('div');ftl.style.cssText='color:var(--gold);font-size:10px;letter-spacing:1.5px;font-weight:600';ftl.textContent='⚡ ADD ACTION';
-  const xBtn=document.createElement('button');xBtn.textContent='✕';xBtn.style.cssText="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1";
-  function _close(){form.remove();ov.remove();}
-  xBtn.onclick=_close;ov.onclick=_close;
-  hdr.appendChild(ftl);hdr.appendChild(xBtn);form.appendChild(hdr);
-  function _fld(lbl,el,hint){
-    const wrap=document.createElement('div');wrap.style.marginBottom='10px';
-    const l=document.createElement('label');l.style.cssText=lCss;l.textContent=lbl;
-    wrap.appendChild(l);wrap.appendChild(el);
-    if(hint){const h=document.createElement('div');h.style.cssText="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px";h.textContent=hint;wrap.appendChild(h);}
-    form.appendChild(wrap);return el;
-  }
+  if(existing){existing.remove();return;}
+  const taskId=(opts&&opts.taskId)||'';
+  const task=taskId?(DASHBOARD_DATA.tasks||[]).find(x=>x.id===taskId):null;
+  const iCss="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-family:'DM Mono',monospace;font-size:10px;outline:none";
+  const lSt="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-bottom:3px";
+  const panel=document.createElement('div');panel.id='lp-add-action-form';
+  panel.style.cssText="position:fixed;bottom:20px;left:20px;width:410px;max-width:calc(100vw - 40px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.7);z-index:99990;overflow:hidden;font-family:'DM Mono',monospace";
+  function _close(){panel.remove();}
+  // Header — mailbox alert style
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:grab;user-select:none';
+  hdr.innerHTML='<span style="font-size:13px;flex-shrink:0">⚡</span><span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;flex:1">ADD ACTION</span>'+
+    (taskId?'<span style="font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:1px 6px">'+taskId+(task?' · '+(task.name||'').slice(0,22)+((task.name||'').length>22?'…':''):'')+'</span>':'')+
+    '<button onclick="document.getElementById(\'lp-add-action-form\').remove()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;margin-left:4px">✕</button>';
+  panel.appendChild(hdr);
+  // Scrollable body
+  const body=document.createElement('div');body.style.cssText='padding:12px 14px;overflow-y:auto;max-height:60vh';panel.appendChild(body);
+  function _lbl(t){const d=document.createElement('div');d.style.cssText=lSt;d.textContent=t;return d;}
+  function _wrap(lbl,el){const w=document.createElement('div');w.style.marginBottom='8px';w.appendChild(_lbl(lbl));w.appendChild(el);body.appendChild(w);return el;}
   // Type
   const typeEl=document.createElement('select');typeEl.style.cssText=iCss;
   ['Task','Decision','Note','Status Update','Risk','Blocker'].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;typeEl.appendChild(o);});
-  _fld('TYPE',typeEl);
-  // Title + live word count
-  const titleEl=document.createElement('input');titleEl.type='text';titleEl.placeholder='Short action label — verb phrase, max 8 words';titleEl.style.cssText=iCss;
-  const titleWrap=document.createElement('div');titleWrap.style.marginBottom='10px';
-  const titleLbl=document.createElement('label');titleLbl.style.cssText=lCss;titleLbl.textContent='TITLE';
-  const wc=document.createElement('div');wc.style.cssText="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px";wc.textContent='0 words';
-  titleEl.oninput=()=>{
-    const words=(titleEl.value.trim().match(/\S+/g)||[]).length;
-    wc.textContent=words+' word'+(words!==1?'s':'');
-    wc.style.color=words>8?'#ef4444':words>5?'#f59e0b':'var(--muted)';
-    _updatePreview();
-  };
-  titleWrap.appendChild(titleLbl);titleWrap.appendChild(titleEl);titleWrap.appendChild(wc);form.appendChild(titleWrap);
-  // Body
-  const bodyEl=document.createElement('textarea');bodyEl.rows=4;bodyEl.placeholder='Describe what needs to be done, why it matters, and any key details or dependencies…';bodyEl.style.cssText=iCss+';resize:vertical';
-  bodyEl.oninput=_updatePreview;
-  _fld('DETAILS',bodyEl);
-  // Assigned + Due in a row
-  const row2=document.createElement('div');row2.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px';
-  const assignWrap=document.createElement('div');
-  const assignLbl=document.createElement('label');assignLbl.style.cssText=lCss;assignLbl.textContent='ASSIGNED TO';
+  typeEl.onchange=_upv;_wrap('TYPE',typeEl);
+  // Title + word count
+  const titleEl=document.createElement('input');titleEl.type='text';titleEl.placeholder='Short label — verb phrase, max 8 words';titleEl.style.cssText=iCss;
+  const wcDiv=document.createElement('div');wcDiv.style.cssText="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px";wcDiv.textContent='0 words';
+  titleEl.oninput=()=>{const w=(titleEl.value.trim().match(/\S+/g)||[]).length;wcDiv.textContent=w+' word'+(w!==1?'s':'');wcDiv.style.color=w>8?'#ef4444':w>5?'#f59e0b':'var(--muted)';_upv();};
+  const tw=document.createElement('div');tw.style.marginBottom='8px';tw.appendChild(_lbl('TITLE'));tw.appendChild(titleEl);tw.appendChild(wcDiv);body.appendChild(tw);
+  // Details/body
+  const bodyEl=document.createElement('textarea');bodyEl.rows=3;bodyEl.placeholder='What needs to be done, why it matters, dependencies…';bodyEl.style.cssText=iCss+';resize:vertical';bodyEl.oninput=_upv;_wrap('DETAILS',bodyEl);
+  // Assign + Due grid
+  const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px';
+  const aw=document.createElement('div');aw.appendChild(_lbl('ASSIGN TO'));
   const assignEl=document.createElement('select');assignEl.style.cssText=iCss;
-  (()=>{const none=document.createElement('option');none.value='';none.textContent='— Unassigned —';assignEl.appendChild(none);_DM_MEMBERS.filter(m=>!_isDMInactive(m.key)).forEach(m=>{const o=document.createElement('option');o.value=m.key;o.textContent=m.name;assignEl.appendChild(o);});})();
-  assignEl.onchange=_updatePreview;
-  assignWrap.appendChild(assignLbl);assignWrap.appendChild(assignEl);
-  const dueWrap=document.createElement('div');
-  const dueLbl=document.createElement('label');dueLbl.style.cssText=lCss;dueLbl.textContent='DUE DATE';
+  const nOpt=document.createElement('option');nOpt.value='';nOpt.textContent='— Unassigned —';assignEl.appendChild(nOpt);
+  (_DM_MEMBERS||[]).filter(m=>!_isDMInactive(m.key)).forEach(m=>{const o=document.createElement('option');o.value=m.key;o.textContent=m.name;assignEl.appendChild(o);});
+  if(task&&task.owner){const ok=task.owner.split('/')[0].trim().toLowerCase();const ps=[...assignEl.options].find(o=>o.value===ok);if(ps)ps.selected=true;}
+  assignEl.onchange=_upv;aw.appendChild(assignEl);
+  const dw=document.createElement('div');dw.appendChild(_lbl('DUE DATE'));
   const dueEl=document.createElement('input');dueEl.type='date';dueEl.style.cssText=iCss;
-  dueEl.oninput=_updatePreview;
-  dueWrap.appendChild(dueLbl);dueWrap.appendChild(dueEl);
-  row2.appendChild(assignWrap);row2.appendChild(dueWrap);form.appendChild(row2);
+  if(task&&task.ed){try{const _ed=new Date(String(task.ed));if(!isNaN(_ed))dueEl.value=_ed.toISOString().slice(0,10);}catch(_){}}
+  dueEl.oninput=_upv;dw.appendChild(dueEl);
+  grid.appendChild(aw);grid.appendChild(dw);body.appendChild(grid);
   // Live preview
-  const pvLbl=document.createElement('div');pvLbl.style.cssText="color:var(--muted);font-size:8px;letter-spacing:1px;margin-bottom:4px;margin-top:2px";pvLbl.textContent='PREVIEW';
-  const pvCard=document.createElement('div');pvCard.style.cssText='border:1px dashed rgba(201,168,76,0.3);border-radius:6px;overflow:hidden;margin-bottom:12px;min-height:36px';
-  form.appendChild(pvLbl);form.appendChild(pvCard);
-  function _updatePreview(){
-    const draft={type:typeEl.value,title:titleEl.value,body:bodyEl.value,assignedTo:assignEl.value,dueDate:dueEl.value,status:'open',createdAt:new Date().toISOString()};
-    pvCard.innerHTML='';pvCard.appendChild(_buildActionCard(draft));
-  }
-  typeEl.onchange=_updatePreview;
-  _updatePreview();
+  const pvLbl=document.createElement('div');pvLbl.style.cssText="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;margin-top:4px";pvLbl.textContent='PREVIEW';
+  const pvCard=document.createElement('div');pvCard.style.cssText='border:1px dashed rgba(201,168,76,0.3);border-radius:6px;overflow:hidden;min-height:36px;margin-bottom:10px';
+  body.appendChild(pvLbl);body.appendChild(pvCard);
+  function _upv(){const d={type:typeEl.value,title:titleEl.value,body:bodyEl.value,assignedTo:assignEl.value,dueDate:dueEl.value,status:'open',createdAt:new Date().toISOString()};pvCard.innerHTML='';pvCard.appendChild(_buildActionCard(d));}
+  _upv();
+  // Status line
+  const statusDiv=document.createElement('div');statusDiv.style.cssText="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);min-height:14px;margin-bottom:6px";body.appendChild(statusDiv);
   // Buttons
-  const btns=document.createElement('div');btns.style.cssText='display:flex;gap:6px;justify-content:flex-end';
-  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:5px 12px;cursor:pointer";cancelBtn.onclick=_close;
-  const saveBtn=document.createElement('button');saveBtn.textContent='💾 Save Action';saveBtn.style.cssText="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;padding:5px 14px;cursor:pointer;font-weight:600";
+  const btns=document.createElement('div');btns.style.cssText='display:flex;gap:8px;justify-content:flex-end';
+  const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";cancelBtn.onclick=_close;
+  const saveBtn=document.createElement('button');saveBtn.textContent='⚡ Save Action';saveBtn.style.cssText="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:600";
   saveBtn.onclick=async()=>{
     if(saveBtn.disabled) return;
-    saveBtn.disabled=true;saveBtn.textContent='Saving…';
+    saveBtn.disabled=true;saveBtn.textContent='Saving…';statusDiv.textContent='⏳ Saving…';statusDiv.style.color='var(--gold)';
     try{
       const title=(titleEl.value||'').trim();
-      if(!title){titleEl.focus();saveBtn.disabled=false;saveBtn.textContent='💾 Save Action';return;}
+      if(!title){titleEl.focus();saveBtn.disabled=false;saveBtn.textContent='⚡ Save Action';statusDiv.textContent='';return;}
       const id='wsa-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
       const assignedKey=assignEl.value;
       const assignedName=assignedKey?(_DM_NAME_MAP[assignedKey]||assignedKey):'Unassigned';
       const barItem=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===lpId)||{};
       const wsName=barItem.workstream||workstreamId||'';
-      const msg=`⚡ New Action assigned to ${assignedName} on ${wsName}: ${title}${bodyEl.value?' — '+bodyEl.value:''}`;
       const now=new Date().toISOString();
-      const _actTaskId=(opts&&opts.taskId)||'';
+      const _actTaskId=taskId||'';
+      const msg=`⚡ New Action assigned to ${assignedName} on ${wsName}: ${title}${bodyEl.value?' — '+bodyEl.value.slice(0,80):''}`;
       const wsaPayload={action:'workstream_action_write',item:{id,workstreamId:workstreamId||'',type:typeEl.value,title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:_actTaskId,createdBy:CONFIG.currentUser||'',createdAt:now}};
       const actPayload={action:'action_write',id,taskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
       if(!CONFIG.sheetsUrl){const _na={id,taskId:_actTaskId,linkedTaskId:_actTaskId,workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};_close();if(onSaved)onSaved(_na);return;}
-      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted)">⏳ Saving…</div>',2000);
       const actR=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).then(r=>r.json());
       if(!actR||!actR.ok) throw new Error('action_write failed: '+JSON.stringify(actR));
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).catch(()=>{});
-      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action saved</div>',1800);
       const _newAct={id,taskId:_actTaskId,linkedTaskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
       _actionsCache.push(_newAct);
       if(Array.isArray(_acWsActionsCache)){const _wi=_acWsActionsCache.findIndex(a=>a.id===id);if(_wi>=0)_acWsActionsCache[_wi]=_newAct;else _acWsActionsCache.push(_newAct);}
-      _autoLink('action',id,'workstream',workstreamId);
+      if(_actTaskId&&!_taskWsaCache[_actTaskId]){_taskWsaCache[_actTaskId]=[];}
+      if(_actTaskId){_taskWsaCache[_actTaskId].unshift(_newAct);_taskActsRender(_actTaskId,_taskWsaCache[_actTaskId]);}
+      _autoLink('action',id,'workstream',workstreamId||'');
       if(assignedKey){const dmCh=_getDMChannelId(assignedKey);_logNotification(id,assignedKey,dmCh,msg,'action');if(dmCh)fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(dmCh)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(CONFIG.currentUser||'system')).catch(()=>{});}
       if(wsName){const chs=_slackChannelsCache||[];const wsSlug=wsName.toLowerCase().replace(/\s+/g,'-');const wsCh=chs.find(c=>(c.name||'').toLowerCase()===wsSlug)||chs.find(c=>(c.name||'').toLowerCase().includes(wsSlug.split('-')[0]));if(wsCh)fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(wsCh.id)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(CONFIG.currentUser||'system')).catch(()=>{});}
-      _close();if(onSaved)onSaved(_newAct);
+      statusDiv.textContent='✓ Saved';statusDiv.style.color='var(--green)';
+      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action saved'+(assignedName&&assignedName!=='Unassigned'?' — assigned to '+assignedName:'')+'</div>',1800);
+      setTimeout(()=>_close(),800);
+      if(onSaved)onSaved(_newAct);
     }catch(e){
       console.error('[DGL] AddAction save error:',e);
-      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:tomato">❌ Save failed: '+e.message+'</div>',4000);
-      saveBtn.disabled=false;saveBtn.textContent='💾 Save Action';
+      statusDiv.textContent='❌ Save failed';statusDiv.style.color='tomato';
+      saveBtn.disabled=false;saveBtn.textContent='⚡ Save Action';
     }
   };
-  btns.appendChild(cancelBtn);btns.appendChild(saveBtn);form.appendChild(btns);
-  document.body.appendChild(ov);
-  document.body.appendChild(form);
-  titleEl.focus();
+  btns.appendChild(cancelBtn);btns.appendChild(saveBtn);body.appendChild(btns);
+  document.body.appendChild(panel);
+  if(typeof _irMakeDraggable==='function') _irMakeDraggable(panel);
+  setTimeout(()=>titleEl.focus(),50);
 }
 function _showLPEditBarForm(lpId){
   const item=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(x=>x.id===lpId);
@@ -19689,46 +19678,73 @@ function _taskActsRender(taskId,acts){
 
 function _taskActsOpenAddForm(taskId){
   var existing=document.getElementById('task-acts-add-panel');
-  if(existing) existing.remove();
-  var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;});
-  if(!t) return;
-  var iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box';
-  var memberOpts=(_DM_MEMBERS||[]).filter(function(m){return !_isDMInactive(m.key);}).map(function(m){return '<option value="'+m.key+'">'+m.name+'</option>';}).join('');
+  if(existing){existing.remove();return;}
+  var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||{};
+  var iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 8px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:10px;outline:none;box-sizing:border-box';
+  var lSt='font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-bottom:3px';
   var panel=document.createElement('div');
   panel.id='task-acts-add-panel';
-  panel.style.cssText='position:fixed;bottom:20px;left:20px;width:360px;max-width:calc(100vw - 40px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.7);z-index:99990;overflow:hidden';
-  panel.innerHTML=
-    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:grab">'+
-    '<span style="font-family:\'DM Mono\',monospace;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px">\u26A1 ADD ACTION \u2014 '+taskId+'</span>'+
-    '<button onclick="document.getElementById(\'task-acts-add-panel\').remove()" style="background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer">\u2715</button>'+
-    '</div>'+
-    '<div style="padding:12px 14px">'+
-    '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">ACTION TITLE</div>'+
-    '<input id="ta-title-'+taskId+'" type="text" placeholder="e.g. Ask Taylor for approval\u2026" style="'+iSt+';margin-bottom:8px" onkeydown="if(event.key===\'Enter\')_taskActSave(\''+taskId+'\')">'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
-    '<div><div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">ASSIGN TO</div>'+
-    '<select id="ta-assign-'+taskId+'" style="'+iSt+'"><option value="">\u2014 Unassigned \u2014</option>'+memberOpts+'</select></div>'+
-    '<div><div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">DUE DATE</div>'+
-    '<input id="ta-due-'+taskId+'" type="date" style="'+iSt+'"></div>'+
-    '</div>'+
-    '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">PRIORITY</div>'+
-    '<select id="ta-priority-'+taskId+'" style="'+iSt+';margin-bottom:10px">'+
-    '<option value="Medium">Medium</option><option value="High">High</option><option value="Low">Low</option>'+
-    '</select>'+
-    '<div id="ta-status-'+taskId+'" style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);min-height:14px;margin-bottom:8px"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-    '<button onclick="document.getElementById(\'task-acts-add-panel\').remove()" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>'+
-    '<button onclick="_taskActSave(\''+taskId+'\')" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:600">\u26A1 Save Action</button>'+
-    '</div>'+
-    '</div>';
+  panel.style.cssText='position:fixed;bottom:20px;left:20px;width:410px;max-width:calc(100vw - 40px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.7);z-index:99990;overflow:hidden;font-family:\'DM Mono\',monospace';
+  // Draggable header
+  var hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:grab;user-select:none';
+  hdr.innerHTML='<span style="font-size:13px;flex-shrink:0">\u26A1</span><span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;flex:1">ADD ACTION</span>'+
+    '<span style="font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:1px 6px">'+taskId+(t.name?(' \u00B7 '+t.name.slice(0,22)+(t.name.length>22?'\u2026':'')):'')+'</span>'+
+    '<button onclick="document.getElementById(\'task-acts-add-panel\').remove()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;margin-left:4px">\u2715</button>';
+  panel.appendChild(hdr);
+  // Scrollable body
+  var body=document.createElement('div');
+  body.style.cssText='padding:12px 14px;overflow-y:auto;max-height:60vh';
+  panel.appendChild(body);
+  function _lbl(txt){var d=document.createElement('div');d.style.cssText=lSt;d.textContent=txt;return d;}
+  function _wrap(lbl,el,hint){var w=document.createElement('div');w.style.marginBottom='8px';w.appendChild(_lbl(lbl));w.appendChild(el);if(hint){var h=document.createElement('div');h.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-top:2px';h.textContent=hint;w.appendChild(h);}body.appendChild(w);return el;}
+  // Title + word count
+  var titleInp=document.createElement('input');titleInp.id='ta-title-'+taskId;titleInp.type='text';titleInp.placeholder='Short label \u2014 verb phrase, max 8 words';titleInp.style.cssText=iSt;
+  var wcDiv=document.createElement('div');wcDiv.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-top:2px';wcDiv.textContent='0 words';
+  titleInp.oninput=function(){var w=(titleInp.value.trim().match(/\S+/g)||[]).length;wcDiv.textContent=w+' word'+(w!==1?'s':'');wcDiv.style.color=w>8?'#ef4444':w>5?'#f59e0b':'var(--muted)';_prvUpd();};
+  titleInp.onkeydown=function(e){if(e.key==='Enter')_taskActSave(taskId);};
+  var tw=document.createElement('div');tw.style.marginBottom='8px';tw.appendChild(_lbl('TITLE'));tw.appendChild(titleInp);tw.appendChild(wcDiv);body.appendChild(tw);
+  // Body/Details
+  var bodyTa=document.createElement('textarea');bodyTa.id='ta-body-'+taskId;bodyTa.rows=3;bodyTa.placeholder='What needs to be done, why it matters, dependencies\u2026';bodyTa.style.cssText=iSt+';resize:vertical';bodyTa.oninput=_prvUpd;
+  _wrap('DETAILS',bodyTa);
+  // Assign + Due grid
+  var grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px';
+  var aw=document.createElement('div');aw.appendChild(_lbl('ASSIGN TO'));
+  var assignSel=document.createElement('select');assignSel.id='ta-assign-'+taskId;assignSel.style.cssText=iSt;
+  var nOpt=document.createElement('option');nOpt.value='';nOpt.textContent='\u2014 Unassigned \u2014';assignSel.appendChild(nOpt);
+  (_DM_MEMBERS||[]).filter(function(m){return !_isDMInactive(m.key);}).forEach(function(m){var o=document.createElement('option');o.value=m.key;o.textContent=m.name;assignSel.appendChild(o);});
+  if(t.owner){var owKey=t.owner.split('/')[0].trim().toLowerCase();var preselect=[...assignSel.options].find(function(o){return o.value===owKey;});if(preselect)preselect.selected=true;}
+  assignSel.onchange=_prvUpd;aw.appendChild(assignSel);
+  var dw=document.createElement('div');dw.appendChild(_lbl('DUE DATE'));
+  var dueInp=document.createElement('input');dueInp.id='ta-due-'+taskId;dueInp.type='date';dueInp.style.cssText=iSt;
+  if(t.ed){try{var _ed=new Date(String(t.ed));if(!isNaN(_ed))dueInp.value=_ed.toISOString().slice(0,10);}catch(_){}}
+  dueInp.oninput=_prvUpd;dw.appendChild(dueInp);
+  grid.appendChild(aw);grid.appendChild(dw);body.appendChild(grid);
+  // Priority
+  var prSel=document.createElement('select');prSel.id='ta-priority-'+taskId;prSel.style.cssText=iSt;
+  ['Medium','High','Low'].forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;prSel.appendChild(o);});
+  prSel.onchange=_prvUpd;_wrap('PRIORITY',prSel);
+  // Live preview
+  var pvLbl=document.createElement('div');pvLbl.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;margin-top:4px';pvLbl.textContent='PREVIEW';
+  var pvCard=document.createElement('div');pvCard.id='ta-preview-'+taskId;pvCard.style.cssText='border:1px dashed rgba(201,168,76,0.3);border-radius:6px;overflow:hidden;min-height:36px;margin-bottom:10px';
+  body.appendChild(pvLbl);body.appendChild(pvCard);
+  function _prvUpd(){var draft={type:prSel.value||'Medium',title:titleInp.value,body:bodyTa.value,assignedTo:assignSel.value,dueDate:dueInp.value,status:'open',createdAt:new Date().toISOString()};pvCard.innerHTML='';pvCard.appendChild(_buildActionCard(draft));}
+  // Status
+  var statusDiv=document.createElement('div');statusDiv.id='ta-status-'+taskId;statusDiv.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);min-height:14px;margin-bottom:6px';body.appendChild(statusDiv);
+  // Buttons
+  var btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:8px;justify-content:flex-end';
+  var cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer";cancelBtn.onclick=function(){panel.remove();};
+  var saveBtn=document.createElement('button');saveBtn.textContent='\u26A1 Save Action';saveBtn.style.cssText="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:600";saveBtn.onclick=function(){_taskActSave(taskId);};
+  btnRow.appendChild(cancelBtn);btnRow.appendChild(saveBtn);body.appendChild(btnRow);
   document.body.appendChild(panel);
   _irMakeDraggable(panel);
-  var titleInput=document.getElementById('ta-title-'+taskId);
-  if(titleInput) setTimeout(function(){titleInput.focus();},50);
+  _prvUpd();
+  setTimeout(function(){titleInp.focus();},50);
 }
 
 function _taskActSave(taskId){
   var titleEl=document.getElementById('ta-title-'+taskId);
+  var bodyEl=document.getElementById('ta-body-'+taskId);
   var assignEl=document.getElementById('ta-assign-'+taskId);
   var dueEl=document.getElementById('ta-due-'+taskId);
   var priorityEl=document.getElementById('ta-priority-'+taskId);
@@ -19736,19 +19752,21 @@ function _taskActSave(taskId){
   if(!titleEl) return;
   var title=(titleEl.value||'').trim();
   if(!title){ titleEl.focus(); return; }
+  var body=bodyEl?bodyEl.value:'';
   var assignedKey=assignEl?assignEl.value:'';
   var assignedName=assignedKey?((_DM_NAME_MAP&&_DM_NAME_MAP[assignedKey])||assignedKey):'';
   var dueDate=dueEl?dueEl.value:'';
   var priority=priorityEl?priorityEl.value:'Medium';
   var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||{};
-  var workstreamId=t.workstream||'';
+  var wsRow=(_wsCache||[]).find(function(w){return w.name===t.cat||w.id===t.cat;})||null;
+  var workstreamId=wsRow?wsRow.id:(t.cat||'');
   var id='act-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
   var now=new Date().toISOString();
   var user=window._DGL_USER||'system';
   if(statusEl){statusEl.textContent='\u23F3 Saving\u2026';statusEl.style.color='var(--gold)';}
-  var wsaPayload={action:'workstream_action_write',item:{id:id,workstreamId:workstreamId,type:priority,title:title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
-  var actPayload={action:'action_write',id:id,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority.toLowerCase(),title:title,body:'',status:'open',createdBy:user,createdAt:now};
-  var newEntry={id:id,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority,title:title,body:'',status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,createdBy:user,createdAt:now};
+  var wsaPayload={action:'workstream_action_write',item:{id:id,workstreamId:workstreamId,type:priority,title:title,body:body,assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
+  var actPayload={action:'action_write',id:id,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority.toLowerCase(),title:title,body:body,assignedTo:assignedKey,dueDate:dueDate,status:'open',createdBy:user,createdAt:now};
+  var newEntry={id:id,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority,title:title,body:body,status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,createdBy:user,createdAt:now};
   function _afterSave(){
     _actionsCache.push(newEntry);
     if(!_taskWsaCache[taskId]) _taskWsaCache[taskId]=[];
