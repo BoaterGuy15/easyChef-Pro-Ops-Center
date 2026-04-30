@@ -8150,11 +8150,23 @@ function _addTaskPlanToRaci(id,type,idx,btn){
   _openCreateTaskWithData({name:p.title,owner:linkedTask?.owner||p.owner||'TBD',priority:p.priority||'High',notes:taskNotes,cat:taskCat,sd,ed,flag:'',deps,decision:'',actionPlan:p.description||'',_sourceAgendaId:type==='agenda'?id:''});
   if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Add to RACI'; btn.disabled=false; },1500); }
 }
+function _actionIsDup(taskId,title){
+  const norm=function(s){return (s||'').toLowerCase().replace(/\s+/g,' ').trim();};
+  const t=norm(title);
+  return (_actionsCache||[]).some(function(a){
+    return (a.taskId===taskId||a.linkedTaskId===taskId)&&norm(a.title)===t;
+  });
+}
 function _addTaskPlanToAction(id,type,idx,btn){
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src||!src.taskPlans||!src.taskPlans[idx]) return;
   const p=src.taskPlans[idx];
   const taskId=type==='task'?id:(src.taskId||id);
+  if(_actionIsDup(taskId,p.title)){
+    if(btn){ btn.textContent='⚠ Already exists'; setTimeout(()=>{ btn.textContent='⚡ Add to Action'; },2000); }
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--gold)">⚠ Action already exists — skipped</div>',2500);
+    return;
+  }
   // Parse due date from plan deadline
   let dueDate='';
   if(p.deadline){ try{ const d=new Date(p.deadline+' '+new Date().getFullYear()); if(!isNaN(d.getTime())) dueDate=d.toISOString().slice(0,10); }catch(_){} }
@@ -19806,6 +19818,7 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
   for(var ai=0;ai<actions.length;ai++){
     var act=actions[ai];
     if(!act.title) continue;
+    if(_actionIsDup(taskId,act.title)){created++;continue;}
     var memberMatch=(_DM_MEMBERS||[]).find(function(m){ return m.name.toLowerCase()===((act.assignedName||'').toLowerCase()); });
     var assignedKey=memberMatch?memberMatch.key:'';
     var assignedName=memberMatch?memberMatch.name:(act.assignedName||'');
