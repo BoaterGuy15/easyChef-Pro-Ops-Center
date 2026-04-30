@@ -3,13 +3,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ADD TO doGet switch/if block:
 //
-//   if (action === 'agents_list')             return json(agentsList());
-//   if (action === 'agent_constitution_read') return json(agentConstitutionRead(e.parameter.agent));
+//   if (action === 'agents_list') return json(agentsList());
 //
 // ADD TO doPost switch/if block:
 //
-//   if (body.action === 'agent_chat')              return json(agentChat(body.agentId, body.prompt, body.conversationHistory));
-//   if (body.action === 'agent_constitution_write') return json(agentConstitutionWrite(body.agent, body.instructions));
+//   if (body.action === 'agent_chat')               return json(agentChat(body.agentId, body.prompt, body.conversationHistory));
+//   if (body.action === 'agent_constitution_read')  return json(agentConstitutionRead(body.agentId));
+//   if (body.action === 'agent_constitution_write') return json(agentConstitutionWrite(body.agentId, body.instructions));
 // ─────────────────────────────────────────────────────────────────────────────
 
 var VERA_AGENTS_FOLDER_ID = '1ZZsSnNG2Ba6dFJ09e6EWyr7lNcDUF2O-';
@@ -50,37 +50,43 @@ function _getAgentFolder(agentName) {
 
 // ── Constitution read / write ─────────────────────────────────────────────────
 
-function agentConstitutionRead(agentName) {
-  if (!agentName) return { ok: false, error: 'agent is required' };
+function _isVeraAgent(agentId) {
+  var n = (agentId || '').toLowerCase();
+  return n === 'vera' || n === 'prime' || n === 'c-001';
+}
 
-  var isVera = agentName === 'Vera' || agentName === 'PRIME' || agentName === 'C-001';
+// agentId matches the dropdown name (e.g. "Vera", "Meridian", "EasyChef Code")
+function agentConstitutionRead(agentId) {
+  if (!agentId) return { ok: false, error: 'agentId is required' };
+
+  var isVera = _isVeraAgent(agentId);
   var subFolderName = isVera ? '00_CURRENT_STATE' : '01_SOURCE_OF_TRUTH';
   var fileName      = isVera ? 'SYSTEM_PROMPT.md'  : 'CONSTITUTION.md';
 
-  var agentFolder = _getAgentFolder(agentName);
-  if (!agentFolder) return { ok: true, agent: agentName, instructions: '' };
+  var agentFolder = _getAgentFolder(agentId);
+  if (!agentFolder) return { ok: true, agentId: agentId, constitution: '' };
 
   try {
     var subs = agentFolder.getFoldersByName(subFolderName);
-    if (!subs.hasNext()) return { ok: true, agent: agentName, instructions: '' };
+    if (!subs.hasNext()) return { ok: true, agentId: agentId, constitution: '' };
     var sub = subs.next();
     var files = sub.getFilesByName(fileName);
-    if (!files.hasNext()) return { ok: true, agent: agentName, instructions: '' };
-    return { ok: true, agent: agentName, instructions: files.next().getBlob().getDataAsString() };
+    if (!files.hasNext()) return { ok: true, agentId: agentId, constitution: '' };
+    return { ok: true, agentId: agentId, constitution: files.next().getBlob().getDataAsString() };
   } catch (e) {
     return { ok: false, error: e.message };
   }
 }
 
-function agentConstitutionWrite(agentName, instructions) {
-  if (!agentName) return { ok: false, error: 'agent is required' };
+function agentConstitutionWrite(agentId, instructions) {
+  if (!agentId) return { ok: false, error: 'agentId is required' };
 
-  var isVera = agentName === 'Vera' || agentName === 'PRIME' || agentName === 'C-001';
+  var isVera = _isVeraAgent(agentId);
   var subFolderName = isVera ? '00_CURRENT_STATE' : '01_SOURCE_OF_TRUTH';
   var fileName      = isVera ? 'SYSTEM_PROMPT.md'  : 'CONSTITUTION.md';
 
-  var agentFolder = _getAgentFolder(agentName);
-  if (!agentFolder) return { ok: false, error: 'Agent folder not found in registry for: ' + agentName };
+  var agentFolder = _getAgentFolder(agentId);
+  if (!agentFolder) return { ok: false, error: 'Agent folder not found in registry for: ' + agentId };
 
   try {
     var subs = agentFolder.getFoldersByName(subFolderName);
@@ -91,7 +97,7 @@ function agentConstitutionWrite(agentName, instructions) {
     } else {
       sub.createFile(fileName, instructions || '', MimeType.PLAIN_TEXT);
     }
-    return { ok: true, agent: agentName };
+    return { ok: true, agentId: agentId, constitution: instructions || '' };
   } catch (e) {
     return { ok: false, error: e.message };
   }

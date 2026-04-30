@@ -15487,39 +15487,41 @@ function _buildAgentConstitutionEditor(){
 
 function _agentConstitutionLoad(){
   const sel=document.getElementById('ace-agent-select');
-  const agent=sel?sel.value:'';
-  if(!agent) return;
+  const agentId=sel?sel.value:'';
+  if(!agentId) return;
   if(!CONFIG.sheetsUrl){ _showToast('<span style="color:#a78bfa">No Sheets URL configured</span>',2500); return; }
   const btn=document.getElementById('ace-load-btn');
   if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
-  fetch(CONFIG.sheetsUrl+'?action=agent_constitution_read&agent='+encodeURIComponent(agent))
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'agent_constitution_read',agentId})})
     .then(r=>r.json())
     .then(d=>{
+      console.log('[ACE] load response:', d);
       const ta=document.getElementById('ace-textarea');
-      if(ta) ta.value=d.instructions||'';
-      if(!d.instructions) _showToast('<span style="color:#a78bfa">No constitution saved for '+agent+'</span>',2500);
-      else _showToast('<span style="color:#a78bfa">Loaded constitution for '+agent+'</span>',2000);
+      if(ta) ta.value=d.constitution||'';
+      if(!d.constitution) _showToast('<span style="color:#a78bfa">No constitution saved for '+agentId+'</span>',2500);
+      else _showToast('<span style="color:#a78bfa">Loaded constitution for '+agentId+'</span>',2000);
     })
-    .catch(e=>{ _showToast('<span style="color:var(--red)">Load error: '+e.message+'</span>',3000); })
+    .catch(e=>{ console.error('[ACE] load error:',e); _showToast('<span style="color:var(--red)">Load error: '+e.message+'</span>',3000); })
     .finally(()=>{ if(btn){ btn.disabled=false; btn.textContent='Load Current'; } });
 }
 
 function _agentConstitutionSave(){
   const sel=document.getElementById('ace-agent-select');
-  const agent=sel?sel.value:'';
+  const agentId=sel?sel.value:'';
   const ta=document.getElementById('ace-textarea');
   const instructions=(ta?ta.value:'').trim();
-  if(!agent){ _showToast('<span style="color:var(--red)">Select an agent first</span>',2500); return; }
+  if(!agentId){ _showToast('<span style="color:var(--red)">Select an agent first</span>',2500); return; }
   if(!CONFIG.sheetsUrl){ _showToast('<span style="color:#a78bfa">No Sheets URL configured</span>',2500); return; }
   const btn=document.getElementById('ace-save-btn');
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'agent_constitution_write',agent,instructions})})
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'agent_constitution_write',agentId,instructions})})
     .then(r=>r.json())
     .then(d=>{
-      if(d.ok) _showToast('<span style="color:#a78bfa">Constitution saved for '+agent+'</span>',2500);
+      console.log('[ACE] save response:', d);
+      if(d.ok) _showToast('<span style="color:#22c55e">Constitution saved for '+agentId+'</span>',2500);
       else _showToast('<span style="color:var(--red)">Save failed: '+(d.error||'unknown')+'</span>',3000);
     })
-    .catch(e=>{ _showToast('<span style="color:var(--red)">Save error: '+e.message+'</span>',3000); })
+    .catch(e=>{ console.error('[ACE] save error:',e); _showToast('<span style="color:var(--red)">Save error: '+e.message+'</span>',3000); })
     .finally(()=>{ if(btn){ btn.disabled=false; btn.textContent='Save Constitution'; } });
 }
 
