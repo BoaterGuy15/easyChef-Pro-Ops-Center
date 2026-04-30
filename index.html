@@ -17703,11 +17703,8 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
       const wsaR=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).then(r=>r.json());
       console.log('[DGL] wsaPayload response:',wsaR);
       if(!wsaR||!wsaR.ok) throw new Error('workstream_action_write failed: '+JSON.stringify(wsaR));
-      // Step 2 — Actions sheet
-      console.log('[DGL] AddAction actPayload:',JSON.stringify(actPayload));
-      const actR=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).then(r=>r.json());
-      console.log('[DGL] actPayload response:',actR);
-      if(!actR||!actR.ok) throw new Error('action_write failed: '+JSON.stringify(actR));
+      // Step 2 — Actions sheet (fire-and-forget; not required for success)
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).catch(()=>{});
       // Success
       _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action saved</div>',1800);
       _actionsCache.push({id,taskId:_actTaskId,linkedTaskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now});
@@ -19052,9 +19049,16 @@ const _CO_TYPE_ICON={reminder:'🔔',shoutout:'📣',alert:'⚠️',note:'📝'}
 let _actionsCache=[];
 function _actionsFetch(){
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl+'?action=actions_read').then(r=>r.json()).then(data=>{
-    if(Array.isArray(data.actions)) _actionsCache=data.actions;
-  }).catch(()=>{});
+  Promise.all([
+    fetch(CONFIG.sheetsUrl+'?action=actions_read').then(r=>r.json()).catch(()=>({})),
+    fetch(CONFIG.sheetsUrl+'?action=workstream_actions_read').then(r=>r.json()).catch(()=>({}))
+  ]).then(([actData,wsaData])=>{
+    const seen=new Set();
+    _actionsCache=[
+      ...(Array.isArray(actData.actions)?actData.actions:[]),
+      ...(Array.isArray(wsaData.actions)?wsaData.actions:[])
+    ].filter(a=>{if(!a.id||seen.has(a.id))return false;seen.add(a.id);return true;});
+  });
 }
 let _coCache=[];
 let _coOpen=false;
