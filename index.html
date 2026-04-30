@@ -19231,6 +19231,36 @@ function _openInfoRequestPanel(taskId){
     '</div>'+
     '</div>';
   document.body.appendChild(panel);
+  _irMakeDraggable(panel);
+}
+
+function _irMakeDraggable(panel){
+  var hdr=panel.querySelector('div');
+  if(!hdr) return;
+  hdr.style.cursor='grab';
+  var startX,startY,origLeft,origBottom,dragging=false;
+  hdr.addEventListener('mousedown',function(e){
+    if(e.target.tagName==='BUTTON') return;
+    dragging=true;
+    startX=e.clientX; startY=e.clientY;
+    var rect=panel.getBoundingClientRect();
+    origLeft=rect.left;
+    origBottom=window.innerHeight-rect.bottom;
+    panel.style.left=origLeft+'px';
+    panel.style.bottom=origBottom+'px';
+    panel.style.right='auto';
+    hdr.style.cursor='grabbing';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging) return;
+    var dx=e.clientX-startX, dy=e.clientY-startY;
+    panel.style.left=Math.max(0,Math.min(window.innerWidth-panel.offsetWidth,origLeft+dx))+'px';
+    panel.style.bottom=Math.max(0,Math.min(window.innerHeight-panel.offsetHeight,origBottom-dy))+'px';
+  });
+  document.addEventListener('mouseup',function(){
+    if(dragging){ dragging=false; hdr.style.cursor='grab'; }
+  });
 }
 
 function _irAIGenerate(taskId){
