@@ -17696,15 +17696,15 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
       const _actTaskId=(opts&&opts.taskId)||'';
       const wsaPayload={action:'workstream_action_write',item:{id,workstreamId:workstreamId||'',type:typeEl.value,title,body:bodyEl.value,assignedTo:assignedKey,dueDate:dueEl.value,status:'Open',completedAt:'',completedBy:'',linkedTaskId:_actTaskId,createdBy:CONFIG.currentUser||'',createdAt:now}};
       const actPayload={action:'action_write',id,taskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
-      console.log('[DGL] AddAction wsaPayload:',JSON.stringify(wsaPayload));
       if(!CONFIG.sheetsUrl){_close();if(onSaved)onSaved();return;}
-      // Step 1 — WorkstreamActions sheet
+      // Step 1 — Actions sheet (primary — addAction works, confirmed in console)
       _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted)">⏳ Saving action…</div>',2000);
-      const wsaR=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).then(r=>r.json());
-      console.log('[DGL] wsaPayload response:',wsaR);
-      if(!wsaR||!wsaR.ok) throw new Error('workstream_action_write failed: '+JSON.stringify(wsaR));
-      // Step 2 — Actions sheet (fire-and-forget; not required for success)
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).catch(()=>{});
+      console.log('[DGL] AddAction actPayload:',JSON.stringify(actPayload));
+      const actR=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).then(r=>r.json());
+      console.log('[DGL] actPayload response:',actR);
+      if(!actR||!actR.ok) throw new Error('action_write failed: '+JSON.stringify(actR));
+      // Step 2 — WorkstreamActions sheet (secondary, fire-and-forget)
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).catch(()=>{});
       // Success
       _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action saved</div>',1800);
       _actionsCache.push({id,taskId:_actTaskId,linkedTaskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now});
