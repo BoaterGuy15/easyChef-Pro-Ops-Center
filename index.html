@@ -17707,7 +17707,10 @@ function _showLPAddActionForm(container,lpId,workstreamId,onSaved,opts){
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).catch(()=>{});
       // Success
       _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action saved</div>',1800);
-      _actionsCache.push({id,taskId:_actTaskId,linkedTaskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now});
+      const _newAct={id,taskId:_actTaskId,linkedTaskId:_actTaskId,agendaId:'',workstreamId:workstreamId||'',type:typeEl.value.toLowerCase(),title,body:bodyEl.value,assignedTo:assignedKey,status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
+      _actionsCache.push(_newAct);
+      // Keep wsActions cache in sync so dedup eliminates any stale WorkstreamActions copy with a different ID
+      if(Array.isArray(_acWsActionsCache)){const _wi=_acWsActionsCache.findIndex(a=>a.id===id);if(_wi>=0)_acWsActionsCache[_wi]=_newAct;else _acWsActionsCache.push(_newAct);}
       // Notifications (fire-and-forget)
       _autoLink('action',id,'workstream',workstreamId);
       if(assignedKey){
