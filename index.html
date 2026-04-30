@@ -18145,7 +18145,7 @@ function buildActionsGantt(){
       let bHtml='';
       for(let d=0;d<_GANTT_DAYS;d+=7) bHtml+=`<div class="gantt-col-bg" style="left:${d*_acGanttDayPx}px;height:${rowH}px"></div>`;
       (DASHBOARD_DATA.meta.milestoneItems||[]).forEach(ms=>{const mo=_ganttDayOff(ms.date||'');if(mo>=0&&mo<_GANTT_DAYS)bHtml+=`<div class="gantt-ms-line" style="left:${mo*_acGanttDayPx}px;height:${rowH}px;background:rgba(201,168,76,0.2)"></div>`;});
-      if(todayOff>=0&&todayOff<_GANTT_DAYS) bHtml+=`<div style="position:absolute;left:${todayOff*_acGanttDayPx}px;top:0;height:${rowH}px;width:2px;background:var(--red);opacity:0.5;pointer-events:none;z-index:5"></div>`;
+      // today line rendered as single canvas overlay below
 
       bars.forEach(bar=>{
         const sdOff=_ganttDayOff(bar.sd),edOff=_ganttDayOff(bar.ed);
@@ -18166,15 +18166,33 @@ function buildActionsGantt(){
         bHtml+=`<div class="rm-cell" style="position:absolute;left:${barL}px;top:${barTop}px;width:${barW}px;height:20px;z-index:3;border-color:${bc};background:${bar.bg};opacity:${isDone?0.55:1};cursor:pointer" data-bar-id="${esc}" onclick="_acBarClick('${esc}')" oncontextmenu="event.preventDefault();event.stopPropagation();_showACContextMenu(event,'${esc}')" title="${bar.label.replace(/"/g,'&quot;')} · ${bar.sd}→${bar.ed}"><span style="position:absolute;top:2px;right:4px;width:5px;height:5px;border-radius:50%;background:${dot};pointer-events:none"></span><span class="gantt-mid" style="gap:3px"><span style="font-size:8px;flex-shrink:0;pointer-events:none">${ico}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${lfs};color:${bar.color}">${lbl}</span></span></div>`;
       });
 
-      html+=`<div class="gantt-row" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${p.color};border-left:3px solid ${p.color};background:${p.bg},var(--surface);padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${p.key}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:visible">${bHtml}</div></div>`;
+      html+=`<div class="gantt-row" style="min-height:${rowH}px;height:${rowH}px"><div class="gantt-row-label" style="color:${p.color};border-left:3px solid ${p.color};background:${p.bg},var(--surface);padding-left:8px;min-height:${rowH}px;height:${rowH}px;align-items:flex-start;padding-top:8px">${p.key}</div><div class="gantt-row-track" style="min-height:${rowH}px;height:${rowH}px;position:relative;overflow:hidden">${bHtml}</div></div>`;
     });
 
     canvas.innerHTML=html;
     canvas.style.width=(totalTrackW+_GANTT_LABEL_W)+'px';
+    // single canvas-level today line (consistent with roadmap/LP gantt)
+    if(todayOff>=0&&todayOff<_GANTT_DAYS){
+      const _tl=document.createElement('div');
+      _tl.style.cssText=`position:absolute;left:${_GANTT_LABEL_W+todayOff*_acGanttDayPx}px;top:0;bottom:0;width:2px;background:var(--red);opacity:0.7;pointer-events:none;z-index:6`;
+      canvas.appendChild(_tl);
+    }
 
     if(scroll&&hdrScroll&&!scroll._acSynced){
       scroll._acSynced=true;
       scroll.addEventListener('scroll',()=>{hdrScroll.scrollLeft=scroll.scrollLeft;});
+      // pan-to-drag (same pattern as roadmap/LP gantt)
+      scroll.style.cursor='grab';
+      let _panning=false,_panX=0,_panY=0,_panLeft=0,_panTop=0;
+      scroll.addEventListener('mousedown',e=>{
+        if(e.button!==0) return;
+        if(e.target.closest('.rm-cell')||e.target.closest('.gantt-mid')||e.target.closest('.gantt-handle')) return;
+        _panning=true; _panX=e.clientX; _panY=e.clientY;
+        _panLeft=scroll.scrollLeft; _panTop=scroll.scrollTop;
+        scroll.style.cursor='grabbing'; e.preventDefault();
+      });
+      document.addEventListener('mousemove',e=>{ if(!_panning) return; scroll.scrollLeft=_panLeft-(e.clientX-_panX); scroll.scrollTop=_panTop-(e.clientY-_panY); },{passive:true});
+      document.addEventListener('mouseup',()=>{ if(!_panning) return; _panning=false; scroll.style.cursor='grab'; });
     }
     const off=_ganttDayOff(today);
     scroll.scrollLeft=Math.max(0,Math.round(off*_acGanttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
