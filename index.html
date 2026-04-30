@@ -3536,6 +3536,7 @@ function toggleTaskExpand(taskId,trEl){
   setTimeout(()=>_fetchAndInjectCompletionRecord(taskId),150);
   setTimeout(()=>_loadAllCompletionsSection(taskId),200);
   setTimeout(()=>_irLoad(taskId),350);
+  setTimeout(()=>_taskActsLoad(taskId),400);
   // Fill action plan from cache first, then fetch latest from Sheets
   setTimeout(()=>{ if(_completedPlansCache[taskId]) return; const _ap=document.getElementById('raci-task-actionplan-'+taskId); if(_ap){ const _apText=_getActionPlanText(taskId); if(_apText){ _ap.value=_apText; _ap.style.height='auto'; _ap.style.height=Math.min(_ap.scrollHeight,400)+'px'; } } _fetchActionPlan(taskId,t=>{ const el=document.getElementById('raci-task-actionplan-'+taskId); if(el&&t){ el.value=t; el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,400)+'px'; } else if(t){ _refreshAPSection(taskId,t); } }); },50);
   if(!cached){
@@ -4458,6 +4459,8 @@ function _buildTaskExpandHtml(taskId){
           if(_apText){const _planId=(_ap&&_ap.id)||'';return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:#f59e0b;padding:6px 12px;border:1px solid #f59e0b;border-radius:6px;margin-bottom:4px;display:inline-block">🟡 Action Plan Active${_apDate?' · '+_apDate:''}</div><div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_apText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px"><button onclick="_completeActionPlan('${taskId}','${_planId}')" style="${_mBtnSt};border-color:#22c55e;color:#22c55e">✅ Mark Complete</button><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">🔄 Generate New Plan</button><button onclick="_pushActionPlanToTask('${taskId}',${JSON.stringify(_apText).replace(/`/g,"'")})" style="${_mBtnSt};border-color:var(--accent);color:var(--accent)">📤 Push to Task</button><button onclick="showPage('actionplans')" style="${_mBtnSt};border-color:var(--border);color:var(--muted)">📋 View Action Plans Tab</button></div></div>`;}
           return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 0;margin-bottom:4px">No action plan yet.</div><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold);margin-top:4px">⚡ Generate Action Plan</button></div>`;
         })()}
+        ${lbl('⚡ ACTIONS')}
+        <div id="task-acts-${taskId}" style="margin-bottom:4px"><div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--border)">Loading…</div></div>
         ${lbl('TASK PLAN')}
         <div id="raci-task-plans-${taskId}">${_renderTaskPlanCardsHtml(t.taskPlans||[],taskId,'task')}</div>
         ${lbl('DEPENDENCIES')}
@@ -19477,6 +19480,175 @@ function _submitInfoResponse(reqId){
   };
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',_tryOpen); } else { _tryOpen(); }
 })();
+
+// ── Task Panel Actions ────────────────────────────────────────────────────────
+var _taskWsaCache={};
+
+function _taskActsLoad(taskId){
+  var el=document.getElementById('task-acts-'+taskId);
+  if(!el) return;
+  // Render from global cache immediately
+  var cached=(_actionsCache||[]).filter(function(a){ return a.taskId===taskId||a.linkedTaskId===taskId; });
+  _taskActsRender(taskId,cached);
+  if(!CONFIG.sheetsUrl) return;
+  // Fetch fresh from both sheets
+  Promise.all([
+    fetch(CONFIG.sheetsUrl+'?action=workstream_actions_read').then(function(r){return r.json();}).catch(function(){return {};}),
+    fetch(CONFIG.sheetsUrl+'?action=actions_read&taskId='+encodeURIComponent(taskId)).then(function(r){return r.json();}).catch(function(){return {};})
+  ]).then(function(results){
+    var wsaAll=Array.isArray(results[0].actions)?results[0].actions:[];
+    var actAll=Array.isArray(results[1].actions)?results[1].actions:[];
+    var wsaFiltered=wsaAll.filter(function(a){return a.linkedTaskId===taskId||a.taskId===taskId;});
+    var actFiltered=actAll.filter(function(a){return a.taskId===taskId;});
+    var seen=new Set(); var acts=[];
+    wsaFiltered.concat(actFiltered).forEach(function(a){ if(!a.id||seen.has(a.id)) return; seen.add(a.id); acts.push(a); });
+    _taskWsaCache[taskId]=acts;
+    _taskActsRender(taskId,acts);
+  });
+}
+
+function _taskActsRender(taskId,acts){
+  var el=document.getElementById('task-acts-'+taskId);
+  if(!el) return;
+  acts=acts||[];
+  var openActs=acts.filter(function(a){ var s=(a.status||'').toLowerCase(); return s!=='done'&&s!=='complete'&&s!=='completed'; });
+  var doneActs=acts.filter(function(a){ var s=(a.status||'').toLowerCase(); return s==='done'||s==='complete'||s==='completed'; });
+  var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+
+    '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">'+openActs.length+' open'+(doneActs.length?' \u00B7 '+doneActs.length+' done':'')+' \u2014 linked to Actions tab</span>'+
+    '<button onclick="_taskActsOpenAddForm(\''+taskId+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">+ Add Action</button>'+
+    '</div>';
+  if(!acts.length){
+    html+='<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--border);padding:2px 0">No actions yet \u2014 add one above or extract from the action plan.</div>';
+  } else {
+    html+=openActs.concat(doneActs).map(function(a){
+      var isDone=(a.status||'').toLowerCase()==='done'||(a.status||'').toLowerCase()==='complete'||(a.status||'').toLowerCase()==='completed';
+      var assignedKey=a.assignedTo||'';
+      var assignedName=assignedKey?((_DM_NAME_MAP&&_DM_NAME_MAP[assignedKey])||assignedKey):'';
+      var dueStr=a.dueDate?(String(a.dueDate)).slice(0,10):'';
+      var priorityColor={high:'var(--red)',medium:'var(--amber)',low:'var(--muted)'};
+      var pc=priorityColor[(a.type||'medium').toLowerCase()]||'var(--muted)';
+      return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--surface)">'+
+        '<input type="checkbox"'+(isDone?' checked':'')+' onchange="_taskActToggle(\''+a.id+'\',\''+taskId+'\',this.checked)" style="flex-shrink:0;cursor:pointer;accent-color:var(--green)">'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+(isDone?'var(--border)':'var(--text)')+';flex:1;'+(isDone?'text-decoration:line-through;':'')+'word-break:break-word">'+(a.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>'+
+        (assignedName?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:0 4px;flex-shrink:0">'+assignedName+'</span>':'')+
+        (dueStr?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);flex-shrink:0">'+dueStr+'</span>':'')+
+        (a.type&&a.type.toLowerCase()!=='task'?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:'+pc+';flex-shrink:0">'+a.type+'</span>':'')+
+        '<button onclick="_taskActDelete(\''+a.id+'\',\''+taskId+'\')" style="background:none;border:none;color:var(--border);font-size:10px;cursor:pointer;padding:0;flex-shrink:0;line-height:1">\u2715</button>'+
+        '</div>';
+    }).join('');
+  }
+  el.innerHTML=html;
+}
+
+function _taskActsOpenAddForm(taskId){
+  var existing=document.getElementById('task-acts-add-panel');
+  if(existing) existing.remove();
+  var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;});
+  if(!t) return;
+  var iSt='width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:\'DM Mono\',monospace;font-size:11px;outline:none;box-sizing:border-box';
+  var memberOpts=(_DM_MEMBERS||[]).filter(function(m){return !_isDMInactive(m.key);}).map(function(m){return '<option value="'+m.key+'">'+m.name+'</option>';}).join('');
+  var panel=document.createElement('div');
+  panel.id='task-acts-add-panel';
+  panel.style.cssText='position:fixed;bottom:20px;left:20px;width:360px;max-width:calc(100vw - 40px);background:var(--card);border:1px solid var(--gold);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.7);z-index:99990;overflow:hidden';
+  panel.innerHTML=
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.06);cursor:grab">'+
+    '<span style="font-family:\'DM Mono\',monospace;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px">\u26A1 ADD ACTION \u2014 '+taskId+'</span>'+
+    '<button onclick="document.getElementById(\'task-acts-add-panel\').remove()" style="background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer">\u2715</button>'+
+    '</div>'+
+    '<div style="padding:12px 14px">'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">ACTION TITLE</div>'+
+    '<input id="ta-title-'+taskId+'" type="text" placeholder="e.g. Ask Taylor for approval\u2026" style="'+iSt+';margin-bottom:8px" onkeydown="if(event.key===\'Enter\')_taskActSave(\''+taskId+'\')">'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+    '<div><div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">ASSIGN TO</div>'+
+    '<select id="ta-assign-'+taskId+'" style="'+iSt+'"><option value="">\u2014 Unassigned \u2014</option>'+memberOpts+'</select></div>'+
+    '<div><div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">DUE DATE</div>'+
+    '<input id="ta-due-'+taskId+'" type="date" style="'+iSt+'"></div>'+
+    '</div>'+
+    '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">PRIORITY</div>'+
+    '<select id="ta-priority-'+taskId+'" style="'+iSt+';margin-bottom:10px">'+
+    '<option value="Medium">Medium</option><option value="High">High</option><option value="Low">Low</option>'+
+    '</select>'+
+    '<div id="ta-status-'+taskId+'" style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);min-height:14px;margin-bottom:8px"></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+    '<button onclick="document.getElementById(\'task-acts-add-panel\').remove()" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>'+
+    '<button onclick="_taskActSave(\''+taskId+'\')" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:600">\u26A1 Save Action</button>'+
+    '</div>'+
+    '</div>';
+  document.body.appendChild(panel);
+  _irMakeDraggable(panel);
+  var titleInput=document.getElementById('ta-title-'+taskId);
+  if(titleInput) setTimeout(function(){titleInput.focus();},50);
+}
+
+function _taskActSave(taskId){
+  var titleEl=document.getElementById('ta-title-'+taskId);
+  var assignEl=document.getElementById('ta-assign-'+taskId);
+  var dueEl=document.getElementById('ta-due-'+taskId);
+  var priorityEl=document.getElementById('ta-priority-'+taskId);
+  var statusEl=document.getElementById('ta-status-'+taskId);
+  if(!titleEl) return;
+  var title=(titleEl.value||'').trim();
+  if(!title){ titleEl.focus(); return; }
+  var assignedKey=assignEl?assignEl.value:'';
+  var assignedName=assignedKey?((_DM_NAME_MAP&&_DM_NAME_MAP[assignedKey])||assignedKey):'';
+  var dueDate=dueEl?dueEl.value:'';
+  var priority=priorityEl?priorityEl.value:'Medium';
+  var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||{};
+  var workstreamId=t.workstream||'';
+  var id='act-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
+  var now=new Date().toISOString();
+  var user=window._DGL_USER||'system';
+  if(statusEl){statusEl.textContent='\u23F3 Saving\u2026';statusEl.style.color='var(--gold)';}
+  var wsaPayload={action:'workstream_action_write',item:{id:id,workstreamId:workstreamId,type:priority,title:title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
+  var actPayload={action:'action_write',id:id,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority.toLowerCase(),title:title,body:'',status:'open',createdBy:user,createdAt:now};
+  var newEntry={id:id,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority,title:title,body:'',status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,createdBy:user,createdAt:now};
+  function _afterSave(){
+    _actionsCache.push(newEntry);
+    if(!_taskWsaCache[taskId]) _taskWsaCache[taskId]=[];
+    _taskWsaCache[taskId].unshift(newEntry);
+    _taskActsRender(taskId,_taskWsaCache[taskId]);
+    if(statusEl){statusEl.textContent='\u2713 Action saved!';statusEl.style.color='var(--green)';}
+    setTimeout(function(){var p=document.getElementById('task-acts-add-panel');if(p)p.remove();},1200);
+    if(assignedKey&&CONFIG.sheetsUrl){
+      var msg='\u26A1 New action on '+taskId+' \u2014 '+t.name+': '+title+(dueDate?' (due '+dueDate+')':'');
+      var dmCh=typeof _getDMChannelId==='function'?_getDMChannelId(assignedKey):'';
+      if(dmCh) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(dmCh)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(user)).catch(function(){});
+    }
+    if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">\u2705 Action saved'+(assignedName?' \u2014 assigned to '+assignedName:'')+' </div>',2000);
+  }
+  if(CONFIG.sheetsUrl){
+    Promise.all([
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).then(function(r){return r.json();}).catch(function(){}),
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).then(function(r){return r.json();}).catch(function(){})
+    ]).then(_afterSave);
+  } else { _afterSave(); }
+}
+
+function _taskActToggle(actId,taskId,isDone){
+  var newStatus=isDone?'Done':'Open';
+  var items=_taskWsaCache[taskId]||[];
+  var act=items.find(function(a){return a.id===actId;});
+  if(act) act.status=newStatus;
+  var cached=(_actionsCache||[]).find(function(a){return a.id===actId;});
+  if(cached) cached.status=newStatus;
+  _taskActsRender(taskId,items);
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_update',id:actId,status:newStatus.toLowerCase(),updatedAt:new Date().toISOString()})}).catch(function(){});
+  }
+  if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
+}
+
+function _taskActDelete(actId,taskId){
+  if(!confirm('Remove this action?')) return;
+  if(_taskWsaCache[taskId]) _taskWsaCache[taskId]=_taskWsaCache[taskId].filter(function(a){return a.id!==actId;});
+  var i=(_actionsCache||[]).findIndex(function(a){return a.id===actId;});
+  if(i>=0) _actionsCache.splice(i,1);
+  _taskActsRender(taskId,_taskWsaCache[taskId]||[]);
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_delete',id:actId})}).catch(function(){});
+  }
+}
 </script>
 <div id="my-profile-panel">
   <div id="mpp-header"></div>
