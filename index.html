@@ -19402,7 +19402,10 @@ function _openInfoResponseModal(reqId){
     '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">ATTACHMENT URL (optional)</div>'+
     '<input id="ir-resp-url" type="url" placeholder="https://drive.google.com/\u2026" style="'+iSt+';margin-bottom:10px">'+
     '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">FILE UPLOAD (optional)</div>'+
-    '<input id="ir-resp-file" type="file" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);margin-bottom:14px;width:100%">'+
+    '<div id="ir-resp-dz-'+reqId+'" style="border:2px dashed var(--border);border-radius:6px;padding:14px;text-align:center;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);cursor:pointer;transition:border-color 0.15s;margin-bottom:6px" onclick="document.getElementById(\'ir-resp-fi-'+reqId+'\').click()" ondragover="event.preventDefault();this.style.borderColor=\'var(--gold)\'" ondragleave="this.style.borderColor=\'\'" ondrop="event.preventDefault();this.style.borderColor=\'\';_handleDocUpload(event.dataTransfer.files,\'request\',\''+reqId+'\',\'InfoRequest\')">'+
+    '\uD83D\uDCCE Drop files here or click to upload</div>'+
+    '<input id="ir-resp-fi-'+reqId+'" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,\'request\',\''+reqId+'\',\'InfoRequest\');this.value=\'\'">'+
+    '<div id="docs-list-request-'+reqId+'" style="margin-bottom:10px"></div>'+
     '<div id="ir-resp-status" style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);min-height:14px;margin-bottom:10px"></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
     '<button onclick="_irCloseResponseModal()" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>'+
@@ -19412,6 +19415,7 @@ function _openInfoResponseModal(reqId){
   document.body.appendChild(overlay);
   document.body.appendChild(box);
   _irMakeDraggableModal(box,overlay);
+  setTimeout(function(){ loadDocsForSource('request',reqId); },200);
   var infoEl=document.getElementById('ir-resp-task-info');
   if(CONFIG.sheetsUrl){
     fetch(CONFIG.sheetsUrl+'?action=ir_read&id='+encodeURIComponent(reqId))
@@ -19436,36 +19440,24 @@ function _openInfoResponseModal(reqId){
 function _submitInfoResponse(reqId){
   var noteEl=document.getElementById('ir-resp-note');
   var urlEl=document.getElementById('ir-resp-url');
-  var fileEl=document.getElementById('ir-resp-file');
   var statusEl=document.getElementById('ir-resp-status');
   if(!statusEl) return;
   var note=(noteEl&&noteEl.value||'').trim();
-  var url=(urlEl&&urlEl.value||'').trim();
-  if(!note&&!url&&!(fileEl&&fileEl.files&&fileEl.files.length)){ statusEl.textContent='Please provide a response note, URL, or file.'; statusEl.style.color='var(--amber)'; return; }
+  var manualUrl=(urlEl&&urlEl.value||'').trim();
+  // Pull first uploaded doc URL from docs cache
+  var uploadedDocs=(_docsCache['request_'+reqId]||[]);
+  var uploadedUrl=(uploadedDocs[0]&&uploadedDocs[0].url)||'';
+  var finalUrl=manualUrl||uploadedUrl;
+  // Collect all uploaded doc URLs as a comma-separated list if multiple
+  if(uploadedDocs.length>1) finalUrl=uploadedDocs.map(function(d){return d.url||'';}).filter(Boolean).join(', ')||manualUrl;
+  if(!note&&!finalUrl){ statusEl.textContent='Please provide a response note, URL, or upload a file.'; statusEl.style.color='var(--amber)'; return; }
   statusEl.textContent='\u23F3 Submitting\u2026'; statusEl.style.color='var(--gold)';
-  function _doSubmit(driveUrl){
-    var payload={action:'ir_update',id:reqId,status:'submitted',responseNote:note,responseUrl:driveUrl||url,responseAt:new Date().toISOString(),reviewedBy:'',reviewedAt:''};
-    var p=CONFIG.sheetsUrl?fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).catch(function(){}):Promise.resolve();
-    p.then(function(){
-      statusEl.textContent='\u2705 Response submitted! The requester has been notified.'; statusEl.style.color='var(--green)';
-      setTimeout(function(){ _irCloseResponseModal(); },2500);
-    });
-  }
-  if(fileEl&&fileEl.files&&fileEl.files.length&&CONFIG.sheetsUrl){
-    var file=fileEl.files[0];
-    var reader=new FileReader();
-    reader.onload=function(ev){
-      var b64=ev.target.result.split(',')[1];
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,taskId:'',sourceType:'request',sourceId:reqId,sourceName:reqId,addedBy:window._DGL_USER||'respondent',category:'InfoRequest'})})
-        .then(function(r){return r.json();})
-        .then(function(d){ _doSubmit((d.doc&&d.doc.url)||url); })
-        .catch(function(){ _doSubmit(url); });
-    };
-    reader.onerror=function(){ _doSubmit(url); };
-    reader.readAsDataURL(file);
-  } else {
-    _doSubmit(url);
-  }
+  var payload={action:'ir_update',id:reqId,status:'submitted',responseNote:note,responseUrl:finalUrl,responseAt:new Date().toISOString(),reviewedBy:'',reviewedAt:''};
+  var p=CONFIG.sheetsUrl?fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).catch(function(){}):Promise.resolve();
+  p.then(function(){
+    statusEl.textContent='\u2705 Response submitted! The requester has been notified.'; statusEl.style.color='var(--green)';
+    setTimeout(function(){ _irCloseResponseModal(); },2500);
+  });
 }
 
 (function _irCheckResponseParam(){
