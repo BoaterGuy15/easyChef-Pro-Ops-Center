@@ -8201,6 +8201,7 @@ function _addTaskPlanToAction(id,type,idx,btn){
     }
   }
   if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
+  if(typeof buildActionsGantt==="function"){var _apg2=document.getElementById("page-actions");if(_apg2&&_apg2.classList.contains("active")) buildActionsGantt();}
   if(btn){ btn.textContent='✓ Added'+(assignedName?' \u2192 '+assignedName:''); btn.disabled=true; btn.style.color='var(--green)'; btn.style.borderColor='var(--green)'; setTimeout(()=>{ btn.textContent='\u26A1 Add to Action'; btn.disabled=false; btn.style.color='var(--gold)'; btn.style.borderColor='var(--gold)'; },2000); }
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">\u2705 Action created'+(assignedName?' \u2014 assigned to '+assignedName:'')+' </div>',2000);
 }
@@ -20394,9 +20395,16 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
     }
     created++;
   }
-  // Refresh the actions section in the task panel
+  // Live-refresh all action views — no page reload needed
   if(created>0){
+    // Task panel tasks-tab list (works whether panel is open or not — element exists in DOM)
     _taskActsRender(taskId,_taskWsaCache[taskId]||[]);
+    // Actions Gantt tab — rebuild immediately if the user is already on it
+    if(typeof buildActionsGantt==='function'){
+      var _apg=document.getElementById('page-actions');
+      if(_apg&&_apg.classList.contains('active')) buildActionsGantt();
+    }
+    // Roadmap / milestone bar
     if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
   }
   // ── Create Decisions ───────────────────────────────────────────
