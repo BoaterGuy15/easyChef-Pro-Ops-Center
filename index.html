@@ -5127,7 +5127,7 @@ function _ganttScrollToday(){
   const scroll=document.getElementById('gantt-scroll');
   if(!scroll) return;
   const off=_ganttDayOff(_isoToday());
-  scroll.scrollLeft=Math.max(0,Math.round(off*_ganttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+  scroll.scrollLeft=Math.max(0,Math.round(off*_ganttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/3));
 }
 function _ganttScrollLaunch(){
   const scroll=document.getElementById('gantt-scroll');
@@ -16011,7 +16011,7 @@ function _lpScrollToday(){
   const scroll=document.getElementById('lp-gantt-scroll');
   if(!scroll) return;
   const off=_ganttDayOff(_isoToday());
-  scroll.scrollLeft=Math.max(0,Math.round(off*_lpDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+  scroll.scrollLeft=Math.max(0,Math.round(off*_lpDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/3));
 }
 function _lpXToDate(clientX){
   const scroll=document.getElementById('lp-gantt-scroll');
@@ -18032,13 +18032,14 @@ function _acSetZoom(z){
   ['2w','90d','6mo','1yr'].forEach(k=>{const b=document.getElementById('ac-zoom-'+k);if(b)b.classList.toggle('active-zoom',k===z);});
   try{localStorage.setItem('dgl_ac_zoom',z);}catch(_){}
   buildActionsGantt();
+  requestAnimationFrame(_acScrollToday);
 }
 
 function _acScrollToday(){
   const scroll=document.getElementById('ac-gantt-scroll');
   if(!scroll) return;
   const off=_ganttDayOff(_isoToday());
-  scroll.scrollLeft=Math.max(0,Math.round(off*_acGanttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+  scroll.scrollLeft=Math.max(0,Math.round(off*_acGanttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/3));
 }
 
 function _acScrollLaunch(){
@@ -18194,8 +18195,7 @@ function buildActionsGantt(){
       document.addEventListener('mousemove',e=>{ if(!_panning) return; scroll.scrollLeft=_panLeft-(e.clientX-_panX); scroll.scrollTop=_panTop-(e.clientY-_panY); },{passive:true});
       document.addEventListener('mouseup',()=>{ if(!_panning) return; _panning=false; scroll.style.cursor='grab'; });
     }
-    const off=_ganttDayOff(today);
-    scroll.scrollLeft=Math.max(0,Math.round(off*_acGanttDayPx-(scroll.clientWidth-_GANTT_LABEL_W)/2));
+    requestAnimationFrame(_acScrollToday);
     // update callout badge
     if(typeof _coRenderBadge==='function')_coRenderBadge();
     _initACGanttHover();
