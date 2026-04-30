@@ -1305,7 +1305,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <input id="docs-search" type="text" placeholder="Search docs…" oninput="_renderSharedDocs()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;width:160px">
   </div>
   <div id="docs-dz-shared-team" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:20px;cursor:pointer;transition:border-color 0.15s" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'shared','team','Team Documents')" onclick="const _dfi=document.getElementById('docs-fi-shared-team');if(_dfi)_dfi.click()">
-    <span class="dz-label">📎 Drop files here or click to upload &nbsp;·&nbsp; 🎬 Videos: paste Drive URL</span>
+    <span class="dz-label">📎 Drop files here or click to upload &nbsp;·&nbsp; 🎬 Videos upload in chunks</span>
     <input id="docs-fi-shared-team" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
   </div>
   <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;min-height:80px"></div>
@@ -3723,6 +3723,54 @@ function _dzSetLabel(dz,html,color){
 function _dzResetLabel(dz){
   _dzSetLabel(dz,'📎 Drop files here or click to upload','');
 }
+// ── Resumable chunked upload to Drive (files >= 5 MB) ────────
+async function _chunkUploadToDrive(file,dz,ctx){
+  const CHUNK=5*1024*1024;
+  const _sn=ctx.sourceName||(ctx.sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===ctx.sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===ctx.sourceId)||{}).title||'');
+  const _cat=(ctx.sourceType==='shared'&&_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files')?_sharedDocsFilter:'';
+  // Phase 1: create resumable upload session via Apps Script
+  _dzSetLabel(dz,'<span class="dgl-runner">🏃</span>&nbsp; Preparing <strong>'+file.name+'</strong>…','var(--gold)');
+  const sess=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'drive_create_upload_session',filename:file.name,
+      mimeType:file.type||'application/octet-stream',fileSize:file.size,
+      sourceType:ctx.sourceType,sourceId:ctx.sourceId,sourceName:_sn,
+      addedBy:window._DGL_USER||'unknown',category:_cat})
+  }).then(r=>r.json());
+  if(!sess.uploadUrl) throw new Error(sess.error||'No upload URL — add drive_create_upload_session to Apps Script');
+  // Phase 2: PUT chunks directly to Drive (no Apps Script in the middle)
+  let offset=0,fileId='';
+  while(offset<file.size){
+    const end=Math.min(offset+CHUNK,file.size);
+    const pct=Math.round(end/file.size*100);
+    _dzSetLabel(dz,'<span class="dgl-runner">🏃</span>&nbsp; Uploading <strong>'+file.name+'</strong>&nbsp;<span class="dz-pct" style="font-family:\'DM Mono\',monospace;font-weight:700">⬆️ '+pct+'%</span>','var(--gold)');
+    const resp=await fetch(sess.uploadUrl,{method:'PUT',
+      headers:{'Content-Range':'bytes '+offset+'-'+(end-1)+'/'+file.size,'Content-Type':file.type||'application/octet-stream'},
+      body:file.slice(offset,end)});
+    if(resp.status===200||resp.status===201){
+      const data=await resp.json().catch(()=>({}));
+      fileId=data.id||'';
+      break;
+    } else if(resp.status===308){
+      // Resume Incomplete — continue to next chunk
+      const range=resp.headers.get('Range');
+      offset=range?parseInt(range.split('-')[1])+1:end;
+    } else {
+      const errText=await resp.text().catch(()=>'');
+      throw new Error('Chunk failed at '+pct+'%: HTTP '+resp.status+(errText?' — '+errText.slice(0,120):''));
+    }
+  }
+  if(!fileId) throw new Error('Upload complete but Drive returned no file ID');
+  // Phase 3: save doc record to Sheets + update local cache
+  const url='https://drive.google.com/file/d/'+fileId+'/view';
+  const previewUrl='https://drive.google.com/file/d/'+fileId+'/preview';
+  const doc={id:'doc-'+Date.now(),name:file.name,url,previewUrl,driveFileId:fileId,
+    category:_cat,sourceType:ctx.sourceType,sourceId:ctx.sourceId,sourceName:_sn,
+    shared:'true',addedBy:window._DGL_USER||'unknown',addedAt:new Date().toISOString()};
+  _sharedDocsCache.unshift(doc);
+  _renderSharedDocs();
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'docs_write',...doc})}).catch(()=>{});
+}
 function _handleDocUpload(files,sourceType,sourceId,sourceName){
   console.log('[DGL] Doc upload sourceName:',sourceName,'sourceType:',sourceType,'sourceId:',sourceId);
   if(!files||!files.length) return;
@@ -3736,13 +3784,14 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       return;
     }
     const file=fileArr[idx++];
-    const _isVideo=/^video\//i.test(file.type)||/\.(mp4|mov|avi|wmv|mkv|webm|m4v)$/i.test(file.name);
-    if(_isVideo){
-      _dzSetLabel(dz,'🎬 Videos can\'t upload directly — paste a Drive link instead','var(--amber)');
-      setTimeout(()=>{ _dzResetLabel(dz); if(sourceType==='shared') _openSharedDocPasteModal(); },2500);
-      setTimeout(_uploadNext,500); // skip video, process next file
+    // Large files (>=5 MB): resumable chunked upload direct to Drive
+    if(file.size>=5*1024*1024){
+      _chunkUploadToDrive(file,dz,{sourceType,sourceId,sourceName})
+        .then(()=>{ _dzSetLabel(dz,'✅ '+file.name+' saved to Drive!','var(--green)'); setTimeout(_uploadNext,400); })
+        .catch(err=>{ _dzSetLabel(dz,'❌ '+(err.message||'Upload failed'),'var(--red)'); setTimeout(()=>_dzResetLabel(dz),6000); setTimeout(_uploadNext,3000); });
       return;
     }
+    // Small files (<5 MB): existing base64 flow unchanged
     let _pct=0,_pctTimer=null;
     function _setPct(p){
       _pct=Math.min(100,p);
