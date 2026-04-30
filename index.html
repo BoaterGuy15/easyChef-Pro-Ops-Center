@@ -8034,23 +8034,25 @@ function _parseTaskPlansFromSuperAI(text){
     const c=clean(l); if(c.length<5) continue;
     plans.push(_mk({title:c.slice(0,80),owner:_owner(c),section:'today',isRisk:false,isDecision:false,deadline:_dl(c)})); break;
   }
-  // THIS WEEK: only day-name lines or "Action N:" lines, max 3
-  const dayPat=/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Action\s*\d)/i;
+  // THIS WEEK: numbered items (1. Adam - ...), day-name lines, or "Action N:" lines, max 5
+  const dayPat=/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Action\s*\d|\d+[.)]\s)/i;
   for(const l of secLines(si.week)){
-    if(!dayPat.test(l)) continue;
-    const c=clean(l).slice(0,80); if(c.length<5) continue;
+    if(!dayPat.test(l)&&!_tms.some(m=>l.startsWith(m))) continue;
+    const c=clean(l).slice(0,120); if(c.length<5) continue;
     plans.push(_mk({title:c,owner:_owner(c),section:'week',isRisk:false,isDecision:false,deadline:_dl(c)}));
-    if(plans.filter(p=>p.section==='week').length>=3) break;
+    if(plans.filter(p=>p.section==='week').length>=5) break;
   }
-  // RISK: 1 task — first content line
+  // RISK: 1 task — read owner from text, don't hardcode Taylor
   for(const l of secLines(si.risk)){
     const c=clean(l); if(c.length<5) continue;
-    plans.push(_mk({title:c.slice(0,80),owner:'Taylor',section:'risk',isRisk:true,isDecision:false,deadline:_dl(c)})); break;
+    plans.push(_mk({title:c.slice(0,80),owner:_owner(c)||'Taylor',section:'risk',isRisk:true,isDecision:false,deadline:_dl(c)})); break;
   }
-  // TAYLOR DECIDES: 1 task — first bold question or first content line
+  // DECIDES: read owner from section header or text
   const decLines=secLines(si.decision);
+  const decHdrLine=lines[si.decision]||'';
+  const decOwner=_owner(decHdrLine)||'Taylor';
   const decLine=decLines.find(l=>l.includes('?')||l.startsWith('**'))||decLines.find(l=>clean(l).length>=5);
-  if(decLine){const c=clean(decLine).slice(0,80);if(c.length>=5) plans.push(_mk({title:c,owner:'Taylor',section:'decision',isRisk:false,isDecision:true,deadline:_dl(c)}));}
+  if(decLine){const c=clean(decLine).slice(0,80);if(c.length>=5) plans.push(_mk({title:c,owner:decOwner,section:'decision',isRisk:false,isDecision:true,deadline:_dl(c)}));}
   // Fallback: numbered/bulleted items
   if(!plans.length){
     for(const l of lines){
