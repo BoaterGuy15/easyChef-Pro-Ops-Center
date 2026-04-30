@@ -19788,7 +19788,7 @@ function _showActionEditPanel(actId){
 
   // Body
   var body=document.createElement('div');
-  body.style.cssText='padding:4px 14px 10px;overflow-y:auto;flex:1;scrollbar-width:none';
+  body.style.cssText='padding:4px 14px 10px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--border) transparent';
 
   function _lbl(text){var l=document.createElement('span');l.style.cssText=lSt;l.textContent=text;return l;}
 
@@ -19869,45 +19869,53 @@ function _showActionEditPanel(actId){
   var div2=document.createElement('div');div2.style.cssText='border-top:1px solid var(--border);margin:14px 0 2px';body.appendChild(div2);
 
   // ── LINKED FILES & URLS ──
-  body.appendChild(_lbl('LINKED FILE OR URL'));
-  var fileHint=document.createElement('div');fileHint.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-bottom:5px';fileHint.textContent='Attaches to Task Messages — LLM gathers these when building context';body.appendChild(fileHint);
-  var urlRow=document.createElement('div');urlRow.style.cssText='display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:5px';
-  var urlInp=document.createElement('input');urlInp.type='url';urlInp.style.cssText=iSt;urlInp.placeholder='https:// — Google Drive, Dropbox, Figma, etc.';
-  var labelInp=document.createElement('input');labelInp.type='text';labelInp.style.cssText=iSt+';margin-top:5px';labelInp.placeholder='Label — e.g. "Final mockup v3"';
-  urlRow.appendChild(urlInp);body.appendChild(urlRow);body.appendChild(labelInp);
-  // File log display
-  var fileLog=document.createElement('div');fileLog.style.cssText='margin-top:6px;max-height:80px;overflow-y:auto;scrollbar-width:none';body.appendChild(fileLog);
-  var fileStatus=document.createElement('span');fileStatus.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);display:block;margin-top:4px;min-height:14px';body.appendChild(fileStatus);
-  var attachBtn=document.createElement('button');
-  attachBtn.textContent='🔗 Attach to Task';
-  attachBtn.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;padding:5px 12px;border-radius:4px;border:1px solid #60a5fa;color:#60a5fa;background:transparent;cursor:pointer;margin-top:6px';
+  body.appendChild(_lbl('LINKED FILES & URLS'));
+  var fileHint=document.createElement('div');fileHint.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-bottom:8px';fileHint.textContent='Attached links post to Task Messages so the LLM sees them';body.appendChild(fileHint);
+  // Hidden file input
+  var filePickInp=document.createElement('input');filePickInp.type='file';filePickInp.style.cssText='display:none';body.appendChild(filePickInp);
+  // Label input
+  var fLabelLbl=document.createElement('span');fLabelLbl.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;display:block';fLabelLbl.textContent='LABEL / FILENAME';body.appendChild(fLabelLbl);
+  var fLabelRow=document.createElement('div');fLabelRow.style.cssText='display:flex;gap:6px;margin-bottom:6px';
+  var fileLabelInp=document.createElement('input');fileLabelInp.type='text';fileLabelInp.style.cssText=iSt+';flex:1';fileLabelInp.placeholder='e.g. "Final mockup v3" or pick a file →';
+  var browseBtn=document.createElement('button');browseBtn.textContent='📁 Browse';browseBtn.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;padding:5px 10px;border-radius:4px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0';
+  browseBtn.onclick=function(){filePickInp.click();};
+  filePickInp.onchange=function(){if(filePickInp.files&&filePickInp.files[0]) fileLabelInp.value=filePickInp.files[0].name;};
+  fLabelRow.appendChild(fileLabelInp);fLabelRow.appendChild(browseBtn);body.appendChild(fLabelRow);
+  // URL input
+  var fUrlLbl=document.createElement('span');fUrlLbl.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;display:block';fUrlLbl.textContent='URL — PASTE LINK';body.appendChild(fUrlLbl);
+  var urlInp=document.createElement('input');urlInp.type='url';urlInp.style.cssText=iSt+';margin-bottom:8px';urlInp.placeholder='https:// — Google Drive, Dropbox, Figma, Notion…';body.appendChild(urlInp);
+  // Attach button + status
+  var attachRow=document.createElement('div');attachRow.style.cssText='display:flex;align-items:center;gap:8px';
+  var attachBtn=document.createElement('button');attachBtn.textContent='🔗 Attach to Task';attachBtn.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;padding:5px 14px;border-radius:4px;border:1px solid #60a5fa;color:#60a5fa;background:transparent;cursor:pointer';
+  var fileStatus=document.createElement('span');fileStatus.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)';
+  attachRow.appendChild(attachBtn);attachRow.appendChild(fileStatus);body.appendChild(attachRow);
+  // Link log
+  var fileLog=document.createElement('div');fileLog.style.cssText='margin-top:8px;display:flex;flex-direction:column;gap:4px';body.appendChild(fileLog);
   attachBtn.onclick=function(){
-    var url=urlInp.value.trim();if(!url) return;
-    var label=labelInp.value.trim()||url;
+    var url=urlInp.value.trim();
+    var label=fileLabelInp.value.trim()||(url?url.split('/').pop().slice(0,40)||url:'');
+    if(!url&&!label){fileStatus.textContent='⚠ Add a URL or label';setTimeout(function(){fileStatus.textContent='';},2000);return;}
     var user=window._DGL_USER||'system';
     var ts=new Date().toISOString();
-    var msgText='[FILE LINKED — '+(act.taskId||'no task')+']\nAction: '+(titleInp.value.trim()||act.title||'—')+'\nFile: '+label+'\nURL: '+url;
-    // Post to task messages
+    var msgText='[FILE LINKED — '+(act.taskId||'no task')+']\nAction: '+(titleInp.value.trim()||act.title||'—')+'\nFile: '+label+(url?'\nURL: '+url:'');
     if(CONFIG.sheetsUrl&&act.taskId){
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-afile-'+Date.now(),taskId:act.taskId,fromUser:user,fromName:'🔗 File Linked ('+user+')',text:msgText,createdAt:ts,type:'note'})}).catch(function(){});
     }
-    // Append URL to action body
-    var fileNote='[FILE: '+label+'] '+url;
+    var fileNote='[FILE: '+label+']'+(url?' '+url:'');
     var newBody=(bodyTa.value.trim()?bodyTa.value.trim()+'\n\n':'')+fileNote;
     bodyTa.value=newBody;
-    if(CONFIG.sheetsUrl){
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_update',id:actId,body:newBody,updatedAt:ts})}).catch(function(){});
-    }
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_update',id:actId,body:newBody,updatedAt:ts})}).catch(function(){});
     var cached=(_actionsCache||[]).find(function(a){return a.id===actId;});if(cached) cached.body=newBody;
-    // Show in log as clickable link
-    var entry=document.createElement('div');entry.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;border-left:2px solid #60a5fa;padding:3px 7px;margin-bottom:4px;background:rgba(96,165,250,0.04);display:flex;gap:6px;align-items:center;flex-wrap:wrap';
-    var lnk=document.createElement('a');lnk.href=url;lnk.target='_blank';lnk.textContent=label;lnk.style.cssText='color:#60a5fa;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1';lnk.onmouseover=function(){lnk.style.textDecoration='underline';};lnk.onmouseout=function(){lnk.style.textDecoration='none';};
-    entry.appendChild(lnk);fileLog.insertBefore(entry,fileLog.firstChild);
-    urlInp.value='';labelInp.value='';
-    fileStatus.textContent='✓ File attached to task';
-    setTimeout(function(){fileStatus.textContent='';},2500);
+    var entry=document.createElement('div');entry.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;border-left:2px solid #60a5fa;padding:4px 8px;background:rgba(96,165,250,0.05);border-radius:0 4px 4px 0;display:flex;align-items:center;gap:6px';
+    var ico=document.createElement('span');ico.textContent='🔗';ico.style.flexShrink='0';
+    var lnkWrap=document.createElement('span');lnkWrap.style.cssText='flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    if(url){var lnk=document.createElement('a');lnk.href=url;lnk.target='_blank';lnk.textContent=label||url;lnk.style.cssText='color:#60a5fa;text-decoration:none';lnk.onmouseover=function(){lnk.style.textDecoration='underline';};lnk.onmouseout=function(){lnk.style.textDecoration='none';};lnkWrap.appendChild(lnk);}
+    else{lnkWrap.style.color='var(--text)';lnkWrap.textContent=label;}
+    entry.appendChild(ico);entry.appendChild(lnkWrap);
+    fileLog.insertBefore(entry,fileLog.firstChild);
+    urlInp.value='';fileLabelInp.value='';filePickInp.value='';
+    fileStatus.textContent='✓ Attached';setTimeout(function(){fileStatus.textContent='';},2500);
   };
-  body.appendChild(attachBtn);
 
   // ── Meta ──
   var div3=document.createElement('div');div3.style.cssText='border-top:1px solid var(--border);margin:14px 0 2px';body.appendChild(div3);
