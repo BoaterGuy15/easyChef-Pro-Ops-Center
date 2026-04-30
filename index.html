@@ -4459,7 +4459,7 @@ function _buildTaskExpandHtml(taskId){
           const _apDate=(_ap&&_ap.createdAt||'').slice(0,10);
           const _mBtnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid;background:transparent;cursor:pointer;margin-right:6px";
           if(_cp){const _cpText=(_cp.text||'')||(t.actionPlan||'')||_getActionPlanText(taskId);return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:#22c55e;padding:6px 12px;border:1px solid #22c55e;border-radius:6px;margin-bottom:4px;display:inline-block">✅ Action Plan Completed on ${(_cp.completedAt||'').slice(0,10)||'—'}</div>${_cpText?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:pre-wrap;padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:200px;overflow-y:auto;margin-bottom:6px">${_cpText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`:'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:6px;font-style:italic">Plan text not available.</div>'}<div style="display:flex;gap:6px;flex-wrap:wrap"><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">🔄 Generate New Plan</button><button onclick="_pushActionPlanToTask('${taskId}',${JSON.stringify(_cpText||'').replace(/`/g,"'")})" style="${_mBtnSt};border-color:var(--accent);color:var(--accent)">📤 Push to Task</button></div></div>`;}
-          if(_apText){const _planId=(_ap&&_ap.id)||'';return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:#f59e0b;padding:6px 12px;border:1px solid #f59e0b;border-radius:6px;margin-bottom:4px;display:inline-block">🟡 Action Plan Active${_apDate?' · '+_apDate:''}</div><div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_apText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px"><button onclick="_completeActionPlan('${taskId}','${_planId}')" style="${_mBtnSt};border-color:#22c55e;color:#22c55e">✅ Mark Complete</button><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">🔄 Generate New Plan</button><button onclick="_pushActionPlanToTask('${taskId}',${JSON.stringify(_apText).replace(/`/g,"'")})" style="${_mBtnSt};border-color:var(--accent);color:var(--accent)">📤 Push to Task</button><button onclick="showPage('actionplans')" style="${_mBtnSt};border-color:var(--border);color:var(--muted)">📋 View Action Plans Tab</button><button onclick="_aiExtractAndCreateActionsDecisions('${taskId}',(document.getElementById('raci-task-actionplan-${taskId}')||{}).value||'',null,window._DGL_USER||'system','')" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">⚡ Extract Actions &amp; Decisions</button></div></div>`;}
+          if(_apText){const _planId=(_ap&&_ap.id)||'';return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:#f59e0b;padding:6px 12px;border:1px solid #f59e0b;border-radius:6px;margin-bottom:4px;display:inline-block">🟡 Action Plan Active${_apDate?' · '+_apDate:''}</div><div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_apText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px"><button onclick="_completeActionPlan('${taskId}','${_planId}')" style="${_mBtnSt};border-color:#22c55e;color:#22c55e">✅ Mark Complete</button><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">🔄 Generate New Plan</button><button onclick="_pushActionPlanToTask('${taskId}',${JSON.stringify(_apText).replace(/`/g,"'")})" style="${_mBtnSt};border-color:var(--accent);color:var(--accent)">📤 Push to Task</button><button onclick="showPage('actionplans')" style="${_mBtnSt};border-color:var(--border);color:var(--muted)">📋 View Action Plans Tab</button><button onclick="_aiExtractAndCreateActionsDecisions('${taskId}',(document.getElementById('raci-task-actionplan-${taskId}')||{}).value||'',null,window._DGL_USER||'system','')" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">⚡ Extract Actions &amp; Decisions</button><button onclick="_fillDecisionFromPlan('${taskId}')" style="${_mBtnSt};border-color:#a78bfa;color:#a78bfa">📝 Fill Decision Box</button></div></div>`;}
           return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 0;margin-bottom:4px">No action plan yet.</div><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold);margin-top:4px">⚡ Generate Action Plan</button></div>`;
         })()}
         ${lbl('⚡ ACTIONS')}
@@ -19714,6 +19714,66 @@ function _taskActDelete(actId,taskId){
   }
 }
 
+// ── Decision text extraction (regex, no AI needed) ───────────────────────────
+function _parseDecisionFromPlanText(planText){
+  if(!planText) return [];
+  var results=[];
+  // Match "ONE DECISION ONLY [NAME] CAN MAKE\n..." or "DECISION:\n..." sections
+  var patterns=[
+    /ONE DECISION ONLY[^\n]*CAN MAKE[^\n]*\n+([\s\S]+?)(?:\n{2,}[A-Z][A-Z\s]{3,}:|$)/i,
+    /DECISIONS?:[^\n]*\n+([\s\S]+?)(?:\n{2,}[A-Z][A-Z\s]{3,}:|$)/i,
+    /ONLY [A-Z][A-Z]+ CAN DECIDE[^\n]*\n+([\s\S]+?)(?:\n{2,}[A-Z][A-Z\s]{3,}:|$)/i
+  ];
+  patterns.forEach(function(re){
+    var m=planText.match(re);
+    if(m&&m[1]){
+      var text=m[1].trim().replace(/^\d+\.\s*/,'');
+      if(text.length>10&&!results.find(function(r){return r.text===text;})){
+        // Try to extract owner name from the header line
+        var hdrMatch=planText.match(/ONE DECISION ONLY ([A-Z][a-z]+)/);
+        results.push({ownerName:hdrMatch?hdrMatch[1]:'',text:text});
+      }
+    }
+  });
+  return results;
+}
+
+function _fillDecisionFromPlan(taskId){
+  var planEl=document.getElementById('raci-task-actionplan-'+taskId);
+  var planText=planEl?planEl.value:'';
+  if(!planText){ _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--amber)">\u26A0\uFE0F No action plan text found. Generate the plan first.</div>',3000); return; }
+  var decisions=_parseDecisionFromPlanText(planText);
+  if(!decisions.length){ _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--amber)">\u26A0\uFE0F No decision section found in plan. Make sure the plan includes a DECISION section.</div>',4000); return; }
+  var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||{};
+  var user=window._DGL_USER||'system';
+  var now=new Date().toISOString();
+  decisions.forEach(function(dec){
+    var decText='[Decision extracted '+new Date().toLocaleDateString()+(dec.ownerName?' — owner: '+dec.ownerName:'')+']\n'+dec.text;
+    // Fill decision textarea
+    var decEl=document.getElementById('raci-task-decision-'+taskId);
+    if(decEl){
+      decEl.value=decText;
+      decEl.style.height='auto';
+      decEl.style.height=Math.min(decEl.scrollHeight,300)+'px';
+      decEl.style.borderColor='#a78bfa';
+      setTimeout(function(){if(decEl) decEl.style.borderColor='';},2000);
+    }
+    // Save to task object + Sheets
+    t.decision=decText;
+    if(typeof saveToLocal==='function') saveToLocal();
+    if(typeof _saveTasksNow==='function') _saveTasksNow();
+    // Create callout
+    if(CONFIG.sheetsUrl){
+      var ownerMatch=(_DM_MEMBERS||[]).find(function(m){return m.name.toLowerCase()===(dec.ownerName||'').toLowerCase();});
+      var ownerKey=ownerMatch?ownerMatch.key:'taylor';
+      var coId='co-dec-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,5);
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'callout_write',id:coId,type:'decision',title:'Decision Required \u2014 '+taskId+' '+t.name,message:(dec.ownerName?dec.ownerName+' must decide: ':'')+dec.text.slice(0,300),taggedUser:ownerKey,taggedTask:taskId,createdBy:user,createdAt:now,dueDate:''})}).catch(function(){});
+    }
+  });
+  if(typeof _coFetch==='function') setTimeout(_coFetch,600);
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#a78bfa">\uD83D\uDCDD Decision filled in text box + saved to Sheets + \uD83D\uDCE3 callout created</div>',4000);
+}
+
 // ── AI Action + Decision Extraction ──────────────────────────────────────────
 async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fromName){
   if(!planText||!taskId) return;
@@ -19735,7 +19795,9 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
     if(jsonMatch) extracted=JSON.parse(jsonMatch[0]);
   }catch(e){}
   var actions=Array.isArray(extracted.actions)?extracted.actions:[];
-  var decisions=Array.isArray(extracted.decisions)?extracted.decisions:[];
+  // Fallback: use regex parser if AI returned no decisions
+  var decisions=Array.isArray(extracted.decisions)&&extracted.decisions.length?extracted.decisions:_parseDecisionFromPlanText(planText);
+  decisions=Array.isArray(decisions)?decisions:[];
   var created=0;
   var decisionTexts=[];
   // ── Create Actions ──────────────────────────────────────────────
