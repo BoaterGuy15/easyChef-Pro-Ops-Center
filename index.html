@@ -1724,6 +1724,9 @@ async function _runStatusAIWorkflow(taskId,newStatus,oldStatus){
       }
       _saveActionPlan(taskId,'task',editedSuper||superText,taskId,'');
       _refreshAPSection(taskId,editedSuper||superText);
+      // Step 2b: Auto-extract actions + decisions from the action plan
+      _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--gold)">\u26A1 Extracting actions and decisions from plan\u2026</div>',4000);
+      await _aiExtractAndCreateActionsDecisions(taskId,editedSuper||superText,t,user,fromName);
     }
     // 6. Confirm + DM the accountable person
     const ownerName=(t.owner||'').split('/')[0].trim();
@@ -19648,6 +19651,100 @@ function _taskActDelete(actId,taskId){
   if(CONFIG.sheetsUrl){
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_delete',id:actId})}).catch(function(){});
   }
+}
+
+// ── AI Action + Decision Extraction ──────────────────────────────────────────
+async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fromName){
+  if(!planText||!taskId) return;
+  var t=task||(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||{};
+  var workstreamId=t.workstream||'';
+  var now=new Date().toISOString();
+  // Call AI to extract actions and decisions
+  var extractPrompt='Parse this action plan and return ONLY valid JSON with no extra text:\n{\n  "actions": [\n    {"title":"short imperative title max 80 chars","assignedName":"FirstName only","dueDate":"YYYY-MM-DD or empty string"}\n  ],\n  "decisions": [\n    {"ownerName":"FirstName only","text":"full decision text that must be made"}\n  ]\n}\nRules: assignedName must be a real first name from the plan. dueDate in ISO format from any date mention. decisions only if explicitly stated as a decision/approval needed. Empty arrays if none found.\n\nACTION PLAN:\n'+planText.slice(0,2000);
+  var resp={};
+  try{
+    if(CONFIG.sheetsUrl){
+      resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic',system:'You are a JSON extraction assistant. Return ONLY valid JSON, no markdown, no explanation.',prompt:extractPrompt})}).then(function(r){return r.json();}).catch(function(){return {};});
+    }
+  }catch(e){}
+  var raw=resp.response||resp.result||resp.text||resp.content||'';
+  var extracted={actions:[],decisions:[]};
+  try{
+    var jsonMatch=raw.match(/\{[\s\S]*\}/);
+    if(jsonMatch) extracted=JSON.parse(jsonMatch[0]);
+  }catch(e){}
+  var actions=Array.isArray(extracted.actions)?extracted.actions:[];
+  var decisions=Array.isArray(extracted.decisions)?extracted.decisions:[];
+  var created=0;
+  var decisionTexts=[];
+  // ── Create Actions ──────────────────────────────────────────────
+  for(var ai=0;ai<actions.length;ai++){
+    var act=actions[ai];
+    if(!act.title) continue;
+    var memberMatch=(_DM_MEMBERS||[]).find(function(m){ return m.name.toLowerCase()===((act.assignedName||'').toLowerCase()); });
+    var assignedKey=memberMatch?memberMatch.key:'';
+    var assignedName=memberMatch?memberMatch.name:(act.assignedName||'');
+    var dueDate=act.dueDate||'';
+    var actId='act-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
+    var wsaPayload={action:'workstream_action_write',item:{id:actId,workstreamId:workstreamId,type:'Medium',title:act.title,body:'',assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
+    var actPayload={action:'action_write',id:actId,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:'medium',title:act.title,body:'',status:'open',createdBy:user,createdAt:now};
+    var newEntry={id:actId,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:'Medium',title:act.title,body:'',status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,createdBy:user,createdAt:now};
+    if(CONFIG.sheetsUrl){
+      await Promise.all([
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).catch(function(){}),
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).catch(function(){})
+      ]);
+    }
+    _actionsCache.push(newEntry);
+    if(!_taskWsaCache[taskId]) _taskWsaCache[taskId]=[];
+    _taskWsaCache[taskId].push(newEntry);
+    // Notify assignee
+    if(assignedKey&&CONFIG.sheetsUrl){
+      var dmCh2=typeof _getDMChannelId==='function'?_getDMChannelId(assignedKey):'';
+      var dmMsg2='\u26A1 Action assigned to you on '+taskId+' \u2014 '+t.name+': '+act.title+(dueDate?' (due '+dueDate+')':'');
+      if(dmCh2) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(dmCh2)+'&text='+encodeURIComponent(dmMsg2)+'&user='+encodeURIComponent(user)).catch(function(){});
+    }
+    created++;
+  }
+  // Refresh the actions section in the task panel
+  if(created>0){
+    _taskActsRender(taskId,_taskWsaCache[taskId]||[]);
+    if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
+  }
+  // ── Create Decisions ───────────────────────────────────────────
+  for(var di=0;di<decisions.length;di++){
+    var dec=decisions[di];
+    if(!dec.text) continue;
+    decisionTexts.push(dec.text);
+    var decOwnerMatch=(_DM_MEMBERS||[]).find(function(m){ return m.name.toLowerCase()===((dec.ownerName||'').toLowerCase()); });
+    var decOwnerKey=decOwnerMatch?decOwnerMatch.key:'';
+    // Set decision textarea + save to task
+    var decEl=document.getElementById('raci-task-decision-'+taskId);
+    if(decEl){
+      decEl.value=(decEl.value?decEl.value+'\n\n':'')+'[AI EXTRACTED — '+new Date().toLocaleDateString()+']\n'+dec.text;
+      decEl.style.height='auto'; decEl.style.height=Math.min(decEl.scrollHeight,300)+'px';
+      t.decision=decEl.value;
+      if(typeof saveToLocal==='function') saveToLocal();
+      if(typeof _saveTasksNow==='function') _saveTasksNow();
+    } else {
+      // Panel not open — save directly to task object
+      t.decision=(t.decision?t.decision+'\n\n':'')+'[AI EXTRACTED — '+new Date().toLocaleDateString()+']\n'+dec.text;
+      if(typeof saveToLocal==='function') saveToLocal();
+      if(typeof _saveTasksNow==='function') _saveTasksNow();
+    }
+    // Create callout so it shows in daily briefing
+    if(CONFIG.sheetsUrl){
+      var coId='co-dec-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,5);
+      var coPayload={action:'callout_write',id:coId,type:'decision',title:'Decision Required \u2014 '+taskId+' '+t.name,message:(dec.ownerName?dec.ownerName+' must decide: ':'')+dec.text,taggedUser:decOwnerKey||'taylor',taggedTask:taskId,createdBy:user,createdAt:now,dueDate:''};
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(coPayload)}).catch(function(){});
+    }
+  }
+  // ── Summary toast ──────────────────────────────────────────────
+  var summary='\u2705 Auto-created: '+created+' action'+(created!==1?'s':'')+' from plan';
+  if(decisions.length) summary+=' \u00B7 '+decisions.length+' decision'+(decisions.length!==1?'s':'')+' extracted \u2192 Decision box + \uD83D\uDCE3 Callout';
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">'+summary+'</div>',4000);
+  // Refresh callouts so decision appears immediately in the horn
+  if(decisions.length&&typeof _coFetch==='function') setTimeout(_coFetch,500);
 }
 </script>
 <div id="my-profile-panel">
