@@ -19825,9 +19825,94 @@ function _showActionEditPanel(actId){
   body.appendChild(_lbl('DUE DATE'));
   var dueInp=document.createElement('input');dueInp.type='date';dueInp.value=(act.dueDate||'').slice(0,10);dueInp.style.cssText=iSt;body.appendChild(dueInp);
 
-  // Meta
+  // ── Divider ──
+  var div1=document.createElement('div');div1.style.cssText='border-top:1px solid var(--border);margin:14px 0 2px';body.appendChild(div1);
+
+  // ── PROGRESS UPDATE ──
+  body.appendChild(_lbl('PROGRESS UPDATE'));
+  var updateHint=document.createElement('div');updateHint.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-bottom:5px';updateHint.textContent='Posts to Task Messages — LLM reads this when generating plans';body.appendChild(updateHint);
+  var updateTa=document.createElement('textarea');updateTa.rows=3;updateTa.style.cssText=iSt+';resize:vertical';updateTa.placeholder='What\'s the latest? Any blockers, decisions, or progress to log…';body.appendChild(updateTa);
+  // Log display
+  var updateLog=document.createElement('div');updateLog.style.cssText='margin-top:6px;max-height:100px;overflow-y:auto;scrollbar-width:none';body.appendChild(updateLog);
+  var updateStatus=document.createElement('span');updateStatus.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);display:block;margin-top:4px;min-height:14px';body.appendChild(updateStatus);
+  var postUpdateBtn=document.createElement('button');
+  postUpdateBtn.textContent='⚡ Post Update to Task';
+  postUpdateBtn.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;padding:5px 12px;border-radius:4px;border:1px solid var(--gold);color:var(--gold);background:transparent;cursor:pointer;margin-top:6px';
+  postUpdateBtn.onclick=function(){
+    var txt=updateTa.value.trim();if(!txt) return;
+    var user=window._DGL_USER||'system';
+    var ts=new Date().toISOString();
+    var msgText='[ACTION UPDATE — '+(act.taskId||'no task')+']\nAction: '+(titleInp.value.trim()||act.title||'—')+'\nStatus: '+stSel.value+'\nUpdate: '+txt;
+    // Post to task messages (LLM reads this)
+    if(CONFIG.sheetsUrl&&act.taskId){
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-aupd-'+Date.now(),taskId:act.taskId,fromUser:user,fromName:'⚡ Action Update ('+user+')',text:msgText,createdAt:ts,type:'note'})}).catch(function(){});
+    }
+    // Also update the action's body to include the note (appended with timestamp)
+    var stamp='['+ts.slice(0,16).replace('T',' ')+'] '+txt;
+    var newBody=(bodyTa.value.trim()?bodyTa.value.trim()+'\n\n':'')+stamp;
+    bodyTa.value=newBody;
+    // Update action in Sheets
+    if(CONFIG.sheetsUrl){
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_update',id:actId,body:newBody,updatedAt:ts})}).catch(function(){});
+    }
+    var cached=(_actionsCache||[]).find(function(a){return a.id===actId;});if(cached) cached.body=newBody;
+    // Show in log
+    var entry=document.createElement('div');entry.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text);border-left:2px solid var(--gold);padding:3px 7px;margin-bottom:4px;background:rgba(201,168,76,0.04);white-space:pre-wrap;word-break:break-word';entry.textContent=stamp;
+    updateLog.insertBefore(entry,updateLog.firstChild);
+    updateTa.value='';
+    updateStatus.textContent='✓ Update posted to task messages';
+    setTimeout(function(){updateStatus.textContent='';},2500);
+  };
+  body.appendChild(postUpdateBtn);
+
+  // ── Divider ──
+  var div2=document.createElement('div');div2.style.cssText='border-top:1px solid var(--border);margin:14px 0 2px';body.appendChild(div2);
+
+  // ── LINKED FILES & URLS ──
+  body.appendChild(_lbl('LINKED FILE OR URL'));
+  var fileHint=document.createElement('div');fileHint.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-bottom:5px';fileHint.textContent='Attaches to Task Messages — LLM gathers these when building context';body.appendChild(fileHint);
+  var urlRow=document.createElement('div');urlRow.style.cssText='display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:5px';
+  var urlInp=document.createElement('input');urlInp.type='url';urlInp.style.cssText=iSt;urlInp.placeholder='https:// — Google Drive, Dropbox, Figma, etc.';
+  var labelInp=document.createElement('input');labelInp.type='text';labelInp.style.cssText=iSt+';margin-top:5px';labelInp.placeholder='Label — e.g. "Final mockup v3"';
+  urlRow.appendChild(urlInp);body.appendChild(urlRow);body.appendChild(labelInp);
+  // File log display
+  var fileLog=document.createElement('div');fileLog.style.cssText='margin-top:6px;max-height:80px;overflow-y:auto;scrollbar-width:none';body.appendChild(fileLog);
+  var fileStatus=document.createElement('span');fileStatus.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);display:block;margin-top:4px;min-height:14px';body.appendChild(fileStatus);
+  var attachBtn=document.createElement('button');
+  attachBtn.textContent='🔗 Attach to Task';
+  attachBtn.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;padding:5px 12px;border-radius:4px;border:1px solid #60a5fa;color:#60a5fa;background:transparent;cursor:pointer;margin-top:6px';
+  attachBtn.onclick=function(){
+    var url=urlInp.value.trim();if(!url) return;
+    var label=labelInp.value.trim()||url;
+    var user=window._DGL_USER||'system';
+    var ts=new Date().toISOString();
+    var msgText='[FILE LINKED — '+(act.taskId||'no task')+']\nAction: '+(titleInp.value.trim()||act.title||'—')+'\nFile: '+label+'\nURL: '+url;
+    // Post to task messages
+    if(CONFIG.sheetsUrl&&act.taskId){
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'message_write',id:'msg-afile-'+Date.now(),taskId:act.taskId,fromUser:user,fromName:'🔗 File Linked ('+user+')',text:msgText,createdAt:ts,type:'note'})}).catch(function(){});
+    }
+    // Append URL to action body
+    var fileNote='[FILE: '+label+'] '+url;
+    var newBody=(bodyTa.value.trim()?bodyTa.value.trim()+'\n\n':'')+fileNote;
+    bodyTa.value=newBody;
+    if(CONFIG.sheetsUrl){
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'action_update',id:actId,body:newBody,updatedAt:ts})}).catch(function(){});
+    }
+    var cached=(_actionsCache||[]).find(function(a){return a.id===actId;});if(cached) cached.body=newBody;
+    // Show in log as clickable link
+    var entry=document.createElement('div');entry.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;border-left:2px solid #60a5fa;padding:3px 7px;margin-bottom:4px;background:rgba(96,165,250,0.04);display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+    var lnk=document.createElement('a');lnk.href=url;lnk.target='_blank';lnk.textContent=label;lnk.style.cssText='color:#60a5fa;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1';lnk.onmouseover=function(){lnk.style.textDecoration='underline';};lnk.onmouseout=function(){lnk.style.textDecoration='none';};
+    entry.appendChild(lnk);fileLog.insertBefore(entry,fileLog.firstChild);
+    urlInp.value='';labelInp.value='';
+    fileStatus.textContent='✓ File attached to task';
+    setTimeout(function(){fileStatus.textContent='';},2500);
+  };
+  body.appendChild(attachBtn);
+
+  // ── Meta ──
+  var div3=document.createElement('div');div3.style.cssText='border-top:1px solid var(--border);margin:14px 0 2px';body.appendChild(div3);
   var metaEl=document.createElement('div');
-  metaEl.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--border);margin-top:10px;line-height:1.8';
+  metaEl.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--border);margin-top:6px;line-height:1.8';
   metaEl.textContent='ID: '+(act.id||'—')+' · Created by: '+(act.createdBy||'—')+' · '+(act.createdAt||'').slice(0,10);
   body.appendChild(metaEl);
   panel.appendChild(body);
