@@ -9190,7 +9190,15 @@ const _AI_AGENTS={
 };
 const _AI_ATLAS={name:'ATLAS',color:'#94a3b8',glow:'rgba(148,163,184,0.55)',
   system:"You are Atlas, DGL team AI. You help with tasks, questions, and daily work for the easyChef Pro team."};
-function _getAgentCfg(){ return _AI_AGENTS[(window._DGL_USER||'').toLowerCase()]||_AI_ATLAS; }
+const AGENT_MAP={taylor:'PRIME',steve:'MERIDIAN',hammad:'NEXUS',adam:'FORGE',default:'ATLAS'};
+window._VERA_AGENTS=[];
+function _getAgentCfg(){
+  const user=(window._DGL_USER||'').toLowerCase();
+  const base=_AI_AGENTS[user]||_AI_ATLAS;
+  const agentId=AGENT_MAP[user]||AGENT_MAP.default;
+  const reg=window._VERA_AGENTS.find(a=>a.id===agentId||a.name===agentId);
+  return reg?{...base,name:reg.displayName||reg.name||agentId}:base;
+}
 function _initAIBtn(){
   const cfg=_getAgentCfg();
   const btn=document.getElementById('ai-agent-btn');
@@ -9278,23 +9286,21 @@ function _aiSend(){
   }).catch(err=>_aiAppendMsg('agent','❌ '+err.message))
   .finally(()=>{ if(btn){btn.disabled=false;btn.textContent='Send';} });
 }
-async function _aiFetch(prompt){
+async function _agentChat(agentId,prompt){
   if(!CONFIG.sheetsUrl) throw new Error('No Apps Script URL configured');
-  const cfg=_getAgentCfg();
-  const ctx=_buildDGLContext().slice(0,2500);
-  if(cfg.action==='vera_chat'){
-    const d=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({action:'vera_chat',prompt:ctx+'\n\n---\n\n'+prompt})}).then(r=>r.json());
-    return d.reply||d.response||d.text||d.completion||JSON.stringify(d);
-  }
   const hist=_aiHistory.slice(-8).map(m=>({role:m.role,content:m.content}));
   const d=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
-    body:JSON.stringify({action:'anthropic',
-      system:cfg.system+'\n\nCurrent DGL project context (today '+new Date().toLocaleDateString()+'):\n'+ctx,
-      prompt,conversationHistory:hist})}).then(r=>r.json());
+    body:JSON.stringify({action:'agent_chat',agentId,prompt,conversationHistory:hist})}).then(r=>r.json());
   const reply=d.reply||d.response||d.completion||d.text||(Array.isArray(d.content)&&d.content[0]&&d.content[0].text)||'';
   if(!reply) throw new Error(d.error||'Empty response from AI');
   return reply;
+}
+async function _aiFetch(prompt){
+  if(!CONFIG.sheetsUrl) throw new Error('No Apps Script URL configured');
+  const user=(window._DGL_USER||'').toLowerCase();
+  const agentId=AGENT_MAP[user]||AGENT_MAP.default;
+  const ctx=_buildDGLContext().slice(0,2500);
+  return _agentChat(agentId,ctx+'\n\n---\n\n'+prompt);
 }
 // ── MY PROFILE FLOATING PANEL ──
 let _mppDragging=false,_mppDx=0,_mppDy=0,_mppCollapsed=false;
@@ -13557,11 +13563,12 @@ rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mer
         const _fetchChannelMaps=fetch(CONFIG.sheetsUrl+'?action=channel_maps_read').then(r=>r.json()).then(d=>{ const maps=d.maps||{}; if(maps.category&&typeof maps.category==='object') Object.entries(maps.category).forEach(([k,v])=>{ const slug=(v&&typeof v==='object'?v.channelName:v||'').replace('#',''); if(slug){ _categoryChannelMapOverrides[k]=slug; CATEGORY_CHANNEL_MAP[k]=slug; } }); if(maps.dm&&typeof maps.dm==='object') Object.entries(maps.dm).forEach(([k,v])=>{_DM_CHANNEL_MAP[k]=(v&&typeof v==='object'?v.channelId:v)||'';}); }).catch(()=>{});
         const _fetchKillCriteria=fetch(CONFIG.sheetsUrl+'?action=kill_criteria_read').then(r=>r.json()).then(data=>{ if(data.criteria){ _killCriteriaCache=data.criteria; _killCriteria=data.criteria; try{ localStorage.setItem('dgl_kill_criteria',JSON.stringify(data.criteria)); }catch(e){} } }).catch(()=>{});
         const _fetchRoadmap=fetch(CONFIG.sheetsUrl+'?action=roadmap_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(!rows.length) return; DASHBOARD_DATA.meta.milestoneItems=rows.map(r=>({id:r.id||('ms-'+r.title),title:r.title||r.label||'',date:r.date||'',type:r.type||'Milestone',status:r.status||'Upcoming',description:r.description||r.note||'',color:r.color||'',taskIds:r.taskIds||'',achievedDate:r.achievedDate||''})); }).catch(()=>{});
+        const _fetchAgents=fetch(CONFIG.sheetsUrl+'?action=agents_list').then(r=>r.json()).then(d=>{ if(Array.isArray(d.agents)&&d.agents.length){ window._VERA_AGENTS=d.agents; _refreshACEDropdown(); _initAIBtn(); } }).catch(()=>{});
         const _fetchSettings=loadSettings();
         const _fetchWorkstreams=loadWorkstreams();
         const _fetchLaunchPlan=fetch(CONFIG.sheetsUrl+'?action=launchplan_read').then(r=>r.json()).then(data=>{ const rows=Array.isArray(data)?data:(data.items||[]); if(rows.length>0){ _lpCache=rows; } else if(!_lpCache.length){ _lpCache=_LP_DEFAULTS.map(x=>({...x})); } }).catch(()=>{ if(!_lpCache.length) _lpCache=_LP_DEFAULTS.map(x=>({...x})); });
         const _fetchDocs=fetch(CONFIG.sheetsUrl+'?action=docs_read').then(r=>r.json()).then(data=>{ const docs=Array.isArray(data.docs)?data.docs:[]; docs.forEach(d=>{ if(d.taskId){ const k='task_'+d.taskId; if(!_docsCache[k]) _docsCache[k]=[]; _docsCache[k].push(d); } }); buildRaciTable(); buildRoadmap(); buildLaunchPlan(); }).catch(()=>{});
-        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings,_fetchLaunchPlan,_fetchWorkstreams,_fetchDocs])
+        Promise.all([_fetchHR,_fetchActionPlans,_fetchChannelMaps,_fetchKillCriteria,_fetchRoadmap,_fetchSettings,_fetchLaunchPlan,_fetchWorkstreams,_fetchDocs,_fetchAgents])
           .then(()=>{
             _refreshDMMembers();
             _rebuildRaciPersonFilter();
@@ -15441,8 +15448,15 @@ function buildHRPage(){
   }
 }
 
+function _refreshACEDropdown(){
+  const sel=document.getElementById('ace-agent-select');
+  if(!sel||!window._VERA_AGENTS||!window._VERA_AGENTS.length) return;
+  const cur=sel.value;
+  sel.innerHTML=window._VERA_AGENTS.map(a=>{ const n=a.displayName||a.name||a.id; return '<option'+(n===cur?' selected':'')+'>'+n+'</option>'; }).join('');
+}
 function _buildAgentConstitutionEditor(){
-  const agents=['Vera','Prime','Meridian','Nexus','Forge','Atlas','Crown','HRMS','DNI Core','Vera Builder','EasyChef Code','EasyChef Content','EasyChef Design','Recipe Analyzer','Recipe Validator','NutriSync Code','NutriSync Ops'];
+  const regAgents=window._VERA_AGENTS&&window._VERA_AGENTS.length?window._VERA_AGENTS.map(a=>a.displayName||a.name||a.id):['Vera','Prime','Meridian','Nexus','Forge','Atlas','Crown','HRMS','DNI Core','Vera Builder','EasyChef Code','EasyChef Content','EasyChef Design','Recipe Analyzer','Recipe Validator','NutriSync Code','NutriSync Ops'];
+  const agents=regAgents;
   const opts=agents.map(a=>'<option>'+a+'</option>').join('');
   const purple='#a78bfa';
   const btnBase='font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:5px;cursor:pointer;transition:background 0.15s';
