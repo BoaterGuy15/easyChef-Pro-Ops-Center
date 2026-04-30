@@ -19579,9 +19579,15 @@ function _sendInfoRequest(taskId){
   statusEl.textContent='\u23F3 Sending\u2026'; statusEl.style.color='var(--gold)';
   var reqPayload={action:'ir_write',id:reqId,taskId:taskId,recipientKey:recipKey,recipientName:recipName,message:message,requestedBy:requestedBy,requestedAt:requestedAt,status:'pending',responseUrl:responseUrl};
   var dmPayload={action:'slack_send',to:recipKey,channel:'',text:message+'\n\n\uD83D\uDD17 To respond: '+responseUrl,fromUser:requestedBy,taskId:taskId,direct:true};
+  // Post to task Messages feed so LLM + team can see it
+  var msgPayload={action:'message_write',id:'msg-ir-'+reqId,taskId:taskId,fromUser:requestedBy,fromName:'\uD83D\uDCCB Info Request \u2192 '+recipName,text:message,createdAt:requestedAt,type:'note'};
+  // Fire a callout alert to the recipient
+  var coPayload={action:'callout_write',id:'co-ir-'+reqId,type:'flag',title:'\uD83D\uDCCB Info Requested: '+t.name,message:message,taggedUser:recipKey,taggedTask:taskId,createdBy:requestedBy,createdAt:requestedAt,dueDate:''};
   var saves=CONFIG.sheetsUrl?[
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(reqPayload)}).then(function(r){return r.json();}).catch(function(){}),
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(dmPayload)}).then(function(r){return r.json();}).catch(function(){})
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(dmPayload)}).then(function(r){return r.json();}).catch(function(){}),
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(msgPayload)}).then(function(r){return r.json();}).catch(function(){}),
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(coPayload)}).then(function(r){return r.json();}).catch(function(){})
   ]:[];
   Promise.all(saves).then(function(){
     var oldStatus=t.status;
@@ -19594,8 +19600,13 @@ function _sendInfoRequest(taskId){
     if(!_irCache[taskId]) _irCache[taskId]=[];
     _irCache[taskId].unshift({id:reqId,taskId:taskId,recipientKey:recipKey,recipientName:recipName,message:message,requestedBy:requestedBy,requestedAt:requestedAt,status:'pending',responseUrl:responseUrl});
     _irRenderList(taskId);
-    statusEl.textContent='\u2713 Request sent! Task moved to In Review.'; statusEl.style.color='var(--green)';
-    setTimeout(function(){ var p=document.getElementById('ir-compose-panel'); if(p) p.remove(); },2000);
+    // Refresh the messages log in the task panel if it's open
+    if(typeof _renderTaskMessagesLog==='function'){
+      var ml=document.getElementById('raci-discussion-'+taskId);
+      if(ml) _loadTaskMessages(taskId,'raci-discussion-'+taskId,!!window._DGL_USER&&window._DGL_USER!=='view');
+    }
+    statusEl.textContent='\u2713 Request sent! Visible in Messages + Alerts.'; statusEl.style.color='var(--green)';
+    setTimeout(function(){ var p=document.getElementById('ir-compose-panel'); if(p) p.remove(); },2500);
   });
 }
 
