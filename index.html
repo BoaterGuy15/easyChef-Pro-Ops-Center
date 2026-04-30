@@ -596,6 +596,12 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 #briefing-btn:hover,#mailbox-btn:hover,#settings-btn:hover{opacity:0.75}
 #bell-dot{position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--red);display:none;border:1.5px solid var(--bg)}
 #mailbox-badge{position:absolute;top:0;right:0;min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--bg);line-height:1}
+/* ── PERSONAL AI BUTTON + PANEL ── */
+@keyframes ai-pulse{0%,100%{box-shadow:0 0 4px 2px var(--ai-glow,rgba(168,85,247,0.5))}50%{box-shadow:0 0 14px 6px var(--ai-glow,rgba(168,85,247,0.5))}}
+#ai-agent-btn{background:transparent;border:none;cursor:pointer;padding:3px;position:relative;display:none;margin-right:4px;vertical-align:middle}
+#ai-agent-dot{width:11px;height:11px;border-radius:50%;animation:ai-pulse 2.2s ease-in-out infinite}
+#ai-chat-panel{position:fixed;z-index:99985;width:380px;height:500px;bottom:60px;right:20px;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,0.75);display:none;flex-direction:column;overflow:hidden}
+#ai-chat-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
 /* ── MY PROFILE FLOATING PANEL ── */
 #my-profile-btn{background:transparent;border:none;cursor:pointer;padding:0;position:relative;display:none;margin-right:2px}
 #my-profile-btn-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:#fff;overflow:hidden;border:2px solid var(--border);transition:border-color 0.2s}
@@ -742,6 +748,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <span id="wave2-loading" style="display:none;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">⏳ Loading…</span>
     <button id="briefing-btn" onclick="_openBriefingPanel()" title="Open daily briefing">📋<span id="bell-dot"></span></button>
     <button id="mailbox-btn" onclick="_openMailboxPanel()" title="Mailbox">📬<span id="mailbox-badge"></span></button>
+    <button id="ai-agent-btn" onclick="_toggleAIPanel()" title="Personal AI"><div id="ai-agent-dot"></div></button>
     <button id="my-profile-btn" onclick="_toggleMyPanel()" title="My Profile"><div id="my-profile-btn-av"></div></button>
     <button id="settings-btn" onclick="openSettingsModal()" title="Settings">⚙️</button>
     <div class="live-dot" id="live-dot" title="Live data"></div>
@@ -9167,6 +9174,125 @@ function closeProfileModal(){
   if(ov) ov.classList.remove('open');
   if(_profileClockInterval){ clearInterval(_profileClockInterval); _profileClockInterval=null; }
 }
+// ── PERSONAL AI PANEL ────────────────────────────────────────
+let _aiHistory=[];
+const _AI_AGENTS={
+  taylor:{name:'VERA PRIME',color:'#a855f7',glow:'rgba(168,85,247,0.55)',action:'vera_chat'},
+  steve: {name:'MERIDIAN', color:'#14b8a6',glow:'rgba(20,184,166,0.55)',
+    system:"You are Meridian, L9 COO AI for Digital Galactica Labs. You specialize in operations, RACI, workstreams, team accountability, and Steve's daily priorities. Be direct and operational."},
+  hammad:{name:'NEXUS',    color:'#f97316',glow:'rgba(249,115,22,0.55)',
+    system:"You are Nexus, L9 Intelligence AI for Digital Galactica Labs. You specialize in technical architecture, code, engineering decisions, and Hammad's CTO priorities. Be precise and technical."},
+  adam:  {name:'FORGE',    color:'#f59e0b',glow:'rgba(245,158,11,0.55)',
+    system:"You are Forge, L9 Automation AI for Digital Galactica Labs. You specialize in marketing automation, campaigns, CMO strategy, and Adam's priorities. Be creative and data-driven."},
+};
+const _AI_ATLAS={name:'ATLAS',color:'#94a3b8',glow:'rgba(148,163,184,0.55)',
+  system:"You are Atlas, DGL team AI. You help with tasks, questions, and daily work for the easyChef Pro team."};
+function _getAgentCfg(){ return _AI_AGENTS[(window._DGL_USER||'').toLowerCase()]||_AI_ATLAS; }
+function _initAIBtn(){
+  const cfg=_getAgentCfg();
+  const btn=document.getElementById('ai-agent-btn');
+  const dot=document.getElementById('ai-agent-dot');
+  if(!btn||!dot) return;
+  dot.style.background=cfg.color;
+  dot.style.setProperty('--ai-glow',cfg.glow);
+  btn.title=cfg.name+' — Your Personal AI';
+  btn.style.display='inline-block';
+}
+function _makeAIPanel(){
+  let p=document.getElementById('ai-chat-panel');
+  if(p) return p;
+  const cfg=_getAgentCfg();
+  p=document.createElement('div');
+  p.id='ai-chat-panel';
+  p.style.cssText='position:fixed;z-index:99985;width:380px;height:500px;bottom:60px;right:20px;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,0.75);display:none;flex-direction:column;overflow:hidden';
+  p.innerHTML=
+    `<div id="ai-chat-hdr" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);cursor:grab;user-select:none;flex-shrink:0">
+      <div style="width:10px;height:10px;border-radius:50%;background:${cfg.color};box-shadow:0 0 8px 3px ${cfg.glow};flex-shrink:0;animation:ai-pulse 2.2s ease-in-out infinite;--ai-glow:${cfg.glow}"></div>
+      <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:${cfg.color};letter-spacing:2px;flex:1">${cfg.name}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:#22c55e;flex-shrink:0">● ONLINE</span>
+      <button onclick="_toggleAIPanel()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;margin-left:6px;line-height:1">✕</button>
+    </div>
+    <div id="ai-chat-msgs" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px"></div>
+    <div style="padding:10px;border-top:1px solid var(--border);display:flex;gap:6px;flex-shrink:0">
+      <input id="ai-chat-input" type="text" placeholder="Ask ${cfg.name}…" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();_aiSend();}">
+      <button id="ai-send-btn" onclick="_aiSend()" style="font-family:'DM Mono',monospace;font-size:10px;padding:7px 14px;border-radius:6px;border:1px solid ${cfg.color};color:${cfg.color};background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0">Send</button>
+    </div>`;
+  document.body.appendChild(p);
+  _aiDraggable(p, p.querySelector('#ai-chat-hdr'));
+  return p;
+}
+function _aiDraggable(panel,handle){
+  let ox=0,oy=0,mx=0,my=0;
+  handle.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    const r=panel.getBoundingClientRect();
+    panel.style.bottom='';panel.style.right='';
+    panel.style.left=r.left+'px';panel.style.top=r.top+'px';
+    mx=e.clientX;my=e.clientY;
+    const move=ev=>{
+      panel.style.left=(parseInt(panel.style.left)||0)+(ev.clientX-mx)+'px';
+      panel.style.top=(parseInt(panel.style.top)||0)+(ev.clientY-my)+'px';
+      mx=ev.clientX;my=ev.clientY;
+    };
+    const up=()=>{ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); };
+    document.addEventListener('mousemove',move);
+    document.addEventListener('mouseup',up);
+  });
+}
+function _toggleAIPanel(){
+  const p=_makeAIPanel();
+  const show=p.style.display==='none'||!p.style.display;
+  p.style.display=show?'flex':'none';
+  if(show){
+    setTimeout(()=>document.getElementById('ai-chat-input')?.focus(),50);
+    if(!_aiHistory.length) _aiAppendMsg('agent','👋 Hi! I\'m '+_getAgentCfg().name+'. How can I help you today?');
+  }
+}
+function _aiAppendMsg(role,text){
+  const msgs=document.getElementById('ai-chat-msgs');
+  if(!msgs) return;
+  const cfg=_getAgentCfg();
+  const isAgent=role==='agent';
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;flex-direction:column;align-items:'+(isAgent?'flex-start':'flex-end');
+  const safe=String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  div.innerHTML='<div style="max-width:88%;padding:8px 12px;border-radius:'+(isAgent?'4px 12px 12px 12px':'12px 4px 12px 12px')+';background:'+(isAgent?'var(--surface)':'transparent')+';border:1px solid '+(isAgent?'var(--border)':cfg.color+'55')+';font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);line-height:1.6;white-space:pre-wrap">'+safe+'</div>';
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+function _aiSend(){
+  const inp=document.getElementById('ai-chat-input');
+  const text=(inp?inp.value:'').trim();
+  if(!text) return;
+  inp.value='';
+  _aiAppendMsg('user',text);
+  _aiHistory.push({role:'user',content:text});
+  const btn=document.getElementById('ai-send-btn');
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  _aiFetch(text).then(reply=>{
+    _aiHistory.push({role:'assistant',content:reply});
+    _aiAppendMsg('agent',reply);
+  }).catch(err=>_aiAppendMsg('agent','❌ '+err.message))
+  .finally(()=>{ if(btn){btn.disabled=false;btn.textContent='Send';} });
+}
+async function _aiFetch(prompt){
+  if(!CONFIG.sheetsUrl) throw new Error('No Apps Script URL configured');
+  const cfg=_getAgentCfg();
+  const ctx=_buildDGLContext().slice(0,2500);
+  if(cfg.action==='vera_chat'){
+    const d=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'vera_chat',prompt:ctx+'\n\n---\n\n'+prompt})}).then(r=>r.json());
+    return d.reply||d.response||d.text||d.completion||JSON.stringify(d);
+  }
+  const hist=_aiHistory.slice(-8).map(m=>({role:m.role,content:m.content}));
+  const d=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'anthropic',
+      system:cfg.system+'\n\nCurrent DGL project context (today '+new Date().toLocaleDateString()+'):\n'+ctx,
+      prompt,conversationHistory:hist})}).then(r=>r.json());
+  const reply=d.reply||d.response||d.completion||d.text||(Array.isArray(d.content)&&d.content[0]&&d.content[0].text)||'';
+  if(!reply) throw new Error(d.error||'Empty response from AI');
+  return reply;
+}
 // ── MY PROFILE FLOATING PANEL ──
 let _mppDragging=false,_mppDx=0,_mppDy=0,_mppCollapsed=false;
 function _initMyPanel(){
@@ -9175,6 +9301,7 @@ function _initMyPanel(){
   const btn=document.getElementById('my-profile-btn');
   if(btn) btn.style.display='inline-block';
   _mppUpdateBtnAvatar();
+  _initAIBtn();
   try{
     const p=JSON.parse(localStorage.getItem('dgl_mpp_pos')||'{}');
     const panel=document.getElementById('my-profile-panel');
