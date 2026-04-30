@@ -4459,7 +4459,7 @@ function _buildTaskExpandHtml(taskId){
           const _apDate=(_ap&&_ap.createdAt||'').slice(0,10);
           const _mBtnSt="font-family:'DM Mono',monospace;font-size:9px;padding:3px 10px;border-radius:4px;border:1px solid;background:transparent;cursor:pointer;margin-right:6px";
           if(_cp){const _cpText=(_cp.text||'')||(t.actionPlan||'')||_getActionPlanText(taskId);return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:#22c55e;padding:6px 12px;border:1px solid #22c55e;border-radius:6px;margin-bottom:4px;display:inline-block">✅ Action Plan Completed on ${(_cp.completedAt||'').slice(0,10)||'—'}</div>${_cpText?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:pre-wrap;padding:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:200px;overflow-y:auto;margin-bottom:6px">${_cpText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`:'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);margin-bottom:6px;font-style:italic">Plan text not available.</div>'}<div style="display:flex;gap:6px;flex-wrap:wrap"><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">🔄 Generate New Plan</button><button onclick="_pushActionPlanToTask('${taskId}',${JSON.stringify(_cpText||'').replace(/`/g,"'")})" style="${_mBtnSt};border-color:var(--accent);color:var(--accent)">📤 Push to Task</button></div></div>`;}
-          if(_apText){const _planId=(_ap&&_ap.id)||'';return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:#f59e0b;padding:6px 12px;border:1px solid #f59e0b;border-radius:6px;margin-bottom:4px;display:inline-block">🟡 Action Plan Active${_apDate?' · '+_apDate:''}</div><div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_apText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px"><button onclick="_completeActionPlan('${taskId}','${_planId}')" style="${_mBtnSt};border-color:#22c55e;color:#22c55e">✅ Mark Complete</button><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">🔄 Generate New Plan</button><button onclick="_pushActionPlanToTask('${taskId}',${JSON.stringify(_apText).replace(/`/g,"'")})" style="${_mBtnSt};border-color:var(--accent);color:var(--accent)">📤 Push to Task</button><button onclick="showPage('actionplans')" style="${_mBtnSt};border-color:var(--border);color:var(--muted)">📋 View Action Plans Tab</button></div></div>`;}
+          if(_apText){const _planId=(_ap&&_ap.id)||'';return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:#f59e0b;padding:6px 12px;border:1px solid #f59e0b;border-radius:6px;margin-bottom:4px;display:inline-block">🟡 Action Plan Active${_apDate?' · '+_apDate:''}</div><div style="border-left:3px solid var(--gold);border-radius:0 6px 6px 0;margin-bottom:4px"><textarea id="raci-task-actionplan-${taskId}" rows="4" style="${iSt};resize:vertical;border-left:none;border-radius:0 6px 6px 0" placeholder="AI-generated action plan — edit or update as needed" onblur="saveTaskActionPlan('${taskId}')">${_apText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px"><button onclick="_completeActionPlan('${taskId}','${_planId}')" style="${_mBtnSt};border-color:#22c55e;color:#22c55e">✅ Mark Complete</button><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">🔄 Generate New Plan</button><button onclick="_pushActionPlanToTask('${taskId}',${JSON.stringify(_apText).replace(/`/g,"'")})" style="${_mBtnSt};border-color:var(--accent);color:var(--accent)">📤 Push to Task</button><button onclick="showPage('actionplans')" style="${_mBtnSt};border-color:var(--border);color:var(--muted)">📋 View Action Plans Tab</button><button onclick="_aiExtractAndCreateActionsDecisions('${taskId}',(document.getElementById('raci-task-actionplan-${taskId}')||{}).value||'',null,window._DGL_USER||'system','')" style="${_mBtnSt};border-color:var(--gold);color:var(--gold)">⚡ Extract Actions &amp; Decisions</button></div></div>`;}
           return `<div id="ap-status-task-${taskId}"><div id="ap-status-badge-${taskId}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:6px 0;margin-bottom:4px">No action plan yet.</div><button onclick="document.getElementById('super-ai-btn-${taskId}')?.click()" style="${_mBtnSt};border-color:var(--gold);color:var(--gold);margin-top:4px">⚡ Generate Action Plan</button></div>`;
         })()}
         ${lbl('⚡ ACTIONS')}
@@ -8099,6 +8099,7 @@ function _renderTaskPlanCardsHtml(plans,sourceId,sourceType){
             ${p.owner&&p.owner!=='TBD'?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:0 4px">${p.owner}</span>`:''}
             ${p.deadline?`<span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--amber)">${p.deadline}</span>`:''}
             <button onclick="event.stopPropagation();_addTaskPlanToRaci('${sourceId}','${sourceType}',${i},this)" style="${_bSt};font-size:8px;padding:1px 6px">📋 Add to RACI</button>
+            <button onclick="event.stopPropagation();_addTaskPlanToAction('${sourceId}','${sourceType}',${i},this)" style="${_bSt};font-size:8px;padding:1px 6px;border-color:var(--gold);color:var(--gold)">⚡ Add to Action</button>
           </div>
         </div>
       </div>
@@ -8107,7 +8108,8 @@ function _renderTaskPlanCardsHtml(plans,sourceId,sourceType){
   const regenBtn=`<button onclick="_generateTaskPlans('${sourceId}','${sourceType}')" style="${_bSt};border-color:#4a9eff;color:#4a9eff">🔄 Regenerate Plans</button>`;
   const bulkBtn=`<button data-bulk-src="${sourceId}" onclick="_showBulkCreateModal('${sourceId}','${sourceType}')" style="${_bSt};border-color:#4a9eff;color:#4a9eff">📋 Bulk Add to RACI (${selCount})</button>`;
   const agendaBtn=`<button data-agenda-src="${sourceId}" onclick="_bulkAddToAgenda('${sourceId}','${sourceType}')" style="${_bSt};border-color:var(--amber);color:var(--amber)">📅 Add to Agenda (${selCount})</button>`;
-  return `<div>${cards}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${genBtn}${regenBtn}${bulkBtn}${agendaBtn}</div></div>`;
+  const actionsBtn=`<button data-acts-src="${sourceId}" onclick="_bulkAddToActions('${sourceId}','${sourceType}')" style="${_bSt};border-color:var(--gold);color:var(--gold)">⚡ Add to Actions (${selCount})</button>`;
+  return `<div>${cards}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${genBtn}${regenBtn}${bulkBtn}${agendaBtn}${actionsBtn}</div></div>`;
 }
 function _generateTaskPlans(id,type){
   console.log('[DGL] _generateTaskPlans fired',id,type);
@@ -8145,6 +8147,65 @@ function _addTaskPlanToRaci(id,type,idx,btn){
   const taskCat=linkedTask?.cat||'Launch Ops';
   _openCreateTaskWithData({name:p.title,owner:linkedTask?.owner||p.owner||'TBD',priority:p.priority||'High',notes:taskNotes,cat:taskCat,sd,ed,flag:'',deps,decision:'',actionPlan:p.description||'',_sourceAgendaId:type==='agenda'?id:''});
   if(btn){ btn.textContent='✓ Opened'; btn.disabled=true; setTimeout(()=>{ btn.textContent='📋 Add to RACI'; btn.disabled=false; },1500); }
+}
+function _addTaskPlanToAction(id,type,idx,btn){
+  const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
+  if(!src||!src.taskPlans||!src.taskPlans[idx]) return;
+  const p=src.taskPlans[idx];
+  const taskId=type==='task'?id:(src.taskId||id);
+  // Parse due date from plan deadline
+  let dueDate='';
+  if(p.deadline){ try{ const d=new Date(p.deadline+' '+new Date().getFullYear()); if(!isNaN(d.getTime())) dueDate=d.toISOString().slice(0,10); }catch(_){} }
+  // Look up assignee key from plan owner
+  const ownerName=(p.owner||'').trim();
+  const memberMatch=(_DM_MEMBERS||[]).find(function(m){ return m.name.toLowerCase()===ownerName.toLowerCase()||(m.name.toLowerCase().split(' ')[0]===ownerName.toLowerCase()); });
+  const assignedKey=memberMatch?memberMatch.key:'';
+  const assignedName=memberMatch?memberMatch.name:ownerName;
+  const priority=p.section==='today'||p.section==='risk'?'High':'Medium';
+  const workstreamId=src.workstream||'';
+  const actId='act-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
+  const now=new Date().toISOString();
+  const user=window._DGL_USER||'system';
+  const newEntry={id:actId,taskId:taskId,linkedTaskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority,title:p.title,body:p.description||'',status:'Open',assignedTo:assignedKey,assignedName:assignedName,dueDate:dueDate,createdBy:user,createdAt:now};
+  _actionsCache.push(newEntry);
+  if(!_taskWsaCache[taskId]) _taskWsaCache[taskId]=[];
+  _taskWsaCache[taskId].unshift(newEntry);
+  _taskActsRender(taskId,_taskWsaCache[taskId]);
+  if(CONFIG.sheetsUrl){
+    const wsaPayload={action:'workstream_action_write',item:{id:actId,workstreamId:workstreamId,type:priority,title:p.title,body:p.description||'',assignedTo:assignedKey,dueDate:dueDate,status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId,createdBy:user,createdAt:now}};
+    const actPayload={action:'action_write',id:actId,taskId:taskId,agendaId:'',workstreamId:workstreamId,type:priority.toLowerCase(),title:p.title,body:p.description||'',status:'open',createdBy:user,createdAt:now};
+    Promise.all([
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).catch(()=>{}),
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(actPayload)}).catch(()=>{})
+    ]);
+    if(assignedKey){
+      const dmCh=typeof _getDMChannelId==='function'?_getDMChannelId(assignedKey):'';
+      const msg='\u26A1 Action assigned: '+p.title+(dueDate?' (due '+dueDate+')':'');
+      if(dmCh) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(dmCh)+'&text='+encodeURIComponent(msg)+'&user='+encodeURIComponent(user)).catch(()=>{});
+    }
+  }
+  if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
+  if(btn){ btn.textContent='✓ Added'+(assignedName?' \u2192 '+assignedName:''); btn.disabled=true; btn.style.color='var(--green)'; btn.style.borderColor='var(--green)'; setTimeout(()=>{ btn.textContent='\u26A1 Add to Action'; btn.disabled=false; btn.style.color='var(--gold)'; btn.style.borderColor='var(--gold)'; },2000); }
+  _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">\u2705 Action created'+(assignedName?' \u2014 assigned to '+assignedName:'')+' </div>',2000);
+}
+function _bulkAddToActions(id,type){
+  const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
+  if(!src||!src.taskPlans||!src.taskPlans.length){ alert('No task plans found. Generate Task Plans from AI first.'); return; }
+  const selected=src.taskPlans.filter(p=>p.selected!==false);
+  if(!selected.length){ alert('No plans selected. Check at least one plan card first.'); return; }
+  let created=0;
+  selected.forEach(function(p,i){
+    setTimeout(function(){
+      // Simulate per-card add without a button reference
+      _addTaskPlanToAction(id,type,src.taskPlans.indexOf(p),null);
+      created++;
+      if(created===selected.length){
+        const btn=document.querySelector('[data-acts-src="'+id+'"]');
+        if(btn){ btn.textContent='\u2713 Added '+created; btn.disabled=true; setTimeout(()=>{ btn.textContent='\u26A1 Add to Actions ('+selected.length+')'; btn.disabled=false; },2000); }
+        _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">\u2705 '+created+' action'+(created===1?'':'s')+' created from Task Plan</div>',3000);
+      }
+    },i*80);
+  });
 }
 function _bcpUpdateCount(){
   const plans=window._bulkModalPlans||[];
