@@ -19873,14 +19873,30 @@ function _showActionEditPanel(actId){
   var fileHint=document.createElement('div');fileHint.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);margin-bottom:8px';fileHint.textContent='Attached links post to Task Messages so the LLM sees them';body.appendChild(fileHint);
   // Hidden file input
   var filePickInp=document.createElement('input');filePickInp.type='file';filePickInp.style.cssText='display:none';body.appendChild(filePickInp);
+  // Drop zone
+  var dropZone=document.createElement('div');
+  dropZone.style.cssText='border:2px dashed var(--border);border-radius:6px;padding:14px 10px;text-align:center;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);cursor:pointer;transition:border-color 0.15s,color 0.15s;margin-bottom:8px;user-select:none';
+  dropZone.innerHTML='<span style="font-size:20px;display:block;margin-bottom:4px">📂</span>Drop file here or <span style="color:var(--gold);text-decoration:underline">Browse</span>';
+  dropZone.onclick=function(){filePickInp.click();};
+  dropZone.ondragover=function(e){e.preventDefault();dropZone.style.borderColor='var(--gold)';dropZone.style.color='var(--gold)';};
+  dropZone.ondragleave=function(){dropZone.style.borderColor='var(--border)';dropZone.style.color='var(--muted)';};
+  dropZone.ondrop=function(e){
+    e.preventDefault();dropZone.style.borderColor='var(--border)';dropZone.style.color='var(--muted)';
+    var f=e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(f){fileLabelInp.value=f.name;dropZone.innerHTML='<span style="font-size:16px;display:block;margin-bottom:2px">✓</span><span style="color:var(--gold)">'+f.name+'</span>';}
+  };
+  body.appendChild(dropZone);
+  filePickInp.onchange=function(){
+    if(filePickInp.files&&filePickInp.files[0]){
+      fileLabelInp.value=filePickInp.files[0].name;
+      dropZone.innerHTML='<span style="font-size:16px;display:block;margin-bottom:2px">✓</span><span style="color:var(--gold)">'+filePickInp.files[0].name+'</span>';
+    }
+  };
   // Label input
   var fLabelLbl=document.createElement('span');fLabelLbl.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;display:block';fLabelLbl.textContent='LABEL / FILENAME';body.appendChild(fLabelLbl);
   var fLabelRow=document.createElement('div');fLabelRow.style.cssText='display:flex;gap:6px;margin-bottom:6px';
-  var fileLabelInp=document.createElement('input');fileLabelInp.type='text';fileLabelInp.style.cssText=iSt+';flex:1';fileLabelInp.placeholder='e.g. "Final mockup v3" or pick a file →';
-  var browseBtn=document.createElement('button');browseBtn.textContent='📁 Browse';browseBtn.style.cssText='font-family:\'DM Mono\',monospace;font-size:9px;padding:5px 10px;border-radius:4px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0';
-  browseBtn.onclick=function(){filePickInp.click();};
-  filePickInp.onchange=function(){if(filePickInp.files&&filePickInp.files[0]) fileLabelInp.value=filePickInp.files[0].name;};
-  fLabelRow.appendChild(fileLabelInp);fLabelRow.appendChild(browseBtn);body.appendChild(fLabelRow);
+  var fileLabelInp=document.createElement('input');fileLabelInp.type='text';fileLabelInp.style.cssText=iSt+';flex:1';fileLabelInp.placeholder='Auto-filled on drop/browse, or type a name';
+  fLabelRow.appendChild(fileLabelInp);body.appendChild(fLabelRow);
   // URL input
   var fUrlLbl=document.createElement('span');fUrlLbl.style.cssText='font-family:\'DM Mono\',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;display:block';fUrlLbl.textContent='URL — PASTE LINK';body.appendChild(fUrlLbl);
   var urlInp=document.createElement('input');urlInp.type='url';urlInp.style.cssText=iSt+';margin-bottom:8px';urlInp.placeholder='https:// — Google Drive, Dropbox, Figma, Notion…';body.appendChild(urlInp);
@@ -19914,6 +19930,7 @@ function _showActionEditPanel(actId){
     entry.appendChild(ico);entry.appendChild(lnkWrap);
     fileLog.insertBefore(entry,fileLog.firstChild);
     urlInp.value='';fileLabelInp.value='';filePickInp.value='';
+    dropZone.innerHTML='<span style="font-size:20px;display:block;margin-bottom:4px">📂</span>Drop file here or <span style="color:var(--gold);text-decoration:underline">Browse</span>';
     fileStatus.textContent='✓ Attached';setTimeout(function(){fileStatus.textContent='';},2500);
   };
 
