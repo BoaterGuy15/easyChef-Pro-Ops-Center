@@ -19424,7 +19424,7 @@ function _openInfoRequestPanel(taskId){
     '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">MESSAGE</div>'+
     '<button onclick="_irAIGenerate(\''+taskId+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:2px 8px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer">\u26A1 AI Draft</button>'+
     '</div>'+
-    '<textarea id="ir-msg-'+taskId+'" rows="5" style="'+iSt+';resize:vertical;margin-bottom:8px" placeholder="Describe what information you need\u2026"></textarea>'+
+    '<textarea id="ir-msg-'+taskId+'" rows="4" style="'+iSt+';resize:vertical;margin-bottom:8px;min-height:80px;max-height:420px;transition:height 0.1s" placeholder="Describe what you need \u2014 e.g. &quot;missing doc and timeline&quot; \u2014 then hit \u26a1 AI Draft"></textarea>'+
     '<div id="ir-status-'+taskId+'" style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted);min-height:14px;margin-bottom:8px"></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
     '<button onclick="document.getElementById(\'ir-compose-panel\').remove()" style="font-family:\'DM Mono\',monospace;font-size:10px;padding:5px 14px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>'+
@@ -19499,23 +19499,66 @@ function _irAIGenerate(taskId){
   var statusEl=document.getElementById('ir-status-'+taskId);
   var msgEl=document.getElementById('ir-msg-'+taskId);
   var recipSel=document.getElementById('ir-recipient-'+taskId);
-  if(!statusEl||!msgEl||!recipSel) return;
-  if(!recipSel.value){ statusEl.textContent='Select a recipient first.'; statusEl.style.color='var(--amber)'; return; }
+  if(!statusEl||!msgEl) return;
   var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;});
   if(!t) return;
-  var recipName=(_DM_MEMBERS.find(function(m){return m.key===recipSel.value;})||{}).name||recipSel.value;
+  var userIntent=(msgEl.value||'').trim();
+  var recipName=recipSel&&recipSel.value?(_DM_MEMBERS.find(function(m){return m.key===recipSel.value;})||{}).name||recipSel.value:'Team';
   var senderName=(typeof _getMemberInfo==='function'?_getMemberInfo(window._DGL_USER||''):{}).name||(window._DGL_USER||'Team');
-  statusEl.textContent='\u26A1 Generating draft\u2026'; statusEl.style.color='var(--gold)';
+  statusEl.textContent='\uD83D\uDCE1 Reading task context\u2026'; statusEl.style.color='var(--gold)';
   msgEl.value='';
-  var prompt='Write a professional, concise info request directed to '+recipName+' for the task "'+t.name+'" (ID: '+taskId+'). Task status: '+(t.status||'In Progress')+'. Context: '+(t.notes||t.flag||'No additional context')+'. Format: start with "@'+recipName+' \u2014 ['+taskId+' \u2014 '+t.name+' | '+(t.workstream||t.category||'General')+'] message from '+senderName+':". Keep under 80 words.';
-  fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':CONFIG.claudeApiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:CONFIG.claudeModel||'claude-haiku-4-5-20251001',max_tokens:300,messages:[{role:'user',content:prompt}]})})
-    .then(function(r){return r.json();})
-    .then(function(data){
-      var text=(data.content&&data.content[0]&&data.content[0].text)||'';
-      if(text){ msgEl.value=text.trim(); statusEl.textContent='\u2713 Draft ready \u2014 edit as needed'; statusEl.style.color='var(--green)'; }
-      else{ statusEl.textContent='AI unavailable \u2014 write manually.'; statusEl.style.color='var(--muted)'; }
-    })
-    .catch(function(){ statusEl.textContent='AI unavailable \u2014 write manually.'; statusEl.style.color='var(--muted)'; });
+
+  // Fetch recent messages for this task so AI has full context
+  var msgFetch=CONFIG.sheetsUrl
+    ?fetch(CONFIG.sheetsUrl+'?action=messages_read&taskId='+encodeURIComponent(taskId)).then(function(r){return r.json();}).catch(function(){return {messages:[]};})
+    :Promise.resolve({messages:[]});
+
+  msgFetch.then(function(msgData){
+    var msgs=(msgData.messages||[]).slice(-12).map(function(m){
+      return '['+(m.fromName||m.fromUser||'?')+'] '+(m.text||'');
+    }).join('\n');
+
+    // Gather linked docs from action bodies
+    var actionDocs=[];
+    (_actionsCache||[]).filter(function(a){return a.taskId===taskId;}).forEach(function(a){
+      var b=a.body||'';
+      var re=/\[FILE:[^\]]+\]\s*(https?:\/\/\S+)/g;var m;
+      while((m=re.exec(b))!==null) actionDocs.push(m[0]);
+    });
+
+    var taskContext=[
+      'TASK ID: '+taskId,
+      'TASK NAME: '+(t.name||'\u2014'),
+      'WORKSTREAM: '+(t.workstream||'\u2014'),
+      'CATEGORY: '+(t.category||t.workstream||'\u2014'),
+      'STATUS: '+(t.status||'In Progress'),
+      'OWNER: '+(t.owner||'\u2014'),
+      'DUE: '+(t.dueDate||t.due||'\u2014'),
+      'NOTES: '+(t.notes||t.flag||'\u2014'),
+      actionDocs.length?'LINKED DOCS:\n'+actionDocs.join('\n'):''
+    ].filter(Boolean).join('\n');
+
+    var systemPrompt='You are a professional project coordinator for Digital Galactica Labs (DGL) working on the easyChef Pro launch.\n\nYour job: given a task\'s details and message history, write a structured, professional information request.\n\nOutput EXACTLY in this format (no markdown, no extra headers):\n\nTASK #: [task id]\nWORKSTREAM: [workstream]\nCATEGORY: [category]\nTASK: [task name]\nSTATUS: [status]\n\nTO: @[recipient name]\nFROM: [sender name]\n\n[Professional message body \u2014 3-5 sentences. Clearly state what is missing or needed, reference specific context from the messages/docs, include any timeline question if relevant. Polite but direct. No filler phrases like "I hope this finds you well."]';
+
+    var userMsg='TASK CONTEXT:\n'+taskContext+'\n\nRECENT MESSAGES:\n'+(msgs||'(none)')+'\n\nUSER REQUEST INTENT: '+(userIntent||'general status and missing information')+'\n\nRECIPIENT: '+recipName+'\nSENDER: '+senderName+'\n\nWrite the structured information request now.';
+
+    statusEl.textContent='\u26A1 Drafting with AI\u2026'; statusEl.style.color='var(--gold)';
+    fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':CONFIG.claudeApiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:CONFIG.claudeModel||'claude-haiku-4-5-20251001',max_tokens:600,system:systemPrompt,messages:[{role:'user',content:userMsg}]})})
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var text=(data.content&&data.content[0]&&data.content[0].text)||'';
+        if(text){
+          msgEl.value=text.trim();
+          // Auto-resize textarea to show the full draft
+          msgEl.style.height='auto';
+          msgEl.style.height=Math.min(400,msgEl.scrollHeight)+'px';
+          statusEl.textContent='\u2713 Draft ready \u2014 edit as needed'; statusEl.style.color='#22c55e';
+        } else {
+          statusEl.textContent='AI unavailable \u2014 write manually.'; statusEl.style.color='var(--muted)';
+        }
+      })
+      .catch(function(){ statusEl.textContent='AI unavailable \u2014 write manually.'; statusEl.style.color='var(--muted)'; });
+  });
 }
 
 function _sendInfoRequest(taskId){
