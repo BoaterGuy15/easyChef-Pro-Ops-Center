@@ -213,6 +213,29 @@ section + section{border-top:1px solid var(--border)}
 }
 .team-bio{font-size:14px;line-height:1.7;color:var(--gray)}
 
+/* team groups */
+.team-group-label{
+  font-size:11px;font-weight:600;letter-spacing:0.16em;
+  text-transform:uppercase;color:var(--gray);
+  padding-bottom:14px;border-bottom:1px solid var(--border);
+  margin:44px 0 24px;
+}
+.team-grid-exec{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:24px;
+}
+.team-grid-members{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:24px;
+  margin-top:0;
+}
+.team-initial{
+  width:56px;height:56px;border-radius:50%;
+  background:var(--navy);margin-bottom:16px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Proza Libre',sans-serif;
+  font-size:17px;font-weight:700;color:var(--white);
+  letter-spacing:0.03em;
+}
+
 /* ── FINAL CTA ── */
 .about-cta{
   background:var(--black);
@@ -270,7 +293,7 @@ footer{
   .two-col{grid-template-columns:1fr;gap:40px}
   .img-placeholder{display:none}
   .stat-row{grid-template-columns:1fr}
-  .team-grid{grid-template-columns:1fr}
+  .team-grid-exec,.team-grid-members{grid-template-columns:repeat(2,1fr)}
   .about-cta{padding:72px 24px}
   footer{flex-direction:column;align-items:flex-start;padding:28px 24px}
 }
@@ -351,22 +374,58 @@ footer{
 
 <!-- ── TEAM ── -->
 <section>
-  <div class="container">
+  <div class="container-wide">
     <p class="section-tag">The Team</p>
-    <h2 class="section-title">Placeholder section title</h2>
+    <h2 class="section-title">The people building <em>easyChef Pro</em></h2>
     <p class="body-text">Placeholder — your team intro goes here.</p>
-    <div class="team-grid">
+
+    <p class="team-group-label">Executive Team</p>
+    <div class="team-grid-exec">
       <div class="team-card">
-        <div class="team-photo">👤</div>
-        <div class="team-name">Taylor</div>
-        <div class="team-title">Co-Founder &amp; CEO</div>
-        <p class="team-bio">Placeholder — Taylor's bio goes here.</p>
+        <div class="team-initial">TR</div>
+        <div class="team-name">Taylor Reasoner</div>
+        <div class="team-title">Founder · CEO</div>
+        <p class="team-bio">Placeholder — bio goes here.</p>
       </div>
       <div class="team-card">
-        <div class="team-photo">👤</div>
-        <div class="team-name">Steve</div>
-        <div class="team-title">Co-Founder &amp; CTO</div>
-        <p class="team-bio">Placeholder — Steve's bio goes here.</p>
+        <div class="team-initial">SH</div>
+        <div class="team-name">Steve Harkness</div>
+        <div class="team-title">COO</div>
+        <p class="team-bio">Placeholder — bio goes here.</p>
+      </div>
+      <div class="team-card">
+        <div class="team-initial">H</div>
+        <div class="team-name">Hammad</div>
+        <div class="team-title">CTO</div>
+        <p class="team-bio">Placeholder — bio goes here.</p>
+      </div>
+      <div class="team-card">
+        <div class="team-initial">AG</div>
+        <div class="team-name">Adam Guerguis</div>
+        <div class="team-title">CMO</div>
+        <p class="team-bio">Placeholder — bio goes here.</p>
+      </div>
+    </div>
+
+    <p class="team-group-label">Team</p>
+    <div class="team-grid-members">
+      <div class="team-card">
+        <div class="team-initial">JH</div>
+        <div class="team-name">JR Hernandez</div>
+        <div class="team-title">Growth Strategist</div>
+        <p class="team-bio">Placeholder — bio goes here.</p>
+      </div>
+      <div class="team-card">
+        <div class="team-initial">ST</div>
+        <div class="team-name">Searah Teitgen</div>
+        <div class="team-title">Marketing Operations Associate</div>
+        <p class="team-bio">Placeholder — bio goes here.</p>
+      </div>
+      <div class="team-card">
+        <div class="team-initial">ST</div>
+        <div class="team-name">Sadee Tison</div>
+        <div class="team-title">Customer Support &amp; Beta Ops</div>
+        <p class="team-bio">Placeholder — bio goes here.</p>
       </div>
     </div>
   </div>
