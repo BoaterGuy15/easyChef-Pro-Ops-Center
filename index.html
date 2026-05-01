@@ -1875,47 +1875,27 @@ function _notifyRaciAll(taskId,message,type){
 }
 function _sendOverdueSlack(t){
   if(!CONFIG.sheetsUrl) return;
-  const _k='dgl_overdue_notif_'+t.id;
-  if(sessionStorage.getItem(_k)) return;
-  sessionStorage.setItem(_k,'1');
+  // Dedup: once per task per calendar day (localStorage survives page reloads)
+  const _today=new Date().toISOString().slice(0,10);
+  const _k='dgl_overdue_'+t.id+'_'+_today;
+  try{ if(localStorage.getItem(_k)) return; localStorage.setItem(_k,'1'); }catch(_){}
   const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const due=new Date(t.ed+'T00:00:00');
   const dueFmt=MO[due.getMonth()]+' '+due.getDate()+', '+due.getFullYear();
   const daysOver=Math.ceil((Date.now()-due.getTime())/(864e5));
-  const _blockers=DASHBOARD_DATA.tasks.filter(x=>(x.deps||'').includes(t.id)).map(x=>x.id+' '+x.name).join(', ')||'None';
+  const {responsible,accountable}=_getRACIUsers(t);
+  const assignedNames=responsible.map(uk=>(_DM_NAME_MAP&&_DM_NAME_MAP[uk])||uk).join(', ')||'—';
   const msg=[
-    '⚠️ OVERDUE TASK — '+t.id+' · '+t.name,
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    'TASK DETAILS:',
-    'Category: '+(t.cat||'—'),
-    'Priority: '+(t.pri||'—'),
-    'Status: '+(t.status||'—'),
-    'Owner: '+(t.owner||'—'),
-    'Due Date: '+dueFmt+' ('+daysOver+' day'+(daysOver!==1?'s':'')+' overdue)',
-    'Start Date: '+(t.sd||'—'),
-    'Flag: '+(t.flag||'None'),
-    'Notes: '+(t.notes||'None'),
-    '',
-    'RACI ASSIGNMENTS:',
-    'Taylor='+(t.Taylor||'—')+' Steve='+(t.Steve||'—')+' Adam='+(t.Adam||'—'),
-    'Hammad='+(t.Hammad||'—')+' JR='+(t.JR||'—')+' Searah='+(t.Searah||'—')+' Sadee='+(t.Sadee||'—'),
-    '',
-    'DEPENDENCIES:',
-    'Depends on: '+(t.deps||'None'),
-    'Blocks: '+_blockers,
-    '',
-    'This task is past its due date. Immediate action required.',
-    '',
-    '🔗 View task: '+_taskUrl(t.id),
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━'
+    '⚠️ OVERDUE — '+t.id+' · '+t.name,
+    'Category: '+(t.cat||'—')+'  ·  Owner: '+(t.owner||'—')+'  ·  Assigned: '+assignedNames,
+    'Due: '+dueFmt+' ('+daysOver+' day'+(daysOver!==1?'s':'')+' overdue)',
+    '🔗 '+_taskUrl(t.id)
   ].join('\n');
   const linked=_getTaskSlackLink(t.id);
   if(linked.channelId) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(linked.channelId)+'&text='+encodeURIComponent(msg)+'&user=system').catch(()=>{});
-  const {responsible,accountable}=_getRACIUsers(t);
-  const rMsg='⚠️ Your task ['+t.id+'] '+t.name+' is '+daysOver+'d overdue. Please act now. '+_taskUrl(t.id);
-  const aMsg='⚠️ Accountability: ['+t.id+'] '+t.name+' is '+daysOver+'d overdue — owner action needed. '+_taskUrl(t.id);
-  responsible.forEach(uk=>{ const ch=linked.channelId||_DM_CHANNEL_MAP[uk]||''; _logNotification(t.id,uk,ch,rMsg,'overdue'); });
-  accountable.filter(uk=>!responsible.includes(uk)).forEach(uk=>{ const ch=linked.channelId||_DM_CHANNEL_MAP[uk]||''; _logNotification(t.id,uk,ch,aMsg,'overdue'); });
+  const dmMsg='⚠️ '+t.id+' · '+t.name+' — '+daysOver+'d overdue. '+_taskUrl(t.id);
+  responsible.forEach(uk=>{ const ch=_getDMChannelId(uk)||_DM_CHANNEL_MAP[uk]||''; _logNotification(t.id,uk,ch,dmMsg,'overdue'); if(ch) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch)+'&text='+encodeURIComponent(dmMsg)+'&user=system').catch(()=>{}); });
+  accountable.filter(uk=>!responsible.includes(uk)).forEach(uk=>{ const ch=_getDMChannelId(uk)||_DM_CHANNEL_MAP[uk]||''; _logNotification(t.id,uk,ch,dmMsg,'overdue'); if(ch) fetch(CONFIG.sheetsUrl+'?action=slack_send&channel='+encodeURIComponent(ch)+'&text='+encodeURIComponent(dmMsg)+'&user=system').catch(()=>{}); });
 }
 function _sendUnblockedSlack(unblockedTask,completedTask){
   if(!CONFIG.sheetsUrl) return;
