@@ -741,6 +741,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')" style="display:none">Action Plans</div>
     <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')">Workstreams</div>
     <div class="nav-tab" data-tab-id="actions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actions')" style="display:none">⚡ Actions</div>
+    <div class="nav-tab" data-tab-id="seo" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('seo')">SEO</div>
   </div>
   <div class="topbar-right">
     <div class="countdown" id="milestone-countdown" onclick="showMilestoneEditor(this)" style="cursor:pointer" title="Click to edit milestone">Launch in <span id="days-countdown">75</span> days — <span id="milestone-label-display">Jul 1, 2026</span></div>
@@ -920,7 +921,55 @@ const DASHBOARD_DATA = {
     {name:"Sadee Tison", role:"PA · Support & Beta Ops", email:"sadee@DGL.dev", color:"teal",
      tasks:["T-039 · Customer Success (R ✓)","T-040 · Alpha/Beta Feedback (R ✓)","Zendesk live before May 11","Beta concierge W4 onward"],
      stats:{responsible:2, threshold:"30-50 tickets"}},
-  ]
+  ],
+  seo:{
+    pages:[
+      {
+        id:'easychef-landing',
+        site:'easyChef Pro',
+        page:'Coming Soon',
+        file:'landing.html',
+        url:'https://boaterguy15.github.io/easyChef-Pro-Ops-Center/landing.html',
+        metaTitle:'easyChef Pro — Smarter Meal Planning App, Launching July 2026',
+        metaDesc:'easyChef Pro helps families save $1,336/year on groceries and cut food waste by 69.5%. Join 2,400+ families on the founding access waitlist. Launching July 1, 2026.',
+        h1:'Your kitchen. Finally working for you.',
+        h2:'Join 2,400+ families already on the list.',
+        focusKw:'meal planning app',
+        keywords:'meal planning app, recipe manager, food waste reduction, family meal planner, smart kitchen app',
+        canonical:'https://boaterguy15.github.io/easyChef-Pro-Ops-Center/landing.html',
+        robots:'index, follow',
+        ogTitle:'easyChef Pro — Smarter Meal Planning',
+        ogDesc:'Join 2,400+ families on the founding access list. Launching July 1, 2026.',
+        ogImage:'',
+        twitterCard:'summary_large_image',
+        twitterSite:'@easychefpro',
+        schema:'Product',
+        altTexts:[{src:'Hero background',alt:''},{src:'App screenshot',alt:''}]
+      },
+      {
+        id:'easychef-about',
+        site:'easyChef Pro',
+        page:'About Us',
+        file:'about.html',
+        url:'https://boaterguy15.github.io/easyChef-Pro-Ops-Center/about.html',
+        metaTitle:'About Us — Digital Galactica Labs | easyChef Pro',
+        metaDesc:'Meet the team behind easyChef Pro. Built by Digital Galactica Labs — an 8-person team dedicated to smarter, simpler meal planning for families everywhere.',
+        h1:'Built between shifts. Not in Silicon Valley.',
+        h2:'The people building easyChef Pro.',
+        focusKw:'meal planning app Digital Galactica Labs',
+        keywords:'Digital Galactica Labs, easyChef Pro team, meal planning startup, about us',
+        canonical:'https://boaterguy15.github.io/easyChef-Pro-Ops-Center/about.html',
+        robots:'index, follow',
+        ogTitle:'About easyChef Pro & Digital Galactica Labs',
+        ogDesc:'Meet the 8-person team building the smartest meal planning app of 2026.',
+        ogImage:'',
+        twitterCard:'summary_large_image',
+        twitterSite:'@easychefpro',
+        schema:'AboutPage',
+        altTexts:[]
+      }
+    ]
+  }
 };
 
 // ── Computed budget values ──────────────────────────────────
@@ -1463,6 +1512,10 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="actionplans-body" style="padding:16px 0"></div>
 </div>
 
+<div id="page-seo" class="page">
+  <div id="seo-mgr-root"></div>
+</div>
+
 
 <script>
 // ── Countdown ──────────────────────────────────────────────
@@ -1502,6 +1555,7 @@ function showPage(id){
   if(id==='docs'){ if(_sharedDocsCache.length) _renderSharedDocs(); setTimeout(_loadSharedDocs,80); }
   if(id==='lp'){ _debouncedBuildMilestones(); loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
   if(id==='actions'){ _debouncedBuildMilestones(); setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
+  if(id==='seo') _seoRender();
   if(id==='budget') loadBudgetFromSheets();
   if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } _slackCheckToken(); }
   if(id==='command'){
@@ -20419,6 +20473,258 @@ async function _aiExtractAndCreateActionsDecisions(taskId,planText,task,user,fro
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">'+summary+'</div>',4000);
   // Refresh callouts so decision appears immediately in the horn
   if(decisions.length&&typeof _coFetch==='function') setTimeout(_coFetch,500);
+}
+// ══════════════════════════════════════════════════════════════
+// SEO MANAGER
+// ══════════════════════════════════════════════════════════════
+function _seoScore(p){
+  var s=0,t=p.metaTitle||'',d=p.metaDesc||'',kw=(p.focusKw||'').toLowerCase();
+  if(t)s+=15; if(t.length>=30&&t.length<=60)s+=10;
+  if(d)s+=15; if(d.length>=120&&d.length<=160)s+=10;
+  if(p.h1)s+=10; if(kw)s+=5;
+  if(kw&&t.toLowerCase().includes(kw))s+=10;
+  if(kw&&d.toLowerCase().includes(kw))s+=10;
+  if(p.ogImage)s+=10; if(p.schema)s+=5;
+  return s;
+}
+function _seoScoreColor(s){ return s>=80?'#22c55e':s>=50?'#f59e0b':'#ef4444'; }
+function _seoScoreLabel(s){ return s>=80?'Good':s>=50?'Fair':'Poor'; }
+function _seoLenColor(len,key){
+  if(key==='metaTitle'){ return len>=30&&len<=60?'#22c55e':len>0&&len<30?'#f59e0b':len>60?'#ef4444':'var(--muted)'; }
+  if(key==='metaDesc'){ return len>=120&&len<=160?'#22c55e':len>0&&len<120?'#f59e0b':len>160?'#ef4444':'var(--muted)'; }
+  return 'var(--muted)';
+}
+function _seoSerp(p){
+  var title=p.metaTitle||'(no title)',desc=p.metaDesc||'(no description)',url=(p.url||p.file||'').replace(/^https?:\/\//,'');
+  return '<div style="max-width:600px;padding:14px 16px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;font-family:Arial,sans-serif">'+
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+    '<div style="width:16px;height:16px;background:#4285f4;border-radius:50%;flex-shrink:0"></div>'+
+    '<div><div style="font-size:12px;color:#202124">'+(p.site||'Site')+'</div><div style="font-size:11px;color:#4d5156">'+url+' &#9660;</div></div></div>'+
+    '<div style="font-size:19px;color:#1a0dab;line-height:1.3;margin-bottom:4px">'+(title.length>60?title.slice(0,57)+'...':title)+'</div>'+
+    '<div style="font-size:13px;color:#4d5156;line-height:1.5">'+(desc.length>160?desc.slice(0,157)+'...':desc)+'</div></div>';
+}
+function _seoChecklist(p){
+  var t=p.metaTitle||'',d=p.metaDesc||'',kw=(p.focusKw||'').toLowerCase();
+  var checks=[
+    {l:'Meta title present',v:!!t},{l:'Title 30-60 chars ('+t.length+')',v:t.length>=30&&t.length<=60},
+    {l:'Meta description present',v:!!d},{l:'Description 120-160 chars ('+d.length+')',v:d.length>=120&&d.length<=160},
+    {l:'H1 defined',v:!!p.h1},{l:'Focus keyword set',v:!!kw},
+    {l:'Keyword in title',v:!!kw&&t.toLowerCase().includes(kw)},
+    {l:'Keyword in description',v:!!kw&&d.toLowerCase().includes(kw)},
+    {l:'OG image URL set',v:!!p.ogImage},{l:'Schema type defined',v:!!p.schema},
+    {l:'Canonical URL set',v:!!p.canonical},{l:'OG title set',v:!!p.ogTitle},{l:'OG description set',v:!!p.ogDesc}
+  ];
+  return checks.map(function(c){return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">'+
+    '<span style="font-size:12px;color:'+(c.v?'#22c55e':'#ef4444')+'">'+(c.v?'✓':'✗')+'</span>'+
+    '<span style="font-size:11px;color:'+(c.v?'var(--text)':'var(--muted)')+'">'+c.l+'</span></div>';}).join('');
+}
+function _seoSnippetHTML(p){
+  var sc=p.schema?JSON.stringify({'@context':'https://schema.org','@type':p.schema,'name':p.metaTitle||p.page||'','description':p.metaDesc||'','url':p.url||''},null,2):null;
+  return '<!-- == SEO META: '+p.page+' == -->\n<title>'+p.metaTitle+'</title>\n<meta name="description" content="'+p.metaDesc+'">\n<meta name="keywords" content="'+(p.keywords||'')+'">\n<meta name="robots" content="'+(p.robots||'index, follow')+'">\n<link rel="canonical" href="'+(p.canonical||p.url||'')+'">\n\n<!-- Open Graph -->\n<meta property="og:type" content="website">\n<meta property="og:title" content="'+(p.ogTitle||p.metaTitle)+'">\n<meta property="og:description" content="'+(p.ogDesc||p.metaDesc)+'">\n<meta property="og:url" content="'+(p.url||'')+'">\n<meta property="og:image" content="'+(p.ogImage||'')+'">\n<meta property="og:site_name" content="'+(p.site||'')+'">\n\n<!-- Twitter Card -->\n<meta name="twitter:card" content="'+(p.twitterCard||'summary_large_image')+'">\n<meta name="twitter:site" content="'+(p.twitterSite||'')+'">\n<meta name="twitter:title" content="'+(p.ogTitle||p.metaTitle)+'">\n<meta name="twitter:description" content="'+(p.ogDesc||p.metaDesc)+'">\n<meta name="twitter:image" content="'+(p.ogImage||'')+'">'+(sc?'\n\n<!-- Schema.org JSON-LD -->\n<script type="application/ld+json">\n'+sc+'\n<\/script>':'');
+}
+function _seoGetLiveData(id){
+  var base=(DASHBOARD_DATA.seo.pages||[]).find(function(p){return p.id===id;})||{};
+  var live=Object.assign({},base);
+  ['metaTitle','metaDesc','h1','h2','focusKw','keywords','canonical','ogTitle','ogDesc','ogImage','twitterCard','twitterSite'].forEach(function(k){
+    var el=document.getElementById('seo-f-'+id+'-'+k); if(el) live[k]=el.value;
+  });
+  var r=document.getElementById('seo-f-'+id+'-robots'); if(r) live.robots=r.value;
+  var s=document.getElementById('seo-f-'+id+'-schema'); if(s) live.schema=s.value;
+  return live;
+}
+function _seoLivePreview(id){
+  var p=_seoGetLiveData(id);
+  var sp=document.getElementById('seo-serp-'+id); if(sp) sp.innerHTML=_seoSerp(p);
+  var cl=document.getElementById('seo-checklist-'+id); if(cl) cl.innerHTML=_seoChecklist(p);
+}
+function _seoCt(el,ctId,key){
+  var ct=document.getElementById(ctId);
+  if(ct){ct.textContent=el.value.length+'/'+(key==='metaTitle'?60:160);ct.style.color=_seoLenColor(el.value.length,key);}
+  var m=ctId.match(/^seo-f-(.+)-(metaTitle|metaDesc)-ct$/); if(m) _seoLivePreview(m[1]);
+}
+function _seoTab(pid,idx){
+  [0,1,2,3].forEach(function(i){
+    var panel=document.getElementById('seo-panel-'+pid+'-'+i);
+    var tab=document.getElementById('seo-tab-'+pid+'-'+i);
+    if(panel) panel.style.display=i===idx?'block':'none';
+    if(tab){tab.style.borderBottomColor=i===idx?'var(--gold)':'transparent';tab.style.color=i===idx?'var(--gold)':'var(--muted)';tab.style.fontWeight=i===idx?'600':'400';}
+  });
+  if(idx===2) _seoSchemaPreview(pid);
+}
+function _seoSchemaPreview(pid){
+  var p=_seoGetLiveData(pid);
+  var pre=document.getElementById('seo-schema-preview-'+pid);
+  if(pre) pre.textContent=JSON.stringify({'@context':'https://schema.org','@type':p.schema||'WebPage','name':p.metaTitle||'','description':p.metaDesc||'','url':p.url||''},null,2);
+}
+function _seoToggleEdit(id){
+  var ed=document.getElementById('seo-editor-'+id); var btn=document.getElementById('seo-edit-btn-'+id);
+  if(!ed) return;
+  var open=ed.style.display!=='none';
+  ed.style.display=open?'none':'block';
+  if(btn) btn.textContent=open?'Edit':'Close';
+}
+function _seoField(label,key,p,type,maxLen,hint){
+  var val=(p[key]||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  var fid='seo-f-'+p.id+'-'+key;
+  var counter=maxLen?'<span id="'+fid+'-ct" style="font-size:10px;color:'+_seoLenColor((p[key]||'').length,key)+'">'+(p[key]||'').length+'/'+maxLen+'</span>':'';
+  var onInp=maxLen?'oninput="_seoCt(this,\''+fid+'-ct\',\''+key+'\')"':'oninput="_seoLivePreview(\''+p.id+'\')"';
+  var sty='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+  var field=type==='textarea'?'<textarea id="'+fid+'" rows="3" '+onInp+' style="'+sty+';resize:vertical">'+(p[key]||'')+'</textarea>':'<input id="'+fid+'" type="text" value="'+val+'" '+onInp+' style="'+sty+'">';
+  return '<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><label style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase">'+label+'</label>'+counter+'</div>'+field+(hint?'<div style="font-size:10px;color:var(--muted);margin-top:3px">'+hint+'</div>':'')+'</div>';
+}
+function _seoEditorHTML(p){
+  var altRows=(p.altTexts||[]).map(function(a,i){return '<div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:8px;align-items:end"><div><div style="font-size:10px;color:var(--muted);margin-bottom:3px">'+a.src+'</div><input id="seo-alt-'+p.id+'-'+i+'" value="'+(a.alt||'').replace(/"/g,'&quot;')+'" placeholder="Describe this image" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:12px;box-sizing:border-box"></div><button onclick="_seoRemoveAlt(\''+p.id+'\','+i+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 10px;border-radius:6px;font-size:11px;cursor:pointer">x</button></div>';}).join('');
+  var schemaOpts=['Product','SoftwareApplication','AboutPage','Organization','WebPage','BlogPosting','FAQPage','Article','LocalBusiness','Service'].map(function(v){return '<option value="'+v+'"'+(p.schema===v?' selected':'')+'>'+v+'</option>';}).join('');
+  var robotsOpts=['index, follow','noindex, follow','index, nofollow','noindex, nofollow'].map(function(v){return '<option value="'+v+'"'+((p.robots||'index, follow')===v?' selected':'')+'>'+v+'</option>';}).join('');
+  return '<div style="display:grid;grid-template-columns:1fr 310px;min-height:380px">'+
+  '<div style="padding:18px 22px;border-right:1px solid var(--border);overflow:auto;max-height:70vh">'+
+  '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">'+
+  [['Core SEO',0],['Social',1],['Schema',2],['Alt Text',3]].map(function(t){return '<button onclick="_seoTab(\''+p.id+'\','+t[1]+')" id="seo-tab-'+p.id+'-'+t[1]+'" style="padding:8px 14px;background:transparent;border:none;border-bottom:2px solid '+(t[1]===0?'var(--gold)':'transparent')+';font-size:12px;color:'+(t[1]===0?'var(--gold)':'var(--muted)')+';cursor:pointer;font-weight:'+(t[1]===0?'600':'400')+'">'+t[0]+'</button>';}).join('')+
+  '</div>'+
+  '<div id="seo-panel-'+p.id+'-0">'+
+    _seoField('Meta Title','metaTitle',p,'text',60,'30-60 chars · include focus keyword near start')+
+    _seoField('Meta Description','metaDesc',p,'textarea',160,'120-160 chars · summarise the page, include keyword')+
+    _seoField('H1','h1',p,'text',0,'Main visible headline on the page')+
+    _seoField('H2','h2',p,'text',0,'Secondary headline')+
+    _seoField('Focus Keyword','focusKw',p,'text',0,'Primary keyword this page targets')+
+    _seoField('Keywords (comma separated)','keywords',p,'text',0,'')+
+    _seoField('Canonical URL','canonical',p,'text',0,'')+
+    '<div style="margin-bottom:14px"><label style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;display:block;margin-bottom:5px">Robots</label><select id="seo-f-'+p.id+'-robots" onchange="_seoLivePreview(\''+p.id+'\')" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px">'+robotsOpts+'</select></div>'+
+  '</div>'+
+  '<div id="seo-panel-'+p.id+'-1" style="display:none">'+
+    _seoField('OG Title','ogTitle',p,'text',60,'Facebook, LinkedIn preview title')+
+    _seoField('OG Description','ogDesc',p,'textarea',200,'')+
+    _seoField('OG Image URL','ogImage',p,'text',0,'Recommended: 1200x630px · absolute URL')+
+    _seoField('Twitter Card','twitterCard',p,'text',0,'summary_large_image or summary')+
+    _seoField('Twitter @handle','twitterSite',p,'text',0,'')+
+  '</div>'+
+  '<div id="seo-panel-'+p.id+'-2" style="display:none">'+
+    '<div style="margin-bottom:14px"><label style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;display:block;margin-bottom:5px">Schema Type</label><select id="seo-f-'+p.id+'-schema" onchange="_seoSchemaPreview(\''+p.id+'\')" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px">'+schemaOpts+'</select></div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">JSON-LD Preview</div>'+
+    '<pre id="seo-schema-preview-'+p.id+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;white-space:pre-wrap;max-height:200px;overflow:auto;margin:0"></pre>'+
+  '</div>'+
+  '<div id="seo-panel-'+p.id+'-3" style="display:none">'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Alt text helps search engines understand images and improves accessibility.</div>'+
+    '<div id="seo-alt-list-'+p.id+'">'+altRows+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:12px;align-items:end">'+
+      '<div><div style="font-size:10px;color:var(--muted);margin-bottom:3px">Image label</div><input id="seo-new-alt-src-'+p.id+'" placeholder="e.g. Hero banner" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:12px;box-sizing:border-box"></div>'+
+      '<div><div style="font-size:10px;color:var(--muted);margin-bottom:3px">Alt text</div><input id="seo-new-alt-txt-'+p.id+'" placeholder="Describe the image" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:12px;box-sizing:border-box"></div>'+
+      '<button onclick="_seoAddAlt(\''+p.id+'\')" style="background:var(--gold);border:none;color:#000;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>'+
+    '</div>'+
+  '</div>'+
+  '<div style="display:flex;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">'+
+    '<button onclick="_seoSave(\''+p.id+'\')" style="background:var(--gold);border:none;color:#000;padding:9px 22px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">Save</button>'+
+    '<button onclick="_seoDeletePage(\''+p.id+'\')" style="background:transparent;border:1px solid rgba(239,68,68,0.35);color:#ef4444;padding:9px 14px;border-radius:6px;font-size:12px;cursor:pointer">Delete Page</button>'+
+  '</div>'+
+  '</div>'+
+  '<div style="padding:18px;overflow:auto;max-height:70vh">'+
+    '<div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">SERP Preview</div>'+
+    '<div id="seo-serp-'+p.id+'">'+_seoSerp(p)+'</div>'+
+    '<div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin:18px 0 10px">SEO Checklist</div>'+
+    '<div id="seo-checklist-'+p.id+'">'+_seoChecklist(p)+'</div>'+
+  '</div>'+
+  '</div>';
+}
+function _seoPageCard(p){
+  var score=_seoScore(p),sc=_seoScoreColor(score);
+  var t=p.metaTitle||'',d=p.metaDesc||'';
+  var chips=[
+    {l:'Title',v:!!t&&t.length>=30&&t.length<=60},{l:'Desc',v:!!d&&d.length>=120&&d.length<=160},
+    {l:'H1',v:!!p.h1},{l:'OG',v:!!p.ogTitle&&!!p.ogDesc},{l:'Image',v:!!p.ogImage},{l:'Schema',v:!!p.schema}
+  ].map(function(c){return '<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:'+(c.v?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.08)')+';color:'+(c.v?'#22c55e':'#ef4444')+';border:1px solid '+(c.v?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.15)')+'">'+( c.v?'✓':'✗')+' '+c.l+'</span>';}).join('');
+  return '<div id="seo-card-'+p.id+'" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">'+
+    '<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer" onclick="_seoToggleEdit(\''+p.id+'\')">'+
+      '<div style="min-width:48px;height:48px;border-radius:8px;background:var(--bg);border:2px solid '+sc+';display:flex;flex-direction:column;align-items:center;justify-content:center">'+
+        '<span style="font-size:15px;font-weight:800;color:'+sc+';line-height:1">'+score+'</span>'+
+        '<span style="font-size:8px;color:'+sc+'">'+_seoScoreLabel(score)+'</span>'+
+      '</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:var(--text)">'+p.site+' — '+p.page+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(p.file||p.url||'')+'</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:7px">'+chips+'</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">'+
+        '<button onclick="event.stopPropagation();_seoShowSnippet(\''+p.id+'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">&lt;/&gt; Snippet</button>'+
+        '<button onclick="event.stopPropagation();_seoToggleEdit(\''+p.id+'\')" id="seo-edit-btn-'+p.id+'" style="background:var(--gold);border:none;color:#000;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">Edit</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="seo-editor-'+p.id+'" style="display:none;border-top:1px solid var(--border)">'+_seoEditorHTML(p)+'</div>'+
+  '</div>';
+}
+function _seoRender(){
+  var root=document.getElementById('seo-mgr-root'); if(!root) return;
+  var pages=(DASHBOARD_DATA.seo&&DASHBOARD_DATA.seo.pages)||[];
+  root.innerHTML='<div style="padding:20px 24px;max-width:1200px">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap">'+
+      '<div><div style="font-size:18px;font-weight:700;color:var(--text)">SEO Manager</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:2px">'+pages.length+' page'+(pages.length!==1?'s':'')+' tracked across all sites — edit fields, preview SERP, copy meta tags</div></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button onclick="_seoExportCSV()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer">Export CSV</button>'+
+        '<button onclick="_seoAddPage()" style="background:var(--gold);border:none;color:#000;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">+ Add Page</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="seo-page-list">'+pages.map(_seoPageCard).join('')+'</div>'+
+  '</div>'+
+  '<div id="seo-snippet-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;align-items:center;justify-content:center">'+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:700px;width:92%;max-height:82vh;overflow:auto">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'+
+        '<span style="font-size:13px;font-weight:600;color:var(--text)">Generated Meta Tags — paste into &lt;head&gt;</span>'+
+        '<button onclick="document.getElementById(\'seo-snippet-modal\').style.display=\'none\'" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">x</button>'+
+      '</div>'+
+      '<pre id="seo-snippet-code" style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px;white-space:pre-wrap;word-break:break-all;margin-bottom:14px;max-height:50vh;overflow:auto"></pre>'+
+      '<button onclick="_seoCopySnippet()" style="background:var(--gold);border:none;color:#000;padding:9px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Copy to Clipboard</button>'+
+    '</div>'+
+  '</div>';
+}
+function _seoSave(id){
+  var pages=DASHBOARD_DATA.seo.pages,idx=pages.findIndex(function(p){return p.id===id;}); if(idx<0) return;
+  var p=pages[idx];
+  ['metaTitle','metaDesc','h1','h2','focusKw','keywords','canonical','ogTitle','ogDesc','ogImage','twitterCard','twitterSite'].forEach(function(k){var el=document.getElementById('seo-f-'+id+'-'+k);if(el)p[k]=el.value.trim();});
+  var r=document.getElementById('seo-f-'+id+'-robots');if(r)p.robots=r.value;
+  var s=document.getElementById('seo-f-'+id+'-schema');if(s)p.schema=s.value;
+  p.altTexts=(p.altTexts||[]).map(function(a,i){var el=document.getElementById('seo-alt-'+id+'-'+i);return{src:a.src,alt:el?el.value:a.alt};});
+  _seoRender();
+  setTimeout(function(){_seoToggleEdit(id);},50);
+  _showToast('<div style="color:var(--green);font-size:12px">SEO saved for '+p.page+'</div>',2500);
+}
+function _seoDeletePage(id){
+  if(!confirm('Remove this page from SEO Manager?')) return;
+  DASHBOARD_DATA.seo.pages=DASHBOARD_DATA.seo.pages.filter(function(p){return p.id!==id;});
+  _seoRender();
+}
+function _seoAddPage(){
+  var id='page-'+Date.now();
+  DASHBOARD_DATA.seo.pages.push({id:id,site:'New Site',page:'New Page',file:'',url:'',metaTitle:'',metaDesc:'',h1:'',h2:'',focusKw:'',keywords:'',canonical:'',robots:'index, follow',ogTitle:'',ogDesc:'',ogImage:'',twitterCard:'summary_large_image',twitterSite:'',schema:'WebPage',altTexts:[]});
+  _seoRender();
+  setTimeout(function(){_seoToggleEdit(id);},50);
+}
+function _seoAddAlt(pid){
+  var src=document.getElementById('seo-new-alt-src-'+pid),txt=document.getElementById('seo-new-alt-txt-'+pid);
+  if(!src||!src.value.trim()) return;
+  var p=DASHBOARD_DATA.seo.pages.find(function(x){return x.id===pid;}); if(!p) return;
+  if(!p.altTexts) p.altTexts=[];
+  p.altTexts.push({src:src.value.trim(),alt:(txt?txt.value.trim():'')});
+  _seoSave(pid);
+}
+function _seoRemoveAlt(pid,idx){
+  var p=DASHBOARD_DATA.seo.pages.find(function(x){return x.id===pid;}); if(!p||!p.altTexts) return;
+  p.altTexts.splice(idx,1); _seoRender(); setTimeout(function(){_seoToggleEdit(pid);_seoTab(pid,3);},50);
+}
+function _seoShowSnippet(id){
+  var p=_seoGetLiveData(id);
+  var code=document.getElementById('seo-snippet-code'); if(code) code.textContent=_seoSnippetHTML(p);
+  var modal=document.getElementById('seo-snippet-modal'); if(modal) modal.style.display='flex';
+}
+function _seoCopySnippet(){
+  var code=document.getElementById('seo-snippet-code'); if(!code) return;
+  navigator.clipboard.writeText(code.textContent).then(function(){_showToast('<div style="color:var(--green);font-size:12px">Meta tags copied to clipboard</div>',2000);});
+}
+function _seoExportCSV(){
+  var pages=DASHBOARD_DATA.seo.pages||[];
+  var cols=['site','page','file','url','metaTitle','metaDesc','h1','h2','focusKw','keywords','canonical','robots','ogTitle','ogDesc','ogImage','schema'];
+  var rows=[cols.join(',')].concat(pages.map(function(p){return cols.map(function(c){return '"'+(p[c]||'').replace(/"/g,'""')+'"';}).join(',');}));
+  var blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='seo-export.csv';a.click();
 }
 </script>
 <div id="my-profile-panel">
