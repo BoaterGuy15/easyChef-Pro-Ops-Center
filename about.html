@@ -36,10 +36,9 @@ nav{
   backdrop-filter:blur(8px);
   border-bottom:1px solid var(--border);
   padding:0 40px;height:68px;
-  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  display:flex;align-items:center;justify-content:space-between;
 }
-.nav-links{justify-self:center}
-.nav-cta{justify-self:end}
+.nav-right{display:flex;align-items:center;gap:28px}
 .nav-logo{display:flex;align-items:center;text-decoration:none}
 .nav-logo svg{height:32px;width:auto}
 .nav-links{display:flex;align-items:center;gap:28px;list-style:none}
@@ -334,10 +333,12 @@ footer{
       </g>
     </svg>
   </a>
-  <ul class="nav-links">
-    <li><a href="about.html" class="active">About Us</a></li>
-  </ul>
-  <a class="nav-cta" href="landing.html#claim">Claim Your Spot</a>
+  <div class="nav-right">
+    <ul class="nav-links">
+      <li><a href="about.html" class="active">About Us</a></li>
+    </ul>
+    <a class="nav-cta" href="landing.html#claim">Claim Your Spot</a>
+  </div>
 </nav>
 
 <!-- ── PAGE HERO ── -->
