@@ -55,6 +55,16 @@ nav{
 }
 .nav-cta:hover{background:var(--red-dark)}
 
+/* back link */
+.back-link{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:500;color:var(--gray);
+  text-decoration:none;margin-bottom:28px;
+  transition:color .2s;
+}
+.back-link:hover{color:var(--black)}
+.back-link::before{content:'←';font-size:15px}
+
 /* ── HERO ── */
 .page-hero{
   background:var(--beige);
@@ -330,6 +340,7 @@ footer{
 
 <!-- ── PAGE HERO ── -->
 <div class="page-hero">
+  <a class="back-link" href="landing.html">Back to Home</a>
   <p class="page-hero-tag">About Us</p>
   <h1>Built between shifts.<br>Not in <em>Silicon Valley.</em></h1>
   <p class="page-hero-sub">Placeholder — your intro text goes here.</p>
