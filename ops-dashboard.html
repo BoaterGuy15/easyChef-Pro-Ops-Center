@@ -21396,6 +21396,7 @@ let _caiDocContents={};
 let _caiContextStr='';
 let _caiReady=false;
 let _caiBusy=false;
+let _caiLiveData={};
 
 function _extractGdriveId(url){
   if(!url) return '';
@@ -21411,24 +21412,37 @@ function _extractGdriveId(url){
 function _caiInit(){
   if(_caiReady){ _caiRenderBadge(); return; }
   const badge=document.getElementById('cai-context-badge');
-  if(badge) badge.textContent='Loading document index…';
+  if(badge) badge.textContent='Loading live data…';
 
-  const _onReady=function(){
-    _caiReady=true; _caiContextStr=''; _caiRenderBadge(); _caiGreet();
-  };
-
-  // Only load the doc list — full content is fetched on demand per message
-  if(_sharedDocsCache&&_sharedDocsCache.length){
-    _onReady();
-  } else if(CONFIG.sheetsUrl){
-    fetch(CONFIG.sheetsUrl+'?action=docs_read')
-      .then(r=>r.json())
-      .then(data=>{ if(Array.isArray(data.docs)) _sharedDocsCache=data.docs; })
-      .catch(()=>{})
-      .finally(_onReady);
-  } else {
-    _onReady();
+  if(!CONFIG.sheetsUrl){
+    _caiReady=true; _caiContextStr=''; _caiRenderBadge(); _caiGreet(); return;
   }
+
+  const _TAB_SOURCES=[
+    'actions_read','agenda_read','completions_read','action_plans_read',
+    'workstreams_read','workstream_actions_read','launchplan_read',
+    'roadmap_read','gaps_read'
+  ];
+
+  const fetches=[
+    // Doc index (skip if already loaded)
+    ...(_sharedDocsCache&&_sharedDocsCache.length ? [] : [
+      fetch(CONFIG.sheetsUrl+'?action=docs_read')
+        .then(r=>r.json())
+        .then(data=>{ if(Array.isArray(data.docs)) _sharedDocsCache=data.docs; })
+        .catch(()=>{})
+    ]),
+    // All live data tabs in parallel
+    ..._TAB_SOURCES.map(action=>
+      fetch(CONFIG.sheetsUrl+'?action='+action)
+        .then(r=>r.json())
+        .then(data=>{ _caiLiveData[action]=data; })
+        .catch(()=>{ _caiLiveData[action]=null; })
+    )
+  ];
+
+  Promise.all(fetches)
+    .finally(()=>{ _caiReady=true; _caiContextStr=''; _caiRenderBadge(); _caiGreet(); });
 }
 
 // Returns Drive IDs for any documents whose name appears in the user prompt
@@ -21451,7 +21465,29 @@ function _caiRenderBadge(){
   const tasks=(DASHBOARD_DATA.tasks||[]).length;
   const indexed=(_sharedDocsCache||[]).length;
   const loaded=Object.keys(_caiDocContents).length;
-  badge.textContent=`${tasks} tasks · ${indexed} docs indexed · ${loaded} doc${loaded!==1?'s':''} loaded · mention a doc by name to load it`;
+  const tabs=Object.keys(_caiLiveData).filter(k=>_caiLiveData[k]!==null).length;
+  badge.textContent=`${tasks} tasks · ${tabs}/9 tabs loaded · ${indexed} docs indexed · ${loaded} doc${loaded!==1?'s':''} loaded`;
+}
+
+// Extracts a row array from any of the response shapes the Apps Script returns
+function _caiExtractRows(data){
+  if(!data) return [];
+  if(Array.isArray(data)) return data;
+  for(const key of ['actions','items','plans','completions','workstreams','gaps','rows','data','results']){
+    if(Array.isArray(data[key])) return data[key];
+  }
+  return [];
+}
+
+// Serialises a row array into a compact context block
+function _caiFormatRows(rows){
+  if(!rows.length) return '(none)';
+  return rows.map(r=>{
+    const parts=Object.entries(r)
+      .filter(([k,v])=>v!==null&&v!==undefined&&String(v).trim()&&k!=='__rowNum')
+      .map(([k,v])=>`${k}: ${String(v).replace(/\n/g,' ').substring(0,120)}`);
+    return parts.join(' | ');
+  }).join('\n');
 }
 
 function _buildCaiContext(){
@@ -21482,17 +21518,37 @@ function _buildCaiContext(){
     agItems.slice(0,15).forEach(a=>lines.push(`- [${a.status||''}] ${a.title||a.text||''}`));
   }
 
-  // Docs list
+  // Docs index
   const docs=_sharedDocsCache||[];
   if(docs.length){
-    lines.push(`\n== DOCS (${docs.length}) ==`);
-    docs.forEach(d=>lines.push(`${d.name||''} | URL: ${d.url||'(no url)'}${d.driveFileId?' | DriveID: '+d.driveFileId:''}`)  );
+    lines.push(`\n== DOCS INDEX (${docs.length}) ==`);
+    docs.forEach(d=>lines.push(`${d.name||''} | URL: ${d.url||'(no url)'}${d.driveFileId?' | DriveID: '+d.driveFileId:''}`));
   }
 
-  // Doc contents
+  // Live data tabs
+  const _TAB_LABELS={
+    actions_read:          'ACTIONS',
+    agenda_read:           'AGENDA',
+    completions_read:      'COMPLETIONS',
+    action_plans_read:     'ACTION PLANS',
+    workstreams_read:      'WORKSTREAMS',
+    workstream_actions_read:'WORKSTREAM ACTIONS',
+    launchplan_read:       'LAUNCH PLAN',
+    roadmap_read:          'ROADMAP',
+    gaps_read:             'GAPS'
+  };
+  Object.entries(_TAB_LABELS).forEach(([action,label])=>{
+    const rows=_caiExtractRows(_caiLiveData[action]);
+    if(rows.length){
+      lines.push(`\n== ${label} (${rows.length}) ==`);
+      lines.push(_caiFormatRows(rows));
+    }
+  });
+
+  // Loaded doc contents (on-demand only)
   const ids=Object.keys(_caiDocContents);
   if(ids.length){
-    lines.push('\n== DOCUMENT CONTENTS ==');
+    lines.push('\n== DOCUMENT CONTENTS (loaded on demand) ==');
     ids.forEach(id=>{
       const doc=_caiDocContents[id];
       const title=doc&&doc.title?doc.title:(docs.find(d=>d.driveFileId===id)||{}).name||id;
@@ -21511,7 +21567,8 @@ function _caiGreet(){
   if(!feed||feed.children.length) return;
   const tasks=(DASHBOARD_DATA.tasks||[]).length;
   const indexed=(_sharedDocsCache||[]).length;
-  _caiAppend('ai',`Ready. I have ${tasks} tasks and an index of ${indexed} documents. Ask me about any task, or mention a document by name and I will load its full content before answering.`);
+  const tabs=Object.keys(_caiLiveData).filter(k=>_caiLiveData[k]!==null).length;
+  _caiAppend('ai',`Ready. I have loaded ${tasks} tasks, ${tabs} data tabs (actions, agenda, completions, action plans, workstreams, launch plan, roadmap, gaps), and an index of ${indexed} documents. Mention any document by name to load its full content.`);
 }
 
 function sendAskClaude(){
