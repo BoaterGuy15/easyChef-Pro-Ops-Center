@@ -801,7 +801,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="command" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('command')">Command</div>
     <div class="nav-tab" data-tab-id="raci" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')" style="display:none">Tasks</div>
     <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')" style="display:none">Task Tracker</div>
-    <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')">Budget &amp; Burn</div>
+    <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')" style="display:none">Budget &amp; Burn</div>
     <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')" style="display:none">Team</div>
     <div class="nav-tab" data-tab-id="docs" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('docs')" style="display:none">📁 Docs</div>
     <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')" style="display:none">App Data</div>
@@ -15551,6 +15551,7 @@ function openSettingsModal(){
       // Restore page-comms or page-team if navigating away
       if(activeTab==='comms'){const pc=document.getElementById('page-comms');if(pc&&pc._settingsParent){pc._settingsParent.insertBefore(pc,pc._settingsNextSib||null);pc.style.display='none';delete pc._settingsParent;delete pc._settingsNextSib;}}
       if(activeTab==='team'){const pt=document.getElementById('page-team');if(pt&&pt._settingsParent){pt._settingsParent.insertBefore(pt,pt._settingsNextSib||null);pt.style.display='none';delete pt._settingsParent;delete pt._settingsNextSib;}modal.style.width='780px';modal.style.height='620px';modal.style.left='calc(50% - 390px)';modal.style.top='calc(50% - 310px)';}
+      if(activeTab==='budget'){const pb=document.getElementById('page-budget');if(pb&&pb._settingsParent){pb._settingsParent.insertBefore(pb,pb._settingsNextSib||null);pb.style.display='none';delete pb._settingsParent;delete pb._settingsNextSib;}modal.style.width='780px';modal.style.height='620px';modal.style.left='calc(50% - 390px)';modal.style.top='calc(50% - 310px)';}
       activeTab=t;
       tabBar.querySelectorAll('button').forEach(b=>{b.style.borderBottom=b.dataset.tab===t?'2px solid var(--gold)':'2px solid transparent';b.style.color=b.dataset.tab===t?'var(--gold)':'var(--muted)';});
       if(t==='workstreams') _renderSettingsWorkstreams(tabContent);
@@ -15566,9 +15567,15 @@ function openSettingsModal(){
         const pt=document.getElementById('page-team');
         if(pt){pt._settingsParent=pt.parentNode;pt._settingsNextSib=pt.nextSibling;tabContent.innerHTML='';pt.style.display='block';pt.style.padding='0';tabContent.appendChild(pt);if(typeof buildTeamGrid==='function')buildTeamGrid();}
       }
+      else if(t==='budget'){
+        const vw=Math.min(window.innerWidth*0.92,1200);const vh=Math.min(window.innerHeight*0.88,900);
+        modal.style.width=vw+'px';modal.style.height=vh+'px';modal.style.left=((window.innerWidth-vw)/2)+'px';modal.style.top=((window.innerHeight-vh)/2)+'px';
+        const pb=document.getElementById('page-budget');
+        if(pb){pb._settingsParent=pb.parentNode;pb._settingsNextSib=pb.nextSibling;tabContent.innerHTML='';pb.style.display='block';pb.style.padding='0';tabContent.appendChild(pb);if(typeof renderBudget==='function')renderBudget();}
+      }
       else _renderSettingsProject(tabContent);
     }
-    [['🏢 Project','project'],['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🔗 Links','links'],['💬 Comms','comms'],['👥 Team','team']].forEach(([lbl,t])=>{
+    [['🏢 Project','project'],['🔀 Workstreams','workstreams'],['⚙️ Categories','categories'],['🔗 Links','links'],['💬 Comms','comms'],['👥 Team','team'],['💰 Budget','budget']].forEach(([lbl,t])=>{
       const btn=document.createElement('button');
       btn.dataset.tab=t;
       btn.textContent=lbl;
