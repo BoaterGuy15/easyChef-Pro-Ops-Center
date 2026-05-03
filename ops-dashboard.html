@@ -21306,11 +21306,13 @@ function _ccRenderBrief(){
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:'+_CC_RED+';margin-bottom:10px">Review &amp; Approval</div>'+
         _ccField('','cc-approved','checkbox',b.approved,'','Marketing Lead has reviewed and approved this campaign — nothing activates without this')+
       '</div>'+
-      '<div style="display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">'+
+      '<div style="display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap">'+
         _ccBtn('Save Draft','_ccSaveBrief(false)',false)+
         _ccBtn('Save &amp; Generate UTMs →','_ccSaveBrief(true)',true)+
+        '<button id="cc-gen-btn" onclick="_ccGenerateCampaign()" style="background:#000;border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;display:flex;align-items:center;gap:6px;margin-left:auto">✦ Generate Campaign Copy</button>'+
       '</div>'+
     '</div>'+
+    '<div id="cc-gen-result" style="margin-top:16px"></div>'+
   '</div>';
 }
 function _ccBriefSync(){
@@ -21338,6 +21340,115 @@ function _ccSaveBrief(next){
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'campaigns_write',campaign:b})}).catch(function(){});
   _showToast('<div style="color:#22c55e;font-size:12px">Campaign brief saved: '+b.id+'</div>',2500);
   if(next) _campSwitchTab('utm');
+}
+
+// ── Campaign Copy Generator ─────────────────────────────────────────────────
+var _CC_ICP_PROFILES={
+  'Super Mom':'Busy parent, household income $60-120K, 2+ kids, extremely time-constrained. Primary pain: no time to plan meals. Emotional driver: being a good parent without burning out. The 6:30 PM panic — staring at an empty fridge — is their daily reality.',
+  'Budget Family':'Financially stressed household, income $40-80K, 2+ kids. Primary pain: grocery bills eating the budget and food waste from poor planning. Shops at Walmart. Emotional driver: financial control and dignity. Feels the shame of throwing away food they paid for.',
+  'Health Optimizer':'Health-conscious family focused on nutrition and eating clean. Primary pain: healthy meal planning is complex and expensive. Emotional driver: confidence that their family is eating well without spending more.',
+  'Professional':'Dual-income household where time is the scarcest resource. Primary pain: grocery runs and meal planning drain what little mental bandwidth remains. Emotional driver: outsourcing the mental load so evenings belong to them.',
+  'Alpha Recruit':'Early adopter, tech-savvy, wants founding-member status and exclusivity. Primary pain: generic apps do not match their lifestyle. Emotional driver: being first, social proof through referral, and locking in before the price rises.'
+};
+var _CC_APPROVED_CLAIMS=[
+  '$1,336 average annual savings',
+  '69.5% less food waste',
+  '30 minutes fridge to table',
+  '$10/month saves $111/month — 11:1 return',
+  '$7.99/month founding-member price locked forever',
+  '30–60% reduction in monthly grocery spend',
+  'Walmart-integrated meal planning',
+  '9 patent-pending technologies'
+];
+
+function _ccGenerateCampaign(){
+  _ccBriefSync();
+  var b=_campBrief;
+  if(!b.icp||!b.channel){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Select a Target ICP and Primary Channel before generating.</div>',3000);
+    return;
+  }
+  var btn=_ccEl('cc-gen-btn');
+  var res=_ccEl('cc-gen-result');
+  if(btn){btn.disabled=true;btn.innerHTML='✦ Generating…';}
+  if(res) res.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;text-align:center;color:var(--muted);font-size:12px;font-family:\'DM Mono\',monospace">Calling Anthropic API via Apps Script proxy…</div>';
+  if(!CONFIG.sheetsUrl){
+    if(res) res.innerHTML='<div style="color:'+_CC_RED+';font-size:12px;padding:12px">CONFIG.sheetsUrl not set. Connect the Apps Script backend first.</div>';
+    if(btn){btn.disabled=false;btn.innerHTML='✦ Generate Campaign Copy';}
+    return;
+  }
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'campaign_gen',brief:b})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(btn){btn.disabled=false;btn.innerHTML='✦ Generate Campaign Copy';}
+      if(!d.ok){
+        if(res) res.innerHTML='<div style="background:rgba(255,0,0,0.07);border:1px solid rgba(255,0,0,0.25);border-radius:8px;padding:14px;font-size:12px;color:'+_CC_RED+'">API error: '+(d.error||'Unknown error')+'<br><br>Make sure <b>Operations_CampaignGen.gs</b> is deployed in your Apps Script project and the <b>campaign_gen</b> action is wired in doPost.</div>';
+        return;
+      }
+      var copy=d.copy;
+      if(!copy&&d.raw){
+        try{var m=d.raw.match(/\{[\s\S]*\}/);copy=m?JSON.parse(m[0]):null;}catch(e){}
+      }
+      if(!copy){
+        if(res) res.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;white-space:pre-wrap">'+(d.raw||'Empty response')+'</div></div>';
+        return;
+      }
+      if(res) res.innerHTML=_ccRenderCopyOutput(copy,b);
+    })
+    .catch(function(e){
+      if(btn){btn.disabled=false;btn.innerHTML='✦ Generate Campaign Copy';}
+      if(res) res.innerHTML='<div style="color:'+_CC_RED+';font-size:12px;padding:12px">Request failed: '+e.message+'</div>';
+    });
+}
+
+function _ccRenderCopyOutput(copy,b){
+  var row=function(label,val,id){
+    var display=Array.isArray(val)?val.map(function(v,i){return '<div style="margin-bottom:3px">'+_ccBadge2(i+1)+' '+v+'</div>';}).join(''):
+      '<div style="font-size:13px;color:var(--text);line-height:1.5">'+val+'</div>';
+    var copyVal=Array.isArray(val)?val.join(' · '):val;
+    return '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">'+label+'</div>'+
+          display+
+        '</div>'+
+        '<button onclick="_ccCopyText(\''+copyVal.replace(/'/g,"\\'").replace(/\n/g,' ')+'\')" style="flex-shrink:0;background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;margin-top:18px">Copy</button>'+
+      '</div>'+
+    '</div>';
+  };
+  var safeStr=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var c={
+    headline:safeStr(copy.headline||''),
+    subheadline:safeStr(copy.subheadline||''),
+    email_subject_a:safeStr(copy.email_subject_a||''),
+    email_subject_b:safeStr(copy.email_subject_b||''),
+    lp_hero:safeStr(copy.lp_hero||''),
+    proof_bar:Array.isArray(copy.proof_bar)?copy.proof_bar.map(function(s){return safeStr(s);}):['—','—','—'],
+    cta_primary:safeStr(copy.cta_primary||''),
+    social_hook:safeStr(copy.social_hook||''),
+    share_mechanic:safeStr(copy.share_mechanic||'')
+  };
+  return '<div style="max-width:780px">'+
+    _ccSecHdr('✦ Generated Campaign Copy — '+(b?b.id+' · '+b.icp+' · '+b.channel:''))+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
+      row('Headline (Hook)',c.headline,'headline')+
+      row('Subheadline (Problem)',c.subheadline,'subheadline')+
+      row('Email Subject A — Money Angle',c.email_subject_a,'esa')+
+      row('Email Subject B — Time / Emotion Angle',c.email_subject_b,'esb')+
+      row('LP Hero Copy (Hook Expanded)',c.lp_hero,'lp')+
+      row('Proof Bar (3 Approved Stats)',c.proof_bar,'proof')+
+      row('Primary CTA',c.cta_primary,'cta')+
+      row('Social Hook (First Line)',c.social_hook,'social')+
+      row('Share Mechanic (Thank-You Page)',c.share_mechanic,'share')+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-top:12px">'+
+      '<button onclick="_ccGenerateCampaign()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
+      _ccBtn('Save &amp; Continue to UTMs →','_ccSaveBrief(true)',true)+
+    '</div>'+
+  '</div>';
+}
+function _ccBadge2(n){
+  return '<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:'+_CC_RED+';color:#fff;font-size:9px;font-weight:700;flex-shrink:0">'+n+'</span>';
 }
 
 // ── Panel 2: UTM Generator ──────────────────────────────────────────────────
