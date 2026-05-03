@@ -809,6 +809,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')" style="display:none">Action Plans</div>
     <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')">Workstreams</div>
     <div class="nav-tab" data-tab-id="actions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actions')">⚡ Actions</div>
+    <div class="nav-tab" data-tab-id="masteractions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('masteractions')">📋 Master Actions</div>
     <div class="nav-tab" data-tab-id="seo" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('seo')">SEO</div>
   </div>
   <div class="topbar-right">
@@ -1229,76 +1230,67 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   </div>
 </div>
 
-<!-- ══ PAGE: ACTIONS GANTT + MASTER ACTION LIST ══ -->
+<!-- ══ PAGE: ACTIONS GANTT ══ -->
 <div id="page-actions" class="page">
-  <!-- View toggle -->
-  <div class="aml-view-toggle">
-    <button class="aml-vtab" id="aml-vtab-gantt" onclick="amlSwitchView('gantt')">📊 Accountability Gantt</button>
-    <button class="aml-vtab active" id="aml-vtab-list" onclick="amlSwitchView('list')">⚡ Master Action List</button>
+  <div class="section-label">ACCOUNTABILITY — Team Actions &amp; RACI Responsibilities</div>
+  <div id="ac-gantt-sticky-bar" style="position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
+      <button class="gantt-ctrl-btn" onclick="_acScrollToday()">◀ Today</button>
+      <button class="gantt-ctrl-btn" onclick="_acScrollLaunch()">🚀 Launch</button>
+      <button class="gantt-ctrl-btn" id="ac-ms-btn" onclick="_toggleACPanel('ms')">📌 Milestones</button>
+      <button class="gantt-ctrl-btn" id="ac-co-btn" onclick="_toggleACPanel('co')" style="position:relative">⚠️ Callouts<span id="ac-co-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 2px"></span></button>
+      <div style="flex:1"></div>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
+      <button class="gantt-ctrl-btn" id="ac-zoom-2w" onclick="_acSetZoom('2w')">2W</button>
+      <button class="gantt-ctrl-btn active-zoom" id="ac-zoom-90d" onclick="_acSetZoom('90d')">90D</button>
+      <button class="gantt-ctrl-btn" id="ac-zoom-6mo" onclick="_acSetZoom('6mo')">6MO</button>
+      <button class="gantt-ctrl-btn" id="ac-zoom-1yr" onclick="_acSetZoom('1yr')">1YR</button>
+    </div>
+    <div style="display:flex">
+      <div style="width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:flex-end;padding:4px 8px">
+        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px">ACCOUNTABILITY</span>
+      </div>
+      <div id="ac-gantt-hdr-scroll" style="flex:1;overflow:hidden">
+        <div id="ac-gantt-hdr-canvas" style="position:relative;height:52px"></div>
+      </div>
+    </div>
+    <div id="ac-ms-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="ac-milestone-list"></div></div></div>
+    <div id="ac-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="ac-co-inner"></div></div></div>
   </div>
+  <div id="ac-gantt-scroll" style="overflow:auto;cursor:grab;scrollbar-width:none;max-height:calc(100vh - 200px)">
+    <div id="ac-gantt-canvas"></div>
+  </div>
+</div>
 
-  <!-- Gantt view (existing) -->
-  <div id="aml-gantt-inner" class="aml-hidden">
-    <div class="section-label">ACCOUNTABILITY — Team Actions &amp; RACI Responsibilities</div>
-    <div id="ac-gantt-sticky-bar" style="position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%">
-      <div style="display:flex;align-items:center;gap:6px;padding:6px 10px">
-        <button class="gantt-ctrl-btn" onclick="_acScrollToday()">◀ Today</button>
-        <button class="gantt-ctrl-btn" onclick="_acScrollLaunch()">🚀 Launch</button>
-        <button class="gantt-ctrl-btn" id="ac-ms-btn" onclick="_toggleACPanel('ms')">📌 Milestones</button>
-        <button class="gantt-ctrl-btn" id="ac-co-btn" onclick="_toggleACPanel('co')" style="position:relative">⚠️ Callouts<span id="ac-co-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 2px"></span></button>
-        <div style="flex:1"></div>
-        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px">ZOOM</span>
-        <button class="gantt-ctrl-btn" id="ac-zoom-2w" onclick="_acSetZoom('2w')">2W</button>
-        <button class="gantt-ctrl-btn active-zoom" id="ac-zoom-90d" onclick="_acSetZoom('90d')">90D</button>
-        <button class="gantt-ctrl-btn" id="ac-zoom-6mo" onclick="_acSetZoom('6mo')">6MO</button>
-        <button class="gantt-ctrl-btn" id="ac-zoom-1yr" onclick="_acSetZoom('1yr')">1YR</button>
-      </div>
-      <div style="display:flex">
-        <div style="width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:flex-end;padding:4px 8px">
-          <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px">ACCOUNTABILITY</span>
-        </div>
-        <div id="ac-gantt-hdr-scroll" style="flex:1;overflow:hidden">
-          <div id="ac-gantt-hdr-canvas" style="position:relative;height:52px"></div>
-        </div>
-      </div>
-      <div id="ac-ms-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="ac-milestone-list"></div></div></div>
-      <div id="ac-co-panel" class="gantt-dropdown-panel"><div class="gantt-dropdown-panel-inner"><div id="ac-co-inner"></div></div></div>
-    </div>
-    <div id="ac-gantt-scroll" style="overflow:auto;cursor:grab;scrollbar-width:none;max-height:calc(100vh - 200px)">
-      <div id="ac-gantt-canvas"></div>
+<!-- ══ PAGE: MASTER ACTION LIST ══ -->
+<div id="page-masteractions" class="page">
+  <div class="aml-hdr-bar">
+    <span class="aml-hdr-title">MASTER ACTION LIST · MAY–JULY 2026</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="aml-last-saved" id="aml-last-saved"></span>
+      <button class="aml-reset-btn" onclick="amlConfirmReset()">Reset all</button>
     </div>
   </div>
-
-  <!-- Master Action List view -->
-  <div id="aml-list-view" class="aml-active">
-    <div class="aml-hdr-bar">
-      <span class="aml-hdr-title">MASTER ACTION LIST · MAY–JULY 2026</span>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="aml-last-saved" id="aml-last-saved"></span>
-        <button class="aml-reset-btn" onclick="amlConfirmReset()">Reset all</button>
-      </div>
-    </div>
-    <div class="aml-stats">
-      <div class="aml-stat"><div class="aml-stat-n" id="aml-st-total" style="color:var(--red)">0</div><div class="aml-stat-l">Total items</div></div>
-      <div class="aml-stat"><div class="aml-stat-n" id="aml-st-block" style="color:#f87171">0</div><div class="aml-stat-l">Blockers</div></div>
-      <div class="aml-stat"><div class="aml-stat-n" id="aml-st-you" style="color:var(--amber)">0</div><div class="aml-stat-l">Your decisions</div></div>
-      <div class="aml-stat"><div class="aml-stat-n" id="aml-st-done" style="color:var(--green)">0</div><div class="aml-stat-l">Done</div></div>
-    </div>
-    <div class="aml-prog-wrap">
-      <div class="aml-prog-lbl" id="aml-prog-lbl">0% complete</div>
-      <div class="aml-prog-bar"><div class="aml-prog-fill" id="aml-prog-fill" style="width:0%"></div></div>
-    </div>
-    <div class="aml-filters">
-      <button class="aml-fil active" onclick="amlSetFilter('all',this)">All items</button>
-      <button class="aml-fil" onclick="amlSetFilter('blocker',this)">🛑 Blockers</button>
-      <button class="aml-fil" onclick="amlSetFilter('you',this)">🎯 Your decisions</button>
-      <button class="aml-fil" onclick="amlSetFilter('dev',this)">💻 Developer</button>
-      <button class="aml-fil" onclick="amlSetFilter('ops',this)">📊 Mktg Ops</button>
-      <button class="aml-fil" onclick="amlSetFilter('email',this)">📧 Email</button>
-      <button class="aml-fil" onclick="amlSetFilter('done',this)">✅ Completed</button>
-    </div>
-    <div class="aml-content" id="aml-content"></div>
+  <div class="aml-stats">
+    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-total" style="color:var(--red)">0</div><div class="aml-stat-l">Total items</div></div>
+    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-block" style="color:#f87171">0</div><div class="aml-stat-l">Blockers</div></div>
+    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-you" style="color:var(--amber)">0</div><div class="aml-stat-l">Your decisions</div></div>
+    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-done" style="color:var(--green)">0</div><div class="aml-stat-l">Done</div></div>
   </div>
+  <div class="aml-prog-wrap">
+    <div class="aml-prog-lbl" id="aml-prog-lbl">0% complete</div>
+    <div class="aml-prog-bar"><div class="aml-prog-fill" id="aml-prog-fill" style="width:0%"></div></div>
+  </div>
+  <div class="aml-filters">
+    <button class="aml-fil active" onclick="amlSetFilter('all',this)">All items</button>
+    <button class="aml-fil" onclick="amlSetFilter('blocker',this)">🛑 Blockers</button>
+    <button class="aml-fil" onclick="amlSetFilter('you',this)">🎯 Your decisions</button>
+    <button class="aml-fil" onclick="amlSetFilter('dev',this)">💻 Developer</button>
+    <button class="aml-fil" onclick="amlSetFilter('ops',this)">📊 Mktg Ops</button>
+    <button class="aml-fil" onclick="amlSetFilter('email',this)">📧 Email</button>
+    <button class="aml-fil" onclick="amlSetFilter('done',this)">✅ Completed</button>
+  </div>
+  <div class="aml-content" id="aml-content"></div>
 </div>
 
 <!-- ══ PAGE: BUDGET ══ -->
@@ -21219,25 +21211,6 @@ function amlToggleSec(id){
 
 function amlTagLabel(t){
   return{blocker:'BLOCKER',you:'YOU',dev:'DEVELOPER',ops:'MKTG OPS',email:'EMAIL',beta:'BETA',launch:'LAUNCH'}[t]||(t||'').toUpperCase();
-}
-
-function amlSwitchView(v){
-  var ganttEl=document.getElementById('aml-gantt-inner');
-  var listEl=document.getElementById('aml-list-view');
-  var gtab=document.getElementById('aml-vtab-gantt');
-  var ltab=document.getElementById('aml-vtab-list');
-  if(v==='gantt'){
-    if(ganttEl) ganttEl.classList.remove('aml-hidden');
-    if(listEl) listEl.classList.remove('aml-active');
-    if(gtab) gtab.classList.add('active');
-    if(ltab) ltab.classList.remove('active');
-    if(typeof buildActionsGantt==='function') buildActionsGantt();
-  } else {
-    if(ganttEl) ganttEl.classList.add('aml-hidden');
-    if(listEl) listEl.classList.add('aml-active');
-    if(gtab) gtab.classList.remove('active');
-    if(ltab) ltab.classList.add('active');
-  }
 }
 
 // Initialize when DOM is ready
