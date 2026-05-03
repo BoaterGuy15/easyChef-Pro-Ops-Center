@@ -13853,6 +13853,7 @@ let _sheetsDebounce=null;
 let _sheetsSyncLock=false;
 function saveToSheets(){
   if(!window._sheetsLoaded){ console.warn('[DGL] Blocked premature sheets save'); return; }
+  if(!window._sheetsLoadSuccess){ console.warn('[DGL] Blocked save — last load failed, protecting sheet data'); return; }
   if(!CONFIG.sheetsUrl) return;
   clearTimeout(_sheetsDebounce);
   _sheetsDebounce=setTimeout(()=>{
@@ -13890,6 +13891,7 @@ rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mer
   Promise.all([_fetchTasks, loadTaskChannelLinks()])
     .then(()=>{
       window._sheetsLoaded=true;
+      window._sheetsLoadSuccess=true;
       _hideLoadingSpinner();
       masterRefresh();
       updateSyncStatus('ok');
@@ -13924,7 +13926,7 @@ rows.forEach(s=>{ const t=DASHBOARD_DATA.tasks.find(t=>t.id===s.id); if(t){ _mer
           }).catch(()=>{ if(_w2badge) _w2badge.style.display='none'; });
       }, 100);
     })
-    .catch(()=>{ window._sheetsLoaded=true; _hideLoadingSpinner(); masterRefresh(); updateSyncStatus('fail'); });
+    .catch(()=>{ window._sheetsLoaded=true; window._sheetsLoadSuccess=false; _hideLoadingSpinner(); masterRefresh(); updateSyncStatus('fail'); });
 }
 function raciManualSave(btn){
   btn.textContent='Saving…'; btn.disabled=true; btn.style.color='var(--gold)';
