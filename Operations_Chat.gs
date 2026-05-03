@@ -25,15 +25,21 @@
 function opsContextRead(docIds) {
   if (!Array.isArray(docIds) || !docIds.length) return { ok: true, contents: {} };
   var contents = {};
+
   docIds.forEach(function(id) {
     if (!id || id.length < 10) return;
+    var name = id, url = 'https://drive.google.com/file/d/' + id + '/view', mime = '', text = '';
     try {
       var file = DriveApp.getFileById(id);
-      var mime = file.getMimeType();
-      var text = '';
+      name = file.getName();
+      mime = file.getMimeType();
+
       if (mime === MimeType.GOOGLE_DOCS) {
         text = DocumentApp.openById(id).getBody().getText();
+        url  = 'https://docs.google.com/document/d/' + id + '/view';
+
       } else if (mime === MimeType.GOOGLE_SHEETS) {
+        url = 'https://docs.google.com/spreadsheets/d/' + id + '/view';
         var ss = SpreadsheetApp.openById(id);
         ss.getSheets().slice(0, 5).forEach(function(s) {
           var vals = s.getDataRange().getValues();
@@ -41,7 +47,9 @@ function opsContextRead(docIds) {
           vals.slice(0, 60).forEach(function(row) { text += row.join('\t') + '\n'; });
           text += '\n';
         });
+
       } else if (mime === MimeType.GOOGLE_SLIDES) {
+        url = 'https://docs.google.com/presentation/d/' + id + '/view';
         var pres = SlidesApp.openById(id);
         pres.getSlides().slice(0, 20).forEach(function(slide, i) {
           text += '[Slide ' + (i + 1) + ']\n';
@@ -49,14 +57,41 @@ function opsContextRead(docIds) {
             try { text += el.asShape().getText().asString() + '\n'; } catch(e2) {}
           });
         });
+
+      } else if (mime === 'application/pdf') {
+        text = '[PDF — binary content, not extractable as text. File: ' + name + ']';
+
+      } else if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                 mime === 'application/msword') {
+        try {
+          var raw = file.getBlob().getDataAsString('UTF-8');
+          // Strip non-printable characters left over from binary XML packaging
+          text = raw.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/[ \t]{4,}/g, ' ').replace(/\n{4,}/g, '\n\n').trim();
+        } catch(e2) {
+          text = '[Word document — could not extract text: ' + e2.message + ']';
+        }
+
       } else {
-        text = file.getBlob().getDataAsString();
+        // Plain text, CSV, Markdown, etc.
+        try {
+          text = file.getBlob().getDataAsString();
+        } catch(e2) {
+          text = '[' + mime + ' — binary content, not readable as text]';
+        }
       }
-      contents[id] = text.substring(0, 8000);
+
     } catch(e) {
-      contents[id] = '[Could not read: ' + e.message + ']';
+      text = '[Error reading file: ' + e.message + ']';
     }
+
+    contents[id] = {
+      title:    name,
+      url:      url,
+      mimeType: mime,
+      text:     text.substring(0, 8000)
+    };
   });
+
   return { ok: true, contents: contents };
 }
 

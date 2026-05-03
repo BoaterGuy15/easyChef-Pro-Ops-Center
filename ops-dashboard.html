@@ -21485,9 +21485,12 @@ function _buildCaiContext(){
   if(ids.length){
     lines.push('\n== DOCUMENT CONTENTS ==');
     ids.forEach(id=>{
-      const meta=docs.find(d=>d.driveFileId===id)||{};
-      lines.push(`\n--- ${meta.name||id} ---`);
-      lines.push((_caiDocContents[id]||'').substring(0,6000));
+      const doc=_caiDocContents[id];
+      const title=doc&&doc.title?doc.title:(docs.find(d=>d.driveFileId===id)||{}).name||id;
+      const url=doc&&doc.url?doc.url:'';
+      const text=doc&&doc.text?doc.text:(typeof doc==='string'?doc:'');
+      lines.push(`\n--- ${title}${url?' | '+url:''} ---`);
+      lines.push(text.substring(0,6000));
     });
   }
 
