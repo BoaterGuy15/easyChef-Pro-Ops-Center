@@ -1584,6 +1584,24 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;min-height:80px"></div>
 </div>
 
+<!-- ══ PAGE: ASK CLAUDE ══ -->
+<div id="page-askclaude" class="page">
+  <div style="display:flex;flex-direction:column;height:calc(100vh - 148px)">
+    <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+      <div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900">Ask <span style="color:var(--gold)">Claude</span></h2>
+        <div id="cai-context-badge" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px">Loading context…</div>
+      </div>
+      <button onclick="_caiClear()" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-top:4px">Clear chat</button>
+    </div>
+    <div id="cai-feed" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px;margin-bottom:10px;scroll-behavior:smooth"></div>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-shrink:0">
+      <textarea id="cai-input" rows="2" placeholder="Ask anything about tasks, docs, budget, blockers…  (Enter to send, Shift+Enter for new line)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAskClaude();}" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;border-radius:8px;outline:none;resize:none;line-height:1.4;box-sizing:border-box"></textarea>
+      <button onclick="sendAskClaude()" id="cai-send-btn" style="font-family:'DM Mono',monospace;font-size:10px;padding:10px 18px;border-radius:8px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer;white-space:nowrap;flex-shrink:0">Send ↵</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ PAGE: AGENDA ══ -->
 <div id="page-agenda" class="page active">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px">
@@ -1770,6 +1788,7 @@ function showPage(id){
   if(id==='docs'){ if(_sharedDocsCache.length) _renderSharedDocs(); setTimeout(_loadSharedDocs,80); }
   if(id==='lp'){ _debouncedBuildMilestones(); loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
   if(id==='actions'){ _debouncedBuildMilestones(); setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
+  if(id==='askclaude') _caiInit();
   if(id==='seo') _seoRender();
   if(id==='budget') loadBudgetFromSheets();
   if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } _slackCheckToken(); }
@@ -16309,7 +16328,8 @@ const _LP_HUB_TABS=[
   {id:'roadmap',label:'🗓️ Task Tracker'},
   {id:'actionplans',label:'🎯 Action Plans'},
   {id:'actions',label:'⚡ Actions'},
-  {id:'masteractions',label:'📋 Master Actions'}
+  {id:'masteractions',label:'📋 Master Actions'},
+  {id:'askclaude',label:'🤖 Ask Claude'}
 ];
 const _LP_HUB_SET=new Set(_LP_HUB_TABS.map(t=>t.id));
 function _upsertLPHubBar(activeId){
@@ -21369,6 +21389,177 @@ function amlResetDOM(){
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_amlInit);
   else _amlInit();
 })();
+
+// ── Ask Claude chat ────────────────────────────────────────────────────────────
+let _caiHistory=[];
+let _caiDocContents={};
+let _caiContextStr='';
+let _caiReady=false;
+let _caiBusy=false;
+
+function _extractGdriveId(url){
+  if(!url) return '';
+  const m=url.match(/\/(?:file\/d|document\/d|spreadsheets\/d|presentation\/d|forms\/d)\/([a-zA-Z0-9_-]{20,})/);
+  return m?m[1]:'';
+}
+
+function _caiInit(){
+  if(_caiReady){ _caiRenderBadge(); return; }
+  const badge=document.getElementById('cai-context-badge');
+  if(badge) badge.textContent='Loading docs from Drive…';
+
+  // Collect Drive file IDs from uploaded docs and linked Google files
+  const uploaded=(_sharedDocsCache||[]).filter(d=>d.driveFileId&&d.driveFileId.length>10).map(d=>d.driveFileId);
+  const linked=(_sharedDocsCache||[]).filter(d=>!d.driveFileId&&d.url).map(d=>_extractGdriveId(d.url)).filter(Boolean);
+  const allIds=[...new Set([...uploaded,...linked])];
+
+  if(!CONFIG.sheetsUrl||!allIds.length){
+    _caiReady=true; _caiRenderBadge(); _caiGreet(); return;
+  }
+
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'ops_context_read',docIds:allIds})})
+    .then(r=>r.json())
+    .then(data=>{ _caiDocContents=(data&&data.contents)?data.contents:{}; })
+    .catch(()=>{ _caiDocContents={}; })
+    .finally(()=>{ _caiReady=true; _caiRenderBadge(); _caiGreet(); });
+}
+
+function _caiRenderBadge(){
+  const badge=document.getElementById('cai-context-badge');
+  if(!badge) return;
+  const tasks=(DASHBOARD_DATA.tasks||[]).length;
+  const allDocs=(_sharedDocsCache||[]).length;
+  const readDocs=Object.keys(_caiDocContents).length;
+  badge.textContent=`Context loaded · ${tasks} tasks · ${allDocs} docs (${readDocs} readable) · all Google Sheets data`;
+}
+
+function _buildCaiContext(){
+  const lines=[];
+  const today=new Date().toDateString();
+  lines.push(`DGL easyChef Pro Operations — ${today}`);
+  lines.push('Launch target: July 1 2026 | Founding price $7.99/mo | Standard $10/mo');
+  lines.push('Team: Taylor=Founder/IC, Steve=Ops, Adam=Marketing, Mary=Content, JR=Product, Hammad=Dev, Searah=Design, Sadee=Support\n');
+
+  // Tasks
+  const tasks=DASHBOARD_DATA.tasks||[];
+  if(tasks.length){
+    lines.push(`== TASKS (${tasks.length}) ==`);
+    tasks.forEach(t=>{ lines.push(`[${t.id||''}] ${t.name||''} | ${t.status||''} | ${t.owner||t.responsible||''} | ${t.cat||t.category||''}`); });
+  }
+
+  // Workstreams
+  const ws=(DASHBOARD_DATA.workstreams||[]);
+  if(ws.length){
+    lines.push(`\n== WORKSTREAMS (${ws.length}) ==`);
+    ws.forEach(w=>lines.push(`${w.name||w.id||''} | ${w.status||''}`));
+  }
+
+  // Agenda items
+  const agItems=(DASHBOARD_DATA.agenda&&DASHBOARD_DATA.agenda.items)||[];
+  if(agItems.length){
+    lines.push(`\n== AGENDA ==`);
+    agItems.slice(0,15).forEach(a=>lines.push(`- [${a.status||''}] ${a.title||a.text||''}`));
+  }
+
+  // Docs list
+  const docs=_sharedDocsCache||[];
+  if(docs.length){
+    lines.push(`\n== DOCS (${docs.length}) ==`);
+    docs.forEach(d=>lines.push(`- ${d.name||''} (${d.type||'link'}) ${d.url||''}`));
+  }
+
+  // Doc contents
+  const ids=Object.keys(_caiDocContents);
+  if(ids.length){
+    lines.push('\n== DOCUMENT CONTENTS ==');
+    ids.forEach(id=>{
+      const meta=docs.find(d=>d.driveFileId===id)||{};
+      lines.push(`\n--- ${meta.name||id} ---`);
+      lines.push((_caiDocContents[id]||'').substring(0,6000));
+    });
+  }
+
+  return lines.join('\n');
+}
+
+function _caiGreet(){
+  const feed=document.getElementById('cai-feed');
+  if(!feed||feed.children.length) return;
+  const tasks=(DASHBOARD_DATA.tasks||[]).length;
+  const allDocs=(_sharedDocsCache||[]).length;
+  const readDocs=Object.keys(_caiDocContents).length;
+  _caiAppend('ai',`Hello! I've loaded ${tasks} tasks, ${allDocs} documents (${readDocs} with full content read from Drive), and all your Google Sheets data. Ask me anything about the easyChef Pro launch.`);
+}
+
+function sendAskClaude(){
+  if(_caiBusy) return;
+  const input=document.getElementById('cai-input');
+  const prompt=(input?input.value:'').trim();
+  if(!prompt) return;
+  if(!CONFIG.sheetsUrl){ _caiAppend('ai','Error: Apps Script URL not configured.'); return; }
+
+  input.value='';
+  _caiAppend('user',prompt);
+
+  _caiBusy=true;
+  const btn=document.getElementById('cai-send-btn');
+  if(btn){ btn.disabled=true; btn.textContent='…'; }
+
+  const loadEl=_caiAppend('ai','Thinking…',true);
+
+  _caiHistory.push({role:'user',content:prompt});
+
+  const context=_caiContextStr||_buildCaiContext();
+  _caiContextStr=context;
+
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+    action:'ops_chat',
+    prompt:prompt,
+    history:_caiHistory.slice(-14),
+    context:context
+  })})
+  .then(r=>r.json())
+  .then(data=>{
+    const reply=data.reply||data.text||data.response||(data.error?`Error: ${data.error}`:'No response received.');
+    if(loadEl&&loadEl.parentNode) loadEl.remove();
+    _caiAppend('ai',reply);
+    _caiHistory.push({role:'assistant',content:reply});
+    if(_caiHistory.length>24) _caiHistory=_caiHistory.slice(-24);
+  })
+  .catch(e=>{ if(loadEl&&loadEl.parentNode) loadEl.remove(); _caiAppend('ai',`Error: ${e.message}`); })
+  .finally(()=>{ _caiBusy=false; if(btn){ btn.disabled=false; btn.textContent='Send ↵'; } });
+}
+
+function _caiAppend(role,text,isTemp){
+  const feed=document.getElementById('cai-feed');
+  if(!feed) return null;
+  const isUser=role==='user';
+  const wrap=document.createElement('div');
+  wrap.style.cssText=`display:flex;flex-direction:column;align-items:${isUser?'flex-end':'flex-start'};gap:3px`;
+
+  const lbl=document.createElement('div');
+  lbl.style.cssText=`font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px`;
+  lbl.textContent=isUser?'YOU':'🤖 CLAUDE';
+
+  const bubble=document.createElement('div');
+  bubble.style.cssText=`max-width:82%;padding:10px 14px;border-radius:${isUser?'12px 12px 2px 12px':'12px 12px 12px 2px'};font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word;background:${isUser?'var(--gold-dim)':'var(--card)'};color:${isUser?'var(--gold-light)':'var(--text)'};border:1px solid ${isUser?'rgba(201,168,76,0.3)':'var(--border)'}`;
+  if(isTemp) bubble.style.color='var(--muted)';
+  bubble.textContent=text;
+
+  wrap.appendChild(lbl);
+  wrap.appendChild(bubble);
+  feed.appendChild(wrap);
+  feed.scrollTop=feed.scrollHeight;
+  return wrap;
+}
+
+function _caiClear(){
+  const feed=document.getElementById('cai-feed');
+  if(feed) feed.innerHTML='';
+  _caiHistory=[];
+  _caiContextStr='';
+  _caiGreet();
+}
 </script>
 <div id="my-profile-panel">
   <div id="mpp-header"></div>
