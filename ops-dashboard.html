@@ -21491,75 +21491,92 @@ function _caiFormatRows(rows){
 }
 
 function _buildCaiContext(){
-  const lines=[];
+  const MAX_CHARS=120000;
   const today=new Date().toDateString();
-  lines.push(`DGL easyChef Pro Operations — ${today}`);
-  lines.push('Launch target: July 1 2026 | Founding price $7.99/mo | Standard $10/mo');
-  lines.push('Team: Taylor=Founder/IC, Steve=Ops, Adam=Marketing, Mary=Content, JR=Product, Hammad=Dev, Searah=Design, Sadee=Support\n');
 
-  // Tasks
-  const tasks=DASHBOARD_DATA.tasks||[];
-  if(tasks.length){
-    lines.push(`== TASKS (${tasks.length}) ==`);
-    tasks.forEach(t=>{ lines.push(`[${t.id||''}] ${t.name||''} | ${t.status||''} | ${t.owner||t.responsible||''} | ${t.cat||t.category||''}`); });
+  function fmtTask(t){
+    return `[${t.id||''}] ${t.name||t.title||''} | ${t.status||''} | owner:${t.owner||t.responsible||''} | cat:${t.cat||t.category||''} | sd:${t.sd||t.startDate||''} | ed:${t.ed||t.endDate||t.dueDate||''} | flag:${t.flag||t.priority||''}`;
+  }
+  function fmtAction(a){
+    return `[${a.id||''}] task:${a.taskId||a.task_id||''} | ${a.title||a.name||''} | ${a.assignedTo||a.owner||''} | due:${a.dueDate||a.due||''} | ${a.status||''}`;
+  }
+  function fmtSlim(r,n){
+    return Object.values(r).slice(0,n||5).map(v=>String(v||'').slice(0,80)).join(' | ');
+  }
+  function makeSection(label,rows,fmt){
+    if(!rows||!rows.length) return '';
+    return `== ${label} (${rows.length}) ==\n`+rows.map(fmt).join('\n');
   }
 
-  // Workstreams
-  const ws=(DASHBOARD_DATA.workstreams||[]);
-  if(ws.length){
-    lines.push(`\n== WORKSTREAMS (${ws.length}) ==`);
-    ws.forEach(w=>lines.push(`${w.name||w.id||''} | ${w.status||''}`));
-  }
+  const alwaysIn=[
+    `DGL easyChef Pro Operations — ${today}\nLaunch target: July 1 2026 | Founding price $7.99/mo | Standard $10/mo\nTeam: Taylor=Founder/IC, Steve=Ops, Adam=Marketing, Mary=Content, JR=Product, Hammad=Dev, Searah=Design, Sadee=Support`
+  ];
 
-  // Agenda items
-  const agItems=(DASHBOARD_DATA.agenda&&DASHBOARD_DATA.agenda.items)||[];
-  if(agItems.length){
-    lines.push(`\n== AGENDA ==`);
-    agItems.slice(0,15).forEach(a=>lines.push(`- [${a.status||''}] ${a.title||a.text||''}`));
-  }
+  // Tasks — baked-in DASHBOARD_DATA, slimmed (authoritative master list)
+  const taskSec=makeSection('TASKS',(DASHBOARD_DATA.tasks||[]).slice(0,500),fmtTask);
+  if(taskSec) alwaysIn.push(taskSec);
 
-  // Docs index
+  // Actions — live
+  const actSec=makeSection('ACTIONS',_caiExtractRows(_caiLiveData['actions_read']).slice(0,500),fmtAction);
+  if(actSec) alwaysIn.push(actSec);
+
+  // Agenda — live (not DASHBOARD_DATA.agenda)
+  const agSec=makeSection('AGENDA',_caiExtractRows(_caiLiveData['agenda_read']).slice(0,500),r=>fmtSlim(r,4));
+  if(agSec) alwaysIn.push(agSec);
+
+  // Completions — live
+  const compSec=makeSection('COMPLETIONS',_caiExtractRows(_caiLiveData['completions_read']).slice(0,500),r=>fmtSlim(r,5));
+  if(compSec) alwaysIn.push(compSec);
+
+  // Workstreams — live (not DASHBOARD_DATA.workstreams)
+  const wsSec=makeSection('WORKSTREAMS',_caiExtractRows(_caiLiveData['workstreams_read']).slice(0,500),r=>fmtSlim(r,5));
+  if(wsSec) alwaysIn.push(wsSec);
+
+  // Launch Plan — live
+  const lpSec=makeSection('LAUNCH PLAN',_caiExtractRows(_caiLiveData['launchplan_read']).slice(0,500),r=>fmtSlim(r,5));
+  if(lpSec) alwaysIn.push(lpSec);
+
+  // Docs index — title + URL only (no DriveID)
   const docs=_sharedDocsCache||[];
   if(docs.length){
-    lines.push(`\n== DOCS INDEX (${docs.length}) ==`);
-    docs.forEach(d=>lines.push(`${d.name||''} | URL: ${d.url||'(no url)'}${d.driveFileId?' | DriveID: '+d.driveFileId:''}`));
+    alwaysIn.push(`== DOCS INDEX (${docs.length}) ==\n`+docs.map(d=>`${d.name||''} | ${d.url||'(no url)'}`).join('\n'));
   }
 
-  // Live data tabs
-  const _TAB_LABELS={
-    actions_read:          'ACTIONS',
-    agenda_read:           'AGENDA',
-    completions_read:      'COMPLETIONS',
-    action_plans_read:     'ACTION PLANS',
-    workstreams_read:      'WORKSTREAMS',
-    workstream_actions_read:'WORKSTREAM ACTIONS',
-    launchplan_read:       'LAUNCH PLAN',
-    roadmap_read:          'ROADMAP',
-    gaps_read:             'GAPS'
-  };
-  Object.entries(_TAB_LABELS).forEach(([action,label])=>{
-    const rows=_caiExtractRows(_caiLiveData[action]);
-    if(rows.length){
-      lines.push(`\n== ${label} (${rows.length}) ==`);
-      lines.push(_caiFormatRows(rows));
-    }
-  });
+  // Trimmable sections — lowest priority last (pop() removes gaps first)
+  const trimmable=[];
+  const apSec=makeSection('ACTION PLANS',_caiExtractRows(_caiLiveData['action_plans_read']).slice(0,500),fmtTask);
+  if(apSec) trimmable.push(apSec);
+  const wsaSec=makeSection('WORKSTREAM ACTIONS',_caiExtractRows(_caiLiveData['workstream_actions_read']).slice(0,500),fmtAction);
+  if(wsaSec) trimmable.push(wsaSec);
+  const rmSec=makeSection('ROADMAP',_caiExtractRows(_caiLiveData['roadmap_read']).slice(0,500),r=>fmtSlim(r,5));
+  if(rmSec) trimmable.push(rmSec);
+  const gapSec=makeSection('GAPS',_caiExtractRows(_caiLiveData['gaps_read']).slice(0,500),r=>fmtSlim(r,4));
+  if(gapSec) trimmable.push(gapSec);
 
-  // Loaded doc contents (on-demand only)
-  const ids=Object.keys(_caiDocContents);
-  if(ids.length){
-    lines.push('\n== DOCUMENT CONTENTS (loaded on demand) ==');
-    ids.forEach(id=>{
+  // Budget enforcement: trim lowest-priority sections first
+  let activeTrim=[...trimmable];
+  let combined=[...alwaysIn,...activeTrim].join('\n\n');
+  while(combined.length>MAX_CHARS&&activeTrim.length){
+    activeTrim.pop();
+    combined=[...alwaysIn,...activeTrim].join('\n\n');
+  }
+
+  // Append on-demand doc contents if budget allows
+  const docIds=Object.keys(_caiDocContents);
+  if(docIds.length&&combined.length<MAX_CHARS){
+    const docParts=[];
+    for(const id of docIds){
       const doc=_caiDocContents[id];
       const title=doc&&doc.title?doc.title:(docs.find(d=>d.driveFileId===id)||{}).name||id;
       const url=doc&&doc.url?doc.url:'';
       const text=doc&&doc.text?doc.text:(typeof doc==='string'?doc:'');
-      lines.push(`\n--- ${title} | URL: ${url||'(no url)'} ---`);
-      lines.push(text.substring(0,6000));
-    });
+      const budget=MAX_CHARS-combined.length-docParts.reduce((s,p)=>s+p.length,0)-200;
+      if(budget>100) docParts.push(`\n--- ${title} | URL: ${url||'(no url)'} ---\n${text.substring(0,Math.min(6000,budget))}`);
+    }
+    if(docParts.length) combined+='\n\n== DOCUMENT CONTENTS (loaded on demand) =='+docParts.join('\n');
   }
 
-  return lines.join('\n');
+  return combined.substring(0,MAX_CHARS);
 }
 
 function _caiGreet(){
