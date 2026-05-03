@@ -803,7 +803,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')" style="display:none">Task Tracker</div>
     <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')">Budget &amp; Burn</div>
     <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')" style="display:none">Team</div>
-    <div class="nav-tab" data-tab-id="docs" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('docs')">📁 Docs</div>
+    <div class="nav-tab" data-tab-id="docs" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('docs')" style="display:none">📁 Docs</div>
     <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')" style="display:none">App Data</div>
 
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')" style="display:none">Action Plans</div>
@@ -16441,7 +16441,8 @@ const _LP_HUB_TABS=[
   {id:'actions',label:'⚡ Actions'},
   {id:'masteractions',label:'📋 Master Actions'},
   {id:'seo',label:'🔍 SEO'},
-  {id:'askclaude',label:'🤖 Ask Ops'}
+  {id:'askclaude',label:'🤖 Ask Ops'},
+  {id:'docs',label:'📁 Docs'}
 ];
 const _LP_HUB_SET=new Set(_LP_HUB_TABS.map(t=>t.id));
 function _upsertLPHubBar(activeId){
