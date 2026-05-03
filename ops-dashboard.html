@@ -1859,6 +1859,10 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="seo-mgr-root"></div>
 </div>
 
+<div id="page-campaigns" class="page">
+  <div id="campaigns-root"></div>
+</div>
+
 
 <script>
 // ── Countdown ──────────────────────────────────────────────
@@ -1900,6 +1904,7 @@ function showPage(id){
   if(id==='actions'){ _debouncedBuildMilestones(); setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
   if(id==='askclaude') _caiInit();
   if(id==='seo') _seoRender();
+  if(id==='campaigns') _campaignsRender();
   if(id==='budget') loadBudgetFromSheets();
   if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } _slackCheckToken(); }
   if(id==='command'){
@@ -16447,6 +16452,7 @@ const _LP_HUB_TABS=[
   {id:'actions',label:'⚡ Actions'},
   {id:'masteractions',label:'📋 Master Actions'},
   {id:'seo',label:'🔍 SEO'},
+  {id:'campaigns',label:'📣 Campaign Center'},
   {id:'askclaude',label:'🤖 Ask Ops'},
   {id:'docs',label:'📁 Docs'}
 ];
@@ -21228,6 +21234,80 @@ function _seoPreviewOpenTab(){
   if(_seoPreviewCurUrl) window.open(_seoPreviewCurUrl,'_blank','noopener');
 }
 
+// ── Campaign Center ────────────────────────────────────────────────────────
+var _CAMPAIGNS_DATA=[
+  {id:'EC-2026-001',type:'AB Test',name:'Waitlist A/B Test',status:'active',owner:'Adam',platform:'Convert.com + Klaviyo',desc:'utm_medium=email audience. Convert.com controls variant assignment. Klaviyo reads utm_content to tag cohorts into Variant A vs B.',variants:['Variant A — /lp/waitlist-a','Variant B — /lp/waitlist-b'],kpis:['Conversion rate per variant','Waitlist signups','Email open rate by cohort'],blocker:'Convert.com + Clarity not installed on /lp/waitlist-a, /lp/waitlist-b, /thank-you',dates:{start:'May 2026',end:'July 1, 2026'}},
+  {id:'EC-2026-005',type:'Paid Social',name:'Pinterest Funnel — ICP 02 Budget Family',status:'pending',owner:'Adam',platform:'Pinterest Ads',desc:'Targeting ICP 02 Budget Family — households $40-80K, 2+ kids, financially stressed, shops at Walmart.',variants:[],kpis:['Click-through rate','Cost per waitlist signup','ROAS'],blocker:'Pending ICP validation with beta data before activation',dates:{start:'Post-beta',end:'July 1, 2026'}}
+];
+var _EMAIL_SEQS=[
+  {id:'SEQ-1',name:'Welcome',emails:3,window:'Days 0–7',status:'not_written',owner:'Mary',desc:'Triggered on waitlist signup. Delivers cheat sheet, introduces product, sets expectations.',klaviyo:true},
+  {id:'SEQ-2',name:'Nurture',emails:5,window:'Days 8–21',status:'not_written',owner:'Mary / Adam',desc:'5-email nurture. Email 3 has an A/B variant — Variant A: Adam / Money Hook; Variant B: Mary / Time Hook.',klaviyo:true},
+  {id:'SEQ-3',name:'Urgency',emails:4,window:'June 17–30',status:'not_written',owner:'Mary',desc:'Countdown to launch. Creates urgency around founding-member pricing expiry.',klaviyo:true},
+  {id:'SEQ-4',name:'Launch Day',emails:1,window:'July 1',status:'not_written',owner:'Mary',desc:'Single launch-day email. Must be approved by June 30.',klaviyo:true},
+  {id:'SEQ-5',name:'Re-engagement',emails:2,window:'Post-launch',status:'not_written',owner:'Mary',desc:'Targets non-openers and inactive waitlist members after launch.',klaviyo:true}
+];
+function _campaignsRender(){
+  var root=document.getElementById('campaigns-root'); if(!root) return;
+  var statusBadge=function(s){
+    var map={active:'background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)',pending:'background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.25)',not_written:'background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)',written:'background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)',live:'background:rgba(59,130,246,0.12);color:#3b82f6;border:1px solid rgba(59,130,246,0.25)'};
+    var lbl={active:'Active',pending:'Pending',not_written:'Not Written',written:'Written',live:'Live'};
+    return '<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:600;'+( map[s]||map.pending)+'">'+( lbl[s]||s)+'</span>';
+  };
+  var campaignCards=_CAMPAIGNS_DATA.map(function(c){
+    var blockerHtml=c.blocker?'<div style="margin-top:10px;padding:8px 12px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:11px;color:#ef4444">⚠ '+c.blocker+'</div>':'';
+    var variantHtml=c.variants.length?'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">'+c.variants.map(function(v){return '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--bg);border:1px solid var(--border);color:var(--muted)">'+v+'</span>';}).join('')+'</div>':'';
+    var kpiHtml='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">'+c.kpis.map(function(k){return '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);color:var(--gold)">'+k+'</span>';}).join('')+'</div>';
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:10px">'+
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        '<div style="display:flex;align-items:center;gap:10px">'+
+          '<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:4px">'+c.id+'</span>'+
+          '<span style="font-size:10px;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:4px">'+c.type+'</span>'+
+          statusBadge(c.status)+
+        '</div>'+
+        '<span style="font-size:11px;color:var(--muted)">'+c.dates.start+' → '+c.dates.end+'</span>'+
+      '</div>'+
+      '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">'+c.name+'</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:2px">Platform: <span style="color:var(--text)">'+c.platform+'</span> · Owner: <span style="color:var(--text)">'+c.owner+'</span></div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">'+c.desc+'</div>'+
+      variantHtml+kpiHtml+blockerHtml+
+    '</div>';
+  }).join('');
+  var seqRows=_EMAIL_SEQS.map(function(s){
+    return '<div style="display:grid;grid-template-columns:80px 120px 60px 100px 1fr;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">'+
+      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:var(--gold)">'+s.id+'</span>'+
+      '<span style="font-size:12px;font-weight:600;color:var(--text)">'+s.name+'</span>'+
+      '<span style="font-size:11px;color:var(--muted)">'+s.emails+' email'+(s.emails!==1?'s':'')+'</span>'+
+      statusBadge(s.status)+
+      '<span style="font-size:11px;color:var(--muted)">'+s.desc+'</span>'+
+    '</div>';
+  }).join('');
+  root.innerHTML=
+    '<div style="padding:20px 24px;max-width:1200px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'+
+        '<div>'+
+          '<div style="font-size:18px;font-weight:700;color:var(--text)">Campaign Center</div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px">'+_CAMPAIGNS_DATA.length+' campaigns · '+_EMAIL_SEQS.length+' email sequences tracked</div>'+
+        '</div>'+
+        '<button onclick="_campaignsAddModal()" style="background:var(--gold);border:none;color:#000;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">+ Add Campaign</button>'+
+      '</div>'+
+      '<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">Active Campaigns</div>'+
+      campaignCards+
+      '<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin:24px 0 0">Email Sequences — Klaviyo</div>'+
+      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:10px">'+
+        '<div style="display:grid;grid-template-columns:80px 120px 60px 100px 1fr;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg)">'+
+          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">ID</span>'+
+          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Name</span>'+
+          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Emails</span>'+
+          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Status</span>'+
+          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Description</span>'+
+        '</div>'+
+        seqRows+
+      '</div>'+
+    '</div>';
+}
+function _campaignsAddModal(){
+  _showToast('<div style="font-size:12px;color:var(--gold)">Add Campaign — coming soon</div>',2500);
+}
 // ── SEO Manager ────────────────────────────────────────────────────────────
 function _seoRender(){
   var root=document.getElementById('seo-mgr-root'); if(!root) return;
