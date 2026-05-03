@@ -21582,7 +21582,13 @@ function _caiAppend(role,text,isTemp){
   const bubble=document.createElement('div');
   bubble.style.cssText=`max-width:82%;padding:10px 14px;border-radius:${isUser?'12px 12px 2px 12px':'12px 12px 12px 2px'};font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word;background:${isUser?'var(--gold-dim)':'var(--card)'};color:${isUser?'var(--gold-light)':'var(--text)'};border:1px solid ${isUser?'rgba(201,168,76,0.3)':'var(--border)'}`;
   if(isTemp) bubble.style.color='var(--muted)';
-  bubble.textContent=text;
+  if(isUser){
+    bubble.textContent=text;
+  } else {
+    // Escape HTML then linkify URLs
+    const escaped=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    bubble.innerHTML=escaped.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;word-break:break-all">$1</a>');
+  }
 
   wrap.appendChild(lbl);
   wrap.appendChild(bubble);
