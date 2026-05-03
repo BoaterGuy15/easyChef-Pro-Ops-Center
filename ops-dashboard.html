@@ -78,6 +78,25 @@
         const result = callAnthropic(prompt, system);
         return respond({ ok: true, result: result });
       }
+      if (action === 'anthropic_chat') {
+        const prompt = e.parameter.prompt || '';
+        const system = e.parameter.system || '';
+        const model = e.parameter.model || 'claude-sonnet-4-6';
+        const maxTokens = parseInt(e.parameter.maxTokens || '2048');
+        const result = callAnthropicModel(prompt, system, model, maxTokens);
+        return respond({ ok: true, result: result });
+      }
+      if (action === 'google_doc_read') {
+        const docId = e.parameter.docId || '';
+        if (!docId) return respond({ ok: false, error: 'No docId provided' });
+        try {
+          const doc = DocumentApp.openById(docId);
+          const text = doc.getBody().getText();
+          return respond({ ok: true, text: text.slice(0, 60000), title: doc.getName() });
+        } catch(err) {
+          return respond({ ok: false, error: 'Could not open doc: ' + err.message });
+        }
+      }
       // default: tasks
       return respond({ ok: true, tasks: getTasks() });
     } catch(err) {
@@ -209,6 +228,27 @@
       muteHttpExceptions: true
     });
     const json = JSON.parse(resp.getContentText());
+    return json.content && json.content[0] ? json.content[0].text : '';
+  }
+
+  function callAnthropicModel(prompt, system, model, maxTokens) {
+    const apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+    if (!apiKey) return 'Error: ANTHROPIC_API_KEY not set in Script Properties.';
+    const payload = {
+      model: model || 'claude-sonnet-4-6',
+      max_tokens: maxTokens || 2048,
+      system: system || 'You are a helpful assistant.',
+      messages: [{ role: 'user', content: prompt }]
+    };
+    const resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    const json = JSON.parse(resp.getContentText());
+    if (json.error) return 'Error: ' + json.error.message;
     return json.content && json.content[0] ? json.content[0].text : '';
   }
 
@@ -662,6 +702,27 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 .hr-nt-contract{background:rgba(201,168,76,0.12);color:var(--gold)}
 .hr-nt-general{background:rgba(107,114,128,0.1);color:var(--muted)}
 .hr-nt-ai_analysis{background:rgba(201,168,76,0.15);color:var(--gold-light)}
+/* ── Ask Claude ─────────────────────────────────────────────────────────── */
+.cai-wrap{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+.cai-panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.cai-panel-title{font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px}
+.cai-ctx-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted)}
+.cai-ctx-row:last-child{border-bottom:none}
+.cai-ctx-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cai-ctx-dot.ok{background:var(--green)}
+.cai-ctx-dot.warn{background:var(--amber)}
+.cai-ctx-dot.idle{background:var(--border)}
+.cai-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;resize:none;transition:border-color 0.15s}
+.cai-input:focus{border-color:var(--gold)}
+.cai-ask-btn{background:var(--gold-dim);border:1px solid var(--gold);color:var(--gold);padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;width:100%;margin-top:10px;font-family:inherit}
+.cai-ask-btn:hover:not(:disabled){background:rgba(201,168,76,0.25)}
+.cai-ask-btn:disabled{opacity:0.5;cursor:not-allowed}
+.cai-response{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;min-height:120px;font-size:13px;line-height:1.75;color:var(--text)}
+.cai-response strong{color:var(--gold-light)}
+.cai-response code{background:var(--card);padding:1px 5px;border-radius:3px;font-family:'DM Mono',monospace;font-size:11px;color:var(--accent)}
+.cai-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
+.cai-model-badge{background:var(--gold-dim);color:var(--gold);padding:2px 8px;border-radius:4px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.05em}
+@media(max-width:800px){.cai-wrap{grid-template-columns:1fr}}
 /* ── Master Action List ─────────────────────────────────────────────────── */
 .aml-view-toggle{display:flex;gap:6px;padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
 .aml-vtab{padding:5px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all 0.15s}
@@ -810,6 +871,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')">Workstreams</div>
     <div class="nav-tab" data-tab-id="actions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actions')">⚡ Actions</div>
     <div class="nav-tab" data-tab-id="masteractions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('masteractions')">📋 Master Actions</div>
+    <div class="nav-tab" data-tab-id="askclaud" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('askclaud')">🤖 Ask Claude</div>
     <div class="nav-tab" data-tab-id="seo" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('seo')">SEO</div>
   </div>
   <div class="topbar-right">
@@ -1399,6 +1461,65 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         <div class="aml-item" id="aml-item-l7" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l7')"></div><div class="aml-item-text">QA gate: every item in Pre-Launch Wireframe Section 14 QA Checklist shows PASS before traffic is sent.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-l7" placeholder="Add date or note…" oninput="amlNoteChange('l7',this.value)"></div></div>
         <div class="aml-item" id="aml-item-l8" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l8')"></div><div class="aml-item-text">Confirm referral loop is wired for Day 90: L-14 email + in-app modal + push notification fire simultaneously.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-l8" placeholder="Add date or note…" oninput="amlNoteChange('l8',this.value)"></div></div>
         <div class="aml-completed-row" id="aml-complete-launch" style="display:none">✓ All items in this section complete</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: ASK CLAUDE ══ -->
+<div id="page-askclaud" class="page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin-bottom:2px">Ask Claude</div>
+      <div style="font-size:12px;color:var(--muted)">Answers grounded in your project brief and any Google Doc you attach</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="cai-model-badge">claude-sonnet-4-6</span>
+      <span id="cai-last-run" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <div class="cai-wrap">
+    <!-- Left: Context sources + inputs -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="cai-panel">
+        <div class="cai-panel-title">Context sources</div>
+        <div class="cai-ctx-row">
+          <div class="cai-ctx-dot" id="cai-dot-brief"></div>
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--text)">CLAUDE_CODE_BRIEF.md</div>
+            <div id="cai-brief-status" style="font-size:11px;color:var(--muted)">Loading…</div>
+          </div>
+        </div>
+        <div class="cai-ctx-row">
+          <div class="cai-ctx-dot" id="cai-dot-doc"></div>
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--text)">Google Doc <span style="color:var(--muted)">(optional)</span></div>
+            <div id="cai-doc-status" style="font-size:11px;color:var(--muted)">No doc attached</div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <input class="cai-input" id="cai-doc-url" type="text" placeholder="Paste Google Doc URL or ID…" oninput="caiDocInputChange(this.value)" style="resize:none">
+        </div>
+      </div>
+
+      <div class="cai-panel">
+        <div class="cai-panel-title">Your question</div>
+        <textarea class="cai-input" id="cai-question" rows="7" placeholder="e.g. What are the biggest risks before launch? Which email sequences are blocking the A/B test? Summarize what Taylor needs to decide this week."></textarea>
+        <button class="cai-ask-btn" id="cai-ask-btn" onclick="caiAsk()">⚡ Ask Claude</button>
+        <div style="text-align:center;margin-top:6px">
+          <button onclick="caiClear()" style="background:transparent;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Response -->
+    <div class="cai-panel" style="min-height:400px">
+      <div class="cai-panel-title">Response</div>
+      <div class="cai-response" id="cai-response" style="color:var(--muted);font-size:12px">Ask a question to get started. Claude will use the project brief as context and include any attached Google Doc.</div>
+      <div class="cai-meta" id="cai-meta" style="display:none">
+        <span id="cai-meta-time"></span>
+        <span id="cai-meta-ctx"></span>
       </div>
     </div>
   </div>
@@ -21059,6 +21180,170 @@ function _seoCopySnippet(){
   var code=document.getElementById('seo-snippet-code'); if(!code) return;
   navigator.clipboard.writeText(code.textContent).then(function(){_showToast('<div style="color:var(--green);font-size:12px">Meta tags copied to clipboard</div>',2000);});
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   ASK CLAUDE  —  cai* namespace
+   Routes: Apps Script ?action=anthropic_chat  +  ?action=google_doc_read
+   System context: CLAUDE_CODE_BRIEF.md (static file) + optional Google Doc
+═══════════════════════════════════════════════════════════════════════════ */
+var _caiBrief = '';
+var _caiDocText = '';
+var _caiDocTitle = '';
+
+(function _caiInit(){
+  fetch('./CLAUDE_CODE_BRIEF.md')
+    .then(function(r){ return r.ok ? r.text() : Promise.reject('not found'); })
+    .then(function(t){
+      _caiBrief = t;
+      var dot = document.getElementById('cai-dot-brief');
+      var st  = document.getElementById('cai-brief-status');
+      if(dot) dot.className = 'cai-ctx-dot ok';
+      if(st)  st.textContent = Math.round(t.length/1000) + 'k chars loaded';
+    })
+    .catch(function(){
+      var dot = document.getElementById('cai-dot-brief');
+      var st  = document.getElementById('cai-brief-status');
+      if(dot) dot.className = 'cai-ctx-dot warn';
+      if(st)  st.textContent = 'File not found — no project context';
+    });
+})();
+
+function caiDocInputChange(val){
+  var dot = document.getElementById('cai-dot-doc');
+  var st  = document.getElementById('cai-doc-status');
+  _caiDocText  = '';
+  _caiDocTitle = '';
+  if(!val.trim()){
+    if(dot) dot.className = 'cai-ctx-dot idle';
+    if(st)  st.textContent = 'No doc attached';
+    return;
+  }
+  if(dot) dot.className = 'cai-ctx-dot warn';
+  if(st)  st.textContent = 'Will load on Ask…';
+}
+
+function caiExtractDocId(url){
+  var m = url.match(/\/d\/([a-zA-Z0-9\-_]+)/);
+  if(m) return m[1];
+  if(/^[a-zA-Z0-9\-_]{20,}$/.test(url.trim())) return url.trim();
+  return null;
+}
+
+async function caiAsk(){
+  var question = (document.getElementById('cai-question')||{}).value;
+  if(!question || !question.trim()){ return; }
+  if(!CONFIG.sheetsUrl){ caiShowError('CONFIG.sheetsUrl not set — connect Google Apps Script first.'); return; }
+
+  var btn = document.getElementById('cai-ask-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Thinking…'; }
+
+  var resEl  = document.getElementById('cai-response');
+  var metaEl = document.getElementById('cai-meta');
+  if(resEl){ resEl.innerHTML = '<div style="color:var(--muted);font-family:\'DM Mono\',monospace;font-size:11px;animation:none">Calling Claude Sonnet 4.6…</div>'; }
+  if(metaEl) metaEl.style.display = 'none';
+
+  // ── 1. Load Google Doc if URL present ──────────────────────────────
+  var docUrl = (document.getElementById('cai-doc-url')||{}).value || '';
+  var docId  = docUrl.trim() ? caiExtractDocId(docUrl.trim()) : null;
+  if(docId && !_caiDocText){
+    var dot = document.getElementById('cai-dot-doc');
+    var st  = document.getElementById('cai-doc-status');
+    if(st) st.textContent = 'Fetching…';
+    try{
+      var dr = await fetch(CONFIG.sheetsUrl + '?action=google_doc_read&docId=' + encodeURIComponent(docId));
+      var dd = await dr.json();
+      if(dd.ok){ _caiDocText = dd.text||''; _caiDocTitle = dd.title||'Google Doc'; }
+      if(dot) dot.className = 'cai-ctx-dot ' + (dd.ok ? 'ok' : 'warn');
+      if(st)  st.textContent = dd.ok ? (_caiDocTitle + ' · ' + Math.round(_caiDocText.length/1000) + 'k chars') : ('Error: ' + (dd.error||'unknown'));
+    }catch(e){
+      if(dot) dot.className = 'cai-ctx-dot warn';
+      if(st)  st.textContent = 'Could not fetch doc';
+    }
+  }
+
+  // ── 2. Build system prompt ──────────────────────────────────────────
+  var system = 'You are an expert advisor for easyChef Pro, a family meal planning app.\n'
+    + 'Answer concisely and practically. Use bullet points for lists. Flag blockers or risks explicitly.\n';
+  if(_caiBrief){
+    system += '\n## Project Brief\n' + _caiBrief + '\n';
+  }
+  if(_caiDocText){
+    system += '\n## Attached Document: ' + _caiDocTitle + '\n' + _caiDocText + '\n';
+  }
+
+  // ── 3. Call Anthropic via Apps Script ──────────────────────────────
+  var ctxParts = [];
+  if(_caiBrief)   ctxParts.push('Brief');
+  if(_caiDocText) ctxParts.push(_caiDocTitle);
+  var t0 = Date.now();
+  try{
+    var resp = await fetch(CONFIG.sheetsUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({
+        action:    'anthropic_chat',
+        model:     'claude-sonnet-4-6',
+        maxTokens: 2048,
+        system:    system,
+        prompt:    question.trim()
+      })
+    });
+    var data = await resp.json();
+    var text = (data.ok && data.result) ? data.result : ('Error: ' + (data.error || JSON.stringify(data)));
+    var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    if(resEl) resEl.innerHTML = caiRenderMarkdown(text);
+    if(metaEl){
+      metaEl.style.display = 'flex';
+      var tm = document.getElementById('cai-meta-time');
+      var cx = document.getElementById('cai-meta-ctx');
+      if(tm) tm.textContent = elapsed + 's';
+      if(cx) cx.textContent = ctxParts.length ? 'Context: ' + ctxParts.join(' + ') : 'No context files';
+    }
+    var lastRun = document.getElementById('cai-last-run');
+    if(lastRun) lastRun.textContent = 'Last run ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){
+    caiShowError('Network error: ' + e.message);
+  }
+
+  if(btn){ btn.disabled = false; btn.textContent = '⚡ Ask Claude'; }
+}
+
+function caiShowError(msg){
+  var resEl = document.getElementById('cai-response');
+  if(resEl) resEl.innerHTML = '<div style="color:var(--red);font-size:12px">⚠ ' + msg.replace(/</g,'&lt;') + '</div>';
+  var btn = document.getElementById('cai-ask-btn');
+  if(btn){ btn.disabled = false; btn.textContent = '⚡ Ask Claude'; }
+}
+
+function caiClear(){
+  var q = document.getElementById('cai-question'); if(q) q.value = '';
+  var r = document.getElementById('cai-response');
+  if(r) r.innerHTML = '<div style="color:var(--muted);font-size:12px">Ask a question to get started.</div>';
+  var m = document.getElementById('cai-meta'); if(m) m.style.display = 'none';
+}
+
+function caiRenderMarkdown(raw){
+  var t = raw
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // headings
+  t = t.replace(/^### (.+)$/gm,'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin:14px 0 5px">$1</div>');
+  t = t.replace(/^## (.+)$/gm,'<div style="font-family:\'Playfair Display\',serif;font-size:14px;font-weight:700;color:var(--gold-light);margin:18px 0 8px">$1</div>');
+  t = t.replace(/^# (.+)$/gm,'<div style="font-family:\'Playfair Display\',serif;font-size:16px;font-weight:700;color:var(--text);margin:20px 0 10px">$1</div>');
+  // bold / italic / code
+  t = t.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--gold-light)">$1</strong>');
+  t = t.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  t = t.replace(/`([^`]+)`/g,'<code>$1</code>');
+  // bullets
+  t = t.replace(/^[-•*] (.+)$/gm,'<div style="display:flex;gap:8px;margin:3px 0;padding-left:4px"><span style="color:var(--gold);flex-shrink:0;margin-top:1px">▸</span><span>$1</span></div>');
+  // numbered lists
+  t = t.replace(/^\d+\. (.+)$/gm,'<div style="margin:3px 0;padding-left:20px">$1</div>');
+  // horizontal rule
+  t = t.replace(/^---+$/gm,'<div style="border-top:1px solid var(--border);margin:12px 0"></div>');
+  // blank lines
+  t = t.replace(/\n\n/g,'<div style="margin:8px 0"></div>');
+  t = t.replace(/\n/g,'<br>');
+  return t;
+}
+
 function _seoExportCSV(){
   var pages=DASHBOARD_DATA.seo.pages||[];
   var cols=['site','page','file','url','metaTitle','metaDesc','h1','h2','focusKw','keywords','canonical','robots','ogTitle','ogDesc','ogImage','schema'];
