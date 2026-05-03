@@ -21399,8 +21399,13 @@ let _caiBusy=false;
 
 function _extractGdriveId(url){
   if(!url) return '';
-  const m=url.match(/\/(?:file\/d|document\/d|spreadsheets\/d|presentation\/d|forms\/d)\/([a-zA-Z0-9_-]{20,})/);
-  return m?m[1]:'';
+  // Covers /d/ID in any Google Docs/Sheets/Slides/Drive URL
+  let m=url.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  if(m) return m[1];
+  // Covers ?id=ID or &id=ID (older Drive open URLs)
+  m=url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+  if(m) return m[1];
+  return '';
 }
 
 function _caiInit(){
@@ -21409,20 +21414,44 @@ function _caiInit(){
   if(badge) badge.textContent='Loading docs from Drive…';
 
   const _readDriveFiles=function(){
-    const uploaded=(_sharedDocsCache||[]).filter(d=>d.driveFileId&&d.driveFileId.length>10).map(d=>d.driveFileId);
-    const linked=(_sharedDocsCache||[]).filter(d=>!d.driveFileId&&d.url).map(d=>_extractGdriveId(d.url)).filter(Boolean);
-    const allIds=[...new Set([...uploaded,...linked])];
+    // Collect every Drive ID: from stored driveFileId AND from any Google URL
+    const allIds=[...new Set(
+      (_sharedDocsCache||[]).flatMap(d=>{
+        const ids=[];
+        if(d.driveFileId&&d.driveFileId.length>10) ids.push(d.driveFileId);
+        const fromUrl=_extractGdriveId(d.url||'');
+        if(fromUrl&&fromUrl!==d.driveFileId) ids.push(fromUrl);
+        return ids;
+      })
+    )];
+
+    const badge2=document.getElementById('cai-context-badge');
+    if(badge2) badge2.textContent=`Reading ${allIds.length} Drive files…`;
+
     if(!CONFIG.sheetsUrl||!allIds.length){
-      _caiReady=true; _caiRenderBadge(); _caiGreet(); return;
+      _caiReady=true; _caiContextStr=''; _caiRenderBadge(); _caiGreet(); return;
     }
-    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'ops_context_read',docIds:allIds})})
-      .then(r=>r.json())
-      .then(data=>{ _caiDocContents=(data&&data.contents)?data.contents:{}; })
-      .catch(()=>{ _caiDocContents={}; })
-      .finally(()=>{ _caiReady=true; _caiRenderBadge(); _caiGreet(); });
+
+    // Batch into groups of 25 and fetch in parallel to avoid Apps Script timeout
+    const BATCH=25;
+    const batches=[];
+    for(let i=0;i<allIds.length;i+=BATCH) batches.push(allIds.slice(i,i+BATCH));
+
+    Promise.all(batches.map(ids=>
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'ops_context_read',docIds:ids})})
+        .then(r=>r.json())
+        .then(data=>(data&&data.contents)||{})
+        .catch(()=>({}))
+    ))
+    .then(results=>{
+      _caiDocContents=Object.assign({},...results);
+      _caiContextStr=''; // invalidate cache so next send includes doc contents
+    })
+    .catch(()=>{ _caiDocContents={}; _caiContextStr=''; })
+    .finally(()=>{ _caiReady=true; _caiRenderBadge(); _caiGreet(); });
   };
 
-  // If docs tab hasn't been visited yet, fetch the doc list ourselves first
   if(_sharedDocsCache&&_sharedDocsCache.length){
     _readDriveFiles();
   } else if(CONFIG.sheetsUrl){
@@ -21524,8 +21553,8 @@ function sendAskClaude(){
 
   _caiHistory.push({role:'user',content:prompt});
 
-  const context=_caiContextStr||_buildCaiContext();
-  _caiContextStr=context;
+  const context=(_caiReady&&_caiContextStr)?_caiContextStr:_buildCaiContext();
+  if(_caiReady) _caiContextStr=context; // only cache after docs are loaded
 
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
     action:'ops_chat',
