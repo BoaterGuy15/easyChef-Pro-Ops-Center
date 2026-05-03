@@ -1855,9 +1855,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
   <div id="actionplans-body" style="padding:16px 0"></div>
 </div>
 
-<div id="page-seo" class="page">
-  <div id="seo-mgr-root"></div>
-</div>
+<div id="page-seo" class="page"></div>
 
 <div id="page-campaigns" class="page">
   <div id="campaigns-root"></div>
@@ -1903,7 +1901,7 @@ function showPage(id){
   if(id==='lp'){ _debouncedBuildMilestones(); loadLaunchPlan(); setTimeout(()=>{ _lpSetZoom(localStorage.getItem('dgl_lp_zoom')||'90d'); },80); }
   if(id==='actions'){ _debouncedBuildMilestones(); setTimeout(()=>{ _acSetZoom(localStorage.getItem('dgl_ac_zoom')||'90d'); },80); }
   if(id==='askclaude') _caiInit();
-  if(id==='seo') _seoRender();
+  if(id==='seo'){ _campActiveTab='seo'; showPage('campaigns'); return; }
   if(id==='campaigns') _campaignsRender();
   if(id==='budget') loadBudgetFromSheets();
   if(id==='comms'){ const nl=document.getElementById('notif-log-section'); if(nl){ const isAdmin=['taylor','steve','adam','hammad'].includes(window._DGL_USER||''); nl.style.display=isAdmin?'block':'none'; if(isAdmin) _loadNotifLog(); } _slackCheckToken(); }
@@ -16451,7 +16449,6 @@ const _LP_HUB_TABS=[
   {id:'actionplans',label:'🎯 Action Plans'},
   {id:'actions',label:'⚡ Actions'},
   {id:'masteractions',label:'📋 Master Actions'},
-  {id:'seo',label:'🔍 SEO'},
   {id:'campaigns',label:'📣 Campaign Center'},
   {id:'askclaude',label:'🤖 Ask Ops'},
   {id:'docs',label:'📁 Docs'}
@@ -21246,12 +21243,13 @@ var _EMAIL_SEQS=[
   {id:'SEQ-4',name:'Launch Day',emails:1,window:'July 1',status:'not_written',owner:'Mary',desc:'Single launch-day email. Must be approved by June 30.',klaviyo:true},
   {id:'SEQ-5',name:'Re-engagement',emails:2,window:'Post-launch',status:'not_written',owner:'Mary',desc:'Targets non-openers and inactive waitlist members after launch.',klaviyo:true}
 ];
+var _campActiveTab='campaigns';
 function _campaignsRender(){
   var root=document.getElementById('campaigns-root'); if(!root) return;
   var statusBadge=function(s){
     var map={active:'background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)',pending:'background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.25)',not_written:'background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)',written:'background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)',live:'background:rgba(59,130,246,0.12);color:#3b82f6;border:1px solid rgba(59,130,246,0.25)'};
     var lbl={active:'Active',pending:'Pending',not_written:'Not Written',written:'Written',live:'Live'};
-    return '<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:600;'+( map[s]||map.pending)+'">'+( lbl[s]||s)+'</span>';
+    return '<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:600;'+(map[s]||map.pending)+'">'+(lbl[s]||s)+'</span>';
   };
   var campaignCards=_CAMPAIGNS_DATA.map(function(c){
     var blockerHtml=c.blocker?'<div style="margin-top:10px;padding:8px 12px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:11px;color:#ef4444">⚠ '+c.blocker+'</div>':'';
@@ -21272,38 +21270,58 @@ function _campaignsRender(){
       variantHtml+kpiHtml+blockerHtml+
     '</div>';
   }).join('');
-  var seqRows=_EMAIL_SEQS.map(function(s){
-    return '<div style="display:grid;grid-template-columns:80px 120px 60px 100px 1fr;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">'+
-      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:var(--gold)">'+s.id+'</span>'+
-      '<span style="font-size:12px;font-weight:600;color:var(--text)">'+s.name+'</span>'+
-      '<span style="font-size:11px;color:var(--muted)">'+s.emails+' email'+(s.emails!==1?'s':'')+'</span>'+
-      statusBadge(s.status)+
-      '<span style="font-size:11px;color:var(--muted)">'+s.desc+'</span>'+
+  var seqTable=
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:10px">'+
+      '<div style="display:grid;grid-template-columns:80px 120px 60px 100px 1fr;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg)">'+
+        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">ID</span>'+
+        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Name</span>'+
+        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Emails</span>'+
+        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Status</span>'+
+        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Description</span>'+
+      '</div>'+
+      _EMAIL_SEQS.map(function(s){
+        return '<div style="display:grid;grid-template-columns:80px 120px 60px 100px 1fr;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">'+
+          '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:var(--gold)">'+s.id+'</span>'+
+          '<span style="font-size:12px;font-weight:600;color:var(--text)">'+s.name+'</span>'+
+          '<span style="font-size:11px;color:var(--muted)">'+s.emails+' email'+(s.emails!==1?'s':'')+'</span>'+
+          statusBadge(s.status)+
+          '<span style="font-size:11px;color:var(--muted)">'+s.desc+'</span>'+
+        '</div>';
+      }).join('')+
     '</div>';
-  }).join('');
   root.innerHTML=
-    '<div style="padding:20px 24px;max-width:1200px">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'+
+    '<div style="padding:20px 24px;max-width:1400px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">'+
         '<div>'+
           '<div style="font-size:18px;font-weight:700;color:var(--text)">Campaign Center</div>'+
-          '<div style="font-size:12px;color:var(--muted);margin-top:2px">'+_CAMPAIGNS_DATA.length+' campaigns · '+_EMAIL_SEQS.length+' email sequences tracked</div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px">'+_CAMPAIGNS_DATA.length+' campaigns · '+_EMAIL_SEQS.length+' email sequences</div>'+
         '</div>'+
         '<button onclick="_campaignsAddModal()" style="background:var(--gold);border:none;color:#000;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">+ Add Campaign</button>'+
       '</div>'+
-      '<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">Active Campaigns</div>'+
-      campaignCards+
-      '<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin:24px 0 0">Email Sequences — Klaviyo</div>'+
-      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:10px">'+
-        '<div style="display:grid;grid-template-columns:80px 120px 60px 100px 1fr;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg)">'+
-          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">ID</span>'+
-          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Name</span>'+
-          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Emails</span>'+
-          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Status</span>'+
-          '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Description</span>'+
-        '</div>'+
-        seqRows+
+      '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px">'+
+        '<button id="camp-tab-campaigns" onclick="_campSwitchTab(\'campaigns\')" style="padding:9px 18px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:12px;cursor:pointer;font-family:\'DM Mono\',monospace">📣 Campaigns</button>'+
+        '<button id="camp-tab-seqs" onclick="_campSwitchTab(\'seqs\')" style="padding:9px 18px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:12px;cursor:pointer;font-family:\'DM Mono\',monospace">📧 Email Sequences</button>'+
+        '<button id="camp-tab-seo" onclick="_campSwitchTab(\'seo\')" style="padding:9px 18px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:12px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 SEO + Page Builder</button>'+
       '</div>'+
+      '<div id="camp-panel-campaigns">'+campaignCards+'</div>'+
+      '<div id="camp-panel-seqs" style="display:none">'+seqTable+'</div>'+
+      '<div id="camp-panel-seo" style="display:none"><div id="seo-mgr-root"></div></div>'+
     '</div>';
+  _campSwitchTab(_campActiveTab);
+}
+function _campSwitchTab(t){
+  _campActiveTab=t;
+  ['campaigns','seqs','seo'].forEach(function(id){
+    var panel=document.getElementById('camp-panel-'+id);
+    var btn=document.getElementById('camp-tab-'+id);
+    if(panel) panel.style.display=id===t?'':'none';
+    if(btn){
+      btn.style.borderBottom=id===t?'2px solid var(--gold)':'2px solid transparent';
+      btn.style.color=id===t?'var(--gold)':'var(--muted)';
+      btn.style.fontWeight=id===t?'700':'400';
+    }
+  });
+  if(t==='seo') _seoRender();
 }
 function _campaignsAddModal(){
   _showToast('<div style="font-size:12px;color:var(--gold)">Add Campaign — coming soon</div>',2500);
