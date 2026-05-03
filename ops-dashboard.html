@@ -1801,11 +1801,17 @@ function _saveNavOrder(){
 }
 function _restoreNavOrder(user){
   if(!user) return;
-  let order; try{ order=JSON.parse(localStorage.getItem('dgl_nav_order_'+user)||'null'); }catch(e){ return; }
-  if(!Array.isArray(order)||!order.length) return;
+  let order; try{ order=JSON.parse(localStorage.getItem('dgl_nav_order_'+user)||'null'); }catch(e){ order=null; }
   const tabs=document.querySelector('.nav-tabs');
   if(!tabs) return;
-  order.forEach(id=>{ const el=tabs.querySelector('[data-tab-id="'+id+'"]'); if(el) tabs.appendChild(el); });
+  tabs.querySelectorAll('.nav-tab').forEach(t=>{ if(t.style.display==='none') t.style.display=''; });
+  if(Array.isArray(order)&&order.length){
+    order.forEach(id=>{ const el=tabs.querySelector('[data-tab-id="'+id+'"]'); if(el) tabs.appendChild(el); });
+    tabs.querySelectorAll('.nav-tab').forEach(t=>{ const id=t.dataset.tabId; if(id&&!order.includes(id)) tabs.appendChild(t); });
+  }
+  const actionsEl=tabs.querySelector('[data-tab-id="actions"]');
+  const masterEl=tabs.querySelector('[data-tab-id="masteractions"]');
+  if(actionsEl&&masterEl) actionsEl.after(masterEl);
 }
 function initRoadmapHeadSync(){ /* no-op: replaced by gantt scroll sync in buildRoadmap */ }
 
