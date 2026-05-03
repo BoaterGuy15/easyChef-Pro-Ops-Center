@@ -21411,67 +21411,47 @@ function _extractGdriveId(url){
 function _caiInit(){
   if(_caiReady){ _caiRenderBadge(); return; }
   const badge=document.getElementById('cai-context-badge');
-  if(badge) badge.textContent='Loading docs from Drive…';
+  if(badge) badge.textContent='Loading document index…';
 
-  const _readDriveFiles=function(){
-    // Collect every Drive ID: from stored driveFileId AND from any Google URL
-    const allIds=[...new Set(
-      (_sharedDocsCache||[]).flatMap(d=>{
-        const ids=[];
-        if(d.driveFileId&&d.driveFileId.length>10) ids.push(d.driveFileId);
-        const fromUrl=_extractGdriveId(d.url||'');
-        if(fromUrl&&fromUrl!==d.driveFileId) ids.push(fromUrl);
-        return ids;
-      })
-    )];
-
-    const badge2=document.getElementById('cai-context-badge');
-    if(badge2) badge2.textContent=`Reading ${allIds.length} Drive files…`;
-
-    if(!CONFIG.sheetsUrl||!allIds.length){
-      _caiReady=true; _caiContextStr=''; _caiRenderBadge(); _caiGreet(); return;
-    }
-
-    // Batch into groups of 25 and fetch in parallel to avoid Apps Script timeout
-    const BATCH=25;
-    const batches=[];
-    for(let i=0;i<allIds.length;i+=BATCH) batches.push(allIds.slice(i,i+BATCH));
-
-    Promise.all(batches.map(ids=>
-      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
-        body:JSON.stringify({action:'ops_context_read',docIds:ids})})
-        .then(r=>r.json())
-        .then(data=>(data&&data.contents)||{})
-        .catch(()=>({}))
-    ))
-    .then(results=>{
-      _caiDocContents=Object.assign({},...results);
-      _caiContextStr=''; // invalidate cache so next send includes doc contents
-    })
-    .catch(()=>{ _caiDocContents={}; _caiContextStr=''; })
-    .finally(()=>{ _caiReady=true; _caiRenderBadge(); _caiGreet(); });
+  const _onReady=function(){
+    _caiReady=true; _caiContextStr=''; _caiRenderBadge(); _caiGreet();
   };
 
+  // Only load the doc list — full content is fetched on demand per message
   if(_sharedDocsCache&&_sharedDocsCache.length){
-    _readDriveFiles();
+    _onReady();
   } else if(CONFIG.sheetsUrl){
     fetch(CONFIG.sheetsUrl+'?action=docs_read')
       .then(r=>r.json())
       .then(data=>{ if(Array.isArray(data.docs)) _sharedDocsCache=data.docs; })
       .catch(()=>{})
-      .finally(_readDriveFiles);
+      .finally(_onReady);
   } else {
-    _readDriveFiles();
+    _onReady();
   }
+}
+
+// Returns Drive IDs for any documents whose name appears in the user prompt
+function _findMentionedDocIds(prompt){
+  const lower=prompt.toLowerCase();
+  const ids=[];
+  (_sharedDocsCache||[]).forEach(d=>{
+    const name=(d.name||'').toLowerCase().replace(/\.[a-z]{2,5}$/,''); // strip extension
+    if(name.length>3&&lower.includes(name)){
+      const id=d.driveFileId&&d.driveFileId.length>10?d.driveFileId:_extractGdriveId(d.url||'');
+      if(id) ids.push(id);
+    }
+  });
+  return [...new Set(ids)];
 }
 
 function _caiRenderBadge(){
   const badge=document.getElementById('cai-context-badge');
   if(!badge) return;
   const tasks=(DASHBOARD_DATA.tasks||[]).length;
-  const allDocs=(_sharedDocsCache||[]).length;
-  const readDocs=Object.keys(_caiDocContents).length;
-  badge.textContent=`Context loaded · ${tasks} tasks · ${allDocs} docs (${readDocs} readable) · all Google Sheets data`;
+  const indexed=(_sharedDocsCache||[]).length;
+  const loaded=Object.keys(_caiDocContents).length;
+  badge.textContent=`${tasks} tasks · ${indexed} docs indexed · ${loaded} doc${loaded!==1?'s':''} loaded · mention a doc by name to load it`;
 }
 
 function _buildCaiContext(){
@@ -21530,9 +21510,8 @@ function _caiGreet(){
   const feed=document.getElementById('cai-feed');
   if(!feed||feed.children.length) return;
   const tasks=(DASHBOARD_DATA.tasks||[]).length;
-  const allDocs=(_sharedDocsCache||[]).length;
-  const readDocs=Object.keys(_caiDocContents).length;
-  _caiAppend('ai',`Hello! I've loaded ${tasks} tasks, ${allDocs} documents (${readDocs} with full content read from Drive), and all your Google Sheets data. Ask me anything about the easyChef Pro launch.`);
+  const indexed=(_sharedDocsCache||[]).length;
+  _caiAppend('ai',`Ready. I have ${tasks} tasks and an index of ${indexed} documents. Ask me about any task, or mention a document by name and I will load its full content before answering.`);
 }
 
 function sendAskClaude(){
@@ -21544,34 +21523,49 @@ function sendAskClaude(){
 
   input.value='';
   _caiAppend('user',prompt);
-
   _caiBusy=true;
   const btn=document.getElementById('cai-send-btn');
   if(btn){ btn.disabled=true; btn.textContent='…'; }
-
   const loadEl=_caiAppend('ai','Thinking…',true);
-
   _caiHistory.push({role:'user',content:prompt});
 
-  const context=(_caiReady&&_caiContextStr)?_caiContextStr:_buildCaiContext();
-  if(_caiReady) _caiContextStr=context; // only cache after docs are loaded
+  // Detect docs mentioned by name; fetch only the ones not yet loaded
+  const mentionedIds=_findMentionedDocIds(prompt);
+  const unfetchedIds=mentionedIds.filter(id=>!_caiDocContents[id]);
 
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    action:'ops_chat',
-    prompt:prompt,
-    history:_caiHistory.slice(-14),
-    context:context
-  })})
-  .then(r=>r.json())
-  .then(data=>{
-    const reply=data.reply||data.text||data.response||(data.error?`Error: ${data.error}`:'No response received.');
-    if(loadEl&&loadEl.parentNode) loadEl.remove();
-    _caiAppend('ai',reply);
-    _caiHistory.push({role:'assistant',content:reply});
-    if(_caiHistory.length>24) _caiHistory=_caiHistory.slice(-24);
-  })
-  .catch(e=>{ if(loadEl&&loadEl.parentNode) loadEl.remove(); _caiAppend('ai',`Error: ${e.message}`); })
-  .finally(()=>{ _caiBusy=false; if(btn){ btn.disabled=false; btn.textContent='Send ↵'; } });
+  const _doSend=function(){
+    // Rebuild context fresh if new doc content was just loaded, otherwise use cache
+    if(!_caiContextStr) _caiContextStr=_buildCaiContext();
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+      action:'ops_chat',
+      prompt:prompt,
+      history:_caiHistory.slice(-14),
+      context:_caiContextStr
+    })})
+    .then(r=>r.json())
+    .then(data=>{
+      const reply=data.reply||data.text||data.response||(data.error?`Error: ${data.error}`:'No response received.');
+      if(loadEl&&loadEl.parentNode) loadEl.remove();
+      _caiAppend('ai',reply);
+      _caiHistory.push({role:'assistant',content:reply});
+      if(_caiHistory.length>24) _caiHistory=_caiHistory.slice(-24);
+      _caiRenderBadge();
+    })
+    .catch(e=>{ if(loadEl&&loadEl.parentNode) loadEl.remove(); _caiAppend('ai',`Error: ${e.message}`); })
+    .finally(()=>{ _caiBusy=false; if(btn){ btn.disabled=false; btn.textContent='Send ↵'; } });
+  };
+
+  if(unfetchedIds.length){
+    // Fetch the specific doc(s) first, then send
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'ops_context_read',docIds:unfetchedIds})})
+      .then(r=>r.json())
+      .then(data=>{ Object.assign(_caiDocContents,(data&&data.contents)||{}); _caiContextStr=''; })
+      .catch(()=>{})
+      .finally(_doSend);
+  } else {
+    _doSend();
+  }
 }
 
 function _caiAppend(role,text,isTemp){

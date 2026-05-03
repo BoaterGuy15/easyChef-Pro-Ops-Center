@@ -176,6 +176,9 @@ function opsChat(prompt, history, context) {
     'Do not summarize, paraphrase, interpret, or add anything that is not written in the source documents. ' +
     'If something is not in the loaded context say: That document is not loaded in my current context. ' +
     'Write in plain text with no markdown — no # no ** no * no backticks. Use plain numbered lists and short paragraphs only.\n\n' +
+    'Documents are loaded on demand. The initial context contains task data and document titles only. ' +
+    'When the user asks about a specific document by name, its full content is injected into the context automatically. ' +
+    'If document content is not yet present, tell the user the exact document name to ask about so it can be fetched.\n\n' +
     '=== EASYCHEF PRO BRIEF ===\n' +
     BRIEF + '\n' +
     '=== DASHBOARD CONTEXT ===\n' +
