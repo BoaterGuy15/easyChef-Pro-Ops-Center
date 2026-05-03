@@ -21486,7 +21486,7 @@ function _buildCaiContext(){
   const docs=_sharedDocsCache||[];
   if(docs.length){
     lines.push(`\n== DOCS (${docs.length}) ==`);
-    docs.forEach(d=>lines.push(`- ${d.name||''} (${d.type||'link'}) ${d.url||''}`));
+    docs.forEach(d=>lines.push(`${d.name||''} | URL: ${d.url||'(no url)'}${d.driveFileId?' | DriveID: '+d.driveFileId:''}`)  );
   }
 
   // Doc contents
@@ -21498,7 +21498,7 @@ function _buildCaiContext(){
       const title=doc&&doc.title?doc.title:(docs.find(d=>d.driveFileId===id)||{}).name||id;
       const url=doc&&doc.url?doc.url:'';
       const text=doc&&doc.text?doc.text:(typeof doc==='string'?doc:'');
-      lines.push(`\n--- ${title}${url?' | '+url:''} ---`);
+      lines.push(`\n--- ${title} | URL: ${url||'(no url)'} ---`);
       lines.push(text.substring(0,6000));
     });
   }

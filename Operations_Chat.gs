@@ -179,6 +179,7 @@ function opsChat(prompt, history, context) {
     'Documents are loaded on demand. The initial context contains task data and document titles only. ' +
     'When the user asks about a specific document by name, its full content is injected into the context automatically. ' +
     'If document content is not yet present, tell the user the exact document name to ask about so it can be fetched.\n\n' +
+    'When referencing any document, task, or file always include the direct URL link on a new line after the reference. Format it as: Source: [document name] — [full URL]. Never reference a document without including its link.\n\n' +
     '=== EASYCHEF PRO BRIEF ===\n' +
     BRIEF + '\n' +
     '=== DASHBOARD CONTEXT ===\n' +
