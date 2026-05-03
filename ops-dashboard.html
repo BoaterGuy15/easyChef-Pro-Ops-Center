@@ -1806,12 +1806,14 @@ function _restoreNavOrder(user){
   if(!tabs) return;
   tabs.querySelectorAll('.nav-tab').forEach(t=>{ if(t.style.display==='none') t.style.display=''; });
   if(Array.isArray(order)&&order.length){
+    // Inject masteractions right after actions in saved order if not already there
+    if(order.includes('actions')&&!order.includes('masteractions')){
+      order.splice(order.indexOf('actions')+1,0,'masteractions');
+      try{ localStorage.setItem('dgl_nav_order_'+user,JSON.stringify(order)); }catch(_){}
+    }
     order.forEach(id=>{ const el=tabs.querySelector('[data-tab-id="'+id+'"]'); if(el) tabs.appendChild(el); });
     tabs.querySelectorAll('.nav-tab').forEach(t=>{ const id=t.dataset.tabId; if(id&&!order.includes(id)) tabs.appendChild(t); });
   }
-  const actionsEl=tabs.querySelector('[data-tab-id="actions"]');
-  const masterEl=tabs.querySelector('[data-tab-id="masteractions"]');
-  if(actionsEl&&masterEl) actionsEl.after(masterEl);
 }
 function initRoadmapHeadSync(){ /* no-op: replaced by gantt scroll sync in buildRoadmap */ }
 
