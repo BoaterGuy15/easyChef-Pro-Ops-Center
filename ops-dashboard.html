@@ -1272,13 +1272,13 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     </div>
   </div>
   <div class="aml-stats">
-    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-total" style="color:var(--red)">0</div><div class="aml-stat-l">Total items</div></div>
-    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-block" style="color:#f87171">0</div><div class="aml-stat-l">Blockers</div></div>
-    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-you" style="color:var(--amber)">0</div><div class="aml-stat-l">Your decisions</div></div>
+    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-total" style="color:var(--red)">61</div><div class="aml-stat-l">Total items</div></div>
+    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-block" style="color:#f87171">5</div><div class="aml-stat-l">Blockers</div></div>
+    <div class="aml-stat"><div class="aml-stat-n" id="aml-st-you" style="color:var(--amber)">14</div><div class="aml-stat-l">Your decisions</div></div>
     <div class="aml-stat"><div class="aml-stat-n" id="aml-st-done" style="color:var(--green)">0</div><div class="aml-stat-l">Done</div></div>
   </div>
   <div class="aml-prog-wrap">
-    <div class="aml-prog-lbl" id="aml-prog-lbl">0% complete</div>
+    <div class="aml-prog-lbl" id="aml-prog-lbl">0% complete — 0 of 61 items done</div>
     <div class="aml-prog-bar"><div class="aml-prog-fill" id="aml-prog-fill" style="width:0%"></div></div>
   </div>
   <div class="aml-filters">
@@ -1286,11 +1286,122 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
     <button class="aml-fil" onclick="amlSetFilter('blocker',this)">🛑 Blockers</button>
     <button class="aml-fil" onclick="amlSetFilter('you',this)">🎯 Your decisions</button>
     <button class="aml-fil" onclick="amlSetFilter('dev',this)">💻 Developer</button>
-    <button class="aml-fil" onclick="amlSetFilter('ops',this)">📊 Mktg Ops</button>
+    <button class="aml-fil" onclick="amlSetFilter('ops',this)">📊 Marketing Ops</button>
     <button class="aml-fil" onclick="amlSetFilter('email',this)">📧 Email</button>
     <button class="aml-fil" onclick="amlSetFilter('done',this)">✅ Completed</button>
   </div>
-  <div class="aml-content" id="aml-content"></div>
+  <div class="aml-content">
+    <div class="aml-section" id="aml-sec-blockers">
+      <div class="aml-sec-hdr" style="background:#CC0000" onclick="amlToggleSec('blockers')"><span class="aml-sec-emoji">🛑</span><span class="aml-sec-title">Immediate Blockers — nothing else can run until these are done</span><span class="aml-sec-badge" id="aml-badge-blockers">0/5</span><span class="aml-sec-chev open" id="aml-chev-blockers">▼</span></div>
+      <div class="aml-sec-items open" id="aml-sitems-blockers">
+        <div class="aml-tbl-hdr"><div></div><div>Action item</div><div>Owner</div><div class="aml-hdr-note">Date done / Notes</div></div>
+        <div class="aml-item" id="aml-item-b1" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b1')"></div><div class="aml-item-text">Build the /thank-you page URL — blocks Convert.com Primary Goal. A/B test cannot run without it.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b1" placeholder="Add date or note…" oninput="amlNoteChange('b1',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-b2" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b2')"></div><div class="aml-item-text">Install Convert.com (10019256-10019672) on /lp/waitlist-a, /lp/waitlist-b, and /thank-you — FIRST in &lt;head&gt;.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b2" placeholder="Add date or note…" oninput="amlNoteChange('b2',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-b3" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b3')"></div><div class="aml-item-text">Install Microsoft Clarity (wjxhprug80) — SECOND in &lt;head&gt; on those same three pages.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b3" placeholder="Add date or note…" oninput="amlNoteChange('b3',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-b4" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b4')"></div><div class="aml-item-text">Set Convert.com audience filter to utm_medium=email ONLY before activating the experiment.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b4" placeholder="Add date or note…" oninput="amlNoteChange('b4',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-b5" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b5')"></div><div class="aml-item-text">Klaviyo: configure to read utm_content on form submit and tag cohort lp_variant_a or lp_variant_b.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b5" placeholder="Add date or note…" oninput="amlNoteChange('b5',this.value)"></div></div>
+        <div class="aml-completed-row" id="aml-complete-blockers" style="display:none">✓ All items in this section complete</div>
+      </div>
+    </div>
+    <div class="aml-section" id="aml-sec-decisions">
+      <div class="aml-sec-hdr" style="background:#B45309" onclick="amlToggleSec('decisions')"><span class="aml-sec-emoji">🎯</span><span class="aml-sec-title">Your decisions — only you can make these</span><span class="aml-sec-badge" id="aml-badge-decisions">0/9</span><span class="aml-sec-chev open" id="aml-chev-decisions">▼</span></div>
+      <div class="aml-sec-items open" id="aml-sitems-decisions">
+        <div class="aml-tbl-hdr"><div></div><div>Action item</div><div>Owner</div><div class="aml-hdr-note">Date done / Notes</div></div>
+        <div class="aml-item" id="aml-item-d1" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d1')"></div><div class="aml-item-text">Approve or reject the $10/$111 ROI framing (11:1 return). Needed for paywall copy and Budget Family LP. Currently PENDING.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d1" placeholder="Add date or note…" oninput="amlNoteChange('d1',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-d2" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d2')"></div><div class="aml-item-text">Select AI chatbot platform for Zendesk: Option A Zendesk Fin ($50–150/mo), B Intercom ($74–200/mo), or C ChatGPT via Make.com ($20–50/mo). Approve budget.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d2" placeholder="Add date or note…" oninput="amlNoteChange('d2',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-d3" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d3')"></div><div class="aml-item-text">Set VA hire threshold — confirm the weekly email volume (20–30/week) that triggers the VA hire. Approve the budget range.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d3" placeholder="Add date or note…" oninput="amlNoteChange('d3',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-d4" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d4')"></div><div class="aml-item-text">Confirm founding price exact cents — $7.99 is locked. If preference is $8.00 flat, update all documents before distribution.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d4" placeholder="Add date or note…" oninput="amlNoteChange('d4',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-d5" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d5')"></div><div class="aml-item-text">Confirm or reject the "clinical" / independent research claim. Legal review required before this word appears in any distributed asset.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d5" placeholder="Add date or note…" oninput="amlNoteChange('d5',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-d6" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d6')"></div><div class="aml-item-text">Validate ICP 02 Budget Family with real beta data before EC-2026-005 Pinterest funnel activates.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d6" placeholder="Add date or note…" oninput="amlNoteChange('d6',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-d7" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d7')"></div><div class="aml-item-text">Approve health goals % figure from beta program once real user data exists. Currently replaced with qualitative 6-dimension scoring language.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d7" placeholder="Add date or note…" oninput="amlNoteChange('d7',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-d8" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d8')"></div><div class="aml-item-text">Approve SEQ-2 Email 3 Variant A (Adam L — Money Hook) and Variant B (Mary — Time Hook) for Klaviyo build.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d8" placeholder="Add date or note…" oninput="amlNoteChange('d8',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-d9" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('d9')"></div><div class="aml-item-text">Confirm V1 and V2 Google Docs — verify 60% off, $7.99, and Walmart-only language is correct in all pre-existing docs.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-d9" placeholder="Add date or note…" oninput="amlNoteChange('d9',this.value)"></div></div>
+        <div class="aml-completed-row" id="aml-complete-decisions" style="display:none">✓ All items in this section complete</div>
+      </div>
+    </div>
+    <div class="aml-section" id="aml-sec-dev">
+      <div class="aml-sec-hdr" style="background:#1B4F72" onclick="amlToggleSec('dev')"><span class="aml-sec-emoji">💻</span><span class="aml-sec-title">Developer tasks</span><span class="aml-sec-badge" id="aml-badge-dev">0/16</span><span class="aml-sec-chev open" id="aml-chev-dev">▼</span></div>
+      <div class="aml-sec-items open" id="aml-sitems-dev">
+        <div class="aml-tbl-hdr"><div></div><div>Action item</div><div>Owner</div><div class="aml-hdr-note">Date done / Notes</div></div>
+        <div class="aml-item" id="aml-item-dev1" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev1')"></div><div class="aml-item-text">Add GA4 tag (G-Q4DYEEXFKV) to index.html — paste into &lt;head&gt;.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev1" placeholder="Add date or note…" oninput="amlNoteChange('dev1',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev2" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev2')"></div><div class="aml-item-text">Add waitlist_signup_completed conversion snippet to /thank-you page, after the GA4 tag.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev2" placeholder="Add date or note…" oninput="amlNoteChange('dev2',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev3" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev3')"></div><div class="aml-item-text">Register waitlist_signup_completed as a conversion event in GA4 Admin → Conversions.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev3" placeholder="Add date or note…" oninput="amlNoteChange('dev3',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev4" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev4')"></div><div class="aml-item-text">Create "Campaign Content" custom dimension in GA4 Admin → Custom definitions → Scope: Event → Parameter: utm_content.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev4" placeholder="Add date or note…" oninput="amlNoteChange('dev4',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev5" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev5')"></div><div class="aml-item-text">Wire Layer 5 family counter (2,400+) on coming-soon page to live Klaviyo subscriber count.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev5" placeholder="Add date or note…" oninput="amlNoteChange('dev5',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev6" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev6')"></div><div class="aml-item-text">Wire founding spots counter on Variant B LP to live Stripe subscription count via Make.com.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev6" placeholder="Add date or note…" oninput="amlNoteChange('dev6',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev7" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev7')"></div><div class="aml-item-text">Configure SPF and DKIM DNS records for Zendesk email authentication (support@easychefpro.com).</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev7" placeholder="Add date or note…" oninput="amlNoteChange('dev7',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev8" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev8')"></div><div class="aml-item-text">Set up Cloudflare redirect: easychefpro.com → easychefpro.com/coming-soon (302 temporary — changes to 301 on July 1).</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev8" placeholder="Add date or note…" oninput="amlNoteChange('dev8',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev9" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev9')"></div><div class="aml-item-text">Confirm About Us link is in footer only — not in any nav bar on the coming-soon page.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev9" placeholder="Add date or note…" oninput="amlNoteChange('dev9',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev10" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev10')"></div><div class="aml-item-text">Verify script install order on all LP pages: Convert.com FIRST → Clarity SECOND → GA4 THIRD.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev10" placeholder="Add date or note…" oninput="amlNoteChange('dev10',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev11" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev11')"></div><div class="aml-item-text">Set up Make.com webhook: GA4 signup event drops 30%+ day-over-day → post alert to #marketing-alerts in Slack.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev11" placeholder="Add date or note…" oninput="amlNoteChange('dev11',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev12" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev12')"></div><div class="aml-item-text">Connect GA4 to Google Sheets master dashboard → GA4_TRAFFIC tab via GA4 Sheets connector. Schedule daily refresh.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev12" placeholder="Add date or note…" oninput="amlNoteChange('dev12',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev13" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev13')"></div><div class="aml-item-text">Deploy easychefpro.com via Vercel: connect GitHub repo, main branch → production, update GoDaddy DNS to point away from Shopify.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev13" placeholder="Add date or note…" oninput="amlNoteChange('dev13',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev14" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev14')"></div><div class="aml-item-text">Send test UTM link in incognito. Confirm all 5 params appear in GA4 Realtime. Confirm waitlist_signup_completed fires on /thank-you.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev14" placeholder="Add date or note…" oninput="amlNoteChange('dev14',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev15" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev15')"></div><div class="aml-item-text">[Post-launch] Add anchor links to /experience page for #track #plan #optimize #shop.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev15" placeholder="Add date or note…" oninput="amlNoteChange('dev15',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-dev16" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('dev16')"></div><div class="aml-item-text">[Post-launch] Add Instacart line back to /experience page and App Store listing when integration is live.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-dev16" placeholder="Add date or note…" oninput="amlNoteChange('dev16',this.value)"></div></div>
+        <div class="aml-completed-row" id="aml-complete-dev" style="display:none">✓ All items in this section complete</div>
+      </div>
+    </div>
+    <div class="aml-section" id="aml-sec-ops">
+      <div class="aml-sec-hdr" style="background:#155724" onclick="amlToggleSec('ops')"><span class="aml-sec-emoji">📊</span><span class="aml-sec-title">Marketing Ops tasks</span><span class="aml-sec-badge" id="aml-badge-ops">0/9</span><span class="aml-sec-chev open" id="aml-chev-ops">▼</span></div>
+      <div class="aml-sec-items open" id="aml-sitems-ops">
+        <div class="aml-tbl-hdr"><div></div><div>Action item</div><div>Owner</div><div class="aml-hdr-note">Date done / Notes</div></div>
+        <div class="aml-item" id="aml-item-ops1" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops1')"></div><div class="aml-item-text">Register DL-EM-0006 and DL-EM-0007 in Deep Link Registry with STATUS = ACTIVE before SEQ-2 Email 3 sends.</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops1" placeholder="Add date or note…" oninput="amlNoteChange('ops1',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-ops2" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops2')"></div><div class="aml-item-text">Upload Stop the Leak cheat sheet PDF to Klaviyo (Content → Files). Get the hosted URL.</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops2" placeholder="Add date or note…" oninput="amlNoteChange('ops2',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-ops3" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops3')"></div><div class="aml-item-text">Add cheat sheet download link to SEQ-1 Email 1 (Day 0 welcome email) in Klaviyo.</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops3" placeholder="Add date or note…" oninput="amlNoteChange('ops3',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-ops4" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops4')"></div><div class="aml-item-text">Once cheat sheet is wired: swap coming-soon bullet 3 from "First to know when we launch" back to "Stop the Leak cheat sheet on signup".</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops4" placeholder="Add date or note…" oninput="amlNoteChange('ops4',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-ops5" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops5')"></div><div class="aml-item-text">Send test signup with a real email. Confirm SEQ-1 fires, cheat sheet link arrives, utm_content tags cohort correctly.</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops5" placeholder="Add date or note…" oninput="amlNoteChange('ops5',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-ops6" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops6')"></div><div class="aml-item-text">Create CS Metrics Google Sheets spreadsheet (6 tabs per T-039 spec) and share with Marketing Lead by May 6.</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops6" placeholder="Add date or note…" oninput="amlNoteChange('ops6',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-ops7" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops7')"></div><div class="aml-item-text">Set up Zendesk: easychefpro.zendesk.com, support@easychefpro.com routing, all 8 ticket categories, all 5 escalation triggers per T-039.</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops7" placeholder="Add date or note…" oninput="amlNoteChange('ops7',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-ops8" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops8')"></div><div class="aml-item-text">Write and publish 10 Zendesk knowledge base articles before chatbot goes live (list in T-039 Section 04).</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops8" placeholder="Add date or note…" oninput="amlNoteChange('ops8',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-ops9" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('ops9')"></div><div class="aml-item-text">Connect all 25 Google Sheets master dashboard tabs to their data sources per T-034 Section 04 spec.</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-ops9" placeholder="Add date or note…" oninput="amlNoteChange('ops9',this.value)"></div></div>
+        <div class="aml-completed-row" id="aml-complete-ops" style="display:none">✓ All items in this section complete</div>
+      </div>
+    </div>
+    <div class="aml-section" id="aml-sec-email">
+      <div class="aml-sec-hdr" style="background:#374151" onclick="amlToggleSec('email')"><span class="aml-sec-emoji">📧</span><span class="aml-sec-title">Pre-launch email copy — SEQ-1 through SEQ-5</span><span class="aml-sec-badge" id="aml-badge-email">0/9</span><span class="aml-sec-chev open" id="aml-chev-email">▼</span></div>
+      <div class="aml-sec-items open" id="aml-sitems-email">
+        <div class="aml-tbl-hdr"><div></div><div>Action item</div><div>Owner</div><div class="aml-hdr-note">Date done / Notes</div></div>
+        <div class="aml-item" id="aml-item-em1" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em1')"></div><div class="aml-item-text">SEQ-1 Welcome (3 emails, Days 0–7) — write, Marketing Lead approves, build in Klaviyo. Blocks list activation.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em1" placeholder="Add date or note…" oninput="amlNoteChange('em1',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-em2" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em2')"></div><div class="aml-item-text">SEQ-2 Nurture Email 1 — write and approve.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em2" placeholder="Add date or note…" oninput="amlNoteChange('em2',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-em3" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em3')"></div><div class="aml-item-text">SEQ-2 Nurture Email 2 — write and approve.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em3" placeholder="Add date or note…" oninput="amlNoteChange('em3',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-em4" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em4')"></div><div class="aml-item-text">SEQ-2 Nurture Email 3 Variant A (Adam L — Money Hook) — pending Marketing Lead approval to build.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em4" placeholder="Add date or note…" oninput="amlNoteChange('em4',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-em5" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em5')"></div><div class="aml-item-text">SEQ-2 Nurture Email 3 Variant B (Mary — Time Hook) — pending Marketing Lead approval to build.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em5" placeholder="Add date or note…" oninput="amlNoteChange('em5',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-em6" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em6')"></div><div class="aml-item-text">SEQ-2 Nurture Emails 4 and 5 — write and approve.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em6" placeholder="Add date or note…" oninput="amlNoteChange('em6',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-em7" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em7')"></div><div class="aml-item-text">SEQ-3 Urgency (4 emails, June 17–30) — write, approve, schedule in Klaviyo.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em7" placeholder="Add date or note…" oninput="amlNoteChange('em7',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-em8" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em8')"></div><div class="aml-item-text">SEQ-4 Launch Day (1 email, July 1) — write and approve before June 30.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em8" placeholder="Add date or note…" oninput="amlNoteChange('em8',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-em9" data-tag="email" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('em9')"></div><div class="aml-item-text">SEQ-5 Re-engagement (2 emails) — write and build in Klaviyo.</div><div class="aml-item-tag"><span class="aml-tag email">EMAIL</span></div><div class="aml-item-note"><input type="text" id="aml-note-em9" placeholder="Add date or note…" oninput="amlNoteChange('em9',this.value)"></div></div>
+        <div class="aml-completed-row" id="aml-complete-email" style="display:none">✓ All items in this section complete</div>
+      </div>
+    </div>
+    <div class="aml-section" id="aml-sec-beta">
+      <div class="aml-sec-hdr" style="background:#3B2F6E" onclick="amlToggleSec('beta')"><span class="aml-sec-emoji">👨‍👩‍👧</span><span class="aml-sec-title">Beta program — pre-launch</span><span class="aml-sec-badge" id="aml-badge-beta">0/5</span><span class="aml-sec-chev open" id="aml-chev-beta">▼</span></div>
+      <div class="aml-sec-items open" id="aml-sitems-beta">
+        <div class="aml-tbl-hdr"><div></div><div>Action item</div><div>Owner</div><div class="aml-hdr-note">Date done / Notes</div></div>
+        <div class="aml-item" id="aml-item-bt1" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('bt1')"></div><div class="aml-item-text">Zendesk must be live before beta begins. Confirm T-039 is operational (May 8 hard deadline).</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-bt1" placeholder="Add date or note…" oninput="amlNoteChange('bt1',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-bt2" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('bt2')"></div><div class="aml-item-text">Recruit and onboard 50 beta families before July 1. Outreach from Founder personal inbox.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-bt2" placeholder="Add date or note…" oninput="amlNoteChange('bt2',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-bt3" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('bt3')"></div><div class="aml-item-text">Weekly beta family check-in: personal SMS or WhatsApp per family. Log all feedback.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-bt3" placeholder="Add date or note…" oninput="amlNoteChange('bt3',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-bt4" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('bt4')"></div><div class="aml-item-text">Collect beta family testimonials to replace 2,400+ homepage placeholder. Target: mid-June.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-bt4" placeholder="Add date or note…" oninput="amlNoteChange('bt4',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-bt5" data-tag="beta" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('bt5')"></div><div class="aml-item-text">Collect real health goals % data from beta users to validate the claim before external use.</div><div class="aml-item-tag"><span class="aml-tag beta">BETA</span></div><div class="aml-item-note"><input type="text" id="aml-note-bt5" placeholder="Add date or note…" oninput="amlNoteChange('bt5',this.value)"></div></div>
+        <div class="aml-completed-row" id="aml-complete-beta" style="display:none">✓ All items in this section complete</div>
+      </div>
+    </div>
+    <div class="aml-section" id="aml-sec-launch">
+      <div class="aml-sec-hdr" style="background:#7F1D1D" onclick="amlToggleSec('launch')"><span class="aml-sec-emoji">🚀</span><span class="aml-sec-title">July 1 launch day — final checklist</span><span class="aml-sec-badge" id="aml-badge-launch">0/8</span><span class="aml-sec-chev open" id="aml-chev-launch">▼</span></div>
+      <div class="aml-sec-items open" id="aml-sitems-launch">
+        <div class="aml-tbl-hdr"><div></div><div>Action item</div><div>Owner</div><div class="aml-hdr-note">Date done / Notes</div></div>
+        <div class="aml-item" id="aml-item-l1" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l1')"></div><div class="aml-item-text">Update Cloudflare redirect from 302 (temporary) to 301 (permanent) when full site goes live.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-l1" placeholder="Add date or note…" oninput="amlNoteChange('l1',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-l2" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l2')"></div><div class="aml-item-text">Update both CTAs on /404 page from /coming-soon to / homepage. Page copy stays the same.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-l2" placeholder="Add date or note…" oninput="amlNoteChange('l2',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-l3" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l3')"></div><div class="aml-item-text">Update /story page CTA from "Get Early Access" to "Download Free" with Branch.io App Store link.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-l3" placeholder="Add date or note…" oninput="amlNoteChange('l3',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-l4" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l4')"></div><div class="aml-item-text">Update all Phase 1 CTAs across site to "Download Free" pointing to App Store / Play Store via Branch.io.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-l4" placeholder="Add date or note…" oninput="amlNoteChange('l4',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-l5" data-tag="ops" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l5')"></div><div class="aml-item-text">Activate SEQ-4 Launch Day email to full waitlist. Confirm app is live and download links work.</div><div class="aml-item-tag"><span class="aml-tag ops">MKTG OPS</span></div><div class="aml-item-note"><input type="text" id="aml-note-l5" placeholder="Add date or note…" oninput="amlNoteChange('l5',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-l6" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l6')"></div><div class="aml-item-text">Confirm all 28 Firebase events from T-034 schema are instrumented and firing correctly in staging before launch.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-l6" placeholder="Add date or note…" oninput="amlNoteChange('l6',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-l7" data-tag="you" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l7')"></div><div class="aml-item-text">QA gate: every item in Pre-Launch Wireframe Section 14 QA Checklist shows PASS before traffic is sent.</div><div class="aml-item-tag"><span class="aml-tag you">YOU</span></div><div class="aml-item-note"><input type="text" id="aml-note-l7" placeholder="Add date or note…" oninput="amlNoteChange('l7',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-l8" data-tag="dev" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('l8')"></div><div class="aml-item-text">Confirm referral loop is wired for Day 90: L-14 email + in-app modal + push notification fire simultaneously.</div><div class="aml-item-tag"><span class="aml-tag dev">DEVELOPER</span></div><div class="aml-item-note"><input type="text" id="aml-note-l8" placeholder="Add date or note…" oninput="amlNoteChange('l8',this.value)"></div></div>
+        <div class="aml-completed-row" id="aml-complete-launch" style="display:none">✓ All items in this section complete</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ PAGE: BUDGET ══ -->
@@ -21100,7 +21211,7 @@ function amlConfirmReset(){
     localStorage.removeItem('easyChefAML_notes');
     localStorage.removeItem('easyChefAML_saved');
     var el=document.getElementById('aml-last-saved'); if(el) el.textContent='';
-    amlBuild();
+    amlResetDOM();
   }
 }
 
@@ -21147,12 +21258,17 @@ function amlNoteChange(id,val){
 
 function amlUpdateStats(){
   var total=0,blockers=0,you=0,done=0;
-  AML_SECTIONS.forEach(function(s){s.items.forEach(function(i){
-    total++;
-    if(i.tag==='blocker') blockers++;
-    if(i.tag==='you') you++;
-    if(amlState[i.id]) done++;
-  });});
+  AML_SECTIONS.forEach(function(s){
+    var sdone=0;
+    s.items.forEach(function(i){
+      total++;
+      if(i.tag==='blocker') blockers++;
+      if(i.tag==='you') you++;
+      if(amlState[i.id]){done++;sdone++;}
+    });
+    var badge=document.getElementById('aml-badge-'+s.id); if(badge) badge.textContent=sdone+'/'+s.items.length;
+    var cr=document.getElementById('aml-complete-'+s.id); if(cr) cr.style.display=(sdone===s.items.length&&s.items.length>0)?'block':'none';
+  });
   var setEl=function(id,v){var e=document.getElementById(id);if(e) e.textContent=v;};
   setEl('aml-st-total',total);
   setEl('aml-st-block',blockers);
@@ -21213,9 +21329,35 @@ function amlTagLabel(t){
   return{blocker:'BLOCKER',you:'YOU',dev:'DEVELOPER',ops:'MKTG OPS',email:'EMAIL',beta:'BETA',launch:'LAUNCH'}[t]||(t||'').toUpperCase();
 }
 
+function amlRestore(){
+  AML_SECTIONS.forEach(function(s){
+    s.items.forEach(function(item){
+      var el=document.getElementById('aml-item-'+item.id); if(!el) return;
+      if(amlState[item.id]){
+        el.classList.add('done'); el.dataset.done='1';
+        var cb=el.querySelector('input[type="checkbox"]'); if(cb) cb.checked=true;
+        var tx=el.querySelector('.aml-item-text'); if(tx) tx.classList.add('crossed');
+      }
+      var nv=amlNotes[item.id];
+      if(nv){ var ni=document.getElementById('aml-note-'+item.id); if(ni){ ni.value=nv; ni.classList.add('has-note'); } }
+    });
+  });
+  amlUpdateStats();
+  amlApplyFilter();
+}
+function amlResetDOM(){
+  document.querySelectorAll('.aml-item').forEach(function(el){
+    el.classList.remove('done'); el.dataset.done='0';
+    var cb=el.querySelector('input[type="checkbox"]'); if(cb) cb.checked=false;
+    var tx=el.querySelector('.aml-item-text'); if(tx) tx.classList.remove('crossed');
+  });
+  document.querySelectorAll('.aml-item-note input').forEach(function(inp){ inp.value=''; inp.classList.remove('has-note'); });
+  amlUpdateStats();
+  amlApplyFilter();
+}
 // Initialize when DOM is ready
 (function(){
-  function _amlInit(){ amlLoad(); amlBuild(); }
+  function _amlInit(){ amlLoad(); amlRestore(); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_amlInit);
   else _amlInit();
 })();
