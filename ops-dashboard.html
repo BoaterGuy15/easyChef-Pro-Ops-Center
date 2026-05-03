@@ -1804,10 +1804,21 @@ function _restoreNavOrder(user){
   let order; try{ order=JSON.parse(localStorage.getItem('dgl_nav_order_'+user)||'null'); }catch(e){ order=null; }
   const tabs=document.querySelector('.nav-tabs');
   if(!tabs) return;
-  tabs.querySelectorAll('.nav-tab').forEach(t=>{ if(t.style.display==='none') t.style.display=''; });
   if(Array.isArray(order)&&order.length){
+    // Always ensure masteractions is in the saved order right after actions
+    if(order.includes('actions')&&!order.includes('masteractions')){
+      order.splice(order.indexOf('actions')+1,0,'masteractions');
+      try{ localStorage.setItem('dgl_nav_order_'+user,JSON.stringify(order)); }catch(_){}
+    }
+    // Show only saved tabs, hide everything else
+    tabs.querySelectorAll('.nav-tab').forEach(t=>{
+      const id=t.dataset.tabId;
+      t.style.display=id&&order.includes(id)?'':'none';
+    });
     order.forEach(id=>{ const el=tabs.querySelector('[data-tab-id="'+id+'"]'); if(el) tabs.appendChild(el); });
-    tabs.querySelectorAll('.nav-tab').forEach(t=>{ const id=t.dataset.tabId; if(id&&!order.includes(id)) tabs.appendChild(t); });
+  } else {
+    // No saved order — show all tabs
+    tabs.querySelectorAll('.nav-tab').forEach(t=>{ t.style.display=''; });
   }
 }
 function initRoadmapHeadSync(){ /* no-op: replaced by gantt scroll sync in buildRoadmap */ }
