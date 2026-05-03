@@ -21302,8 +21302,11 @@ function _ccRenderBrief(){
         _ccField('Landing Page Slug','cc-slug','text',b.slug,'','e.g. lp/waitlist-a → easychefpro.com/lp/waitlist-a')+
         _ccField('Launch Date','cc-launch','date',b.launchDate,'','')+
       '</div>'+
-      _ccField('Marketing Lead Approval','cc-approved','checkbox',b.approved,'','Adam has reviewed and approved this campaign — nothing activates without this')+
-      '<div style="display:flex;gap:10px;margin-top:8px;padding-top:16px;border-top:1px solid var(--border)">'+
+      '<div style="margin-top:18px;padding:14px 16px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;background:rgba(255,0,0,0.04)">'+
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:'+_CC_RED+';margin-bottom:10px">Review &amp; Approval</div>'+
+        _ccField('','cc-approved','checkbox',b.approved,'','Marketing Lead has reviewed and approved this campaign — nothing activates without this')+
+      '</div>'+
+      '<div style="display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">'+
         _ccBtn('Save Draft','_ccSaveBrief(false)',false)+
         _ccBtn('Save &amp; Generate UTMs →','_ccSaveBrief(true)',true)+
       '</div>'+
