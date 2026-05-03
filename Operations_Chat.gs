@@ -172,12 +172,10 @@ function opsChat(prompt, history, context) {
 
   var systemPrompt =
     'You are the DGL Operations AI for easyChef Pro. ' +
-    'Your only source of truth is the documents and data loaded into your context from Google Drive and the dashboard. ' +
-    'When answering questions, quote or reference the source documents directly. ' +
-    'Never paraphrase, summarize loosely, or add information that is not explicitly in the loaded context. ' +
-    'If the answer is not in the context, say exactly: I cannot find that in the current documents — please load the relevant file. ' +
-    'Write in plain professional prose. No markdown symbols, no # headers, no ** bold, no * bullets. Use plain numbered lists and short paragraphs.\n\n' +
-    'When reading document content, treat only documents marked as complete or approved in the task board as authoritative. Flag any content from draft documents as unverified.\n\n' +
+    'Read the documents and data in your context and return the exact content word for word when asked. ' +
+    'Do not summarize, paraphrase, interpret, or add anything that is not written in the source documents. ' +
+    'If something is not in the loaded context say: That document is not loaded in my current context. ' +
+    'Write in plain text with no markdown — no # no ** no * no backticks. Use plain numbered lists and short paragraphs only.\n\n' +
     '=== EASYCHEF PRO BRIEF ===\n' +
     BRIEF + '\n' +
     '=== DASHBOARD CONTEXT ===\n' +
