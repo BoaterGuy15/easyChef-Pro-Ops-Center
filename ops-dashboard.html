@@ -858,16 +858,16 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
     <div class="topbar-name">easyChef Pro</div>
   </div>
   <div class="nav-tabs">
-    <div class="nav-tab active" data-tab-id="agenda" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('agenda')" style="display:none">Agenda</div>
+    <div class="nav-tab active" data-tab-id="agenda" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('agenda')">Agenda</div>
     <div class="nav-tab" data-tab-id="command" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('command')">Command</div>
-    <div class="nav-tab" data-tab-id="raci" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')" style="display:none">Tasks</div>
-    <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')" style="display:none">Task Tracker</div>
+    <div class="nav-tab" data-tab-id="raci" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')">Tasks</div>
+    <div class="nav-tab" data-tab-id="roadmap" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('roadmap')">Task Tracker</div>
     <div class="nav-tab" data-tab-id="budget" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('budget')">Budget &amp; Burn</div>
-    <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')" style="display:none">Team</div>
+    <div class="nav-tab" data-tab-id="team" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('team')">Team</div>
     <div class="nav-tab" data-tab-id="docs" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('docs')">📁 Docs</div>
     <div class="nav-tab" data-tab-id="appdata" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('appdata')">App Data</div>
 
-    <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')" style="display:none">Action Plans</div>
+    <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')">Action Plans</div>
     <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('raci')">Workstreams</div>
     <div class="nav-tab" data-tab-id="actions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actions')">⚡ Actions</div>
     <div class="nav-tab" data-tab-id="masteractions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('masteractions')">📋 Master Actions</div>
@@ -1922,11 +1922,16 @@ function _saveNavOrder(){
 }
 function _restoreNavOrder(user){
   if(!user) return;
-  let order; try{ order=JSON.parse(localStorage.getItem('dgl_nav_order_'+user)||'null'); }catch(e){ return; }
-  if(!Array.isArray(order)||!order.length) return;
+  let order; try{ order=JSON.parse(localStorage.getItem('dgl_nav_order_'+user)||'null'); }catch(e){ order=null; }
   const tabs=document.querySelector('.nav-tabs');
   if(!tabs) return;
+  // Ensure all tabs are visible (clear any stale display:none from HTML)
+  tabs.querySelectorAll('.nav-tab').forEach(t=>{ if(t.style.display==='none') t.style.display=''; });
+  if(!Array.isArray(order)||!order.length) return;
+  // Restore saved order
   order.forEach(id=>{ const el=tabs.querySelector('[data-tab-id="'+id+'"]'); if(el) tabs.appendChild(el); });
+  // Append any new tabs added after the saved order was last written
+  tabs.querySelectorAll('.nav-tab').forEach(t=>{ const id=t.dataset.tabId; if(id&&!order.includes(id)) tabs.appendChild(t); });
 }
 function initRoadmapHeadSync(){ /* no-op: replaced by gantt scroll sync in buildRoadmap */ }
 
