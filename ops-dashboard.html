@@ -21243,89 +21243,397 @@ var _EMAIL_SEQS=[
   {id:'SEQ-4',name:'Launch Day',emails:1,window:'July 1',status:'not_written',owner:'Mary',desc:'Single launch-day email. Must be approved by June 30.',klaviyo:true},
   {id:'SEQ-5',name:'Re-engagement',emails:2,window:'Post-launch',status:'not_written',owner:'Mary',desc:'Targets non-openers and inactive waitlist members after launch.',klaviyo:true}
 ];
-var _campActiveTab='campaigns';
-function _campaignsRender(){
-  var root=document.getElementById('campaigns-root'); if(!root) return;
-  var statusBadge=function(s){
-    var map={active:'background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)',pending:'background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.25)',not_written:'background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)',written:'background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25)',live:'background:rgba(59,130,246,0.12);color:#3b82f6;border:1px solid rgba(59,130,246,0.25)'};
-    var lbl={active:'Active',pending:'Pending',not_written:'Not Written',written:'Written',live:'Live'};
-    return '<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:600;'+(map[s]||map.pending)+'">'+(lbl[s]||s)+'</span>';
-  };
-  var campaignCards=_CAMPAIGNS_DATA.map(function(c){
-    var blockerHtml=c.blocker?'<div style="margin-top:10px;padding:8px 12px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:11px;color:#ef4444">⚠ '+c.blocker+'</div>':'';
-    var variantHtml=c.variants.length?'<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">'+c.variants.map(function(v){return '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--bg);border:1px solid var(--border);color:var(--muted)">'+v+'</span>';}).join('')+'</div>':'';
-    var kpiHtml='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">'+c.kpis.map(function(k){return '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);color:var(--gold)">'+k+'</span>';}).join('')+'</div>';
-    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:10px">'+
-      '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
-        '<div style="display:flex;align-items:center;gap:10px">'+
-          '<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:4px">'+c.id+'</span>'+
-          '<span style="font-size:10px;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:4px">'+c.type+'</span>'+
-          statusBadge(c.status)+
-        '</div>'+
-        '<span style="font-size:11px;color:var(--muted)">'+c.dates.start+' → '+c.dates.end+'</span>'+
+// ── Campaign Center state & constants ──────────────────────────────────────
+var _campActiveTab='brief';
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
+var _campDLCache=[];
+var _campPerfCache={};
+var _CC_RED='#FF0000';
+var _CC_BEIGE='#F6EFE8';
+var _CC_ICPS=['Super Mom','Budget Family','Health Optimizer','Professional','Alpha Recruit'];
+var _CC_FUNNELS=['A-Waitlist','B-App Download','C-Referral','D-Re-engagement','E-Content','F-Affiliate','G-Paywall Recovery'];
+var _CC_CHANNELS=['Email','Facebook','Instagram','TikTok','Pinterest','Nextdoor','Organic','Affiliate','Direct'];
+var _CC_GOALS=['waitlist_signup_completed','app_install','subscription_started','referral_converted'];
+var _CC_CAMPAIGN_VALID=['ec-2026-001','ec-2026-005'];
+var _CC_CHANNEL_MEDIUM={Email:'email',Facebook:'social',Instagram:'social',TikTok:'paid_social',Pinterest:'paid_social',Nextdoor:'social',Organic:'content',Affiliate:'affiliate',Direct:'direct'};
+var _CC_CHANNEL_SOURCE={Email:'klaviyo',Facebook:'facebook',Instagram:'instagram',TikTok:'tiktok',Pinterest:'pinterest',Nextdoor:'nextdoor',Organic:'blog',Affiliate:'',Direct:'direct'};
+var _CC_DL_PREFIX={Email:'EM',Facebook:'SOC',Instagram:'SOC',TikTok:'PAD',Pinterest:'PAD',Nextdoor:'SOC',Organic:'CON',Affiliate:'AFF',Direct:'DIR'};
+
+// ── CC shared helpers ───────────────────────────────────────────────────────
+function _ccEl(id){return document.getElementById(id);}
+function _ccBtn(lbl,onclick,primary){
+  return '<button onclick="'+onclick+'" style="background:'+(primary?_CC_RED:'transparent')+';border:1px solid '+(primary?_CC_RED:'var(--border)')+';color:'+(primary?'#fff':'var(--muted)')+';padding:7px 16px;border-radius:6px;font-size:11px;font-weight:'+(primary?'700':'400')+';cursor:pointer;font-family:\'DM Mono\',monospace">'+lbl+'</button>';
+}
+function _ccSecHdr(title){
+  return '<div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#000;background:'+_CC_BEIGE+';padding:8px 14px;border-radius:6px;margin-bottom:14px;border-left:3px solid '+_CC_RED+'">'+title+'</div>';
+}
+function _ccField(lbl,id,type,val,opts,hint){
+  var base='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+  var ctrl='';
+  if(type==='select'){
+    ctrl='<select id="'+id+'" style="'+base+'" onchange="_ccBriefSync()"><option value="">— select —</option>'+opts.map(function(o){return '<option value="'+o+'"'+(val===o?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';
+  } else if(type==='date'){
+    ctrl='<input type="date" id="'+id+'" value="'+(val||'')+'" style="'+base+'" onchange="_ccBriefSync()">';
+  } else if(type==='checkbox'){
+    ctrl='<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="'+id+'"'+(val?' checked':'')+' onchange="_ccBriefSync()" style="width:15px;height:15px;accent-color:'+_CC_RED+'"><span style="font-size:13px;color:var(--text)">'+hint+'</span></label>';
+    return '<div style="margin-bottom:14px">'+ctrl+'</div>';
+  } else {
+    ctrl='<input type="text" id="'+id+'" value="'+(val||'')+'" style="'+base+'" oninput="_ccBriefSync()" placeholder="'+(hint||'')+'">';
+    hint='';
+  }
+  return '<div style="margin-bottom:14px"><label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">'+lbl+'</label>'+ctrl+(hint?'<div style="font-size:10px;color:var(--muted);margin-top:3px">'+hint+'</div>':'')+'</div>';
+}
+
+// ── Panel 1: Brief Builder ──────────────────────────────────────────────────
+function _ccRenderBrief(){
+  var b=_campBrief;
+  var nextNum=_CAMPAIGNS_DATA.length+1;
+  if(!b.id) b.id='EC-2026-'+String(nextNum).padStart(3,'0');
+  return '<div style="max-width:780px">'+
+    _ccSecHdr('📋 Panel 1 — Campaign Brief Builder')+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:22px 24px">'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">'+
+        _ccField('Campaign ID','cc-id','text',b.id,'','Auto-generated — do not edit')+
+        _ccField('Campaign Name','cc-name','text',b.name,'','e.g. Waitlist A/B Test May 2026')+
+        _ccField('Target ICP','cc-icp','select',b.icp,_CC_ICPS,'')+
+        _ccField('Funnel Blueprint','cc-funnel','select',b.funnel,_CC_FUNNELS,'')+
+        _ccField('Primary Channel','cc-channel','select',b.channel,_CC_CHANNELS,'')+
+        _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
+        _ccField('Landing Page Slug','cc-slug','text',b.slug,'','e.g. lp/waitlist-a → easychefpro.com/lp/waitlist-a')+
+        _ccField('Launch Date','cc-launch','date',b.launchDate,'','')+
       '</div>'+
-      '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">'+c.name+'</div>'+
-      '<div style="font-size:11px;color:var(--muted);margin-bottom:2px">Platform: <span style="color:var(--text)">'+c.platform+'</span> · Owner: <span style="color:var(--text)">'+c.owner+'</span></div>'+
-      '<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">'+c.desc+'</div>'+
-      variantHtml+kpiHtml+blockerHtml+
+      _ccField('Marketing Lead Approval','cc-approved','checkbox',b.approved,'','Adam has reviewed and approved this campaign — nothing activates without this')+
+      '<div style="display:flex;gap:10px;margin-top:8px;padding-top:16px;border-top:1px solid var(--border)">'+
+        _ccBtn('Save Draft','_ccSaveBrief(false)',false)+
+        _ccBtn('Save &amp; Generate UTMs →','_ccSaveBrief(true)',true)+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+function _ccBriefSync(){
+  var b=_campBrief;
+  b.id=(_ccEl('cc-id')||{value:b.id}).value;
+  b.name=(_ccEl('cc-name')||{value:''}).value;
+  b.icp=(_ccEl('cc-icp')||{value:''}).value;
+  b.funnel=(_ccEl('cc-funnel')||{value:''}).value;
+  b.channel=(_ccEl('cc-channel')||{value:''}).value;
+  b.goal=(_ccEl('cc-goal')||{value:''}).value;
+  b.slug=(_ccEl('cc-slug')||{value:''}).value;
+  b.launchDate=(_ccEl('cc-launch')||{value:''}).value;
+  b.approved=(_ccEl('cc-approved')||{checked:false}).checked;
+  var banner=_ccEl('cc-flow-banner');
+  if(banner) banner.innerHTML=_ccFlowBanner();
+}
+function _ccSaveBrief(next){
+  _ccBriefSync();
+  var b=_campBrief;
+  if(!b.name||!b.channel||!b.goal){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Fill in Campaign Name, Channel, and Goal before saving.</div>',3000);
+    return;
+  }
+  try{localStorage.setItem('dgl_cc_brief_'+b.id,JSON.stringify(b));}catch(_){}
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'campaigns_write',campaign:b})}).catch(function(){});
+  _showToast('<div style="color:#22c55e;font-size:12px">Campaign brief saved: '+b.id+'</div>',2500);
+  if(next) _campSwitchTab('utm');
+}
+
+// ── Panel 2: UTM Generator ──────────────────────────────────────────────────
+function _ccRenderUTM(){
+  var b=_campBrief;
+  if(!b.id||!b.channel) return '<div style="max-width:760px">'+_ccSecHdr('🔗 Panel 2 — UTM Generator')+'<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--muted);font-size:13px">Complete the Campaign Brief first, then return here to generate UTM URLs.<div style="margin-top:16px">'+_ccBtn('← Go to Brief','_campSwitchTab(\'brief\')',true)+'</div></div></div>';
+  var base='https://easychefpro.com/'+(b.slug||'').replace(/^\//,'');
+  var code=(b.id||'').toLowerCase();
+  var isValid=_CC_CAMPAIGN_VALID.indexOf(code)!==-1||/^ec-\d{4}-\d{3}$/.test(code);
+  var codeBadge=isValid?'<span style="font-size:10px;color:#22c55e;margin-left:6px">✓ valid</span>':'<span style="font-size:10px;color:'+_CC_RED+';margin-left:6px">⚠ not in approved list</span>';
+  var channels=[b.channel];
+  if(b.channel!=='Email') channels.push('Email');
+  var rows=channels.map(function(ch,i){
+    var med=_CC_CHANNEL_MEDIUM[ch]||'direct';
+    var src=_CC_CHANNEL_SOURCE[ch]||ch.toLowerCase();
+    var pfx=_CC_DL_PREFIX[ch]||'DIR';
+    var dlId=pfx+'-'+code.replace(/[^a-z0-9]/g,'').toUpperCase()+'-'+String(i+1).padStart(4,'0');
+    var content=dlId+'_'+ch.toLowerCase().replace(/\s+/g,'');
+    var url=base+'?utm_source='+src+'&utm_medium='+med+'&utm_campaign='+code+'&utm_content='+content;
+    var inputId='cc-utm-'+i;
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:8px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">'+
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+          '<span style="font-size:11px;font-weight:700;color:var(--text)">'+ch+'</span>'+
+          '<span style="font-size:10px;padding:1px 7px;border-radius:4px;background:'+_CC_BEIGE+';color:#000;border:1px solid #0001">'+med+' / '+src+'</span>'+
+          '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+_CC_RED+';background:rgba(255,0,0,0.06);padding:1px 7px;border-radius:4px;border:1px solid rgba(255,0,0,0.2)">'+dlId+'</span>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px">'+
+          _ccBtn('Copy','_ccCopyInput(\''+inputId+'\')',false)+
+          _ccBtn('Register DL','_ccRegisterDL(\''+dlId+'\',\''+content+'\',\''+base+'\',\''+b.id+'\')',true)+
+        '</div>'+
+      '</div>'+
+      '<input id="'+inputId+'" readonly value="'+url+'" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:7px 10px;font-family:\'DM Mono\',monospace;font-size:11px;box-sizing:border-box">'+
     '</div>';
   }).join('');
-  var seqTable=
-    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:10px">'+
-      '<div style="display:grid;grid-template-columns:80px 120px 60px 100px 1fr;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg)">'+
-        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">ID</span>'+
-        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Name</span>'+
-        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Emails</span>'+
-        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Status</span>'+
-        '<span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Description</span>'+
+  return '<div style="max-width:960px">'+
+    _ccSecHdr('🔗 Panel 2 — UTM Generator')+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px">'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">'+
+        '<span style="font-size:13px;font-weight:700;color:var(--text)">'+b.id+' — '+b.name+'</span>'+
+        '<span style="font-size:11px;color:var(--muted)">Goal: <b>'+b.goal+'</b></span>'+
+        '<span style="font-size:11px;color:var(--muted)">utm_campaign: <code style="color:'+_CC_RED+'">'+code+'</code>'+codeBadge+'</span>'+
       '</div>'+
-      _EMAIL_SEQS.map(function(s){
-        return '<div style="display:grid;grid-template-columns:80px 120px 60px 100px 1fr;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">'+
-          '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:var(--gold)">'+s.id+'</span>'+
-          '<span style="font-size:12px;font-weight:600;color:var(--text)">'+s.name+'</span>'+
-          '<span style="font-size:11px;color:var(--muted)">'+s.emails+' email'+(s.emails!==1?'s':'')+'</span>'+
-          statusBadge(s.status)+
-          '<span style="font-size:11px;color:var(--muted)">'+s.desc+'</span>'+
-        '</div>';
-      }).join('')+
+      rows+
+      '<div style="margin-top:10px;font-size:11px;color:var(--muted)">utm_content = [DL_ID]_[descriptor] · Click Register DL to add to Deep Link Registry with STATUS = DRAFT</div>'+
+    '</div>'+
+  '</div>';
+}
+function _ccCopyInput(id){
+  var el=_ccEl(id); if(!el) return;
+  el.select();
+  try{document.execCommand('copy');}catch(e){}
+  _showToast('<div style="color:#22c55e;font-size:12px">Copied to clipboard</div>',1800);
+}
+function _ccRegisterDL(dlId,content,dest,campId){
+  if(_campDLCache.find(function(d){return d.dlId===dlId;})){
+    _showToast('<div style="color:var(--muted);font-size:12px">'+dlId+' already in registry</div>',2000);
+    return;
+  }
+  var entry={dlId:dlId,content:content,destination:dest,campaign:campId,status:'DRAFT',createdAt:new Date().toISOString()};
+  _campDLCache.push(entry);
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deeplinks_write',entry:entry})}).catch(function(){});
+  _showToast('<div style="color:#22c55e;font-size:12px">'+dlId+' registered as DRAFT</div>',2500);
+  var banner=_ccEl('cc-flow-banner');
+  if(banner) banner.innerHTML=_ccFlowBanner();
+}
+
+// ── Panel 3: Deep Link Registry ─────────────────────────────────────────────
+function _ccRenderRegistry(){
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=deeplinks_read').then(function(r){return r.json();}).then(function(d){if(Array.isArray(d.entries)){_campDLCache=d.entries;_ccRedrawReg();}}).catch(function(){});
+  return '<div style="max-width:1100px">'+_ccSecHdr('📎 Panel 3 — Deep Link Registry')+'<div id="cc-reg-wrap"><div style="color:var(--muted);font-size:12px;padding:20px">Loading…</div></div></div>';
+}
+function _ccRedrawReg(){
+  var wrap=_ccEl('cc-reg-wrap'); if(!wrap) return;
+  if(!_campDLCache.length){
+    wrap.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--muted);font-size:13px">No deep links registered yet. Go to UTM Generator and click Register DL.</div>';
+    return;
+  }
+  var rows=_campDLCache.map(function(d,i){
+    var sc=d.status==='ACTIVE'?'#22c55e':d.status==='PAUSED'?'#eab308':_CC_RED;
+    var nxt=d.status==='DRAFT'?'ACTIVE':d.status==='ACTIVE'?'PAUSED':'DRAFT';
+    return '<div style="display:grid;grid-template-columns:150px 210px 1fr 110px 90px 90px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border)">'+
+      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:'+_CC_RED+'">'+d.dlId+'</span>'+
+      '<span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.content+'</span>'+
+      '<span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.destination+'</span>'+
+      '<span style="font-size:11px;color:var(--muted)">'+d.campaign+'</span>'+
+      '<span style="font-size:10px;padding:3px 8px;border-radius:100px;font-weight:700;color:'+sc+';background:'+sc+'18;border:1px solid '+sc+'44">'+d.status+'</span>'+
+      '<button onclick="_ccToggleDL('+i+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 9px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">→'+nxt+'</button>'+
     '</div>';
+  }).join('');
+  wrap.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
+    '<div style="display:grid;grid-template-columns:150px 210px 1fr 110px 90px 90px;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);background:'+_CC_BEIGE+'">'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">DL_ID</span>'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">utm_content</span>'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Destination URL</span>'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Campaign</span>'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Status</span>'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Toggle</span>'+
+    '</div>'+rows+
+  '</div>'+
+  '<div style="margin-top:10px;font-size:11px;color:var(--muted)">⚠ Nothing distributes until STATUS = ACTIVE. Click → ACTIVE to promote a link.</div>';
+}
+function _ccToggleDL(i){
+  var d=_campDLCache[i]; if(!d) return;
+  var seq=['DRAFT','ACTIVE','PAUSED'];
+  d.status=seq[(seq.indexOf(d.status)+1)%seq.length];
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deeplinks_status',dlId:d.dlId,status:d.status})}).catch(function(){});
+  _ccRedrawReg();
+  var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
+}
+
+// ── Panel 5: Tracking Checker ───────────────────────────────────────────────
+function _ccRenderTracking(){
+  var b=_campBrief;
+  var pages=[];
+  if(b.slug) pages.push({lbl:'/'+b.slug.replace(/^\//,''),url:'https://easychefpro.com/'+b.slug.replace(/^\//,'')});
+  pages.push({lbl:'/thank-you',url:'https://easychefpro.com/thank-you'});
+  var rows=pages.map(function(pg){
+    var cid='cc-tr-'+pg.lbl.replace(/[^a-z0-9]/gi,'-');
+    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:8px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">'+
+        '<span style="font-size:13px;font-weight:600;color:var(--text)">'+pg.lbl+'</span>'+
+        _ccBtn('Run Check','_ccRunCheck(\''+pg.url+'\',\''+cid+'\','+(pg.lbl==='/thank-you'?'true':'false')+')',true)+
+      '</div>'+
+      '<div id="'+cid+'" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
+        _ccBadge('Convert.com (10019256)','pending')+
+        _ccBadge('Clarity (wjxhprug80)','pending')+
+        _ccBadge('GA4 (G-Q4DYEEXFKV)','pending')+
+        (pg.lbl==='/thank-you'?_ccBadge('waitlist_signup_completed','pending'):'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+  return '<div style="max-width:900px">'+_ccSecHdr('✅ Panel 5 — Tracking Checker')+rows+'<div style="margin-top:10px;font-size:11px;color:var(--muted)">Required order in &lt;head&gt;: Convert.com → Clarity → GA4. Green = present &amp; correct order. Red = missing or wrong order.</div></div>';
+}
+function _ccBadge(lbl,state){
+  var c=state==='ok'?'#22c55e':state==='fail'?_CC_RED:'var(--muted)';
+  var bg=state==='ok'?'rgba(34,197,94,0.08)':state==='fail'?'rgba(255,0,0,0.07)':'var(--bg)';
+  var ic=state==='ok'?'✓':state==='fail'?'✗':'–';
+  return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:6px;background:'+bg+';border:1px solid '+c+'44;color:'+c+'">'+ic+' '+lbl+'</span>';
+}
+function _ccRunCheck(url,cid,isTY){
+  var el=_ccEl(cid); if(!el) return;
+  el.innerHTML='<span style="font-size:11px;color:var(--muted)">Fetching…</span>';
+  fetch(url).then(function(r){return r.text();}).then(function(html){
+    var pC=html.indexOf('10019256'); var pCl=html.indexOf('wjxhprug80'); var pG=html.indexOf('G-Q4DYEEXFKV');
+    var hC=pC!==-1; var hCl=pCl!==-1; var hG=pG!==-1;
+    var orderOk=hC&&hCl&&hG&&pC<pCl&&pCl<pG;
+    var hEv=html.indexOf('waitlist_signup_completed')!==-1;
+    el.innerHTML=
+      _ccBadge('Convert.com (10019256)',hC?(pC<pCl?'ok':'fail'):'fail')+
+      _ccBadge('Clarity (wjxhprug80)',hCl?(pCl>pC&&pCl<pG?'ok':'fail'):'fail')+
+      _ccBadge('GA4 (G-Q4DYEEXFKV)',hG?(pG>pCl?'ok':'fail'):'fail')+
+      (isTY?_ccBadge('waitlist_signup_completed',hEv?'ok':'fail'):'')+
+      (!orderOk?'<div style="width:100%;margin-top:6px;font-size:11px;color:'+_CC_RED+'">⚠ Fix &lt;head&gt; order: Convert.com must be first, Clarity second, GA4 third.</div>':'');
+  }).catch(function(){
+    el.innerHTML='<span style="font-size:11px;color:var(--muted)">Could not fetch — page may not be live yet or blocked by CORS. View source manually (Ctrl+U).</span>';
+  });
+}
+
+// ── Panel 6: Distribution ───────────────────────────────────────────────────
+function _ccRenderDistribution(){
+  var b=_campBrief;
+  var activeDLs=_campDLCache.filter(function(d){return d.status==='ACTIVE'&&d.campaign===b.id;});
+  var blocker=!activeDLs.length&&_campDLCache.length?'<div style="padding:10px 16px;background:rgba(255,0,0,0.07);border:1px solid rgba(255,0,0,0.25);border-radius:8px;font-size:12px;color:'+_CC_RED+';margin-bottom:14px">⚠ No ACTIVE DL_IDs for this campaign. Nothing can distribute until at least one link is promoted to ACTIVE in Panel 3.</div>':'';
+  var emailRows=_EMAIL_SEQS.map(function(s){
+    var dl=activeDLs.find(function(d){return d.dlId.indexOf('EM-')===0;})||null;
+    var sc=s.status==='not_written'?_CC_RED:'#22c55e';
+    return '<div style="display:grid;grid-template-columns:80px 140px 130px 1fr 90px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border)">'+
+      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:'+_CC_RED+'">'+s.id+'</span>'+
+      '<span style="font-size:12px;font-weight:600;color:var(--text)">'+s.name+' · '+s.window+'</span>'+
+      '<span style="font-size:11px;color:var(--muted)">'+(dl?dl.dlId:'No DL linked')+'</span>'+
+      '<div style="display:flex;align-items:center;gap:6px;overflow:hidden">'+
+        '<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dl?dl.destination+'?utm_content='+dl.content:'—')+'</span>'+
+        (dl?_ccBtn('Copy','_ccCopyText(\''+dl.destination+'?utm_content='+dl.content+'\')',false):'')+
+      '</div>'+
+      '<span style="font-size:11px;font-weight:600;color:'+sc+'">'+s.status.replace(/_/g,' ')+'</span>'+
+    '</div>';
+  }).join('');
+  return '<div style="max-width:1100px">'+
+    _ccSecHdr('📧 Panel 6 — Email &amp; Social Distribution')+
+    blocker+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px">'+
+      '<div style="display:grid;grid-template-columns:80px 140px 130px 1fr 90px;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);background:'+_CC_BEIGE+'">'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Seq</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Name / Window</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">DL_ID</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">UTM URL</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Status</span>'+
+      '</div>'+emailRows+
+    '</div>'+
+    '<div style="font-size:11px;color:var(--muted)">Social distribution rows appear once social DL_IDs are registered and activated in Panel 3.</div>'+
+  '</div>';
+}
+function _ccCopyText(text){
+  var t=document.createElement('textarea');
+  t.value=text; document.body.appendChild(t); t.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(t);
+  _showToast('<div style="color:#22c55e;font-size:12px">Copied</div>',1800);
+}
+
+// ── Panel 7: Performance ────────────────────────────────────────────────────
+function _ccRenderPerformance(){
+  var b=_campBrief;
+  var p=_campPerfCache[b.id]||{};
+  if(CONFIG.sheetsUrl&&b.id) fetch(CONFIG.sheetsUrl+'?action=perf_read&campaign='+encodeURIComponent(b.id)).then(function(r){return r.json();}).then(function(d){if(d&&d.data){_campPerfCache[b.id]=d.data;var panel=_ccEl('cc-panel');if(panel&&_campActiveTab==='performance')panel.innerHTML=_ccRenderPerformance();}}).catch(function(){});
+  var kpis=[{l:'Total Clicks',v:p.clicks||'—'},{l:'Total Signups',v:p.signups||'—'},{l:'Conversion Rate',v:p.convRate||'—'},{l:'Top Channel',v:p.topChannel||'—'}];
+  var f5=[{l:'Email Open Rate',tgt:'45–60%',min:45,max:60,key:'email_open_rate'},{l:'Email CTR',tgt:'15–25%',min:15,max:25,key:'email_ctr'},{l:'LP Signup Rate',tgt:'25–45%',min:25,max:45,key:'lp_signup_rate'},{l:'Viral Coefficient',tgt:'0.15+',min:0.15,max:null,key:'viral_coeff'},{l:'Waitlist Total',tgt:'50 before Jul 1',min:50,max:null,key:'waitlist_total'}];
+  var kpiHtml=kpis.map(function(k){return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;text-align:center"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">'+k.l+'</div><div style="font-size:26px;font-weight:800;color:'+_CC_RED+'">'+k.v+'</div></div>';}).join('');
+  var f5Html=f5.map(function(f){
+    var raw=p[f.key]||null; var n=raw?parseFloat(raw):null;
+    var c=n===null?'var(--muted)':f.max!==null?(n>=f.min&&n<=f.max?'#22c55e':n<f.min*0.8?_CC_RED:'#eab308'):(n>=f.min?'#22c55e':n>=f.min*0.7?'#eab308':_CC_RED);
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border)">'+
+      '<span style="font-size:12px;color:var(--text)">'+f.l+'</span>'+
+      '<span style="font-size:11px;color:var(--muted)">Target: '+f.tgt+'</span>'+
+      '<span style="font-size:15px;font-weight:800;color:'+c+';min-width:60px;text-align:right">'+(raw||'—')+'</span>'+
+    '</div>';
+  }).join('');
+  return '<div style="max-width:960px">'+
+    _ccSecHdr('📊 Panel 7 — Performance Counter')+
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">'+kpiHtml+'</div>'+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px">'+
+      '<div style="padding:10px 16px;border-bottom:1px solid var(--border);background:'+_CC_BEIGE+'"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Friday 5 Metrics</span></div>'+f5Html+
+    '</div>'+
+    '<div style="font-size:11px;color:var(--muted)">Refreshes daily · Last updated: '+new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+'</div>'+
+  '</div>';
+}
+
+// ── Flow Rule Banner ────────────────────────────────────────────────────────
+function _ccFlowBanner(){
+  var b=_campBrief;
+  var fails=[];
+  if(!b.approved) fails.push('Marketing Lead approval not checked in Panel 1 — Brief Builder');
+  var actDLs=_campDLCache.filter(function(d){return d.status==='ACTIVE'&&d.campaign===b.id;});
+  if(b.id&&!actDLs.length) fails.push('No DL_IDs are ACTIVE for this campaign in Panel 3 — Deep Link Registry');
+  if(!b.slug) fails.push('No landing page slug defined in Panel 1 — Brief Builder');
+  if(!fails.length||!b.id) return '';
+  return '<div style="margin-bottom:14px;padding:12px 16px;background:rgba(255,0,0,0.07);border:2px solid rgba(255,0,0,0.3);border-radius:8px">'+
+    '<div style="font-size:12px;font-weight:700;color:'+_CC_RED+';margin-bottom:6px">🚫 Cannot activate — '+fails.length+' blocker'+(fails.length!==1?'s':'')+'</div>'+
+    fails.map(function(f){return '<div style="font-size:11px;color:'+_CC_RED+';margin-top:3px">• '+f+'</div>';}).join('')+
+  '</div>';
+}
+
+// ── Main render + tab switcher ──────────────────────────────────────────────
+var _CC_TABS=[
+  {id:'brief',lbl:'📋 Brief'},
+  {id:'utm',lbl:'🔗 UTM Generator'},
+  {id:'registry',lbl:'📎 Deep Links'},
+  {id:'seo',lbl:'🔍 SEO + Page Builder'},
+  {id:'tracking',lbl:'✅ Tracking'},
+  {id:'distribution',lbl:'📧 Distribution'},
+  {id:'performance',lbl:'📊 Performance'}
+];
+function _campaignsRender(){
+  var root=document.getElementById('campaigns-root'); if(!root) return;
+  var tabBar=_CC_TABS.map(function(t){
+    return '<button id="camp-tab-'+t.id+'" onclick="_campSwitchTab(\''+t.id+'\')" style="padding:9px 14px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;color:var(--muted)">'+t.lbl+'</button>';
+  }).join('');
   root.innerHTML=
     '<div style="padding:20px 24px;max-width:1400px">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
         '<div>'+
-          '<div style="font-size:18px;font-weight:700;color:var(--text)">Campaign Center</div>'+
-          '<div style="font-size:12px;color:var(--muted);margin-top:2px">'+_CAMPAIGNS_DATA.length+' campaigns · '+_EMAIL_SEQS.length+' email sequences</div>'+
+          '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px">Brief → UTM → Deep Links → SEO → Tracking → Distribute → Measure</div>'+
         '</div>'+
-        '<button onclick="_campaignsAddModal()" style="background:var(--gold);border:none;color:#000;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">+ Add Campaign</button>'+
       '</div>'+
-      '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px">'+
-        '<button id="camp-tab-campaigns" onclick="_campSwitchTab(\'campaigns\')" style="padding:9px 18px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:12px;cursor:pointer;font-family:\'DM Mono\',monospace">📣 Campaigns</button>'+
-        '<button id="camp-tab-seqs" onclick="_campSwitchTab(\'seqs\')" style="padding:9px 18px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:12px;cursor:pointer;font-family:\'DM Mono\',monospace">📧 Email Sequences</button>'+
-        '<button id="camp-tab-seo" onclick="_campSwitchTab(\'seo\')" style="padding:9px 18px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:12px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 SEO + Page Builder</button>'+
-      '</div>'+
-      '<div id="camp-panel-campaigns">'+campaignCards+'</div>'+
-      '<div id="camp-panel-seqs" style="display:none">'+seqTable+'</div>'+
-      '<div id="camp-panel-seo" style="display:none"><div id="seo-mgr-root"></div></div>'+
+      '<div id="cc-flow-banner"></div>'+
+      '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto">'+tabBar+'</div>'+
+      '<div id="cc-panel"></div>'+
     '</div>';
   _campSwitchTab(_campActiveTab);
 }
 function _campSwitchTab(t){
   _campActiveTab=t;
-  ['campaigns','seqs','seo'].forEach(function(id){
-    var panel=document.getElementById('camp-panel-'+id);
-    var btn=document.getElementById('camp-tab-'+id);
-    if(panel) panel.style.display=id===t?'':'none';
-    if(btn){
-      btn.style.borderBottom=id===t?'2px solid var(--gold)':'2px solid transparent';
-      btn.style.color=id===t?'var(--gold)':'var(--muted)';
-      btn.style.fontWeight=id===t?'700':'400';
-    }
+  _CC_TABS.forEach(function(tab){
+    var btn=_ccEl('camp-tab-'+tab.id);
+    if(btn){btn.style.borderBottom=tab.id===t?'2px solid '+_CC_RED:'2px solid transparent';btn.style.color=tab.id===t?_CC_RED:'var(--muted)';btn.style.fontWeight=tab.id===t?'700':'400';}
   });
-  if(t==='seo') _seoRender();
+  var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
+  var panel=_ccEl('cc-panel'); if(!panel) return;
+  if(t==='brief') panel.innerHTML=_ccRenderBrief();
+  else if(t==='utm') panel.innerHTML=_ccRenderUTM();
+  else if(t==='registry'){panel.innerHTML=_ccRenderRegistry();setTimeout(_ccRedrawReg,120);}
+  else if(t==='seo'){
+    // Pre-fill SEO page from slug if provided
+    if(_campBrief.slug&&DASHBOARD_DATA.seo){
+      var url='https://easychefpro.com/'+_campBrief.slug.replace(/^\//,'');
+      if(!DASHBOARD_DATA.seo.pages.find(function(p){return p.url===url;})){
+        DASHBOARD_DATA.seo.pages.push({id:'camp-'+(_campBrief.id||'new').toLowerCase(),site:'easychefpro.com',page:_campBrief.name||_campBrief.slug,file:_campBrief.slug.replace(/^\//,'')+'.html',url:url,metaTitle:_campBrief.name||'',metaDesc:'',h1:'',h2:'',focusKw:'',keywords:'',canonical:url,ogTitle:_campBrief.name||'',ogDesc:'',ogImage:'',twitterCard:'summary_large_image',twitterSite:'',robots:'index, follow',schema:'WebPage',altTexts:[]});
+      }
+    }
+    panel.innerHTML='<div id="seo-mgr-root"></div>';
+    _seoRender();
+  }
+  else if(t==='tracking') panel.innerHTML=_ccRenderTracking();
+  else if(t==='distribution') panel.innerHTML=_ccRenderDistribution();
+  else if(t==='performance') panel.innerHTML=_ccRenderPerformance();
 }
-function _campaignsAddModal(){
-  _showToast('<div style="font-size:12px;color:var(--gold)">Add Campaign — coming soon</div>',2500);
-}
+function _campaignsAddModal(){ _campSwitchTab('brief'); }
 // ── SEO Manager ────────────────────────────────────────────────────────────
 function _seoRender(){
   var root=document.getElementById('seo-mgr-root'); if(!root) return;
