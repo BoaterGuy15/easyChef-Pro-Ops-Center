@@ -1807,6 +1807,10 @@ function _restoreNavOrder(user){
   if(Array.isArray(order)&&order.length){
     order.forEach(id=>{ const el=tabs.querySelector('[data-tab-id="'+id+'"]'); if(el) tabs.appendChild(el); });
   }
+  // Always pin Master Actions immediately after Actions
+  const actionsEl=tabs.querySelector('[data-tab-id="actions"]');
+  const masterEl=tabs.querySelector('[data-tab-id="masteractions"]');
+  if(actionsEl&&masterEl) actionsEl.after(masterEl);
 }
 function initRoadmapHeadSync(){ /* no-op: replaced by gantt scroll sync in buildRoadmap */ }
 
