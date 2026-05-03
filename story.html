@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>About Us — Digital Galactica Labs | easyChef Pro</title>
-<meta name="description" content="Meet the team behind easyChef Pro. Built by Digital Galactica Labs — an 8-person team dedicated to smarter, simpler meal planning for families everywhere.">
-<meta name="keywords" content="Digital Galactica Labs, easyChef Pro team, meal planning startup, about us">
+<title>Our Story — easyChef Pro | Digital Galactica Labs</title>
+<meta name="description" content="Built between 24-hour shifts by first responders who came home to empty fridges and no answer for dinner. This is the story behind easyChef Pro.">
+<meta name="keywords" content="easyChef Pro story, Digital Galactica Labs, meal planning app origin, first responders, food tech">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://boaterguy15.github.io/easyChef-Pro-Ops-Center/about.html">
+<link rel="canonical" href="https://boaterguy15.github.io/easyChef-Pro-Ops-Center/story.html">
 <meta property="og:type" content="website">
-<meta property="og:title" content="About easyChef Pro & Digital Galactica Labs">
-<meta property="og:description" content="Meet the 8-person team building the smartest meal planning app of 2026.">
-<meta property="og:url" content="https://boaterguy15.github.io/easyChef-Pro-Ops-Center/about.html">
+<meta property="og:title" content="Our Story — easyChef Pro">
+<meta property="og:description" content="Built between 24-hour shifts by first responders. Not in a co-working space.">
+<meta property="og:url" content="https://boaterguy15.github.io/easyChef-Pro-Ops-Center/story.html">
 <meta property="og:image" content="">
 <meta property="og:site_name" content="easyChef Pro">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@easychefpro">
-<meta name="twitter:title" content="About easyChef Pro & Digital Galactica Labs">
-<meta name="twitter:description" content="Meet the 8-person team building the smartest meal planning app of 2026.">
+<meta name="twitter:title" content="Our Story — easyChef Pro">
+<meta name="twitter:description" content="Built between 24-hour shifts by first responders. Not in a co-working space.">
 <meta name="twitter:image" content="">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"AboutPage","name":"About Us — Digital Galactica Labs","description":"Meet the team behind easyChef Pro.","url":"https://boaterguy15.github.io/easyChef-Pro-Ops-Center/about.html"}
+{"@context":"https://schema.org","@type":"AboutPage","name":"Our Story — easyChef Pro","description":"Built between 24-hour shifts by first responders who came home to empty fridges.","url":"https://boaterguy15.github.io/easyChef-Pro-Ops-Center/story.html"}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -86,10 +86,10 @@ nav{
 
 /* ── HERO ── */
 .page-hero{
-  background:var(--beige);
+  background:var(--navy);
   padding:96px 40px 88px;
   text-align:center;
-  border-bottom:1px solid var(--border);
+  border-bottom:1px solid rgba(255,255,255,0.08);
 }
 .page-hero-tag{
   font-size:11px;font-weight:600;letter-spacing:0.16em;
@@ -100,28 +100,17 @@ nav{
   font-family:'Proza Libre',sans-serif;
   font-size:clamp(44px,6vw,76px);
   font-weight:800;line-height:1.06;
-  color:var(--black);margin-bottom:24px;
+  color:var(--white);margin-bottom:24px;
   max-width:760px;margin-left:auto;margin-right:auto;
 }
 .page-hero h1 em{font-style:normal;color:var(--red)}
 .page-hero-sub{
   font-size:18px;font-weight:300;line-height:1.75;
-  color:var(--gray);max-width:580px;
-  margin:0 auto 36px;
+  color:rgba(255,255,255,0.55);max-width:580px;
+  margin:0 auto;
 }
-.hero-cta-btn{
-  display:inline-block;
-  background:var(--red);color:#fff;
-  border-radius:8px;padding:15px 36px;
-  font-size:15px;font-weight:600;
-  font-family:'Inter',sans-serif;
-  text-decoration:none;
-  transition:background .2s,transform .1s;
-}
-.hero-cta-btn:hover{background:var(--red-dark)}
-.hero-cta-btn:active{transform:scale(0.98)}
 
-/* ── CONTENT SECTIONS ── */
+/* ── CONTENT ── */
 .container{max-width:800px;margin:0 auto;padding:0 40px}
 .container-wide{max-width:1120px;margin:0 auto;padding:0 40px}
 
@@ -171,6 +160,21 @@ section+section{border-top:1px solid var(--border)}
   letter-spacing:0.04em;
 }
 
+/* trust list */
+.trust-list{
+  list-style:none;
+  display:grid;grid-template-columns:1fr 1fr;gap:14px 48px;
+  margin-top:32px;
+}
+.trust-list li{
+  font-size:15px;color:var(--gray);
+  padding-left:22px;position:relative;line-height:1.6;
+}
+.trust-list li::before{
+  content:'→';position:absolute;left:0;
+  color:var(--red);font-weight:700;
+}
+
 /* stat row */
 .stat-row{
   display:grid;grid-template-columns:repeat(3,1fr);
@@ -191,152 +195,31 @@ section+section{border-top:1px solid var(--border)}
 .stat-cell-label{font-size:13px;color:var(--gray);line-height:1.5}
 .stat-footnote{font-size:11px;color:var(--gray);text-align:center;opacity:0.7}
 
-/* Q&A grid */
-.qa-grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:28px;
-  margin-top:40px;
-}
-.qa-item{
+/* mission close */
+.mission-section{
   background:var(--beige);
-  border-radius:14px;padding:28px 28px 24px;
-  border:1px solid var(--border);
-}
-.qa-question{
-  font-family:'Proza Libre',sans-serif;
-  font-size:17px;font-weight:700;
-  color:var(--black);margin-bottom:12px;
-  line-height:1.3;
-}
-.qa-question::before{
-  content:'Q';
-  display:inline-block;
-  background:var(--red);color:#fff;
-  font-size:9px;font-family:'Inter',sans-serif;
-  font-weight:700;letter-spacing:0.06em;
-  padding:2px 6px;border-radius:4px;
-  margin-right:8px;vertical-align:middle;
-  position:relative;top:-1px;
-}
-.qa-answer{font-size:14px;line-height:1.8;color:var(--gray)}
-.qa-answer strong{color:var(--black);font-weight:600}
-
-/* 4 steps */
-.steps-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:20px;
-  margin-top:40px;
-}
-.step-card{
-  padding:28px 22px 24px;
-  background:var(--white);
-  border:1px solid var(--border);
-  border-radius:14px;
-  position:relative;
-}
-.step-num{
-  font-family:'Proza Libre',sans-serif;
-  font-size:52px;font-weight:800;
-  color:var(--red);line-height:1;
-  margin-bottom:10px;opacity:0.18;
-  position:absolute;top:20px;right:20px;
-}
-.step-title{
-  font-family:'Proza Libre',sans-serif;
-  font-size:20px;font-weight:700;
-  color:var(--black);margin-bottom:10px;
-}
-.step-body{font-size:13px;line-height:1.75;color:var(--gray)}
-
-/* built on certainty — dark section */
-.certainty-section{
-  background:var(--navy);
   padding:80px 0;
 }
-.certainty-section .section-tag{color:rgba(255,255,255,0.35)}
-.certainty-section .section-title{color:var(--white)}
-.certainty-section .section-title em{color:var(--red)}
-.trust-list{
-  list-style:none;
-  display:grid;grid-template-columns:1fr 1fr;gap:14px 48px;
-  margin-top:32px;
-}
-.trust-list li{
-  font-size:15px;color:rgba(255,255,255,0.75);
-  padding-left:22px;position:relative;line-height:1.6;
-}
-.trust-list li::before{
-  content:'→';position:absolute;left:0;
-  color:var(--red);font-weight:700;
-}
+.mission-section .section-title{margin-bottom:28px}
 
-/* team groups */
-.team-group-label{
-  font-size:11px;font-weight:600;letter-spacing:0.16em;
-  text-transform:uppercase;color:var(--gray);
-  padding-bottom:14px;border-bottom:1px solid var(--border);
-  margin:44px 0 24px;
+/* soft CTA */
+.soft-cta{
+  margin-top:40px;
+  display:flex;align-items:center;gap:24px;flex-wrap:wrap;
 }
-.team-grid-exec{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:24px;
-}
-.team-grid-members{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:24px;
-  margin-top:0;
-}
-.team-card{
-  background:var(--beige);
-  border-radius:16px;padding:28px;
-  border:1px solid var(--border);
-}
-.team-initial{
-  width:56px;height:56px;border-radius:50%;
-  background:var(--navy);margin-bottom:16px;
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Proza Libre',sans-serif;
-  font-size:17px;font-weight:700;color:var(--white);
-  letter-spacing:0.03em;
-}
-.team-name{
-  font-family:'Proza Libre',sans-serif;
-  font-size:20px;font-weight:700;
-  color:var(--black);margin-bottom:4px;
-}
-.team-title{
-  font-size:13px;font-weight:500;
-  color:var(--red);letter-spacing:0.04em;
-  text-transform:uppercase;margin-bottom:16px;
-}
-.team-bio{font-size:14px;line-height:1.7;color:var(--gray)}
-
-/* ── FINAL CTA ── */
-.about-cta{
-  background:var(--black);
-  padding:96px 40px;
-  text-align:center;
-}
-.about-cta h2{
-  font-family:'Proza Libre',sans-serif;
-  font-size:clamp(32px,4vw,52px);
-  font-weight:800;color:var(--white);
-  line-height:1.1;margin-bottom:20px;
-}
-.about-cta h2 em{font-style:normal;color:var(--red)}
-.about-cta p{
-  font-size:17px;color:rgba(255,255,255,0.55);
-  line-height:1.7;max-width:500px;
-  margin:0 auto 40px;
-}
-.about-cta-btn{
-  display:inline-block;
-  background:var(--red);color:#fff;
-  border:none;border-radius:8px;
-  padding:16px 36px;font-size:15px;font-weight:600;
-  font-family:'Inter',sans-serif;
+.soft-cta-link{
+  font-size:15px;font-weight:600;color:var(--red);
   text-decoration:none;
-  transition:background .2s,transform .1s;
-  cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:border-color .2s;
 }
-.about-cta-btn:hover{background:var(--red-dark)}
-.about-cta-btn:active{transform:scale(0.98)}
+.soft-cta-link:hover{border-color:var(--red)}
+.soft-cta-divider{color:var(--border);font-size:20px;line-height:1}
+.soft-cta-secondary{
+  font-size:14px;color:var(--gray);text-decoration:none;
+  transition:color .2s;
+}
+.soft-cta-secondary:hover{color:var(--black)}
 
 /* ── FOOTER ── */
 footer{
@@ -362,16 +245,9 @@ footer{
   .container,.container-wide{padding:0 24px}
   section{padding:56px 0}
   .stat-row{grid-template-columns:1fr}
-  .qa-grid{grid-template-columns:1fr}
-  .steps-grid{grid-template-columns:1fr 1fr}
   .trust-list{grid-template-columns:1fr}
-  .team-grid-exec,.team-grid-members{grid-template-columns:repeat(2,1fr)}
-  .about-cta{padding:72px 24px}
+  .mission-section{padding:56px 0}
   footer{flex-direction:column;align-items:flex-start;padding:28px 24px}
-}
-@media(max-width:540px){
-  .steps-grid{grid-template-columns:1fr}
-  .team-grid-exec,.team-grid-members{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -400,7 +276,8 @@ footer{
   </a>
   <div class="nav-right">
     <ul class="nav-links">
-      <li><a href="about.html" class="active">About Us</a></li>
+      <li><a href="story.html" class="active">Our Story</a></li>
+      <li><a href="about.html">About Us</a></li>
     </ul>
     <a class="nav-cta" href="landing.html#claim">Claim Your Spot</a>
   </div>
@@ -408,214 +285,81 @@ footer{
 
 <!-- ── HERO ── -->
 <div class="page-hero">
-  <a class="back-link" href="landing.html">Back to Home</a>
-  <p class="page-hero-tag">Your Smart Kitchen Assistant</p>
-  <h1>Daily Dinner<br><em>Figured Out.</em></h1>
-  <p class="page-hero-sub">Knows what's in your kitchen, what your family will eat, and what needs to go before it goes bad. It plans the week, handles the shopping, and quietly moves your family toward better health. All you do is look and cook.</p>
-  <a class="hero-cta-btn" href="landing.html#claim">Get Early Access &rarr;</a>
+  <a class="back-link" href="landing.html" style="color:rgba(255,255,255,0.4)">Back to Home</a>
+  <p class="page-hero-tag">Our Story</p>
+  <h1>Built between shifts.<br>Not in a <em>co-working space.</em></h1>
+  <p class="page-hero-sub">By people who spent their careers showing up to other families&rsquo; worst moments &mdash; and still came home to an empty fridge.</p>
 </div>
 
-<!-- ── ORIGIN STORY ── -->
+<!-- ── SECTION 1: ORIGIN ── -->
 <section>
   <div class="container">
-    <p class="section-tag">Why Trust It?</p>
-    <h2 class="section-title">Built between shifts.<br>Not in a <em>co-working space.</em></h2>
-    <p class="body-text">Taylor and Steve didn't build easyChef Pro after a pitch meeting. They built it between 24-hour shifts — as a retired firefighter paramedic and an emergency management director. Between the kind of days that leave you with nothing left, and the realisation that dinner was still waiting when they got home.</p>
+    <p class="section-tag">Origin</p>
+    <h2 class="section-title">Where it <em>came from.</em></h2>
+    <p class="body-text">This wasn&rsquo;t built in a co-working space.</p>
+    <p class="body-text">It was built between 24-hour shifts. By people who spent their careers showing up to other families&rsquo; worst moments &mdash; and still came home to an empty fridge and no answer for what&rsquo;s for dinner.</p>
+    <p class="body-text">They weren&rsquo;t food tech veterans. They weren&rsquo;t venture-backed. They were first responders who had learned the hard way that when everything is complicated and everyone is counting on you, the only thing that actually works is a real system. Not more effort. Not better intentions. A system that was already running before the hard moment arrived.</p>
     <div class="pull-quote">
-      &ldquo;You cannot improvise your way through real complexity. When the stakes are high and the variables are many, the only thing that works is a system that was already running before the pressure arrived.&rdquo;
-      <cite>— Taylor Reasoner, Founder &amp; CEO</cite>
+      &ldquo;That&rsquo;s what was missing from the kitchen. Not more apps. Not more recipes. One thing that held all of it together &mdash; so 6:30&nbsp;PM stops being the hardest question of your day.&rdquo;
     </div>
-    <p class="body-text">Years of emergency response teaches you one thing above everything else: you cannot will your way through a systems problem. Not more effort. A better structure. That's what was missing from the kitchen. Not more recipes, not more apps, not more willpower at 6:30 PM. <strong>A single system that held all of it together</strong> — the inventory, the planning, the nutrition, the shopping — so the person running the household didn't have to carry it all in their head every single day.</p>
-    <p class="body-text">They built the system. So you don't have to hold it anymore.</p>
+    <p class="body-text">Built by first responders. For every family that deserves a better answer than &ldquo;I don&rsquo;t know, what do you want?&rdquo;</p>
   </div>
 </section>
 
-<!-- ── TEAM ── -->
-<section>
-  <div class="container-wide">
-    <p class="section-tag">Digital Galactica Labs</p>
-    <h2 class="section-title">Meet the <em>Team</em></h2>
-    <p class="body-text">A small, focused team committed to solving one problem completely.</p>
-
-    <p class="team-group-label">Executive Team</p>
-    <div class="team-grid-exec">
-      <div class="team-card">
-        <div class="team-initial">TR</div>
-        <div class="team-name">Taylor Reasoner</div>
-        <div class="team-title">Founder · CEO</div>
-        <p class="team-bio">Retired firefighter paramedic. Built easyChef Pro between 24-hour shifts after realising dinner was still waiting when he got home.</p>
-      </div>
-      <div class="team-card">
-        <div class="team-initial">SH</div>
-        <div class="team-name">Steve Harkness</div>
-        <div class="team-title">COO</div>
-        <p class="team-bio">Emergency management director. Brings the same systems thinking that works under pressure in the field to the operational backbone of DGL.</p>
-      </div>
-      <div class="team-card">
-        <div class="team-initial">H</div>
-        <div class="team-name">Hammad</div>
-        <div class="team-title">CTO</div>
-        <p class="team-bio">Placeholder — bio goes here.</p>
-      </div>
-      <div class="team-card">
-        <div class="team-initial">AG</div>
-        <div class="team-name">Adam Guerguis</div>
-        <div class="team-title">CMO</div>
-        <p class="team-bio">Placeholder — bio goes here.</p>
-      </div>
-    </div>
-
-    <p class="team-group-label">Team</p>
-    <div class="team-grid-members">
-      <div class="team-card">
-        <div class="team-initial">JH</div>
-        <div class="team-name">JR Hernandez</div>
-        <div class="team-title">Growth Strategist</div>
-        <p class="team-bio">Placeholder — bio goes here.</p>
-      </div>
-      <div class="team-card">
-        <div class="team-initial">ST</div>
-        <div class="team-name">Searah Teitgen</div>
-        <div class="team-title">Marketing Operations Associate</div>
-        <p class="team-bio">Placeholder — bio goes here.</p>
-      </div>
-      <div class="team-card">
-        <div class="team-initial">ST</div>
-        <div class="team-name">Sadee Tison</div>
-        <div class="team-title">Customer Support &amp; Beta Ops</div>
-        <p class="team-bio">Placeholder — bio goes here.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── THE PROBLEM ── -->
+<!-- ── SECTION 2: BUILT ON CERTAINTY ── -->
 <section>
   <div class="container">
-    <p class="section-tag">Is This For Me?</p>
-    <h2 class="section-title">It's 6:30 PM and dinner is still <em>your problem.</em></h2>
-    <p class="body-text">You're standing in front of the open fridge. The kids are going to ask in the next ten minutes. Your brain already ran hundreds of decisions today. This is the one it has no answer for.</p>
-    <p class="body-text">It's not that you didn't try to get ahead of it. You bought groceries at the start of the week. You made lists. You downloaded the meal planner, the pantry tracker, the nutrition tool. You screenshotted recipes you never cooked. Every one of those tools was supposed to make things easier. Every one added something to your plate before it took anything off.</p>
-    <div class="pull-quote">
-      &ldquo;The process holding your kitchen together has a name. It&rsquo;s you.&rdquo;
-      <cite>— Running on whatever you have left. Which is sometimes nothing at all.</cite>
-    </div>
-    <p class="body-text">Feeding your family well shouldn't require this much of you. It shouldn't depend on how much energy you have left at 6:30 PM. It shouldn't fall apart the moment a busy week gets busier. <strong>If your good intentions fall apart, it's not a personal failure. It's a systems failure.</strong> The tools were never built to carry the whole load.</p>
+    <p class="section-tag">What We Built On</p>
+    <h2 class="section-title">Built on certainty.<br><em>Not guesswork.</em></h2>
+    <p class="body-text">easyChef Pro is the first closed-loop kitchen management system built on deterministic data &mdash; not AI estimates, not user-submitted guesses, not unverified entries. When the same food gives you three different calorie counts across three different apps, that&rsquo;s not a minor inconvenience. That&rsquo;s the entire health foundation being wrong.</p>
+    <p class="body-text"><strong>We fixed that at the foundation.</strong></p>
+    <ul class="trust-list">
+      <li>9 patent-pending technologies, invented from the ground up</li>
+      <li>FDA-grade nutrition data, vetted by registered dietitians</li>
+      <li>250,000-product database, normalised and cross-referenced</li>
+      <li>Deterministic data &mdash; the same food, the same accurate answer, every time</li>
+      <li>6-dimension health scoring on every meal (Focus-Fit Health Scoring System&trade;)</li>
+    </ul>
   </div>
 </section>
 
-<!-- ── STATS ── -->
-<section>
+<!-- ── SECTION 3: THE NUMBERS ── -->
+<section style="background:var(--beige)">
   <div class="container">
+    <p class="section-tag">The Numbers</p>
+    <h2 class="section-title">The only figures we use are <em>the ones we&rsquo;ve earned.</em></h2>
     <div class="stat-row">
       <div class="stat-cell">
-        <div class="stat-cell-num">$125</div>
-        <div class="stat-cell-label">the average family throws away in groceries every single month</div>
+        <div class="stat-cell-num">$1,336</div>
+        <div class="stat-cell-label">average annual savings per household</div>
       </div>
       <div class="stat-cell">
         <div class="stat-cell-num">69.5%</div>
-        <div class="stat-cell-label">food waste reduction in year one</div>
+        <div class="stat-cell-label">food waste reduction</div>
       </div>
       <div class="stat-cell">
-        <div class="stat-cell-num">$1,336</div>
-        <div class="stat-cell-label">average annual savings across all income levels</div>
+        <div class="stat-cell-num">30 min</div>
+        <div class="stat-cell-label">average fridge-to-table meal time</div>
       </div>
     </div>
-    <p class="stat-footnote">Validated across 10,000 diverse household profiles using deterministic simulation methodology.</p>
+    <p class="stat-footnote">Validated across 10,000 diverse household profiles using deterministic simulation methodology. These are the only figures we use &mdash; because they&rsquo;re the ones we&rsquo;ve earned the right to claim.</p>
   </div>
 </section>
 
-<!-- ── THE MISSING ── -->
-<section>
+<!-- ── SECTION 4: THE MISSION ── -->
+<div class="mission-section">
   <div class="container">
-    <p class="section-tag">How Does It Work?</p>
-    <h2 class="section-title">What no single app <em>ever could.</em></h2>
-    <p class="body-text">Every app you tried was solving a piece of the problem. The real problem is that the pieces have to work together. A meal planner gives you recipes. A pantry tracker logs what you have. A nutrition log counts your calories. Each one works in isolation. None of them talk to each other. So you become the connector — cross-referencing the recipe against the pantry, checking the shopping list before you leave, manually entering data across three screens.</p>
-    <div class="pull-quote">
-      &ldquo;The tools weren&rsquo;t broken. The approach was.&rdquo;
-      <cite>— Dinner is a systems problem. It needs one thing that holds all of it together.</cite>
-    </div>
-    <p class="body-text">easyChef Pro is your <strong>Smart Kitchen Assistant.</strong> It holds the whole system so you don't have to. Know what's in your kitchen before you get home. Know what's about to expire. Build the plan around both. Know that your daughter won't touch anything with visible onions and that Wednesday nights have to be fast. Handle the shopping list. And quietly steer the meal plans toward better health, week by week, without you having to do anything different.</p>
-    <p class="body-text">That kind of help has never existed before. Until now.</p>
-  </div>
-</section>
-
-<!-- ── WHAT BECOMES POSSIBLE ── -->
-<section style="background:var(--beige)">
-  <div class="container-wide">
-    <p class="section-tag">What Becomes Possible</p>
-    <h2 class="section-title">Your Smart <em>Kitchen Assistant</em></h2>
-    <div class="qa-grid">
-      <div class="qa-item">
-        <div class="qa-question">What can I actually make tonight?</div>
-        <p class="qa-answer">Answered before you open the door. Your Smart Kitchen Assistant knows your full inventory — pantry, fridge, and freezer — including what's expiring and when. The <strong>Adaptive Meal Planning Engine&trade;</strong> builds your week around what's already there, moves the things about to turn to the front of the week, and calibrates to your household over time. The longer you use it, the sharper the plans get.</p>
-      </div>
-      <div class="qa-item">
-        <div class="qa-question">What about my picky kid and my husband's health condition?</div>
-        <p class="qa-answer">Already built in. Every plan your Smart Kitchen Assistant builds knows your family. Who won't eat what. What health conditions need to be worked around. What everyone's schedule looks like on a Tuesday versus a Sunday. No rejected plates, no last-minute pivots, no separate meal for the picky one. Dinner lands for everyone.</p>
-      </div>
-      <div class="qa-item">
-        <div class="qa-question">Can I trust the nutrition numbers?</div>
-        <p class="qa-answer">Most nutrition apps have a data problem they don't talk about. Log the same Greek yogurt on three different apps and you'll get three different calorie counts — sometimes a 90-calorie gap. easyChef Pro doesn't use those databases. The <strong>Unified Nutrition Ledger&trade;</strong> runs on FDA-grade data, vetted by registered dietitians, cross-referenced across 250,000 products. The same food gives you the same accurate answer every time.</p>
-      </div>
-      <div class="qa-item">
-        <div class="qa-question">What does Tuesday night look like when this is working?</div>
-        <p class="qa-answer">You get home and dinner is already decided. Not by you. The app moved the chicken that's been in there since Monday to tonight and chose something your daughter will actually eat. You're not standing at the fridge. You're not negotiating at 6:45 PM. You're just cooking. That's not a productivity win. That's the end of a specific kind of daily exhaustion that was never supposed to be yours alone.</p>
-      </div>
+    <p class="section-tag">The Mission</p>
+    <h2 class="section-title">Technology that gives you back your <em>time, money, and peace of mind.</em></h2>
+    <p class="body-text">We believe technology should give people back their time, their money, and their peace of mind. Not create another system to manage. Not add another subscription to justify. Give it back.</p>
+    <p class="body-text">Every working parent who downloads easyChef Pro and cooks dinner from what&rsquo;s already in their fridge &mdash; without stress, without waste, without the nightly negotiation &mdash; that&rsquo;s what we built this for.</p>
+    <p class="body-text"><strong>Your kitchen, in command.</strong></p>
+    <div class="soft-cta">
+      <a class="soft-cta-link" href="landing.html#claim">Join the waitlist &rarr;</a>
+      <span class="soft-cta-divider">/</span>
+      <a class="soft-cta-secondary" href="about.html">Meet the team</a>
     </div>
   </div>
-</section>
-
-<!-- ── HOW IT WORKS ── -->
-<section>
-  <div class="container-wide">
-    <p class="section-tag">How It Works</p>
-    <h2 class="section-title">Four steps, then <em>dinner is handled.</em></h2>
-    <div class="steps-grid">
-      <div class="step-card">
-        <div class="step-num">1</div>
-        <div class="step-title">Track</div>
-        <p class="step-body">The app learns what's in your kitchen through barcode scanning or a full pantry scan using your phone camera. It knows what you have, what's about to expire, and what your family eats.</p>
-      </div>
-      <div class="step-card">
-        <div class="step-num">2</div>
-        <div class="step-title">Plan</div>
-        <p class="step-body">The Adaptive Meal Planning Engine&trade; builds your week around what's already there, your family's preferences, and your schedule. No decisions required.</p>
-      </div>
-      <div class="step-card">
-        <div class="step-num">3</div>
-        <div class="step-title">Optimize</div>
-        <p class="step-body">Every meal is scored across six health dimensions using FDA-grade nutrition data. The app steers toward your health goals quietly, without asking you to change how you cook.</p>
-      </div>
-      <div class="step-card">
-        <div class="step-num">4</div>
-        <div class="step-title">Shop</div>
-        <p class="step-body">The shopping list builds itself and syncs with Walmart. Purchases sync back to your pantry. The loop closes and the cycle starts again.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── BUILT ON CERTAINTY ── -->
-<div class="certainty-section">
-  <div class="container">
-    <p class="section-tag">Built on Certainty</p>
-    <h2 class="section-title">The foundation <em>everything runs on.</em></h2>
-    <ul class="trust-list">
-      <li>Nine patent-pending technologies invented from the ground up</li>
-      <li>FDA-grade nutrition data, vetted by registered dietitians</li>
-      <li>250,000-product database, normalised and cross-referenced</li>
-      <li>Deterministic data: the same food, the same accurate answer, every time</li>
-      <li>Built by first responders with 30+ years of combined experience</li>
-    </ul>
-  </div>
-</div>
-
-<!-- ── FINAL CTA ── -->
-<div class="about-cta">
-  <h2>Ready to take back<br>your <em>evenings?</em></h2>
-  <p>Join the founding members who are already letting their Smart Kitchen Assistant handle dinner. No credit card required. Free to join. Launching July 1, 2026.</p>
-  <a class="about-cta-btn" href="landing.html#claim">Get Early Access Today &rarr;</a>
 </div>
 
 <!-- ── FOOTER ── -->
