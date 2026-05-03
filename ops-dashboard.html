@@ -21408,20 +21408,32 @@ function _caiInit(){
   const badge=document.getElementById('cai-context-badge');
   if(badge) badge.textContent='Loading docs from Drive…';
 
-  // Collect Drive file IDs from uploaded docs and linked Google files
-  const uploaded=(_sharedDocsCache||[]).filter(d=>d.driveFileId&&d.driveFileId.length>10).map(d=>d.driveFileId);
-  const linked=(_sharedDocsCache||[]).filter(d=>!d.driveFileId&&d.url).map(d=>_extractGdriveId(d.url)).filter(Boolean);
-  const allIds=[...new Set([...uploaded,...linked])];
+  const _readDriveFiles=function(){
+    const uploaded=(_sharedDocsCache||[]).filter(d=>d.driveFileId&&d.driveFileId.length>10).map(d=>d.driveFileId);
+    const linked=(_sharedDocsCache||[]).filter(d=>!d.driveFileId&&d.url).map(d=>_extractGdriveId(d.url)).filter(Boolean);
+    const allIds=[...new Set([...uploaded,...linked])];
+    if(!CONFIG.sheetsUrl||!allIds.length){
+      _caiReady=true; _caiRenderBadge(); _caiGreet(); return;
+    }
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'ops_context_read',docIds:allIds})})
+      .then(r=>r.json())
+      .then(data=>{ _caiDocContents=(data&&data.contents)?data.contents:{}; })
+      .catch(()=>{ _caiDocContents={}; })
+      .finally(()=>{ _caiReady=true; _caiRenderBadge(); _caiGreet(); });
+  };
 
-  if(!CONFIG.sheetsUrl||!allIds.length){
-    _caiReady=true; _caiRenderBadge(); _caiGreet(); return;
+  // If docs tab hasn't been visited yet, fetch the doc list ourselves first
+  if(_sharedDocsCache&&_sharedDocsCache.length){
+    _readDriveFiles();
+  } else if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl+'?action=docs_read')
+      .then(r=>r.json())
+      .then(data=>{ if(Array.isArray(data.docs)) _sharedDocsCache=data.docs; })
+      .catch(()=>{})
+      .finally(_readDriveFiles);
+  } else {
+    _readDriveFiles();
   }
-
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'ops_context_read',docIds:allIds})})
-    .then(r=>r.json())
-    .then(data=>{ _caiDocContents=(data&&data.contents)?data.contents:{}; })
-    .catch(()=>{ _caiDocContents={}; })
-    .finally(()=>{ _caiReady=true; _caiRenderBadge(); _caiGreet(); });
 }
 
 function _caiRenderBadge(){
