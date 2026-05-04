@@ -22131,6 +22131,7 @@ function _ccKsBuildLp(){
       console.log('[CC] _campLastLp set:',_campLastLp?_campLastLp.hero_headline:'NULL');
       var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
       var fields=[
+        ['Campaign ID',          safe(_campBrief.id||'—')],
         ['Hero Headline',        safe(lp.hero_headline||'')],
         ['Hero Subheadline',     safe(lp.hero_subheadline||'')],
         ['Hero CTA',             safe(lp.hero_cta||'')],
