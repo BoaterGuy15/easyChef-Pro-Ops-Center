@@ -60,7 +60,7 @@ function campaignKickstart(prompt) {
     '  "problem_block": "Agitate step — 2 sentences making the pain feel real and present",\n' +
     '  "agitate_block": "One honest specific sentence deepening the pain",\n' +
     '  "solve_block": "One clear sentence introducing easyChef Pro as the answer",\n' +
-    '  "proof_bar": "Three approved claims separated by · character",\n' +
+    '  "proof_bar": ["exact wording claim 1 from approved list", "exact wording claim 2", "exact wording claim 3"],\n' +
     '  "cta_primary": "Outcome-framed CTA, low friction, under 8 words",\n' +
     '  "social_hook": "Scroll-stopper first line, under 15 words",\n' +
     '  "share_mechanic": "Viral thank-you page prompt — 1 sentence, peer-to-peer framing, references the saving",\n' +

@@ -21697,7 +21697,8 @@ function _ccRenderCopyOutput(copy,b){
     email_subject_a:safeStr(copy.email_subject_a||''),
     email_subject_b:safeStr(copy.email_subject_b||''),
     lp_hero:safeStr(copy.lp_hero||''),
-    proof_bar:Array.isArray(copy.proof_bar)?copy.proof_bar.map(function(s){return safeStr(s);}):['—','—','—'],
+    proof_bar:Array.isArray(copy.proof_bar)?copy.proof_bar.map(function(s){return safeStr(s);}):
+      (typeof copy.proof_bar==='string'&&copy.proof_bar.trim()?copy.proof_bar.split('·').map(function(s){return safeStr(s.trim());}):['—','—','—']),
     cta_primary:safeStr(copy.cta_primary||''),
     social_hook:safeStr(copy.social_hook||''),
     share_mechanic:safeStr(copy.share_mechanic||'')
