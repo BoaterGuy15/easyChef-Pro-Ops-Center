@@ -21551,7 +21551,8 @@ function _ccSetSelect(id,value){
     if(el.options[i].text.trim().toLowerCase()===v||
        el.options[i].value.trim().toLowerCase()===v){
       el.selectedIndex=i;
-      el.dispatchEvent(new Event('change'));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+      el.dispatchEvent(new Event('input',{bubbles:true}));
       return;
     }
   }
