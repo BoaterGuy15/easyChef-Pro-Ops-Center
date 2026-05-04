@@ -21627,12 +21627,29 @@ function _ccAutoFillBrief(campaign){
     _ccSetSelect('cc-channel',_campBrief.channel);
     console.log('[CC] after channel set:', document.getElementById('cc-channel').value);
 
-    // Wait for change-event cascade to finish, then restore values one final time
+    // Switch to brief tab (ensures panel is visible), then set values in the live DOM
     setTimeout(function(){
-      _ccRestoreBriefValues();
-      _ccAutoSlug();
-      setTimeout(_ccCheckSlug,100);
-      console.log('[CC] final restore complete — icp:',document.getElementById('cc-icp').value);
+      _campBrief.name    = finalName;
+      _campBrief.icp     = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||'';
+      _campBrief.funnel  = campaign.blueprint||'';
+      _campBrief.channel = campaign.channel_recommendation||'';
+      _campBrief.slug    = campaign.slug||'';
+
+      _campSwitchTab('brief');
+
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          _ccSetSelect('cc-icp',    _campBrief.icp);
+          _ccSetSelect('cc-funnel', _campBrief.funnel);
+          _ccSetSelect('cc-channel',_campBrief.channel);
+          var nameEl=document.getElementById('cc-name');
+          if(nameEl) nameEl.value=_campBrief.name;
+          var slugEl=document.getElementById('cc-slug');
+          if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
+          console.log('[CC] post-tab-switch icp:',document.getElementById('cc-icp').value);
+          setTimeout(_ccCheckSlug,100);
+        });
+      });
     },200);
     console.log('[CC] trySetDropdowns complete');
   }
