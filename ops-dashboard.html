@@ -21318,17 +21318,10 @@ function _ccRenderBrief(){
         _ccField('Campaign Name','cc-name','text',b.name,'','e.g. Waitlist A/B Test May 2026')+
         _ccField('Target ICP','cc-icp','select',b.icp,_CC_ICPS,'')+
         _ccField('Funnel Blueprint','cc-funnel','select',b.funnel,_CC_FUNNELS,'')+
-        (function(){
-          var base='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
-          var loading=CONFIG.sheetsUrl&&!_ccChannelsLoaded;
-          var opts=loading
-            ?'<option value="">Loading channels…</option>'
-            :'<option value="">— select —</option>'+_ccChannels.filter(function(c){return c.status==='active';}).map(function(c){return '<option value="'+c.name+'"'+(b.channel===c.name?' selected':'')+'>'+c.name+'</option>';}).join('');
-          return '<div style="margin-bottom:14px">'+
-            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Primary Channel</label>'+
-            '<select id="cc-channel" style="'+base+(loading?';opacity:0.5':'')+'" onchange="_ccBriefSync()"'+(loading?' disabled':'')+'>'+opts+'</select>'+
-          '</div>';
-        })()+
+        '<div style="margin-bottom:14px">'+
+        '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Primary Channel</label>'+
+        '<select id="cc-channel" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box" onchange="_ccBriefSync()"></select>'+
+        '</div>'+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
         (function(){
           var ibase='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
@@ -22368,7 +22361,7 @@ function _campSwitchTab(t){
   });
   var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
   var panel=_ccEl('cc-panel'); if(!panel) return;
-  if(t==='brief'){panel.innerHTML=_ccRenderBrief();if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
+  if(t==='brief'){panel.innerHTML=_ccRenderBrief();_ccPopulateChannelSelect(_ccChannels);if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
   else if(t==='utm') panel.innerHTML=_ccRenderUTM();
   else if(t==='registry'){panel.innerHTML=_ccRenderRegistry();setTimeout(_ccRedrawReg,120);}
   else if(t==='seo'){
