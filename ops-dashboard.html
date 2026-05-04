@@ -730,6 +730,17 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
   .aml-item-note{display:none}
   .aml-stats{grid-template-columns:repeat(2,1fr)}
 }
+/* ── Campaign Center select visibility fix ─────────────────────────────────
+   Windows browsers render <select> with system colors, ignoring CSS vars.
+   Hardcode bg + text so selected value is always visible on dark theme.   */
+#cc-icp,#cc-funnel,#cc-channel,#cc-goal{
+  background:#0b0d10 !important;
+  color:#e8eaf0 !important;
+}
+#cc-icp option,#cc-funnel option,#cc-channel option,#cc-goal option{
+  background:#0b0d10;
+  color:#e8eaf0;
+}
 </style>
 </head>
 <body>
