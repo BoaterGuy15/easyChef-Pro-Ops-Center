@@ -21336,7 +21336,7 @@ function _ccRenderBrief(){
         _ccField('Funnel Blueprint','cc-funnel','select',b.funnel,_CC_FUNNELS,'')+
         '<div style="margin-bottom:14px">'+
         '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Primary Channel</label>'+
-        '<select id="cc-channel" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box" onchange="_ccBriefSync();_ccRefreshPostPlatform()"></select>'+
+        '<select id="cc-channel" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box" onchange="_ccBriefSync();_ccRefreshPostPlatform();_ccRefreshChannelLabel()"></select>'+
         '</div>'+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
         (function(){
@@ -21679,6 +21679,7 @@ function _ccAutoFillBrief(campaign){
           setTimeout(_ccCheckSlug,100);
           var hdr=document.getElementById('cc-ks-copy-hdr');
           if(hdr) hdr.textContent=(_campBrief.id||'')+' · '+(_campBrief.icp||'')+' · '+(_campBrief.channel||'');
+          _ccRefreshChannelLabel();
         });
       });
     },200);
@@ -21905,7 +21906,7 @@ function _ccRenderKickstartAssets(campaign){
         'Traffic drivers that send visitors to the landing page. Each asset carries its own DL_ID so attribution is tracked per asset.'
       )+
       '<div style="padding:14px 16px">'+
-        '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Channel: <span style="color:var(--text);font-weight:700">'+channel+'</span> · Assets link to the LP selected above with unique DL_IDs</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Channel: <span id="cc-ks-channel-label" style="color:var(--text);font-weight:700">'+channel+'</span> · Assets link to the LP selected above with unique DL_IDs</div>'+
         '<button id="cc-ks-asset-btn" onclick="_ccKsBuildAssets(\''+assetAction+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">'+
           assetLabel+
         '</button>'+
@@ -22224,6 +22225,18 @@ function _ccRefreshPostPlatform(){
   var postsEl=document.getElementById('cc-ks-asset-output');
   if(!postsEl||!_ccLastPosts||!_ccLastPosts.length) return;
   _ccRenderSocialPosts(_ccLastPosts,postsEl,_campBrief.channel);
+}
+
+function _ccRefreshChannelLabel(){
+  var ch=_campBrief.channel||'';
+  var chLabel=document.getElementById('cc-ks-channel-label');
+  if(chLabel) chLabel.textContent=ch||'Facebook';
+  var btn=document.getElementById('cc-ks-asset-btn');
+  if(btn){
+    var isEmail=ch==='Email';
+    btn.textContent=isEmail?'Build Email Sequence (SEQ-1 + SEQ-2)':'Build '+(ch||'Social')+' Social Posts (5 posts)';
+    btn.onclick=function(){_ccKsBuildAssets(isEmail?'build_email_sequence':'build_social_posts');};
+  }
 }
 
 // ── Panel 2: UTM Generator ──────────────────────────────────────────────────
