@@ -21257,11 +21257,6 @@ var _EMAIL_SEQS=[
 // ── Campaign Center state & constants ──────────────────────────────────────
 var _campActiveTab='brief';
 var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
-Object.defineProperty(_campBrief,'goal',{
-  get:function(){return this._goal||'';},
-  set:function(v){console.log('[CC] _campBrief.goal set to:',v,new Error().stack.split('\n').slice(1,4).join(' | '));this._goal=v;},
-  configurable:true
-});
 var _campDLCache=[];
 var _campPerfCache={};
 var _campKickstartCopy=null;
@@ -21313,7 +21308,6 @@ function _ccField(lbl,id,type,val,opts,hint){
 
 // ── Panel 1: Brief Builder ──────────────────────────────────────────────────
 function _ccRenderBrief(){
-  console.log('[CC] brief re-rendered');
   var b=_campBrief;
   var idField=
     '<div style="margin-bottom:14px">'+
@@ -21576,11 +21570,7 @@ function _ccSetSelect(id,value){
 
 // ── Restore _campBrief values to DOM after any innerHTML re-render ───────────
 function _ccRestoreBriefValues(){
-  console.log('[CC] restoreBriefValues called');
-  if(!_campBrief.icp&&!_campBrief.name&&!_campBrief.channel){
-    console.log('[CC] restoreBriefValues skipped — campBrief empty');
-    return;
-  }
+  if(!_campBrief.icp&&!_campBrief.name&&!_campBrief.channel) return;
   var nameEl=document.getElementById('cc-name');
   if(nameEl&&_campBrief.name) nameEl.value=_campBrief.name;
   _ccSetSelect('cc-icp',    _campBrief.icp||'');
@@ -21594,7 +21584,6 @@ function _ccRestoreBriefValues(){
 // ── Brief auto-fill — retries until dropdowns are populated ─────────────────
 // Real field IDs: cc-id, cc-name, cc-icp, cc-funnel, cc-channel
 function _ccAutoFillBrief(campaign){
-  console.log('[CC] autoFill called', campaign);
   if(!campaign) return;
   var attempts=0;
   var maxAttempts=20; // 20 × 100ms = 2 seconds max
@@ -21605,8 +21594,6 @@ function _ccAutoFillBrief(campaign){
     var chEl=document.getElementById('cc-channel');
     var icpReady=icpEl&&icpEl.options.length>1;
     var chReady=chEl&&chEl.options.length>1;
-    console.log('[CC] attempt',attempts,'icp options:',icpEl?icpEl.options.length:'NOT FOUND','ch options:',chEl?chEl.options.length:'NOT FOUND');
-
     if(!icpReady||!chReady){
       if(attempts<maxAttempts) setTimeout(trySetDropdowns,100);
       return;
@@ -21615,12 +21602,6 @@ function _ccAutoFillBrief(campaign){
     // Dropdowns are populated — log options and match targets before setting
     var icpEl2=document.getElementById('cc-icp');
     var bpEl=document.getElementById('cc-funnel');
-    var chEl2=document.getElementById('cc-channel');
-    console.log('[CC] icp options:',Array.from(icpEl2.options).map(function(o){return o.text;}));
-    console.log('[CC] blueprint options:',Array.from(bpEl.options).map(function(o){return o.text;}));
-    console.log('[CC] channel options:',Array.from(chEl2.options).map(function(o){return o.text;}));
-    console.log('[CC] trying to match:',campaign.icp_match,campaign.blueprint,campaign.channel_recommendation);
-
     // Lock values into _campBrief before any DOM write
     _campBrief.icp     = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||_campBrief.icp||'';
     _campBrief.funnel  = campaign.blueprint||_campBrief.funnel||'';
@@ -21634,9 +21615,7 @@ function _ccAutoFillBrief(campaign){
     _goalMap['E'+'-'+'Content']         ='waitlist_signup_completed';
     _goalMap['F'+'-'+'Affiliate']       ='waitlist_signup_completed';
     _goalMap['G'+'-'+'Paywall Recovery']='subscription_started';
-    var _funnelKey=(_campBrief.funnel||'').trim();
-    console.log('[CC] goalMap lookup key:',JSON.stringify(_funnelKey),'charCodes:',_funnelKey.split('').map(function(c){return c.charCodeAt(0);}).join(','));
-    _campBrief.goal=_goalMap[_funnelKey]||'waitlist_signup_completed';
+    _campBrief.goal=_goalMap[(_campBrief.funnel||'').trim()]||'waitlist_signup_completed';
 
     // Campaign Name — append ID number for uniqueness
     var idEl=document.getElementById('cc-id');
@@ -21648,11 +21627,8 @@ function _ccAutoFillBrief(campaign){
 
     // Apply to DOM — change events may trigger re-renders; the 200ms restore below wins
     _ccSetSelect('cc-icp',    _campBrief.icp);
-    console.log('[CC] after icp set:', document.getElementById('cc-icp').value);
     _ccSetSelect('cc-funnel', _campBrief.funnel);
-    console.log('[CC] after funnel set:', document.getElementById('cc-funnel').value);
     _ccSetSelect('cc-channel',_campBrief.channel);
-    console.log('[CC] after channel set:', document.getElementById('cc-channel').value);
 
     // Activate brief tab visually without re-rendering cc-panel, then paint values
     setTimeout(function(){
@@ -21688,39 +21664,19 @@ function _ccAutoFillBrief(campaign){
           // Set name in DOM first so _ccBriefSync reads it when selects fire change events
           var nameEl=document.getElementById('cc-name');
           if(nameEl) nameEl.value=_rName;
-          console.log('[CC] name set to:',_rName);
           _ccSetSelect('cc-icp',    _rIcp);
           _ccSetSelect('cc-funnel', _rFunnel);
           _ccSetSelect('cc-channel',_rChannel);
           _ccSetSelect('cc-goal',   _rGoal);
-          console.log('[CC] goal set to:',_rGoal,'from funnel:',_rFunnel);
           var slugEl=document.getElementById('cc-slug');
           if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
-          console.log('[CC] post-tab-switch icp:',document.getElementById('cc-icp').value);
           setTimeout(_ccCheckSlug,100);
         });
       });
     },200);
-    console.log('[CC] trySetDropdowns complete');
   }
 
   trySetDropdowns();
-
-  // Temporary MutationObserver to catch what replaces cc-icp after restore
-  setTimeout(function(){
-    var target=document.getElementById('cc-icp');
-    if(!target) return;
-    var parent=target.parentNode;
-    var observer=new MutationObserver(function(mutations){
-      mutations.forEach(function(m){
-        console.log('[CC] MUTATION detected on icp parent:',m.type,
-          'new icp value:',document.getElementById('cc-icp')?document.getElementById('cc-icp').value:'ELEMENT GONE',
-          new Error().stack.split('\n')[1]);
-      });
-    });
-    observer.observe(parent,{childList:true,subtree:true,attributes:true});
-    console.log('[CC] MutationObserver watching cc-icp parent');
-  },250);
 }
 
 // ── Campaign Kickstart ──────────────────────────────────────────────────────
