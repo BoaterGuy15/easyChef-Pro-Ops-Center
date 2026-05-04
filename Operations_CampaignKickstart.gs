@@ -56,7 +56,7 @@ function campaignKickstart(prompt) {
     '  "icp_code": "snake_case ICP key (e.g. super_mom)",\n' +
     '  "blueprint": "Funnel type — one of: A-Waitlist, B-App Download, C-Referral, D-Re-engagement, E-Content, F-Affiliate, G-Paywall Recovery",\n' +
     '  "campaign_name": "Short descriptive campaign name",\n' +
-    '  "channel_recommendation": "Primary channel — one of: Email, Facebook, Instagram, TikTok, Pinterest, Nextdoor, Organic, Affiliate, Direct",\n' +
+    '  "channel_recommendation": "Primary channel — one of: Email, Facebook, Instagram, TikTok, Pinterest, Nextdoor, YouTube, X, Reddit, Organic, Affiliate, Direct",\n' +
     '  "slug": "Landing page slug path e.g. lp/waitlist-a",\n' +
     '  "headline": "Hook step — stops the scroll, specific to the ICP pain",\n' +
     '  "subheadline": "Problem step — names the exact pain in one plain sentence",\n' +

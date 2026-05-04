@@ -21266,7 +21266,7 @@ var _CC_BEIGE='#F6EFE8';
 var _CC_ICPS=['Super Mom','Budget Family','Health Optimizer','Professional','Alpha Recruit'];
 var _CC_FUNNELS=['A-Waitlist','B-App Download','C-Referral','D-Re-engagement','E-Content','F-Affiliate','G-Paywall Recovery'];
 var _CC_GOALS=['waitlist_signup_completed','app_install','subscription_started','referral_converted'];
-var _CC_CAMPAIGN_VALID=['ec-2026-001','ec-2026-005'];
+var _CC_CAMPAIGN_VALID=['ec-2026-001','ec-2026-005','yt_super_mom','yt_waste','yt_origin','x_super_mom','x_waste','reddit_community','reddit_easychef'];
 var _ccChannels=[
   {name:'Email',     slug_code:'email',    utm_medium:'email',     utm_source:'klaviyo',   dl_prefix:'EM', status:'active'},
   {name:'Facebook',  slug_code:'fb',       utm_medium:'social',    utm_source:'facebook',  dl_prefix:'SOC',status:'active'},
@@ -21279,7 +21279,8 @@ var _ccChannels=[
   {name:'Direct',    slug_code:'direct',   utm_medium:'referral',  utm_source:'convertkit',dl_prefix:'DIR',status:'active'},
   {name:'YouTube',   slug_code:'yt',       utm_medium:'video',     utm_source:'youtube',   dl_prefix:'SOC',status:'active'},
   {name:'X',         slug_code:'x',        utm_medium:'social',    utm_source:'x',         dl_prefix:'SOC',status:'active'},
-  {name:'Reddit',    slug_code:'reddit',   utm_medium:'community', utm_source:'reddit',    dl_prefix:'SOC',status:'active'}
+  {name:'Reddit',    slug_code:'reddit',   utm_medium:'community', utm_source:'reddit',    dl_prefix:'SOC',status:'active'},
+  {name:'Vimeo',     slug_code:'vimeo',    utm_medium:'video',     utm_source:'vimeo',     dl_prefix:'SOC',status:'active'}
 ];
 var _ccChannelsLoaded=false;
 var _ccChFormMode=null; // null=none, '__new__'=add form, channel_name=editing that row
@@ -22526,7 +22527,7 @@ function _ccFlowBanner(){
 }
 
 // ── Panel: Channels ─────────────────────────────────────────────────────────
-var _UTM_MEDIUMS=['email','social','paid_social','content','affiliate','referral','direct'];
+var _UTM_MEDIUMS=['email','social','paid_social','video','community','content','affiliate','referral','direct'];
 
 function _ccChInp(id,label,val,ph,extra){
   return '<div>'+

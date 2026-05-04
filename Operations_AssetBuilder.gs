@@ -186,7 +186,10 @@ function buildSocialPosts(brief, copy) {
     'Instagram': 'Instagram — hook in first line (stops the scroll), body 3-5 sentences, CTA to link in bio. Max 2200 chars but first 125 are most important.',
     'TikTok':    'TikTok — script for 30-second video. Hook (first 3 seconds), problem, solve, CTA to link in bio.',
     'Pinterest': 'Pinterest — Pin title (under 100 chars) + description (under 500 chars). Keyword-rich, aspirational, action-oriented.',
-    'Nextdoor':  'Nextdoor — hyperlocal, neighbour-to-neighbour tone. Short, honest, community-focused. No corporate language.'
+    'Nextdoor':  'Nextdoor — hyperlocal, neighbour-to-neighbour tone. Short, honest, community-focused. No corporate language.',
+    'YouTube':   'YouTube — video script format. Hook in first 30 seconds. Description SEO optimised with link in first line. Pin a comment with the LP link.',
+    'X':         'X (Twitter) — max 280 chars. No hashtags needed for organic reach. Post URL in first reply not in the main post to protect reach.',
+    'Reddit':    'Reddit — community tone only. Never promotional. Lead with genuine value. Mention easyChef Pro naturally if relevant. Post to r/easyChefPro and u/easyChef_Pro.'
   };
 
   var platformNote = platformNotes[channel] || ('Social post for ' + channel + '. Concise, platform-appropriate.');

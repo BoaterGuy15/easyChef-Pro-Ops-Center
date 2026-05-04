@@ -221,7 +221,8 @@ function _setupCampaignSheets() {
     ['standard_price',   'pricing',           '$19.99/month',                                             true,  'Taylor','',now,''],
     ['annual_price',     'pricing',           '$191.88/year ($15.99/month)',                              true,  'Taylor','',now,''],
     ['origin',           'brand',             'Built by first responders',                                true,  'Taylor','',now,''],
-    ['roi_framing',      'roi',               '$10/$111 (11:1 ROI)',                                      false, '',      '',now,'PENDING APPROVAL — requires Taylor sign-off before use']
+    ['roi_framing',      'roi',               '$10/$111 (11:1 ROI)',                                      false, '',      '',now,'PENDING APPROVAL — requires Taylor sign-off before use'],
+    ['reddit_tone',      'channel_rule',      'Reddit: community-first tone — never direct promotion. Lead with genuine value. Mention easyChef Pro naturally only.', true, 'Taylor','',now,'Required for all Reddit posts — r/easyChefPro and u/easyChef_Pro']
   ];
   claimSeed.forEach(function(row) { claimSheet.appendRow(row); });
 
