@@ -21259,6 +21259,8 @@ var _campActiveTab='brief';
 var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
 var _campDLCache=[];
 var _campPerfCache={};
+var _campUtmUrls=[];
+var _campUtmConflict=null;
 var _campKickstartCopy=null;
 var _campLastLp=null;
 var _campSlugStatus=''; // '' unchecked, 'ok' available, 'taken' conflict
@@ -21616,6 +21618,8 @@ function _ccNewCampaign(){
   _campLastLp=null;
   _campSlugStatus='';
   _ccLastPosts=[];
+  _campUtmUrls=[];
+  _campUtmConflict=null;
   _campSwitchTab('brief');
 }
 
@@ -22302,69 +22306,183 @@ function _ccRefreshChannelLabel(){
 }
 
 // ── Panel 2: UTM Generator ──────────────────────────────────────────────────
+function _ccSanitiseCampaignCode(name){
+  return (name||'').toLowerCase()
+    .replace(/['\-]/g,'')
+    .replace(/[^a-z0-9]+/g,'_')
+    .replace(/^_+|_+$/g,'')
+    .substring(0,50);
+}
+function _ccBuildUtmAssets(){
+  var b=_campBrief;
+  var isEmail=b.channel==='Email';
+  var desc=['post1_hook','post2_problem','post3_solve','post4_proof','post5_urgency'];
+  var assets=[];
+  if(_campLastLp) assets.push({asset_name:'Landing Page',descriptor:'lp',asset_type:'lp'});
+  (_ccLastPosts||[]).forEach(function(p,i){
+    var d=desc[i]||('post'+(i+1));
+    var label=isEmail
+      ?('Email '+(i+1)+' — '+(p.subject||p.hook||'').substring(0,40))
+      :('Post '+(i+1)+' — '+(p.hook||'').substring(0,40));
+    assets.push({asset_name:label,descriptor:d,asset_type:isEmail?'email':'post'});
+  });
+  return assets;
+}
 function _ccRenderUTM(){
   var b=_campBrief;
   if(!b.id||!b.channel) return '<div style="max-width:760px">'+_ccSecHdr('🔗 Panel 2 — UTM Generator')+'<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--muted);font-size:13px">Complete the Campaign Brief first, then return here to generate UTM URLs.<div style="margin-top:16px">'+_ccBtn('← Go to Brief','_campSwitchTab(\'brief\')',true)+'</div></div></div>';
-  var base='https://easychefpro.com/'+(b.slug||'').replace(/^\//,'');
-  var code=(b.id||'').toLowerCase();
-  var isValid=_CC_CAMPAIGN_VALID.indexOf(code)!==-1||/^ec-\d{4}-\d{3}$/.test(code);
-  var codeBadge=isValid?'<span style="font-size:10px;color:#22c55e;margin-left:6px">✓ valid</span>':'<span style="font-size:10px;color:'+_CC_RED+';margin-left:6px">⚠ not in approved list</span>';
-  var channels=[b.channel];
-  if(b.channel!=='Email') channels.push('Email');
-  var rows=channels.map(function(ch,i){
-    var chObj=_ccCh(ch);
-    var med=chObj.utm_medium;
-    var src=chObj.utm_source;
-    var pfx=chObj.dl_prefix;
-    var dlId=pfx+'-'+code.replace(/[^a-z0-9]/g,'').toUpperCase()+'-'+String(i+1).padStart(4,'0');
-    var content=dlId+'_'+ch.toLowerCase().replace(/\s+/g,'');
-    var url=base+'?utm_source='+src+'&utm_medium='+med+'&utm_campaign='+code+'&utm_content='+content;
-    var inputId='cc-utm-'+i;
-    return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:8px">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">'+
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-          '<span style="font-size:11px;font-weight:700;color:var(--text)">'+ch+'</span>'+
-          '<span style="font-size:10px;padding:1px 7px;border-radius:4px;background:'+_CC_BEIGE+';color:#000;border:1px solid #0001">'+med+' / '+src+'</span>'+
-          '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+_CC_RED+';background:rgba(255,0,0,0.06);padding:1px 7px;border-radius:4px;border:1px solid rgba(255,0,0,0.2)">'+dlId+'</span>'+
-        '</div>'+
-        '<div style="display:flex;gap:6px">'+
-          _ccBtn('Copy','_ccCopyInput(\''+inputId+'\')',false)+
-          _ccBtn('Register DL','_ccRegisterDL(\''+dlId+'\',\''+content+'\',\''+base+'\',\''+b.id+'\',\''+ch+'\')',true)+
-        '</div>'+
-      '</div>'+
-      '<input id="'+inputId+'" readonly value="'+url+'" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:7px 10px;font-family:\'DM Mono\',monospace;font-size:11px;box-sizing:border-box">'+
-    '</div>';
-  }).join('');
+  var code=_ccSanitiseCampaignCode(b.name||b.id);
+  var isValid=_CC_CAMPAIGN_VALID.indexOf((b.id||'').toLowerCase())!==-1||/^ec-\d{4}-\d{3}$/.test((b.id||'').toLowerCase());
+  var codeBadge=isValid?'<span style="font-size:10px;color:#22c55e;margin-left:4px">✓</span>':'';
+  var lpCount=_campLastLp?1:0;
+  var postCount=(_ccLastPosts||[]).length;
+  var total=lpCount+postCount;
+  var badges=(lpCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.2);color:'+_CC_RED+'">1 LP</span> ':'')+(postCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.05);border:1px solid var(--border);color:var(--text)">'+postCount+' post'+(postCount!==1?'s':'')+'</span>':'')+(!total?'<span style="font-size:10px;color:var(--muted)">No assets built yet — build an LP or posts in Panel 1 first</span>':'');
+  var existingTable=(_campUtmUrls&&_campUtmUrls.length)?_ccRenderUtmTable(_campUtmUrls):'<div style="padding:30px;text-align:center;color:var(--muted);font-size:12px">Click Generate All URLs to create one tracking link per asset.</div>';
   return '<div style="max-width:960px">'+
     _ccSecHdr('🔗 Panel 2 — UTM Generator')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px">'+
       '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">'+
-        '<span style="font-size:13px;font-weight:700;color:var(--text)">'+b.id+' — '+b.name+'</span>'+
-        '<span style="font-size:11px;color:var(--muted)">Goal: <b>'+b.goal+'</b></span>'+
-        '<span style="font-size:11px;color:var(--muted)">utm_campaign: <code style="color:'+_CC_RED+'">'+code+'</code>'+codeBadge+'</span>'+
+        '<span style="font-size:13px;font-weight:700;color:var(--text)">'+b.id+(b.name?' — '+b.name:'')+'</span>'+
+        '<span style="font-size:11px;color:var(--muted)">'+b.channel+'</span>'+
+        '<code style="font-size:10px;color:'+_CC_RED+';background:rgba(255,0,0,0.06);padding:2px 7px;border-radius:4px;border:1px solid rgba(255,0,0,0.2)">utm_campaign='+code+'</code>'+codeBadge+
+        '<div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+badges+'</div>'+
       '</div>'+
-      rows+
-      '<div style="margin-top:10px;font-size:11px;color:var(--muted)">utm_content = [DL_ID]_[descriptor] · Click Register DL to add to Deep Link Registry with STATUS = DRAFT</div>'+
+      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">'+
+        '<button id="cc-utm-gen-btn" onclick="_ccGenerateAllUrls(false)" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Generate All URLs</button>'+
+        '<span style="font-size:11px;color:var(--muted)">One DL_ID per asset · writes to DeepLinkRegistry as DRAFT</span>'+
+      '</div>'+
+      '<div id="cc-utm-confirm" style="display:none;padding:14px 16px;background:rgba(255,153,0,0.06);border:1px solid rgba(255,153,0,0.35);border-radius:8px;margin-bottom:14px">'+
+        '<div style="font-size:12px;color:var(--text);margin-bottom:10px">DL_IDs already exist for this campaign. What would you like to do?</div>'+
+        '<div style="display:flex;gap:8px">'+
+          '<button onclick="_ccUseExistingUrls()" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Use existing</button>'+
+          '<button onclick="_ccGenerateAllUrls(true)" style="background:'+_CC_RED+';border:none;color:#fff;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Yes, regenerate</button>'+
+        '</div>'+
+      '</div>'+
+      '<div id="cc-utm-result">'+existingTable+'</div>'+
     '</div>'+
   '</div>';
 }
-function _ccCopyInput(id){
-  var el=_ccEl(id); if(!el) return;
-  el.select();
-  try{document.execCommand('copy');}catch(e){}
-  _showToast('<div style="color:#22c55e;font-size:12px">Copied to clipboard</div>',1800);
-}
-function _ccRegisterDL(dlId,content,dest,campId,channel){
-  if(_campDLCache.find(function(d){return (d.dlId||d.dl_id)===dlId;})){
-    _showToast('<div style="color:var(--muted);font-size:12px">'+dlId+' already in registry</div>',2000);
+function _ccGenerateAllUrls(force){
+  var b=_campBrief;
+  if(!b.id||!b.channel){_showToast('<div style="color:'+_CC_RED+';font-size:12px">Complete the Campaign Brief first.</div>',3000);return;}
+  var confirmEl=document.getElementById('cc-utm-confirm');
+  var resultEl=document.getElementById('cc-utm-result');
+  var btn=document.getElementById('cc-utm-gen-btn');
+  if(confirmEl) confirmEl.style.display='none';
+  if(btn){btn.disabled=true;btn.textContent='Generating…';}
+  var assets=_ccBuildUtmAssets();
+  if(!assets.length){
+    if(btn){btn.disabled=false;btn.textContent='Generate All URLs';}
+    if(resultEl) resultEl.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">No assets found. Build an LP or posts in Panel 1 first.</div>';
     return;
   }
-  var entry={dlId:dlId,content:content,destination:dest,campaign:campId,channel:channel||'',status:'DRAFT',createdAt:new Date().toISOString()};
-  _campDLCache.push(entry);
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deeplinks_write',entry:entry})}).catch(function(){});
-  _showToast('<div style="color:#22c55e;font-size:12px">'+dlId+' registered as DRAFT</div>',2500);
-  var banner=_ccEl('cc-flow-banner');
-  if(banner) banner.innerHTML=_ccFlowBanner();
+  var code=_ccSanitiseCampaignCode(b.name||b.id);
+  if(!CONFIG.sheetsUrl){
+    var chFb=_ccCh(b.channel);
+    var ctr=1;
+    var localUrls=assets.map(function(a){
+      var pfx=a.asset_type==='lp'?'LP':(chFb.dl_prefix||'SOC');
+      var dlId='DL-'+pfx+'-'+String(ctr++).padStart(4,'0');
+      var content=dlId+'_'+a.descriptor;
+      var base='https://easychefpro.com/'+(b.slug||'').replace(/^\//,'');
+      var url=base+'?utm_source='+chFb.utm_source+'&utm_medium='+chFb.utm_medium+'&utm_campaign='+code+'&utm_content='+content;
+      return {asset_name:a.asset_name,dl_id:dlId,utm_content:content,full_url:url,status:'DRAFT'};
+    });
+    _campUtmUrls=localUrls;
+    if(btn){btn.disabled=false;btn.textContent='Generate All URLs';}
+    if(resultEl) resultEl.innerHTML=_ccRenderUtmTable(localUrls);
+    return;
+  }
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+    action:'generate_utm_urls',
+    brief:{id:b.id,name:b.name,channel:b.channel,slug:b.slug,goal:b.goal},
+    assets:assets,
+    utm_campaign:code,
+    force:!!force
+  })})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(btn){btn.disabled=false;btn.textContent='Generate All URLs';}
+      if(!d.ok){
+        if(resultEl) resultEl.innerHTML='<div style="padding:16px;font-size:11px;color:'+_CC_RED+'">Generate failed: '+(d.error||'Unknown error')+'</div>';
+        return;
+      }
+      if(d.conflict&&!force){
+        _campUtmConflict=d.urls||[];
+        if(confirmEl) confirmEl.style.display='block';
+        if(resultEl) resultEl.innerHTML='';
+        return;
+      }
+      _campUtmUrls=d.urls||[];
+      _campUtmConflict=null;
+      if(resultEl) resultEl.innerHTML=_ccRenderUtmTable(_campUtmUrls);
+      var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
+    })
+    .catch(function(e){
+      if(btn){btn.disabled=false;btn.textContent='Generate All URLs';}
+      if(resultEl) resultEl.innerHTML='<div style="padding:16px;font-size:11px;color:'+_CC_RED+'">Request failed: '+e.message+'</div>';
+    });
+}
+function _ccUseExistingUrls(){
+  var confirmEl=document.getElementById('cc-utm-confirm');
+  var resultEl=document.getElementById('cc-utm-result');
+  if(confirmEl) confirmEl.style.display='none';
+  if(_campUtmConflict&&_campUtmConflict.length){
+    _campUtmUrls=_campUtmConflict;
+    _campUtmConflict=null;
+    if(resultEl) resultEl.innerHTML=_ccRenderUtmTable(_campUtmUrls);
+  }
+}
+function _ccRenderUtmTable(urls){
+  if(!urls||!urls.length) return '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">No URLs generated.</div>';
+  var activeCount=urls.filter(function(u){return (u.status||'').toUpperCase()==='ACTIVE';}).length;
+  var draftCount=urls.filter(function(u){return (u.status||'').toUpperCase()==='DRAFT';}).length;
+  var rows=urls.map(function(u,i){
+    var st=(u.status||'DRAFT').toUpperCase();
+    var stColor=st==='ACTIVE'?'#22c55e':st==='PAUSED'?'#eab308':'var(--muted)';
+    var isLp=(u.dl_id||'').indexOf('DL-LP-')===0;
+    var safeUrl=(u.full_url||'').replace(/&/g,'&amp;');
+    return '<div style="padding:12px 16px;border-bottom:1px solid var(--border)'+(isLp?';background:rgba(255,0,0,0.025)':'')+'" >'+
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+
+        '<span style="font-size:11px;font-weight:700;color:var(--text);min-width:180px">'+u.asset_name+'</span>'+
+        '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+_CC_RED+';background:rgba(255,0,0,0.06);padding:2px 8px;border-radius:4px;border:1px solid rgba(255,0,0,0.2)">'+u.dl_id+'</span>'+
+        '<span style="font-size:10px;color:'+stColor+';padding:1px 7px;border-radius:100px;border:1px solid '+stColor+'44;background:'+stColor+'11">'+st+'</span>'+
+        '<div style="display:flex;gap:6px;margin-left:auto">'+
+          '<button onclick="_ccCopyUtmUrl('+i+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Copy URL</button>'+
+          (st==='DRAFT'?'<button onclick="_ccActivateDL(\''+u.dl_id+'\')" style="background:transparent;border:1px solid rgba(34,197,94,0.4);color:#22c55e;padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Activate →</button>':'')+
+        '</div>'+
+      '</div>'+
+      '<input readonly value="'+safeUrl+'" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:6px 10px;font-family:\'DM Mono\',monospace;font-size:10px;box-sizing:border-box">'+
+    '</div>';
+  }).join('');
+  return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden">'+
+    '<div style="padding:10px 16px;background:'+_CC_BEIGE+';border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#000">'+urls.length+' Asset'+(urls.length!==1?'s':'')+'</span>'+
+      (activeCount?'<span style="font-size:10px;color:#22c55e">'+activeCount+' ACTIVE</span>':'')+
+      (draftCount?'<span style="font-size:10px;color:var(--muted)">'+draftCount+' DRAFT — activate before distributing</span>':'')+
+    '</div>'+
+    rows+
+  '</div>';
+}
+function _ccCopyUtmUrl(i){
+  var u=(_campUtmUrls||[])[i];
+  if(u) _ccCopyText(u.full_url);
+}
+function _ccActivateDL(dlId){
+  if(!dlId) return;
+  for(var i=0;i<(_campUtmUrls||[]).length;i++){
+    if(_campUtmUrls[i].dl_id===dlId){_campUtmUrls[i].status='ACTIVE';break;}
+  }
+  for(var j=0;j<(_campDLCache||[]).length;j++){
+    var d=_campDLCache[j];
+    if((d.dl_id||d.dlId)===dlId){d.status='ACTIVE';break;}
+  }
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deeplinks_status',dlId:dlId,status:'ACTIVE'})}).catch(function(){});
+  _showToast('<div style="color:#22c55e;font-size:12px">'+dlId+' → ACTIVE</div>',2500);
+  var resultEl=document.getElementById('cc-utm-result');
+  if(resultEl&&_campUtmUrls&&_campUtmUrls.length) resultEl.innerHTML=_ccRenderUtmTable(_campUtmUrls);
+  var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
 }
 
 // ── Panel 3: Deep Link Registry ─────────────────────────────────────────────
