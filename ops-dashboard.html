@@ -21622,7 +21622,7 @@ function _ccAutoFillBrief(campaign){
     _campBrief.channel = campaign.channel_recommendation||_campBrief.channel||'';
     _campBrief.slug    = campaign.slug||'';
     var _goalMap={'A-Waitlist':'waitlist_signup_completed','B-App Download':'app_install','C-Referral':'referral_converted','D-Re-engagement':'waitlist_signup_completed','E-Content':'waitlist_signup_completed','F-Affiliate':'waitlist_signup_completed','G-Paywall Recovery':'subscription_started'};
-    _campBrief.goal    = _goalMap[campaign.blueprint]||'waitlist_signup_completed';
+    _campBrief.goal    = _goalMap[(_campBrief.funnel||'').trim()]||'waitlist_signup_completed';
 
     // Campaign Name — append ID number for uniqueness
     var idEl=document.getElementById('cc-id');
@@ -21671,7 +21671,7 @@ function _ccAutoFillBrief(campaign){
           _ccSetSelect('cc-funnel', _campBrief.funnel);
           _ccSetSelect('cc-channel',_campBrief.channel);
           _ccSetSelect('cc-goal',   _campBrief.goal);
-          console.log('[CC] goal set to:',_campBrief.goal);
+          console.log('[CC] goal set to:',_campBrief.goal,'from funnel:',_campBrief.funnel);
           var slugEl=document.getElementById('cc-slug');
           if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
           console.log('[CC] post-tab-switch icp:',document.getElementById('cc-icp').value);
