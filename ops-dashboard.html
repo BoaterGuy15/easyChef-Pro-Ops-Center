@@ -21566,6 +21566,7 @@ function _ccSetSelect(id,value){
 // ── Brief auto-fill — retries until dropdowns are populated ─────────────────
 // Real field IDs: cc-id, cc-name, cc-icp, cc-funnel, cc-channel
 function _ccAutoFillBrief(campaign){
+  console.log('[CC] autoFill called', campaign);
   if(!campaign) return;
   var attempts=0;
   var maxAttempts=20; // 20 × 100ms = 2 seconds max
@@ -21576,6 +21577,7 @@ function _ccAutoFillBrief(campaign){
     var chEl=document.getElementById('cc-channel');
     var icpReady=icpEl&&icpEl.options.length>1;
     var chReady=chEl&&chEl.options.length>1;
+    console.log('[CC] attempt',attempts,'icp options:',icpEl?icpEl.options.length:'NOT FOUND','ch options:',chEl?chEl.options.length:'NOT FOUND');
 
     if(!icpReady||!chReady){
       if(attempts<maxAttempts) setTimeout(trySetDropdowns,100);
