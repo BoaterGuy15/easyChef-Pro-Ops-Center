@@ -211,18 +211,13 @@ function buildSocialPosts(brief, copy) {
     'Post 3: Solve + proof — introduce easyChef Pro, one specific claim.\n' +
     'Post 4: Social proof — one family story (fictional but believable), outcome-led.\n' +
     'Post 5: Urgency — founding price closes soon. Direct, honest, no fake scarcity.\n\n' +
-    '=== HASHTAG RULES ===\n' +
-    'Facebook: no hashtags — leave hashtags field as empty string.\n' +
-    'Instagram: 8-12 hashtags — mix broad (#mealplanning) and niche (#busymomlife). Place at end of post.\n' +
-    'TikTok: 4-5 hashtags — include trending where relevant (#fyp acceptable).\n' +
-    'Pinterest: 5-8 keyword-style hashtags — think search terms (#mealplanningideas #familydinnerideas).\n' +
-    'Nextdoor: no hashtags — leave hashtags field as empty string.\n\n' +
-    '=== IMAGE BRIEF RULES ===\n' +
-    'Facebook: 1200×630px — describe a real-life scene relevant to the post.\n' +
-    'Instagram: 1080×1080px square — eye-catching, lifestyle-led.\n' +
-    'TikTok: 9:16 vertical video — describe the hook visual for the first 3 seconds.\n' +
-    'Pinterest: 1000×1500px vertical — aspirational, text overlay friendly.\n' +
-    'Nextdoor: optional community photo — warm, local, authentic.\n\n' +
+    '=== PLATFORM REQUIREMENTS ===\n' +
+    'Optimal length: ' + (brief.platform_optimal_chars || '') + ' characters\n' +
+    'Hashtags: ' + (brief.use_hashtags
+      ? 'Include ' + (brief.hashtag_count_min || 0) + '-' + (brief.hashtag_count_max || 0) + ' hashtags'
+      : 'No hashtags on this platform — leave hashtags field as empty string') + '\n' +
+    'Content format: ' + (brief.content_format || 'post') + '\n' +
+    'Link placement: ' + (brief.link_placement || '') + '\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY valid JSON. No markdown. No explanation.\n' +
     '{\n' +

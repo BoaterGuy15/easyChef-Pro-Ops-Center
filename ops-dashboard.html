@@ -22032,7 +22032,16 @@ function _ccKsBuildAssets(actionType){
   if(out) out.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">Building assets…</div>';
   if(btn){btn.disabled=true;btn.textContent='Building…';}
   if(!CONFIG.sheetsUrl){if(btn)btn.disabled=false;return;}
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:actionType,brief:_campBrief,copy:_campKickstartCopy||{}})})
+  // Attach live platform requirements from Channels tab so the AI prompt is precise
+  var _chData=(_ccChannels||[]).find(function(c){return c.name===_campBrief.channel;})||{};
+  var _briefWP=JSON.parse(JSON.stringify(_campBrief));
+  _briefWP.platform_optimal_chars=_chData.optimal_chars||'';
+  _briefWP.use_hashtags=_chData.use_hashtags||false;
+  _briefWP.hashtag_count_min=_chData.hashtag_count_min||0;
+  _briefWP.hashtag_count_max=_chData.hashtag_count_max||0;
+  _briefWP.content_format=_chData.content_format||'post';
+  _briefWP.link_placement=_chData.link_placement||'';
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:actionType,brief:_briefWP,copy:_campKickstartCopy||{}})})
     .then(function(r){return r.json();})
     .then(function(d){
       if(btn){btn.disabled=false;btn.textContent=actionType==='build_email_sequence'?'Regenerate Email Sequence':'Regenerate Social Posts';}
@@ -22118,50 +22127,23 @@ function _ccRenderSocialPosts(posts,container,channel){
   var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
   var ch=channel||_campBrief.channel||'Facebook';
 
-  // Platform config
-  var _PC={
-    'Facebook': {
-      optimal:400,hashtags:false,hashLabel:'',
-      imgFallback:'1200×630px — [describe scene]',
-      note:'Link works in post — no hashtags needed',
-      linkNote:'Paste URL directly in post'
-    },
-    'Instagram':{
-      optimal:125,hashtags:true,hashLabel:'5–15 hashtags',
-      imgFallback:'1080×1080px square — [describe scene]',
-      note:'No clickable link in post — use link in bio · hashtags at end',
-      linkNote:'Add URL to bio before posting — update bio DL_ID'
-    },
-    'TikTok':{
-      optimal:150,hashtags:true,hashLabel:'3–5 hashtags',
-      imgFallback:'9:16 vertical video — [describe hook visual for first 3 seconds]',
-      note:'This is a video script — hook must land in first 3 seconds',
-      linkNote:'Add URL to bio before posting'
-    },
-    'Pinterest':{
-      optimal:500,hashtags:true,hashLabel:'keyword-style tags',
-      imgFallback:'1000×1500px vertical — [describe visual]',
-      note:'Keyword-rich description — link goes directly to LP',
-      linkNote:'URL goes in destination link field'
-    },
-    'Nextdoor':{
-      optimal:300,hashtags:false,hashLabel:'',
-      imgFallback:'Optional — community photo',
-      note:'Neighbour tone — no hashtags, no corporate language',
-      linkNote:'Paste URL in post'
-    }
+  // Read platform config live from Channels tab — no hardcoded platform maps
+  var _chObj=(_ccChannels||[]).find(function(c){return c.name===ch;})||{};
+  var pc={
+    optimal:     _chObj.optimal_chars    || 400,
+    hashtags:    _chObj.use_hashtags     || false,
+    hashLabel:   (_chObj.hashtag_count_min && _chObj.hashtag_count_max)
+                   ? _chObj.hashtag_count_min+'–'+_chObj.hashtag_count_max+' hashtags'
+                   : '',
+    imgFallback: (_chObj.image_dimensions||'')
+                   ? _chObj.image_dimensions+' — [describe scene]'
+                   : '[describe scene]',
+    note:        _chObj.platform_note    || '',
+    linkNote:    _chObj.link_placement   || ''
   };
-  var pc=_PC[ch]||_PC['Facebook'];
 
-  // Fallback hashtags by ICP when AI doesn't return them
-  var _defaultHash={
-    'Super Mom':       '#mealplanning #busymom #familydinners #mealprep #easyChefPro',
-    'Budget Family':   '#grocerysavings #mealplanning #foodbudget #familydinners #easyChefPro',
-    'Health Optimizer':'#healthyeating #mealprep #cleaneating #macros #easyChefPro',
-    'Professional':    '#mealplanning #mealprep #productivity #healthyliving #easyChefPro',
-    'Alpha Recruit':   '#mealplanning #foodtech #easyChefPro #founding #kitchenhacks'
-  };
-  var fallbackHash=_defaultHash[_campBrief.icp||'']||'#mealplanning #foodwaste #easyChefPro #mealprep #grocerysavings';
+  // Hashtag suggestions: AI output → Channels sheet → generic fallback
+  var fallbackHash=_chObj.hashtag_suggestions||'#mealplanning #foodwaste #easyChefPro #mealprep #grocerysavings';
 
   var taStyle='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:10px 12px;font-size:12px;font-family:inherit;line-height:1.65;resize:vertical;box-sizing:border-box;outline:none';
   var fieldLabel=function(txt,sub){

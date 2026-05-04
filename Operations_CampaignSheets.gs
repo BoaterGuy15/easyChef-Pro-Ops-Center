@@ -104,7 +104,10 @@ var _CC_HDR = {
     'tracking_ga4','status','dev_built','qa_passed','pushed_to_production'
   ],
   Channels: [
-    'name','slug_code','utm_medium','utm_source','dl_prefix','status','notes'
+    'name','slug_code','utm_medium','utm_source','dl_prefix','status','notes',
+    'optimal_chars','max_chars','use_hashtags','hashtag_count_min','hashtag_count_max',
+    'hashtag_suggestions','image_dimensions','image_ratio','link_placement',
+    'platform_note','content_format'
   ]
 };
 
@@ -246,15 +249,15 @@ function _setupCampaignSheets() {
   // ── Seed Channels ───────────────────────────────────────────────────────────
   var chSheet = ss.getSheetByName(_CC_TAB.CHANNELS);
   var chSeed = [
-    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active', ''],
-    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active', ''],
-    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active', ''],
-    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active', ''],
-    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active', ''],
-    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active', ''],
-    ['Organic',   'organic',  'content',   'blog',      'ORG','active', ''],
-    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active', ''],
-    ['Direct',    'direct',   'referral',  'convertkit','DIR','active', '']
+    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active','','200',      '',      'false','0','0','',                                                                                                                          '600x200px',           '3:1',    'Link in email body',                                  'Plain text body — no hashtags',                                                           'email'],
+    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active','','400',      '63206', 'false','0','0','',                                                                                                                          '1200x630px',          '1.91:1', 'Paste URL directly in post',                          'Link works in post — no hashtags needed',                                                 'post'],
+    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active','','125',      '2200',  'true', '5','15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',                                  '1080x1080px',         '1:1',    'Add URL to bio before posting — update bio DL_ID',    'No clickable link in post — use link in bio · hashtags at end of caption',                'post'],
+    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active','','150',      '2200',  'true', '3','5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                                                  '1080x1920px',         '9:16',   'Add URL to bio before posting',                       'Video script — hook must land in first 3 seconds · link in bio only',                    'video_script'],
+    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active','','500',      '500',   'true', '5','8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',                                  '1000x1500px',         '2:3',    'URL goes in destination link field',                  'Keyword-rich description — link goes directly to LP · vertical image performs best',     'pin'],
+    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',      '',      'false','0','0','',                                                                                                                          'Optional — community photo','',  'Paste URL in post',                                   'Neighbour tone — no hashtags, no corporate language · authentic personal voice only',     'post'],
+    ['Organic',   'organic',  'content',   'blog',      'ORG','active','','',         '',      'false','0','0','',                                                                                                                          '1200x630px',          '1.91:1', 'Link in article body and CTA button',                 'Blog post — SEO optimised · internal links to LP',                                       'article'],
+    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active','','',         '',      'false','0','0','',                                                                                                                          '',                    '',       'URL in affiliate brief',                              'Partner content — follows affiliate brand guidelines',                                   'brief'],
+    ['Direct',    'direct',   'referral',  'convertkit','DIR','active','','',         '',      'false','0','0','',                                                                                                                          '',                    '',       'URL in email body',                                   'Personal outreach — founder voice · one to one',                                         'email']
   ];
   chSeed.forEach(function(row) { chSheet.appendRow(row); });
 
@@ -847,8 +850,24 @@ function setLandingPage(item) {
 
 function _channelRowToObj(r) {
   return {
-    name:       r[0], slug_code:  r[1], utm_medium: r[2],
-    utm_source: r[3], dl_prefix:  r[4], status:     r[5], notes: r[6]
+    name:                r[0],
+    slug_code:           r[1],
+    utm_medium:          r[2],
+    utm_source:          r[3],
+    dl_prefix:           r[4],
+    status:              r[5],
+    notes:               r[6],
+    optimal_chars:       parseInt(r[7])  || 0,
+    max_chars:           parseInt(r[8])  || 0,
+    use_hashtags:        r[9] === true || String(r[9]).toLowerCase() === 'true',
+    hashtag_count_min:   parseInt(r[10]) || 0,
+    hashtag_count_max:   parseInt(r[11]) || 0,
+    hashtag_suggestions: String(r[12] || ''),
+    image_dimensions:    String(r[13] || ''),
+    image_ratio:         String(r[14] || ''),
+    link_placement:      String(r[15] || ''),
+    platform_note:       String(r[16] || ''),
+    content_format:      String(r[17] || '')
   };
 }
 
@@ -883,19 +902,85 @@ function setChannel(item) {
     }
   }
   var row = [
-    item.name       || '',
-    item.slug_code  || '',
-    item.utm_medium || '',
-    item.utm_source || '',
-    item.dl_prefix  || '',
-    item.status     || 'active',
-    item.notes      || ''
+    item.name                || '',
+    item.slug_code           || '',
+    item.utm_medium          || '',
+    item.utm_source          || '',
+    item.dl_prefix           || '',
+    item.status              || 'active',
+    item.notes               || '',
+    item.optimal_chars       !== undefined ? String(item.optimal_chars)     : '',
+    item.max_chars           !== undefined ? String(item.max_chars)         : '',
+    item.use_hashtags        !== undefined ? String(item.use_hashtags)      : 'false',
+    item.hashtag_count_min   !== undefined ? String(item.hashtag_count_min) : '0',
+    item.hashtag_count_max   !== undefined ? String(item.hashtag_count_max) : '0',
+    item.hashtag_suggestions || '',
+    item.image_dimensions    || '',
+    item.image_ratio         || '',
+    item.link_placement      || '',
+    item.platform_note       || '',
+    item.content_format      || ''
   ];
   var rng = ex
     ? sheet.getRange(ex.rowIndex, 1, 1, headers.length)
     : sheet.getRange(sheet.getLastRow() + 1, 1, 1, headers.length);
   rng.setNumberFormat('@');
   rng.setValues([row]);
+}
+
+/**
+ * One-time migration: adds the 11 new publishing-requirement columns to the
+ * existing Channels tab and overwrites each row with the full seed data.
+ * Run once from the Apps Script editor: Run → _migrateChannelsTab
+ * Safe to re-run — it checks the column count first.
+ */
+function _migrateChannelsTab() {
+  var sheet      = _getCCSheet(_CC_TAB.CHANNELS);
+  var newHeaders = _CC_HDR.Channels;
+
+  if (sheet.getLastColumn() >= newHeaders.length) {
+    Logger.log('Channels tab already has ' + sheet.getLastColumn() + ' columns — no migration needed.');
+    try { SpreadsheetApp.getUi().alert('Already up to date — no migration needed.'); } catch(e) {}
+    return;
+  }
+
+  // Rewrite the header row with the full column list
+  _ccHdrStyle(sheet, newHeaders);
+
+  var fullSeed = [
+    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active','','200',  '',     'false','0','0','',                                                                                            '600x200px',             '3:1',    'Link in email body',                               'Plain text body — no hashtags',                                                        'email'],
+    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active','','400',  '63206','false','0','0','',                                                                                            '1200x630px',            '1.91:1', 'Paste URL directly in post',                       'Link works in post — no hashtags needed',                                              'post'],
+    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active','','125',  '2200', 'true', '5','15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',   '1080x1080px',           '1:1',    'Add URL to bio before posting — update bio DL_ID', 'No clickable link in post — use link in bio · hashtags at end of caption',             'post'],
+    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active','','150',  '2200', 'true', '3','5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                   '1080x1920px',           '9:16',   'Add URL to bio before posting',                    'Video script — hook must land in first 3 seconds · link in bio only',                 'video_script'],
+    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active','','500',  '500',  'true', '5','8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',   '1000x1500px',           '2:3',    'URL goes in destination link field',               'Keyword-rich description — link goes directly to LP · vertical image performs best',  'pin'],
+    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',  '',     'false','0','0','',                                                                                            'Optional — community photo','',    'Paste URL in post',                                'Neighbour tone — no hashtags, no corporate language · authentic personal voice only',  'post'],
+    ['Organic',   'organic',  'content',   'blog',      'ORG','active','','',     '',     'false','0','0','',                                                                                            '1200x630px',            '1.91:1', 'Link in article body and CTA button',              'Blog post — SEO optimised · internal links to LP',                                    'article'],
+    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active','','',     '',     'false','0','0','',                                                                                            '',                      '',       'URL in affiliate brief',                           'Partner content — follows affiliate brand guidelines',                                 'brief'],
+    ['Direct',    'direct',   'referral',  'convertkit','DIR','active','','',     '',     'false','0','0','',                                                                                            '',                      '',       'URL in email body',                                'Personal outreach — founder voice · one to one',                                      'email']
+  ];
+
+  var lastRow      = sheet.getLastRow();
+  var existingNames = lastRow >= 2
+    ? sheet.getRange(2, 1, lastRow - 1, 1).getValues()
+    : [];
+
+  fullSeed.forEach(function(seedRow) {
+    var foundRowIndex = -1;
+    for (var i = 0; i < existingNames.length; i++) {
+      if (String(existingNames[i][0]).toLowerCase() === seedRow[0].toLowerCase()) {
+        foundRowIndex = i + 2;
+        break;
+      }
+    }
+    var rng = foundRowIndex > -1
+      ? sheet.getRange(foundRowIndex, 1, 1, newHeaders.length)
+      : sheet.getRange(sheet.getLastRow() + 1, 1, 1, newHeaders.length);
+    rng.setNumberFormat('@');
+    rng.setValues([seedRow]);
+  });
+
+  Logger.log('Channels tab migrated: ' + newHeaders.length + ' columns, ' + fullSeed.length + ' rows updated.');
+  try { SpreadsheetApp.getUi().alert('Channels tab migrated successfully — ' + fullSeed.length + ' rows updated.'); } catch(e) {}
 }
 
 // ── Slug availability check ───────────────────────────────────────────────────
