@@ -21576,7 +21576,12 @@ function _ccLoadChannels(){
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channels_read'})})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length) _ccChannels=d.channels;
+      if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length){
+        // Merge: Sheet data wins; fallback fills any channel names the Sheet doesn't define
+        var sheetNames=d.channels.map(function(c){return c.name;});
+        var extras=_ccChannels.filter(function(c){return sheetNames.indexOf(c.name)===-1;});
+        _ccChannels=d.channels.concat(extras);
+      }
       _ccChannelsLoaded=true;
       _ccPopulateChannelSelect(_ccChannels);
     })
@@ -22969,7 +22974,11 @@ function _ccAfterChannelWrite(){
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channels_read'})})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length) _ccChannels=d.channels;
+      if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length){
+        var sheetNames=d.channels.map(function(c){return c.name;});
+        var extras=_ccChannels.filter(function(c){return sheetNames.indexOf(c.name)===-1;});
+        _ccChannels=d.channels.concat(extras);
+      }
       _ccChannelsLoaded=true;
       _ccPopulateChannelSelect(_ccChannels);
       var p=_ccEl('cc-panel');
