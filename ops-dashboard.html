@@ -22718,9 +22718,19 @@ function _ccRenderPerformance(){
 function _ccFlowBanner(){
   var b=_campBrief;
   var fails=[];
-  if(!b.approved) fails.push('Marketing Lead approval not checked in Panel 1 — Brief Builder');
-  var actDLs=_campDLCache.filter(function(d){return d.status==='ACTIVE'&&d.campaign===b.id;});
-  if(b.id&&!actDLs.length) fails.push('No DL_IDs are ACTIVE for this campaign in Panel 3 — Deep Link Registry');
+  // Read live checkbox — _campBrief.approved is only synced on save/change,
+  // so check the DOM directly and use the cached value as fallback
+  var approvedEl=document.getElementById('cc-approved');
+  var isApproved=approvedEl?approvedEl.checked:b.approved;
+  if(!isApproved) fails.push('Marketing Lead approval not checked in Panel 1 — Brief Builder');
+  // Check _campUtmUrls first — always current after any Activate click.
+  // Fall back to _campDLCache (populated when Panel 3 is opened) using
+  // the _dlCamp/_dlStatus normalizers to handle both field name variants.
+  var hasActiveDL=(_campUtmUrls||[]).some(function(u){return (u.status||'').toUpperCase()==='ACTIVE';});
+  if(!hasActiveDL){
+    hasActiveDL=(_campDLCache||[]).some(function(d){return _dlStatus(d)==='ACTIVE'&&_dlCamp(d)===b.id;});
+  }
+  if(b.id&&!hasActiveDL) fails.push('No DL_IDs are ACTIVE for this campaign in Panel 3 — Deep Link Registry');
   if(!b.slug) fails.push('No landing page slug defined in Panel 1 — Brief Builder');
   if(!fails.length||!b.id) return '';
   return '<div style="margin-bottom:14px;padding:12px 16px;background:rgba(255,0,0,0.07);border:2px solid rgba(255,0,0,0.3);border-radius:8px">'+
