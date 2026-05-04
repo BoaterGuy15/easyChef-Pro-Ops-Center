@@ -21588,26 +21588,37 @@ function _ccKickstart(){
         return;
       }
       if(err) err.textContent='';
-      // Auto-fill _campBrief from kickstart JSON
+      // ── 1. Campaign Name ────────────────────────────────────────────────
       if(j.campaign_name) _campBrief.name=j.campaign_name;
+      // ── 2. ICP ──────────────────────────────────────────────────────────
       if(j.icp_code||j.icp_match) _campBrief.icp=_CC_ICP_CODE_MAP[j.icp_code]||j.icp_match||_campBrief.icp;
+      // ── 3. Funnel Blueprint ──────────────────────────────────────────────
       if(j.blueprint){
         var fm=_CC_FUNNELS.find(function(f){var fl=f.toLowerCase(),bl=(j.blueprint||'').toLowerCase();return fl.indexOf(bl)>=0||bl.indexOf(fl.split('-')[1]||fl)>=0;});
         if(fm) _campBrief.funnel=fm;
       }
+      // ── 4. Channel + Campaign ID → auto-slug ────────────────────────────
       if(j.channel_recommendation){
         var cm=_ccChannels.find(function(c){return c.name.toLowerCase()===j.channel_recommendation.toLowerCase();});
         if(cm) _campBrief.channel=cm.name;
       }
-      if(j.slug) _campBrief.slug=j.slug;
       if(j.utm_campaign_code) _campBrief.id=j.utm_campaign_code;
+      // Clear slug so _ccAutoSlug() can build from icp + channel
+      _campBrief.slug='';
+      _campSlugStatus='';
+      _ccAutoSlug();
+      // ── 5. Slug fallback if auto-slug produced nothing ───────────────────
+      if(!_campBrief.slug&&j.slug) _campBrief.slug=j.slug;
       _campKickstartCopy=j;
-      // Render 9-field copy card in kickstart result area
+      // ── Render 9-field copy card in kickstart result area ────────────────
       if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''});
-      // Switch to Brief and show green confirmation banner
+      // ── Switch to Brief, validate slug, scroll into view ─────────────────
       _campSwitchTab('brief');
       var banner=document.getElementById('cc-flow-banner');
       if(banner) banner.innerHTML='<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:12px 16px;font-size:12px;color:#16a34a;margin-bottom:16px;font-family:\'DM Mono\',monospace">Campaign generated from your customer description. Review each panel and approve to activate.</div>';
+      _ccCheckSlug();
+      var scrollTarget=document.getElementById('cc-flow-banner');
+      if(scrollTarget) scrollTarget.scrollIntoView({behavior:'smooth',block:'start'});
     })
     .catch(function(e){
       if(btn){btn.disabled=false;btn.textContent='Generate Campaign';}
