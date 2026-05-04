@@ -21283,6 +21283,7 @@ var _ccChannels=[
   {name:'Vimeo',     slug_code:'vimeo',    utm_medium:'video',     utm_source:'vimeo',     dl_prefix:'SOC',status:'active'}
 ];
 var _ccChannelsLoaded=false;
+var _ccLastPosts=[];
 var _ccChFormMode=null; // null=none, '__new__'=add form, channel_name=editing that row
 
 // ── CC shared helpers ───────────────────────────────────────────────────────
@@ -21335,7 +21336,7 @@ function _ccRenderBrief(){
         _ccField('Funnel Blueprint','cc-funnel','select',b.funnel,_CC_FUNNELS,'')+
         '<div style="margin-bottom:14px">'+
         '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Primary Channel</label>'+
-        '<select id="cc-channel" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box" onchange="_ccBriefSync()"></select>'+
+        '<select id="cc-channel" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box" onchange="_ccBriefSync();_ccRefreshPostPlatform()"></select>'+
         '</div>'+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
         (function(){
@@ -21676,6 +21677,8 @@ function _ccAutoFillBrief(campaign){
           var slugEl=document.getElementById('cc-slug');
           if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
           setTimeout(_ccCheckSlug,100);
+          var hdr=document.getElementById('cc-ks-copy-hdr');
+          if(hdr) hdr.textContent=(_campBrief.id||'')+' · '+(_campBrief.icp||'')+' · '+(_campBrief.channel||'');
         });
       });
     },200);
@@ -21847,7 +21850,7 @@ function _ccRenderCopyOutput(copy,b){
     share_mechanic:safeStr(copy.share_mechanic||'')
   };
   return '<div style="max-width:780px">'+
-    _ccSecHdr('✦ Generated Campaign Copy — '+(b?b.id+' · '+b.icp+' · '+b.channel:''))+
+    _ccSecHdr('✦ Generated Campaign Copy — <span id="cc-ks-copy-hdr">'+(b?b.id+' · '+b.icp+' · '+b.channel:'')+'</span>')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
       row('Headline (Hook)',c.headline,'headline')+
       row('Subheadline (Problem)',c.subheadline,'subheadline')+
@@ -22123,6 +22126,7 @@ function _ccUpdatePostCount(el,cntId,optimal){
 }
 
 function _ccRenderSocialPosts(posts,container,channel){
+  _ccLastPosts=posts;
   if(!container) return;
   if(!posts.length){
     container.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">No posts returned.</div>';
@@ -22214,6 +22218,12 @@ function _ccRenderSocialPosts(posts,container,channel){
       if(ta) _ccUpdatePostCount(ta,'ks-post-'+i+'-cnt',pc.optimal);
     });
   },0);
+}
+
+function _ccRefreshPostPlatform(){
+  var postsEl=document.getElementById('cc-ks-asset-output');
+  if(!postsEl||!_ccLastPosts||!_ccLastPosts.length) return;
+  _ccRenderSocialPosts(_ccLastPosts,postsEl,_campBrief.channel);
 }
 
 // ── Panel 2: UTM Generator ──────────────────────────────────────────────────
