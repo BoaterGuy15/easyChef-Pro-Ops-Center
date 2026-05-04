@@ -21627,7 +21627,7 @@ function _ccAutoFillBrief(campaign){
     _ccSetSelect('cc-channel',_campBrief.channel);
     console.log('[CC] after channel set:', document.getElementById('cc-channel').value);
 
-    // Switch to brief tab (ensures panel is visible), then set values in the live DOM
+    // Activate brief tab visually without re-rendering cc-panel, then paint values
     setTimeout(function(){
       _campBrief.name    = finalName;
       _campBrief.icp     = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||'';
@@ -21635,7 +21635,18 @@ function _ccAutoFillBrief(campaign){
       _campBrief.channel = campaign.channel_recommendation||'';
       _campBrief.slug    = campaign.slug||'';
 
-      _campSwitchTab('brief');
+      // Style tab buttons active/inactive — does NOT touch cc-panel innerHTML
+      _campActiveTab='brief';
+      _CC_TABS.forEach(function(tab){
+        var btn=_ccEl('camp-tab-'+tab.id);
+        if(btn){
+          btn.style.borderBottom=tab.id==='brief'?'2px solid '+_CC_RED:'2px solid transparent';
+          btn.style.color=tab.id==='brief'?_CC_RED:'var(--muted)';
+          btn.style.fontWeight=tab.id==='brief'?'700':'400';
+        }
+      });
+      var banner=_ccEl('cc-flow-banner');
+      if(banner) banner.innerHTML=_ccFlowBanner();
 
       requestAnimationFrame(function(){
         requestAnimationFrame(function(){
