@@ -21431,6 +21431,8 @@ function _ccSaveDraft(){
     posts:_ccLastPosts||[],
     timestamp:new Date().toISOString()
   };
+  console.log('[CC] save payload lp:',payload.lp?payload.lp.hero_headline:'NULL');
+  console.log('[CC] save payload posts:',payload.posts?payload.posts.length:0);
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
     .then(function(r){return r.json();})
     .then(function(d){
@@ -21439,6 +21441,7 @@ function _ccSaveDraft(){
         if(statusEl) statusEl.innerHTML='<span style="color:'+_CC_RED+'">✗ Save failed: '+(d.error||'Unknown error')+'</span>';
         return;
       }
+      console.log('[CC] save result:',JSON.stringify(d.saved));
       var sv=d.saved||{};
       var postsCount=typeof sv.posts==='number'?sv.posts:(_ccLastPosts||[]).length;
       var parts=[];
@@ -22067,6 +22070,7 @@ function _ccKsBuildLp(){
       }
       var lp=d.lp||{};
       _campLastLp=lp;
+      console.log('[CC] _campLastLp set:',_campLastLp?_campLastLp.hero_headline:'NULL');
       var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
       var fields=[
         ['Hero Headline',        safe(lp.hero_headline||'')],
