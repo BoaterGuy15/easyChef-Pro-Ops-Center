@@ -21348,19 +21348,19 @@ function _ccRenderBrief(){
           var _sec='grid-column:1/-1;display:none;margin-bottom:14px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.02)';
           var _ig='<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">';
           var _fhdr='<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">';
-          var _fo=[['daily','Daily'],['3x_week','3\xd7 per week'],['2x_week','2\xd7 per week'],['weekly','Weekly'],['as_needed','As needed']];
-          var _fs=_fo.map(function(o){return '<option value="'+o[0]+'"'+((b.post_frequency||'3x_week')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('');
+          var _fo=[['daily','Daily'],['every_2_days','Every 2 days'],['3x_week','3\xd7 per week'],['2x_week','2\xd7 per week'],['weekly','Weekly'],['as_needed','As needed']];
+          var _fs=_fo.map(function(o){return '<option value="'+o[0]+'"'+((b.post_frequency||'every_2_days')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('');
           return '<div id="cc-volume-social" style="'+_sec+'">'+
             _fhdr+'Content Volume — Social</div>'+
             _ig+
               '<div>'+_lbl('Posts per Campaign')+'<input type="number" id="cc-post-count" min="1" max="30" value="'+(b.post_count||5)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
-              '<div>'+_lbl('Posting Frequency')+'<select id="cc-post-freq" style="'+_ns+'" onchange="_ccBriefSync()">'+_fs+'</select></div>'+
+              '<div>'+_lbl('Posting Frequency')+'<select id="cc-post-frequency" style="'+_ns+'" onchange="_ccBriefSync()">'+_fs+'</select></div>'+
             '</div>'+
           '</div>'+
           '<div id="cc-volume-email" style="'+_sec+'">'+
             _fhdr+'Content Volume — Email</div>'+
             _ig+
-              '<div>'+_lbl('Email Sequences')+'<input type="number" id="cc-email-seqs" min="1" max="10" value="'+(b.email_sequences||2)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
+              '<div>'+_lbl('Email Sequences')+'<input type="number" id="cc-email-sequences" min="1" max="10" value="'+(b.email_sequences||2)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
               '<div>'+_lbl('Variants per Email')+'<input type="number" id="cc-email-variants" min="1" max="5" value="'+(b.email_variants||2)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
             '</div>'+
           '</div>';
@@ -21404,10 +21404,10 @@ function _ccBriefSync(){
   _el=_ccEl('cc-slug');    if(_el&&_el.value)    b.slug=_el.value;
   _el=_ccEl('cc-launch');  if(_el&&_el.value)    b.launchDate=_el.value;
   _el=_ccEl('cc-approved');if(_el)               b.approved=_el.checked;
-  _el=_ccEl('cc-post-count');    if(_el)              b.post_count=parseInt(_el.value)||5;
-  _el=_ccEl('cc-post-freq');     if(_el&&_el.value)   b.post_frequency=_el.value;
-  _el=_ccEl('cc-email-seqs');    if(_el)              b.email_sequences=parseInt(_el.value)||2;
-  _el=_ccEl('cc-email-variants');if(_el)              b.email_variants=parseInt(_el.value)||2;
+  _el=_ccEl('cc-post-count');      if(_el)            b.post_count=parseInt(_el.value)||5;
+  _el=_ccEl('cc-post-frequency'); if(_el&&_el.value) b.post_frequency=_el.value;
+  _el=_ccEl('cc-email-sequences');if(_el)            b.email_sequences=parseInt(_el.value)||2;
+  _el=_ccEl('cc-email-variants'); if(_el)            b.email_variants=parseInt(_el.value)||2;
   var banner=_ccEl('cc-flow-banner');
   if(banner) banner.innerHTML=_ccFlowBanner();
   _ccAutoSlug();
@@ -21793,7 +21793,22 @@ function _ccAutoFillBrief(campaign){
           var hdr=document.getElementById('cc-ks-copy-hdr');
           if(hdr) hdr.textContent=(_campBrief.id||'')+' · '+(_campBrief.icp||'')+' · '+(_campBrief.channel||'');
           _ccRefreshChannelLabel();
+          // Set volume defaults on _campBrief
+          _campBrief.post_count      = _campBrief.post_count      || 5;
+          _campBrief.post_frequency  = _campBrief.post_frequency  || 'every_2_days';
+          _campBrief.email_sequences = _campBrief.email_sequences || 'seq1_seq2';
+          _campBrief.email_variants  = _campBrief.email_variants  || 'both';
+          // Reflect defaults into DOM so user sees them immediately
+          var pcEl=document.getElementById('cc-post-count');
+          if(pcEl&&!pcEl.value) pcEl.value=5;
+          var pfEl=document.getElementById('cc-post-frequency');
+          if(pfEl&&!pfEl.value) pfEl.value='every_2_days';
+          var esEl=document.getElementById('cc-email-sequences');
+          if(esEl&&!esEl.value) esEl.value='seq1_seq2';
+          var evEl=document.getElementById('cc-email-variants');
+          if(evEl&&!evEl.value) evEl.value='both';
           _ccUpdateVolumeFields();
+          _ccBriefSync();
         });
       });
     },200);
