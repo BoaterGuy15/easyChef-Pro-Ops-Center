@@ -110,3 +110,31 @@ function campaignKickstart(prompt) {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Diagnostic: run this directly in Apps Script editor to isolate the issue ──
+// Run → Run function → _testKickstart
+// Then View → Execution log to see the full Anthropic response
+function _testKickstart() {
+  var props  = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty('ANTHROPIC_API_KEY');
+  Logger.log('API key present: ' + (apiKey ? 'YES (' + apiKey.length + ' chars)' : 'NO'));
+
+  var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key':         apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type':      'application/json'
+    },
+    payload: JSON.stringify({
+      model:      'claude-sonnet-4-20250514',
+      max_tokens: 100,
+      system:     'Reply with only the word PONG.',
+      messages: [{ role: 'user', content: 'PING' }]
+    }),
+    muteHttpExceptions: true
+  });
+
+  Logger.log('HTTP status: ' + resp.getResponseCode());
+  Logger.log('Raw response: ' + resp.getContentText());
+}
