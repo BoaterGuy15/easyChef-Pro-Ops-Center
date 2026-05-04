@@ -21362,15 +21362,16 @@ function _ccRenderBrief(){
 }
 function _ccBriefSync(){
   var b=_campBrief;
-  b.id=(_ccEl('cc-id')||{value:b.id}).value;
-  b.name=(_ccEl('cc-name')||{value:''}).value;
-  b.icp=(_ccEl('cc-icp')||{value:''}).value;
-  b.funnel=(_ccEl('cc-funnel')||{value:''}).value;
-  b.channel=(_ccEl('cc-channel')||{value:''}).value;
-  b.goal=(_ccEl('cc-goal')||{value:''}).value;
-  b.slug=(_ccEl('cc-slug')||{value:''}).value;
-  b.launchDate=(_ccEl('cc-launch')||{value:''}).value;
-  b.approved=(_ccEl('cc-approved')||{checked:false}).checked;
+  var _el;
+  _el=_ccEl('cc-id');      if(_el&&_el.value)    b.id=_el.value;
+  _el=_ccEl('cc-name');    if(_el&&_el.value)    b.name=_el.value;
+  _el=_ccEl('cc-icp');     if(_el&&_el.value)    b.icp=_el.value;
+  _el=_ccEl('cc-funnel');  if(_el&&_el.value)    b.funnel=_el.value;
+  _el=_ccEl('cc-channel'); if(_el&&_el.value)    b.channel=_el.value;
+  _el=_ccEl('cc-goal');    if(_el&&_el.value)    b.goal=_el.value;
+  _el=_ccEl('cc-slug');    if(_el&&_el.value)    b.slug=_el.value;
+  _el=_ccEl('cc-launch');  if(_el&&_el.value)    b.launchDate=_el.value;
+  _el=_ccEl('cc-approved');if(_el)               b.approved=_el.checked;
   var banner=_ccEl('cc-flow-banner');
   if(banner) banner.innerHTML=_ccFlowBanner();
   _ccAutoSlug();
