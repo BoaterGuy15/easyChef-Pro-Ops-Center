@@ -21561,11 +21561,15 @@ function _ccSetSelect(id,value){
 // ── Restore _campBrief values to DOM after any innerHTML re-render ───────────
 function _ccRestoreBriefValues(){
   console.log('[CC] restoreBriefValues called');
+  if(!_campBrief.icp&&!_campBrief.name&&!_campBrief.channel){
+    console.log('[CC] restoreBriefValues skipped — campBrief empty');
+    return;
+  }
   var nameEl=document.getElementById('cc-name');
   if(nameEl&&_campBrief.name) nameEl.value=_campBrief.name;
-  _ccSetSelect('cc-icp',    _campBrief.icp);
-  _ccSetSelect('cc-funnel', _campBrief.funnel);
-  _ccSetSelect('cc-channel',_campBrief.channel);
+  _ccSetSelect('cc-icp',    _campBrief.icp||'');
+  _ccSetSelect('cc-funnel', _campBrief.funnel||'');
+  _ccSetSelect('cc-channel',_campBrief.channel||'');
   var slugEl=document.getElementById('cc-slug');
   if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
   if(_campBrief.goal) _ccSetSelect('cc-goal',_campBrief.goal);
@@ -22379,7 +22383,7 @@ function _campSwitchTab(t){
   });
   var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
   var panel=_ccEl('cc-panel'); if(!panel) return;
-  if(t==='brief'){panel.innerHTML=_ccRenderBrief();_ccPopulateChannelSelect(_ccChannels);_ccRestoreBriefValues();if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
+  if(t==='brief'){panel.innerHTML=_ccRenderBrief();_ccPopulateChannelSelect(_ccChannels);if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
   else if(t==='utm') panel.innerHTML=_ccRenderUTM();
   else if(t==='registry'){panel.innerHTML=_ccRenderRegistry();setTimeout(_ccRedrawReg,120);}
   else if(t==='seo'){
