@@ -458,6 +458,7 @@ tr.hidden-row{display:none}
 
 /* ── TIMELINE GANTT ── */
 #page-roadmap,#page-lp,#page-actions{padding:16px 8px!important;max-width:none!important;width:100%!important;margin:0!important;box-sizing:border-box}
+#page-campaigns{max-width:none!important;width:100%!important;box-sizing:border-box}
 #gantt-sticky-bar{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%}
 .gantt-dropdown-panel{overflow:hidden;max-height:0;transition:max-height 0.25s ease-out;background:var(--surface);border-top:1px solid var(--border)}
 .gantt-dropdown-panel.open{max-height:520px;transition:max-height 0.3s ease-in}
@@ -23215,7 +23216,7 @@ function _ccRenderContentHub(){
       '<button onclick="_ccUpdateAssetStatus(\''+typeKey+'\',\''+a.id+'\',\''+ns+'\')" title="Advance to '+ns+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;flex-shrink:0">→ '+ns+'</button>'+
     '</div>';
   }).join('');
-  return'<div style="max-width:1100px">'+
+  return'<div style="width:100%">'+
     _ccSecHdr('📦 Content Hub')+
     filterBar+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
@@ -23312,7 +23313,7 @@ function _ccRenderSearah(){
         (_ccSearahPostedOpen?'<div style="margin-top:10px">'+posted.map(card).join('')+'</div>':'')+
       '</div>'
     :'';
-  return'<div style="max-width:780px">'+
+  return'<div style="width:100%">'+
     _ccSecHdr('📅 Searah Social Calendar')+
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">'+
       '<span style="font-size:12px;color:var(--muted)">Social posts · '+_ccSearahCache.posts.length+' loaded</span>'+
@@ -23366,7 +23367,7 @@ function _campaignsRender(){
     return '<button id="camp-tab-'+t.id+'" onclick="_campSwitchTab(\''+t.id+'\')" style="padding:9px 14px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;color:var(--muted)">'+t.lbl+'</button>';
   }).join('');
   root.innerHTML=
-    '<div style="padding:20px 24px;max-width:1400px">'+
+    '<div style="padding:20px 24px;max-width:100%">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
         '<div>'+
           '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
