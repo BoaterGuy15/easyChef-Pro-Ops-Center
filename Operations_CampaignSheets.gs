@@ -73,7 +73,8 @@ var _CC_HDR = {
   CampaignBriefs: [
     'id','name','icp_code','blueprint','channel','goal','slug',
     'launch_date','status','ml_approved','ml_approved_date',
-    'created_by','created_at','updated_at','notes'
+    'created_by','created_at','updated_at','notes',
+    'post_count','post_frequency','email_sequences','email_variants'
   ],
   GeneratedCopy: [
     'id','campaign_id','icp_code','channel','headline','subheadline',
@@ -402,7 +403,9 @@ function _briefRowToObj(r) {
     ml_approved: r[9] === true || String(r[9]).toLowerCase() === 'true',
     ml_approved_date: _ccFmtDate(r[10]),
     created_by: r[11], created_at: _ccFmtDate(r[12]),
-    updated_at: _ccFmtDate(r[13]), notes: r[14]
+    updated_at: _ccFmtDate(r[13]), notes: r[14],
+    post_count: parseInt(r[15]) || 0, post_frequency: r[16] || '',
+    email_sequences: parseInt(r[17]) || 0, email_variants: parseInt(r[18]) || 0
   };
 }
 
@@ -449,7 +452,11 @@ function setCampaignBrief(item) {
     ex ? ex[11] : (item.created_by || ''),
     ex ? ex[12] : now,
     now,
-    item.notes           !== undefined ? item.notes           : (ex ? ex[14] : '')
+    item.notes           !== undefined ? item.notes           : (ex ? ex[14] : ''),
+    item.post_count      !== undefined ? item.post_count      : (ex ? ex[15] : 0),
+    item.post_frequency  !== undefined ? item.post_frequency  : (ex ? ex[16] : ''),
+    item.email_sequences !== undefined ? item.email_sequences : (ex ? ex[17] : 0),
+    item.email_variants  !== undefined ? item.email_variants  : (ex ? ex[18] : 0)
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }

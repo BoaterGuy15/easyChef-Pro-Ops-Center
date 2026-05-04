@@ -38,8 +38,12 @@ function saveCampaignDraft(body) {
         goal:         brief.goal      || '',
         slug:         brief.slug      || '',
         launch_date:  brief.launchDate|| '',
-        ml_approved:  brief.approved  ? true : false,
-        status:       'draft'
+        ml_approved:     brief.approved       ? true : false,
+        status:          'draft',
+        post_count:      brief.post_count      || 0,
+        post_frequency:  brief.post_frequency  || '',
+        email_sequences: brief.email_sequences || 0,
+        email_variants:  brief.email_variants  || 0
       });
       saved.brief = true;
     }
