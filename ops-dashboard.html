@@ -21257,6 +21257,11 @@ var _EMAIL_SEQS=[
 // ── Campaign Center state & constants ──────────────────────────────────────
 var _campActiveTab='brief';
 var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
+Object.defineProperty(_campBrief,'goal',{
+  get:function(){return this._goal||'';},
+  set:function(v){console.log('[CC] _campBrief.goal set to:',v,new Error().stack.split('\n').slice(1,4).join(' | '));this._goal=v;},
+  configurable:true
+});
 var _campDLCache=[];
 var _campPerfCache={};
 var _campKickstartCopy=null;
