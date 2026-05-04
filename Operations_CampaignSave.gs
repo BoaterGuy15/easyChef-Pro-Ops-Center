@@ -83,6 +83,7 @@ function saveCampaignDraft(body) {
       setLandingPage({
         id:              'lp-' + Date.now().toString(36),
         campaign_id:     brief.id    || '',
+        icp_code:        brief.icp   || '',
         slug:            brief.slug  || '',
         full_url:        lp.cta_url  || ('https://easychefpro.com/' + (brief.slug || '')),
         hero_headline:   lp.hero_headline    || '',

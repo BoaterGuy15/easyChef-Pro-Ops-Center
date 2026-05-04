@@ -21588,7 +21588,11 @@ function _ccCheckSlug(){
     .then(function(r){return r.json();})
     .then(function(d){
       if(d&&d.ok===true){_campSlugStatus='ok';_ccSlugStatus('ok',slug);}
-      else{_campSlugStatus='taken';_ccSlugStatus('taken',slug,d?d.conflict_campaign_id:'');}
+      else{
+        var cid=d?d.conflict_campaign_id:'';
+        if(cid&&_campBrief&&cid===_campBrief.id){_campSlugStatus='ok';_ccSlugStatus('ok',slug);}
+        else{_campSlugStatus='taken';_ccSlugStatus('taken',slug,cid);}
+      }
     })
     .catch(function(){_campSlugStatus='';_ccSlugStatus('',slug);});
 }

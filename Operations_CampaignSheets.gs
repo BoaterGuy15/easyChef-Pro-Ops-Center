@@ -97,7 +97,7 @@ var _CC_HDR = {
     'image_brief','scheduled_date','status','dl_id','utm_url','posted_url'
   ],
   LandingPages: [
-    'id','campaign_id','slug','full_url','title_tag','meta_description',
+    'id','campaign_id','icp_code','slug','full_url','title_tag','meta_description',
     'og_title','og_description','hero_headline','hero_subheadline',
     'section_problem','section_agitate','section_solve','section_value',
     'section_proof','section_cta','tracking_convert','tracking_clarity',
@@ -760,16 +760,16 @@ function setSocialPost(item) {
 
 function _pageRowToObj(r) {
   return {
-    id: r[0], campaign_id: r[1], slug: r[2], full_url: r[3],
-    title_tag: r[4], meta_description: r[5], og_title: r[6],
-    og_description: r[7], hero_headline: r[8], hero_subheadline: r[9],
-    section_problem: r[10], section_agitate: r[11], section_solve: r[12],
-    section_value: r[13], section_proof: r[14], section_cta: r[15],
-    tracking_convert: r[16], tracking_clarity: r[17], tracking_ga4: r[18],
-    status: r[19],
-    dev_built: r[20] === true || String(r[20]).toLowerCase() === 'true',
-    qa_passed: r[21] === true || String(r[21]).toLowerCase() === 'true',
-    pushed_to_production: r[22] === true || String(r[22]).toLowerCase() === 'true'
+    id: r[0], campaign_id: r[1], icp_code: r[2], slug: r[3], full_url: r[4],
+    title_tag: r[5], meta_description: r[6], og_title: r[7],
+    og_description: r[8], hero_headline: r[9], hero_subheadline: r[10],
+    section_problem: r[11], section_agitate: r[12], section_solve: r[13],
+    section_value: r[14], section_proof: r[15], section_cta: r[16],
+    tracking_convert: r[17], tracking_clarity: r[18], tracking_ga4: r[19],
+    status: r[20],
+    dev_built: r[21] === true || String(r[21]).toLowerCase() === 'true',
+    qa_passed: r[22] === true || String(r[22]).toLowerCase() === 'true',
+    pushed_to_production: r[23] === true || String(r[23]).toLowerCase() === 'true'
   };
 }
 
@@ -825,27 +825,28 @@ function setLandingPage(item) {
   var row = [
     item.id,
     item.campaign_id          !== undefined ? item.campaign_id          : (ex ? ex[1]  : ''),
-    item.slug                 !== undefined ? item.slug                 : (ex ? ex[2]  : ''),
-    item.full_url             !== undefined ? item.full_url             : (ex ? ex[3]  : ''),
-    item.title_tag            !== undefined ? item.title_tag            : (ex ? ex[4]  : ''),
-    item.meta_description     !== undefined ? item.meta_description     : (ex ? ex[5]  : ''),
-    item.og_title             !== undefined ? item.og_title             : (ex ? ex[6]  : ''),
-    item.og_description       !== undefined ? item.og_description       : (ex ? ex[7]  : ''),
-    item.hero_headline        !== undefined ? item.hero_headline        : (ex ? ex[8]  : ''),
-    item.hero_subheadline     !== undefined ? item.hero_subheadline     : (ex ? ex[9]  : ''),
-    item.section_problem      !== undefined ? item.section_problem      : (ex ? ex[10] : ''),
-    item.section_agitate      !== undefined ? item.section_agitate      : (ex ? ex[11] : ''),
-    item.section_solve        !== undefined ? item.section_solve        : (ex ? ex[12] : ''),
-    item.section_value        !== undefined ? item.section_value        : (ex ? ex[13] : ''),
-    item.section_proof        !== undefined ? item.section_proof        : (ex ? ex[14] : ''),
-    item.section_cta          !== undefined ? item.section_cta          : (ex ? ex[15] : ''),
-    item.tracking_convert     !== undefined ? item.tracking_convert     : (ex ? ex[16] : ''),
-    item.tracking_clarity     !== undefined ? item.tracking_clarity     : (ex ? ex[17] : ''),
-    item.tracking_ga4         !== undefined ? item.tracking_ga4         : (ex ? ex[18] : ''),
-    item.status               !== undefined ? item.status               : (ex ? ex[19] : 'draft'),
-    item.dev_built            !== undefined ? item.dev_built            : (ex ? ex[20] : false),
-    item.qa_passed            !== undefined ? item.qa_passed            : (ex ? ex[21] : false),
-    item.pushed_to_production !== undefined ? item.pushed_to_production : (ex ? ex[22] : false)
+    item.icp_code             !== undefined ? item.icp_code             : (ex ? ex[2]  : ''),
+    item.slug                 !== undefined ? item.slug                 : (ex ? ex[3]  : ''),
+    item.full_url             !== undefined ? item.full_url             : (ex ? ex[4]  : ''),
+    item.title_tag            !== undefined ? item.title_tag            : (ex ? ex[5]  : ''),
+    item.meta_description     !== undefined ? item.meta_description     : (ex ? ex[6]  : ''),
+    item.og_title             !== undefined ? item.og_title             : (ex ? ex[7]  : ''),
+    item.og_description       !== undefined ? item.og_description       : (ex ? ex[8]  : ''),
+    item.hero_headline        !== undefined ? item.hero_headline        : (ex ? ex[9]  : ''),
+    item.hero_subheadline     !== undefined ? item.hero_subheadline     : (ex ? ex[10] : ''),
+    item.section_problem      !== undefined ? item.section_problem      : (ex ? ex[11] : ''),
+    item.section_agitate      !== undefined ? item.section_agitate      : (ex ? ex[12] : ''),
+    item.section_solve        !== undefined ? item.section_solve        : (ex ? ex[13] : ''),
+    item.section_value        !== undefined ? item.section_value        : (ex ? ex[14] : ''),
+    item.section_proof        !== undefined ? item.section_proof        : (ex ? ex[15] : ''),
+    item.section_cta          !== undefined ? item.section_cta          : (ex ? ex[16] : ''),
+    item.tracking_convert     !== undefined ? item.tracking_convert     : (ex ? ex[17] : ''),
+    item.tracking_clarity     !== undefined ? item.tracking_clarity     : (ex ? ex[18] : ''),
+    item.tracking_ga4         !== undefined ? item.tracking_ga4         : (ex ? ex[19] : ''),
+    item.status               !== undefined ? item.status               : (ex ? ex[20] : 'draft'),
+    item.dev_built            !== undefined ? item.dev_built            : (ex ? ex[21] : false),
+    item.qa_passed            !== undefined ? item.qa_passed            : (ex ? ex[22] : false),
+    item.pushed_to_production !== undefined ? item.pushed_to_production : (ex ? ex[23] : false)
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
