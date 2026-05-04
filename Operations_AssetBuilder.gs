@@ -21,21 +21,48 @@ var _AB_ARCH =
   'PRODUCT NAME: Always write "easyChef Pro". Never "the app", "this app", or "a meal planning app".\n' +
   'CTA RULE: Every CTA drives to the landing page. Never link to the main website or App Store (pre-launch).\n\n';
 
-var _AB_CLAIMS =
-  'Approved claims (use exact wording only — never invent statistics):\n' +
-  '- $1,336 average annual savings\n' +
-  '- 69.5% less food waste\n' +
-  '- 30 minutes fridge to table\n' +
-  '- $7.99/month founding-member price\n' +
-  '- 30–60% reduction in monthly grocery spend\n' +
-  '- 9 patent-pending technologies\n' +
-  '- 800,000 products\n' +
-  '- 10,000 recipe pages at launch\n\n';
-
 var _AB_VOICE =
   'Brand voice: Warm, direct, empathetic. Never shame-based. No jargon.\n' +
   'No markdown in output values — no **, no *, no #, no backticks.\n' +
   'Write like a friend texting, not a corporation.\n\n';
+
+function _getClaimsContext() {
+  try {
+    var claims = getApprovedClaims();
+    if (Array.isArray(claims) && claims.length) {
+      var ctx = 'Approved claims (use exact wording only — never invent statistics):\n';
+      claims.forEach(function(c) { ctx += '- ' + c.exact_wording + '\n'; });
+      return ctx + '\n';
+    }
+  } catch (e) {}
+  return 'Use only approved claims from the ApprovedClaims tab. Do not invent statistics.\n\n';
+}
+
+function _getIcpContext(icpCode) {
+  try {
+    var profile = getIcpProfile(icpCode);
+    if (profile) {
+      return 'ICP: ' + profile.name + '\n' +
+        'Demographics: ' + (profile.demographics || '') + '\n' +
+        'Primary pain: ' + (profile.primary_pain || '') + '\n' +
+        'Value trigger: ' + (profile.value_trigger || '') + '\n' +
+        'Message hierarchy: ' + (profile.message_hierarchy || '') + '\n';
+    }
+  } catch (e) {}
+  return 'ICP: ' + (icpCode || 'Unknown') + '\n';
+}
+
+function _getPlatformNote(channelName) {
+  try {
+    var channels = getChannels();
+    for (var i = 0; i < channels.length; i++) {
+      if (channels[i].name === channelName) {
+        return channels[i].platform_note || '';
+      }
+    }
+  } catch (e) {}
+  return channelName + ' — platform-appropriate content.';
+}
 
 // ── getLandingPagesByIcp ──────────────────────────────────────────────────────
 
@@ -130,13 +157,16 @@ function buildEmailSequence(brief, copy) {
 
   var lpUrl = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
 
+  var claimsCtx = _getClaimsContext();
+  var icpCtx    = _getIcpContext(brief.icp);
+
   var systemPrompt =
     'You are the easyChef Pro email sequence writer. You write conversion email copy.\n\n' +
     _AB_ARCH +
-    _AB_CLAIMS +
+    claimsCtx +
     _AB_VOICE +
     '=== TARGET ICP ===\n' +
-    (brief.icp || 'Unknown') + '\n\n' +
+    icpCtx + '\n' +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Campaign: '    + (brief.name || '') + '\n' +
     'Landing page: ' + lpUrl + '\n' +
@@ -219,28 +249,19 @@ function buildSocialPosts(brief, copy) {
   var channel = brief.channel || 'Facebook';
   var lpUrl   = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
 
-  var platformNotes = {
-    'Facebook':  'Facebook — conversational, 1-3 short paragraphs, drives to link in post or first comment. Max 400 chars body.',
-    'Instagram': 'Instagram — hook in first line (stops the scroll), body 3-5 sentences, CTA to link in bio. Max 2200 chars but first 125 are most important.',
-    'TikTok':    'TikTok — script for 30-second video. Hook (first 3 seconds), problem, solve, CTA to link in bio.',
-    'Pinterest': 'Pinterest — Pin title (under 100 chars) + description (under 500 chars). Keyword-rich, aspirational, action-oriented.',
-    'Nextdoor':  'Nextdoor — hyperlocal, neighbour-to-neighbour tone. Short, honest, community-focused. No corporate language.',
-    'YouTube':   'YouTube — video script format. Hook in first 30 seconds. Description SEO optimised with link in first line. Pin a comment with the LP link.',
-    'X':         'X (Twitter) — max 280 chars. No hashtags needed for organic reach. Post URL in first reply not in the main post to protect reach.',
-    'Reddit':    'Reddit — community tone only. Never promotional. Lead with genuine value. Mention easyChef Pro naturally if relevant. Post to r/easyChefPro and u/easyChef_Pro.'
-  };
-
-  var platformNote = platformNotes[channel] || ('Social post for ' + channel + '. Concise, platform-appropriate.');
+  var claimsCtx    = _getClaimsContext();
+  var icpCtx       = _getIcpContext(brief.icp);
+  var platformNote = _getPlatformNote(channel);
 
   var systemPrompt =
     'You are the easyChef Pro social media writer.\n\n' +
     _AB_ARCH +
-    _AB_CLAIMS +
+    claimsCtx +
     _AB_VOICE +
     '=== PLATFORM ===\n' +
     platformNote + '\n\n' +
     '=== TARGET ICP ===\n' +
-    (brief.icp || 'Unknown') + '\n\n' +
+    icpCtx + '\n' +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Landing page: ' + lpUrl + '\n' +
     'Headline: '    + (copy && copy.headline    || '') + '\n' +
@@ -324,13 +345,16 @@ function buildLandingPage(brief, copy) {
 
   var lpUrl = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
 
+  var claimsCtx = _getClaimsContext();
+  var icpCtx    = _getIcpContext(brief.icp);
+
   var systemPrompt =
     'You are the easyChef Pro landing page writer. You write high-converting landing page copy.\n\n' +
     _AB_ARCH +
-    _AB_CLAIMS +
+    claimsCtx +
     _AB_VOICE +
     '=== TARGET ICP ===\n' +
-    (brief.icp || 'Unknown') + '\n\n' +
+    icpCtx + '\n' +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Landing page URL: ' + lpUrl + '\n' +
     'Funnel: '       + (brief.funnel || '') + '\n' +

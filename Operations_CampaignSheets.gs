@@ -594,25 +594,6 @@ function _nextDlId(prefix) {
   return 'DL-' + prefix + '-' + String(maxNum + 1).padStart(4, '0');
 }
 
-var _CC_DL_PREFIX_MAP = {
-  Email:'EM', Facebook:'SOC', Instagram:'SOC', TikTok:'SOC',
-  Pinterest:'SOC', Nextdoor:'SOC', YouTube:'SOC', X:'SOC',
-  Reddit:'SOC', Vimeo:'SOC', Organic:'ORG',
-  Affiliate:'AFF', Direct:'DIR'
-};
-var _CC_UTM_MEDIUM_MAP = {
-  Email:'email', Facebook:'social', Instagram:'social', TikTok:'social',
-  Pinterest:'social', Nextdoor:'social', YouTube:'video', X:'social',
-  Reddit:'community', Vimeo:'video', Organic:'organic',
-  Affiliate:'affiliate', Direct:'direct'
-};
-var _CC_UTM_SOURCE_MAP = {
-  Email:'klaviyo', Facebook:'facebook', Instagram:'instagram',
-  TikTok:'tiktok', Pinterest:'pinterest', Nextdoor:'nextdoor',
-  YouTube:'youtube', X:'x', Reddit:'reddit', Vimeo:'vimeo',
-  Organic:'google', Affiliate:'affiliate', Direct:'direct'
-};
-
 /**
  * Auto-registers a DRAFT DL entry for a campaign brief.
  * Called by campaignGen() after successful copy generation.
@@ -621,8 +602,8 @@ var _CC_UTM_SOURCE_MAP = {
 function registerDraftDl(brief) {
   if (!brief) return '';
   var channel = brief.channel || 'Email';
-  var prefix  = _CC_DL_PREFIX_MAP[channel] || 'GEN';
-  var dlId    = _nextDlId(prefix);
+  var chData  = _getChannelData(channel);
+  var dlId    = _nextDlId(chData.dl_prefix);
   var slug    = (brief.slug || '').replace(/^\//, '');
   setDlRegistryEntry({
     dl_id:           dlId,
@@ -630,8 +611,8 @@ function registerDraftDl(brief) {
     campaign_id:     brief.id     || '',
     channel:         channel,
     destination_url: slug ? 'https://easychefpro.com/' + slug : '',
-    utm_source:      _CC_UTM_SOURCE_MAP[channel] || channel.toLowerCase(),
-    utm_medium:      _CC_UTM_MEDIUM_MAP[channel] || 'other',
+    utm_source:      chData.utm_source,
+    utm_medium:      chData.utm_medium,
     utm_campaign:    brief.id     || '',
     status:          'draft',
     created_at:      _ccNow(),

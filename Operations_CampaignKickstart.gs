@@ -20,23 +20,42 @@ function campaignKickstart(prompt) {
   var apiKey = props.getProperty('ANTHROPIC_API_KEY');
   if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set in Script Properties' };
 
+  var icpContext = '';
+  try {
+    var profiles = getIcpProfiles();
+    if (Array.isArray(profiles) && profiles.length) {
+      icpContext = 'ICP profiles:\n';
+      profiles.forEach(function(p) {
+        icpContext += '- ' + p.code + ': ' + (p.demographics || '') + ' — ' + (p.primary_pain || '') + '\n';
+      });
+      icpContext += '\n';
+    }
+  } catch (e) {
+    icpContext = 'ICP: super_mom — busy mom, 6:30 PM fridge panic\n\n';
+  }
+
+  var claimsContext = '';
+  try {
+    var claims = getApprovedClaims();
+    if (Array.isArray(claims) && claims.length) {
+      claimsContext = 'Approved claims — use exact wording only — never invent statistics:\n';
+      claims.forEach(function(c) {
+        claimsContext += '- ' + c.claim_type + ': ' + c.exact_wording + '\n';
+      });
+      claimsContext += '\n';
+    }
+  } catch (e) {
+    claimsContext = 'Use only: $1,336/year savings, 69.5% less food waste, 30 minutes fridge to table\n\n';
+  }
+
   var systemPrompt =
     'You are the easyChef Pro campaign architect. A user has described a target customer and goal. ' +
     'Your job is to identify which ICP profile this matches from the list below, select the correct ' +
     'funnel blueprint, and generate a complete campaign brief in JSON format.\n\n' +
 
-    'ICP profiles:\n' +
-    '- super_mom: Female 28-45, HHI $40-100K, suburban, overwhelmed at 6:30 PM, primary grocery buyer\n' +
-    '- budget_family: 30-50, HHI $30-70K, grocery budget always over, food waste feels like burning cash\n' +
-    '- health_optimizer: 28-45, HHI $60-120K, tracks macros, wants nutrition scoring\n' +
-    '- professional: 28-45, HHI $80-150K, time-poor, uses food delivery, sees this as a productivity tool\n' +
-    '- alpha_recruit: Direct outreach, founding family, personal inbox only\n\n' +
+    icpContext +
 
-    'Approved claims — use only these exact figures:\n' +
-    '$1,336/year savings. 69.5% food waste reduction. 30 minutes fridge to table. ' +
-    '9 patent-pending technologies. 800,000 products. 10,000 recipe pages. ' +
-    'Registered dietitians. 10,000 household profiles validated. ' +
-    '60% off founding price. $7.99/month founding price.\n\n' +
+    claimsContext +
 
     'Brand voice: Warm, direct, empathetic. Never shame-based. No jargon. ' +
     'No markdown in output. Write like a friend texting not a corporation.\n\n' +

@@ -119,28 +119,24 @@ function cancelDlEntriesByCampaign(campaignId) {
 
 /**
  * Resolves utm_source, utm_medium, dl_prefix for a channel name.
- * Reads live from the Channels tab first; falls back to the static maps.
+ * Reads live from the Channels tab via getChannels(). If the sheet
+ * read fails, the error propagates. If the channel is not found,
+ * returns generic defaults.
  */
 function _getChannelData(channelName) {
-  // Try live Channels tab
-  try {
-    var channels = getChannels();
-    for (var i = 0; i < channels.length; i++) {
-      if (channels[i].name === channelName) {
-        return {
-          utm_source: channels[i].utm_source || channelName.toLowerCase(),
-          utm_medium: channels[i].utm_medium || 'other',
-          dl_prefix:  channels[i].dl_prefix  || 'SOC'
-        };
-      }
+  var channels = getChannels();
+  for (var i = 0; i < channels.length; i++) {
+    if (channels[i].name === channelName) {
+      return {
+        utm_source: channels[i].utm_source || channelName.toLowerCase(),
+        utm_medium: channels[i].utm_medium || 'social',
+        dl_prefix:  channels[i].dl_prefix  || 'SOC'
+      };
     }
-  } catch (e) {
-    // Sheet not available — fall through to static maps
   }
-  // Static fallback
   return {
-    utm_source: _CC_UTM_SOURCE_MAP[channelName] || channelName.toLowerCase(),
-    utm_medium: _CC_UTM_MEDIUM_MAP[channelName] || 'other',
-    dl_prefix:  _CC_DL_PREFIX_MAP[channelName]  || 'SOC'
+    utm_source: channelName.toLowerCase(),
+    utm_medium: 'social',
+    dl_prefix:  'SOC'
   };
 }
