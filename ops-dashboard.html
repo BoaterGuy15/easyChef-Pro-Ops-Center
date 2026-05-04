@@ -21559,6 +21559,7 @@ function _ccSetSelect(id,value){
 
 // ── Restore _campBrief values to DOM after any innerHTML re-render ───────────
 function _ccRestoreBriefValues(){
+  console.log('[CC] restoreBriefValues called');
   var nameEl=document.getElementById('cc-name');
   if(nameEl&&_campBrief.name) nameEl.value=_campBrief.name;
   _ccSetSelect('cc-icp',    _campBrief.icp);
@@ -21599,10 +21600,11 @@ function _ccAutoFillBrief(campaign){
     console.log('[CC] channel options:',Array.from(chEl2.options).map(function(o){return o.text;}));
     console.log('[CC] trying to match:',campaign.icp_match,campaign.blueprint,campaign.channel_recommendation);
 
-    // Store to _campBrief first so _ccRestoreBriefValues() survives any re-render
+    // Lock values into _campBrief before any DOM write
     _campBrief.icp     = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||_campBrief.icp||'';
     _campBrief.funnel  = campaign.blueprint||_campBrief.funnel||'';
     _campBrief.channel = campaign.channel_recommendation||_campBrief.channel||'';
+    _campBrief.slug    = campaign.slug||'';
 
     // Campaign Name — append ID number for uniqueness
     var idEl=document.getElementById('cc-id');
@@ -21612,29 +21614,21 @@ function _ccAutoFillBrief(campaign){
     var finalName=(campaign.campaign_name||'')+' — '+idSuffix;
     _campBrief.name=finalName;
 
-    // Apply to current DOM
+    // Apply to DOM — change events may trigger re-renders; the 200ms restore below wins
     _ccSetSelect('cc-icp',    _campBrief.icp);
     console.log('[CC] after icp set:', document.getElementById('cc-icp').value);
     _ccSetSelect('cc-funnel', _campBrief.funnel);
     console.log('[CC] after funnel set:', document.getElementById('cc-funnel').value);
     _ccSetSelect('cc-channel',_campBrief.channel);
     console.log('[CC] after channel set:', document.getElementById('cc-channel').value);
-    var nameEl=document.getElementById('cc-name');
-    if(nameEl) nameEl.value=finalName;
 
-    // Regenerate slug from live channel value then validate
-    _campBrief.slug='';
-    _campSlugStatus='';
+    // Wait for change-event cascade to finish, then restore values one final time
     setTimeout(function(){
+      _ccRestoreBriefValues();
       _ccAutoSlug();
-      if(!_campBrief.slug&&campaign.slug){
-        _campBrief.slug=campaign.slug;
-        var slugEl=document.getElementById('cc-slug');
-        if(slugEl) slugEl.value=campaign.slug;
-      }
-      _ccCheckSlug();
-    },100);
-    _ccRestoreBriefValues();
+      setTimeout(_ccCheckSlug,100);
+      console.log('[CC] final restore complete — icp:',document.getElementById('cc-icp').value);
+    },200);
     console.log('[CC] trySetDropdowns complete');
   }
 
