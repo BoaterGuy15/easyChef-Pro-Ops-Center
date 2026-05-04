@@ -21268,6 +21268,7 @@ var _ccChannels=[
   {name:'Direct',    slug_code:'direct',   utm_medium:'referral',  utm_source:'convertkit',dl_prefix:'DIR',status:'active'}
 ];
 var _ccChannelsLoaded=false;
+var _ccChFormMode=null; // null=none, '__new__'=add form, channel_name=editing that row
 
 // ── CC shared helpers ───────────────────────────────────────────────────────
 function _ccEl(id){return document.getElementById(id);}
@@ -21746,7 +21747,7 @@ function _ccRenderUTM(){
         '</div>'+
         '<div style="display:flex;gap:6px">'+
           _ccBtn('Copy','_ccCopyInput(\''+inputId+'\')',false)+
-          _ccBtn('Register DL','_ccRegisterDL(\''+dlId+'\',\''+content+'\',\''+base+'\',\''+b.id+'\')',true)+
+          _ccBtn('Register DL','_ccRegisterDL(\''+dlId+'\',\''+content+'\',\''+base+'\',\''+b.id+'\',\''+ch+'\')',true)+
         '</div>'+
       '</div>'+
       '<input id="'+inputId+'" readonly value="'+url+'" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:7px 10px;font-family:\'DM Mono\',monospace;font-size:11px;box-sizing:border-box">'+
@@ -21771,12 +21772,12 @@ function _ccCopyInput(id){
   try{document.execCommand('copy');}catch(e){}
   _showToast('<div style="color:#22c55e;font-size:12px">Copied to clipboard</div>',1800);
 }
-function _ccRegisterDL(dlId,content,dest,campId){
-  if(_campDLCache.find(function(d){return d.dlId===dlId;})){
+function _ccRegisterDL(dlId,content,dest,campId,channel){
+  if(_campDLCache.find(function(d){return (d.dlId||d.dl_id)===dlId;})){
     _showToast('<div style="color:var(--muted);font-size:12px">'+dlId+' already in registry</div>',2000);
     return;
   }
-  var entry={dlId:dlId,content:content,destination:dest,campaign:campId,status:'DRAFT',createdAt:new Date().toISOString()};
+  var entry={dlId:dlId,content:content,destination:dest,campaign:campId,channel:channel||'',status:'DRAFT',createdAt:new Date().toISOString()};
   _campDLCache.push(entry);
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deeplinks_write',entry:entry})}).catch(function(){});
   _showToast('<div style="color:#22c55e;font-size:12px">'+dlId+' registered as DRAFT</div>',2500);
@@ -21876,38 +21877,106 @@ function _ccRunCheck(url,cid,isTY){
   });
 }
 
+// ── DL cache field normalizers (handles both local + sheet-loaded entries) ───
+function _dlId(d)      {return d.dl_id||d.dlId||'';}
+function _dlCamp(d)    {return d.campaign_id||d.campaign||'';}
+function _dlChannel(d) {return d.channel||'';}
+function _dlStatus(d)  {return (d.status||'').toUpperCase();}
+function _dlContent(d) {return d.utm_content||d.content||'';}
+function _dlDest(d)    {return d.destination_url||d.destination||'';}
+
 // ── Panel 6: Distribution ───────────────────────────────────────────────────
 function _ccRenderDistribution(){
   var b=_campBrief;
-  var activeDLs=_campDLCache.filter(function(d){return d.status==='ACTIVE'&&d.campaign===b.id;});
-  var blocker=!activeDLs.length&&_campDLCache.length?'<div style="padding:10px 16px;background:rgba(255,0,0,0.07);border:1px solid rgba(255,0,0,0.25);border-radius:8px;font-size:12px;color:'+_CC_RED+';margin-bottom:14px">⚠ No ACTIVE DL_IDs for this campaign. Nothing can distribute until at least one link is promoted to ACTIVE in Panel 3.</div>':'';
-  var emailRows=_EMAIL_SEQS.map(function(s){
-    var dl=activeDLs.find(function(d){return d.dlId.indexOf('EM-')===0;})||null;
-    var sc=s.status==='not_written'?_CC_RED:'#22c55e';
-    return '<div style="display:grid;grid-template-columns:80px 140px 130px 1fr 90px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border)">'+
-      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:'+_CC_RED+'">'+s.id+'</span>'+
-      '<span style="font-size:12px;font-weight:600;color:var(--text)">'+s.name+' · '+s.window+'</span>'+
-      '<span style="font-size:11px;color:var(--muted)">'+(dl?dl.dlId:'No DL linked')+'</span>'+
-      '<div style="display:flex;align-items:center;gap:6px;overflow:hidden">'+
-        '<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(dl?dl.destination+'?utm_content='+dl.content:'—')+'</span>'+
-        (dl?_ccBtn('Copy','_ccCopyText(\''+dl.destination+'?utm_content='+dl.content+'\')',false):'')+
+  if(!b.id){
+    return '<div style="max-width:1100px">'+_ccSecHdr('📧 Panel 6 — Distribution')+
+      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--muted);font-size:13px">Complete the Campaign Brief first.'+
+        '<div style="margin-top:16px">'+_ccBtn('← Go to Brief','_campSwitchTab(\'brief\')',true)+'</div>'+
+      '</div></div>';
+  }
+  var allDLs=_campDLCache.filter(function(d){return _dlCamp(d)===b.id;});
+  var activeDLs=allDLs.filter(function(d){return _dlStatus(d)==='ACTIVE';});
+  var hasAnyActive=activeDLs.length>0;
+  var blocker=!hasAnyActive&&allDLs.length
+    ?'<div style="padding:10px 16px;background:rgba(255,0,0,0.07);border:1px solid rgba(255,0,0,0.25);border-radius:8px;font-size:12px;color:'+_CC_RED+';margin-bottom:14px">⚠ No ACTIVE DL_IDs for this campaign. Promote at least one link in <button onclick="_campSwitchTab(\'registry\')" style="background:none;border:none;color:'+_CC_RED+';cursor:pointer;font-size:12px;padding:0;font-family:inherit;text-decoration:underline">Panel 3 — Deep Links</button> before distributing.</div>'
+    :'';
+
+  var activeChannels=_ccChannels.filter(function(c){return c.status==='active';});
+
+  function dlsForChannel(ch){
+    return allDLs.filter(function(d){
+      var chField=_dlChannel(d);
+      var id=_dlId(d);
+      return chField===ch.name||((!chField)&&id.indexOf(ch.dl_prefix+'-')===0);
+    });
+  }
+
+  var sections=activeChannels.map(function(ch){
+    var chDLs=dlsForChannel(ch);
+    var chActive=chDLs.filter(function(d){return _dlStatus(d)==='ACTIVE';});
+    var chDraft=chDLs.filter(function(d){return _dlStatus(d)!=='ACTIVE';});
+    var hasDL=chActive.length>0;
+    var sc=hasDL?'#22c55e':_CC_RED;
+    var badge='<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:700;color:'+sc+';background:'+sc+'18;border:1px solid '+sc+'44">'+(hasDL?chActive.length+' ACTIVE':'No ACTIVE DL')+'</span>';
+    var base='https://easychefpro.com/'+(b.slug||'').replace(/^\//,'');
+    var code=(b.id||'').toLowerCase();
+
+    var dlRows='';
+    if(chActive.length){
+      dlRows=chActive.map(function(d){
+        var dlId=_dlId(d);
+        var content=_dlContent(d);
+        var url=base+'?utm_source='+ch.utm_source+'&utm_medium='+ch.utm_medium+'&utm_campaign='+code+'&utm_content='+content;
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--border);flex-wrap:wrap">'+
+          '<span style="font-family:\'Courier New\',monospace;font-size:11px;font-weight:700;color:'+_CC_RED+';flex-shrink:0">'+dlId+'</span>'+
+          '<input readonly value="'+url+'" style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:5px 9px;font-family:\'Courier New\',monospace;font-size:11px;box-sizing:border-box">'+
+          _ccBtn('Copy','_ccCopyText(\''+url+'\')',false)+
+        '</div>';
+      }).join('');
+      // Email channel: also surface sequence checklist
+      if(ch.utm_medium==='email'&&_EMAIL_SEQS&&_EMAIL_SEQS.length){
+        var emailHdr='<div style="display:grid;grid-template-columns:60px 150px 120px 1fr 100px;gap:8px;padding:8px 14px;border-top:1px solid var(--border);background:'+_CC_BEIGE+'">'+
+          ['Seq','Name / Window','DL_ID','UTM URL','Status'].map(function(c){
+            return '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">'+c+'</span>';
+          }).join('')+'</div>';
+        var emailRows=_EMAIL_SEQS.map(function(s){
+          var dl=chActive[0];
+          var sc2=s.status==='not_written'?_CC_RED:'#22c55e';
+          var url2=dl?(base+'?utm_source='+ch.utm_source+'&utm_medium='+ch.utm_medium+'&utm_campaign='+code+'&utm_content='+_dlContent(dl)):'—';
+          return '<div style="display:grid;grid-template-columns:60px 150px 120px 1fr 100px;gap:8px;align-items:center;padding:8px 14px;border-top:1px solid var(--border)">'+
+            '<span style="font-family:\'Courier New\',monospace;font-size:10px;color:'+_CC_RED+'">'+s.id+'</span>'+
+            '<span style="font-size:11px;color:var(--text)">'+s.name+'<span style="color:var(--muted)"> · '+s.window+'</span></span>'+
+            '<span style="font-size:10px;color:var(--muted);font-family:\'Courier New\',monospace">'+(dl?_dlId(dl):'No DL')+'</span>'+
+            '<span style="font-size:10px;color:var(--muted);font-family:\'Courier New\',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(dl?url2:'—')+'</span>'+
+            '<span style="font-size:11px;font-weight:600;color:'+sc2+'">'+s.status.replace(/_/g,' ')+'</span>'+
+          '</div>';
+        }).join('');
+        dlRows+=emailHdr+emailRows;
+      }
+    } else {
+      var draftNote=chDraft.length?' ('+chDraft.length+' DRAFT — promote in <button onclick="_campSwitchTab(\'registry\')" style="background:none;border:none;color:'+_CC_RED+';cursor:pointer;font-size:11px;padding:0;text-decoration:underline">Panel 3</button>)':'';
+      dlRows='<div style="padding:10px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)">'+
+        'No ACTIVE DL_IDs for this channel'+draftNote+'. Register UTM links in '+
+        '<button onclick="_campSwitchTab(\'utm\')" style="background:none;border:none;color:'+_CC_RED+';cursor:pointer;font-size:11px;padding:0;text-decoration:underline">Panel 2 — UTM Generator</button>.'+
+      '</div>';
+    }
+
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px">'+
+      '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:'+_CC_BEIGE+';flex-wrap:wrap">'+
+        '<span style="font-size:12px;font-weight:700;color:#000;font-family:\'Courier New\',monospace">'+ch.name.toUpperCase()+'</span>'+
+        '<span style="font-size:10px;padding:1px 7px;border-radius:4px;background:#fff;color:#000;border:1px solid rgba(0,0,0,0.12)">'+ch.utm_medium+' / '+ch.utm_source+'</span>'+
+        '<span style="font-size:10px;font-family:\'Courier New\',monospace;color:'+_CC_RED+';background:rgba(255,0,0,0.06);padding:1px 7px;border-radius:4px;border:1px solid rgba(255,0,0,0.2)">'+ch.dl_prefix+'</span>'+
+        '<span style="margin-left:auto">'+badge+'</span>'+
       '</div>'+
-      '<span style="font-size:11px;font-weight:600;color:'+sc+'">'+s.status.replace(/_/g,' ')+'</span>'+
+      dlRows+
     '</div>';
   }).join('');
+
   return '<div style="max-width:1100px">'+
-    _ccSecHdr('📧 Panel 6 — Email &amp; Social Distribution')+
+    _ccSecHdr('📧 Panel 6 — Distribution')+
     blocker+
-    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px">'+
-      '<div style="display:grid;grid-template-columns:80px 140px 130px 1fr 90px;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);background:'+_CC_BEIGE+'">'+
-        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Seq</span>'+
-        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Name / Window</span>'+
-        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">DL_ID</span>'+
-        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">UTM URL</span>'+
-        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">Status</span>'+
-      '</div>'+emailRows+
-    '</div>'+
-    '<div style="font-size:11px;color:var(--muted)">Social distribution rows appear once social DL_IDs are registered and activated in Panel 3.</div>'+
+    (activeChannels.length?sections:'<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:30px;text-align:center;color:var(--muted);font-size:12px">No active channels — add channels in the <button onclick="_campSwitchTab(\'channels\')" style="background:none;border:none;color:'+_CC_RED+';cursor:pointer;font-size:12px;padding:0;text-decoration:underline">📡 Channels tab</button>.</div>')+
+    '<div style="font-size:11px;color:var(--muted);margin-top:8px">Channels from the <button onclick="_campSwitchTab(\'channels\')" style="background:none;border:none;color:'+_CC_RED+';cursor:pointer;font-size:11px;padding:0;text-decoration:underline">📡 Channels tab</button> — add a channel there to add it to this panel.</div>'+
   '</div>';
 }
 function _ccCopyText(text){
@@ -21961,67 +22030,204 @@ function _ccFlowBanner(){
 }
 
 // ── Panel: Channels ─────────────────────────────────────────────────────────
+var _UTM_MEDIUMS=['email','social','paid_social','content','affiliate','referral','direct'];
+
+function _ccChInp(id,label,val,ph,extra){
+  return '<div>'+
+    '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">'+label+'</label>'+
+    '<input type="text" id="'+id+'" value="'+(val||'')+'" placeholder="'+(ph||'')+'" '+(extra||'')+
+    ' style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">'+
+  '</div>';
+}
+function _ccChSel(id,label,val){
+  return '<div>'+
+    '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">'+label+'</label>'+
+    '<select id="'+id+'" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;box-sizing:border-box">'+
+      _UTM_MEDIUMS.map(function(m){return '<option value="'+m+'"'+(m===val?' selected':'')+'>'+m+'</option>';}).join('')+
+    '</select>'+
+  '</div>';
+}
+
 function _ccRenderChannels(){
-  var cols=['Channel','Slug Code','UTM Medium','UTM Source','DL Prefix','Status','Notes'];
+  var gcols='110px 80px 105px 110px 72px 80px 1fr 130px';
+  var hdrLabels=['Channel','Slug Code','UTM Medium','UTM Source','DL Prefix','Status','Notes','Actions'];
   var fields=['name','slug_code','utm_medium','utm_source','dl_prefix','status','notes'];
-  var hdrCells=cols.map(function(c){
-    return '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:9px 12px;border-right:1px solid var(--border)">'+c+'</div>';
-  }).join('');
-  function rowHtml(ch){
-    var sc=ch.status==='active'?'#22c55e':ch.status==='paused'?'#eab308':_CC_RED;
-    return '<div id="cc-ch-row-'+ch.name+'" style="display:contents">'+
-      fields.map(function(f,i){
+
+  // ── Add form (shown when _ccChFormMode === '__new__') ──────────────────────
+  var addForm='';
+  if(_ccChFormMode==='__new__'){
+    addForm='<div id="cc-ch-add-form" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:14px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.06em">Add Channel</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 80px 1fr;gap:10px;margin-bottom:10px">'+
+        _ccChInp('cc-ch-f-name','Channel Name','','e.g. YouTube','')+
+        _ccChInp('cc-ch-f-slug','Slug Code','','e.g. yt','oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,\'\')"')+
+        _ccChSel('cc-ch-f-med','UTM Medium','')+
+        _ccChInp('cc-ch-f-src','UTM Source','','e.g. youtube','')+
+        _ccChInp('cc-ch-f-pfx','DL Prefix','','YT','oninput="this.value=this.value.toUpperCase()"')+
+        _ccChInp('cc-ch-f-notes','Notes','','optional','')+
+      '</div>'+
+      '<div id="cc-ch-f-err" style="font-size:11px;color:'+_CC_RED+';margin-bottom:8px;display:none"></div>'+
+      '<div style="display:flex;gap:8px">'+
+        _ccBtn('Save Channel','_ccChSave(true)',true)+
+        _ccBtn('Cancel','_ccChCancelForm()',false)+
+      '</div>'+
+    '</div>';
+  }
+
+  // ── Table rows ─────────────────────────────────────────────────────────────
+  var rows=_ccChannels.map(function(ch){
+    var sc=ch.status==='active'?'#22c55e':ch.status==='paused'?'#eab308':'var(--muted)';
+    var isEditing=_ccChFormMode===ch.name;
+    if(isEditing){
+      // Inline edit — spans all 8 columns
+      return '<div style="display:contents">'+
+        '<div style="grid-column:1/-1;padding:14px 16px;border-bottom:1px solid var(--border);background:rgba(255,0,0,0.03)">'+
+          '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Editing — '+ch.name+'</div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 80px 1fr;gap:10px;margin-bottom:10px">'+
+            _ccChInp('cc-ch-f-name','Channel Name',ch.name,'','')+
+            _ccChInp('cc-ch-f-slug','Slug Code',ch.slug_code,'','oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,\'\')"')+
+            _ccChSel('cc-ch-f-med','UTM Medium',ch.utm_medium)+
+            _ccChInp('cc-ch-f-src','UTM Source',ch.utm_source,'','')+
+            _ccChInp('cc-ch-f-pfx','DL Prefix',ch.dl_prefix,'','oninput="this.value=this.value.toUpperCase()"')+
+            _ccChInp('cc-ch-f-notes','Notes',ch.notes,'','')+
+          '</div>'+
+          '<div id="cc-ch-f-err" style="font-size:11px;color:'+_CC_RED+';margin-bottom:8px;display:none"></div>'+
+          '<div style="display:flex;gap:8px">'+
+            _ccBtn('Save','_ccChSave(false)',true)+
+            _ccBtn('Cancel','_ccChCancelForm()',false)+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }
+    // View row
+    return '<div style="display:contents">'+
+      fields.map(function(f){
         var v=ch[f]||'';
         var cell=f==='status'
           ?'<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:700;color:'+sc+';background:'+sc+'18;border:1px solid '+sc+'44">'+v+'</span>'
           :'<span style="font-size:12px;font-family:\'DM Mono\',monospace;color:var(--text)">'+v+'</span>';
-        return '<div style="padding:10px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center">'+cell+'</div>';
+        return '<div style="padding:9px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;overflow:hidden">'+cell+'</div>';
       }).join('')+
+      '<div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">'+
+        '<button onclick="_ccChFormMode=\''+ch.name+'\';var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'channels\')p.innerHTML=_ccRenderChannels();" title="Edit" style="background:transparent;border:1px solid var(--border);color:var(--muted);width:28px;height:28px;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center">✏</button>'+
+        (ch.status==='active'
+          ?'<button onclick="_ccChDeactivate(\''+ch.name+'\')" title="Deactivate" style="background:transparent;border:1px solid var(--border);color:var(--muted);width:28px;height:28px;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>'
+          :'')+
+      '</div>'+
     '</div>';
-  }
-  var grid='<div style="display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--border);border-radius:8px;overflow:hidden">'+
-    '<div style="display:contents"><div style="grid-column:1/-1;background:'+_CC_BEIGE+';display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--border)">'+hdrCells+'</div></div>'+
-    '<div id="cc-ch-body" style="display:contents">'+
-      (_ccChannels.length
-        ?_ccChannels.map(rowHtml).join('')
-        :'<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--muted);font-size:12px">Loading channels…</div>')+
-    '</div>'+
+  }).join('');
+
+  // ── Grid ───────────────────────────────────────────────────────────────────
+  var hdrCells=hdrLabels.map(function(c){
+    return '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;padding:9px 12px;border-right:1px solid rgba(0,0,0,0.1)">'+c+'</div>';
+  }).join('');
+  var grid='<div style="display:grid;grid-template-columns:'+gcols+';border:1px solid var(--border);border-radius:8px;overflow:hidden">'+
+    '<div style="display:contents"><div style="grid-column:1/-1;display:grid;grid-template-columns:'+gcols+';background:'+_CC_BEIGE+';border-bottom:1px solid var(--border)">'+hdrCells+'</div></div>'+
+    (_ccChannels.length
+      ?rows
+      :'<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--muted);font-size:12px">No channels loaded — click ⟳ Refresh</div>')+
   '</div>';
-  return '<div style="max-width:1100px">'+
+
+  return '<div style="max-width:1140px">'+
     _ccSecHdr('📡 Channels')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
-        '<div style="font-size:12px;color:var(--muted)">Channel definitions — slug codes, UTM values, and DL prefixes. Edit in the <b>Channels</b> tab of the Campaign Center sheet, then reload.</div>'+
-        '<button onclick="_ccRefreshChannelsPanel()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">⟳ Refresh</button>'+
+        '<div style="font-size:12px;color:var(--muted)">Channel definitions — used by UTM Generator, DL Registry, and Distribution. Changes sync to the Campaign Center sheet and take effect immediately.</div>'+
+        '<div style="display:flex;gap:8px">'+
+          '<button onclick="_ccChFormMode=\'__new__\';var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'channels\')p.innerHTML=_ccRenderChannels();" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">+ Add Channel</button>'+
+          '<button onclick="_ccAfterChannelWrite()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">⟳ Refresh</button>'+
+        '</div>'+
       '</div>'+
+      addForm+
       grid+
     '</div>'+
   '</div>';
 }
-function _ccRefreshChannelsPanel(){
+
+function _ccChCancelForm(){
+  _ccChFormMode=null;
+  var p=_ccEl('cc-panel');
+  if(p&&_campActiveTab==='channels') p.innerHTML=_ccRenderChannels();
+}
+
+function _ccChSave(isNew){
+  var name=(_ccEl('cc-ch-f-name')||{value:''}).value.trim();
+  var slug=(_ccEl('cc-ch-f-slug')||{value:''}).value.trim();
+  var err=_ccEl('cc-ch-f-err');
+  if(!name||!slug){
+    if(err){err.textContent='Channel Name and Slug Code are required.';err.style.display='';}
+    return;
+  }
+  if(/[^a-z0-9-]/.test(slug)){
+    if(err){err.textContent='Slug Code must be lowercase letters, numbers, and hyphens only.';err.style.display='';}
+    return;
+  }
+  var item={
+    name:name,
+    slug_code:slug,
+    utm_medium:(_ccEl('cc-ch-f-med')||{value:'social'}).value,
+    utm_source:(_ccEl('cc-ch-f-src')||{value:''}).value.trim(),
+    dl_prefix:(_ccEl('cc-ch-f-pfx')||{value:''}).value.trim().toUpperCase()||'DIR',
+    status:'active',
+    notes:(_ccEl('cc-ch-f-notes')||{value:''}).value.trim()
+  };
+  var idx=_ccChannels.findIndex(function(c){return c.name.toLowerCase()===name.toLowerCase();});
+  if(idx>=0) _ccChannels[idx]=item; else _ccChannels.push(item);
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_write',channel:item})})
+      .then(function(){_ccAfterChannelWrite();})
+      .catch(function(){_ccAfterChannelWrite();});
+  } else {
+    _ccAfterChannelWrite();
+  }
+  _showToast('<div style="color:#22c55e;font-size:12px">Channel '+(isNew?'added':'updated')+': '+name+'</div>',2500);
+}
+
+function _ccChDeactivate(name){
+  var ch=Object.assign({},_ccCh(name));
+  ch.status='inactive';
+  var idx=_ccChannels.findIndex(function(c){return c.name===name;});
+  if(idx>=0) _ccChannels[idx].status='inactive';
+  if(CONFIG.sheetsUrl){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_write',channel:ch})})
+      .then(function(){_ccAfterChannelWrite();})
+      .catch(function(){_ccAfterChannelWrite();});
+  } else {
+    _ccAfterChannelWrite();
+  }
+  _showToast('<div style="color:var(--muted);font-size:12px">'+name+' deactivated</div>',2000);
+}
+
+function _ccAfterChannelWrite(){
+  _ccChFormMode=null;
   _ccChannelsLoaded=false;
-  _ccLoadChannels();
-  // Redraw body once channels load
-  var t=setInterval(function(){
-    if(_ccChannelsLoaded){
-      clearInterval(t);
-      var body=document.getElementById('cc-ch-body');
-      if(body){
-        var cols=['name','slug_code','utm_medium','utm_source','dl_prefix','status','notes'];
-        var sc_fn=function(s){return s==='active'?'#22c55e':s==='paused'?'#eab308':_CC_RED;};
-        body.innerHTML=_ccChannels.map(function(ch){
-          return '<div style="display:contents">'+cols.map(function(f){
-            var v=ch[f]||'';
-            var sc=sc_fn(ch.status);
-            var cell=f==='status'
-              ?'<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:700;color:'+sc+';background:'+sc+'18;border:1px solid '+sc+'44">'+v+'</span>'
-              :'<span style="font-size:12px;font-family:\'DM Mono\',monospace;color:var(--text)">'+v+'</span>';
-            return '<div style="padding:10px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center">'+cell+'</div>';
-          }).join('')+'</div>';
-        }).join('');
-      }
+  if(!CONFIG.sheetsUrl){
+    _ccPopulateChannelSelect(_ccChannels);
+    var p=_ccEl('cc-panel');
+    if(p){
+      if(_campActiveTab==='channels') p.innerHTML=_ccRenderChannels();
+      else if(_campActiveTab==='distribution') p.innerHTML=_ccRenderDistribution();
     }
-  },200);
+    return;
+  }
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channels_read'})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length) _ccChannels=d.channels;
+      _ccChannelsLoaded=true;
+      _ccPopulateChannelSelect(_ccChannels);
+      var p=_ccEl('cc-panel');
+      if(p){
+        if(_campActiveTab==='channels') p.innerHTML=_ccRenderChannels();
+        else if(_campActiveTab==='distribution') p.innerHTML=_ccRenderDistribution();
+      }
+    })
+    .catch(function(){
+      _ccChannelsLoaded=true;
+      _ccPopulateChannelSelect(_ccChannels);
+      var p=_ccEl('cc-panel');
+      if(p&&_campActiveTab==='channels') p.innerHTML=_ccRenderChannels();
+    });
 }
 
 // ── Main render + tab switcher ──────────────────────────────────────────────

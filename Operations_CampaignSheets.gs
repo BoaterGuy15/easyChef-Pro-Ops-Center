@@ -37,6 +37,7 @@
 //   if (body.action === 'get_next_campaign_id')  return json({ ok:true, id: getNextCampaignId() });
 //   if (body.action === 'check_slug_available')  return json(checkSlugAvailable(body.slug));
 //   if (body.action === 'channels_read')         return json({ ok:true, channels: getChannels() });
+//   if (body.action === 'channel_write')         { setChannel(body.channel); return json({ ok:true }); }
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -861,6 +862,40 @@ function getChannels() {
   return sheet.getRange(2, 1, lastRow - 1, _CC_HDR.Channels.length).getValues()
     .filter(function(r) { return r[0] && String(r[5]).toLowerCase() === 'active'; })
     .map(_channelRowToObj);
+}
+
+/**
+ * Inserts or updates a row in the Channels tab, matched by name (case-insensitive).
+ */
+function setChannel(item) {
+  if (!item || !item.name) return;
+  var sheet   = _getCCSheet(_CC_TAB.CHANNELS);
+  var headers = _CC_HDR.Channels;
+  var lastRow = sheet.getLastRow();
+  var ex      = null;
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).toLowerCase() === String(item.name).toLowerCase()) {
+        ex = { rowIndex: i + 2 };
+        break;
+      }
+    }
+  }
+  var row = [
+    item.name       || '',
+    item.slug_code  || '',
+    item.utm_medium || '',
+    item.utm_source || '',
+    item.dl_prefix  || '',
+    item.status     || 'active',
+    item.notes      || ''
+  ];
+  var rng = ex
+    ? sheet.getRange(ex.rowIndex, 1, 1, headers.length)
+    : sheet.getRange(sheet.getLastRow() + 1, 1, 1, headers.length);
+  rng.setNumberFormat('@');
+  rng.setValues([row]);
 }
 
 // ── Slug availability check ───────────────────────────────────────────────────
