@@ -23162,6 +23162,190 @@ function _ccAfterChannelWrite(){
     });
 }
 
+// ── Panel: Content Hub ─────────────────────────────────────────────────────
+var _ccHubCache={emails:[],social:[],lp:[],loaded:false};
+var _ccHubFilter={campaign:'',type:'ALL',status:'ALL'};
+
+function _ccLoadHub(){
+  if(!CONFIG.sheetsUrl)return;
+  var done={e:false,s:false,l:false};
+  function chk(){if(done.e&&done.s&&done.l){_ccHubCache.loaded=true;var p=_ccEl('cc-panel');if(p&&_campActiveTab==='content-hub')p.innerHTML=_ccRenderContentHub();}}
+  fetch(CONFIG.sheetsUrl+'?action=email_sequences_read').then(function(r){return r.json();}).then(function(d){if(d&&Array.isArray(d.data))_ccHubCache.emails=d.data;done.e=true;chk();}).catch(function(){done.e=true;chk();});
+  fetch(CONFIG.sheetsUrl+'?action=social_posts_read').then(function(r){return r.json();}).then(function(d){if(d&&Array.isArray(d.data))_ccHubCache.social=d.data;done.s=true;chk();}).catch(function(){done.s=true;chk();});
+  fetch(CONFIG.sheetsUrl+'?action=landing_pages_read').then(function(r){return r.json();}).then(function(d){if(d&&Array.isArray(d.data))_ccHubCache.lp=d.data;done.l=true;chk();}).catch(function(){done.l=true;chk();});
+}
+
+function _ccRenderContentHub(){
+  if(!_ccHubCache.loaded&&CONFIG.sheetsUrl)_ccLoadHub();
+  var all=[];
+  _ccHubCache.emails.forEach(function(e){all.push({_type:'EMAIL',id:e.id||'',campaign_id:e.campaign_id||'',platform:e.sequence_code||e.seq_id||'',label:(e.subject_a||e.subject||'').substring(0,60),status:e.status||'draft',assigned:e.assigned_to||'Searah'});});
+  _ccHubCache.social.forEach(function(p){all.push({_type:'SOCIAL',id:p.id||'',campaign_id:p.campaign_id||'',platform:p.channel||'',label:(p.hook||'').substring(0,60),status:p.status||'draft',assigned:p.assigned_to||'Searah'});});
+  _ccHubCache.lp.forEach(function(l){all.push({_type:'LP',id:l.id||'',campaign_id:l.campaign_id||'',platform:l.slug||'',label:(l.hero_headline||'').substring(0,60),status:l.status||'draft',assigned:l.assigned_to||'Adam'});});
+  var f=_ccHubFilter;
+  var vis=all.filter(function(a){
+    if(f.campaign&&a.campaign_id!==f.campaign)return false;
+    if(f.type!=='ALL'&&a._type!==f.type)return false;
+    if(f.status!=='ALL'&&a.status!==f.status)return false;
+    return true;
+  });
+  var camps=[''];
+  all.forEach(function(a){if(a.campaign_id&&camps.indexOf(a.campaign_id)===-1)camps.push(a.campaign_id);});
+  var sel='background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-size:11px;font-family:\'DM Mono\',monospace;cursor:pointer';
+  var filterBar='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
+    '<select style="'+sel+'" onchange="_ccHubFilter.campaign=this.value;var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'content-hub\')p.innerHTML=_ccRenderContentHub();">'+camps.map(function(c){return'<option value="'+c+'"'+(f.campaign===c?' selected':'')+'>'+(c||'All Campaigns')+'</option>';}).join('')+'</select>'+
+    '<select style="'+sel+'" onchange="_ccHubFilter.type=this.value;var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'content-hub\')p.innerHTML=_ccRenderContentHub();">'+['ALL','EMAIL','SOCIAL','LP','BLOG'].map(function(t){return'<option value="'+t+'"'+(f.type===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>'+
+    '<select style="'+sel+'" onchange="_ccHubFilter.status=this.value;var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'content-hub\')p.innerHTML=_ccRenderContentHub();">'+['ALL','draft','approved','scheduled','posted'].map(function(s){return'<option value="'+s+'"'+(f.status===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'+
+    '<button onclick="_ccHubFilter={campaign:\'\',type:\'ALL\',status:\'ALL\'};var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'content-hub\')p.innerHTML=_ccRenderContentHub();" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Clear</button>'+
+    '<span style="font-size:11px;color:var(--muted)">'+vis.length+' of '+all.length+(!_ccHubCache.loaded?' · Loading…':'')+'</span>'+
+    '<button onclick="_ccHubCache.loaded=false;var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'content-hub\')p.innerHTML=_ccRenderContentHub();" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">⟳ Reload</button>'+
+  '</div>';
+  var tBg={EMAIL:'#3b82f6',SOCIAL:'#8b5cf6',LP:'#22c55e',BLOG:'#f59e0b'};
+  var sCols={draft:'#eab308',approved:'#8b5cf6',scheduled:'#3b82f6',posted:'#22c55e'};
+  var nextSt={draft:'approved',approved:'scheduled',scheduled:'posted',posted:'draft'};
+  var rows=vis.map(function(a){
+    var tb=tBg[a._type]||'#6b7280';var sc=sCols[a.status]||'#6b7280';var ns=nextSt[a.status]||'approved';
+    var typeKey=a._type==='EMAIL'?'email_sequence':a._type==='SOCIAL'?'social_post':'landing_page';
+    return'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);min-height:40px">'+
+      '<span style="font-size:9px;font-weight:800;padding:3px 7px;border-radius:4px;background:'+tb+';color:#fff;white-space:nowrap;min-width:44px;text-align:center;flex-shrink:0">'+a._type+'</span>'+
+      '<span style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--muted);min-width:90px;white-space:nowrap;flex-shrink:0">'+(a.campaign_id||'—')+'</span>'+
+      '<span style="font-size:11px;color:var(--muted);min-width:80px;white-space:nowrap;flex-shrink:0;overflow:hidden;text-overflow:ellipsis">'+(a.platform||'—')+'</span>'+
+      '<span style="font-size:12px;color:var(--text);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+(a.label||'—')+'</span>'+
+      '<span style="font-size:10px;padding:2px 8px;border-radius:100px;border:1px solid '+sc+'44;background:'+sc+'18;color:'+sc+';white-space:nowrap;font-weight:700;flex-shrink:0">'+a.status+'</span>'+
+      '<span style="font-size:10px;padding:2px 8px;border-radius:100px;background:var(--surface);border:1px solid var(--border);color:var(--muted);white-space:nowrap;flex-shrink:0">'+a.assigned+'</span>'+
+      '<button onclick="_ccUpdateAssetStatus(\''+typeKey+'\',\''+a.id+'\',\''+ns+'\')" title="Advance to '+ns+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;flex-shrink:0">→ '+ns+'</button>'+
+    '</div>';
+  }).join('');
+  return'<div style="max-width:1100px">'+
+    _ccSecHdr('📦 Content Hub')+
+    filterBar+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
+      '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:'+_CC_BEIGE+';border-bottom:1px solid var(--border)">'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;min-width:58px;flex-shrink:0">Type</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;min-width:98px;flex-shrink:0">Campaign</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;min-width:88px;flex-shrink:0">Platform/Seq</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;flex:1">Subject / Hook</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;min-width:78px;flex-shrink:0">Status</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;min-width:70px;flex-shrink:0">Assigned</span>'+
+        '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;min-width:70px;flex-shrink:0">Action</span>'+
+      '</div>'+
+      (vis.length?rows:'<div style="padding:30px;text-align:center;color:var(--muted);font-size:12px">'+(_ccHubCache.loaded?'No assets match the current filters.':'Loading content…')+'</div>')+
+    '</div>'+
+  '</div>';
+}
+
+// ── Panel: Searah Calendar ──────────────────────────────────────────────────
+var _ccSearahCache={posts:[],loaded:false};
+var _ccSearahPostedOpen=false;
+
+function _ccLoadSearah(){
+  if(!CONFIG.sheetsUrl)return;
+  fetch(CONFIG.sheetsUrl+'?action=social_posts_read')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d&&Array.isArray(d.data))_ccSearahCache.posts=d.data;
+      _ccSearahCache.loaded=true;
+      var p=_ccEl('cc-panel');
+      if(p&&_campActiveTab==='searah')p.innerHTML=_ccRenderSearah();
+    })
+    .catch(function(){
+      _ccSearahCache.loaded=true;
+      var p=_ccEl('cc-panel');
+      if(p&&_campActiveTab==='searah')p.innerHTML=_ccRenderSearah();
+    });
+}
+
+function _ccRenderSearah(){
+  if(!_ccSearahCache.loaded&&CONFIG.sheetsUrl)_ccLoadSearah();
+  var now=new Date();
+  var today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  var eow=new Date(today);eow.setDate(eow.getDate()+7);
+  var tday=[],week=[],upcoming=[],posted=[];
+  _ccSearahCache.posts.forEach(function(p){
+    if((p.status||'').toLowerCase()==='posted'){posted.push(p);return;}
+    if(!p.scheduled_date){upcoming.push(p);return;}
+    var d=new Date(p.scheduled_date);
+    var dd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    if(dd.getTime()===today.getTime())tday.push(p);
+    else if(dd>today&&dd<=eow)week.push(p);
+    else upcoming.push(p);
+  });
+  var platBg={Instagram:'#e1306c',Facebook:'#1877f2',TikTok:'#010101',Pinterest:'#e60023',X:'#1da1f2',Reddit:'#ff4500',Nextdoor:'#00b04f'};
+  var stColors={draft:'#eab308',scheduled:'#3b82f6',posted:'#22c55e',approved:'#8b5cf6'};
+  function card(p){
+    var d=p.scheduled_date?new Date(p.scheduled_date):null;
+    var dStr=d?d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'Unscheduled';
+    var pb=platBg[p.channel||'']||'#6b7280';
+    var sc=stColors[p.status||'draft']||'#6b7280';
+    var url=(p.url||'');
+    var safeUrl=url.replace(/"/g,'&quot;');
+    return'<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:10px">'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">'+
+        '<span style="font-size:11px;font-weight:700;color:var(--muted)">'+dStr+'</span>'+
+        '<span style="font-size:10px;font-weight:800;padding:2px 10px;border-radius:100px;background:'+pb+';color:#fff">'+(p.channel||'Social')+'</span>'+
+        '<span style="font-size:10px;padding:2px 8px;border-radius:100px;border:1px solid '+sc+'44;background:'+sc+'18;color:'+sc+';font-weight:700">'+(p.status||'draft')+'</span>'+
+        (p.campaign_id?'<span style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace">'+p.campaign_id+'</span>':'')+
+      '</div>'+
+      '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4">'+(p.hook||'')+'</div>'+
+      (p.body?'<div style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:8px;white-space:pre-wrap">'+(p.body)+'</div>':'')+
+      (p.hashtags?'<div style="font-size:12px;color:#3b82f6;margin-bottom:8px">'+p.hashtags+'</div>':'')+
+      (p.image_brief?'<div style="font-size:11px;color:var(--muted);padding:8px 10px;background:var(--bg);border-radius:6px;border:1px dashed var(--border);margin-bottom:8px">📷 '+p.image_brief+'</div>':'')+
+      (url?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">'+
+        '<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:340px">'+safeUrl+'</span>'+
+        '<button onclick="var u=this.getAttribute(\'data-u\');navigator.clipboard.writeText(u).catch(function(){});this.textContent=\'Copied!\';var b=this;setTimeout(function(){b.textContent=\'Copy URL\';},1400);" data-u="'+safeUrl+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Copy URL</button>'+
+      '</div>':'')+
+      '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'+
+        (p.status!=='scheduled'&&p.status!=='posted'?'<button onclick="_ccUpdateAssetStatus(\'social_post\',\''+p.id+'\',\'scheduled\')" style="background:transparent;border:1px solid #3b82f6;color:#3b82f6;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Mark Scheduled</button>':'')+
+        (p.status!=='posted'?'<button onclick="_ccUpdateAssetStatus(\'social_post\',\''+p.id+'\',\'posted\')" style="background:#22c55e;border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Mark Posted</button>':'')+
+      '</div>'+
+    '</div>';
+  }
+  function section(title,posts,empty){
+    if(!posts.length)return'<div style="font-size:12px;color:var(--muted);padding:8px 0 16px">'+empty+'</div>';
+    return'<div style="margin-bottom:20px">'+
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:'+_CC_RED+';margin-bottom:10px">'+title+' ('+posts.length+')</div>'+
+      posts.map(card).join('')+
+    '</div>';
+  }
+  var postedSec=posted.length
+    ?'<div style="margin-top:4px">'+
+        '<button onclick="_ccSearahPostedOpen=!_ccSearahPostedOpen;var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'searah\')p.innerHTML=_ccRenderSearah();" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">'+(_ccSearahPostedOpen?'▲':'▼')+' Posted ('+posted.length+')</button>'+
+        (_ccSearahPostedOpen?'<div style="margin-top:10px">'+posted.map(card).join('')+'</div>':'')+
+      '</div>'
+    :'';
+  return'<div style="max-width:780px">'+
+    _ccSecHdr('📅 Searah Social Calendar')+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">'+
+      '<span style="font-size:12px;color:var(--muted)">Social posts · '+_ccSearahCache.posts.length+' loaded</span>'+
+      '<button onclick="_ccSearahCache.loaded=false;var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'searah\')p.innerHTML=_ccRenderSearah();" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">⟳ Reload</button>'+
+    '</div>'+
+    section('TODAY',tday,'No posts scheduled for today.')+
+    section('THIS WEEK',week,'No posts scheduled this week.')+
+    section('UPCOMING',upcoming,_ccSearahCache.loaded?'No upcoming posts scheduled yet.':'Loading…')+
+    postedSec+
+  '</div>';
+}
+
+// ── Asset status updater ────────────────────────────────────────────────────
+function _ccUpdateAssetStatus(type,id,status){
+  if(!CONFIG.sheetsUrl)return;
+  var body={action:type+'_write'};
+  body[type]={id:id,status:status};
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d&&d.ok){
+        _ccHubCache.loaded=false;
+        _ccSearahCache.loaded=false;
+        var p=_ccEl('cc-panel');
+        if(p){
+          if(_campActiveTab==='content-hub')p.innerHTML=_ccRenderContentHub();
+          else if(_campActiveTab==='searah')p.innerHTML=_ccRenderSearah();
+        }
+      }
+    })
+    .catch(function(){});
+}
+
 // ── Main render + tab switcher ──────────────────────────────────────────────
 var _CC_TABS=[
   {id:'brief',lbl:'📋 Brief'},
@@ -23171,7 +23355,9 @@ var _CC_TABS=[
   {id:'tracking',lbl:'✅ Tracking'},
   {id:'distribution',lbl:'📧 Distribution'},
   {id:'performance',lbl:'📊 Performance'},
-  {id:'channels',lbl:'📡 Channels'}
+  {id:'channels',lbl:'📡 Channels'},
+  {id:'content-hub',lbl:'📦 Content Hub'},
+  {id:'searah',lbl:'📅 Searah'}
 ];
 function _campaignsRender(){
   var root=document.getElementById('campaigns-root'); if(!root) return;
@@ -23230,6 +23416,8 @@ function _campSwitchTab(t){
   else if(t==='distribution') panel.innerHTML=_ccRenderDistribution();
   else if(t==='performance') panel.innerHTML=_ccRenderPerformance();
   else if(t==='channels'){panel.innerHTML=_ccRenderChannels();setTimeout(_ccLoadChannels,0);}
+  else if(t==='content-hub'){panel.innerHTML=_ccRenderContentHub();if(!_ccHubCache.loaded)setTimeout(_ccLoadHub,0);}
+  else if(t==='searah'){panel.innerHTML=_ccRenderSearah();if(!_ccSearahCache.loaded)setTimeout(_ccLoadSearah,0);}
 }
 function _campaignsAddModal(){ _campSwitchTab('brief'); }
 // ── SEO Manager ────────────────────────────────────────────────────────────
