@@ -21548,6 +21548,20 @@ function _ccNewCampaign(){
   _campSwitchTab('brief');
 }
 
+// ── Dropdown helper ─────────────────────────────────────────────────────────
+function _ccSetSelect(id,value){
+  var el=document.getElementById(id);
+  if(!el||!value) return;
+  for(var i=0;i<el.options.length;i++){
+    if(el.options[i].text.trim().toLowerCase()===value.trim().toLowerCase()||
+       el.options[i].value.trim().toLowerCase()===value.trim().toLowerCase()){
+      el.selectedIndex=i;
+      el.dispatchEvent(new Event('change'));
+      return;
+    }
+  }
+}
+
 // ── Campaign Kickstart ──────────────────────────────────────────────────────
 var _CC_ICP_CODE_MAP={'super_mom':'Super Mom','budget_family':'Budget Family','health_optimizer':'Health Optimizer','professional':'Professional','alpha_recruit':'Alpha Recruit'};
 
@@ -21588,34 +21602,51 @@ function _ccKickstart(){
         return;
       }
       if(err) err.textContent='';
-      // ── 1. Campaign Name ────────────────────────────────────────────────
+      // ── Pre-render: load _campBrief state ────────────────────────────────
       if(j.campaign_name) _campBrief.name=j.campaign_name;
-      // ── 2. ICP ──────────────────────────────────────────────────────────
       if(j.icp_code||j.icp_match) _campBrief.icp=_CC_ICP_CODE_MAP[j.icp_code]||j.icp_match||_campBrief.icp;
-      // ── 3. Funnel Blueprint ──────────────────────────────────────────────
       if(j.blueprint){
         var fm=_CC_FUNNELS.find(function(f){var fl=f.toLowerCase(),bl=(j.blueprint||'').toLowerCase();return fl.indexOf(bl)>=0||bl.indexOf(fl.split('-')[1]||fl)>=0;});
         if(fm) _campBrief.funnel=fm;
       }
-      // ── 4. Channel + Campaign ID → auto-slug ────────────────────────────
       if(j.channel_recommendation){
         var cm=_ccChannels.find(function(c){return c.name.toLowerCase()===j.channel_recommendation.toLowerCase();});
         if(cm) _campBrief.channel=cm.name;
       }
       if(j.utm_campaign_code) _campBrief.id=j.utm_campaign_code;
-      // Clear slug so _ccAutoSlug() can build from icp + channel
+      _campBrief.slug='';
+      _campSlugStatus='';
+      _campKickstartCopy=j;
+      // ── Render 9-field copy card ─────────────────────────────────────────
+      if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''});
+      // ── Switch to Brief panel ────────────────────────────────────────────
+      _campSwitchTab('brief');
+      // ── Post-render: force dropdowns via _ccSetSelect ────────────────────
+      _ccSetSelect('cc-icp', _CC_ICP_CODE_MAP[j.icp_code]||j.icp_match||'');
+      _ccSetSelect('cc-funnel', _campBrief.funnel||j.blueprint||'');
+      _ccSetSelect('cc-channel', j.channel_recommendation||'');
+      // Regenerate slug from the now-live channel dropdown value
       _campBrief.slug='';
       _campSlugStatus='';
       _ccAutoSlug();
-      // ── 5. Slug fallback if auto-slug produced nothing ───────────────────
-      if(!_campBrief.slug&&j.slug) _campBrief.slug=j.slug;
-      _campKickstartCopy=j;
-      // ── Render 9-field copy card in kickstart result area ────────────────
-      if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''});
-      // ── Switch to Brief, validate slug, scroll into view ─────────────────
-      _campSwitchTab('brief');
+      if(!_campBrief.slug&&j.slug){
+        _campBrief.slug=j.slug;
+        var slugEl=document.getElementById('cc-slug');
+        if(slugEl) slugEl.value=j.slug;
+      }
+      // ── Fix 2: Campaign Name — append ID number for uniqueness ───────────
+      var idEl=document.getElementById('cc-id');
+      var idVal=idEl?idEl.value:'';
+      var idNum=idVal.match(/[-](\d+)$/i);
+      var idSuffix=idNum?idNum[1]:Date.now().toString().slice(-3);
+      var finalName=(j.campaign_name||'')+' — '+idSuffix;
+      _campBrief.name=finalName;
+      var nameEl=document.getElementById('cc-name');
+      if(nameEl) nameEl.value=finalName;
+      // ── Green confirmation banner ────────────────────────────────────────
       var banner=document.getElementById('cc-flow-banner');
       if(banner) banner.innerHTML='<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:12px 16px;font-size:12px;color:#16a34a;margin-bottom:16px;font-family:\'DM Mono\',monospace">Campaign generated from your customer description. Review each panel and approve to activate.</div>';
+      // ── Validate slug + scroll ───────────────────────────────────────────
       _ccCheckSlug();
       var scrollTarget=document.getElementById('cc-flow-banner');
       if(scrollTarget) scrollTarget.scrollIntoView({behavior:'smooth',block:'start'});
