@@ -34,7 +34,8 @@
 //   if (body.action === 'social_posts_write')   { setSocialPost(body.post); return json({ ok:true }); }
 //   if (body.action === 'landing_pages_read')   return json({ ok:true, pages: getLandingPages(body.campaign_id||'') });
 //   if (body.action === 'landing_pages_write')  { setLandingPage(body.page); return json({ ok:true }); }
-//   if (body.action === 'get_next_campaign_id') return json({ ok:true, id: getNextCampaignId() });
+//   if (body.action === 'get_next_campaign_id')  return json({ ok:true, id: getNextCampaignId() });
+//   if (body.action === 'check_slug_available')  return json(checkSlugAvailable(body.slug));
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -819,4 +820,25 @@ function setLandingPage(item) {
     item.pushed_to_production !== undefined ? item.pushed_to_production : (ex ? ex[22] : false)
   ];
   _ccUpsert(sheet, headers, item.id, row);
+}
+
+// ── Slug availability check ───────────────────────────────────────────────────
+
+/**
+ * Checks whether a landing page slug is already registered in the LandingPages tab.
+ * Returns { ok: true } if the slug is free.
+ * Returns { ok: false, conflict_campaign_id: "EC-2026-001" } if already in use.
+ */
+function checkSlugAvailable(slug) {
+  if (!slug) return { ok: false, error: 'slug is required' };
+  var sheet   = _getCCSheet(_CC_TAB.PAGES);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true };
+  var rows = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][2]).trim() === String(slug).trim()) {
+      return { ok: false, conflict_campaign_id: String(rows[i][1]) };
+    }
+  }
+  return { ok: true };
 }

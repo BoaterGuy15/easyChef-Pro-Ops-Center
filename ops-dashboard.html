@@ -21249,6 +21249,7 @@ var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launch
 var _campDLCache=[];
 var _campPerfCache={};
 var _campKickstartCopy=null;
+var _campSlugStatus=''; // '' unchecked, 'ok' available, 'taken' conflict
 var _CC_RED='#FF0000';
 var _CC_BEIGE='#F6EFE8';
 var _CC_ICPS=['Super Mom','Budget Family','Health Optimizer','Professional','Alpha Recruit'];
@@ -21310,7 +21311,17 @@ function _ccRenderBrief(){
         _ccField('Funnel Blueprint','cc-funnel','select',b.funnel,_CC_FUNNELS,'')+
         _ccField('Primary Channel','cc-channel','select',b.channel,_CC_CHANNELS,'')+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
-        _ccField('Landing Page Slug','cc-slug','text',b.slug,'','e.g. lp/waitlist-a → easychefpro.com/lp/waitlist-a')+
+        (function(){
+          var ibase='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+          return '<div style="margin-bottom:14px">'+
+            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Landing Page Slug</label>'+
+            '<div style="display:flex;gap:8px;align-items:center">'+
+              '<input type="text" id="cc-slug" value="'+(b.slug||'')+'" style="'+ibase+'" oninput="_ccSlugInput()" onblur="_ccCheckSlug()" placeholder="e.g. lp/super-mom-email-001">'+
+              '<span id="cc-slug-status" style="font-size:16px;min-width:18px;text-align:center;flex-shrink:0"></span>'+
+            '</div>'+
+            '<div id="cc-slug-hint" style="font-size:10px;color:var(--muted);margin-top:3px">easychefpro.com/[slug] — auto-suggested when ICP and Channel are selected</div>'+
+          '</div>';
+        })()+
         _ccField('Launch Date','cc-launch','date',b.launchDate,'','')+
       '</div>'+
       '<div style="margin-top:18px;padding:14px 16px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;background:rgba(255,0,0,0.04)">'+
@@ -21339,12 +21350,17 @@ function _ccBriefSync(){
   b.approved=(_ccEl('cc-approved')||{checked:false}).checked;
   var banner=_ccEl('cc-flow-banner');
   if(banner) banner.innerHTML=_ccFlowBanner();
+  _ccAutoSlug();
 }
 function _ccSaveBrief(next){
   _ccBriefSync();
   var b=_campBrief;
   if(!b.name||!b.channel||!b.goal){
     _showToast('<div style="color:'+_CC_RED+';font-size:12px">Fill in Campaign Name, Channel, and Goal before saving.</div>',3000);
+    return;
+  }
+  if(_campSlugStatus==='taken'){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Slug is already in use — update it before saving.</div>',3000);
     return;
   }
   try{localStorage.setItem('dgl_cc_brief_'+b.id,JSON.stringify(b));}catch(_){}
@@ -21393,9 +21409,88 @@ function _ccRefreshId(){
   _ccFetchNextId();
 }
 
+// ── Slug field helpers ──────────────────────────────────────────────────────
+
+var _CC_SLUG_ICP_MAP={
+  'Super Mom':'super-mom','Budget Family':'budget-family',
+  'Health Optimizer':'health-optimizer','Professional':'professional',
+  'Alpha Recruit':'alpha-recruit'
+};
+var _CC_SLUG_CH_MAP={
+  'Email':'email','Facebook':'fb','Instagram':'ig','TikTok':'tiktok',
+  'Pinterest':'pin','Nextdoor':'nextdoor','Organic':'organic',
+  'Affiliate':'aff','Direct':'direct'
+};
+
+function _ccAutoSlug(){
+  var b=_campBrief;
+  if(b.slug) return; // never overwrite what the user typed
+  if(!b.icp||!b.channel) return;
+  var icpCode=_CC_SLUG_ICP_MAP[b.icp]||(b.icp.toLowerCase().replace(/\s+/g,'-'));
+  var chCode=_CC_SLUG_CH_MAP[b.channel]||(b.channel.toLowerCase());
+  var num='001';
+  var m=String(b.id||'').match(/EC-\d{4}-(\d{3})/);
+  if(m) num=m[1];
+  var slug='lp/'+icpCode+'-'+chCode+'-'+num;
+  b.slug=slug;
+  var el=document.getElementById('cc-slug');
+  if(el) el.value=slug;
+  _campSlugStatus='';
+  var sd=document.getElementById('cc-slug-status'); if(sd) sd.innerHTML='';
+  var sh=document.getElementById('cc-slug-hint');
+  if(sh) sh.style.color='var(--muted)';
+}
+
+function _ccSlugInput(){
+  var el=document.getElementById('cc-slug');
+  if(el) _campBrief.slug=el.value;
+  if(_campSlugStatus){
+    _campSlugStatus='';
+    var sd=document.getElementById('cc-slug-status'); if(sd) sd.innerHTML='';
+    var sh=document.getElementById('cc-slug-hint');
+    if(sh){sh.innerHTML='easychefpro.com/[slug] — auto-suggested when ICP and Channel are selected';sh.style.color='var(--muted)';}
+  }
+}
+
+function _ccCheckSlug(){
+  var el=document.getElementById('cc-slug');
+  if(!el) return;
+  var slug=el.value.trim();
+  if(!slug){_campSlugStatus='';_ccSlugStatus('','');return;}
+  _ccSlugStatus('checking',slug);
+  if(!CONFIG.sheetsUrl){_campSlugStatus='ok';_ccSlugStatus('ok',slug);return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'check_slug_available',slug:slug})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d&&d.ok===true){_campSlugStatus='ok';_ccSlugStatus('ok',slug);}
+      else{_campSlugStatus='taken';_ccSlugStatus('taken',slug,d?d.conflict_campaign_id:'');}
+    })
+    .catch(function(){_campSlugStatus='';_ccSlugStatus('',slug);});
+}
+
+function _ccSlugStatus(state,slug,conflictId){
+  var sd=document.getElementById('cc-slug-status');
+  var sh=document.getElementById('cc-slug-hint');
+  if(!sd) return;
+  if(state==='ok'){
+    sd.innerHTML='<span style="color:#22c55e">✓</span>';
+    if(sh){sh.innerHTML='<span style="color:#22c55e">Available — easychefpro.com/'+slug+'</span>';sh.style.color='';}
+  } else if(state==='taken'){
+    sd.innerHTML='<span style="color:'+_CC_RED+'">✗</span>';
+    if(sh){sh.innerHTML='<span style="color:'+_CC_RED+'">Already used by '+(conflictId||'another campaign')+' — change it before saving</span>';sh.style.color='';}
+  } else if(state==='checking'){
+    sd.innerHTML='<span style="color:var(--muted);font-size:11px">…</span>';
+    if(sh){sh.innerHTML='<span style="color:var(--muted)">Checking availability…</span>';sh.style.color='';}
+  } else {
+    sd.innerHTML='';
+    if(sh){sh.innerHTML='easychefpro.com/[slug] — auto-suggested when ICP and Channel are selected';sh.style.color='var(--muted)';}
+  }
+}
+
 function _ccNewCampaign(){
   _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
   _campKickstartCopy=null;
+  _campSlugStatus='';
   _campSwitchTab('brief');
 }
 
