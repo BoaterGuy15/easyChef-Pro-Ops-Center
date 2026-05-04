@@ -21297,6 +21297,7 @@ function _ccField(lbl,id,type,val,opts,hint){
 
 // ── Panel 1: Brief Builder ──────────────────────────────────────────────────
 function _ccRenderBrief(){
+  console.log('[CC] brief re-rendered');
   var b=_campBrief;
   var idField=
     '<div style="margin-bottom:14px">'+
@@ -21588,8 +21589,11 @@ function _ccAutoFillBrief(campaign){
 
     // Set all three
     _ccSetSelect('cc-icp',    campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||'');
+    console.log('[CC] after icp set:', document.getElementById('cc-icp').value);
     _ccSetSelect('cc-funnel', _campBrief.funnel||campaign.blueprint||'');
+    console.log('[CC] after funnel set:', document.getElementById('cc-funnel').value);
     _ccSetSelect('cc-channel',campaign.channel_recommendation||'');
+    console.log('[CC] after channel set:', document.getElementById('cc-channel').value);
 
     // Campaign Name — append ID number for uniqueness
     var idEl=document.getElementById('cc-id');
@@ -21613,6 +21617,7 @@ function _ccAutoFillBrief(campaign){
       }
       _ccCheckSlug();
     },100);
+    console.log('[CC] trySetDropdowns complete');
   }
 
   trySetDropdowns();
