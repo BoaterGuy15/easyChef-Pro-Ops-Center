@@ -21267,6 +21267,7 @@ var _ccChannels=[
   {name:'Affiliate', slug_code:'aff',      utm_medium:'affiliate', utm_source:'affiliate', dl_prefix:'AFF',status:'active'},
   {name:'Direct',    slug_code:'direct',   utm_medium:'referral',  utm_source:'convertkit',dl_prefix:'DIR',status:'active'}
 ];
+var _ccChannelsLoaded=false;
 
 // ── CC shared helpers ───────────────────────────────────────────────────────
 function _ccEl(id){return document.getElementById(id);}
@@ -21316,7 +21317,17 @@ function _ccRenderBrief(){
         _ccField('Campaign Name','cc-name','text',b.name,'','e.g. Waitlist A/B Test May 2026')+
         _ccField('Target ICP','cc-icp','select',b.icp,_CC_ICPS,'')+
         _ccField('Funnel Blueprint','cc-funnel','select',b.funnel,_CC_FUNNELS,'')+
-        _ccField('Primary Channel','cc-channel','select',b.channel,_ccChannels.filter(function(c){return c.status==='active';}).map(function(c){return c.name;}),'')+
+        (function(){
+          var base='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+          var loading=CONFIG.sheetsUrl&&!_ccChannelsLoaded;
+          var opts=loading
+            ?'<option value="">Loading channels…</option>'
+            :'<option value="">— select —</option>'+_ccChannels.filter(function(c){return c.status==='active';}).map(function(c){return '<option value="'+c.name+'"'+(b.channel===c.name?' selected':'')+'>'+c.name+'</option>';}).join('');
+          return '<div style="margin-bottom:14px">'+
+            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Primary Channel</label>'+
+            '<select id="cc-channel" style="'+base+(loading?';opacity:0.5':'')+'" onchange="_ccBriefSync()"'+(loading?' disabled':'')+'>'+opts+'</select>'+
+          '</div>';
+        })()+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
         (function(){
           var ibase='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
@@ -21429,12 +21440,39 @@ function _ccCh(name){
   return {name:name,slug_code:name.toLowerCase().replace(/\s+/g,'-'),utm_medium:'direct',utm_source:name.toLowerCase(),dl_prefix:'DIR'};
 }
 
+function _ccPopulateChannelSelect(channels){
+  var sel=document.getElementById('cc-channel');
+  if(!sel) return;
+  var current=_campBrief.channel||sel.value;
+  var active=channels.filter(function(c){return c.status==='active';});
+  sel.innerHTML='<option value="">— select —</option>'+
+    active.map(function(c){
+      return '<option value="'+c.name+'"'+(c.name===current?' selected':'')+'>'+c.name+'</option>';
+    }).join('');
+  sel.disabled=false;
+  sel.style.opacity='';
+}
+
 function _ccLoadChannels(){
-  if(!CONFIG.sheetsUrl) return;
+  // Show loading state on the dropdown if it's already in the DOM
+  var sel=document.getElementById('cc-channel');
+  if(sel&&!_ccChannelsLoaded){
+    sel.innerHTML='<option value="">Loading channels…</option>';
+    sel.disabled=true;
+    sel.style.opacity='0.5';
+  }
+  if(!CONFIG.sheetsUrl){_ccPopulateChannelSelect(_ccChannels);return;}
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channels_read'})})
     .then(function(r){return r.json();})
-    .then(function(d){if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length) _ccChannels=d.channels;})
-    .catch(function(){});
+    .then(function(d){
+      if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length) _ccChannels=d.channels;
+      _ccChannelsLoaded=true;
+      _ccPopulateChannelSelect(_ccChannels);
+    })
+    .catch(function(){
+      _ccChannelsLoaded=true;
+      _ccPopulateChannelSelect(_ccChannels);
+    });
 }
 
 function _ccAutoSlug(){
@@ -21968,7 +22006,7 @@ function _campSwitchTab(t){
   });
   var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
   var panel=_ccEl('cc-panel'); if(!panel) return;
-  if(t==='brief'){panel.innerHTML=_ccRenderBrief();if(!_campBrief.id)setTimeout(_ccFetchNextId,50);}
+  if(t==='brief'){panel.innerHTML=_ccRenderBrief();if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
   else if(t==='utm') panel.innerHTML=_ccRenderUTM();
   else if(t==='registry'){panel.innerHTML=_ccRenderRegistry();setTimeout(_ccRedrawReg,120);}
   else if(t==='seo'){
