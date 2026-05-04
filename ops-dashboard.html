@@ -21584,7 +21584,16 @@ function _ccAutoFillBrief(campaign){
       return;
     }
 
-    // Dropdowns are populated — set all three
+    // Dropdowns are populated — log options and match targets before setting
+    var icpEl2=document.getElementById('cc-icp');
+    var bpEl=document.getElementById('cc-funnel');
+    var chEl2=document.getElementById('cc-channel');
+    console.log('[CC] icp options:',Array.from(icpEl2.options).map(function(o){return o.text;}));
+    console.log('[CC] blueprint options:',Array.from(bpEl.options).map(function(o){return o.text;}));
+    console.log('[CC] channel options:',Array.from(chEl2.options).map(function(o){return o.text;}));
+    console.log('[CC] trying to match:',campaign.icp_match,campaign.blueprint,campaign.channel_recommendation);
+
+    // Set all three
     _ccSetSelect('cc-icp',    campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||'');
     _ccSetSelect('cc-funnel', _campBrief.funnel||campaign.blueprint||'');
     _ccSetSelect('cc-channel',campaign.channel_recommendation||'');
