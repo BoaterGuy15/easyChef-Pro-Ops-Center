@@ -22738,8 +22738,25 @@ function _ccRenderDistribution(){
     '</div>';
   }).join('');
 
+  // ── Calendar Builder card ─────────────────────────────────────────────────
+  var _seqLbl={'seq1_only':'SEQ-1 · 3 emails','seq1_seq2':'SEQ-1+2 · 8 emails','seq1_seq2_seq3':'SEQ-1–3 · 12 emails','full':'All 4 sequences · 13 emails'};
+  var _freqLbl={'daily':'Daily','every_2_days':'Every 2 days','3x_week':'3\xd7 per week','2x_week':'2\xd7 per week','weekly':'Weekly','as_needed':'As needed'};
+  var _varLbl={'both':'A+B variants','variant_a':'Variant A only','variant_b':'Variant B only'};
+  var _seqK=String(b.email_sequences||'seq1_seq2');
+  var _varK=String(b.email_variants||'both');
+  var _freqK=String(b.post_frequency||'every_2_days');
+  var _calSum=(_seqLbl[_seqK]||_seqK)+' · '+(_varLbl[_varK]||_varK)+' · '+(b.post_count||5)+' posts · '+(_freqLbl[_freqK]||_freqK);
+  var _calCard=
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:22px 24px;margin-bottom:16px">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:'+_CC_RED+';margin-bottom:10px">📅 Campaign Calendar Builder</div>'+
+      '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">Build Full Campaign Calendar</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:16px;font-family:\'DM Mono\',monospace">'+_calSum+'</div>'+
+      '<button id="cc-build-calendar-btn" onclick="_ccBuildFullCalendar()" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;display:inline-flex;align-items:center;gap:6px">✦ Build Full Calendar</button>'+
+      '<div id="cc-calendar-result" style="display:none;margin-top:16px"></div>'+
+    '</div>';
   return '<div style="max-width:1100px">'+
     _ccSecHdr('📧 Panel 6 — Distribution')+
+    _calCard+
     blocker+
     (activeChannels.length?sections:'<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:30px;text-align:center;color:var(--muted);font-size:12px">No active channels — add channels in the <button onclick="_campSwitchTab(\'channels\')" style="background:none;border:none;color:'+_CC_RED+';cursor:pointer;font-size:12px;padding:0;text-decoration:underline">📡 Channels tab</button>.</div>')+
     '<div style="font-size:11px;color:var(--muted);margin-top:8px">Channels from the <button onclick="_campSwitchTab(\'channels\')" style="background:none;border:none;color:'+_CC_RED+';cursor:pointer;font-size:11px;padding:0;text-decoration:underline">📡 Channels tab</button> — add a channel there to add it to this panel.</div>'+
@@ -22751,6 +22768,141 @@ function _ccCopyText(text){
   try{document.execCommand('copy');}catch(e){}
   document.body.removeChild(t);
   _showToast('<div style="color:#22c55e;font-size:12px">Copied</div>',1800);
+}
+
+// ── Campaign Calendar Builder ─────────────────────────────────────────────────
+
+function _ccCalEmailCount(){
+  var s=_campBrief.email_sequences||'seq1_seq2';
+  var map={'seq1_only':3,'seq1_seq2':8,'seq1_seq2_seq3':12,'full':13};
+  if(map[s]) return map[s];
+  var n=parseInt(s,10);
+  if(isNaN(n)) return 8;
+  if(n<=1) return 3; if(n<=2) return 8; if(n<=3) return 12; return 13;
+}
+
+function _ccBuildFullCalendar(){
+  var btn=document.getElementById('cc-build-calendar-btn');
+  var res=document.getElementById('cc-calendar-result');
+  if(!CONFIG.sheetsUrl){
+    if(res){res.style.display='block';res.innerHTML='<div style="padding:10px 14px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;font-size:12px;color:'+_CC_RED+'">CONFIG.sheetsUrl is not set — connect your Google Sheet first.</div>';}
+    return;
+  }
+  var emailCount=_ccCalEmailCount();
+  var postCount=_campBrief.post_count||5;
+  if(btn){btn.disabled=true;btn.textContent='Building '+emailCount+' emails + '+postCount+' posts…';}
+  if(res){res.style.display='none';res.innerHTML='';}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'build_full_sequence',brief:_campBrief,copy:_campKickstartCopy||{}})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(btn){btn.disabled=false;btn.innerHTML='✦ Build Full Calendar';}
+      if(!d.ok){
+        if(res){res.style.display='block';res.innerHTML='<div style="padding:10px 14px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;font-size:12px;color:'+_CC_RED+'">Build failed: '+(d.error||'Unknown error')+'</div>';}
+        return;
+      }
+      _ccRenderCalendarResult(d,res);
+    })
+    .catch(function(e){
+      if(btn){btn.disabled=false;btn.innerHTML='✦ Build Full Calendar';}
+      if(res){res.style.display='block';res.innerHTML='<div style="padding:10px 14px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;font-size:12px;color:'+_CC_RED+'">Request failed: '+e.message+'</div>';}
+    });
+}
+
+function _ccRenderCalendarResult(d,container){
+  if(!container) return;
+  container.style.display='block';
+  var emails=d.emails||[];
+  var posts=d.posts||[];
+  var calendar=d.calendar||[];
+  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var weekGroups=[
+    {label:'Week 1 — Awareness',  min:0,  max:6},
+    {label:'Weeks 2–3 — Nurture', min:7,  max:20},
+    {label:'Weeks 4–6 — Urgency', min:21, max:41},
+    {label:'Launch Day',          min:42, max:9999}
+  ];
+  var summaryHtml=
+    '<div style="padding:10px 14px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.25);border-radius:8px;font-size:12px;font-weight:600;color:#22c55e;margin-bottom:14px">'+
+      '✓ '+emails.length+' emails + '+posts.length+' posts generated and saved to Sheets'+
+    '</div>';
+  var accordionHtml=weekGroups.map(function(wk,idx){
+    var wkDays=calendar.filter(function(c){return c.day>=wk.min&&c.day<=wk.max;});
+    if(!wkDays.length) return '';
+    var totalItems=wkDays.reduce(function(s,c){return s+c.emails.length+c.posts.length;},0);
+    var dayHtml=wkDays.map(function(c){
+      var items='';
+      (c.emails||[]).forEach(function(e){
+        items+=
+          '<div style="padding:6px 14px 6px 24px;border-top:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">'+
+            '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(0,0,0,0.07);color:var(--text);margin-top:2px;font-family:\'DM Mono\',monospace">EMAIL</span>'+
+            '<div>'+
+              '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">Day '+c.day+' · '+safe(e.sequence_code||'')+'-E'+(e.email_number||'')+' · '+safe(e.trigger_event||'')+'</div>'+
+              '<div style="font-size:12px;color:var(--text)">'+safe(e.subject_line_a||e.seq_id||'(no subject)')+'</div>'+
+            '</div>'+
+          '</div>';
+      });
+      (c.posts||[]).forEach(function(p){
+        items+=
+          '<div style="padding:6px 14px 6px 24px;border-top:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">'+
+            '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(99,102,241,0.1);color:#6366f1;margin-top:2px;font-family:\'DM Mono\',monospace">SOCIAL</span>'+
+            '<div>'+
+              '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">Day '+c.day+' · '+safe(p.platform||'Social')+'</div>'+
+              '<div style="font-size:12px;color:var(--text)">'+safe(p.hook||'')+'</div>'+
+            '</div>'+
+          '</div>';
+      });
+      return items;
+    }).join('');
+    return '<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">'+
+      '<div onclick="_ccCalToggleWeek('+idx+')" style="cursor:pointer;padding:10px 14px;background:'+_CC_BEIGE+';display:flex;align-items:center;justify-content:space-between;user-select:none">'+
+        '<span style="font-size:11px;font-weight:700;color:#000">'+wk.label+'</span>'+
+        '<span style="font-size:10px;color:var(--muted)">'+totalItems+' items ▾</span>'+
+      '</div>'+
+      '<div id="cc-cal-week-'+idx+'" style="display:none">'+dayHtml+'</div>'+
+    '</div>';
+  }).filter(Boolean).join('');
+  window._ccCalData={emails:emails,posts:posts,id:(_campBrief.id||'ec')};
+  var csvBtn=
+    '<div style="margin-top:12px">'+
+      '<button onclick="_ccDownloadCalendarCSV()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download Calendar CSV</button>'+
+    '</div>';
+  container.innerHTML=summaryHtml+accordionHtml+csvBtn;
+}
+
+function _ccCalToggleWeek(idx){
+  var el=document.getElementById('cc-cal-week-'+idx);
+  if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
+
+function _ccDownloadCalendarCSV(){
+  var d=window._ccCalData||{};
+  var emails=d.emails||[];
+  var posts=d.posts||[];
+  var seqOff={'SEQ-1':0,'SEQ-2':0,'SEQ-3':28,'SEQ-4':42};
+  var wkLbl=function(day){
+    if(day>=42) return 'Launch Day';
+    if(day>=21) return 'Weeks 4-6 Urgency';
+    if(day>=7)  return 'Weeks 2-3 Nurture';
+    return 'Week 1 Awareness';
+  };
+  var q=function(s){return '"'+String(s||'').replace(/"/g,'""')+'"';};
+  var rows=[['Day','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA URL','Image Brief','Hashtags','Status']];
+  emails.forEach(function(e){
+    var day=(e.send_day||0)+(seqOff[e.sequence_code]||0);
+    rows.push([day,wkLbl(day),e.funnel_stage||'',e.sequence_code+'-E'+(e.email_number||'')+' (A)','Email',e.subject_line_a||'',e.preview_text_a||'',e.body_cta||'','','',e.status||'draft']);
+    if(e.subject_line_b) rows.push([day,wkLbl(day),e.funnel_stage||'',e.sequence_code+'-E'+(e.email_number||'')+' (B)','Email',e.subject_line_b||'',e.preview_text_b||'',e.body_cta||'','','',e.status||'draft']);
+  });
+  posts.forEach(function(p){
+    rows.push([p.scheduled_day||0,wkLbl(p.scheduled_day||0),p.theme||'','Social',p.platform||'',p.hook||'',p.body_copy||'',p.cta||'',p.image_brief||'',p.hashtags||'',p.status||'draft']);
+  });
+  rows.slice(1).sort(function(a,b){return (parseInt(a[0])||0)-(parseInt(b[0])||0);});
+  var csv=[rows[0]].concat(rows.slice(1).sort(function(a,b){return (parseInt(a[0])||0)-(parseInt(b[0])||0);})).map(function(r){return r.map(q).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='campaign-calendar-'+(d.id||'ec')+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ── Panel 7: Performance ────────────────────────────────────────────────────
