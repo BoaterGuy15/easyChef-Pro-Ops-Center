@@ -21661,11 +21661,13 @@ function _ccAutoFillBrief(campaign){
 
       requestAnimationFrame(function(){
         requestAnimationFrame(function(){
+          // Set name first so _ccBriefSync reads it correctly when selects fire change events
+          var nameEl=document.getElementById('cc-name');
+          if(nameEl) nameEl.value=_campBrief.name||'';
+          console.log('[CC] name set to:',_campBrief.name);
           _ccSetSelect('cc-icp',    _campBrief.icp);
           _ccSetSelect('cc-funnel', _campBrief.funnel);
           _ccSetSelect('cc-channel',_campBrief.channel);
-          var nameEl=document.getElementById('cc-name');
-          if(nameEl) nameEl.value=_campBrief.name;
           var slugEl=document.getElementById('cc-slug');
           if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
           console.log('[CC] post-tab-switch icp:',document.getElementById('cc-icp').value);
