@@ -21960,6 +21960,70 @@ function _ccFlowBanner(){
   '</div>';
 }
 
+// ── Panel: Channels ─────────────────────────────────────────────────────────
+function _ccRenderChannels(){
+  var cols=['Channel','Slug Code','UTM Medium','UTM Source','DL Prefix','Status','Notes'];
+  var fields=['name','slug_code','utm_medium','utm_source','dl_prefix','status','notes'];
+  var hdrCells=cols.map(function(c){
+    return '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:9px 12px;border-right:1px solid var(--border)">'+c+'</div>';
+  }).join('');
+  function rowHtml(ch){
+    var sc=ch.status==='active'?'#22c55e':ch.status==='paused'?'#eab308':_CC_RED;
+    return '<div id="cc-ch-row-'+ch.name+'" style="display:contents">'+
+      fields.map(function(f,i){
+        var v=ch[f]||'';
+        var cell=f==='status'
+          ?'<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:700;color:'+sc+';background:'+sc+'18;border:1px solid '+sc+'44">'+v+'</span>'
+          :'<span style="font-size:12px;font-family:\'DM Mono\',monospace;color:var(--text)">'+v+'</span>';
+        return '<div style="padding:10px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center">'+cell+'</div>';
+      }).join('')+
+    '</div>';
+  }
+  var grid='<div style="display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--border);border-radius:8px;overflow:hidden">'+
+    '<div style="display:contents"><div style="grid-column:1/-1;background:'+_CC_BEIGE+';display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--border)">'+hdrCells+'</div></div>'+
+    '<div id="cc-ch-body" style="display:contents">'+
+      (_ccChannels.length
+        ?_ccChannels.map(rowHtml).join('')
+        :'<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--muted);font-size:12px">Loading channels…</div>')+
+    '</div>'+
+  '</div>';
+  return '<div style="max-width:1100px">'+
+    _ccSecHdr('📡 Channels')+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
+        '<div style="font-size:12px;color:var(--muted)">Channel definitions — slug codes, UTM values, and DL prefixes. Edit in the <b>Channels</b> tab of the Campaign Center sheet, then reload.</div>'+
+        '<button onclick="_ccRefreshChannelsPanel()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">⟳ Refresh</button>'+
+      '</div>'+
+      grid+
+    '</div>'+
+  '</div>';
+}
+function _ccRefreshChannelsPanel(){
+  _ccChannelsLoaded=false;
+  _ccLoadChannels();
+  // Redraw body once channels load
+  var t=setInterval(function(){
+    if(_ccChannelsLoaded){
+      clearInterval(t);
+      var body=document.getElementById('cc-ch-body');
+      if(body){
+        var cols=['name','slug_code','utm_medium','utm_source','dl_prefix','status','notes'];
+        var sc_fn=function(s){return s==='active'?'#22c55e':s==='paused'?'#eab308':_CC_RED;};
+        body.innerHTML=_ccChannels.map(function(ch){
+          return '<div style="display:contents">'+cols.map(function(f){
+            var v=ch[f]||'';
+            var sc=sc_fn(ch.status);
+            var cell=f==='status'
+              ?'<span style="font-size:10px;padding:2px 8px;border-radius:100px;font-weight:700;color:'+sc+';background:'+sc+'18;border:1px solid '+sc+'44">'+v+'</span>'
+              :'<span style="font-size:12px;font-family:\'DM Mono\',monospace;color:var(--text)">'+v+'</span>';
+            return '<div style="padding:10px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center">'+cell+'</div>';
+          }).join('')+'</div>';
+        }).join('');
+      }
+    }
+  },200);
+}
+
 // ── Main render + tab switcher ──────────────────────────────────────────────
 var _CC_TABS=[
   {id:'brief',lbl:'📋 Brief'},
@@ -21968,7 +22032,8 @@ var _CC_TABS=[
   {id:'seo',lbl:'🔍 SEO + Page Builder'},
   {id:'tracking',lbl:'✅ Tracking'},
   {id:'distribution',lbl:'📧 Distribution'},
-  {id:'performance',lbl:'📊 Performance'}
+  {id:'performance',lbl:'📊 Performance'},
+  {id:'channels',lbl:'📡 Channels'}
 ];
 function _campaignsRender(){
   var root=document.getElementById('campaigns-root'); if(!root) return;
@@ -22024,6 +22089,7 @@ function _campSwitchTab(t){
   else if(t==='tracking') panel.innerHTML=_ccRenderTracking();
   else if(t==='distribution') panel.innerHTML=_ccRenderDistribution();
   else if(t==='performance') panel.innerHTML=_ccRenderPerformance();
+  else if(t==='channels'){panel.innerHTML=_ccRenderChannels();setTimeout(_ccLoadChannels,0);}
 }
 function _campaignsAddModal(){ _campSwitchTab('brief'); }
 // ── SEO Manager ────────────────────────────────────────────────────────────
