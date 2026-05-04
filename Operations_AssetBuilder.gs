@@ -211,6 +211,18 @@ function buildSocialPosts(brief, copy) {
     'Post 3: Solve + proof — introduce easyChef Pro, one specific claim.\n' +
     'Post 4: Social proof — one family story (fictional but believable), outcome-led.\n' +
     'Post 5: Urgency — founding price closes soon. Direct, honest, no fake scarcity.\n\n' +
+    '=== HASHTAG RULES ===\n' +
+    'Facebook: no hashtags — leave hashtags field as empty string.\n' +
+    'Instagram: 8-12 hashtags — mix broad (#mealplanning) and niche (#busymomlife). Place at end of post.\n' +
+    'TikTok: 4-5 hashtags — include trending where relevant (#fyp acceptable).\n' +
+    'Pinterest: 5-8 keyword-style hashtags — think search terms (#mealplanningideas #familydinnerideas).\n' +
+    'Nextdoor: no hashtags — leave hashtags field as empty string.\n\n' +
+    '=== IMAGE BRIEF RULES ===\n' +
+    'Facebook: 1200×630px — describe a real-life scene relevant to the post.\n' +
+    'Instagram: 1080×1080px square — eye-catching, lifestyle-led.\n' +
+    'TikTok: 9:16 vertical video — describe the hook visual for the first 3 seconds.\n' +
+    'Pinterest: 1000×1500px vertical — aspirational, text overlay friendly.\n' +
+    'Nextdoor: optional community photo — warm, local, authentic.\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY valid JSON. No markdown. No explanation.\n' +
     '{\n' +
@@ -220,7 +232,9 @@ function buildSocialPosts(brief, copy) {
     '      "hook": "First line that stops the scroll — under 15 words",\n' +
     '      "body": "Full post body — plain text only, no markdown",\n' +
     '      "cta": "Call to action line — under 10 words",\n' +
-    '      "url": "' + lpUrl + '"\n' +
+    '      "url": "' + lpUrl + '",\n' +
+    '      "hashtags": "Relevant hashtags for this platform and ICP — empty string for Facebook and Nextdoor",\n' +
+    '      "image_brief": "One sentence describing the ideal image or video — include platform dimensions"\n' +
     '    }\n' +
     '  ]\n' +
     '}';

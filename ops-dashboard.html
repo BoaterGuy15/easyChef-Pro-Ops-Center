@@ -22044,7 +22044,7 @@ function _ccKsBuildAssets(actionType){
       if(actionType==='build_email_sequence'){
         _ccRenderEmailSequence(d.sequence||[],out2);
       } else {
-        _ccRenderSocialPosts(d.posts||[],out2);
+        _ccRenderSocialPosts(d.posts||[],out2,_campBrief.channel);
       }
     })
     .catch(function(e){
@@ -22099,23 +22099,135 @@ function _ccRenderEmailSequence(sequence,container){
     '</div>';
 }
 
-function _ccRenderSocialPosts(posts,container){
+// Live char count updater — called oninput on each post body textarea
+function _ccUpdatePostCount(el,cntId,optimal){
+  var len=el.value.length;
+  var span=document.getElementById(cntId);
+  if(!span) return;
+  var color=len<=Math.floor(optimal*0.8)?'#22c55e':len<=optimal?'#f59e0b':'#ef4444';
+  span.style.color=color;
+  span.textContent=len+' / '+optimal+' chars';
+}
+
+function _ccRenderSocialPosts(posts,container,channel){
   if(!container) return;
   if(!posts.length){
     container.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">No posts returned.</div>';
     return;
   }
-  var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-  var rows=posts.map(function(post){
-    return '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
-      '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:8px">POST '+safe(String(post.post_num||'?'))+'</div>'+
-      '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4">'+safe(post.hook||'')+'</div>'+
-      '<div style="font-size:12px;color:var(--text);line-height:1.65;margin-bottom:8px;white-space:pre-wrap;background:var(--bg);padding:10px 12px;border-radius:6px;border:1px solid var(--border)">'+safe(post.body||'')+'</div>'+
-      '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">'+safe(post.cta||'')+'</div>'+
-      '<div style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--muted)">'+safe(post.url||'')+'</div>'+
+  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var ch=channel||_campBrief.channel||'Facebook';
+
+  // Platform config
+  var _PC={
+    'Facebook': {
+      optimal:400,hashtags:false,hashLabel:'',
+      imgFallback:'1200×630px — [describe scene]',
+      note:'Link works in post — no hashtags needed',
+      linkNote:'Paste URL directly in post'
+    },
+    'Instagram':{
+      optimal:125,hashtags:true,hashLabel:'5–15 hashtags',
+      imgFallback:'1080×1080px square — [describe scene]',
+      note:'No clickable link in post — use link in bio · hashtags at end',
+      linkNote:'Add URL to bio before posting — update bio DL_ID'
+    },
+    'TikTok':{
+      optimal:150,hashtags:true,hashLabel:'3–5 hashtags',
+      imgFallback:'9:16 vertical video — [describe hook visual for first 3 seconds]',
+      note:'This is a video script — hook must land in first 3 seconds',
+      linkNote:'Add URL to bio before posting'
+    },
+    'Pinterest':{
+      optimal:500,hashtags:true,hashLabel:'keyword-style tags',
+      imgFallback:'1000×1500px vertical — [describe visual]',
+      note:'Keyword-rich description — link goes directly to LP',
+      linkNote:'URL goes in destination link field'
+    },
+    'Nextdoor':{
+      optimal:300,hashtags:false,hashLabel:'',
+      imgFallback:'Optional — community photo',
+      note:'Neighbour tone — no hashtags, no corporate language',
+      linkNote:'Paste URL in post'
+    }
+  };
+  var pc=_PC[ch]||_PC['Facebook'];
+
+  // Fallback hashtags by ICP when AI doesn't return them
+  var _defaultHash={
+    'Super Mom':       '#mealplanning #busymom #familydinners #mealprep #easyChefPro',
+    'Budget Family':   '#grocerysavings #mealplanning #foodbudget #familydinners #easyChefPro',
+    'Health Optimizer':'#healthyeating #mealprep #cleaneating #macros #easyChefPro',
+    'Professional':    '#mealplanning #mealprep #productivity #healthyliving #easyChefPro',
+    'Alpha Recruit':   '#mealplanning #foodtech #easyChefPro #founding #kitchenhacks'
+  };
+  var fallbackHash=_defaultHash[_campBrief.icp||'']||'#mealplanning #foodwaste #easyChefPro #mealprep #grocerysavings';
+
+  var taStyle='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:10px 12px;font-size:12px;font-family:inherit;line-height:1.65;resize:vertical;box-sizing:border-box;outline:none';
+  var fieldLabel=function(txt,sub){
+    return '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px">'+txt+(sub?' <span style="font-weight:400;text-transform:none;letter-spacing:0">('+sub+')</span>':'')+'</div>';
+  };
+
+  var rows=posts.map(function(post,i){
+    var bodyText=String(post.body||'');
+    var hashText=pc.hashtags?(String(post.hashtags||'')||fallbackHash):'';
+    var imgText=String(post.image_brief||'')||pc.imgFallback;
+    var bodyId='ks-post-'+i+'-body';
+    var cntId ='ks-post-'+i+'-cnt';
+    var hashId ='ks-post-'+i+'-hash';
+    var imgId  ='ks-post-'+i+'-img';
+
+    return '<div style="padding:16px;border-bottom:1px solid var(--border)">'+
+      // Post number
+      '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:10px">POST '+safe(String(post.post_num||i+1))+'</div>'+
+      // Hook
+      '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;line-height:1.4">'+safe(post.hook||'')+'</div>'+
+      // Body textarea + char count
+      '<div style="margin-bottom:10px">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'+
+          fieldLabel('Body')+
+          '<span id="'+cntId+'" style="font-size:10px;font-family:\'DM Mono\',monospace;color:#22c55e">0 / '+pc.optimal+' chars</span>'+
+        '</div>'+
+        '<textarea id="'+bodyId+'" rows="4" oninput="_ccUpdatePostCount(this,\''+cntId+'\','+pc.optimal+')" style="'+taStyle+'">'+safe(bodyText)+'</textarea>'+
+      '</div>'+
+      // Platform note
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(255,255,255,0.03);border-radius:5px;border-left:2px solid var(--border)">'+
+        safe(pc.note)+
+      '</div>'+
+      // Hashtags (platform-conditional)
+      (pc.hashtags?
+        '<div style="margin-bottom:10px">'+
+          fieldLabel('Hashtags',pc.hashLabel)+
+          '<textarea id="'+hashId+'" rows="2" style="'+taStyle+'">'+safe(hashText)+'</textarea>'+
+        '</div>'
+      :'')+
+      // Image brief
+      '<div style="margin-bottom:12px">'+
+        fieldLabel('Image Brief')+
+        '<textarea id="'+imgId+'" rows="2" style="'+taStyle+'">'+safe(imgText)+'</textarea>'+
+      '</div>'+
+      // CTA + link placement row
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
+        '<div>'+
+          '<div style="font-size:11px;color:var(--text);margin-bottom:3px">'+safe(post.cta||'')+'</div>'+
+          '<div style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--muted)">'+safe(post.url||'')+'</div>'+
+        '</div>'+
+        '<div style="font-size:10px;padding:5px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:5px;color:var(--muted);white-space:nowrap;flex-shrink:0">'+
+          safe(pc.linkNote)+
+        '</div>'+
+      '</div>'+
     '</div>';
   }).join('');
+
   container.innerHTML='<div style="border-top:1px solid var(--border)">'+rows+'</div>';
+
+  // Trigger initial char counts after DOM settles
+  setTimeout(function(){
+    posts.forEach(function(_,i){
+      var ta=document.getElementById('ks-post-'+i+'-body');
+      if(ta) _ccUpdatePostCount(ta,'ks-post-'+i+'-cnt',pc.optimal);
+    });
+  },0);
 }
 
 // ── Panel 2: UTM Generator ──────────────────────────────────────────────────
