@@ -44,6 +44,12 @@ function campaignKickstart(prompt) {
     '7-step framework every campaign follows:\n' +
     'Hook → Problem → Agitate → Solve → Value → Proof → CTA\n\n' +
 
+    'Architecture rules:\n' +
+    'Every piece of content drives to a landing page. Landing pages belong to an ICP, not a campaign — ' +
+    'multiple campaigns drive to the same LP. The slug in the output represents that shared LP.\n' +
+    'PRODUCT NAME: Always write "easyChef Pro". Never "the app", "this app", or "a meal planning app".\n' +
+    'CTA RULE: Every CTA drives to the landing page. Never link to the main website or App Store.\n\n' +
+
     'Return a JSON object with these exact fields:\n' +
     '{\n' +
     '  "icp_match": "Human-readable ICP name (e.g. Super Mom)",\n' +

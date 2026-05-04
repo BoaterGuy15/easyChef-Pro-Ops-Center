@@ -21734,8 +21734,10 @@ function _ccKickstart(){
       _campBrief.slug='';
       _campSlugStatus='';
       _campKickstartCopy=j;
-      // ── Render copy card ─────────────────────────────────────────────────
-      if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''});
+      // ── Render copy card + architecture sections ─────────────────────────
+      if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''})+_ccRenderKickstartAssets(j);
+      var _ksIcpName=j.icp_match||'';
+      setTimeout(function(){_ccKsLpSearch(_ksIcpName);},120);
       // ── Switch to Brief panel ────────────────────────────────────────────
       _campSwitchTab('brief');
       var banner=document.getElementById('cc-flow-banner');
@@ -21861,6 +21863,259 @@ function _ccRenderCopyOutput(copy,b){
 }
 function _ccBadge2(n){
   return '<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:'+_CC_RED+';color:#fff;font-size:9px;font-weight:700;flex-shrink:0">'+n+'</span>';
+}
+
+// ── Architecture sections — rendered below copy card after kickstart ──────────
+
+function _ccRenderKickstartAssets(campaign){
+  var icp=campaign.icp_match||'';
+  var channel=campaign.channel_recommendation||'';
+  var isEmail=channel==='Email';
+  var assetLabel=isEmail?'Build Email Sequence (SEQ-1 + SEQ-2)':'Build '+channel+' Social Posts (5 posts)';
+  var assetAction=isEmail?'build_email_sequence':'build_social_posts';
+  var secHdr=function(title,sub){
+    return '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">'+title+'</div>'+
+      (sub?'<div style="font-size:12px;color:var(--text);margin-top:3px">'+sub+'</div>':'')+
+    '</div>';
+  };
+  return '<div style="max-width:780px;margin-top:20px">'+
+    // SECTION A
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px">'+
+      secHdr(
+        'Section A — Landing Page',
+        'Landing pages are shared assets. One page serves multiple campaigns targeting the same ICP. Select an existing page or build a new one.'
+      )+
+      '<div style="padding:14px 16px" id="cc-ks-lp-results">'+
+        '<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Searching for '+icp+' landing pages…</div>'+
+      '</div>'+
+      '<div id="cc-ks-lp-output"></div>'+
+    '</div>'+
+    // SECTION B
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
+      secHdr(
+        'Section B — Campaign Assets',
+        'Traffic drivers that send visitors to the landing page. Each asset carries its own DL_ID so attribution is tracked per asset.'
+      )+
+      '<div style="padding:14px 16px">'+
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Channel: <span style="color:var(--text);font-weight:700">'+channel+'</span> · Assets link to the LP selected above with unique DL_IDs</div>'+
+        '<button id="cc-ks-asset-btn" onclick="_ccKsBuildAssets(\''+assetAction+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">'+
+          assetLabel+
+        '</button>'+
+      '</div>'+
+      '<div id="cc-ks-asset-output"></div>'+
+    '</div>'+
+  '</div>';
+}
+
+// Fetch existing LPs for the given ICP and populate cc-ks-lp-results
+function _ccKsLpSearch(icp){
+  var res=document.getElementById('cc-ks-lp-results');
+  if(!res) return;
+  if(!CONFIG.sheetsUrl){
+    res.innerHTML='<div style="font-size:11px;color:var(--muted)">CONFIG.sheetsUrl not set — LP search unavailable.</div>';
+    return;
+  }
+  var url=CONFIG.sheetsUrl+'?action=lp_search&icp='+encodeURIComponent(icp);
+  fetch(url)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.ok||!d.pages||!d.pages.length){
+        res.innerHTML=
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">No existing landing pages found for '+icp+'. Build a new one.</div>'+
+          '<button onclick="_ccKsBuildLp()" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Build New LP for '+icp+'</button>';
+        return;
+      }
+      var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+      var cards=d.pages.map(function(p){
+        var slug=safe(p.slug||'');
+        var name=safe(p.name||slug);
+        var status=safe(p.status||'Draft');
+        var statusColor=status==='Live'?'#22c55e':status==='Active'?'#3b82f6':'var(--muted)';
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">'+
+          '<div>'+
+            '<div style="font-size:12px;font-weight:600;color:var(--text)">'+name+'</div>'+
+            '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace">easychefpro.com/'+slug+'</div>'+
+          '</div>'+
+          '<div style="display:flex;align-items:center;gap:8px">'+
+            '<span style="font-size:10px;color:'+statusColor+'">'+status+'</span>'+
+            '<button onclick="_ccKsSelectLp(\''+slug+'\')" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Use This LP</button>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+      res.innerHTML=
+        '<div>'+cards+'</div>'+
+        '<div style="margin-top:12px">'+
+          '<button onclick="_ccKsBuildLp()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">+ Build New LP Instead</button>'+
+        '</div>';
+    })
+    .catch(function(e){
+      if(res) res.innerHTML='<div style="font-size:11px;color:var(--muted)">LP search unavailable: '+e.message+'</div>';
+    });
+}
+
+// User picks an existing LP — sets the brief slug
+function _ccKsSelectLp(slug){
+  _campBrief.slug=slug;
+  _campSlugStatus='';
+  var slugEl=document.getElementById('cc-slug');
+  if(slugEl) slugEl.value=slug;
+  setTimeout(_ccCheckSlug,100);
+  // Mark selection in the LP results panel
+  var res=document.getElementById('cc-ks-lp-results');
+  if(res){
+    var existing=res.querySelector('.ks-lp-selected');
+    if(existing) existing.remove();
+    var notice=document.createElement('div');
+    notice.className='ks-lp-selected';
+    notice.style.cssText='margin-top:10px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:6px;font-size:11px;color:#22c55e;font-family:\'DM Mono\',monospace';
+    notice.textContent='✓ LP selected: easychefpro.com/'+slug;
+    res.appendChild(notice);
+  }
+  _showToast('<div style="color:#22c55e;font-size:12px">Landing page selected: /'+slug+'</div>',2500);
+}
+
+// Build a new LP via Claude — populates cc-ks-lp-output
+function _ccKsBuildLp(){
+  var out=document.getElementById('cc-ks-lp-output');
+  if(out) out.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">Building landing page copy…</div>';
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'build_landing_page',brief:_campBrief,copy:_campKickstartCopy||{}})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var out2=document.getElementById('cc-ks-lp-output');
+      if(!d.ok){
+        if(out2) out2.innerHTML='<div style="padding:14px 16px;font-size:11px;color:'+_CC_RED+';border-top:1px solid var(--border)">LP build failed: '+(d.error||'Unknown error')+'</div>';
+        return;
+      }
+      var lp=d.lp||{};
+      var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+      var fields=[
+        ['Hero Headline',        safe(lp.hero_headline||'')],
+        ['Hero Subheadline',     safe(lp.hero_subheadline||'')],
+        ['Hero CTA',             safe(lp.hero_cta||'')],
+        ['Problem Section',      safe(lp.problem_section||'')],
+        ['Solve Section',        safe(lp.solve_section||'')],
+        ['Proof Items',          Array.isArray(lp.proof_items)?lp.proof_items.map(function(s,i){return _ccBadge2(i+1)+' '+safe(s);}).join(' '):safe(String(lp.proof_items||''))],
+        ['Social Proof',         safe(lp.social_proof||'')],
+        ['Closing Headline',     safe(lp.closing_headline||'')],
+        ['Primary CTA',          safe(lp.cta_primary||'')],
+        ['CTA URL',              safe(lp.cta_url||'')]
+      ];
+      var rows=fields.map(function(f){
+        return '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'+
+          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px">'+f[0]+'</div>'+
+          '<div style="font-size:12px;color:var(--text);line-height:1.5">'+f[1]+'</div>'+
+        '</div>';
+      }).join('');
+      if(out2) out2.innerHTML='<div style="border-top:1px solid var(--border)">'+rows+
+        '<div style="padding:12px 16px">'+
+          _ccBtn('Copy CTA URL','_ccCopyText(\''+safe(lp.cta_url||'')+'\')',false)+
+        '</div>'+
+      '</div>';
+      // Auto-select the LP slug from the CTA URL
+      if(lp.cta_url&&!_campBrief.slug){
+        var slugPart=(lp.cta_url||'').replace(/^https?:\/\/easychefpro\.com\//,'').replace(/\?.*/,'').trim();
+        if(slugPart) _ccKsSelectLp(slugPart);
+      }
+    })
+    .catch(function(e){
+      var out2=document.getElementById('cc-ks-lp-output');
+      if(out2) out2.innerHTML='<div style="padding:14px 16px;font-size:11px;color:'+_CC_RED+';border-top:1px solid var(--border)">Request failed: '+e.message+'</div>';
+    });
+}
+
+// Build email sequence or social posts — populates cc-ks-asset-output
+function _ccKsBuildAssets(actionType){
+  var out=document.getElementById('cc-ks-asset-output');
+  var btn=document.getElementById('cc-ks-asset-btn');
+  if(out) out.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">Building assets…</div>';
+  if(btn){btn.disabled=true;btn.textContent='Building…';}
+  if(!CONFIG.sheetsUrl){if(btn)btn.disabled=false;return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:actionType,brief:_campBrief,copy:_campKickstartCopy||{}})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(btn){btn.disabled=false;btn.textContent=actionType==='build_email_sequence'?'Regenerate Email Sequence':'Regenerate Social Posts';}
+      var out2=document.getElementById('cc-ks-asset-output');
+      if(!d.ok){
+        if(out2) out2.innerHTML='<div style="padding:14px 16px;font-size:11px;color:'+_CC_RED+';border-top:1px solid var(--border)">Build failed: '+(d.error||'Unknown error')+'</div>';
+        return;
+      }
+      if(actionType==='build_email_sequence'){
+        _ccRenderEmailSequence(d.sequence||[],out2);
+      } else {
+        _ccRenderSocialPosts(d.posts||[],out2);
+      }
+    })
+    .catch(function(e){
+      if(btn)btn.disabled=false;
+      var out2=document.getElementById('cc-ks-asset-output');
+      if(out2) out2.innerHTML='<div style="padding:14px 16px;font-size:11px;color:'+_CC_RED+';border-top:1px solid var(--border)">Request failed: '+e.message+'</div>';
+    });
+}
+
+function _ccRenderEmailSequence(sequence,container){
+  if(!container) return;
+  if(!sequence.length){
+    container.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">No sequence data returned.</div>';
+    return;
+  }
+  var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var seqGroups={'SEQ-1':[],'SEQ-2':[],'other':[]};
+  sequence.forEach(function(e){
+    var id=String(e.seq_id||'');
+    if(id.indexOf('SEQ-1')===0) seqGroups['SEQ-1'].push(e);
+    else if(id.indexOf('SEQ-2')===0) seqGroups['SEQ-2'].push(e);
+    else seqGroups['other'].push(e);
+  });
+  var renderEmail=function(email){
+    return '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'+
+        '<span style="font-size:10px;font-weight:700;color:'+_CC_RED+';font-family:\'DM Mono\',monospace;background:rgba(255,0,0,0.06);padding:2px 8px;border-radius:4px;border:1px solid rgba(255,0,0,0.2)">'+safe(email.seq_id||'EMAIL')+'</span>'+
+        '<span style="font-size:10px;color:var(--muted)">Day '+safe(String(email.send_day||'?'))+'</span>'+
+      '</div>'+
+      '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px">'+safe(email.subject||'')+'</div>'+
+      '<div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:10px">'+safe(email.preheader||'')+'</div>'+
+      '<div style="font-size:12px;color:var(--text);line-height:1.65;margin-bottom:10px;white-space:pre-wrap;background:var(--bg);padding:10px 12px;border-radius:6px;border:1px solid var(--border)">'+safe(email.body||'')+'</div>'+
+      '<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.2);border-radius:5px">'+
+        '<span style="font-size:10px;font-weight:700;color:'+_CC_RED+'">CTA:</span>'+
+        '<span style="font-size:11px;color:var(--text)">'+safe(email.cta_text||'')+'</span>'+
+        '<span style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace">'+safe(email.cta_url||'')+'</span>'+
+      '</div>'+
+    '</div>';
+  };
+  var renderGroup=function(label,emails){
+    if(!emails.length) return '';
+    return '<div style="padding:8px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border)">'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">'+label+'</span>'+
+    '</div>'+
+    emails.map(renderEmail).join('');
+  };
+  container.innerHTML=
+    '<div style="border-top:1px solid var(--border)">'+
+    renderGroup('SEQ-1 — Welcome Sequence (Days 0–5)',seqGroups['SEQ-1'])+
+    renderGroup('SEQ-2 — Nurture Sequence (Days 7–25)',seqGroups['SEQ-2'])+
+    renderGroup('Additional Emails',seqGroups['other'])+
+    '</div>';
+}
+
+function _ccRenderSocialPosts(posts,container){
+  if(!container) return;
+  if(!posts.length){
+    container.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">No posts returned.</div>';
+    return;
+  }
+  var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var rows=posts.map(function(post){
+    return '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
+      '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:8px">POST '+safe(String(post.post_num||'?'))+'</div>'+
+      '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4">'+safe(post.hook||'')+'</div>'+
+      '<div style="font-size:12px;color:var(--text);line-height:1.65;margin-bottom:8px;white-space:pre-wrap;background:var(--bg);padding:10px 12px;border-radius:6px;border:1px solid var(--border)">'+safe(post.body||'')+'</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">'+safe(post.cta||'')+'</div>'+
+      '<div style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--muted)">'+safe(post.url||'')+'</div>'+
+    '</div>';
+  }).join('');
+  container.innerHTML='<div style="border-top:1px solid var(--border)">'+rows+'</div>';
 }
 
 // ── Panel 2: UTM Generator ──────────────────────────────────────────────────

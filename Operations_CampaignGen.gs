@@ -154,6 +154,13 @@ function campaignGen(brief) {
     'Conversion goal: ' + (brief.goal   || '') + '\n' +
     'Landing page: https://easychefpro.com/' + (brief.slug || '') + '\n\n' +
 
+    '=== ARCHITECTURE ===\n' +
+    'Every piece of content drives to a landing page. The landing page URL is https://easychefpro.com/' + (brief.slug || '[slug]') + '. ' +
+    'Every email, every social post, every ad drives to this URL. ' +
+    'The URL is tracked via unique DL_IDs so each asset is attributable separately.\n' +
+    'PRODUCT NAME: Always write "easyChef Pro". Never write "the app", "this app", or "a meal planning app".\n' +
+    'CTA RULE: Every CTA drives to the landing page. Never link to the main website. Never link to the App Store (pre-launch).\n\n' +
+
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY a valid JSON object. No explanation before it. No text after it. No markdown wrapping.\n' +
     'Use exactly these keys:\n' +
