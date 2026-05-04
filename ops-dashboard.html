@@ -21656,6 +21656,7 @@ function _ccAutoFillBrief(campaign){
       _campBrief.funnel  = campaign.blueprint||'';
       _campBrief.channel = campaign.channel_recommendation||'';
       _campBrief.slug    = campaign.slug||'';
+      _campBrief.goal    = _goalMap[(_campBrief.funnel||'').trim()]||'waitlist_signup_completed';
 
       // Style tab buttons active/inactive — does NOT touch cc-panel innerHTML
       _campActiveTab='brief';
@@ -21672,15 +21673,22 @@ function _ccAutoFillBrief(campaign){
 
       requestAnimationFrame(function(){
         requestAnimationFrame(function(){
-          // Set name first so _ccBriefSync reads it correctly when selects fire change events
+          // Capture all values into locals before any _ccBriefSync can overwrite _campBrief
+          var _rName=_campBrief.name||'';
+          var _rIcp=_campBrief.icp||'';
+          var _rFunnel=_campBrief.funnel||'';
+          var _rChannel=_campBrief.channel||'';
+          var _rGoal=_goalMap[(_campBrief.funnel||'').trim()]||'waitlist_signup_completed';
+          _campBrief.goal=_rGoal;
+          // Set name in DOM first so _ccBriefSync reads it when selects fire change events
           var nameEl=document.getElementById('cc-name');
-          if(nameEl) nameEl.value=_campBrief.name||'';
-          console.log('[CC] name set to:',_campBrief.name);
-          _ccSetSelect('cc-icp',    _campBrief.icp);
-          _ccSetSelect('cc-funnel', _campBrief.funnel);
-          _ccSetSelect('cc-channel',_campBrief.channel);
-          _ccSetSelect('cc-goal',   _campBrief.goal);
-          console.log('[CC] goal set to:',_campBrief.goal,'from funnel:',_campBrief.funnel);
+          if(nameEl) nameEl.value=_rName;
+          console.log('[CC] name set to:',_rName);
+          _ccSetSelect('cc-icp',    _rIcp);
+          _ccSetSelect('cc-funnel', _rFunnel);
+          _ccSetSelect('cc-channel',_rChannel);
+          _ccSetSelect('cc-goal',   _rGoal);
+          console.log('[CC] goal set to:',_rGoal,'from funnel:',_rFunnel);
           var slugEl=document.getElementById('cc-slug');
           if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
           console.log('[CC] post-tab-switch icp:',document.getElementById('cc-icp').value);
