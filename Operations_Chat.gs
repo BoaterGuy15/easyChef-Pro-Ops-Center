@@ -206,7 +206,7 @@ function opsChat(prompt, history, context) {
         'Content-Type': 'application/json'
       },
       payload: JSON.stringify({
-        model: 'claude-opus-4-7',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 2048,
         system: systemPrompt,
         messages: messages
