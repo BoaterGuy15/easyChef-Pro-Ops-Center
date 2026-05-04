@@ -21254,12 +21254,19 @@ var _CC_RED='#FF0000';
 var _CC_BEIGE='#F6EFE8';
 var _CC_ICPS=['Super Mom','Budget Family','Health Optimizer','Professional','Alpha Recruit'];
 var _CC_FUNNELS=['A-Waitlist','B-App Download','C-Referral','D-Re-engagement','E-Content','F-Affiliate','G-Paywall Recovery'];
-var _CC_CHANNELS=['Email','Facebook','Instagram','TikTok','Pinterest','Nextdoor','Organic','Affiliate','Direct'];
 var _CC_GOALS=['waitlist_signup_completed','app_install','subscription_started','referral_converted'];
 var _CC_CAMPAIGN_VALID=['ec-2026-001','ec-2026-005'];
-var _CC_CHANNEL_MEDIUM={Email:'email',Facebook:'social',Instagram:'social',TikTok:'paid_social',Pinterest:'paid_social',Nextdoor:'social',Organic:'content',Affiliate:'affiliate',Direct:'direct'};
-var _CC_CHANNEL_SOURCE={Email:'klaviyo',Facebook:'facebook',Instagram:'instagram',TikTok:'tiktok',Pinterest:'pinterest',Nextdoor:'nextdoor',Organic:'blog',Affiliate:'',Direct:'direct'};
-var _CC_DL_PREFIX={Email:'EM',Facebook:'SOC',Instagram:'SOC',TikTok:'PAD',Pinterest:'PAD',Nextdoor:'SOC',Organic:'CON',Affiliate:'AFF',Direct:'DIR'};
+var _ccChannels=[
+  {name:'Email',     slug_code:'email',    utm_medium:'email',     utm_source:'klaviyo',   dl_prefix:'EM', status:'active'},
+  {name:'Facebook',  slug_code:'fb',       utm_medium:'social',    utm_source:'facebook',  dl_prefix:'SOC',status:'active'},
+  {name:'Instagram', slug_code:'ig',       utm_medium:'social',    utm_source:'instagram', dl_prefix:'SOC',status:'active'},
+  {name:'TikTok',    slug_code:'tiktok',   utm_medium:'social',    utm_source:'tiktok',    dl_prefix:'SOC',status:'active'},
+  {name:'Pinterest', slug_code:'pin',      utm_medium:'social',    utm_source:'pinterest', dl_prefix:'SOC',status:'active'},
+  {name:'Nextdoor',  slug_code:'nextdoor', utm_medium:'social',    utm_source:'nextdoor',  dl_prefix:'SOC',status:'active'},
+  {name:'Organic',   slug_code:'organic',  utm_medium:'content',   utm_source:'blog',      dl_prefix:'ORG',status:'active'},
+  {name:'Affiliate', slug_code:'aff',      utm_medium:'affiliate', utm_source:'affiliate', dl_prefix:'AFF',status:'active'},
+  {name:'Direct',    slug_code:'direct',   utm_medium:'referral',  utm_source:'convertkit',dl_prefix:'DIR',status:'active'}
+];
 
 // ── CC shared helpers ───────────────────────────────────────────────────────
 function _ccEl(id){return document.getElementById(id);}
@@ -21309,7 +21316,7 @@ function _ccRenderBrief(){
         _ccField('Campaign Name','cc-name','text',b.name,'','e.g. Waitlist A/B Test May 2026')+
         _ccField('Target ICP','cc-icp','select',b.icp,_CC_ICPS,'')+
         _ccField('Funnel Blueprint','cc-funnel','select',b.funnel,_CC_FUNNELS,'')+
-        _ccField('Primary Channel','cc-channel','select',b.channel,_CC_CHANNELS,'')+
+        _ccField('Primary Channel','cc-channel','select',b.channel,_ccChannels.filter(function(c){return c.status==='active';}).map(function(c){return c.name;}),'')+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
         (function(){
           var ibase='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
@@ -21416,18 +21423,26 @@ var _CC_SLUG_ICP_MAP={
   'Health Optimizer':'health-optimizer','Professional':'professional',
   'Alpha Recruit':'alpha-recruit'
 };
-var _CC_SLUG_CH_MAP={
-  'Email':'email','Facebook':'fb','Instagram':'ig','TikTok':'tiktok',
-  'Pinterest':'pin','Nextdoor':'nextdoor','Organic':'organic',
-  'Affiliate':'aff','Direct':'direct'
-};
+
+function _ccCh(name){
+  for(var i=0;i<_ccChannels.length;i++){if(_ccChannels[i].name===name) return _ccChannels[i];}
+  return {name:name,slug_code:name.toLowerCase().replace(/\s+/g,'-'),utm_medium:'direct',utm_source:name.toLowerCase(),dl_prefix:'DIR'};
+}
+
+function _ccLoadChannels(){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channels_read'})})
+    .then(function(r){return r.json();})
+    .then(function(d){if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length) _ccChannels=d.channels;})
+    .catch(function(){});
+}
 
 function _ccAutoSlug(){
   var b=_campBrief;
   if(b.slug) return; // never overwrite what the user typed
   if(!b.icp||!b.channel) return;
   var icpCode=_CC_SLUG_ICP_MAP[b.icp]||(b.icp.toLowerCase().replace(/\s+/g,'-'));
-  var chCode=_CC_SLUG_CH_MAP[b.channel]||(b.channel.toLowerCase());
+  var chCode=_ccCh(b.channel).slug_code;
   var num='001';
   var m=String(b.id||'').match(/EC-\d{4}-(\d{3})/);
   if(m) num=m[1];
@@ -21536,8 +21551,8 @@ function _ccKickstart(){
         if(fm) _campBrief.funnel=fm;
       }
       if(j.channel_recommendation){
-        var cm=_CC_CHANNELS.find(function(c){return c.toLowerCase()===j.channel_recommendation.toLowerCase();});
-        if(cm) _campBrief.channel=cm;
+        var cm=_ccChannels.find(function(c){return c.name.toLowerCase()===j.channel_recommendation.toLowerCase();});
+        if(cm) _campBrief.channel=cm.name;
       }
       if(j.slug) _campBrief.slug=j.slug;
       if(j.utm_campaign_code) _campBrief.id=j.utm_campaign_code;
@@ -21676,9 +21691,10 @@ function _ccRenderUTM(){
   var channels=[b.channel];
   if(b.channel!=='Email') channels.push('Email');
   var rows=channels.map(function(ch,i){
-    var med=_CC_CHANNEL_MEDIUM[ch]||'direct';
-    var src=_CC_CHANNEL_SOURCE[ch]||ch.toLowerCase();
-    var pfx=_CC_DL_PREFIX[ch]||'DIR';
+    var chObj=_ccCh(ch);
+    var med=chObj.utm_medium;
+    var src=chObj.utm_source;
+    var pfx=chObj.dl_prefix;
     var dlId=pfx+'-'+code.replace(/[^a-z0-9]/g,'').toUpperCase()+'-'+String(i+1).padStart(4,'0');
     var content=dlId+'_'+ch.toLowerCase().replace(/\s+/g,'');
     var url=base+'?utm_source='+src+'&utm_medium='+med+'&utm_campaign='+code+'&utm_content='+content;
@@ -21918,6 +21934,7 @@ var _CC_TABS=[
 ];
 function _campaignsRender(){
   var root=document.getElementById('campaigns-root'); if(!root) return;
+  _ccLoadChannels();
   var tabBar=_CC_TABS.map(function(t){
     return '<button id="camp-tab-'+t.id+'" onclick="_campSwitchTab(\''+t.id+'\')" style="padding:9px 14px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;color:var(--muted)">'+t.lbl+'</button>';
   }).join('');

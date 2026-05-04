@@ -36,6 +36,7 @@
 //   if (body.action === 'landing_pages_write')  { setLandingPage(body.page); return json({ ok:true }); }
 //   if (body.action === 'get_next_campaign_id')  return json({ ok:true, id: getNextCampaignId() });
 //   if (body.action === 'check_slug_available')  return json(checkSlugAvailable(body.slug));
+//   if (body.action === 'channels_read')         return json({ ok:true, channels: getChannels() });
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,8 @@ var _CC_TAB = {
   DL:        'DeepLinkRegistry',
   EMAIL:     'EmailSequences',
   SOCIAL:    'SocialPosts',
-  PAGES:     'LandingPages'
+  PAGES:     'LandingPages',
+  CHANNELS:  'Channels'
 };
 
 var _CC_HDR = {
@@ -99,6 +101,9 @@ var _CC_HDR = {
     'section_problem','section_agitate','section_solve','section_value',
     'section_proof','section_cta','tracking_convert','tracking_clarity',
     'tracking_ga4','status','dev_built','qa_passed','pushed_to_production'
+  ],
+  Channels: [
+    'name','slug_code','utm_medium','utm_source','dl_prefix','status','notes'
   ]
 };
 
@@ -236,6 +241,21 @@ function _setupCampaignSheets() {
     ['DL-DIR-0001','DL-DIR-0001','ec-2026-001','Direct',    '','direct',    'direct','ec-2026-001','active',now,'',now,'Direct / QR code']
   ];
   dlSeed.forEach(function(row) { dlSheet.appendRow(row); });
+
+  // ── Seed Channels ───────────────────────────────────────────────────────────
+  var chSheet = ss.getSheetByName(_CC_TAB.CHANNELS);
+  var chSeed = [
+    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active', ''],
+    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active', ''],
+    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active', ''],
+    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active', ''],
+    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active', ''],
+    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active', ''],
+    ['Organic',   'organic',  'content',   'blog',      'ORG','active', ''],
+    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active', ''],
+    ['Direct',    'direct',   'referral',  'convertkit','DIR','active', '']
+  ];
+  chSeed.forEach(function(row) { chSheet.appendRow(row); });
 
   Logger.log('Campaign Center spreadsheet ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center spreadsheet created.\n\n' + ss.getUrl()); } catch(e) {}
@@ -820,6 +840,27 @@ function setLandingPage(item) {
     item.pushed_to_production !== undefined ? item.pushed_to_production : (ex ? ex[22] : false)
   ];
   _ccUpsert(sheet, headers, item.id, row);
+}
+
+// ── Channels ──────────────────────────────────────────────────────────────────
+
+function _channelRowToObj(r) {
+  return {
+    name:       r[0], slug_code:  r[1], utm_medium: r[2],
+    utm_source: r[3], dl_prefix:  r[4], status:     r[5], notes: r[6]
+  };
+}
+
+/**
+ * Returns all rows from the Channels tab where status = 'active'.
+ */
+function getChannels() {
+  var sheet   = _getCCSheet(_CC_TAB.CHANNELS);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, _CC_HDR.Channels.length).getValues()
+    .filter(function(r) { return r[0] && String(r[5]).toLowerCase() === 'active'; })
+    .map(_channelRowToObj);
 }
 
 // ── Slug availability check ───────────────────────────────────────────────────
