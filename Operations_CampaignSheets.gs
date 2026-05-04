@@ -34,6 +34,7 @@
 //   if (body.action === 'social_posts_write')   { setSocialPost(body.post); return json({ ok:true }); }
 //   if (body.action === 'landing_pages_read')   return json({ ok:true, pages: getLandingPages(body.campaign_id||'') });
 //   if (body.action === 'landing_pages_write')  { setLandingPage(body.page); return json({ ok:true }); }
+//   if (body.action === 'get_next_campaign_id') return json({ ok:true, id: getNextCampaignId() });
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -752,6 +753,32 @@ function getLandingPages(campaignId) {
     .map(_pageRowToObj);
   if (!campaignId) return rows;
   return rows.filter(function(r) { return r.campaign_id === campaignId; });
+}
+
+// ── Campaign ID sequencing ────────────────────────────────────────────────────
+
+/**
+ * Reads CampaignBriefs, finds the highest EC-[YEAR]-[###] for the current year,
+ * and returns the next sequential ID string (e.g. EC-2026-003).
+ * Safe to call concurrently — reads only; the write lock is in setCampaignBrief.
+ */
+function getNextCampaignId() {
+  var year    = new Date().getFullYear();
+  var sheet   = _getCCSheet(_CC_TAB.BRIEFS);
+  var lastRow = sheet.getLastRow();
+  var maxNum  = 0;
+  if (lastRow >= 2) {
+    var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    var pat = /^EC-(\d{4})-(\d{3})$/;
+    ids.forEach(function(r) {
+      var m = String(r[0]).match(pat);
+      if (m && parseInt(m[1], 10) === year) {
+        var n = parseInt(m[2], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+  }
+  return 'EC-' + year + '-' + String(maxNum + 1).padStart(3, '0');
 }
 
 function setLandingPage(item) {
