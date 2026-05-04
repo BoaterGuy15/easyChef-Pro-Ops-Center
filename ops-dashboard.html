@@ -21638,6 +21638,22 @@ function _ccAutoFillBrief(campaign){
   }
 
   trySetDropdowns();
+
+  // Temporary MutationObserver to catch what replaces cc-icp after restore
+  setTimeout(function(){
+    var target=document.getElementById('cc-icp');
+    if(!target) return;
+    var parent=target.parentNode;
+    var observer=new MutationObserver(function(mutations){
+      mutations.forEach(function(m){
+        console.log('[CC] MUTATION detected on icp parent:',m.type,
+          'new icp value:',document.getElementById('cc-icp')?document.getElementById('cc-icp').value:'ELEMENT GONE',
+          new Error().stack.split('\n')[1]);
+      });
+    });
+    observer.observe(parent,{childList:true,subtree:true,attributes:true});
+    console.log('[CC] MutationObserver watching cc-icp parent');
+  },250);
 }
 
 // ── Campaign Kickstart ──────────────────────────────────────────────────────
