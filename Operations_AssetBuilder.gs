@@ -3,7 +3,7 @@
 // Paste this file into your Apps Script project.
 //
 // ADD TO doGet in Operations.gs:
-//   if (action === 'lp_search') return json(getLandingPages(e.parameter.icp));
+//   if (action === 'lp_search') return json(getLandingPagesByIcp(e.parameter.icp));
 //
 // ADD TO doPost in Operations.gs:
 //   if (body.action === 'build_email_sequence') return json(buildEmailSequence(body.brief, body.copy));
@@ -37,36 +37,74 @@ var _AB_VOICE =
   'No markdown in output values — no **, no *, no #, no backticks.\n' +
   'Write like a friend texting, not a corporation.\n\n';
 
-// ── getLandingPages ───────────────────────────────────────────────────────────
+// ── getLandingPagesByIcp ──────────────────────────────────────────────────────
 
 /**
- * Reads the LandingPages sheet and returns pages filtered by optional ICP.
- * Returns { ok: true, pages: [{slug, icp, blueprint, status, ...}] }
+ * Returns LandingPages rows filtered by ICP.
+ * Returns { ok: true, pages: [{id, campaign_id, slug, hero_headline, status, icp_code}] }
+ *
+ * The LandingPages sheet has no icp_code column, so we resolve ICP by joining
+ * each page's campaign_id to CampaignBriefs. Handles both display format
+ * ("Super Mom") and snake_case ("super_mom") in the filter and in the sheet.
+ *
+ * Named distinctly from getLandingPages() in Operations_CampaignSheets.gs to
+ * avoid the duplicate-function naming conflict that caused the wrong version
+ * to be called and receive icp as a campaign_id filter (returning nothing).
  */
-function getLandingPages(icpFilter) {
+function getLandingPagesByIcp(icpFilter) {
   try {
-    var props = PropertiesService.getScriptProperties();
-    var sheetId = props.getProperty('CAMPAIGN_SHEET_ID');
-    if (!sheetId) return { ok: true, pages: [] };
+    // Get all pages (no filter — getLandingPages() from CampaignSheets.gs)
+    var allPages = getLandingPages('');
+    if (!Array.isArray(allPages)) allPages = [];
 
-    var ss = SpreadsheetApp.openById(sheetId);
-    var sheet = ss.getSheetByName('LandingPages');
-    if (!sheet) return { ok: true, pages: [] };
+    if (!icpFilter) return { ok: true, pages: allPages };
 
-    var data = sheet.getDataRange().getValues();
-    if (data.length < 2) return { ok: true, pages: [] };
+    // Build campaign_id → icp_code map from CampaignBriefs
+    var icpMap = {};
+    try {
+      var briefs = getCampaignBriefs();
+      if (Array.isArray(briefs)) {
+        briefs.forEach(function(b) {
+          if (b.id) icpMap[String(b.id)] = String(b.icp_code || '').toLowerCase();
+        });
+      }
+    } catch (e) { /* briefs sheet not yet set up */ }
 
-    var headers = data[0].map(function(h) { return String(h).trim().toLowerCase().replace(/\s+/g, '_'); });
-    var pages = data.slice(1)
-      .filter(function(row) { return row[0]; })
-      .map(function(row) {
-        var page = {};
-        headers.forEach(function(h, i) { page[h] = row[i]; });
-        return page;
-      })
+    // Normalise filter to both formats for comparison
+    var filterLower = String(icpFilter).toLowerCase().trim();
+    var filterSnake = filterLower.replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    var filterSlug  = filterLower.replace(/\s+/g, '-');
+
+    var pages = allPages
       .filter(function(p) {
-        if (!icpFilter) return true;
-        return String(p.icp || '').toLowerCase() === String(icpFilter).toLowerCase();
+        // 1. Check icp_code stored directly on the page object (if present)
+        var pageIcp = String(p.icp_code || p.icp || '').toLowerCase();
+        if (pageIcp) {
+          if (pageIcp === filterLower || pageIcp === filterSnake) return true;
+          if (pageIcp.indexOf(filterSnake) > -1) return true;
+        }
+        // 2. Join to CampaignBriefs via campaign_id
+        var briefIcp = icpMap[String(p.campaign_id || '')] || '';
+        if (briefIcp) {
+          if (briefIcp === filterSnake || briefIcp === filterLower) return true;
+          if (briefIcp.indexOf(filterSnake) > -1) return true;
+        }
+        // 3. Slug fallback — e.g. lp/super-mom-email contains "super-mom"
+        if (String(p.slug || '').toLowerCase().indexOf(filterSlug) > -1) return true;
+        return false;
+      })
+      .map(function(p) {
+        // Enrich with resolved icp_code so dashboard can display it
+        var resolved = icpMap[String(p.campaign_id || '')] || p.icp_code || p.icp || '';
+        return {
+          id:           p.id,
+          campaign_id:  p.campaign_id,
+          slug:         p.slug,
+          hero_headline:p.hero_headline,
+          status:       p.status || 'draft',
+          icp_code:     resolved,
+          name:         p.hero_headline || p.slug || p.id
+        };
       });
 
     return { ok: true, pages: pages };
