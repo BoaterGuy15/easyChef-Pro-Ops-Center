@@ -21260,6 +21260,7 @@ var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launch
 var _campDLCache=[];
 var _campPerfCache={};
 var _campKickstartCopy=null;
+var _campLastLp=null;
 var _campSlugStatus=''; // '' unchecked, 'ok' available, 'taken' conflict
 var _CC_RED='#FF0000';
 var _CC_BEIGE='#F6EFE8';
@@ -21357,10 +21358,11 @@ function _ccRenderBrief(){
         _ccField('','cc-approved','checkbox',b.approved,'','Marketing Lead has reviewed and approved this campaign — nothing activates without this')+
       '</div>'+
       '<div style="display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap">'+
-        _ccBtn('Save Draft','_ccSaveBrief(false)',false)+
+        '<button id="cc-save-draft-btn" onclick="_ccSaveDraft()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;font-weight:400;cursor:pointer;font-family:\'DM Mono\',monospace">Save Draft</button>'+
         _ccBtn('Save &amp; Generate UTMs →','_ccSaveBrief(true)',true)+
         '<button id="cc-gen-btn" onclick="_ccGenerateCampaign()" style="background:#000;border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;display:flex;align-items:center;gap:6px;margin-left:auto">✦ Generate Campaign Copy</button>'+
       '</div>'+
+      '<div id="cc-save-status" style="margin-top:8px;font-size:11px;font-family:\'DM Mono\',monospace"></div>'+
     '</div>'+
     '<div id="cc-gen-result" style="margin-top:16px"></div>'+
   '</div>';
@@ -21396,6 +21398,63 @@ function _ccSaveBrief(next){
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'campaigns_write',campaign:b})}).catch(function(){});
   _showToast('<div style="color:#22c55e;font-size:12px">Campaign brief saved: '+b.id+'</div>',2500);
   if(next) _campSwitchTab('utm');
+}
+
+function _ccSaveDraft(){
+  _ccBriefSync();
+  var b=_campBrief;
+  if(!b.name||!b.channel||!b.goal){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Fill in Campaign Name, Channel, and Goal before saving.</div>',3000);
+    return;
+  }
+  if(_campSlugStatus==='taken'){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Slug is already in use — update it before saving.</div>',3000);
+    return;
+  }
+  var btn=document.getElementById('cc-save-draft-btn');
+  var statusEl=document.getElementById('cc-save-status');
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  if(statusEl) statusEl.innerHTML='';
+  try{localStorage.setItem('dgl_cc_brief_'+b.id,JSON.stringify(b));}catch(_){}
+  if(!CONFIG.sheetsUrl){
+    if(btn){btn.disabled=false;btn.textContent='Save Draft';}
+    if(statusEl) statusEl.innerHTML='<span style="color:var(--muted)">No sheet URL configured — saved locally only.</span>';
+    return;
+  }
+  var payload={
+    action:'campaign_save_draft',
+    brief:b,
+    copy:_campKickstartCopy||{},
+    lp:_campLastLp||null,
+    posts:_ccLastPosts||[],
+    timestamp:new Date().toISOString()
+  };
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.ok){
+        if(btn){btn.disabled=false;btn.textContent='Save Draft';}
+        if(statusEl) statusEl.innerHTML='<span style="color:'+_CC_RED+'">✗ Save failed: '+(d.error||'Unknown error')+'</span>';
+        return;
+      }
+      var sv=d.saved||{};
+      var postsCount=typeof sv.posts==='number'?sv.posts:(_ccLastPosts||[]).length;
+      var parts=[];
+      if(sv.brief) parts.push('Brief');
+      if(sv.copy) parts.push('Copy');
+      if(sv.lp) parts.push('LP');
+      if(postsCount>0) parts.push(postsCount+' post'+(postsCount!==1?'s':''));
+      if(btn) btn.textContent='Saved ✓';
+      if(statusEl) statusEl.innerHTML='<span style="color:#22c55e">✓ Draft saved — '+(parts.length?parts.join(', '):b.id)+' written to Campaign Center Sheet</span>';
+      setTimeout(function(){
+        if(btn){btn.disabled=false;btn.textContent='Save Draft';}
+        _campSwitchTab('utm');
+      },2000);
+    })
+    .catch(function(e){
+      if(btn){btn.disabled=false;btn.textContent='Save Draft';}
+      if(statusEl) statusEl.innerHTML='<span style="color:'+_CC_RED+'">✗ Request failed: '+e.message+'</span>';
+    });
 }
 
 // ── Campaign ID auto-assign ─────────────────────────────────────────────────
@@ -21554,7 +21613,9 @@ function _ccSlugStatus(state,slug,conflictId){
 function _ccNewCampaign(){
   _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
   _campKickstartCopy=null;
+  _campLastLp=null;
   _campSlugStatus='';
+  _ccLastPosts=[];
   _campSwitchTab('brief');
 }
 
@@ -21997,6 +22058,7 @@ function _ccKsBuildLp(){
         return;
       }
       var lp=d.lp||{};
+      _campLastLp=lp;
       var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
       var fields=[
         ['Hero Headline',        safe(lp.hero_headline||'')],
