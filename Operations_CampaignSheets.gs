@@ -1085,4 +1085,3 @@ function _testSheetWiring() {
 }
 
 // clasp auto-deploy verified — May 2026
-}
