@@ -1083,3 +1083,6 @@ function _testSheetWiring() {
   Logger.log('ApprovedClaims: '+ getApprovedClaims().length + ' rows');
   Logger.log('Channels: '      + getChannels().length      + ' rows');
 }
+
+// clasp auto-deploy verified — May 2026
+}
