@@ -388,7 +388,7 @@ function _deduplicateSeededTabs() {
     { name: 'Channels',       idCol: 0 }
   ];
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _getCampaignSpreadsheet();
 
   tabs.forEach(function(tab) {
     var sheet = ss.getSheetByName(tab.name);
