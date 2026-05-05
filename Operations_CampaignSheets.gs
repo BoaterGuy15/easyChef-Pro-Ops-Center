@@ -21,7 +21,11 @@ var _CC_TAB = {
   CHANNELS:       'Channels',
   CAMPAIGN_TYPES: 'CampaignTypes',
   FUNNEL_STAGES:  'FunnelStages',
-  BLUEPRINTS:     'BlueprintConfig'
+  BLUEPRINTS:     'BlueprintConfig',
+  PUSH_NOTIFS:    'PushNotifications',
+  CONTENT_CAL:    'ContentCalendar',
+  METRICS:        'CampaignMetrics',
+  SCHEDULED:      'ScheduledPosts'
 };
 
 var _CC_HDR = {
@@ -92,6 +96,26 @@ var _CC_HDR = {
     'id','blueprint_code','blueprint_name','sequences_included',
     'email_count','social_post_count','cta_type_default',
     'phase','active','description'
+  ],
+  PushNotifications: [
+    'id','campaign_id','push_number','title','body','deep_link_url',
+    'funnel_stage','scheduled_date','platform','status',
+    'sent_at','open_rate','created_at'
+  ],
+  ContentCalendar: [
+    'id','campaign_id','day_number','scheduled_date','channel',
+    'asset_type','asset_id','funnel_stage','pair_id',
+    'theme','publish_day','status','created_at'
+  ],
+  CampaignMetrics: [
+    'id','campaign_id','week_number','report_date','channel',
+    'reach','engagement_rate','link_clicks','signups',
+    'cost_per_signup','top_performing_post','notes','created_at'
+  ],
+  ScheduledPosts: [
+    'id','campaign_id','social_post_id','channel','scheduled_date',
+    'scheduled_time','status','posted_url','posted_at',
+    'scheduling_tool','created_at'
   ]
 };
 
@@ -278,6 +302,13 @@ function _setupCampaignSheets() {
     ['bp-006','F-Affiliate',       'Affiliate Partner',     'SEQ-1,SEQ-2',              5,  7, 'affiliate','all',          'true',  'Affiliate partner traffic — Rewardful tracked, custom LP per partner'],
     ['bp-007','G-Paywall Recovery','Paywall Recovery',      'SEQ-2',                    3,  5, 'upgrade',  'post-install', 'false', 'In-app paywall recovery — tipping point triggered']
   ].forEach(function(row) { bpSheet.appendRow(row); });
+
+  // Ensure new tabs exist (idempotent — safe to run multiple times)
+  [_CC_TAB.PUSH_NOTIFS, _CC_TAB.CONTENT_CAL, _CC_TAB.METRICS, _CC_TAB.SCHEDULED].forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) sheet = ss.insertSheet(name);
+    _ccHdrStyle(sheet, _CC_HDR[name]);
+  });
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
@@ -1137,6 +1168,254 @@ function _testSheetWiring() {
   Logger.log('ICPProfiles: '      + getIcpProfiles().length      + ' rows');
   Logger.log('ApprovedClaims: '   + getApprovedClaims().length   + ' rows');
   Logger.log('Channels: '         + getChannels().length         + ' rows');
+  Logger.log('PushNotifications: '+ getPushNotifications().length + ' rows');
+  Logger.log('ContentCalendar: '  + getContentCalendar().length  + ' rows');
+  Logger.log('CampaignMetrics: '  + getCampaignMetrics().length  + ' rows');
+  Logger.log('ScheduledPosts: '   + getScheduledPosts().length   + ' rows');
+}
+
+// ── PushNotifications ─────────────────────────────────────────────────────────
+
+function _pushRowToObj(r) {
+  return {
+    id:             String(r[0]  || ''),
+    campaign_id:    String(r[1]  || ''),
+    push_number:    Number(r[2]  || 0),
+    title:          String(r[3]  || ''),
+    body:           String(r[4]  || ''),
+    deep_link_url:  String(r[5]  || ''),
+    funnel_stage:   String(r[6]  || ''),
+    scheduled_date: _ccFmtDate(r[7]),
+    platform:       String(r[8]  || ''),
+    status:         String(r[9]  || 'draft'),
+    sent_at:        _ccFmtDate(r[10]),
+    open_rate:      String(r[11] || ''),
+    created_at:     _ccFmtDate(r[12])
+  };
+}
+
+function getPushNotifications(campaignId) {
+  var sheet = _getCCSheet(_CC_TAB.PUSH_NOTIFS);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.PushNotifications.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_pushRowToObj);
+  if (!campaignId) return rows;
+  return rows.filter(function(r) { return r.campaign_id === campaignId; });
+}
+
+function setPushNotification(item) {
+  if (!item || !item.id) return;
+  var sheet   = _getCCSheet(_CC_TAB.PUSH_NOTIFS);
+  var headers = _CC_HDR.PushNotifications;
+  var now     = _ccNow();
+  var ex      = null;
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(item.id)) { ex = rows[i]; break; }
+    }
+  }
+  var row = [
+    item.id,
+    item.campaign_id    !== undefined ? item.campaign_id    : (ex ? ex[1]  : ''),
+    item.push_number    !== undefined ? item.push_number    : (ex ? ex[2]  : ''),
+    item.title          !== undefined ? item.title          : (ex ? ex[3]  : ''),
+    item.body           !== undefined ? item.body           : (ex ? ex[4]  : ''),
+    item.deep_link_url  !== undefined ? item.deep_link_url  : (ex ? ex[5]  : ''),
+    item.funnel_stage   !== undefined ? item.funnel_stage   : (ex ? ex[6]  : ''),
+    item.scheduled_date !== undefined ? item.scheduled_date : (ex ? ex[7]  : ''),
+    item.platform       !== undefined ? item.platform       : (ex ? ex[8]  : ''),
+    item.status         !== undefined ? item.status         : (ex ? ex[9]  : 'draft'),
+    item.sent_at        !== undefined ? item.sent_at        : (ex ? ex[10] : ''),
+    item.open_rate      !== undefined ? item.open_rate      : (ex ? ex[11] : ''),
+    ex ? ex[12] : now
+  ];
+  _ccUpsert(sheet, headers, item.id, row);
+}
+
+// ── ContentCalendar ───────────────────────────────────────────────────────────
+
+function _calRowToObj(r) {
+  return {
+    id:             String(r[0]  || ''),
+    campaign_id:    String(r[1]  || ''),
+    day_number:     Number(r[2]  || 0),
+    scheduled_date: _ccFmtDate(r[3]),
+    channel:        String(r[4]  || ''),
+    asset_type:     String(r[5]  || ''),
+    asset_id:       String(r[6]  || ''),
+    funnel_stage:   String(r[7]  || ''),
+    pair_id:        String(r[8]  || ''),
+    theme:          String(r[9]  || ''),
+    publish_day:    String(r[10] || ''),
+    status:         String(r[11] || 'draft'),
+    created_at:     _ccFmtDate(r[12])
+  };
+}
+
+function getContentCalendar(campaignId) {
+  var sheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.ContentCalendar.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_calRowToObj);
+  if (!campaignId) return rows;
+  return rows.filter(function(r) { return r.campaign_id === campaignId; });
+}
+
+function setContentCalendarEntry(item) {
+  if (!item || !item.id) return;
+  var sheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
+  var headers = _CC_HDR.ContentCalendar;
+  var now     = _ccNow();
+  var ex      = null;
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(item.id)) { ex = rows[i]; break; }
+    }
+  }
+  var row = [
+    item.id,
+    item.campaign_id    !== undefined ? item.campaign_id    : (ex ? ex[1]  : ''),
+    item.day_number     !== undefined ? item.day_number     : (ex ? ex[2]  : ''),
+    item.scheduled_date !== undefined ? item.scheduled_date : (ex ? ex[3]  : ''),
+    item.channel        !== undefined ? item.channel        : (ex ? ex[4]  : ''),
+    item.asset_type     !== undefined ? item.asset_type     : (ex ? ex[5]  : ''),
+    item.asset_id       !== undefined ? item.asset_id       : (ex ? ex[6]  : ''),
+    item.funnel_stage   !== undefined ? item.funnel_stage   : (ex ? ex[7]  : ''),
+    item.pair_id        !== undefined ? item.pair_id        : (ex ? ex[8]  : ''),
+    item.theme          !== undefined ? item.theme          : (ex ? ex[9]  : ''),
+    item.publish_day    !== undefined ? item.publish_day    : (ex ? ex[10] : ''),
+    item.status         !== undefined ? item.status         : (ex ? ex[11] : 'draft'),
+    ex ? ex[12] : now
+  ];
+  _ccUpsert(sheet, headers, item.id, row);
+}
+
+// ── CampaignMetrics ───────────────────────────────────────────────────────────
+
+function _metricsRowToObj(r) {
+  return {
+    id:                  String(r[0]  || ''),
+    campaign_id:         String(r[1]  || ''),
+    week_number:         Number(r[2]  || 0),
+    report_date:         _ccFmtDate(r[3]),
+    channel:             String(r[4]  || ''),
+    reach:               Number(r[5]  || 0),
+    engagement_rate:     String(r[6]  || ''),
+    link_clicks:         Number(r[7]  || 0),
+    signups:             Number(r[8]  || 0),
+    cost_per_signup:     String(r[9]  || ''),
+    top_performing_post: String(r[10] || ''),
+    notes:               String(r[11] || ''),
+    created_at:          _ccFmtDate(r[12])
+  };
+}
+
+function getCampaignMetrics(campaignId) {
+  var sheet = _getCCSheet(_CC_TAB.METRICS);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.CampaignMetrics.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_metricsRowToObj);
+  if (!campaignId) return rows;
+  return rows.filter(function(r) { return r.campaign_id === campaignId; });
+}
+
+function setCampaignMetric(item) {
+  if (!item || !item.id) return;
+  var sheet   = _getCCSheet(_CC_TAB.METRICS);
+  var headers = _CC_HDR.CampaignMetrics;
+  var now     = _ccNow();
+  var ex      = null;
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(item.id)) { ex = rows[i]; break; }
+    }
+  }
+  var row = [
+    item.id,
+    item.campaign_id         !== undefined ? item.campaign_id         : (ex ? ex[1]  : ''),
+    item.week_number         !== undefined ? item.week_number         : (ex ? ex[2]  : ''),
+    item.report_date         !== undefined ? item.report_date         : (ex ? ex[3]  : ''),
+    item.channel             !== undefined ? item.channel             : (ex ? ex[4]  : ''),
+    item.reach               !== undefined ? item.reach               : (ex ? ex[5]  : 0),
+    item.engagement_rate     !== undefined ? item.engagement_rate     : (ex ? ex[6]  : ''),
+    item.link_clicks         !== undefined ? item.link_clicks         : (ex ? ex[7]  : 0),
+    item.signups             !== undefined ? item.signups             : (ex ? ex[8]  : 0),
+    item.cost_per_signup     !== undefined ? item.cost_per_signup     : (ex ? ex[9]  : ''),
+    item.top_performing_post !== undefined ? item.top_performing_post : (ex ? ex[10] : ''),
+    item.notes               !== undefined ? item.notes               : (ex ? ex[11] : ''),
+    ex ? ex[12] : now
+  ];
+  _ccUpsert(sheet, headers, item.id, row);
+}
+
+// ── ScheduledPosts ────────────────────────────────────────────────────────────
+
+function _schedRowToObj(r) {
+  return {
+    id:              String(r[0]  || ''),
+    campaign_id:     String(r[1]  || ''),
+    social_post_id:  String(r[2]  || ''),
+    channel:         String(r[3]  || ''),
+    scheduled_date:  _ccFmtDate(r[4]),
+    scheduled_time:  String(r[5]  || ''),
+    status:          String(r[6]  || 'draft'),
+    posted_url:      String(r[7]  || ''),
+    posted_at:       _ccFmtDate(r[8]),
+    scheduling_tool: String(r[9]  || ''),
+    created_at:      _ccFmtDate(r[10])
+  };
+}
+
+function getScheduledPosts(campaignId) {
+  var sheet = _getCCSheet(_CC_TAB.SCHEDULED);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.ScheduledPosts.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_schedRowToObj);
+  if (!campaignId) return rows;
+  return rows.filter(function(r) { return r.campaign_id === campaignId; });
+}
+
+function setScheduledPost(item) {
+  if (!item || !item.id) return;
+  var sheet   = _getCCSheet(_CC_TAB.SCHEDULED);
+  var headers = _CC_HDR.ScheduledPosts;
+  var now     = _ccNow();
+  var ex      = null;
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(item.id)) { ex = rows[i]; break; }
+    }
+  }
+  var row = [
+    item.id,
+    item.campaign_id     !== undefined ? item.campaign_id     : (ex ? ex[1]  : ''),
+    item.social_post_id  !== undefined ? item.social_post_id  : (ex ? ex[2]  : ''),
+    item.channel         !== undefined ? item.channel         : (ex ? ex[3]  : ''),
+    item.scheduled_date  !== undefined ? item.scheduled_date  : (ex ? ex[4]  : ''),
+    item.scheduled_time  !== undefined ? item.scheduled_time  : (ex ? ex[5]  : ''),
+    item.status          !== undefined ? item.status          : (ex ? ex[6]  : 'draft'),
+    item.posted_url      !== undefined ? item.posted_url      : (ex ? ex[7]  : ''),
+    item.posted_at       !== undefined ? item.posted_at       : (ex ? ex[8]  : ''),
+    item.scheduling_tool !== undefined ? item.scheduling_tool : (ex ? ex[9]  : ''),
+    ex ? ex[10] : now
+  ];
+  _ccUpsert(sheet, headers, item.id, row);
 }
 
 // clasp auto-deploy verified — May 2026

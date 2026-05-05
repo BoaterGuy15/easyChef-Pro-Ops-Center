@@ -406,6 +406,10 @@ function doGet(e) {
     if(e.parameter.action === 'campaign_types_read')   return respond({ok:true, types:      getCampaignTypes()});
     if(e.parameter.action === 'funnel_stages_read')    return respond({ok:true, stages:     getFunnelStages()});
     if(e.parameter.action === 'blueprint_configs_read') return respond({ok:true, blueprints: getBlueprintConfigs()});
+    if(e.parameter.action === 'push_notifications_read') return respond({ok:true, notifications: getPushNotifications(e.parameter.campaign_id||'')});
+    if(e.parameter.action === 'content_calendar_read')   return respond({ok:true, entries:       getContentCalendar(e.parameter.campaign_id||'')});
+    if(e.parameter.action === 'campaign_metrics_read')   return respond({ok:true, metrics:        getCampaignMetrics(e.parameter.campaign_id||'')});
+    if(e.parameter.action === 'scheduled_posts_read')    return respond({ok:true, posts:          getScheduledPosts(e.parameter.campaign_id||'')});
     return respond({ ok: true, tasks: getTasks() });
   } catch(err) {
     return respond({ ok: false, error: err.message });
@@ -605,6 +609,22 @@ function doPost(e) {
     // ── Landing Pages ─────────────────────────────────────────────────────────────
     if(body.action === 'landing_pages_read')     return respond({ ok:true, pages: getLandingPages(body.campaign_id||'') });
     if(body.action === 'landing_pages_write')    { setLandingPage(body.page); return respond({ ok:true }); }
+
+    // ── Push Notifications sheet ──────────────────────────────────────────────────
+    if(body.action === 'push_notifications_read')  return respond({ ok:true, notifications: getPushNotifications(body.campaign_id||'') });
+    if(body.action === 'push_notification_write')  { setPushNotification(body.notification); return respond({ ok:true }); }
+
+    // ── Content Calendar sheet ────────────────────────────────────────────────────
+    if(body.action === 'content_calendar_read')    return respond({ ok:true, entries: getContentCalendar(body.campaign_id||'') });
+    if(body.action === 'content_calendar_write')   { setContentCalendarEntry(body.entry); return respond({ ok:true }); }
+
+    // ── Campaign Metrics sheet ────────────────────────────────────────────────────
+    if(body.action === 'campaign_metrics_read')    return respond({ ok:true, metrics: getCampaignMetrics(body.campaign_id||'') });
+    if(body.action === 'campaign_metric_write')    { setCampaignMetric(body.metric); return respond({ ok:true }); }
+
+    // ── Scheduled Posts sheet ─────────────────────────────────────────────────────
+    if(body.action === 'scheduled_posts_read')     return respond({ ok:true, posts: getScheduledPosts(body.campaign_id||'') });
+    if(body.action === 'scheduled_post_write')     { setScheduledPost(body.post); return respond({ ok:true }); }
 
     // ── Image Pipeline + Klaviyo ──────────────────────────────────────────────────
     if(body.action === 'klaviyo_push_sequence')  return respond(klaviyoPushSequence(body));
