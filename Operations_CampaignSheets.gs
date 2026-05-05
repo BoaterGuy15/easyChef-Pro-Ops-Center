@@ -40,7 +40,8 @@ var _CC_HDR = {
     'id','name','icp_code','blueprint','channel','goal','slug',
     'launch_date','status','ml_approved','ml_approved_date',
     'created_by','created_at','updated_at','notes',
-    'post_count','post_frequency','email_sequences','email_variants'
+    'post_count','post_frequency','email_sequences','email_variants',
+    'theme','publish_day'
   ],
   GeneratedCopy: [
     'id','campaign_id','icp_code','channel','headline','subheadline',
@@ -414,10 +415,12 @@ function _briefRowToObj(r) {
     ml_approved_date: _ccFmtDate(r[10]),
     created_by: r[11], created_at: _ccFmtDate(r[12]),
     updated_at: _ccFmtDate(r[13]), notes: r[14],
-    post_count:      parseInt(r[15]) || 5,
+    post_count:      parseInt(r[15]) || 7,
     post_frequency:  String(r[16] || 'every_2_days'),
     email_sequences: String(r[17] || 'seq1_seq2'),
-    email_variants:  String(r[18] || 'both')
+    email_variants:  String(r[18] || 'both'),
+    theme:           String(r[19] || ''),
+    publish_day:     String(r[20] || '')
   };
 }
 
@@ -464,10 +467,12 @@ function setCampaignBrief(item) {
     ex ? ex[12] : now,
     now,
     item.notes            !== undefined ? item.notes            : (ex ? ex[14] : ''),
-    item.post_count       !== undefined ? String(item.post_count)      : (ex ? ex[15] : '5'),
+    item.post_count       !== undefined ? String(item.post_count)      : (ex ? ex[15] : '7'),
     item.post_frequency   !== undefined ? item.post_frequency          : (ex ? ex[16] : 'every_2_days'),
     item.email_sequences  !== undefined ? item.email_sequences         : (ex ? ex[17] : 'seq1_seq2'),
-    item.email_variants   !== undefined ? item.email_variants          : (ex ? ex[18] : 'both')
+    item.email_variants   !== undefined ? item.email_variants          : (ex ? ex[18] : 'both'),
+    item.theme            !== undefined ? item.theme                   : (ex ? ex[19] : ''),
+    item.publish_day      !== undefined ? item.publish_day             : (ex ? ex[20] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }

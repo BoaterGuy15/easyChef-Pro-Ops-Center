@@ -21263,7 +21263,7 @@ var _campActiveTab='brief';
 var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -21411,6 +21411,16 @@ function _ccRenderBrief(){
           '</div>';
         })()+
         _ccField('Launch Date','cc-launch','date',b.launchDate,'','')+
+        _ccField('Content Theme','cc-theme','text',b.theme||'','','e.g. Taco Tuesday, Meal Prep Sunday, Back to School — optional')+
+        (function(){
+          var base='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+          var days=['Daily','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+          var opts=days.map(function(d){return '<option value="'+d+'"'+((b.publish_day||'')=== d?' selected':'')+'>'+d+'</option>';}).join('');
+          return '<div style="margin-bottom:14px">'+
+            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Publish Day <span style="font-weight:400;text-transform:none;letter-spacing:0">— optional</span></label>'+
+            '<select id="cc-publish-day" style="'+base+'" onchange="_ccBriefSync()"><option value="">— any day —</option>'+opts+'</select>'+
+          '</div>';
+        })()+
       '</div>'+
       '<div style="margin-top:18px;padding:14px 16px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;background:rgba(255,0,0,0.04)">'+
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:'+_CC_RED+';margin-bottom:10px">Review &amp; Approval</div>'+
@@ -21443,6 +21453,8 @@ function _ccBriefSync(){
   _el=_ccEl('cc-post-frequency'); if(_el&&_el.value) b.post_frequency=_el.value;
   _el=_ccEl('cc-email-sequences');if(_el)            b.email_sequences=parseInt(_el.value)||2;
   _el=_ccEl('cc-email-variants'); if(_el)            b.email_variants=parseInt(_el.value)||2;
+  _el=_ccEl('cc-theme');          if(_el)            b.theme=_el.value;
+  _el=_ccEl('cc-publish-day');    if(_el)            b.publish_day=_el.value;
   var banner=_ccEl('cc-flow-banner');
   if(banner) banner.innerHTML=_ccFlowBanner();
   _ccAutoSlug();
@@ -21762,7 +21774,7 @@ function _ccSlugStatus(state,slug,conflictId,isShared){
 }
 
 function _ccNewCampaign(){
-  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7};
+  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
   _campKickstartCopy=null;
   _campLastLp=null;
   _campSlugStatus='';
@@ -21800,6 +21812,9 @@ function _ccRestoreBriefValues(){
   var slugEl=document.getElementById('cc-slug');
   if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
   if(_campBrief.goal) _ccSetSelect('cc-goal',_campBrief.goal);
+  var themeEl=document.getElementById('cc-theme');
+  if(themeEl&&_campBrief.theme) themeEl.value=_campBrief.theme;
+  if(_campBrief.publish_day) _ccSetSelect('cc-publish-day',_campBrief.publish_day);
 }
 
 // ── Brief auto-fill — retries until dropdowns are populated ─────────────────
@@ -24146,7 +24161,7 @@ function _campaignsRender(){
       '</div>'+
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px">'+
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">✦ Campaign Kickstart — Describe your customer and goal, we\'ll build the brief</div>'+
-        '<textarea id="cc-kickstart-ta" placeholder="Describe your campaign using this format:\n\nICP: [describe your target customer — age, income, pain point, daily struggle]\n\nGOAL: [what action you want them to take — waitlist signup / app download / founding price / referral / affiliate / recipe / upgrade]\n\nCHANNEL: [primary platform — Facebook / Instagram / TikTok / Pinterest / Nextdoor / Email / YouTube]\n\nBLUEPRINT: [campaign structure — A-Waitlist / B-App Download / C-Referral / D-Re-engagement / E-Content / F-Affiliate / G-Paywall Recovery]\n\nANGLE: [story angle — savings ($1,336/year) / speed (30 minutes) / waste (69.5%) / proof (first responders) / urgency (founding price)]\n\nPOSTS: [number of posts — default 7, one per funnel stage: hook, problem, agitate, solve, value, proof, cta]\n\nURGENCY: [what creates scarcity — founding price ends at 5,000 families / July 1 launch / limited beta spots]\n\nExample:\nICP: Busy mom, 35, two kids, $75K household, spends $400/month on groceries, half goes to waste, orders DoorDash 3x per week, guilty about waste and cost.\nGOAL: Waitlist signups before July 1\nCHANNEL: Facebook\nBLUEPRINT: A-Waitlist\nANGLE: Savings — $1,336/year\nPOSTS: 7\nURGENCY: Founding price $7.99/month ends at 5,000 families" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;font-family:\'DM Mono\',monospace;color:var(--text);resize:vertical;min-height:160px;outline:none;line-height:1.5;display:block"></textarea>'+
+        '<textarea id="cc-kickstart-ta" placeholder="Describe your campaign using this format:\n\nICP: [describe your target customer — age, income, pain point, daily struggle]\n\nGOAL: [what action you want them to take — waitlist signup / app download / founding price / referral / affiliate / recipe / upgrade]\n\nCHANNEL: [primary platform — Facebook / Instagram / TikTok / Pinterest / Nextdoor / Email / YouTube]\n\nBLUEPRINT: [campaign structure — A-Waitlist / B-App Download / C-Referral / D-Re-engagement / E-Content / F-Affiliate / G-Paywall Recovery]\n\nANGLE: [story angle — savings ($1,336/year) / speed (30 minutes) / waste (69.5%) / proof (first responders) / urgency (founding price)]\n\nPOSTS: [number of posts — default 7, one per funnel stage: hook, problem, agitate, solve, value, proof, cta]\n\nURGENCY: [what creates scarcity — founding price ends at 5,000 families / July 1 launch / limited beta spots]\n\nExample:\nICP: Busy mom, 35, two kids, $75K household, spends $400/month on groceries, half goes to waste, orders DoorDash 3x per week, guilty about waste and cost.\nGOAL: Waitlist signups before July 1\nCHANNEL: Facebook\nBLUEPRINT: A-Waitlist\nANGLE: Savings — $1,336/year\nPOSTS: 7\nURGENCY: Founding price $7.99/month ends at 5,000 families\n\n─── RECIPE / THEMED SERIES EXAMPLE ───\nICP: Super Mom who wants easy weeknight dinner wins her family will love\nGOAL: Recipe engagement — drive to recipe page, build app waitlist\nCHANNEL: Facebook + Instagram\nBLUEPRINT: E-Content\nANGLE: Speed — 30 minutes, ingredients already in your fridge\nTHEME: Taco Tuesday — weekly recurring series\nPUBLISH DAY: Tuesday only\nBUILD-UP: Posts Monday and earlier in week create anticipation for Tuesday recipe drop\nPOSTS: 5 — Friday hook, Sunday problem, Monday agitate, Tuesday recipe, Tuesday CTA\nURGENCY: Early access to 10,000 recipes at launch — free during beta" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;font-family:\'DM Mono\',monospace;color:var(--text);resize:vertical;min-height:160px;outline:none;line-height:1.5;display:block"></textarea>'+
         '<div style="margin-top:10px;display:flex;align-items:center;gap:12px">'+
           '<button id="cc-ks-btn" onclick="_ccKickstart()" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 22px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.05em">Generate Campaign</button>'+
           '<button onclick="_ccCopyAsLlmPrompt()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">📋 Copy as LLM Prompt</button>'+
