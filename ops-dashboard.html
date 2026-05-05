@@ -22266,10 +22266,10 @@ function _ccKickstart(){
       var _ksName=j.campaign_name||j.utm_campaign_code||'Campaign';
       var _ksIcp=j.icp_match||'';
       var _ksCta=j.cta_type||'waitlist';
-      var _ksSumm1='✓ '+_ksName+(_ksIcp?' · '+_ksIcp:'')+' · '+_ksCta;
+      window._ccKs1Summ='✓ '+_ksName+(_ksIcp?' · '+_ksIcp:'')+' · '+_ksCta;
       if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''})+
         '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">'+
-          '<button onclick="_ccWizardAdvance(2,'+JSON.stringify(_ksSumm1)+')" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
+          '<button onclick="_ccWizardAdvance(2,window._ccKs1Summ)" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
         '</div>';
       // ── Pre-warm LP search for step 2 ───────────────────────────────────
       var _ksIcpName=j.icp_match||'';
@@ -22602,7 +22602,10 @@ function _ccKsBuildAssets(actionType){
   allBtns.forEach(function(b){if(!b.disabled){b.setAttribute('data-was-text',b.textContent);b.disabled=true;b.textContent='Building…';}});
   if(!CONFIG.sheetsUrl){allBtns.forEach(function(b){if(b.hasAttribute('data-was-text')){b.textContent=b.getAttribute('data-was-text');b.disabled=false;}});return;}
 
-  var _briefWP=JSON.parse(JSON.stringify(_campBrief));
+  var _briefWP;
+  try{_briefWP=JSON.parse(JSON.stringify(_campBrief));}
+  catch(e){console.error('[CC] JSON parse error:',e.message,'input:',_campBrief);_briefWP={};}
+
   _briefWP.post_count=_campBrief.post_count||7;
 
   if(actionType!=='build_email_sequence'&&actionType!=='build_multi_channel_posts'){
@@ -23464,7 +23467,10 @@ function _ccUploadShot(input){
     shots.push({data:result, mimeType:file.type||'image/png', label:''});
     var ok=_ccAssetSave('ecp_asset_screenshots', shots);
     if(ok){
-      var stored=JSON.parse(localStorage.getItem('ecp_asset_screenshots')||'[]');
+      var _screenshotRaw=localStorage.getItem('ecp_asset_screenshots')||'[]';
+      var stored;
+      try{stored=JSON.parse(_screenshotRaw);}
+      catch(e){console.error('[CC] JSON parse error:',e.message,'input:',_screenshotRaw);stored=[];}
       console.log('[BRAND] screenshots stored:', stored.length);
       var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
     }
