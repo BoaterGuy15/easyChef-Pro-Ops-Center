@@ -1294,6 +1294,21 @@ function getBlueprintConfigs() {
     .map(_bpRowToObj);
 }
 
+// ── Fix empty BlueprintConfig and LPInventory tabs — run once from editor ────
+// Run → _reseedBlueprintAndLP → check Execution log for "seeded X rows"
+
+function _reseedBlueprintAndLP() {
+  var ss = _getCampaignSpreadsheet();
+  var bpSheet = _getCCSheet(_CC_TAB.BLUEPRINTS);
+  var lpSheet = _getCCSheet(_CC_TAB.LP_INVENTORY);
+  var bpBefore = bpSheet.getLastRow() - 1;
+  var lpBefore = lpSheet.getLastRow() - 1;
+  _seedBlueprintConfig(bpSheet);
+  _seedLPInventory(lpSheet);
+  Logger.log('BlueprintConfig: ' + bpBefore + ' rows before → ' + (bpSheet.getLastRow()-1) + ' rows after');
+  Logger.log('LPInventory: '     + lpBefore + ' rows before → ' + (lpSheet.getLastRow()-1)  + ' rows after');
+}
+
 // ── Diagnostic — run from Apps Script editor to verify all sheet tabs ─────────
 
 function _testSheetWiring() {
