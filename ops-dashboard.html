@@ -458,7 +458,10 @@ tr.hidden-row{display:none}
 
 /* ── TIMELINE GANTT ── */
 #page-roadmap,#page-lp,#page-actions{padding:16px 8px!important;max-width:none!important;width:100%!important;margin:0!important;box-sizing:border-box}
-#page-campaigns{max-width:none!important;width:100%!important;box-sizing:border-box}
+#page-campaigns{max-width:none!important;width:100%!important;padding:0!important;margin:0!important;box-sizing:border-box}
+.cc-post-grid{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--border)}
+.cc-post-grid>div:nth-child(odd){border-right:1px solid var(--border)}
+@media(max-width:900px){.cc-post-grid{grid-template-columns:1fr}.cc-post-grid>div:nth-child(odd){border-right:none}}
 #gantt-sticky-bar{position:sticky;top:56px;z-index:50;background:var(--bg);box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%}
 .gantt-dropdown-panel{overflow:hidden;max-height:0;transition:max-height 0.25s ease-out;background:var(--surface);border-top:1px solid var(--border)}
 .gantt-dropdown-panel.open{max-height:520px;transition:max-height 0.3s ease-in}
@@ -21331,7 +21334,7 @@ function _ccRenderBrief(){
       '</div>'+
       '<div style="font-size:10px;color:var(--muted);margin-top:3px">Assigned automatically — EC-YYYY-NNN format</div>'+
     '</div>';
-  return '<div style="max-width:1100px">'+
+  return '<div style="width:100%">'+
     _ccSecHdr('📋 Panel 1 — Campaign Brief Builder')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:22px 24px">'+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">'+
@@ -21985,7 +21988,7 @@ function _ccRenderCopyOutput(copy,b){
     social_hook:safeStr(copy.social_hook||''),
     share_mechanic:safeStr(copy.share_mechanic||'')
   };
-  return '<div style="max-width:1100px">'+
+  return '<div style="width:100%">'+
     _ccSecHdr('✦ Generated Campaign Copy — <span id="cc-ks-copy-hdr">'+(b?b.id+' · '+b.icp+' · '+b.channel:'')+'</span>')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
       row('Headline (Hook)',c.headline,'headline')+
@@ -22022,7 +22025,7 @@ function _ccRenderKickstartAssets(campaign){
       (sub?'<div style="font-size:12px;color:var(--text);margin-top:3px">'+sub+'</div>':'')+
     '</div>';
   };
-  return '<div style="max-width:1100px;margin-top:20px">'+
+  return '<div style="width:100%;margin-top:20px">'+
     // SECTION A
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px">'+
       secHdr(
@@ -22360,7 +22363,7 @@ function _ccRenderSocialPosts(posts,container,channel){
     '</div>';
   }).join('');
 
-  container.innerHTML='<div style="border-top:1px solid var(--border)">'+rows+'</div>';
+  container.innerHTML='<div class="cc-post-grid">'+rows+'</div>';
 
   // Trigger initial char counts after DOM settles
   setTimeout(function(){
@@ -22459,14 +22462,14 @@ function _ccBuildUtmAssets(){
 }
 function _ccRenderUTM(){
   var b=_campBrief;
-  if(!b.id||!b.channel) return '<div style="max-width:1100px">'+_ccSecHdr('🔗 Panel 2 — UTM Generator')+'<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--muted);font-size:13px">Complete the Campaign Brief first, then return here to generate UTM URLs.<div style="margin-top:16px">'+_ccBtn('← Go to Brief','_campSwitchTab(\'brief\')',true)+'</div></div></div>';
+  if(!b.id||!b.channel) return '<div style="width:100%">'+_ccSecHdr('🔗 Panel 2 — UTM Generator')+'<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--muted);font-size:13px">Complete the Campaign Brief first, then return here to generate UTM URLs.<div style="margin-top:16px">'+_ccBtn('← Go to Brief','_campSwitchTab(\'brief\')',true)+'</div></div></div>';
   var code=_ccSanitiseCampaignCode(b.name||b.id);
   var isValid=_CC_CAMPAIGN_VALID.indexOf((b.id||'').toLowerCase())!==-1||/^ec-\d{4}-\d{3}$/.test((b.id||'').toLowerCase());
   var codeBadge=isValid?'<span style="font-size:10px;color:#22c55e;margin-left:4px">✓</span>':'';
   var lpCount=_campLastLp?1:0;
   var postCount=(_ccLastPosts||[]).length;
   var total=lpCount+postCount;
-  if(!total) return '<div style="max-width:1100px">'+
+  if(!total) return '<div style="width:100%">'+
     _ccSecHdr('🔗 Panel 2 — UTM Generator')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center">'+
       '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">No assets yet.</div>'+
@@ -22491,7 +22494,7 @@ function _ccRenderUTM(){
     '</div>'
     :'';
   var existingTable=visibleUrls.length?_ccRenderUtmTable(visibleUrls):'<div style="padding:30px;text-align:center;color:var(--muted);font-size:12px">Click Generate All URLs to create one tracking link per asset.</div>';
-  return '<div style="max-width:1100px">'+
+  return '<div style="width:100%">'+
     _ccSecHdr('🔗 Panel 2 — UTM Generator')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px">'+
       '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">'+
@@ -22674,7 +22677,7 @@ function _ccActivateAllDraft(){
 // ── Panel 3: Deep Link Registry ─────────────────────────────────────────────
 function _ccRenderRegistry(){
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=deeplinks_read').then(function(r){return r.json();}).then(function(d){if(Array.isArray(d.entries)){_campDLCache=d.entries;_ccRedrawReg();}}).catch(function(){});
-  return '<div style="max-width:1100px">'+_ccSecHdr('📎 Panel 3 — Deep Link Registry')+'<div id="cc-reg-wrap"><div style="color:var(--muted);font-size:12px;padding:20px">Loading…</div></div></div>';
+  return '<div style="width:100%">'+_ccSecHdr('📎 Panel 3 — Deep Link Registry')+'<div id="cc-reg-wrap"><div style="color:var(--muted);font-size:12px;padding:20px">Loading…</div></div></div>';
 }
 function _ccRedrawReg(){
   var wrap=_ccEl('cc-reg-wrap'); if(!wrap) return;
@@ -22736,7 +22739,7 @@ function _ccRenderTracking(){
       '</div>'+
     '</div>';
   }).join('');
-  return '<div style="max-width:1100px">'+_ccSecHdr('✅ Panel 5 — Tracking Checker')+rows+'<div style="margin-top:10px;font-size:11px;color:var(--muted)">Required order in &lt;head&gt;: Convert.com → Clarity → GA4. Green = present &amp; correct order. Red = missing or wrong order.</div></div>';
+  return '<div style="width:100%">'+_ccSecHdr('✅ Panel 5 — Tracking Checker')+rows+'<div style="margin-top:10px;font-size:11px;color:var(--muted)">Required order in &lt;head&gt;: Convert.com → Clarity → GA4. Green = present &amp; correct order. Red = missing or wrong order.</div></div>';
 }
 function _ccBadge(lbl,state){
   var c=state==='ok'?'#22c55e':state==='fail'?_CC_RED:'var(--muted)';
@@ -22775,7 +22778,7 @@ function _dlDest(d)    {return d.destination_url||d.destination||'';}
 function _ccRenderDistribution(){
   var b=_campBrief;
   if(!b.id){
-    return '<div style="max-width:1100px">'+_ccSecHdr('📧 Panel 6 — Distribution')+
+    return '<div style="width:100%">'+_ccSecHdr('📧 Panel 6 — Distribution')+
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--muted);font-size:13px">Complete the Campaign Brief first.'+
         '<div style="margin-top:16px">'+_ccBtn('← Go to Brief','_campSwitchTab(\'brief\')',true)+'</div>'+
       '</div></div>';
@@ -22874,7 +22877,7 @@ function _ccRenderDistribution(){
       '<button id="cc-build-calendar-btn" onclick="_ccBuildFullCalendar()" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;display:inline-flex;align-items:center;gap:6px">✦ Build Full Calendar</button>'+
       '<div id="cc-calendar-result" style="display:none;margin-top:16px"></div>'+
     '</div>';
-  return '<div style="max-width:1100px">'+
+  return '<div style="width:100%">'+
     _ccSecHdr('📧 Panel 6 — Distribution')+
     _calCard+
     blocker+
@@ -23042,7 +23045,7 @@ function _ccRenderPerformance(){
       '<span style="font-size:15px;font-weight:800;color:'+c+';min-width:60px;text-align:right">'+(raw||'—')+'</span>'+
     '</div>';
   }).join('');
-  return '<div style="max-width:960px">'+
+  return '<div style="width:100%">'+
     _ccSecHdr('📊 Panel 7 — Performance Counter')+
     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">'+kpiHtml+'</div>'+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px">'+
@@ -23209,7 +23212,7 @@ function _ccRenderChannels(){
       :'<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--muted);font-size:12px">No channels loaded — click ⟳ Refresh</div>')+
   '</div>';
 
-  return '<div style="max-width:1140px">'+
+  return '<div style="width:100%">'+
     _ccSecHdr('📡 Channels')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
@@ -23519,8 +23522,7 @@ function _campaignsRender(){
     return '<button id="camp-tab-'+t.id+'" onclick="_campSwitchTab(\''+t.id+'\')" style="padding:9px 14px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;color:var(--muted)">'+t.lbl+'</button>';
   }).join('');
   root.innerHTML=
-    '<div style="padding:20px 24px">'+
-      '<div style="max-width:1100px">'+
+    '<div style="max-width:1600px;width:100%;margin:0 auto;padding:20px 32px;box-sizing:border-box">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
         '<div>'+
           '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
@@ -23540,7 +23542,6 @@ function _campaignsRender(){
       '<div id="cc-flow-banner"></div>'+
       '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto">'+tabBar+'</div>'+
       '<div id="cc-panel"></div>'+
-      '</div>'+
     '</div>';
   _campSwitchTab(_campActiveTab);
 }
@@ -23579,7 +23580,7 @@ function _campaignsAddModal(){ _campSwitchTab('brief'); }
 function _seoRender(){
   var root=document.getElementById('seo-mgr-root'); if(!root) return;
   var pages=(DASHBOARD_DATA.seo&&DASHBOARD_DATA.seo.pages)||[];
-  root.innerHTML='<div style="padding:20px 24px;max-width:1200px">'+
+  root.innerHTML='<div style="max-width:1600px;width:100%;margin:0 auto;padding:20px 32px;box-sizing:border-box">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap">'+
       '<div><div style="font-size:18px;font-weight:700;color:var(--text)">SEO Manager</div>'+
       '<div style="font-size:12px;color:var(--muted);margin-top:2px">'+pages.length+' page'+(pages.length!==1?'s':'')+' tracked across all sites — edit fields, preview SERP, copy meta tags</div></div>'+
