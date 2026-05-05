@@ -231,3 +231,18 @@ function _testImagePipeline() {
   Logger.log('mime_type: '    + result.mime_type);
   if (!result.ok) Logger.log('error: ' + result.error);
 }
+
+// ── List available Gemini models ──────────────────────────────────────────────
+// Run → _listGeminiModels → View Execution log to find the correct image model name
+function _listGeminiModels() {
+  var key = PropertiesService.getScriptProperties().getProperty('GOOGLE_AI_API_KEY');
+  var resp = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models?key=' + key,
+    { muteHttpExceptions: true }
+  );
+  var data = JSON.parse(resp.getContentText());
+  var models = (data.models || []).map(function(m) {
+    return m.name + ' — ' + (m.supportedGenerationMethods || []).join(', ');
+  });
+  models.forEach(function(m) { Logger.log(m); });
+}
