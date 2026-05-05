@@ -21263,7 +21263,7 @@ var _campActiveTab='brief';
 var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -21357,7 +21357,7 @@ function _ccRenderBrief(){
         })()+
         '<div style="margin-bottom:14px;grid-column:1/-1">'+
           '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">Campaign Channels</label>'+
-          '<div id="cc-channel-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px"></div>'+
+          '<div id="cc-channel-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:2px"></div>'+
           '<div style="font-size:10px;color:var(--muted);margin-top:5px;font-family:\'DM Mono\',monospace">Social channels stagger one stage per day · Email runs in parallel</div>'+
         '</div>'+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
@@ -21630,16 +21630,16 @@ function _ccPopulateChannelCards(channels){
   var grid=document.getElementById('cc-channel-grid');
   if(!grid) return;
   var CARD_CHANNELS=[
-    {name:'Facebook',    dim:'1200×630px',   note:'feed posts'},
-    {name:'Instagram',   dim:'1080×1080px',  note:'feed + reel'},
-    {name:'TikTok',      dim:'1080×1920px',  note:'short video'},
-    {name:'Pinterest',   dim:'1000×1500px',  note:'pin'},
-    {name:'Nextdoor',    dim:'1200×630px',   note:'local post'},
-    {name:'Email',       dim:'600px wide',   note:'SEQ-1 + SEQ-2'},
-    {name:'Push Notifications', dim:'—',     note:'3 pushes'}
+    {name:'Facebook',           dim:'1200×630px',  note:'7 posts · image gen'},
+    {name:'Instagram',          dim:'1080×1080px', note:'7 posts · image gen'},
+    {name:'TikTok',             dim:'1080×1920px', note:'7 scripts · thumb gen'},
+    {name:'Pinterest',          dim:'1000×1500px', note:'5 pins · image gen'},
+    {name:'Nextdoor',           dim:'1200×630px',  note:'3 posts · no image'},
+    {name:'Email',              dim:'600px wide',  note:'SEQ-1+2 · 8 emails'},
+    {name:'Push Notifications', dim:'—',           note:'3 notifs · copy only'}
   ];
   var active=channels.filter(function(c){return c.status==='active';}).map(function(c){return c.name.toLowerCase();});
-  var savedChs=_campBrief.channels||['Facebook','Email'];
+  var savedChs=_campBrief.channels||['Facebook','Instagram','Email'];
   grid.innerHTML=CARD_CHANNELS.map(function(ch){
     var inSheet=active.length===0||active.indexOf(ch.name.toLowerCase())>=0;
     if(!inSheet) return '';
@@ -21841,7 +21841,7 @@ function _ccSlugStatus(state,slug,conflictId,isShared){
 }
 
 function _ccNewCampaign(){
-  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
+  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
   _campKickstartCopy=null;
   _campLastLp=null;
   _campSlugStatus='';
@@ -22203,46 +22203,35 @@ function _ccGenerateCampaign(){
     });
 }
 
+function _ccCopyFieldRow(label,fkey,val,multiline){
+  var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var safeVal=Array.isArray(val)?val.join(' · '):safe(String(val||''));
+  var taStyle='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:7px 10px;font-size:12px;font-family:inherit;line-height:1.5;box-sizing:border-box;outline:none;resize:vertical';
+  var input=multiline
+    ?'<textarea id="cof-'+fkey+'" rows="'+(fkey==='lp_hero'?3:2)+'" onchange="_campKickstartCopy=_campKickstartCopy||{};_campKickstartCopy[\''+fkey+'\']=this.value" style="'+taStyle+'">'+safeVal+'</textarea>'
+    :'<input id="cof-'+fkey+'" type="text" onchange="_campKickstartCopy=_campKickstartCopy||{};_campKickstartCopy[\''+fkey+'\']=this.value" value="'+safeVal+'" style="'+taStyle+'">';
+  return '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">'+label+'</div>'+
+    input+
+  '</div>';
+}
+
 function _ccRenderCopyOutput(copy,b){
-  var row=function(label,val,id){
-    var display=Array.isArray(val)?val.map(function(v,i){return '<div style="margin-bottom:3px">'+_ccBadge2(i+1)+' '+v+'</div>';}).join(''):
-      '<div style="font-size:13px;color:var(--text);line-height:1.5">'+val+'</div>';
-    var copyVal=Array.isArray(val)?val.join(' · '):val;
-    return '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
-      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">'+
-        '<div style="flex:1;min-width:0">'+
-          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">'+label+'</div>'+
-          display+
-        '</div>'+
-        '<button onclick="_ccCopyText(\''+copyVal.replace(/'/g,"\\'").replace(/\n/g,' ')+'\')" style="flex-shrink:0;background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;margin-top:18px">Copy</button>'+
-      '</div>'+
-    '</div>';
-  };
   var safeStr=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-  var c={
-    headline:safeStr(copy.headline||''),
-    subheadline:safeStr(copy.subheadline||''),
-    email_subject_a:safeStr(copy.email_subject_a||''),
-    email_subject_b:safeStr(copy.email_subject_b||''),
-    lp_hero:safeStr(copy.lp_hero||''),
-    proof_bar:Array.isArray(copy.proof_bar)?copy.proof_bar.map(function(s){return safeStr(s);}):
-      (typeof copy.proof_bar==='string'&&copy.proof_bar.trim()?copy.proof_bar.split('·').map(function(s){return safeStr(s.trim());}):['—','—','—']),
-    cta_primary:safeStr(copy.cta_primary||''),
-    social_hook:safeStr(copy.social_hook||''),
-    share_mechanic:safeStr(copy.share_mechanic||'')
-  };
+  var proofVal=Array.isArray(copy.proof_bar)?copy.proof_bar.join(' · '):
+    (typeof copy.proof_bar==='string'&&copy.proof_bar.trim()?copy.proof_bar:'');
   return '<div style="width:100%">'+
     _ccSecHdr('✦ Generated Campaign Copy — <span id="cc-ks-copy-hdr">'+(b?b.id+' · '+b.icp+' · '+b.channel:'')+'</span>')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
-      row('Headline (Hook)',c.headline,'headline')+
-      row('Subheadline (Problem)',c.subheadline,'subheadline')+
-      row('Email Subject A — Money Angle',c.email_subject_a,'esa')+
-      row('Email Subject B — Time / Emotion Angle',c.email_subject_b,'esb')+
-      row('LP Hero Copy (Hook Expanded)',c.lp_hero,'lp')+
-      row('Proof Bar (3 Approved Stats)',c.proof_bar,'proof')+
-      row('Primary CTA',c.cta_primary,'cta')+
-      row('Social Hook (First Line)',c.social_hook,'social')+
-      row('Share Mechanic (Thank-You Page)',c.share_mechanic,'share')+
+      _ccCopyFieldRow('Headline (Hook)','headline',copy.headline||'',false)+
+      _ccCopyFieldRow('Subheadline (Problem)','subheadline',copy.subheadline||'',false)+
+      _ccCopyFieldRow('Email Subject A — Money Angle','email_subject_a',copy.email_subject_a||'',false)+
+      _ccCopyFieldRow('Email Subject B — Time / Emotion Angle','email_subject_b',copy.email_subject_b||'',false)+
+      _ccCopyFieldRow('LP Hero Copy (Hook Expanded)','lp_hero',copy.lp_hero||'',true)+
+      _ccCopyFieldRow('Proof Bar (3 Approved Stats)','proof_bar',proofVal,false)+
+      _ccCopyFieldRow('Primary CTA','cta_primary',copy.cta_primary||'',false)+
+      _ccCopyFieldRow('Social Hook (First Line)','social_hook',copy.social_hook||'',false)+
+      _ccCopyFieldRow('Share Mechanic (Thank-You Page)','share_mechanic',copy.share_mechanic||'',false)+
     '</div>'+
     '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
       '<button onclick="_ccGenerateCampaign()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
@@ -22266,26 +22255,35 @@ function _ccBadge2(n){
 
 // ── Architecture sections — rendered below copy card after kickstart ──────────
 
+var _CC_CH_POST_COUNTS={facebook:7,instagram:7,tiktok:7,pinterest:5,nextdoor:3};
+function _ccGetChCount(name){return _CC_CH_POST_COUNTS[(name||'').toLowerCase()]||(_campBrief.post_count||7);}
+
 function _ccBuildSectionBButtons(){
   var chs=_campBrief.channels||[];
-  var hasSocial=chs.some(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';});
+  var socialChs=chs.filter(function(c){var l=c.toLowerCase();return l!=='email'&&l!=='push notifications';});
   var hasEmail=chs.some(function(c){return c.toLowerCase()==='email';});
   var hasPush=chs.some(function(c){return c.toLowerCase()==='push notifications';});
-  var btns='';
-  if(hasSocial&&chs.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';}).length===1){
-    var ch=chs.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';})[0];
-    btns+='<button onclick="_ccKsBuildAssets(\'build_social_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin-right:8px">Build '+ch+' Posts ('+((_campBrief.post_count||7))+')</button>';
-  } else if(hasSocial){
-    var cnt=chs.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';}).length;
-    btns+='<button onclick="_ccKsBuildAssets(\'build_multi_channel_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin-right:8px">Build All '+cnt+' Channels ('+((_campBrief.post_count||7))+' posts each)</button>';
+  var btnStyle='padding:8px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin:0 8px 8px 0';
+  var btns='<div style="display:flex;flex-wrap:wrap;gap:0;align-items:center;margin-bottom:4px">';
+  if(socialChs.length===1){
+    var ch=socialChs[0];
+    btns+='<button onclick="_ccKsBuildAssets(\'build_social_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+'">Build '+ch+' ('+_ccGetChCount(ch)+' posts)</button>';
+  } else if(socialChs.length>1){
+    var chList=socialChs.map(function(c){return c+' '+_ccGetChCount(c);}).join(' · ');
+    btns+='<button onclick="_ccKsBuildAssets(\'build_multi_channel_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+'">Build All Social ('+socialChs.length+' channels)</button>';
+    btns+='<span style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-right:12px">'+chList+'</span>';
   }
   if(hasEmail){
-    btns+='<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:8px 18px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:\'DM Mono\',monospace;margin-right:8px">Build Email Sequence (SEQ-1 + SEQ-2)</button>';
+    btns+='<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+'">Build Email (SEQ-1+2 · 8 emails)</button>';
   }
   if(hasPush){
-    btns+='<button disabled style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 18px;border-radius:6px;font-size:11px;cursor:not-allowed;font-family:\'DM Mono\',monospace">Push Notifications (coming soon)</button>';
+    btns+='<button onclick="_ccKsBuildAssets(\'build_push_notifications\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+'">Build Push Copy (3 notifications)</button>';
   }
-  return btns||'<span style="font-size:11px;color:var(--muted)">Select channels above to unlock asset building.</span>';
+  if(!socialChs.length&&!hasEmail&&!hasPush){
+    btns+='<span style="font-size:11px;color:var(--muted)">Select channels above to unlock asset building.</span>';
+  }
+  btns+='</div>';
+  return btns;
 }
 
 function _ccRenderKickstartAssets(campaign){
@@ -22485,7 +22483,9 @@ function _ccKsBuildAssets(actionType){
       if(actionType==='build_email_sequence'){
         _ccRenderEmailSequence(d.sequence||[],out2);
       } else if(actionType==='build_multi_channel_posts'){
-        _ccRenderMultiChannelPosts(d.posts||[],d.stagger_schedule||[],out2);
+        _ccRenderMultiChannelPosts(d.posts||[],d.stagger_schedule||[],d.push_notifications||[],out2);
+      } else if(actionType==='build_push_notifications'){
+        _ccRenderPushNotifications(d.notifications||[],out2);
       } else {
         _ccRenderSocialPosts(d.posts||[],out2,_campBrief.channel);
       }
@@ -22667,9 +22667,33 @@ function _ccGetChannelFromBrief(){
   return (_ccChannels||[]).find(function(c){return c.name===(_campBrief.channel||'');}) || {};
 }
 
+function _ccImageUse(postNum){
+  var container=document.getElementById('cc-img-container-'+postNum);
+  if(container){
+    // Remove action buttons, keep the image
+    var btns=container.querySelector('div[style*="display:flex"]');
+    if(btns) btns.remove();
+    var img=container.querySelector('img,canvas');
+    if(img) img.style.outline='2px solid #22c55e';
+  }
+  _showToast('<div style="color:#22c55e;font-size:12px">Post '+postNum+' image saved — will attach when campaign is exported.</div>',2500);
+}
+
+function _ccImageSkip(postNum){
+  var container=document.getElementById('cc-img-container-'+postNum);
+  if(container) container.innerHTML='<span style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace">Image skipped — image_brief saved for manual creation.</span>';
+  var btn=document.getElementById('cc-gen-img-'+postNum);
+  if(btn){btn.textContent='🎨 Generate Image';btn.disabled=false;}
+}
+
 // ── Image generation queue ──────────────────────────────────────────────────
 var _ccImageQueue=[];
 var _ccImageGenerating=false;
+
+function _ccQueueAllImages(){
+  var total=(_ccLastPosts||[]).length;
+  for(var i=1;i<=total;i++) _ccQueueImage(i);
+}
 
 function _ccQueueImage(postNum){
   var btn=document.getElementById('cc-gen-img-'+postNum);
@@ -22733,8 +22757,16 @@ function _ccGeneratePostImage(postNum,callback){
       _ccLastImages[postNum]={mime_type:d.mime_type,image_base64:d.image_base64};
       if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
       var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
-      if(container){container.innerHTML=_ccImageWithOverlay(postNum,imgSrc);}
-      if(btn) btn.textContent='✓ Image ready';
+      if(container){
+        container.innerHTML=
+          _ccImageWithOverlay(postNum,imgSrc)+
+          '<div style="display:flex;gap:6px;margin-top:6px">'+
+            '<button onclick="_ccImageUse('+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>'+
+            '<button onclick="_ccQueueImage('+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
+            '<button onclick="_ccImageSkip('+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">✕ Skip</button>'+
+          '</div>';
+      }
+      if(btn){btn.textContent='✓ Image ready';btn.disabled=false;}
     } else {
       console.error('[IMG] Post '+postNum+' failed:', d.error);
       if(container){
@@ -22759,51 +22791,109 @@ function _ccGeneratePostImage(postNum,callback){
 }
 
 // ── Multi-channel post renderer ──────────────────────────────────────────────
-function _ccRenderMultiChannelPosts(posts,schedule,container){
+function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
   _ccLastPosts=posts;
   if(!container) return;
-  if(!posts.length){
+  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+
+  if(!posts.length&&!pushNotifs.length){
     container.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">No posts returned.</div>';
     return;
   }
-  // Group by channel
-  var byChannel={};
-  var order=[];
+
+  // Group social posts by channel
+  var byChannel={};var order=[];
   posts.forEach(function(p){
     var ch=p.channel||'Social';
     if(!byChannel[ch]){byChannel[ch]=[];order.push(ch);}
     byChannel[ch].push(p);
   });
-  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+
+  var taStyle='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:12px;font-family:inherit;line-height:1.6;resize:vertical;box-sizing:border-box;outline:none';
   var html='<div style="border-top:1px solid var(--border)">';
 
-  // Stagger schedule summary
+  // Stagger schedule
   if(schedule&&schedule.length){
     html+='<div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.05)">'+
       '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">Stagger Schedule</div>'+
-      '<div style="display:flex;flex-wrap:wrap;gap:6px">'+
-      schedule.slice(0,21).map(function(s){
-        return '<span style="font-size:10px;font-family:\'DM Mono\',monospace;padding:3px 8px;border-radius:4px;border:1px solid var(--border);color:var(--muted)">Day '+s.day+' — '+s.channel+' · '+s.funnel_stage+'</span>';
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">'+
+      schedule.map(function(s){
+        var clr=s.channel==='Email'?'rgba(100,149,237,0.25)':s.channel==='Push Notifications'?'rgba(201,168,76,0.2)':'rgba(255,0,0,0.08)';
+        return '<span style="font-size:9px;font-family:\'DM Mono\',monospace;padding:2px 7px;border-radius:4px;background:'+clr+';color:var(--muted)">D'+s.day+' '+s.channel+' · '+s.funnel_stage+'</span>';
       }).join('')+
       '</div></div>';
+  }
+
+  // Generate All Images button (for channels with image gen)
+  var imgChannels=order.filter(function(ch){var l=ch.toLowerCase();return l!=='nextdoor';});
+  if(imgChannels.length>0){
+    html+='<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'+
+      '<button onclick="_ccQueueAllImages()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">🎨 Generate All Images ('+posts.length+' posts)</button>'+
+    '</div>';
   }
 
   order.forEach(function(ch){
     html+='<div style="padding:8px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border)">'+
       '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">'+safe(ch)+'</span>'+
     '</div>';
-    var chPosts=byChannel[ch];
-    var _chObj=(_ccChannels||[]).find(function(c){return c.name===ch;})||{};
-    chPosts.forEach(function(post,i){
+    byChannel[ch].forEach(function(post,i){
       var idx=(post.post_num||i+1);
+      var pKey=ch+'_'+idx;
       html+='<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
-        '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:8px">'+safe(ch)+' POST '+idx+'</div>'+
+        '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:8px">'+safe(ch)+' · Post '+idx+' · <span style="text-transform:capitalize">'+safe(post.funnel_stage||'')+'</span></div>'+
         '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">'+safe(post.hook||'')+'</div>'+
-        '<div style="font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;background:var(--bg);padding:10px 12px;border-radius:6px;border:1px solid var(--border);margin-bottom:8px">'+safe(post.body||'')+'</div>'+
-        (post.hashtags?'<div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-family:\'DM Mono\',monospace">'+safe(post.hashtags)+'</div>':'')+
-        '<div style="font-size:10px;color:var(--muted);font-style:italic">'+safe(post.image_brief||_chObj.image_dimensions||'')+'</div>'+
+        '<textarea rows="3" style="'+taStyle+';margin-bottom:6px" oninput="this.closest(\'[data-pkey]\').querySelector(\'.mc-body-val\').textContent=this.value" data-field="body">'+safe(post.body||'')+'</textarea>'+
+        (post.hashtags?'<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:6px">'+safe(post.hashtags)+'</div>':'')+
+        '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
+          '<button onclick="_ccQueueImage('+idx+')" id="cc-gen-img-'+idx+'" style="font-size:10px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">🎨 Generate Image</button>'+
+          '<div id="cc-img-container-'+idx+'"></div>'+
+        '</div>'+
       '</div>';
     });
+  });
+
+  // Push notifications section
+  if(pushNotifs&&pushNotifs.length){
+    html+='<div style="padding:8px 16px;background:rgba(201,168,76,0.05);border-bottom:1px solid var(--border)">'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Push Notifications — Draft (wire to platform in Session 10)</span>'+
+    '</div>';
+    pushNotifs.forEach(function(n,i){
+      var len=(n.copy||'').length;
+      var lenColor=len<=50?'#22c55e':_CC_RED;
+      html+='<div style="padding:12px 16px;border-bottom:1px solid var(--border)">'+
+        '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:4px;text-transform:uppercase">'+safe(n.stage||'push '+(i+1))+'</div>'+
+        '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">'+safe(n.copy||'')+'</div>'+
+        '<div style="font-size:10px;font-family:\'DM Mono\',monospace;color:'+lenColor+'">'+len+' chars'+(len>50?' — over 50 char limit':' ✓')+'</div>'+
+      '</div>';
+    });
+  }
+
+  html+='</div>';
+  container.innerHTML=html;
+}
+
+function _ccRenderPushNotifications(notifications,container){
+  if(!container) return;
+  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  if(!notifications.length){
+    container.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">No notifications returned.</div>';
+    return;
+  }
+  var html='<div style="border-top:1px solid var(--border)">';
+  html+='<div style="padding:8px 16px;background:rgba(201,168,76,0.05);border-bottom:1px solid var(--border)">'+
+    '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Push Notifications — Draft (wire to platform in Session 10)</span>'+
+  '</div>';
+  notifications.forEach(function(n,i){
+    var len=(n.copy||'').length;
+    var lenColor=len<=50?'#22c55e':_CC_RED;
+    html+='<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
+      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:6px;text-transform:uppercase">Push '+(i+1)+' — '+safe(n.stage||'')+'</div>'+
+      '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">'+safe(n.copy||'')+'</div>'+
+      '<div style="display:flex;align-items:center;gap:10px">'+
+        '<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:'+lenColor+'">'+len+' chars'+(len>50?' ⚠ over 50 char limit':' ✓')+'</span>'+
+        '<button onclick="_ccCopyText(\''+safe(n.copy||'').replace(/'/g,"\\'")+'\')"+style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 9px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Copy</button>'+
+      '</div>'+
+    '</div>';
   });
   html+='</div>';
   container.innerHTML=html;
@@ -22821,7 +22911,7 @@ function _ccShowLlmRefinePanel(){
 
 function _ccParseLlmSuggestions(){
   var ta=document.getElementById('cc-llm-refine-input');
-  if(!ta||!ta.value.trim()){return;}
+  if(!ta||!ta.value.trim()) return;
   var text=ta.value;
   var parsed={};
   var extract=function(key,patterns){
@@ -22830,47 +22920,113 @@ function _ccParseLlmSuggestions(){
       if(m&&m[1]&&m[1].trim()){parsed[key]=m[1].trim();return;}
     }
   };
-  extract('headline',     [/headline[:\s]+([^\n]+)/i, /hook[:\s]+([^\n]+)/i]);
-  extract('subheadline',  [/subheadline[:\s]+([^\n]+)/i, /problem[:\s]+([^\n]+)/i]);
+  extract('headline',      [/headline[:\s]+([^\n]+)/i,     /hook[:\s]+([^\n]+)/i]);
+  extract('subheadline',   [/subheadline[:\s]+([^\n]+)/i,  /problem[:\s]+([^\n]+)/i]);
   extract('email_subject_a',[/subject\s*a[:\s]+([^\n]+)/i, /email subject a[:\s]+([^\n]+)/i]);
   extract('email_subject_b',[/subject\s*b[:\s]+([^\n]+)/i, /email subject b[:\s]+([^\n]+)/i]);
-  extract('lp_hero',      [/lp hero[:\s]+([^\n]+)/i, /hero copy[:\s]+([^\n]+)/i]);
-  extract('cta_primary',  [/primary cta[:\s]+([^\n]+)/i, /cta[:\s]+([^\n]+)/i]);
-  extract('social_hook',  [/social hook[:\s]+([^\n]+)/i]);
+  extract('lp_hero',       [/lp hero[:\s]+([^\n]+)/i,      /hero copy[:\s]+([^\n]+)/i]);
+  extract('cta_primary',   [/primary cta[:\s]+([^\n]+)/i,  /\bcta[:\s]+([^\n]+)/i]);
+  extract('social_hook',   [/social hook[:\s]+([^\n]+)/i]);
   extract('share_mechanic',[/share mechanic[:\s]+([^\n]+)/i]);
+  // Angle
+  extract('angle',         [/angle[:\s]+([^\n]+)/i,        /recommended angle[:\s]+([^\n]+)/i]);
+  // Claims — look for "claim:" or bulleted lines with $ amounts
+  var claimLines=[];
+  var claimMatch=text.match(/claims?[:\s]+([\s\S]+?)(?:\n\n|\n[A-Z]|$)/i);
+  if(claimMatch){
+    claimMatch[1].split('\n').forEach(function(line){
+      var l=line.replace(/^[-•*\d.]+\s*/,'').trim();
+      if(l) claimLines.push(l);
+    });
+  }
+
+  window._ccLlmParsed=parsed;
+  window._ccLlmClaimLines=claimLines;
 
   var prev=document.getElementById('cc-llm-refine-diff');
   if(!prev) return;
-  if(!Object.keys(parsed).length){
-    prev.innerHTML='<div style="font-size:11px;color:var(--muted);padding:10px">No recognizable fields found. Use labels like <b>Headline:</b>, <b>Subject A:</b>, <b>Social Hook:</b> etc.</div>';
-    return;
-  }
   var copy=_campKickstartCopy||{};
   var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-  var diffHtml=Object.keys(parsed).map(function(k){
+  var LABELS={headline:'Headline',subheadline:'Subheadline',email_subject_a:'Email Subject A',
+    email_subject_b:'Email Subject B',lp_hero:'LP Hero Copy',cta_primary:'Primary CTA',
+    social_hook:'Social Hook',share_mechanic:'Share Mechanic',angle:'Angle Recommendation'};
+
+  if(!Object.keys(parsed).length&&!claimLines.length){
+    prev.innerHTML='<div style="font-size:11px;color:var(--muted);padding:10px">No recognizable fields found. Use labels like <b>Headline:</b>, <b>Subject A:</b>, <b>Social Hook:</b>, <b>Angle:</b> etc.</div>';
+    return;
+  }
+
+  var rows=Object.keys(parsed).map(function(k){
     var oldV=copy[k]||'—';
     var newV=parsed[k];
-    return '<div style="margin-bottom:10px">'+
-      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px">'+safe(k.replace(/_/g,' '))+'</div>'+
+    return '<div style="margin-bottom:10px;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:var(--bg)">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:5px">'+safe(LABELS[k]||k.replace(/_/g,' '))+'</div>'+
       '<div style="font-size:11px;color:var(--muted);text-decoration:line-through;margin-bottom:2px">'+safe(oldV)+'</div>'+
-      '<div style="font-size:12px;color:var(--text)">→ '+safe(newV)+'</div>'+
+      '<input type="text" id="llm-field-'+k+'" value="'+safe(newV)+'" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:6px 9px;font-size:12px;font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:6px">'+
+      '<div style="display:flex;gap:6px">'+
+        '<button onclick="_ccApplyOneField(\''+k+'\')" style="background:#22c55e;border:none;color:#fff;padding:3px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Apply</button>'+
+        '<button onclick="this.closest(\'div[style]\').remove()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Keep Current</button>'+
+      '</div>'+
     '</div>';
   }).join('');
-  prev.innerHTML=diffHtml+'<div style="margin-top:12px">'+
-    '<button onclick="_ccApplyLlmSuggestions()" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Apply '+Object.keys(parsed).length+' Change'+(Object.keys(parsed).length>1?'s':'')+'</button>'+
-    '<button onclick="document.getElementById(\'cc-llm-refine-diff\').innerHTML=\'\'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;margin-left:8px">Clear</button>'+
-  '</div>';
-  // Store parsed for apply step
-  window._ccLlmParsed=parsed;
+
+  var claimsHtml='';
+  if(claimLines.length){
+    claimsHtml='<div style="margin-bottom:10px;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:var(--bg)">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">Recommended Claims (select to feature in proof bar)</div>'+
+      claimLines.map(function(c,i){
+        return '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);margin-bottom:5px;cursor:pointer">'+
+          '<input type="checkbox" id="llm-claim-'+i+'" style="accent-color:'+_CC_RED+'"> '+safe(c)+'</label>';
+      }).join('')+
+      '<button onclick="_ccApplyClaimSelections()" style="margin-top:6px;background:'+_CC_RED+';border:none;color:#fff;padding:3px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Apply Selected Claims</button>'+
+    '</div>';
+  }
+
+  var applyAllBtn=(Object.keys(parsed).length>1)
+    ?'<button onclick="_ccApplyAllLlmFields()" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin-right:8px">Apply All Selected ('+Object.keys(parsed).length+')</button>':
+    '';
+  prev.innerHTML=rows+claimsHtml+
+    '<div style="margin-top:4px">'+
+    applyAllBtn+
+    '<button onclick="document.getElementById(\'cc-llm-refine-diff\').innerHTML=\'\'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Clear</button>'+
+    '</div>';
+}
+
+function _ccApplyOneField(key){
+  var input=document.getElementById('llm-field-'+key);
+  var val=input?input.value.trim():'';
+  if(!val) return;
+  _campKickstartCopy=_campKickstartCopy||{};
+  _campKickstartCopy[key]=val;
+  // Update the editable field in the copy output section without full re-render
+  var domField=document.getElementById('cof-'+key);
+  if(domField) domField.value=val;
+  _showToast('<div style="color:#22c55e;font-size:12px">'+key.replace(/_/g,' ')+' updated.</div>',1500);
+}
+
+function _ccApplyAllLlmFields(){
+  var parsed=window._ccLlmParsed||{};
+  Object.keys(parsed).forEach(function(k){ _ccApplyOneField(k); });
+  _showToast('<div style="color:#22c55e;font-size:12px">All fields applied.</div>',2000);
+}
+
+function _ccApplyClaimSelections(){
+  var claims=window._ccLlmClaimLines||[];
+  var selected=claims.filter(function(c,i){
+    var cb=document.getElementById('llm-claim-'+i);
+    return cb&&cb.checked;
+  });
+  if(!selected.length) return;
+  _campKickstartCopy=_campKickstartCopy||{};
+  _campKickstartCopy.proof_bar=selected;
+  var domField=document.getElementById('cof-proof_bar');
+  if(domField) domField.value=selected.join(' · ');
+  _showToast('<div style="color:#22c55e;font-size:12px">'+selected.length+' claim'+(selected.length>1?'s':'')+' applied to proof bar.</div>',2000);
 }
 
 function _ccApplyLlmSuggestions(){
-  if(!window._ccLlmParsed||!Object.keys(window._ccLlmParsed).length) return;
-  _campKickstartCopy=Object.assign(_campKickstartCopy||{},window._ccLlmParsed);
-  window._ccLlmParsed=null;
-  var res=document.getElementById('cc-gen-result');
-  if(res) res.innerHTML=_ccRenderCopyOutput(_campKickstartCopy,_campBrief);
-  _showToast('<div style="color:#22c55e;font-size:12px">LLM suggestions applied.</div>',2500);
+  // Legacy — kept for backward compat
+  _ccApplyAllLlmFields();
   _ccShowLlmRefinePanel();
 }
 

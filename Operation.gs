@@ -591,7 +591,8 @@ function doPost(e) {
     // ── Asset Builder ─────────────────────────────────────────────────────────────
     if(body.action === 'build_email_sequence') return respond(buildEmailSequence(body.brief, body.copy));
     if(body.action === 'build_social_posts')        return respond(buildSocialPosts(body.brief, body.copy));
-    if(body.action === 'build_multi_channel_posts') return respond(buildMultiChannelPosts(body.brief, body.copy));
+    if(body.action === 'build_multi_channel_posts')  return respond(buildMultiChannelPosts(body.brief, body.copy));
+    if(body.action === 'build_push_notifications')   return respond(buildPushNotifications(body.brief, body.copy));
     if(body.action === 'build_landing_page')        return respond(buildLandingPage(body.brief, body.copy));
 
     // ── Sequence Builder ──────────────────────────────────────────────────────────

@@ -135,6 +135,51 @@ function _getPlatformNote(channelName) {
   return channelName + ' — platform-appropriate content.';
 }
 
+// Locked channel rules — spec-defined, not overridable by Channels sheet
+function _getChannelRules(channelName) {
+  var ch = (channelName || '').toLowerCase();
+  if (ch === 'facebook') {
+    return 'PLATFORM RULES — FACEBOOK:\n' +
+      'Conversational warm tone. Max 400 chars. Link works in post body. No hashtags.\n' +
+      'Hook → compressed 7-step arc → link. Image: 1200x630px horizontal.';
+  }
+  if (ch === 'instagram') {
+    return 'PLATFORM RULES — INSTAGRAM:\n' +
+      'Visual-first. Max 125 chars before More. NO link in caption — bio link only.\n' +
+      '5–8 hashtags at end. Hook line must work as standalone image text overlay.\n' +
+      'Image: 1080x1080px square.';
+  }
+  if (ch === 'tiktok') {
+    return 'PLATFORM RULES — TIKTOK:\n' +
+      'VIDEO SCRIPT FORMAT. Structure the body field exactly as:\n' +
+      'HOOK (0-3 sec on screen text): [text]\n' +
+      'SCRIPT (3-45 sec spoken): [text]\n' +
+      'ON SCREEN TEXT (key moments): [text]\n' +
+      'CTA (45-60 sec): [text]\n' +
+      'Max 60 seconds spoken. POV or talking-head format. Ultra short sentences.\n' +
+      'Thumbnail image: 1080x1920px vertical.';
+  }
+  if (ch === 'pinterest') {
+    return 'PLATFORM RULES — PINTEREST:\n' +
+      'Keyword-rich description. 500 chars max. Savings angle dominant.\n' +
+      '$1,336 figure prominent. SEO-optimised — Pinterest is a search engine.\n' +
+      'Image: 1000x1500px vertical 2:3 ratio.';
+  }
+  if (ch === 'nextdoor') {
+    return 'PLATFORM RULES — NEXTDOOR:\n' +
+      'Neighbour-to-neighbour tone. NO marketing language. Personal story angle.\n' +
+      'Feels like a recommendation not an ad. Max 300 chars. No hashtags. No link preview.';
+  }
+  return '';
+}
+
+// Per-channel post count defaults
+function _getChannelPostCount(channelName, briefCount) {
+  var ch = (channelName || '').toLowerCase();
+  var defaults = { pinterest: 5, nextdoor: 3 };
+  return defaults[ch] || (briefCount || 7);
+}
+
 // ── getLandingPagesByIcp ──────────────────────────────────────────────────────
 
 /**
@@ -335,6 +380,7 @@ function buildSocialPosts(brief, copy) {
   var claimsCtx    = _getClaimsContext();
   var icpCtx       = _getIcpContext(brief.icp);
   var platformNote = _getPlatformNote(channel);
+  var channelRules = _getChannelRules(channel);
 
   var systemPrompt =
     'You are the easyChef Pro social media writer.\n\n' +
@@ -342,7 +388,7 @@ function buildSocialPosts(brief, copy) {
     claimsCtx +
     _AB_VOICE +
     '=== PLATFORM ===\n' +
-    platformNote + '\n\n' +
+    (channelRules || platformNote) + '\n\n' +
     '=== TARGET ICP ===\n' +
     icpCtx + '\n' +
     '=== CAMPAIGN CONTEXT ===\n' +
@@ -457,6 +503,8 @@ function buildMultiChannelPosts(brief, copy) {
     var ch = socialChannels[ci];
     var chBrief = JSON.parse(JSON.stringify(brief));
     chBrief.channel = ch;
+    // Per-channel post count: Pinterest=5, Nextdoor=3, others=brief default
+    chBrief.post_count = _getChannelPostCount(ch, brief.post_count || 7);
     var chData = null;
     for (var di = 0; di < sheetChannels.length; di++) {
       if (sheetChannels[di].name.toLowerCase() === ch.toLowerCase() && sheetChannels[di].status === 'active') {
@@ -480,22 +528,51 @@ function buildMultiChannelPosts(brief, copy) {
     }
   }
 
-  var schedule = _buildStaggerSchedule(socialChannels, brief.post_count || 7, brief.publish_day || '', brief.theme || '');
+  // Include push copy if Push Notifications is in channels
+  var hasPush = channels.some(function(c){ return (c||'').toLowerCase() === 'push notifications'; });
+  var pushResult = null;
+  if (hasPush) {
+    pushResult = buildPushNotifications(brief, copy);
+  }
+
+  var schedule = _buildStaggerSchedule(channels, brief.post_count || 7, brief.publish_day || '', brief.theme || '');
   var out = { ok: true, posts: allPosts, stagger_schedule: schedule };
+  if (pushResult && pushResult.ok) out.push_notifications = pushResult.notifications;
   if (errors.length) out.errors = errors;
   return out;
 }
 
-function _buildStaggerSchedule(socialChannels, postCount, publishDay, theme) {
-  var stages = ['hook','problem','solution','proof','urgency','re-engage','close'];
+// Spec-defined stagger: Facebook → Email → Instagram pattern across 7 funnel stages (21 days)
+// Push slot added on Day 20 (same as Stage 7 CTA)
+function _buildStaggerSchedule(allChannels, postCount, publishDay, theme) {
+  var stages = ['hook','problem','agitate','solve','value','proof','cta'];
+  var social  = allChannels.filter(function(c){ var l=(c||'').toLowerCase(); return l!=='email'&&l!=='push notifications'; });
+  var hasEmail= allChannels.some(function(c){ return (c||'').toLowerCase()==='email'; });
+  var hasPush = allChannels.some(function(c){ return (c||'').toLowerCase()==='push notifications'; });
+
   var schedule = [];
   var day = 0;
-  for (var si = 0; si < Math.min(postCount, stages.length); si++) {
-    for (var ci = 0; ci < socialChannels.length; ci++) {
-      schedule.push({ day: day, channel: socialChannels[ci], funnel_stage: stages[si], post_num: si + 1 });
+  var stageCount = Math.min(postCount, stages.length);
+
+  for (var si = 0; si < stageCount; si++) {
+    var stage = stages[si];
+    // Social channels first
+    for (var ci = 0; ci < social.length; ci++) {
+      schedule.push({ day: day, channel: social[ci], funnel_stage: stage, post_num: si + 1, content_type: 'social_post' });
+      day++;
+    }
+    // Email slot after each stage's social posts
+    if (hasEmail) {
+      schedule.push({ day: day, channel: 'Email', funnel_stage: stage, post_num: si + 1, content_type: 'email' });
       day++;
     }
   }
+
+  // Push on final stage (CTA/urgency)
+  if (hasPush) {
+    schedule.push({ day: day, channel: 'Push Notifications', funnel_stage: 'cta', post_num: stageCount, content_type: 'push_notification' });
+  }
+
   if (publishDay && publishDay !== '') {
     schedule.forEach(function(s) {
       s.weekday_anchor = publishDay;
@@ -503,6 +580,74 @@ function _buildStaggerSchedule(socialChannels, postCount, publishDay, theme) {
     });
   }
   return schedule;
+}
+
+// ── buildPushNotifications ────────────────────────────────────────────────────
+
+/**
+ * Generates 3 push notifications aligned to funnel stages (hook, value, cta).
+ * Returns { ok: true, notifications: [{stage, copy, char_count}] }
+ */
+function buildPushNotifications(brief, copy) {
+  if (!brief) return { ok: false, error: 'brief is required' };
+
+  var props  = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty('ANTHROPIC_API_KEY');
+  if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
+
+  var ctaConf = { cta: 'Join the waitlist free', loss: 'Founding price ends at 5,000 families' };
+  try {
+    var ctaTypes = getCampaignTypes(false);
+    for (var ci = 0; ci < ctaTypes.length; ci++) {
+      if (ctaTypes[ci].cta_type === (brief.cta_type || 'waitlist')) {
+        ctaConf = { cta: ctaTypes[ci].cta_text, loss: ctaTypes[ci].loss_aversion };
+        break;
+      }
+    }
+  } catch(e) {}
+
+  var systemPrompt =
+    'You are the easyChef Pro push notification writer.\n\n' +
+    _AB_ARCH +
+    _AB_VOICE +
+    'PLATFORM RULES — PUSH NOTIFICATIONS:\n' +
+    'Under 50 chars total per notification. Start with action verb.\n' +
+    'Outcome-framed not feature-framed. Creates urgency without pressure.\n\n' +
+    '=== CAMPAIGN CONTEXT ===\n' +
+    'Headline: ' + (copy && copy.headline || '') + '\n' +
+    'Social hook: ' + (copy && copy.social_hook || '') + '\n' +
+    'CTA: ' + ctaConf.cta + '\n\n' +
+    '=== OUTPUT FORMAT ===\n' +
+    'Return ONLY valid JSON. No markdown.\n' +
+    '{\n' +
+    '  "notifications": [\n' +
+    '    { "stage": "hook", "copy": "Dinner panic at 6:30? We fixed it →", "char_count": 38 },\n' +
+    '    { "stage": "value", "copy": "30-min dinner from your fridge. Go →", "char_count": 37 },\n' +
+    '    { "stage": "cta", "copy": "$7.99/mo founding price. Today only →", "char_count": 38 }\n' +
+    '  ]\n' +
+    '}';
+
+  try {
+    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      payload: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: 'Generate 3 push notifications for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON.' }]
+      }),
+      muteHttpExceptions: true
+    });
+    var data  = JSON.parse(resp.getContentText());
+    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
+    if (!reply && data.error) return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+    var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+    var result  = JSON.parse(jsonStr);
+    return { ok: true, notifications: result.notifications || [] };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // ── buildLandingPage ──────────────────────────────────────────────────────────
