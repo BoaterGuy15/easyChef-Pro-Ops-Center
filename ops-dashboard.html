@@ -21925,6 +21925,49 @@ function _ccAutoFillBrief(campaign){
 // ── Campaign Kickstart ──────────────────────────────────────────────────────
 var _CC_ICP_CODE_MAP={'super_mom':'Super Mom','budget_family':'Budget Family','health_optimizer':'Health Optimizer','professional':'Professional','alpha_recruit':'Alpha Recruit'};
 
+function _ccCopyAsLlmPrompt(){
+  var ta=document.getElementById('cc-kickstart-ta');
+  var brief=ta?ta.value.trim():'';
+  var prompt=
+'You are the easyChef Pro campaign strategist. '+
+'I need to build a social media and email campaign using the 7-step framework:\n'+
+'Hook → Problem → Agitate → Solve → Value → Proof → CTA\n\n'+
+'Each post and email follows this sequence both at the campaign arc level '+
+'(7 posts = 7 stages) and within each individual asset in compressed form.\n\n'+
+'Here is my campaign brief:\n\n'+
+(brief||'[No brief entered yet — fill in the kickstart field above first]')+
+'\n\nPlease review this brief and suggest:\n'+
+'1. Any improvements to the ICP description\n'+
+'2. The strongest angle for this audience\n'+
+'3. The hook line for Post 1 (Hook stage)\n'+
+'4. The subject line for Email 1 (Hook stage)\n'+
+'5. Any approved claims from this list that should be featured:\n'+
+'   - $1,336/year average savings\n'+
+'   - 69.5% less food waste\n'+
+'   - 30 minutes fridge to table\n'+
+'   - 9 patent-pending technologies\n'+
+'   - 800,000 products in database\n'+
+'   - Built by first responders\n'+
+'   - Validated across 10,000 household profiles\n'+
+'   - $7.99/month founding price (60% off)\n\n'+
+'Return your suggestions then I will paste them back into the Campaign Center to generate the full campaign.';
+  var confirm=document.getElementById('cc-ks-copy-confirm');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(prompt).then(function(){
+      if(confirm){confirm.style.display='block';setTimeout(function(){confirm.style.display='none';},4000);}
+    }).catch(function(){_ccCopyFallback(prompt,confirm);});
+  } else {
+    _ccCopyFallback(prompt,confirm);
+  }
+}
+function _ccCopyFallback(text,confirm){
+  var el=document.createElement('textarea');
+  el.value=text;el.style.position='fixed';el.style.opacity='0';
+  document.body.appendChild(el);el.select();
+  try{document.execCommand('copy');if(confirm){confirm.style.display='block';setTimeout(function(){confirm.style.display='none';},4000);}}catch(e){}
+  document.body.removeChild(el);
+}
+
 function _ccKickstart(){
   console.log('[CC] kickstart clicked');
   var ta=document.getElementById('cc-kickstart-ta');
@@ -24103,9 +24146,11 @@ function _campaignsRender(){
       '</div>'+
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px">'+
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">✦ Campaign Kickstart — Describe your customer and goal, we\'ll build the brief</div>'+
-        '<textarea id="cc-kickstart-ta" placeholder="Describe your target customer and what you want them to do. Example: Working moms in suburban areas who spend over $300 a month on groceries and waste food every week. I want them to join the waitlist." style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;font-family:\'DM Mono\',monospace;color:var(--text);resize:vertical;min-height:80px;outline:none;line-height:1.5;display:block"></textarea>'+
+        '<textarea id="cc-kickstart-ta" placeholder="Describe your campaign using this format:\n\nICP: [describe your target customer — age, income, pain point, daily struggle]\n\nGOAL: [what action you want them to take — waitlist signup / app download / founding price / referral / affiliate / recipe / upgrade]\n\nCHANNEL: [primary platform — Facebook / Instagram / TikTok / Pinterest / Nextdoor / Email / YouTube]\n\nBLUEPRINT: [campaign structure — A-Waitlist / B-App Download / C-Referral / D-Re-engagement / E-Content / F-Affiliate / G-Paywall Recovery]\n\nANGLE: [story angle — savings ($1,336/year) / speed (30 minutes) / waste (69.5%) / proof (first responders) / urgency (founding price)]\n\nPOSTS: [number of posts — default 7, one per funnel stage: hook, problem, agitate, solve, value, proof, cta]\n\nURGENCY: [what creates scarcity — founding price ends at 5,000 families / July 1 launch / limited beta spots]\n\nExample:\nICP: Busy mom, 35, two kids, $75K household, spends $400/month on groceries, half goes to waste, orders DoorDash 3x per week, guilty about waste and cost.\nGOAL: Waitlist signups before July 1\nCHANNEL: Facebook\nBLUEPRINT: A-Waitlist\nANGLE: Savings — $1,336/year\nPOSTS: 7\nURGENCY: Founding price $7.99/month ends at 5,000 families" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;font-family:\'DM Mono\',monospace;color:var(--text);resize:vertical;min-height:160px;outline:none;line-height:1.5;display:block"></textarea>'+
         '<div style="margin-top:10px;display:flex;align-items:center;gap:12px">'+
           '<button id="cc-ks-btn" onclick="_ccKickstart()" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 22px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.05em">Generate Campaign</button>'+
+          '<button onclick="_ccCopyAsLlmPrompt()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">📋 Copy as LLM Prompt</button>'+
+          '<div id="cc-ks-copy-confirm" style="font-size:11px;color:#4caf50;font-family:\'DM Mono\',monospace;display:none">✓ Copied — paste into Claude, ChatGPT, or Gemini</div>'+
           '<div id="cc-ks-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
         '</div>'+
         '<div id="cc-ks-err" style="margin-top:8px;font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace;min-height:16px"></div>'+
