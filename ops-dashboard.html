@@ -22339,6 +22339,14 @@ function _ccRenderSocialPosts(posts,container,channel){
         fieldLabel('Image Brief')+
         '<textarea id="'+imgId+'" rows="2" style="'+taStyle+'">'+safe(imgText)+'</textarea>'+
       '</div>'+
+      // Generate Image button + result container
+      '<div style="margin-bottom:12px">'+
+        '<button id="cc-gen-img-'+(post.post_num||i+1)+'" '+
+        'onclick="_ccGeneratePostImage('+(post.post_num||i+1)+')" '+
+        'style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">'+
+        '🎨 Generate Image</button>'+
+        '<div id="cc-img-container-'+(post.post_num||i+1)+'"></div>'+
+      '</div>'+
       // CTA + link placement row
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
         '<div>'+
@@ -22367,6 +22375,51 @@ function _ccRefreshPostPlatform(){
   var postsEl=document.getElementById('cc-ks-asset-output');
   if(!postsEl||!_ccLastPosts||!_ccLastPosts.length) return;
   _ccRenderSocialPosts(_ccLastPosts,postsEl,_campBrief.channel);
+}
+
+function _ccGetChannelFromBrief(){
+  return (_ccChannels||[]).find(function(c){return c.name===(_campBrief.channel||'');}) || {};
+}
+
+function _ccGeneratePostImage(postNum){
+  var post=_ccLastPosts[postNum-1];
+  if(!post) return;
+  var btn=document.getElementById('cc-gen-img-'+postNum);
+  btn.textContent='Generating...';
+  btn.disabled=true;
+  var channelData=_ccGetChannelFromBrief();
+  fetch(CONFIG.sheetsUrl,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      action:'generate_image_prompt',
+      image_brief:post.image_brief||'',
+      post_hook:post.hook||'',
+      platform:_campBrief.channel||'Facebook',
+      icp:_campBrief.icp||'super_mom',
+      dimensions:channelData.image_dimensions||'1200x630px',
+      use_case:'social'
+    })
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.ok&&d.image_base64){
+      var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
+      var container=document.getElementById('cc-img-container-'+postNum);
+      container.innerHTML=
+        '<img src="'+imgSrc+'" style="width:100%;border-radius:8px;margin-top:8px;" alt="Generated image">'+
+        '<a href="'+imgSrc+'" download="post-'+postNum+'-image.png" '+
+        'style="display:block;font-size:12px;margin-top:4px;color:var(--muted);">↓ Download</a>';
+      btn.textContent='✓ Image ready';
+    } else {
+      btn.textContent='✗ Failed — retry';
+      btn.disabled=false;
+    }
+  })
+  .catch(function(){
+    btn.textContent='✗ Failed — retry';
+    btn.disabled=false;
+  });
 }
 
 function _ccRefreshChannelLabel(){
