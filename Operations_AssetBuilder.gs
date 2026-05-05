@@ -281,19 +281,22 @@ function buildSocialPosts(brief, copy) {
     'Content format: ' + (brief.content_format || 'post') + '\n' +
     'Link placement: ' + (brief.link_placement || '') + '\n\n' +
     '=== IMAGE BRIEF REQUIREMENTS ===\n' +
-    'Every image_brief must mirror THIS specific post exactly — not a generic family scene.\n' +
-    'If post 1 is about $1,336 savings, the image shows the money saved. If post 2 is about\n' +
-    'the 6:30 PM fridge panic, the image shows that exact panic moment. The image tells the\n' +
-    'same story as the post.\n\n' +
-    'Rules for every image_brief:\n' +
-    '(1) Same character as the post — if the post mentions a mom, a woman, Sarah — the image\n' +
-    '    shows that exact person. Never show a man if the post describes a woman.\n' +
-    '(2) Same story moment — show the exact scene the post describes.\n' +
-    '(3) Same emotion — if the post conveys relief, show visible relief on her face.\n' +
-    '(4) Specific not generic — name the food, the room, the time of day, the clothing.\n' +
-    '(5) Facebook 1200x630px horizontal framing.\n' +
-    '(6) Warm tones, natural light, real kitchen, never stock photo.\n' +
-    '(7) End with: No men if post describes women. No studio lighting. No posed smiles. No blue tones.\n\n' +
+    'CRITICAL: The image_brief must tell the SAME STORY as the post body. If the post is about\n' +
+    'throwing away $1,336 of groceries the image shows food waste. If the post is about a child\n' +
+    'asking for seconds the image shows that dinner table moment. If the post is about 6:30 PM\n' +
+    'panic the image shows that exact fridge moment. Never use a generic happy family image when\n' +
+    'the post describes a specific problem or specific moment.\n\n' +
+    'Write exactly 4 sentences for image_brief:\n' +
+    'Sentence 1 — WHO: Match the character from this post exactly. If post mentions Sarah, show Sarah.\n' +
+    '  If post mentions a mom with 3 kids, show that. Include gender, age range (30s/40s),\n' +
+    '  what they are wearing, specific emotion that matches the post (exhausted / relieved / proud / surprised).\n' +
+    'Sentence 2 — WHAT: The exact action from the post story (opening fridge / looking at phone /\n' +
+    '  serving dinner / reacting to kids asking for seconds). Not a generic action — the specific one.\n' +
+    'Sentence 3 — WHERE + WHEN: Suburban kitchen, time of day from post (6 PM warm evening light /\n' +
+    '  Sunday morning bright / weeknight dim), specific background details that match post context.\n' +
+    'Sentence 4 — BRAND SPECS: Character holds smartphone showing red easyChef Pro app interface\n' +
+    '  matching post theme (meal plan screen / savings screen / recipe screen). Warm tones only,\n' +
+    '  no blue or navy, no studio lighting, no posed expressions, Facebook 1200x630px horizontal.\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY valid JSON. No markdown. No explanation.\n' +
     '{\n' +
@@ -305,7 +308,7 @@ function buildSocialPosts(brief, copy) {
     '      "cta": "Call to action line — under 10 words",\n' +
     '      "url": "' + lpUrl + '",\n' +
     '      "hashtags": "Relevant hashtags for this platform and ICP — empty string for Facebook and Nextdoor",\n' +
-    '      "image_brief": "A detailed image brief that mirrors THIS specific post exactly. [Same character, same story moment, same emotion as the post body. Specific food/room/time/clothing. Facebook 1200x630px horizontal. Warm tones, natural light, real kitchen, never stock photo. End with: No men if post describes women. No studio lighting. No posed smiles. No blue tones.]"\n' +
+    '      "image_brief": "4-sentence brief: [Sentence 1: who — gender/age/clothing/emotion matching this post]. [Sentence 2: exact action from this post story]. [Sentence 3: setting/time-of-day/background from this post]. [Sentence 4: holds red easyChef Pro phone showing [screen type], warm tones, no blue, no studio lighting, Facebook 1200x630px horizontal.]"\n' +
     '    }\n' +
     '  ]\n' +
     '}';

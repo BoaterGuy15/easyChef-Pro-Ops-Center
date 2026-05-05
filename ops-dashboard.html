@@ -22533,43 +22533,97 @@ function _ccSelectScreenshot(postNum,idx){
 }
 
 // ── Brand Assets & Overlay ──────────────────────────────────────────────────
-function _ccAssetLoad(key){try{var v=localStorage.getItem(key);return v?JSON.parse(v):null;}catch(e){return null;}}
-function _ccAssetSave(key,val){try{if(val===null||val===undefined){localStorage.removeItem(key);}else{localStorage.setItem(key,JSON.stringify(val));}}catch(e){console.warn('[BA] localStorage save failed:',e.message);}}
+function _ccAssetLoad(key){
+  try{
+    var v=localStorage.getItem(key);
+    if(!v)return null;
+    try{return JSON.parse(v);}
+    catch(e){return v;} // stored as raw string (e.g. PNG/SVG base64)
+  }catch(e){return null;}
+}
+function _ccAssetSave(key,val){
+  try{
+    if(val===null||val===undefined){localStorage.removeItem(key);return true;}
+    localStorage.setItem(key,JSON.stringify(val));
+    return true;
+  }catch(e){
+    var msg=e.name==='QuotaExceededError'||e.code===22
+      ?'Storage full — image too large for browser storage. Try a smaller file.'
+      :'Save failed: '+e.message;
+    console.error('[BA] _ccAssetSave failed for key='+key,e);
+    alert(msg);
+    return false;
+  }
+}
 
 function _ccUploadLogo(input){
   if(!input.files||!input.files[0])return;
   var file=input.files[0];
+  console.log('[BRAND] file selected:', file.name, file.type, file.size+'B');
   var isSvg=(file.type==='image/svg+xml'||file.name.toLowerCase().slice(-4)==='.svg');
   var fr=new FileReader();
   if(isSvg){
     fr.onload=function(e){
-      localStorage.setItem('ecp_asset_logo_svg',e.target.result);
-      localStorage.setItem('ecp_asset_logo_type','svg');
-      localStorage.removeItem('ecp_asset_logo');
-      var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+      var result=e.target.result;
+      console.log('[BRAND] SVG reader result length:', result.length);
+      try{
+        localStorage.setItem('ecp_asset_logo_svg', result);
+        localStorage.setItem('ecp_asset_logo_type','svg');
+        localStorage.removeItem('ecp_asset_logo');
+        var check=localStorage.getItem('ecp_asset_logo_svg');
+        console.log('[BRAND] saved to localStorage key: ecp_asset_logo_svg');
+        console.log('[BRAND] readback length:', check?check.length:0);
+        var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+      }catch(err){
+        var msg=err.name==='QuotaExceededError'||err.code===22?'Storage full — SVG too large.':'Save failed: '+err.message;
+        console.error('[BRAND] SVG save error:', err);
+        alert(msg);
+      }
     };
+    fr.onerror=function(e){console.error('[BRAND] FileReader error (SVG):',e);};
     fr.readAsText(file);
   } else {
     fr.onload=function(e){
-      localStorage.setItem('ecp_asset_logo',e.target.result);
-      localStorage.setItem('ecp_asset_logo_type','png');
-      localStorage.removeItem('ecp_asset_logo_svg');
-      var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+      var result=e.target.result;
+      console.log('[BRAND] PNG reader result length:', result.length);
+      try{
+        localStorage.setItem('ecp_asset_logo', result);
+        localStorage.setItem('ecp_asset_logo_type','png');
+        localStorage.removeItem('ecp_asset_logo_svg');
+        var check=localStorage.getItem('ecp_asset_logo');
+        console.log('[BRAND] saved to localStorage key: ecp_asset_logo');
+        console.log('[BRAND] readback length:', check?check.length:0);
+        var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+      }catch(err){
+        var msg=err.name==='QuotaExceededError'||err.code===22?'Storage full — PNG too large. Try compressing the image first.':'Save failed: '+err.message;
+        console.error('[BRAND] PNG save error:', err);
+        alert(msg);
+      }
     };
+    fr.onerror=function(e){console.error('[BRAND] FileReader error (PNG):',e);};
     fr.readAsDataURL(file);
   }
 }
 function _ccUploadShot(input){
   if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  console.log('[BRAND] screenshot selected:', file.name, file.type, file.size+'B');
   var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
   if(shots.length>=10){alert('Maximum 10 screenshots reached.');return;}
   var fr=new FileReader();
   fr.onload=function(e){
-    shots.push({data:e.target.result,mimeType:input.files[0].type||'image/png',label:''});
-    _ccAssetSave('ecp_asset_screenshots',shots);
-    var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+    var result=e.target.result;
+    console.log('[BRAND] screenshot reader result length:', result.length);
+    shots.push({data:result, mimeType:file.type||'image/png', label:''});
+    var ok=_ccAssetSave('ecp_asset_screenshots', shots);
+    if(ok){
+      var stored=JSON.parse(localStorage.getItem('ecp_asset_screenshots')||'[]');
+      console.log('[BRAND] screenshots stored:', stored.length);
+      var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+    }
   };
-  fr.readAsDataURL(input.files[0]);
+  fr.onerror=function(e){console.error('[BRAND] FileReader error (screenshot):',e);};
+  fr.readAsDataURL(file);
 }
 function _ccShotSetLabel(idx,label){
   var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
@@ -22584,15 +22638,22 @@ function _ccShotDelete(idx){
 }
 function _ccUploadProd(input){
   if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  console.log('[BRAND] product image selected:', file.name, file.type, file.size+'B');
   var prods=_ccAssetLoad('ecp_asset_products')||[];
   if(prods.length>=20){alert('Maximum 20 images reached.');return;}
   var fr=new FileReader();
   fr.onload=function(e){
-    prods.push({data:e.target.result,mimeType:input.files[0].type||'image/png'});
-    _ccAssetSave('ecp_asset_products',prods);
-    var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+    var result=e.target.result;
+    console.log('[BRAND] product reader result length:', result.length);
+    prods.push({data:result, mimeType:file.type||'image/png'});
+    var ok=_ccAssetSave('ecp_asset_products',prods);
+    if(ok){
+      var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+    }
   };
-  fr.readAsDataURL(input.files[0]);
+  fr.onerror=function(e){console.error('[BRAND] FileReader error (product):',e);};
+  fr.readAsDataURL(file);
 }
 function _ccProdDelete(idx){
   var prods=_ccAssetLoad('ecp_asset_products')||[];
