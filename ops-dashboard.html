@@ -22215,6 +22215,7 @@ function _ccKickstart(){
         if(err) err.textContent='Could not parse campaign JSON from API response.';
         return;
       }
+      console.log('[KICKSTART RESPONSE]', JSON.stringify(j));
       if(err) err.textContent='';
       // ── Seed _campBrief so the panel renders with pre-selected options ────
       if(j.icp_code||j.icp_match) _campBrief.icp=_CC_ICP_CODE_MAP[j.icp_code]||j.icp_match||_campBrief.icp;
@@ -22253,6 +22254,7 @@ function _ccKickstart(){
         if(urgencyEl&&_campBrief.urgency_trigger) urgencyEl.value=_campBrief.urgency_trigger;
       })();
       _campKickstartCopy=j;
+      console.log('[COPY SET] _campKickstartCopy keys:', Object.keys(j), JSON.stringify(j));
       // ── Render copy card + architecture sections ─────────────────────────
       if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''})+_ccRenderKickstartAssets(j);
       var _ksIcpName=j.icp_match||'';
@@ -22325,6 +22327,7 @@ function _ccGenerateCampaign(){
         if(res) res.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;white-space:pre-wrap">'+(d.raw||'Empty response')+'</div></div>';
         return;
       }
+      _campKickstartCopy=copy;
       if(res) res.innerHTML=_ccRenderCopyOutput(copy,b);
     })
     .catch(function(e){
