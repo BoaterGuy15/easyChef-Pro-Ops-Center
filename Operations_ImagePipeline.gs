@@ -61,6 +61,7 @@ function generateImagePrompt(body) {
     var dimensions    = body.dimensions     || '1080x1080px';
     var useCase       = body.use_case       || 'social';
     var skipOptimize  = body.skip_optimize  === 'true' || body.skip_optimize === true;
+    var skipClaude    = body.skip_claude    === 'true' || body.skip_claude   === true;
 
     // ── Fast path: custom prompt — skip Claude + GPT, send directly to Imagen
     if (skipOptimize && imageBrief) {
@@ -74,6 +75,42 @@ function generateImagePrompt(body) {
         claude_brief: '(skipped — custom prompt used directly)',
         gpt_prompt: imageBrief,
         image_base64: fastResult.image_base64, mime_type: fastResult.mime_type,
+        platform: platform, dimensions: dimensions
+      };
+    }
+
+    // ── Mid path: user-written brief — skip Claude, GPT-4o → Imagen
+    if (skipClaude && imageBrief) {
+      var gptRespSc = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + openAiKey, 'Content-Type': 'application/json' },
+        payload: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role:    'system',
+              content: 'You are an expert at writing image generation prompts. Take the visual description and rewrite it as a highly detailed, specific image generation prompt. Include: subject, setting, lighting, mood, camera angle, style. The character is holding a smartphone showing: ' + appScreen + '. The screen is clearly visible with red interface elements. Output only the prompt — no explanation.'
+            },
+            { role: 'user', content: imageBrief }
+          ],
+          max_tokens: 300
+        }),
+        muteHttpExceptions: true
+      });
+      var gptDataSc = JSON.parse(gptRespSc.getContentText());
+      if (gptDataSc.error) {
+        return { ok: false, error: 'GPT-4o step failed: ' + (gptDataSc.error.message || String(gptDataSc.error)) };
+      }
+      var optimisedSc = (gptDataSc.choices && gptDataSc.choices[0] && gptDataSc.choices[0].message && gptDataSc.choices[0].message.content) || '';
+      if (!optimisedSc) return { ok: false, error: 'GPT-4o returned empty prompt' };
+      var useNanaSc = (useCase === 'lp' || useCase === 'blog');
+      var imgResultSc = useNanaSc ? _generateNanoBanana(optimisedSc, googleKey, dimensions) : _generateImagen4(optimisedSc, googleKey, dimensions);
+      if (!imgResultSc.ok) return { ok: false, error: imgResultSc.error, gpt_prompt: optimisedSc };
+      return {
+        ok: true, use_case: useCase, model_used: useNanaSc ? 'nano-banana-pro-preview' : 'imagen-4.0-generate-001',
+        claude_brief: '(skipped — user-written brief)',
+        gpt_prompt: optimisedSc,
+        image_base64: imgResultSc.image_base64, mime_type: imgResultSc.mime_type,
         platform: platform, dimensions: dimensions
       };
     }

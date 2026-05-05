@@ -21262,6 +21262,7 @@ var _campActiveTab='brief';
 var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
+var _ccLogoPosState={}; // per-post logo position: 'none'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
 var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
 var _campDLCache=[];
 var _campPerfCache={};
@@ -22759,6 +22760,157 @@ function _ccUpdatePostCount(el,cntId,optimal){
   span.textContent=len+' / '+optimal+' chars';
 }
 
+// ── Per-post image control panel helpers ────────────────────────────────────
+var _CC_TA_STYLE='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:10px 12px;font-size:12px;font-family:inherit;line-height:1.65;resize:vertical;box-sizing:border-box;outline:none';
+function _ccSetLogoPos(postNum,pos){
+  _ccLogoPosState[postNum]=pos;
+  if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
+  _ccBrandOverlay[postNum].logoPos=pos;
+  _ccBrandOverlay[postNum].logo=(pos!=='none');
+  ['none','topleft','topright','bottomleft','bottomright'].forEach(function(p){
+    var btn=document.getElementById('cc-lp-'+postNum+'-'+p);
+    if(btn){btn.style.background=p===pos.replace(/-/g,'')?_CC_RED:'transparent';btn.style.color=p===pos.replace(/-/g,'')?'#fff':'var(--muted)';btn.style.borderColor=p===pos.replace(/-/g,'')?_CC_RED:'var(--border)';}
+  });
+}
+function _ccShowImgFixPanel(postNum){
+  var wrap=document.getElementById('cc-img-fix-wrap-'+postNum);
+  if(wrap)wrap.style.display='block';
+}
+function _ccTestRawPrompt(postNum){
+  var bF=document.getElementById('cc-img-brief-'+postNum);
+  var fF=document.getElementById('cc-img-fix-'+postNum);
+  var bt=(bF&&bF.value.trim())||'';
+  var ft=(fF&&fF.value.trim())||'';
+  var prompt=ft?bt+'\n\nCorrections: '+ft:bt;
+  if(!prompt){_showToast('<div style="color:var(--muted)">Fill in the What to Show field first.</div>',2000);return;}
+  var container=document.getElementById('cc-img-container-s-'+postNum)||document.getElementById('cc-img-container-m-'+postNum);
+  if(container)container.innerHTML='<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:6px 0">Testing raw prompt → Imagen 4…</div>';
+  if(!CONFIG.sheetsUrl)return;
+  var channelData=_ccGetChannelFromBrief();
+  var _shotIdx=_ccSelectedScreenshot[postNum];
+  var _shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var appScreen=(_shotIdx!==undefined&&_shotIdx>=0&&_shots[_shotIdx]&&_shots[_shotIdx].label)?_shots[_shotIdx].label:'meal planning interface';
+  var qs=new URLSearchParams({action:'generate_image_prompt',image_brief:prompt,post_hook:'',post_body:'',app_screen:appScreen,platform:_campBrief.channel||'Facebook',icp:_campBrief.icp||'super_mom',dimensions:(channelData&&channelData.image_dimensions)||'1200x630px',use_case:'social',skip_optimize:'true'});
+  fetch(CONFIG.sheetsUrl+'?'+qs.toString())
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.ok&&d.image_base64){
+      var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
+      if(container){
+        container.innerHTML='<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:4px">Raw test result:</div>'+
+          '<img src="'+imgSrc+'" style="width:100%;border-radius:8px" alt="Test image">'+
+          '<button onclick="_ccUseTestResult('+postNum+',\''+imgSrc+'\')" style="margin-top:6px;background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>';
+      }
+    } else {
+      if(container)container.innerHTML='<div style="font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace">Raw test failed: '+(d.error||'Unknown error')+'</div>';
+    }
+  })
+  .catch(function(e){
+    if(container)container.innerHTML='<div style="font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace">Request failed: '+e.message+'</div>';
+  });
+}
+function _ccUploadScreenshotForPost(postNum,input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  var fr=new FileReader();
+  fr.onload=function(e){
+    var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+    shots.push({data:e.target.result,mimeType:file.type||'image/png',label:file.name.replace(/\.[^/.]+$/,'')});
+    _ccAssetSave('ecp_asset_screenshots',shots);
+    // Re-render the picker inside this post's panel
+    var pickerEl=document.getElementById('cc-shot-grid-'+postNum);
+    if(pickerEl) pickerEl.outerHTML=_ccRenderScreenshotPickerInner(postNum);
+  };
+  fr.readAsDataURL(file);
+}
+function _ccRenderScreenshotPickerInner(postNum){
+  var mf="font-family:'DM Mono',monospace;";
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var sel=(_ccSelectedScreenshot[postNum]!==undefined)?_ccSelectedScreenshot[postNum]:-1;
+  var noneBtn='<div id="'+_ccShotThumbId(postNum,-1)+'" onclick="_ccSelectScreenshot('+postNum+',-1)" '+
+    'style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:3px;border-radius:6px;border:2px solid '+(sel===-1?_CC_RED:'transparent')+'">'+
+    '<div style="width:52px;height:84px;background:var(--bg);border:1px dashed var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);'+mf+'">None</div>'+
+    '<div style="font-size:9px;color:var(--muted);'+mf+'">None</div>'+
+  '</div>';
+  var thumbs=shots.map(function(s,i){
+    return '<div id="'+_ccShotThumbId(postNum,i)+'" onclick="_ccSelectScreenshot('+postNum+','+i+')" '+
+      'style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:3px;border-radius:6px;border:2px solid '+(sel===i?_CC_RED:'transparent')+'">'+
+      '<img src="'+s.data+'" style="width:52px;height:84px;object-fit:cover;display:block;border-radius:4px" alt="'+(s.label||'Screen '+(i+1))+'">'+
+      '<div style="font-size:9px;color:var(--muted);'+mf+';max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(s.label||'Screen '+(i+1))+'</div>'+
+    '</div>';
+  }).join('');
+  return '<div id="cc-shot-grid-'+postNum+'" style="display:flex;flex-wrap:wrap;gap:4px;max-height:200px;overflow-y:auto;padding:4px 0">'+noneBtn+thumbs+'</div>';
+}
+function _ccRenderImagePanel(pNum,prefix,post){
+  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var mf="font-family:'DM Mono',monospace;";
+  var ts=_CC_TA_STYLE;
+  var imgText=safe(post.image_brief||'');
+  var logoPos=(_ccLogoPosState[pNum]||(_ccBrandOverlay[pNum]&&_ccBrandOverlay[pNum].logoPos)||'top-right');
+  var lpBtns=[{v:'none',l:'No logo'},{v:'top-left',l:'↖ Top-left'},{v:'top-right',l:'↗ Top-right'},{v:'bottom-left',l:'↙ Bottom-left'},{v:'bottom-right',l:'↘ Bottom-right'}].map(function(b){
+    var k=b.v.replace(/-/g,'');
+    var act=logoPos===b.v;
+    return '<button id="cc-lp-'+pNum+'-'+k+'" onclick="_ccSetLogoPos('+pNum+',\''+b.v+'\')" style="background:'+(act?_CC_RED:'transparent')+';border:1px solid '+(act?_CC_RED:'var(--border)')+';color:'+(act?'#fff':'var(--muted)')+';padding:4px 11px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'white-space:nowrap">'+b.l+'</button>';
+  }).join('');
+  var modeRows=[
+    {v:'ai',l:'AI writes brief',s:'Claude → GPT-4o → Imagen 4 (recommended)'},
+    {v:'manual',l:'I wrote the brief above',s:'GPT-4o → Imagen 4'},
+    {v:'raw',l:'Test raw — skip optimisation',s:'→ Imagen 4 only'}
+  ].map(function(m){
+    return '<label style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;cursor:pointer;font-size:11px;color:var(--text);'+mf+'">'+
+      '<input type="radio" name="cc-gen-mode-'+pNum+'" value="'+m.v+'"'+(m.v==='ai'?' checked':'')+' style="flex-shrink:0;margin-top:2px">'+
+      m.l+' <span style="color:var(--muted);font-size:10px">'+m.s+'</span>'+
+    '</label>';
+  }).join('');
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var shotSection=_ccRenderScreenshotPickerInner(pNum)+
+    '<div style="margin-top:5px">'+
+      '<input type="file" id="cc-shot-upload-'+pNum+'" accept="image/*" style="display:none" onchange="_ccUploadScreenshotForPost('+pNum+',this)">'+
+      '<button onclick="document.getElementById(\'cc-shot-upload-'+pNum+'\').click()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">+ Upload screenshot</button>'+
+      (shots.length?'<span style="font-size:10px;color:var(--muted);'+mf+';margin-left:8px">'+shots.length+' uploaded</span>':'')+
+    '</div>';
+  return '<div style="margin-top:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+
+    '<div style="padding:7px 12px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:'+_CC_RED+';'+mf+'">🎨 Image Controls</span>'+
+      '<span style="font-size:10px;color:var(--muted);'+mf+'">Post '+pNum+(post.funnel_stage?' · '+safe(post.funnel_stage):'')+'</span>'+
+    '</div>'+
+    '<div style="padding:12px 14px">'+
+      // WHAT TO SHOW
+      '<div style="margin-bottom:10px">'+
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:3px;'+mf+'">What to Show <span style="font-weight:400;text-transform:none">(required)</span></div>'+
+        '<textarea id="cc-img-brief-'+pNum+'" rows="3" style="'+ts+'">'+imgText+'</textarea>'+
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px;'+mf+'">Describe: who · what they are doing · setting · phone screen · lighting · food visible</div>'+
+      '</div>'+
+      // WHAT TO FIX (hidden until first generation)
+      '<div id="cc-img-fix-wrap-'+pNum+'" style="display:none;margin-bottom:10px">'+
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:3px;'+mf+'">What to Fix <span style="font-weight:400;text-transform:none">(optional — appended as correction)</span></div>'+
+        '<textarea id="cc-img-fix-'+pNum+'" rows="2" placeholder="Remove extra arm. Tacos must look like tacos — crispy shells with meat and toppings. Food must be on the plate, not falling." style="'+ts+'"></textarea>'+
+      '</div>'+
+      // APP SCREENSHOT
+      '<div style="margin-bottom:10px">'+
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:4px;'+mf+'">App Screenshot <span style="font-weight:400;text-transform:none">(optional)</span></div>'+
+        shotSection+
+      '</div>'+
+      // LOGO POSITION
+      '<div style="margin-bottom:10px">'+
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:5px;'+mf+'">Logo Position <span style="font-weight:400;text-transform:none">(default: top-right)</span></div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:5px">'+lpBtns+'</div>'+
+      '</div>'+
+      // GENERATION MODE
+      '<div style="margin-bottom:12px">'+
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:5px;'+mf+'">Generation Mode</div>'+
+        modeRows+
+      '</div>'+
+      // Action buttons
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+        '<button id="cc-gen-img-'+prefix+'-'+pNum+'" onclick="_ccQueueImage(\''+prefix+'\','+pNum+')" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">🎨 Generate Image</button>'+
+        '<button onclick="_ccTestRawPrompt('+pNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">💬 Test Raw</button>'+
+      '</div>'+
+      // Image result container
+      '<div id="cc-img-container-'+prefix+'-'+pNum+'" style="margin-top:10px"></div>'+
+    '</div>'+
+  '</div>';
+}
 function _ccRenderSocialPosts(posts,container,channel){
   _ccLastPosts=posts;
   if(!container) return;
@@ -22833,33 +22985,8 @@ function _ccRenderSocialPosts(posts,container,channel){
           '<div style="font-size:10px;color:var(--muted);margin-top:3px">Facebook and Nextdoor = leave empty</div>'+
         '</div>'
       :'')+
-      // Image brief
-      '<div style="margin-bottom:12px">'+
-        fieldLabel('Image Brief')+
-        '<textarea id="'+imgId+'" rows="2" style="'+taStyle+'">'+safe(imgText)+'</textarea>'+
-      '</div>'+
-      // App screenshot picker
-      _ccRenderScreenshotPicker(pNum)+
-      // Custom image prompt
-      '<div style="margin-bottom:12px">'+
-        fieldLabel('Custom image prompt','optional — overrides AI brief')+
-        '<textarea id="'+cpId+'" rows="3" placeholder="Describe exactly what you want to see — overrides AI brief.\nExample: A tired mom in a bright kitchen on a Tuesday evening, two kids at the table, holding a taco, phone showing easyChef Pro red screen, warm light, no blue tones" style="'+taStyle+'"></textarea>'+
-        '<div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">'+
-          '<button onclick="_ccShowAiBrief('+pNum+')" id="cc-show-brief-btn-'+pNum+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Show AI Brief</button>'+
-          '<button onclick="_ccTestImagePrompt('+pNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">💬 Test this prompt</button>'+
-        '</div>'+
-        '<div id="'+aiBriefId+'" style="display:none;margin-top:8px">'+
-          '<div style="font-size:10px;color:var(--muted);margin-bottom:4px">AI-generated visual description (Claude):</div>'+
-          '<textarea id="cc-ai-brief-text-'+pNum+'" rows="4" style="'+taStyle+'"></textarea>'+
-          '<div id="cc-test-compare-'+pNum+'"></div>'+
-        '</div>'+
-      '</div>'+
-      // Generate Image button + result container
-      '<div style="margin-bottom:12px">'+
-        '<button id="cc-gen-img-s-'+pNum+'" onclick="_ccQueueImage(\'s\','+pNum+')" style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">'+
-        '🎨 Generate Image</button>'+
-        '<div id="cc-img-container-s-'+pNum+'"></div>'+
-      '</div>'+
+      // Full image control panel
+      _ccRenderImagePanel(pNum,'s',post)+
       // CTA + link placement row
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
         '<div>'+
@@ -23156,9 +23283,15 @@ function _ccGeneratePostImage(prefix,postNum,callback){
   var container=document.getElementById('cc-img-container-'+prefix+'-'+postNum);
   if(btn){btn.textContent='Generating...';btn.disabled=true;}
   var channelData=_ccGetChannelFromBrief();
+  // Read What to Show + What to Fix and combine
   var briefField=document.getElementById('cc-img-brief-'+postNum);
-  var customPromptField=document.getElementById('cc-custom-prompt-'+postNum);
-  var customPrompt=(customPromptField&&customPromptField.value.trim())||'';
+  var fixField=document.getElementById('cc-img-fix-'+postNum);
+  var briefText=(briefField&&briefField.value.trim())||post.image_brief||'';
+  var fixText=(fixField&&fixField.value.trim())||'';
+  var fullBrief=fixText?briefText+'\n\nCorrections: '+fixText:briefText;
+  // Read generation mode radio
+  var modeEl=document.querySelector('input[name="cc-gen-mode-'+postNum+'"]:checked');
+  var genMode=modeEl?modeEl.value:'ai';
   var _shotIdx=_ccSelectedScreenshot[postNum];
   var _shots=_ccAssetLoad('ecp_asset_screenshots')||[];
   var appScreen=(_shotIdx!==undefined&&_shotIdx>=0&&_shots[_shotIdx]&&_shots[_shotIdx].label)
@@ -23166,7 +23299,7 @@ function _ccGeneratePostImage(prefix,postNum,callback){
     :'meal planning interface';
   var qs=new URLSearchParams({
     action:        'generate_image_prompt',
-    image_brief:   customPrompt||(briefField&&briefField.value)||post.image_brief||'',
+    image_brief:   fullBrief,
     post_hook:     post.hook||'',
     post_body:     post.body||post.body_copy||'',
     app_screen:    appScreen,
@@ -23175,7 +23308,9 @@ function _ccGeneratePostImage(prefix,postNum,callback){
     dimensions:    (channelData&&channelData.image_dimensions)||'1200x630px',
     use_case:      'social'
   });
-  if(customPrompt) qs.set('skip_optimize','true');
+  // skip_optimize: raw mode = bypass Claude + GPT; manual mode = bypass Claude, keep GPT
+  if(genMode==='raw') qs.set('skip_optimize','true');
+  if(genMode==='manual') qs.set('skip_claude','true');
   fetch(CONFIG.sheetsUrl+'?'+qs.toString())
   .then(function(r){return r.json();})
   .then(function(d){
@@ -23187,7 +23322,9 @@ function _ccGeneratePostImage(prefix,postNum,callback){
         window._ccClaudeBriefs=window._ccClaudeBriefs||{};
         window._ccClaudeBriefs[postNum]=d.claude_brief;
       }
-      if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
+      if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:false,screenshotIdx:0,logoPos:_ccLogoPosState[postNum]||'top-right'};
+      // Show the What to Fix panel now that a first image exists
+      _ccShowImgFixPanel(postNum);
       var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
       if(container){
         container.innerHTML=
@@ -23285,10 +23422,7 @@ function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
         '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">'+safe(post.hook||'')+'</div>'+
         '<textarea rows="3" style="'+taStyle+';margin-bottom:6px" oninput="this.closest(\'[data-pkey]\').querySelector(\'.mc-body-val\').textContent=this.value" data-field="body">'+safe(post.body||'')+'</textarea>'+
         (post.hashtags?'<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:6px">'+safe(post.hashtags)+'</div>':'')+
-        '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
-          '<button onclick="_ccQueueImage(\'m\','+idx+')" id="cc-gen-img-m-'+idx+'" style="font-size:10px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">🎨 Generate Image</button>'+
-          '<div id="cc-img-container-m-'+idx+'"></div>'+
-        '</div>'+
+        _ccRenderImagePanel(idx,'m',post)+
       '</div>';
     });
   });
