@@ -22082,6 +22082,103 @@ function _ccCopyFallback(text,confirm){
   document.body.removeChild(el);
 }
 
+function _ccRunFrontendTests(){
+  var base=CONFIG.sheetsUrl;
+  var out=[];
+  var pass=0;var fail=0;
+  function _log(name,ok,note){
+    if(ok){pass++;}else{fail++;}
+    out.push({name:name,ok:ok,note:note||''});
+    console.log('['+(ok?'PASS':'FAIL')+'] '+name+(note?' — '+note:''));
+  }
+  function _post(action,body){
+    return fetch(base,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(Object.assign({action:action},body||{}))})
+      .then(function(r){return r.json();});
+  }
+  function _get(action,params){
+    var qs='?action='+encodeURIComponent(action);
+    if(params){Object.keys(params).forEach(function(k){qs+='&'+k+'='+encodeURIComponent(params[k]);});}
+    return fetch(base+qs).then(function(r){return r.json();});
+  }
+  // Show running state
+  var panel=document.getElementById('cc-test-results');
+  if(!panel){
+    // inject results panel after kickstart block
+    var ksResult=document.getElementById('cc-ks-result');
+    if(ksResult){
+      var div=document.createElement('div');
+      div.id='cc-test-results';
+      div.style.cssText='margin-top:16px;font-family:\'DM Mono\',monospace;font-size:11px;';
+      ksResult.parentNode.insertBefore(div,ksResult.nextSibling);
+      panel=div;
+    }
+  }
+  if(panel) panel.innerHTML='<div style="color:var(--muted)">Running tests…</div>';
+
+  Promise.resolve()
+    // ── GET endpoints ──────────────────────────────────────────────────────────
+    .then(function(){return _get('campaign_types_read');})
+    .then(function(r){_log('GET campaign_types_read',r.ok&&Array.isArray(r.types)&&r.types.length>0,'types='+((r.types||[]).length));})
+    .then(function(){return _get('funnel_stages_read');})
+    .then(function(r){_log('GET funnel_stages_read',r.ok&&Array.isArray(r.stages)&&r.stages.length>0,'stages='+((r.stages||[]).length));})
+    .then(function(){return _get('blueprint_configs_read');})
+    .then(function(r){_log('GET blueprint_configs_read',r.ok&&Array.isArray(r.blueprints)&&r.blueprints.length>0,'blueprints='+((r.blueprints||[]).length));})
+    .then(function(){return _get('lp_inventory_read');})
+    .then(function(r){_log('GET lp_inventory_read',r.ok&&Array.isArray(r.inventory),'inventory='+((r.inventory||[]).length));})
+    .then(function(){return _get('lp_search',{icp:'super_mom'});})
+    .then(function(r){_log('GET lp_search?icp=super_mom',r.ok!=null,'ok='+r.ok);})
+    // ── POST endpoints ─────────────────────────────────────────────────────────
+    .then(function(){return _post('icp_profiles_read');})
+    .then(function(r){_log('POST icp_profiles_read',r.ok&&Array.isArray(r.icpProfiles)&&r.icpProfiles.length>0,'profiles='+((r.icpProfiles||[]).length));})
+    .then(function(){return _post('approved_claims_read');})
+    .then(function(r){_log('POST approved_claims_read',r.ok&&Array.isArray(r.claims)&&r.claims.length>0,'claims='+((r.claims||[]).length));})
+    .then(function(){return _post('channels_read');})
+    .then(function(r){_log('POST channels_read',r.ok&&Array.isArray(r.channels)&&r.channels.length>0,'channels='+((r.channels||[]).length));})
+    .then(function(){return _post('get_next_campaign_id');})
+    .then(function(r){_log('POST get_next_campaign_id',r.ok&&!!r.id,'id='+r.id);})
+    .then(function(){return _post('check_slug_available',{slug:'lp/test-slug-'+Date.now()});})
+    .then(function(r){_log('POST check_slug_available',r.ok!=null,'available='+r.available);})
+    // ── LLM kickstart (real call) ──────────────────────────────────────────────
+    .then(function(){return _post('campaign_kickstart',{prompt:'ICP: Busy mom, 35, two kids.\nGOAL: Waitlist\nCHANNEL: Facebook\nTHEME: Taco Tuesday\nPUBLISH DAY: Tuesday'});})
+    .then(function(r){
+      var ok=r.ok&&r.campaign&&!!r.campaign.headline;
+      _log('POST campaign_kickstart',ok,'icp='+(r.campaign&&r.campaign.icp_code||'?')+' cta='+(r.campaign&&r.campaign.cta_type||'?'));
+      return r;
+    })
+    // ── Asset build (uses kickstart result or stub) ────────────────────────────
+    .then(function(ksResult){
+      var brief=_briefWP&&_briefWP.icp?_briefWP:{id:'TEST-001',name:'Test',icp:'super_mom',cta_type:'waitlist',channels:['facebook'],blueprint:'A-Waitlist',campaign_angle:'savings',post_count:3};
+      var copy=_campKickstartCopy&&_campKickstartCopy.headline?_campKickstartCopy:{headline:'Test headline',subheadline:'Test sub',problem_block:'Test problem',solve_block:'Test solve',proof_bar:['$1,336/year in grocery savings'],cta_primary:'Join free',social_hook:'This stopped me.',urgency_trigger:'Founding price ends soon'};
+      return _post('build_social_posts',{brief:brief,copy:copy}).then(function(r){
+        _log('POST build_social_posts',r.ok&&(Array.isArray(r.posts)||Array.isArray(r.tasks)),'posts/tasks='+((r.posts||r.tasks||[]).length));
+      });
+    })
+    // ── Final render ───────────────────────────────────────────────────────────
+    .then(function(){
+      var total=pass+fail;
+      var color=fail===0?'#4caf50':'#e53935';
+      var rows=out.map(function(t){
+        return '<div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)">'+
+          '<span style="color:'+(t.ok?'#4caf50':'#e53935');
+      });
+      var html='<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-top:16px">'+
+        '<div style="font-weight:700;font-size:12px;margin-bottom:10px;color:'+color+'">'+
+          '🧪 Frontend Tests: '+pass+'/'+total+' passed'+(fail>0?' ('+fail+' failed)':'')+'</div>'+
+        out.map(function(t){
+          return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)">'+
+            '<span>'+(t.ok?'<span style="color:#4caf50">✓</span>':'<span style="color:#e53935">✗</span>')+' '+t.name+'</span>'+
+            '<span style="color:var(--muted)">'+t.note+'</span>'+
+          '</div>';
+        }).join('')+
+      '</div>';
+      if(panel) panel.innerHTML=html;
+    })
+    .catch(function(err){
+      _log('fetch error',false,err.message);
+      if(panel) panel.innerHTML='<div style="color:#e53935">Test error: '+err.message+'</div>';
+    });
+}
+
 function _ccKickstart(){
   console.log('[CC] kickstart clicked');
   var ta=document.getElementById('cc-kickstart-ta');
@@ -24588,6 +24685,7 @@ function _campaignsRender(){
           '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
           '<div style="font-size:12px;color:var(--muted);margin-top:2px">Brief → UTM → Deep Links → SEO → Tracking → Distribute → Measure</div>'+
         '</div>'+
+        '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
       '</div>'+
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px">'+
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">✦ Campaign Kickstart — Describe your customer and goal, we\'ll build the brief</div>'+
