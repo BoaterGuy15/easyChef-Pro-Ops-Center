@@ -21260,6 +21260,8 @@ var _EMAIL_SEQS=[
 ];
 // ── Campaign Center state & constants ──────────────────────────────────────
 var _campActiveTab='brief';
+var _ccLastImages={};
+var _ccBrandOverlay={};
 var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
 var _campDLCache=[];
 var _campPerfCache={};
@@ -22451,13 +22453,10 @@ function _ccGeneratePostImage(postNum,callback){
   .then(function(r){return r.json();})
   .then(function(d){
     if(d.ok&&d.image_base64){
+      _ccLastImages[postNum]={mime_type:d.mime_type,image_base64:d.image_base64};
+      if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
       var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
-      if(container){
-        container.innerHTML=
-          '<img src="'+imgSrc+'" style="width:100%;border-radius:8px;margin-top:8px;" alt="Generated image">'+
-          '<a href="'+imgSrc+'" download="post-'+postNum+'-image.png" '+
-          'style="display:block;font-size:12px;margin-top:4px;color:var(--muted);">↓ Download</a>';
-      }
+      if(container){container.innerHTML=_ccImageWithOverlay(postNum,imgSrc);}
       if(btn) btn.textContent='✓ Image ready';
     } else {
       console.error('[IMG] Post '+postNum+' failed:', d.error);
@@ -22480,6 +22479,281 @@ function _ccGeneratePostImage(postNum,callback){
     if(btn){btn.textContent='✗ Failed';btn.disabled=false;}
     if(callback) callback();
   });
+}
+
+// ── Brand Assets & Overlay ──────────────────────────────────────────────────
+function _ccAssetLoad(key){try{var v=localStorage.getItem(key);return v?JSON.parse(v):null;}catch(e){return null;}}
+function _ccAssetSave(key,val){try{if(val===null||val===undefined){localStorage.removeItem(key);}else{localStorage.setItem(key,JSON.stringify(val));}}catch(e){console.warn('[BA] localStorage save failed:',e.message);}}
+
+function _ccUploadLogo(input){
+  if(!input.files||!input.files[0])return;
+  var fr=new FileReader();
+  fr.onload=function(e){
+    _ccAssetSave('ecp_asset_logo',e.target.result);
+    var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+  };
+  fr.readAsDataURL(input.files[0]);
+}
+function _ccUploadShot(input){
+  if(!input.files||!input.files[0])return;
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  if(shots.length>=10){alert('Maximum 10 screenshots reached.');return;}
+  var fr=new FileReader();
+  fr.onload=function(e){
+    shots.push({data:e.target.result,mimeType:input.files[0].type||'image/png',label:''});
+    _ccAssetSave('ecp_asset_screenshots',shots);
+    var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+  };
+  fr.readAsDataURL(input.files[0]);
+}
+function _ccShotSetLabel(idx,label){
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  if(shots[idx])shots[idx].label=label;
+  _ccAssetSave('ecp_asset_screenshots',shots);
+}
+function _ccShotDelete(idx){
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  shots.splice(idx,1);
+  _ccAssetSave('ecp_asset_screenshots',shots);
+  var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+}
+function _ccUploadProd(input){
+  if(!input.files||!input.files[0])return;
+  var prods=_ccAssetLoad('ecp_asset_products')||[];
+  if(prods.length>=20){alert('Maximum 20 images reached.');return;}
+  var fr=new FileReader();
+  fr.onload=function(e){
+    prods.push({data:e.target.result,mimeType:input.files[0].type||'image/png'});
+    _ccAssetSave('ecp_asset_products',prods);
+    var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+  };
+  fr.readAsDataURL(input.files[0]);
+}
+function _ccProdDelete(idx){
+  var prods=_ccAssetLoad('ecp_asset_products')||[];
+  prods.splice(idx,1);
+  _ccAssetSave('ecp_asset_products',prods);
+  var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+}
+
+function _ccRenderBrandAssets(){
+  var mf="font-family:'DM Mono',monospace";
+  var sec='background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 22px;margin-bottom:16px';
+  var logo=_ccAssetLoad('ecp_asset_logo');
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var prods=_ccAssetLoad('ecp_asset_products')||[];
+
+  var logoHtml=
+    '<div style="'+sec+'">'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:12px">SECTION 1 — LOGO</div>'+
+    '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">easyChef Pro Logo</div>'+
+    (logo
+      ?'<img src="'+logo+'" style="width:200px;max-height:100px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:8px;background:rgba(255,255,255,0.04);margin-bottom:10px;display:block" alt="Logo">'
+      :'<div style="width:200px;height:100px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;'+mf+';margin-bottom:10px">No logo uploaded</div>')+
+    '<div style="display:flex;gap:10px;align-items:center">'+
+    '<button onclick="document.getElementById(\'ba-logo-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">Upload Logo</button>'+
+    (logo?'<button onclick="_ccAssetSave(\'ecp_asset_logo\',null);var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'brand-assets\')p.innerHTML=_ccRenderBrandAssets();" style="background:transparent;border:1px solid rgba(255,80,80,0.4);color:'+_CC_RED+';padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">✕ Remove</button>':'')+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:6px;'+mf+'">Accepted: PNG with transparent background</div>'+
+    '<input id="ba-logo-input" type="file" accept="image/png" style="display:none" onchange="_ccUploadLogo(this)">'+
+    '</div>';
+
+  var shotThumb=shots.map(function(s,i){
+    return '<div style="display:inline-block;vertical-align:top;margin:0 10px 10px 0;position:relative">'+
+      '<img src="'+s.data+'" style="width:120px;height:200px;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block" alt="Screenshot '+(i+1)+'">'+
+      '<input value="'+(s.label||'')+'" placeholder="e.g. Meal plan" '+
+        'onchange="_ccShotSetLabel('+i+',this.value)" '+
+        'style="width:120px;box-sizing:border-box;margin-top:5px;font-size:10px;padding:3px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);'+mf+'">'+
+      '<button onclick="_ccShotDelete('+i+')" title="Delete" '+
+        'style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,0.7);border:none;color:#fff;width:20px;height:20px;border-radius:50%;font-size:11px;cursor:pointer;line-height:20px;padding:0;text-align:center">✕</button>'+
+    '</div>';
+  }).join('');
+  var shotsHtml=
+    '<div style="'+sec+'">'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:12px">SECTION 2 — APP SCREENSHOTS</div>'+
+    '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">App Screenshots <span style="font-size:10px;color:var(--muted);font-weight:400">('+shots.length+'/10)</span></div>'+
+    (shots.length?'<div style="margin-bottom:12px">'+shotThumb+'</div>':'<div style="color:var(--muted);font-size:11px;'+mf+';margin-bottom:12px">No screenshots uploaded yet</div>')+
+    (shots.length<10
+      ?'<button onclick="document.getElementById(\'ba-shot-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Add Screenshot</button>'
+      :'<div style="font-size:11px;color:var(--muted);'+mf+'">Maximum 10 reached</div>')+
+    '<div style="font-size:10px;color:var(--muted);margin-top:6px;'+mf+'">Accepted: PNG, JPG · Portrait thumbnails 120×200px · Max 10</div>'+
+    '<input id="ba-shot-input" type="file" accept="image/png,image/jpeg" style="display:none" onchange="_ccUploadShot(this)">'+
+    '</div>';
+
+  var prodThumb=prods.map(function(s,i){
+    return '<div style="display:inline-block;vertical-align:top;margin:0 8px 8px 0;position:relative">'+
+      '<img src="'+s.data+'" style="width:150px;height:100px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block" alt="Product image '+(i+1)+'">'+
+      '<button onclick="_ccProdDelete('+i+')" title="Delete" '+
+        'style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);border:none;color:#fff;width:20px;height:20px;border-radius:50%;font-size:11px;cursor:pointer;line-height:20px;padding:0;text-align:center">✕</button>'+
+    '</div>';
+  }).join('');
+  var prodsHtml=
+    '<div style="'+sec+'">'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:12px">SECTION 3 — PRODUCT IMAGES</div>'+
+    '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">Product / Lifestyle Images <span style="font-size:10px;color:var(--muted);font-weight:400">('+prods.length+'/20)</span></div>'+
+    (prods.length?'<div style="margin-bottom:12px">'+prodThumb+'</div>':'<div style="color:var(--muted);font-size:11px;'+mf+';margin-bottom:12px">No images uploaded yet</div>')+
+    (prods.length<20
+      ?'<button onclick="document.getElementById(\'ba-prod-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Add Image</button>'
+      :'<div style="font-size:11px;color:var(--muted);'+mf+'">Maximum 20 reached</div>')+
+    '<div style="font-size:10px;color:var(--muted);margin-top:6px;'+mf+'">Accepted: PNG, JPG · Grid thumbnails 150×100px · Max 20</div>'+
+    '<input id="ba-prod-input" type="file" accept="image/png,image/jpeg" style="display:none" onchange="_ccUploadProd(this)">'+
+    '</div>';
+
+  return _ccSecHdr('🎨 Brand Assets')+logoHtml+shotsHtml+prodsHtml;
+}
+
+// ── Claim bar auto-selection ────────────────────────────────────────────────
+function _ccGetAutoClaimBar(postNum){
+  var post=_ccLastPosts&&_ccLastPosts[postNum-1];
+  var text=post?((post.hook||'')+' '+(post.body||'')).toLowerCase():'';
+  if(text.indexOf('1,336')>-1||text.indexOf('saving')>-1) return '$1,336/year average savings';
+  if(text.indexOf('waste')>-1||text.indexOf('69.5')>-1) return '69.5% less food waste';
+  if(text.indexOf('30 min')>-1||text.indexOf('fridge to table')>-1||text.indexOf('quick')>-1) return '30 minutes fridge to table';
+  if(text.indexOf('7.99')>-1||text.indexOf('founding')>-1||text.indexOf('urgency')>-1) return '$7.99/month founding price';
+  if(text.indexOf('first responder')>-1||text.indexOf('built by')>-1) return 'Built by first responders';
+  var defaults=['$1,336/year average savings','69.5% less food waste','30 minutes fridge to table','Built by first responders','$7.99/month founding price'];
+  return defaults[(postNum-1)%5];
+}
+
+// ── Overlay panel (renders inside cc-img-container-N) ───────────────────────
+function _ccImageWithOverlay(postNum,imgSrc){
+  return '<img src="'+imgSrc+'" id="cc-img-final-'+postNum+'" style="width:100%;border-radius:8px;margin-top:8px;" alt="Generated image">'+
+    '<div style="display:flex;gap:12px;align-items:center;margin-top:4px">'+
+      '<a href="'+imgSrc+'" download="post-'+postNum+'-image.png" style="font-size:12px;color:var(--muted);">↓ Download</a>'+
+      '<a id="cc-img-dl-'+postNum+'" style="display:none;font-size:12px;color:var(--muted);cursor:pointer;">↓ Download with overlay</a>'+
+    '</div>'+
+    _ccRenderOverlayPanel(postNum);
+}
+function _ccRenderOverlayPanel(postNum){
+  var mf="font-family:'DM Mono',monospace";
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var logo=_ccAssetLoad('ecp_asset_logo');
+  var ov=_ccBrandOverlay[postNum]||{logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
+  var claimText=_ccGetAutoClaimBar(postNum);
+  var shotPicker='';
+  if(ov.screenshot){
+    if(shots.length){
+      shotPicker='<div style="margin-top:7px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">'+
+        '<div style="font-size:10px;color:var(--muted);'+mf+';margin-bottom:6px">Select screenshot to composite:</div>'+
+        shots.map(function(s,i){
+          var sel=ov.screenshotIdx===i;
+          return '<div onclick="_ccOvSelectShot('+postNum+','+i+')" style="display:inline-block;vertical-align:top;margin:0 5px 4px 0;cursor:pointer;border:2px solid '+(sel?_CC_RED:'transparent')+';border-radius:5px;overflow:hidden" title="'+(s.label||'Screenshot '+(i+1))+'">'+
+            '<img src="'+s.data+'" style="width:38px;height:62px;object-fit:cover;display:block">'+
+          '</div>';
+        }).join('')+
+      '</div>';
+    } else {
+      shotPicker='<div style="margin-top:5px;font-size:10px;color:var(--muted);'+mf+'">No screenshots uploaded — <span onclick="_campSwitchTab(\'brand-assets\')" style="color:'+_CC_RED+';cursor:pointer;text-decoration:underline">add in Brand Assets ↗</span></div>';
+    }
+  }
+  return '<div style="margin-top:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">'+
+    '<div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:9px;'+mf+'">Add Brand Elements</div>'+
+    '<label style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;font-size:11px;color:var(--text);'+mf+'">'+
+      '<input type="checkbox"'+(ov.logo?' checked':'')+' onchange="_ccOvToggle('+postNum+',\'logo\',this.checked)">'+
+      'Logo <span style="color:var(--muted)">(top-right corner)</span>'+
+      (!logo?'<span style="color:var(--muted);font-size:10px"> — <span onclick="_campSwitchTab(\'brand-assets\')" style="color:'+_CC_RED+';cursor:pointer;text-decoration:underline">upload first ↗</span></span>':'')+
+    '</label>'+
+    '<label style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;font-size:11px;color:var(--text);'+mf+'">'+
+      '<input type="checkbox"'+(ov.claimBar?' checked':'')+' onchange="_ccOvToggle('+postNum+',\'claimBar\',this.checked)">'+
+      'Claim bar — <em style="color:var(--muted)">'+claimText+'</em>'+
+    '</label>'+
+    '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;color:var(--text);'+mf+'">'+
+      '<input type="checkbox"'+(ov.screenshot?' checked':'')+' onchange="_ccOvToggle('+postNum+',\'screenshot\',this.checked)">'+
+      'App screenshot (composite into image)'+
+    '</label>'+
+    shotPicker+
+    '<div style="margin-top:10px;display:flex;align-items:center;gap:10px">'+
+      '<button onclick="_ccApplyBrandOverlay('+postNum+')" '+
+        'style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">Apply Brand Overlay</button>'+
+      '<div id="cc-overlay-status-'+postNum+'" style="font-size:11px;color:var(--muted);'+mf+'"></div>'+
+    '</div>'+
+  '</div>';
+}
+function _ccOvToggle(postNum,field,val){
+  if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
+  _ccBrandOverlay[postNum][field]=val;
+  var img=_ccLastImages[postNum];
+  var container=document.getElementById('cc-img-container-'+postNum);
+  if(container&&img){
+    var src='data:'+img.mime_type+';base64,'+img.image_base64;
+    container.innerHTML=_ccImageWithOverlay(postNum,src);
+  }
+}
+function _ccOvSelectShot(postNum,idx){
+  if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:true,screenshotIdx:0};
+  _ccBrandOverlay[postNum].screenshotIdx=idx;
+  var img=_ccLastImages[postNum];
+  var container=document.getElementById('cc-img-container-'+postNum);
+  if(container&&img){
+    var src='data:'+img.mime_type+';base64,'+img.image_base64;
+    container.innerHTML=_ccImageWithOverlay(postNum,src);
+  }
+}
+
+// ── Canvas compositing ───────────────────────────────────────────────────────
+function _ccRoundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+function _ccApplyBrandOverlay(postNum){
+  var imgData=_ccLastImages[postNum];
+  if(!imgData){alert('No generated image for post '+postNum+'. Generate the image first.');return;}
+  var statusEl=document.getElementById('cc-overlay-status-'+postNum);
+  if(statusEl)statusEl.textContent='Compositing...';
+  var ov=_ccBrandOverlay[postNum]||{logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
+  var logoData=_ccAssetLoad('ecp_asset_logo');
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var canvas=document.createElement('canvas');
+  canvas.width=1200;canvas.height=630;
+  var ctx=canvas.getContext('2d');
+
+  function applyAndExport(logoImg,shotImg){
+    if(shotImg){
+      var sw=180,sh=Math.round(sw*(shotImg.naturalHeight/shotImg.naturalWidth));
+      var sx=canvas.width-sw-36,sy=Math.round((canvas.height-sh)/2);
+      ctx.save();_ccRoundRect(ctx,sx,sy,sw,sh,14);ctx.clip();
+      ctx.drawImage(shotImg,sx,sy,sw,sh);ctx.restore();
+    }
+    if(ov.claimBar){
+      ctx.fillStyle='rgba(0,0,0,0.64)';
+      ctx.fillRect(0,canvas.height-62,canvas.width,62);
+      ctx.fillStyle='#FF0000';
+      ctx.fillRect(0,canvas.height-62,6,62);
+      ctx.fillStyle='#ffffff';
+      ctx.font='bold 21px monospace';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(_ccGetAutoClaimBar(postNum),canvas.width/2,canvas.height-31);
+    }
+    if(logoImg){
+      var lw=120,lh=Math.round(lw*(logoImg.naturalHeight/logoImg.naturalWidth));
+      ctx.drawImage(logoImg,canvas.width-lw-20,20,lw,lh);
+    }
+    var result=canvas.toDataURL('image/png');
+    var fi=document.getElementById('cc-img-final-'+postNum);
+    if(fi)fi.src=result;
+    var dl=document.getElementById('cc-img-dl-'+postNum);
+    if(dl){dl.href=result;dl.download='post-'+postNum+'-branded.png';dl.style.display='inline';}
+    if(statusEl)statusEl.textContent='✓ Overlay applied';
+  }
+
+  var baseImg=new Image();
+  baseImg.onerror=function(){if(statusEl)statusEl.textContent='✗ Failed to load image';};
+  baseImg.onload=function(){
+    ctx.drawImage(baseImg,0,0,canvas.width,canvas.height);
+    var needLogo=ov.logo&&logoData;
+    var needShot=ov.screenshot&&shots[ov.screenshotIdx];
+    var remaining=(needLogo?1:0)+(needShot?1:0);
+    if(remaining===0){applyAndExport(null,null);return;}
+    var logoImg=null,shotImg=null;
+    function checkDone(){remaining--;if(remaining===0)applyAndExport(logoImg,shotImg);}
+    if(needLogo){var li=new Image();li.onload=function(){logoImg=li;checkDone();};li.onerror=checkDone;li.src=logoData;}
+    if(needShot){var si=new Image();si.onload=function(){shotImg=si;checkDone();};si.onerror=checkDone;si.src=shots[ov.screenshotIdx].data;}
+  };
+  baseImg.src='data:'+imgData.mime_type+';base64,'+imgData.image_base64;
 }
 
 function _ccRefreshChannelLabel(){
@@ -23570,6 +23844,7 @@ var _CC_TABS=[
   {id:'performance',lbl:'📊 Performance'},
   {id:'channels',lbl:'📡 Channels'},
   {id:'content-hub',lbl:'📦 Content Hub'},
+  {id:'brand-assets',lbl:'🎨 Brand Assets'},
   {id:'searah',lbl:'📅 Calendar'}
 ];
 function _campaignsRender(){
@@ -23630,6 +23905,7 @@ function _campSwitchTab(t){
   else if(t==='performance') panel.innerHTML=_ccRenderPerformance();
   else if(t==='channels'){panel.innerHTML=_ccRenderChannels();setTimeout(_ccLoadChannels,0);}
   else if(t==='content-hub'){panel.innerHTML=_ccRenderContentHub();if(!_ccHubCache.loaded)setTimeout(_ccLoadHub,0);}
+  else if(t==='brand-assets') panel.innerHTML=_ccRenderBrandAssets();
   else if(t==='searah'){panel.innerHTML=_ccRenderSearah();if(!_ccSearahCache.loaded)setTimeout(_ccLoadSearah,0);}
 }
 function _campaignsAddModal(){ _campSwitchTab('brief'); }
