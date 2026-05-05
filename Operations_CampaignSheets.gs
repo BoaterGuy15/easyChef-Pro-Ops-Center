@@ -207,111 +207,13 @@ function _setupCampaignSheets() {
     _ccHdrStyle(sheet, _CC_HDR[name]);
   });
 
-  // Seed ICPProfiles
-  var icpSheet = ss.getSheetByName(_CC_TAB.ICP);
-  [
-    ['super_mom','Super Mom','super_mom','Active','','','','','','','','','','','',false,'',now,now],
-    ['budget_family','Budget Family','budget_family','Pending Validation','','','','','','','','','','','',false,'',now,now],
-    ['health_optimizer','Health Optimizer','health_optimizer','Pending Validation','','','','','','','','','','','',false,'',now,now],
-    ['professional','Working Professional','professional','Pending Validation','','','','','','','','','','','',false,'',now,now],
-    ['alpha_recruit','Alpha Recruit','alpha_recruit','Active','','','','','','','','','','','',false,'',now,now]
-  ].forEach(function(row) { icpSheet.appendRow(row); });
-
-  // Seed ApprovedClaims
-  var claimSheet = ss.getSheetByName(_CC_TAB.CLAIMS);
-  [
-    ['annual_savings',   'savings',      '$1,336/year — never $1,500',                        true, 'Taylor','',now,''],
-    ['food_waste',       'waste',        '69.5% — never 70%',                                 true, 'Taylor','',now,''],
-    ['fridge_to_table',  'speed',        '30 minutes fridge to table',                        true, 'Taylor','',now,''],
-    ['technologies',     'product',      '9 patent-pending technologies — never "9 patents"', true, 'Taylor','',now,''],
-    ['database',         'product',      '800,000 products',                                  true, 'Taylor','',now,''],
-    ['recipes',          'product',      '10,000 recipe pages at launch',                     true, 'Taylor','',now,''],
-    ['dietitians',       'credibility',  'registered dietitians — word "registered" required',true, 'Taylor','',now,''],
-    ['profiles',         'validation',   'validated across 10,000 household profiles',        true, 'Taylor','',now,''],
-    ['founding_discount','pricing',      '60% off — never 50% off',                          true, 'Taylor','',now,''],
-    ['founding_price',   'pricing',      '$7.99/month founding price',                        true, 'Taylor','',now,''],
-    ['standard_price',   'pricing',      '$19.99/month',                                      true, 'Taylor','',now,''],
-    ['annual_price',     'pricing',      '$191.88/year ($15.99/month)',                       true, 'Taylor','',now,''],
-    ['origin',           'brand',        'Built by first responders',                         true, 'Taylor','',now,''],
-    ['roi_framing',      'roi',          '$10/$111 (11:1 ROI)',                               false,'',      '',now,'PENDING APPROVAL'],
-    ['reddit_tone',      'channel_rule', 'Reddit: community-first tone — never direct promotion', true, 'Taylor','',now,'']
-  ].forEach(function(row) { claimSheet.appendRow(row); });
-
-  // Seed DeepLinkRegistry
-  var dlSheet = ss.getSheetByName(_CC_TAB.DL);
-  [
-    ['DL-EM-0001','DL-EM-0001_seq1_email1_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 1'],
-    ['DL-EM-0002','DL-EM-0002_seq1_email2_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 2'],
-    ['DL-EM-0003','DL-EM-0003_seq1_email3_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 3'],
-    ['DL-EM-0004','DL-EM-0004_seq2_email1_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 1'],
-    ['DL-EM-0005','DL-EM-0005_seq2_email2_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 2'],
-    ['DL-EM-0006','DL-EM-0006_seq2_email3a_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 3 Variant A'],
-    ['DL-EM-0007','DL-EM-0007_seq2_email3b_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 3 Variant B'],
-    ['DL-SOC-0001','DL-SOC-0001_fb_super_mom','ec-2026-001','Facebook','','facebook','social','ec-2026-001','active',now,'',now,'Facebook organic'],
-    ['DL-SOC-0002','DL-SOC-0002_ig_health','ec-2026-001','Instagram','','instagram','social','ec-2026-001','active',now,'',now,'Instagram organic'],
-    ['DL-SOC-0003','DL-SOC-0003_nextdoor','ec-2026-001','Nextdoor','','nextdoor','social','ec-2026-001','active',now,'',now,'Nextdoor post'],
-    ['DL-SOC-0004','DL-SOC-0004_tiktok_bio','ec-2026-001','TikTok','','tiktok','social','ec-2026-001','active',now,'',now,'TikTok bio link'],
-    ['DL-DIR-0001','DL-DIR-0001_alpha_recruit','ec-2026-001','Direct','','convertkit','referral','ec-2026-001','active',now,'',now,'Alpha recruit direct']
-  ].forEach(function(row) { dlSheet.appendRow(row); });
-
-  // Seed Channels
-  var chSheet = ss.getSheetByName(_CC_TAB.CHANNELS);
-  [
-    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active','','200',  '',     'false','0', '0', '',                                                                                                    '600x200px',   '3:1',    'Link in email body',                               'Plain text body — no hashtags',                                                    'email'],
-    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active','','400',  '63206','false','0', '0', '',                                                                                                    '1200x630px',  '1.91:1', 'Paste URL directly in post',                       'Link works in post — no hashtags needed',                                          'post'],
-    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active','','125',  '2200', 'true', '5', '15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',          '1080x1080px', '1:1',    'Add URL to bio before posting — update bio DL_ID', 'No clickable link in post — use link in bio · hashtags at end of caption',         'post'],
-    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active','','150',  '2200', 'true', '3', '5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                          '1080x1920px', '9:16',   'Add URL to bio before posting',                    'Video script — hook must land in first 3 seconds · link in bio only',              'video_script'],
-    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active','','500',  '500',  'true', '5', '8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',          '1000x1500px', '2:3',    'URL goes in destination link field',               'Keyword-rich description — link goes directly to LP · vertical image performs best','pin'],
-    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',  '',     'false','0', '0', '',                                                                                                    'Optional — community photo','', 'Paste URL in post',                              'Neighbour tone — no hashtags, no corporate language · authentic personal voice only','post'],
-    ['Organic',   'organic',  'content',   'blog',      'ORG','active','','',     '',     'false','0', '0', '',                                                                                                    '1200x630px',  '1.91:1', 'Link in article body and CTA button',              'Blog post — SEO optimised · internal links to LP',                                 'article'],
-    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'URL in affiliate brief',                           'Partner content — follows affiliate brand guidelines',                              'brief'],
-    ['Direct',    'direct',   'referral',  'convertkit','DIR','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'URL in email body',                                'Personal outreach — founder voice · one to one',                                   'email'],
-    ['YouTube',   'yt',       'video',     'youtube',   'SOC','active','','',     '',     'false','0', '0', '',                                                                                                    '1920x1080px', '16:9',   'Link in description — pin comment with link',       'Video content — hook in first 30 seconds · description SEO optimised',             'video_script'],
-    ['X',         'x',        'social',    'x',         'SOC','active','','280',  '280',  'false','0', '0', '',                                                                                                    '1200x675px',  '16:9',   'Paste URL directly in post',                       'Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply','post'],
-    ['Reddit',    'reddit',   'community', 'reddit',    'SOC','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'Link in post or comment',                          'Community tone — no promotional language · value first · r/easyChefPro and u/easyChef_Pro','post']
-  ].forEach(function(row) { chSheet.appendRow(row); });
-
-  // Seed CampaignTypes
-  var ctSheet = ss.getSheetByName(_CC_TAB.CAMPAIGN_TYPES);
-  if (!ctSheet) ctSheet = ss.insertSheet(_CC_TAB.CAMPAIGN_TYPES);
-  _ccHdrStyle(ctSheet, _CC_HDR.CampaignTypes);
-  [
-    ['ct-001','waitlist','Waitlist Signup (pre-launch)','Join the waitlist free — early access July 1','https://easychefpro.com/lp/waitlist-a','/lp/waitlist-a','Founding price ends at 5,000 families','pre-launch','true','waitlist,sign up,pre-launch,before july','Save $1,336/year','6:30 PM fridge panic',now,'Primary'],
-    ['ct-002','download','App Download (post-launch)','Download free on App Store','app store','App Store/Google Play','Founding price ends soon','post-launch','false','download,app store,install,july 1','App is live — download now','Your dinner problem is solved',now,''],
-    ['ct-003','founding','Founding Price Lock','Lock in $7.99/month before price goes to $19.99','https://easychefpro.com/lp/waitlist-a','/lp/waitlist-a','60% off — first 5,000 families only','pre-launch urgency','true','founding,price,lock in,60% off,7.99','Price urgency — 60% off ends soon','Founding price ends when we hit 10,000 families',now,''],
-    ['ct-004','referral','Referral / Share','Share with one mom who needs this','https://easychefpro.com/thank-you','/thank-you','She saves $1,336 this year — or she doesn\'t','post-signup viral','true','referral,share,friend,refer','Share and help a friend','Know a mom who throws money away every week?',now,''],
-    ['ct-005','affiliate','Affiliate Partner','Get early access — no credit card','https://easychefpro.com/lp/[affiliate-slug]','/lp/[affiliate-slug]','Founding price for referred families only','all','true','affiliate,partner,influencer,commission','Exclusive access for [partner] readers','My readers save $1,336 a year with this',now,''],
-    ['ct-006','recipe','Recipe / Content SEO','See the full recipe free in easyChef Pro','https://easychefpro.com/recipes/[slug]','/recipes/[slug]','Free during beta — paid after launch','all','true','recipe,content,seo,blog','New recipe — ready in 30 minutes','30-minute dinner from what is in your fridge',now,''],
-    ['ct-007','upgrade','In-App Upgrade','Upgrade now — founding price locks forever','in-app paywall','Paywall (Tipping Point)','Price goes to $19.99 on July 1','post-install PLG','false','upgrade,paywall,in-app,tipping point','You have hit the tipping point','You have cooked 3 meals — here is what comes next',now,'']
-  ].forEach(function(row) { ctSheet.appendRow(row); });
-
-  // Seed FunnelStages
-  var fsSheet = ss.getSheetByName(_CC_TAB.FUNNEL_STAGES);
-  if (!fsSheet) fsSheet = ss.insertSheet(_CC_TAB.FUNNEL_STAGES);
-  _ccHdrStyle(fsSheet, _CC_HDR.FunnelStages);
-  [
-    ['fs-001','hook',    1, 0,  1,  0,  'Stop the scroll — make her feel seen in under 2 seconds. Mirror her exact moment.',                                                                                'Hook — subject line stops the scroll',           'Mirror her moment — emotional recognition', 'pair-1-hook',    'Every day she waits costs $3.66',              now,''],
-    ['fs-002','problem', 2, 2,  3,  0,  'Name the pain so precisely she thinks you wrote it about her specifically.',                                                                                      'Problem — name her pain precisely',              'Name the 6:30 PM moment exactly',           'pair-2-problem', 'The problem costs $1,336 a year',              now,''],
-    ['fs-003','agitate', 3, 5,  6,  0,  'Make the problem vivid, concrete, personal. Cost it out. $1,336/year — that is $111/month — that is $25/week going in the bin.',                                 'Agitate — cost the problem out',                 'Cost it out — specific dollar amount',      'pair-3-agitate', 'She cannot unsee this number',                 now,''],
-    ['fs-004','solve',   4, 9,  10, 0,  'Introduce easyChef Pro as the inevitable obvious answer. One sentence. No feature list.',                                                                         'Solve — introduce easyChef Pro as the answer',   'Introduce easyChef Pro — one sentence',     'pair-4-solve',   'The answer exists — she just needs to find it',now,''],
-    ['fs-005','value',   5, 13, 14, 0,  'Translate features into outcomes she actually wants. Feelings and results, not specs. 30 minutes. What you already have.',                                        'Value — outcomes not features',                  'Show the outcomes — 30 minutes, real food', 'pair-5-value',   'Every night without it costs her time and money',now,''],
-    ['fs-006','proof',   6, 24, 25, 0,  'One specific honest proof point. Validated across 10,000 household profiles. Built by first responders. Then the offer.',                                         'Proof — one honest stat, then the offer',         'One proof point — then founding price',     'pair-6-proof',   'Social proof closes the last objection',       now,''],
-    ['fs-007','cta',     7, 0,  1,  28, 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                                                           'CTA — one action, loss aversion, urgency',       'Founding price — last chance angle',        'pair-7-cta',     'Founding price ends at 5,000 families',        now,'']
-  ].forEach(function(row) { fsSheet.appendRow(row); });
-
-  // Seed BlueprintConfig
-  var bpSheet = ss.getSheetByName(_CC_TAB.BLUEPRINTS);
-  if (!bpSheet) bpSheet = ss.insertSheet(_CC_TAB.BLUEPRINTS);
-  _ccHdrStyle(bpSheet, _CC_HDR.BlueprintConfig);
-  [
-    ['bp-001','A-Waitlist',        'Waitlist Growth',       'SEQ-1,SEQ-2,SEQ-3,SEQ-4', 13, 7, 'waitlist', 'pre-launch',   'true',  'Pre-launch waitlist acquisition — drives to LP, captures email, nurtures to app download on July 1'],
-    ['bp-002','B-App Download',    'App Download',          'SEQ-4',                    1,  7, 'download', 'post-launch',  'false', 'Post-launch app download — drives directly to App Store'],
-    ['bp-003','C-Referral',        'Referral Acquisition',  'SEQ-1',                    3,  5, 'referral', 'post-signup',  'true',  'Referral loop — share mechanic, Branch.io deep links'],
-    ['bp-004','D-Re-engagement',   'Re-engagement',         'SEQ-2',                    3,  5, 'download', 'post-install', 'false', 'Lapsed user re-engagement — push + email'],
-    ['bp-005','E-Content',         'Content-Led',           'SEQ-1,SEQ-2',              5,  7, 'recipe',   'all',          'true',  'Blog and recipe page traffic — content CTA drives to LP'],
-    ['bp-006','F-Affiliate',       'Affiliate Partner',     'SEQ-1,SEQ-2',              5,  7, 'affiliate','all',          'true',  'Affiliate partner traffic — Rewardful tracked, custom LP per partner'],
-    ['bp-007','G-Paywall Recovery','Paywall Recovery',      'SEQ-2',                    3,  5, 'upgrade',  'post-install', 'false', 'In-app paywall recovery — tipping point triggered']
-  ].forEach(function(row) { bpSheet.appendRow(row); });
+  _seedICPProfiles(ss.getSheetByName(_CC_TAB.ICP));
+  _seedApprovedClaims(ss.getSheetByName(_CC_TAB.CLAIMS));
+  _seedDeepLinkRegistry(ss.getSheetByName(_CC_TAB.DL));
+  _seedChannels(ss.getSheetByName(_CC_TAB.CHANNELS));
+  _seedCampaignTypes(ss.getSheetByName(_CC_TAB.CAMPAIGN_TYPES));
+  _seedFunnelStages(ss.getSheetByName(_CC_TAB.FUNNEL_STAGES));
+  _seedBlueprintConfig(ss.getSheetByName(_CC_TAB.BLUEPRINTS));
 
   // Ensure newer tabs exist (idempotent — safe to run multiple times)
   [_CC_TAB.PUSH_NOTIFS, _CC_TAB.CONTENT_CAL, _CC_TAB.METRICS, _CC_TAB.SCHEDULED, _CC_TAB.LP_INVENTORY].forEach(function(name) {
@@ -319,23 +221,187 @@ function _setupCampaignSheets() {
     if (!sheet) sheet = ss.insertSheet(name);
     _ccHdrStyle(sheet, _CC_HDR[name]);
   });
-
-  // Seed LPInventory (only if empty)
-  var lpInvSheet = ss.getSheetByName(_CC_TAB.LP_INVENTORY);
-  if (lpInvSheet && lpInvSheet.getLastRow() < 2) {
-    [
-      ['lpi-001','lp/waitlist-a',   'https://easychefpro.com/lp/waitlist-a',   'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'A/B test control variant'],
-      ['lpi-002','lp/waitlist-b',   'https://easychefpro.com/lp/waitlist-b',   'waitlist','A-Waitlist','super_mom',     '','draft',false,false,false,false,'',0,'',now,now,'A/B test challenger variant'],
-      ['lpi-003','lp/alpha',        'https://easychefpro.com/lp/alpha',        'waitlist','A-Waitlist','alpha_recruit',  '','live', true, false,false,false,'',0,'',now,now,'Alpha Recruit ICP — founding price angle'],
-      ['lpi-004','lp/social-fb',    'https://easychefpro.com/lp/social-fb',    'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'Facebook organic traffic destination'],
-      ['lpi-005','lp/social-ig',    'https://easychefpro.com/lp/social-ig',    'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'Instagram bio link destination'],
-      ['lpi-006','lp/630pm-rescue', 'https://easychefpro.com/lp/630pm-rescue', 'waitlist','A-Waitlist','super_mom',     '','draft',false,false,false,false,'',0,'',now,now,'6:30 PM fridge panic angle — pending build']
-    ].forEach(function(row) { lpInvSheet.appendRow(row); });
-  }
+  _seedLPInventory(ss.getSheetByName(_CC_TAB.LP_INVENTORY));
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
   return ss.getUrl();
+}
+
+// ── Idempotent seed functions ─────────────────────────────────────────────────
+
+function _seedICPProfiles(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  var now = _ccNow();
+  [
+    ['super_mom',       'Super Mom',           'super_mom',       'Active',                '','','','','','','','','','','',false,'',now,now],
+    ['budget_family',   'Budget Family',        'budget_family',   'Pending Validation',    '','','','','','','','','','','',false,'',now,now],
+    ['health_optimizer','Health Optimizer',     'health_optimizer','Pending Validation',    '','','','','','','','','','','',false,'',now,now],
+    ['professional',    'Working Professional', 'professional',    'Pending Validation',    '','','','','','','','','','','',false,'',now,now],
+    ['alpha_recruit',   'Alpha Recruit',        'alpha_recruit',   'Active',                '','','','','','','','','','','',false,'',now,now]
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _seedApprovedClaims(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  [
+    ['annual_savings',   'savings',      '$1,336/year — never $1,500',                              true, 'Taylor','',''],
+    ['food_waste',       'waste',        '69.5% — never 70%',                                       true, 'Taylor','',''],
+    ['fridge_to_table',  'speed',        '30 minutes fridge to table',                              true, 'Taylor','',''],
+    ['technologies',     'product',      '9 patent-pending technologies — never "9 patents"',       true, 'Taylor','',''],
+    ['database',         'product',      '800,000 products',                                        true, 'Taylor','',''],
+    ['recipes',          'product',      '10,000 recipe pages at launch',                           true, 'Taylor','',''],
+    ['dietitians',       'credibility',  'registered dietitians — word "registered" required',      true, 'Taylor','',''],
+    ['profiles',         'validation',   'validated across 10,000 household profiles',              true, 'Taylor','',''],
+    ['founding_discount','pricing',      '60% off — never 50% off',                                 true, 'Taylor','',''],
+    ['founding_price',   'pricing',      '$7.99/month founding price',                              true, 'Taylor','',''],
+    ['standard_price',   'pricing',      '$19.99/month',                                            true, 'Taylor','',''],
+    ['annual_price',     'pricing',      '$191.88/year ($15.99/month)',                             true, 'Taylor','',''],
+    ['origin',           'brand',        'Built by first responders',                               true, 'Taylor','',''],
+    ['roi_framing',      'roi',          '$10/$111 (11:1 ROI)',                                     false,'',     '','PENDING APPROVAL'],
+    ['reddit_tone',      'channel_rule', 'Reddit: community-first tone — never direct promotion',  true, 'Taylor','','']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _seedDeepLinkRegistry(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  var now = _ccNow();
+  [
+    ['DL-EM-0001','DL-EM-0001_seq1_email1_cta', 'ec-2026-001','Email',    '','klaviyo',   'email',    'ec-2026-001','active',now,'',now,'SEQ-1 Email 1'],
+    ['DL-EM-0002','DL-EM-0002_seq1_email2_cta', 'ec-2026-001','Email',    '','klaviyo',   'email',    'ec-2026-001','active',now,'',now,'SEQ-1 Email 2'],
+    ['DL-EM-0003','DL-EM-0003_seq1_email3_cta', 'ec-2026-001','Email',    '','klaviyo',   'email',    'ec-2026-001','active',now,'',now,'SEQ-1 Email 3'],
+    ['DL-EM-0004','DL-EM-0004_seq2_email1_cta', 'ec-2026-001','Email',    '','klaviyo',   'email',    'ec-2026-001','active',now,'',now,'SEQ-2 Email 1'],
+    ['DL-EM-0005','DL-EM-0005_seq2_email2_cta', 'ec-2026-001','Email',    '','klaviyo',   'email',    'ec-2026-001','active',now,'',now,'SEQ-2 Email 2'],
+    ['DL-EM-0006','DL-EM-0006_seq2_email3a_cta','ec-2026-001','Email',    '','klaviyo',   'email',    'ec-2026-001','active',now,'',now,'SEQ-2 Email 3 Variant A'],
+    ['DL-EM-0007','DL-EM-0007_seq2_email3b_cta','ec-2026-001','Email',    '','klaviyo',   'email',    'ec-2026-001','active',now,'',now,'SEQ-2 Email 3 Variant B'],
+    ['DL-SOC-0001','DL-SOC-0001_fb_super_mom',  'ec-2026-001','Facebook', '','facebook',  'social',   'ec-2026-001','active',now,'',now,'Facebook organic'],
+    ['DL-SOC-0002','DL-SOC-0002_ig_health',     'ec-2026-001','Instagram','','instagram', 'social',   'ec-2026-001','active',now,'',now,'Instagram organic'],
+    ['DL-SOC-0003','DL-SOC-0003_nextdoor',      'ec-2026-001','Nextdoor', '','nextdoor',  'social',   'ec-2026-001','active',now,'',now,'Nextdoor post'],
+    ['DL-SOC-0004','DL-SOC-0004_tiktok_bio',    'ec-2026-001','TikTok',   '','tiktok',    'social',   'ec-2026-001','active',now,'',now,'TikTok bio link'],
+    ['DL-DIR-0001','DL-DIR-0001_alpha_recruit',  'ec-2026-001','Direct',   '','convertkit','referral', 'ec-2026-001','active',now,'',now,'Alpha recruit direct']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _seedChannels(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return String(r[0]).toLowerCase(); });
+  [
+    ['Email',    'email',    'email',     'klaviyo',   'EM', 'active','','200',  '',     'false','0','0','',                                                                                              '600x200px',  '3:1',   'Link in email body',                               'Plain text body — no hashtags',                                                    'email'],
+    ['Facebook', 'fb',       'social',    'facebook',  'SOC','active','','400',  '63206','false','0','0','',                                                                                              '1200x630px', '1.91:1','Paste URL directly in post',                       'Link works in post — no hashtags needed',                                          'post'],
+    ['Instagram','ig',       'social',    'instagram', 'SOC','active','','125',  '2200', 'true', '5','15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',   '1080x1080px','1:1',   'Add URL to bio before posting — update bio DL_ID', 'No clickable link in post — use link in bio · hashtags at end of caption',         'post'],
+    ['TikTok',   'tiktok',   'social',    'tiktok',    'SOC','active','','150',  '2200', 'true', '3','5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                  '1080x1920px','9:16',  'Add URL to bio before posting',                    'Video script — hook must land in first 3 seconds · link in bio only',              'video_script'],
+    ['Pinterest','pin',      'social',    'pinterest', 'SOC','active','','500',  '500',  'true', '5','8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',  '1000x1500px','2:3',   'URL goes in destination link field',               'Keyword-rich description — link goes directly to LP · vertical image performs best','pin'],
+    ['Nextdoor', 'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',  '',     'false','0','0','',                                                                                              'Optional — community photo','','Paste URL in post',                              'Neighbour tone — no hashtags, no corporate language · authentic personal voice only','post'],
+    ['Organic',  'organic',  'content',   'blog',      'ORG','active','','',     '',     'false','0','0','',                                                                                              '1200x630px', '1.91:1','Link in article body and CTA button',              'Blog post — SEO optimised · internal links to LP',                                 'article'],
+    ['Affiliate','aff',      'affiliate', 'affiliate', 'AFF','active','','',     '',     'false','0','0','',                                                                                              '',           '',      'URL in affiliate brief',                           'Partner content — follows affiliate brand guidelines',                              'brief'],
+    ['Direct',   'direct',   'referral',  'convertkit','DIR','active','','',     '',     'false','0','0','',                                                                                              '',           '',      'URL in email body',                                'Personal outreach — founder voice · one to one',                                   'email'],
+    ['YouTube',  'yt',       'video',     'youtube',   'SOC','active','','',     '',     'false','0','0','',                                                                                              '1920x1080px','16:9',  'Link in description — pin comment with link',       'Video content — hook in first 30 seconds · description SEO optimised',             'video_script'],
+    ['X',        'x',        'social',    'x',         'SOC','active','','280',  '280',  'false','0','0','',                                                                                              '1200x675px', '16:9',  'Paste URL directly in post',                       'Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply','post'],
+    ['Reddit',   'reddit',   'community', 'reddit',    'SOC','active','','',     '',     'false','0','0','',                                                                                              '',           '',      'Link in post or comment',                          'Community tone — no promotional language · value first · r/easyChefPro and u/easyChef_Pro','post']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0].toLowerCase()) === -1) sheet.appendRow(row);
+  });
+}
+
+function _seedCampaignTypes(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  var now = _ccNow();
+  [
+    ['ct-001','waitlist', 'Waitlist Signup (pre-launch)',  'Join the waitlist free — early access July 1',       'https://easychefpro.com/lp/waitlist-a', '/lp/waitlist-a',           'Founding price ends at 5,000 families',           'pre-launch',          'true', 'waitlist,sign up,pre-launch,before july',     'Save $1,336/year',                        '6:30 PM fridge panic',               now,'Primary'],
+    ['ct-002','download', 'App Download (post-launch)',    'Download free on App Store',                          'app store',                              'App Store/Google Play',    'Founding price ends soon',                        'post-launch',         'false','download,app store,install,july 1',         'App is live — download now',              'Your dinner problem is solved',       now,''],
+    ['ct-003','founding', 'Founding Price Lock',           'Lock in $7.99/month before price goes to $19.99',    'https://easychefpro.com/lp/waitlist-a', '/lp/waitlist-a',           '60% off — first 5,000 families only',             'pre-launch urgency',  'true', 'founding,price,lock in,60% off,7.99',        'Price urgency — 60% off ends soon',       'Founding price ends at 5,000 families',now,''],
+    ['ct-004','referral', 'Referral / Share',              'Share with one mom who needs this',                   'https://easychefpro.com/thank-you',      '/thank-you',               "She saves $1,336 this year — or she doesn't",     'post-signup viral',   'true', 'referral,share,friend,refer',                'Share and help a friend',                 'Know a mom who throws money away every week?',now,''],
+    ['ct-005','affiliate','Affiliate Partner',             'Get early access — no credit card',                   'https://easychefpro.com/lp/[aff-slug]',  '/lp/[affiliate-slug]',     'Founding price for referred families only',        'all',                 'true', 'affiliate,partner,influencer,commission',    'Exclusive access for [partner] readers',   'My readers save $1,336 a year with this',now,''],
+    ['ct-006','recipe',   'Recipe / Content SEO',          'See the full recipe free in easyChef Pro',            'https://easychefpro.com/recipes/[slug]', '/recipes/[slug]',          'Free during beta — paid after launch',             'all',                 'true', 'recipe,content,seo,blog',                    'New recipe — ready in 30 minutes',        '30-minute dinner from what is in your fridge',now,''],
+    ['ct-007','upgrade',  'In-App Upgrade',                'Upgrade now — founding price locks forever',          'in-app paywall',                         'Paywall (Tipping Point)',   'Price goes to $19.99 on July 1',                  'post-install PLG',    'false','upgrade,paywall,in-app,tipping point',      'You have hit the tipping point',          'You have cooked 3 meals — here is what comes next',now,'']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _seedFunnelStages(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  var now = _ccNow();
+  [
+    ['fs-001','hook',    1, 0,  1,  0,  'Stop the scroll — make her feel seen in under 2 seconds. Mirror her exact moment.',                                                                          'Hook — subject line stops the scroll',         'Mirror her moment — emotional recognition', 'pair-1-hook',    'Every day she waits costs $3.66',               now,''],
+    ['fs-002','problem', 2, 2,  3,  0,  'Name the pain so precisely she thinks you wrote it about her specifically.',                                                                                  'Problem — name her pain precisely',            'Name the 6:30 PM moment exactly',           'pair-2-problem', 'The problem costs $1,336 a year',               now,''],
+    ['fs-003','agitate', 3, 5,  6,  0,  'Make the problem vivid, concrete, personal. Cost it out. $1,336/year — that is $111/month — that is $25/week going in the bin.',                             'Agitate — cost the problem out',               'Cost it out — specific dollar amount',      'pair-3-agitate', 'She cannot unsee this number',                  now,''],
+    ['fs-004','solve',   4, 9,  10, 0,  'Introduce easyChef Pro as the inevitable obvious answer. One sentence. No feature list.',                                                                     'Solve — introduce easyChef Pro as the answer', 'Introduce easyChef Pro — one sentence',     'pair-4-solve',   'The answer exists — she just needs to find it', now,''],
+    ['fs-005','value',   5, 13, 14, 0,  'Translate features into outcomes she actually wants. Feelings and results, not specs. 30 minutes. What you already have.',                                    'Value — outcomes not features',                'Show the outcomes — 30 minutes, real food', 'pair-5-value',   'Every night without it costs her time and money',now,''],
+    ['fs-006','proof',   6, 24, 25, 0,  'One specific honest proof point. Validated across 10,000 household profiles. Built by first responders. Then the offer.',                                     'Proof — one honest stat, then the offer',       'One proof point — then founding price',     'pair-6-proof',   'Social proof closes the last objection',        now,''],
+    ['fs-007','cta',     7, 0,  1,  28, 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                                                       'CTA — one action, loss aversion, urgency',     'Founding price — last chance angle',        'pair-7-cta',     'Founding price ends at 5,000 families',         now,'']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _seedBlueprintConfig(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  [
+    ['bp-001','A-Waitlist',        'Waitlist Growth',        'SEQ-1,SEQ-2,SEQ-3,SEQ-4', 13, 7, 'waitlist', 'pre-launch',   'true', 'Pre-launch waitlist acquisition — drives to LP, captures email, nurtures to app download on July 1'],
+    ['bp-002','B-App Download',    'App Download',           'SEQ-4',                    1,  7, 'download', 'post-launch',  'false','Post-launch app download — drives directly to App Store'],
+    ['bp-003','C-Referral',        'Referral Acquisition',   'SEQ-1',                    3,  5, 'referral', 'post-signup',  'true', 'Referral loop — share mechanic, Branch.io deep links'],
+    ['bp-004','D-Re-engagement',   'Re-engagement',          'SEQ-2',                    3,  5, 'download', 'post-install', 'false','Lapsed user re-engagement — push + email'],
+    ['bp-005','E-Content',         'Content-Led',            'SEQ-1,SEQ-2',              5,  7, 'recipe',   'all',          'true', 'Blog and recipe page traffic — content CTA drives to LP'],
+    ['bp-006','F-Affiliate',       'Affiliate Partner',      'SEQ-1,SEQ-2',              5,  7, 'affiliate','all',          'true', 'Affiliate partner traffic — Rewardful tracked, custom LP per partner'],
+    ['bp-007','G-Paywall Recovery','Paywall Recovery',       'SEQ-2',                    3,  5, 'upgrade',  'post-install', 'false','In-app paywall recovery — tipping point triggered']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _seedLPInventory(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  var now = _ccNow();
+  [
+    ['lpi-001','lp/waitlist-a',   'https://easychefpro.com/lp/waitlist-a',   'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'A/B test control variant'],
+    ['lpi-002','lp/waitlist-b',   'https://easychefpro.com/lp/waitlist-b',   'waitlist','A-Waitlist','super_mom',     '','draft',false,false,false,false,'',0,'',now,now,'A/B test challenger variant'],
+    ['lpi-003','lp/alpha',        'https://easychefpro.com/lp/alpha',        'waitlist','A-Waitlist','alpha_recruit', '','live', true, false,false,false,'',0,'',now,now,'Alpha Recruit ICP — founding price angle'],
+    ['lpi-004','lp/social-fb',    'https://easychefpro.com/lp/social-fb',    'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'Facebook organic traffic destination'],
+    ['lpi-005','lp/social-ig',    'https://easychefpro.com/lp/social-ig',    'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'Instagram bio link destination'],
+    ['lpi-006','lp/630pm-rescue', 'https://easychefpro.com/lp/630pm-rescue', 'waitlist','A-Waitlist','super_mom',     '','draft',false,false,false,false,'',0,'',now,now,'6:30 PM fridge panic angle — pending build']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _deduplicateSeededTabs() {
+  var tabs = [
+    { name: 'CampaignTypes', idCol: 0 },
+    { name: 'FunnelStages',  idCol: 0 },
+    { name: 'BlueprintConfig', idCol: 0 },
+    { name: 'ICPProfiles',   idCol: 0 }
+  ];
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  tabs.forEach(function(tab) {
+    var sheet = ss.getSheetByName(tab.name);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    var data = sheet.getDataRange().getValues();
+    var seen = {};
+    var toDelete = [];
+    for (var i = 1; i < data.length; i++) {
+      var id = data[i][tab.idCol];
+      if (!id) continue;
+      if (seen[id]) { toDelete.push(i + 1); } else { seen[id] = true; }
+    }
+    for (var j = toDelete.length - 1; j >= 0; j--) {
+      sheet.deleteRow(toDelete[j]);
+    }
+    Logger.log(tab.name + ': deleted ' + toDelete.length + ' duplicate rows');
+  });
 }
 
 // ── ICPProfiles ───────────────────────────────────────────────────────────────
