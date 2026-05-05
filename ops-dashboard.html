@@ -21967,6 +21967,9 @@ function _ccAutoFillBrief(campaign){
         _campBrief.channels=_existing;
       }
       _campBrief.slug     = campaign.slug||'';
+      // FIX 3 — kickstart suggests a known shared LP; mark as reused so _ccCheckSlug
+      // shows green instead of a conflict warning when the slug is already taken
+      if(campaign.slug) _campBrief._lpReused=true;
       _campBrief.goal     = _goalMap[(_campBrief.funnel||'').trim()]||'waitlist_signup_completed';
       _campBrief.cta_type = campaign.cta_type||'waitlist';
 
@@ -22001,6 +22004,8 @@ function _ccAutoFillBrief(campaign){
           _ccRestoreBriefValues();
           _ccSetSelect('cc-goal',    _rGoal);
           _ccSetSelect('cc-cta-type',_campBrief.cta_type||'waitlist');
+          // FIX 4 — campaign_angle not set by _ccRestoreBriefValues in this timing window
+          if(_campBrief.campaign_angle) _ccSetSelect('cc-campaign-angle',_campBrief.campaign_angle);
           var slugEl=document.getElementById('cc-slug');
           if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
           setTimeout(_ccCheckSlug,100);
@@ -22138,6 +22143,18 @@ function _ccKickstart(){
       if(j.cta_type) _campBrief.cta_type=j.cta_type;
       if(j.campaign_angle) _campBrief.campaign_angle=j.campaign_angle;
       if(j.urgency_trigger) _campBrief.urgency_trigger=j.urgency_trigger;
+      // FIX 1 — write these four directly to DOM; _ccRestoreBriefValues fires on a timer
+      // and can be beaten by a re-render that resets the Brief panel innerHTML
+      (function(){
+        var themeEl=document.getElementById('cc-theme');
+        if(themeEl&&_campBrief.theme) themeEl.value=_campBrief.theme;
+        var dayEl=document.getElementById('cc-publish-day');
+        if(dayEl&&_campBrief.publish_day) dayEl.value=_campBrief.publish_day;
+        var angleEl=document.getElementById('cc-campaign-angle');
+        if(angleEl&&_campBrief.campaign_angle) angleEl.value=_campBrief.campaign_angle;
+        var urgencyEl=document.getElementById('cc-urgency-trigger');
+        if(urgencyEl&&_campBrief.urgency_trigger) urgencyEl.value=_campBrief.urgency_trigger;
+      })();
       _campKickstartCopy=j;
       // ── Render copy card + architecture sections ─────────────────────────
       if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''})+_ccRenderKickstartAssets(j);
@@ -22487,7 +22504,9 @@ function _ccKsBuildAssets(actionType){
     _briefWP.link_placement=_chData.link_placement||'';
   }
 
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:actionType,brief:_briefWP,copy:_campKickstartCopy||{}})})
+  var _emailPayload={action:actionType,brief:_briefWP,copy:_campKickstartCopy||{}};
+  console.log('[ASSET BUILD] action='+actionType+' brief.id='+(_briefWP.id||'none')+' copy keys='+Object.keys(_campKickstartCopy||{}).join(','));
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_emailPayload)})
     .then(function(r){return r.json();})
     .then(function(d){
       allBtns.forEach(function(b){if(b.hasAttribute('data-was-text')){b.textContent=b.getAttribute('data-was-text');b.disabled=false;}});
