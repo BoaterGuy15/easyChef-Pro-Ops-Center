@@ -21265,6 +21265,7 @@ var _campUtmConflict=null;
 var _campKickstartCopy=null;
 var _campLastLp=null;
 var _campSlugStatus=''; // '' unchecked, 'ok' available, 'taken' conflict
+var _campDraftSaved=false;
 var _CC_RED='#FF0000';
 var _CC_BEIGE='#F6EFE8';
 var _CC_ICPS=['Super Mom','Budget Family','Health Optimizer','Professional','Alpha Recruit'];
@@ -21486,12 +21487,15 @@ function _ccSaveDraft(){
       if(sv.copy) parts.push('Copy');
       if(sv.lp) parts.push('LP');
       if(postsCount>0) parts.push(postsCount+' post'+(postsCount!==1?'s':''));
-      if(btn) btn.textContent='Saved ✓';
-      if(statusEl) statusEl.innerHTML='<span style="color:#22c55e">✓ Draft saved — '+(parts.length?parts.join(', '):b.id)+' written to Campaign Center Sheet</span>';
-      setTimeout(function(){
-        if(btn){btn.disabled=false;btn.textContent='Save Draft';}
-        _campSwitchTab('utm');
-      },2000);
+      _campDraftSaved=true;
+      if(btn){btn.disabled=false;btn.textContent='Save Draft';}
+      var flowBanner=_ccEl('cc-flow-banner');if(flowBanner)flowBanner.innerHTML=_ccFlowBanner();
+      if(statusEl) statusEl.innerHTML=
+        '<div style="margin-top:12px;padding:12px 16px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px">'+
+          '<div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:6px">✓ Draft saved — '+(parts.length?parts.join(', '):b.id)+' written to Campaign Center Sheet</div>'+
+          '<div style="font-size:12px;color:var(--text);margin-bottom:10px">Next: Generate UTM links in Panel 2 →</div>'+
+          '<button onclick="_campSwitchTab(\'utm\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Generate UTMs →</button>'+
+        '</div>';
     })
     .catch(function(e){
       if(btn){btn.disabled=false;btn.textContent='Save Draft';}
@@ -21669,6 +21673,7 @@ function _ccNewCampaign(){
   _ccLastPosts=[];
   _campUtmUrls=[];
   _campUtmConflict=null;
+  _campDraftSaved=false;
   _campSwitchTab('brief');
 }
 
@@ -22408,7 +22413,22 @@ function _ccRenderUTM(){
   var lpCount=_campLastLp?1:0;
   var postCount=(_ccLastPosts||[]).length;
   var total=lpCount+postCount;
-  var badges=(lpCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.2);color:'+_CC_RED+'">1 LP</span> ':'')+(postCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.05);border:1px solid var(--border);color:var(--text)">'+postCount+' post'+(postCount!==1?'s':'')+'</span>':'')+(!total?'<span style="font-size:10px;color:var(--muted)">No assets built yet — build an LP or posts in Panel 1 first</span>':'');
+  if(!total) return '<div style="max-width:960px">'+
+    _ccSecHdr('🔗 Panel 2 — UTM Generator')+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center">'+
+      '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">No assets yet.</div>'+
+      '<div style="font-size:12px;color:var(--muted);max-width:420px;margin:0 auto 20px;line-height:1.6">Build your LP and social posts in the Brief panel first, then Save Draft before generating UTM links.</div>'+
+      _ccBtn('← Go to Brief','_campSwitchTab(\'brief\')',true)+
+    '</div>'+
+  '</div>';
+  var badges=(lpCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.2);color:'+_CC_RED+'">1 LP</span> ':'')+(postCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.05);border:1px solid var(--border);color:var(--text)">'+postCount+' post'+(postCount!==1?'s':'')+'</span>':'');
+  var allActive=(_campUtmUrls&&_campUtmUrls.length>0&&_campUtmUrls.every(function(u){return(u.status||'').toUpperCase()==='ACTIVE';}));
+  var activePrompt=allActive?
+    '<div style="margin-top:12px;padding:12px 16px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+      '<div style="font-size:12px;font-weight:700;color:#22c55e">✓ All DL_IDs active. Ready to build your campaign calendar.</div>'+
+      '<button onclick="_campSwitchTab(\'distribution\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">Build Calendar →</button>'+
+    '</div>'
+    :'';
   var existingTable=(_campUtmUrls&&_campUtmUrls.length)?_ccRenderUtmTable(_campUtmUrls):'<div style="padding:30px;text-align:center;color:var(--muted);font-size:12px">Click Generate All URLs to create one tracking link per asset.</div>';
   return '<div style="max-width:960px">'+
     _ccSecHdr('🔗 Panel 2 — UTM Generator')+
@@ -22431,6 +22451,7 @@ function _ccRenderUTM(){
         '</div>'+
       '</div>'+
       '<div id="cc-utm-result">'+existingTable+'</div>'+
+      activePrompt+
     '</div>'+
   '</div>';
 }
@@ -22940,26 +22961,59 @@ function _ccRenderPerformance(){
 // ── Flow Rule Banner ────────────────────────────────────────────────────────
 function _ccFlowBanner(){
   var b=_campBrief;
-  var fails=[];
-  // Read live checkbox — _campBrief.approved is only synced on save/change,
-  // so check the DOM directly and use the cached value as fallback
+
+  // ── Step completion signals ─────────────────────────────────────────────
+  var hasBrief  = !!(b.id&&b.name&&b.channel&&b.goal);
+  var hasAssets = !!(_campLastLp||(_ccLastPosts&&_ccLastPosts.length>0));
+  var hasSaved  = _campDraftSaved;
+  var hasUtms   = !!(_campUtmUrls&&_campUtmUrls.length>0);
+  var hasActiveDL=(_campUtmUrls||[]).some(function(u){return(u.status||'').toUpperCase()==='ACTIVE';});
+  if(!hasActiveDL) hasActiveDL=(_campDLCache||[]).some(function(d){return _dlStatus(d)==='ACTIVE'&&_dlCamp(d)===b.id;});
+  var hasCalendar=!!(window._ccCalData&&window._ccCalData.id===b.id);
+
+  var steps=[
+    {lbl:'Brief',    done:hasBrief,   tab:'brief'},
+    {lbl:'Assets',   done:hasAssets,  tab:'brief'},
+    {lbl:'Saved',    done:hasSaved,   tab:'brief'},
+    {lbl:'UTMs',     done:hasUtms,    tab:'utm'},
+    {lbl:'Activated',done:hasActiveDL,tab:'registry'},
+    {lbl:'Calendar', done:hasCalendar,tab:'distribution'}
+  ];
+  var stepHtml=steps.map(function(s,i){
+    var ic=s.done
+      ?'<span style="font-size:14px;color:#22c55e">✓</span>'
+      :'<span style="font-size:14px;color:var(--muted)">○</span>';
+    var active=_campActiveTab===s.tab;
+    return '<button onclick="_campSwitchTab(\''+s.tab+'\')" style="flex:1;min-width:0;padding:8px 4px;background:'+(active?_CC_BEIGE:'transparent')+';border:none;border-right:1px solid var(--border);cursor:pointer;font-family:\'DM Mono\',monospace;text-align:center;transition:background 0.1s">'+
+      ic+
+      '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:'+(s.done?'#22c55e':'var(--muted)')+';margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.lbl+'</div>'+
+    '</button>';
+  }).join('');
+  var progressBar=b.id?
+    '<div style="display:flex;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">'+
+      stepHtml+
+      '<button onclick="_campSwitchTab(\'performance\')" style="flex:1;min-width:0;padding:8px 4px;background:transparent;border:none;cursor:pointer;font-family:\'DM Mono\',monospace;text-align:center">'+
+        '<span style="font-size:14px;color:var(--muted)">→</span>'+
+        '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-top:2px">Measure</div>'+
+      '</button>'+
+    '</div>'
+    :'';
+
+  // ── Blocker banner (unchanged) ──────────────────────────────────────────
   var approvedEl=document.getElementById('cc-approved');
   var isApproved=approvedEl?approvedEl.checked:b.approved;
+  var fails=[];
   if(!isApproved) fails.push('Marketing Lead approval not checked in Panel 1 — Brief Builder');
-  // Check _campUtmUrls first — always current after any Activate click.
-  // Fall back to _campDLCache (populated when Panel 3 is opened) using
-  // the _dlCamp/_dlStatus normalizers to handle both field name variants.
-  var hasActiveDL=(_campUtmUrls||[]).some(function(u){return (u.status||'').toUpperCase()==='ACTIVE';});
-  if(!hasActiveDL){
-    hasActiveDL=(_campDLCache||[]).some(function(d){return _dlStatus(d)==='ACTIVE'&&_dlCamp(d)===b.id;});
-  }
   if(b.id&&!hasActiveDL) fails.push('No DL_IDs are ACTIVE for this campaign in Panel 3 — Deep Link Registry');
   if(!b.slug) fails.push('No landing page slug defined in Panel 1 — Brief Builder');
-  if(!fails.length||!b.id) return '';
-  return '<div style="margin-bottom:14px;padding:12px 16px;background:rgba(255,0,0,0.07);border:2px solid rgba(255,0,0,0.3);border-radius:8px">'+
-    '<div style="font-size:12px;font-weight:700;color:'+_CC_RED+';margin-bottom:6px">🚫 Cannot activate — '+fails.length+' blocker'+(fails.length!==1?'s':'')+'</div>'+
-    fails.map(function(f){return '<div style="font-size:11px;color:'+_CC_RED+';margin-top:3px">• '+f+'</div>';}).join('')+
-  '</div>';
+  var blocker=(fails.length&&b.id)?
+    '<div style="margin-bottom:14px;padding:12px 16px;background:rgba(255,0,0,0.07);border:2px solid rgba(255,0,0,0.3);border-radius:8px">'+
+      '<div style="font-size:12px;font-weight:700;color:'+_CC_RED+';margin-bottom:6px">🚫 Cannot activate — '+fails.length+' blocker'+(fails.length!==1?'s':'')+'</div>'+
+      fails.map(function(f){return '<div style="font-size:11px;color:'+_CC_RED+';margin-top:3px">• '+f+'</div>';}).join('')+
+    '</div>'
+    :'';
+
+  return progressBar+blocker;
 }
 
 // ── Panel: Channels ─────────────────────────────────────────────────────────
