@@ -73,9 +73,7 @@ var DOCS_HEADERS = [
   'previewUrl', 'driveFileId', 'folderUrl', 'reviewNeeded', 'addedBy', 'addedAt'
 ];
 
-// Root Drive folder ID — extracted from:
-// https://drive.google.com/drive/folders/1p-unAqDk2pwlz-zO2NLh8uHZkTzFM7_h
-var SHARED_DRIVE_FOLDER_ID = '1p-unAqDk2pwlz-zO2NLh8uHZkTzFM7_h';
+// SHARED_DRIVE_FOLDER_ID is declared as const in Files.gs — used here by reference.
 
 // ── Sheet bootstrap ───────────────────────────────────────────────────────────
 
