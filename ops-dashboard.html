@@ -21262,6 +21262,7 @@ var _EMAIL_SEQS=[
 var _campActiveTab='brief';
 var _ccLastImages={};
 var _ccBrandOverlay={};
+var _ccSelectedScreenshot={};
 var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
 var _campDLCache=[];
 var _campPerfCache={};
@@ -22354,6 +22355,8 @@ function _ccRenderSocialPosts(posts,container,channel){
         fieldLabel('Image Brief')+
         '<textarea id="'+imgId+'" rows="2" style="'+taStyle+'">'+safe(imgText)+'</textarea>'+
       '</div>'+
+      // App screenshot picker
+      _ccRenderScreenshotPicker(post.post_num||i+1)+
       // Generate Image button + result container
       '<div style="margin-bottom:12px">'+
         '<button id="cc-gen-img-'+(post.post_num||i+1)+'" '+
@@ -22439,11 +22442,17 @@ function _ccGeneratePostImage(postNum,callback){
   if(btn){btn.textContent='Generating...';btn.disabled=true;}
   var channelData=_ccGetChannelFromBrief();
   var briefField=document.getElementById('cc-img-brief-'+postNum);
+  var _shotIdx=_ccSelectedScreenshot[postNum];
+  var _shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var appScreen=(_shotIdx!==undefined&&_shotIdx>=0&&_shots[_shotIdx]&&_shots[_shotIdx].label)
+    ?_shots[_shotIdx].label
+    :'meal planning interface';
   var qs=new URLSearchParams({
     action:      'generate_image_prompt',
     image_brief: (briefField&&briefField.value)||post.image_brief||'',
     post_hook:   post.hook||'',
     post_body:   post.body||post.body_copy||'',
+    app_screen:  appScreen,
     platform:    _campBrief.channel||'Facebook',
     icp:         _campBrief.icp||'super_mom',
     dimensions:  (channelData&&channelData.image_dimensions)||'1200x630px',
@@ -22479,6 +22488,48 @@ function _ccGeneratePostImage(postNum,callback){
     if(btn){btn.textContent='✗ Failed';btn.disabled=false;}
     if(callback) callback();
   });
+}
+
+// ── Pre-generation screenshot picker ────────────────────────────────────────
+function _ccShotThumbId(postNum,idx){return 'cc-shot-thumb-'+postNum+(idx<0?'-none':'-'+idx);}
+function _ccRenderScreenshotPicker(postNum){
+  var mf="font-family:'DM Mono',monospace";
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var sel=(_ccSelectedScreenshot[postNum]!==undefined)?_ccSelectedScreenshot[postNum]:-1;
+  var label='<div style="font-size:11px;color:var(--text);margin-bottom:6px;'+mf+'">App screen to show in image:</div>';
+  if(!shots.length){
+    return '<div style="margin-bottom:12px">'+label+
+      '<div style="font-size:10px;color:var(--muted);'+mf+'">No app screenshots uploaded yet — '+
+        '<span onclick="_campSwitchTab(\'brand-assets\')" style="color:'+_CC_RED+';cursor:pointer;text-decoration:underline">add them in 🎨 Brand Assets ↗</span>'+
+      '</div></div>';
+  }
+  var thumbBase='display:inline-block;vertical-align:top;margin:0 7px 0 0;cursor:pointer;border-radius:6px;';
+  var noneThumb=
+    '<div id="'+_ccShotThumbId(postNum,-1)+'" onclick="_ccSelectScreenshot('+postNum+',-1)" '+
+    'style="'+thumbBase+'border:2px solid '+(sel===-1?_CC_RED:'transparent')+';padding:2px">'+
+    '<div style="width:60px;height:100px;background:var(--bg);border:1px dashed var(--border);border-radius:4px;'+
+      'display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);'+mf+'">None</div>'+
+    '<div style="font-size:9px;color:var(--muted);'+mf+';text-align:center;padding:2px 0">None</div>'+
+    '</div>';
+  var thumbs=shots.map(function(s,i){
+    return '<div id="'+_ccShotThumbId(postNum,i)+'" onclick="_ccSelectScreenshot('+postNum+','+i+')" '+
+      'style="'+thumbBase+'border:2px solid '+(sel===i?_CC_RED:'transparent')+';overflow:hidden">'+
+      '<img src="'+s.data+'" style="width:60px;height:100px;object-fit:cover;display:block" alt="'+(s.label||'Screen '+(i+1))+'">'+
+      '<div style="font-size:9px;color:var(--muted);'+mf+';text-align:center;padding:2px 2px;max-width:60px;'+
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(s.label||'Screen '+(i+1))+'</div>'+
+      '</div>';
+  }).join('');
+  return '<div style="margin-bottom:12px">'+label+
+    '<div style="display:flex;overflow-x:auto;padding-bottom:4px">'+noneThumb+thumbs+'</div>'+
+    '</div>';
+}
+function _ccSelectScreenshot(postNum,idx){
+  var prev=(_ccSelectedScreenshot[postNum]!==undefined)?_ccSelectedScreenshot[postNum]:-1;
+  _ccSelectedScreenshot[postNum]=idx;
+  var prevEl=document.getElementById(_ccShotThumbId(postNum,prev));
+  if(prevEl)prevEl.style.border='2px solid transparent';
+  var newEl=document.getElementById(_ccShotThumbId(postNum,idx));
+  if(newEl)newEl.style.border='2px solid '+_CC_RED;
 }
 
 // ── Brand Assets & Overlay ──────────────────────────────────────────────────

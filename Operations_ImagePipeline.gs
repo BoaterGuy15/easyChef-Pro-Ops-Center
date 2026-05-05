@@ -8,6 +8,7 @@
 //     image_brief: decodeURIComponent(e.parameter.image_brief||''),
 //     post_hook:   decodeURIComponent(e.parameter.post_hook||''),
 //     post_body:   decodeURIComponent(e.parameter.post_body||''),
+//     app_screen:  decodeURIComponent(e.parameter.app_screen||'meal planning interface'),
 //     platform:    e.parameter.platform||'Facebook',
 //     icp:         e.parameter.icp||'super_mom',
 //     dimensions:  e.parameter.dimensions||'1200x630px',
@@ -54,6 +55,7 @@ function generateImagePrompt(body) {
     var imageBrief = body.image_brief || '';
     var postHook   = body.post_hook   || '';
     var postBody   = body.post_body   || '';
+    var appScreen  = body.app_screen  || 'meal planning interface';
     var platform   = body.platform    || 'Instagram';
     var icp        = body.icp         || 'super_mom';
     var dimensions = body.dimensions  || '1080x1080px';
@@ -87,13 +89,14 @@ function generateImagePrompt(body) {
       'Output only the prose. No markdown, no section labels, no explanation.';
 
     var claudeUserMsg =
-      'Platform: '    + platform   + '\n' +
-      'Dimensions: '  + dimensions + '\n' +
-      'ICP: '         + icp        + '\n' +
-      'Use case: '    + useCase    + '\n' +
-      'Post hook: '   + postHook   + '\n' +
-      'Post body: '   + postBody   + '\n' +
-      'Image brief: ' + imageBrief;
+      'Platform: '              + platform   + '\n' +
+      'Dimensions: '            + dimensions + '\n' +
+      'ICP: '                   + icp        + '\n' +
+      'Use case: '              + useCase    + '\n' +
+      'Post hook: '             + postHook   + '\n' +
+      'Post body: '             + postBody   + '\n' +
+      'App screen shown on phone: ' + appScreen + '\n' +
+      'Image brief: '           + imageBrief;
 
     var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -133,7 +136,7 @@ function generateImagePrompt(body) {
         messages: [
           {
             role:    'system',
-            content: 'You are an expert at writing image generation prompts. Take the visual description and rewrite it as a highly detailed, specific image generation prompt. Include: subject, setting, lighting, mood, camera angle, style. Output only the prompt — no explanation.'
+            content: 'You are an expert at writing image generation prompts. Take the visual description and rewrite it as a highly detailed, specific image generation prompt. Include: subject, setting, lighting, mood, camera angle, style. The character is holding a smartphone showing: ' + appScreen + '. The screen is clearly visible with red interface elements. Output only the prompt — no explanation.'
           },
           {
             role:    'user',
