@@ -22436,14 +22436,16 @@ function _ccGeneratePostImage(postNum,callback){
   var container=document.getElementById('cc-img-container-'+postNum);
   if(btn){btn.textContent='Generating...';btn.disabled=true;}
   var channelData=_ccGetChannelFromBrief();
+  var briefField=document.getElementById('cc-img-brief-'+postNum);
   var qs=new URLSearchParams({
-    action:'generate_image_prompt',
-    image_brief:post.image_brief||'',
-    post_hook:post.hook||'',
-    platform:_campBrief.channel||'Facebook',
-    icp:_campBrief.icp||'super_mom',
-    dimensions:(channelData&&channelData.image_dimensions)||'1200x630px',
-    use_case:'social'
+    action:      'generate_image_prompt',
+    image_brief: (briefField&&briefField.value)||post.image_brief||'',
+    post_hook:   post.hook||'',
+    post_body:   post.body||post.body_copy||'',
+    platform:    _campBrief.channel||'Facebook',
+    icp:         _campBrief.icp||'super_mom',
+    dimensions:  (channelData&&channelData.image_dimensions)||'1200x630px',
+    use_case:    'social'
   });
   fetch(CONFIG.sheetsUrl+'?'+qs.toString())
   .then(function(r){return r.json();})

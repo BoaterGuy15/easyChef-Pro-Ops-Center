@@ -2,8 +2,17 @@
 // Operations_ImagePipeline.gs
 // Paste this file into your Apps Script project.
 //
-// ADD TO doPost in Operations.gs (inside the if/else chain):
-//   if (body.action === 'generate_image_prompt') return respond(generateImagePrompt(body));
+// ADD TO doGet in Operations.gs (inside the if/else chain):
+//   if (e.parameter.action === 'generate_image_prompt') return respond(generateImagePrompt({
+//     action:      e.parameter.action,
+//     image_brief: decodeURIComponent(e.parameter.image_brief||''),
+//     post_hook:   decodeURIComponent(e.parameter.post_hook||''),
+//     post_body:   decodeURIComponent(e.parameter.post_body||''),
+//     platform:    e.parameter.platform||'Facebook',
+//     icp:         e.parameter.icp||'super_mom',
+//     dimensions:  e.parameter.dimensions||'1200x630px',
+//     use_case:    e.parameter.use_case||'social'
+//   }));
 //
 // REQUIRES Script Properties:
 //   ANTHROPIC_API_KEY
@@ -44,6 +53,7 @@ function generateImagePrompt(body) {
 
     var imageBrief = body.image_brief || '';
     var postHook   = body.post_hook   || '';
+    var postBody   = body.post_body   || '';
     var platform   = body.platform    || 'Instagram';
     var icp        = body.icp         || 'super_mom';
     var dimensions = body.dimensions  || '1080x1080px';
@@ -82,6 +92,7 @@ function generateImagePrompt(body) {
       'ICP: '         + icp        + '\n' +
       'Use case: '    + useCase    + '\n' +
       'Post hook: '   + postHook   + '\n' +
+      'Post body: '   + postBody   + '\n' +
       'Image brief: ' + imageBrief;
 
     var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {

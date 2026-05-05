@@ -281,16 +281,19 @@ function buildSocialPosts(brief, copy) {
     'Content format: ' + (brief.content_format || 'post') + '\n' +
     'Link placement: ' + (brief.link_placement || '') + '\n\n' +
     '=== IMAGE BRIEF REQUIREMENTS ===\n' +
-    'Every image_brief MUST contain exactly 3 sentences covering all of the following:\n' +
-    '1. Subject and action — who is in the image, what they are doing, specific emotion on their face\n' +
-    '   (choose one: relieved, exhausted, proud, surprised, calm), what they are wearing, age range.\n' +
-    '2. Setting and lighting — exact location (suburban kitchen, modest lived-in home — NOT aspirational),\n' +
-    '   time of day, lighting quality (warm golden hour, soft natural window light etc), background details,\n' +
-    '   warm colour temperature only.\n' +
-    '3. Brand and platform specs — warm tones only, red accent #FF0000 where appropriate,\n' +
-    '   NO blue, NO navy, NO cool tones anywhere, real lived-in kitchen not aspirational,\n' +
-    '   authentic not posed, NOT stock photo look, photo-realistic style,\n' +
-    '   platform dimensions (e.g. Facebook 1200x630px horizontal).\n\n' +
+    'Every image_brief must mirror THIS specific post exactly — not a generic family scene.\n' +
+    'If post 1 is about $1,336 savings, the image shows the money saved. If post 2 is about\n' +
+    'the 6:30 PM fridge panic, the image shows that exact panic moment. The image tells the\n' +
+    'same story as the post.\n\n' +
+    'Rules for every image_brief:\n' +
+    '(1) Same character as the post — if the post mentions a mom, a woman, Sarah — the image\n' +
+    '    shows that exact person. Never show a man if the post describes a woman.\n' +
+    '(2) Same story moment — show the exact scene the post describes.\n' +
+    '(3) Same emotion — if the post conveys relief, show visible relief on her face.\n' +
+    '(4) Specific not generic — name the food, the room, the time of day, the clothing.\n' +
+    '(5) Facebook 1200x630px horizontal framing.\n' +
+    '(6) Warm tones, natural light, real kitchen, never stock photo.\n' +
+    '(7) End with: No men if post describes women. No studio lighting. No posed smiles. No blue tones.\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY valid JSON. No markdown. No explanation.\n' +
     '{\n' +
@@ -302,7 +305,7 @@ function buildSocialPosts(brief, copy) {
     '      "cta": "Call to action line — under 10 words",\n' +
     '      "url": "' + lpUrl + '",\n' +
     '      "hashtags": "Relevant hashtags for this platform and ICP — empty string for Facebook and Nextdoor",\n' +
-    '      "image_brief": "A detailed 3-sentence image brief: (1) Subject and action — [person description, specific emotion e.g. relieved, clothing, age range, what they are doing]. (2) Setting and lighting — [exact location e.g. suburban modest lived-in kitchen, time of day, warm natural light description, background details, warm colour temperature]. (3) Brand and platform specs — warm tones only, red accent #FF0000 where appropriate, NO blue NO navy NO cool tones, real lived-in not aspirational, authentic not posed, NOT stock photo, photo-realistic, [platform dimensions e.g. Facebook 1200x630px horizontal]."\n' +
+    '      "image_brief": "A detailed image brief that mirrors THIS specific post exactly. [Same character, same story moment, same emotion as the post body. Specific food/room/time/clothing. Facebook 1200x630px horizontal. Warm tones, natural light, real kitchen, never stock photo. End with: No men if post describes women. No studio lighting. No posed smiles. No blue tones.]"\n' +
     '    }\n' +
     '  ]\n' +
     '}';
