@@ -21263,7 +21263,7 @@ var _campActiveTab='brief';
 var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -21422,6 +21422,19 @@ function _ccRenderBrief(){
             '<select id="cc-publish-day" style="'+base+'" onchange="_ccBriefSync()"><option value="">— any day —</option>'+opts+'</select>'+
           '</div>';
         })()+
+        (function(){
+          var base='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+          var angles=[['savings','savings — $1,336/year'],['speed','speed — 30 min fridge to table'],['waste','waste — 69.5% less food waste'],['proof','proof — built by first responders'],['urgency','urgency — founding price $7.99/month'],['theme','theme — recipe / content series']];
+          var aopts=angles.map(function(a){return '<option value="'+a[0]+'"'+((b.campaign_angle||'savings')===a[0]?' selected':'')+'>'+a[1]+'</option>';}).join('');
+          return '<div style="margin-bottom:14px">'+
+            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Campaign Angle</label>'+
+            '<select id="cc-campaign-angle" style="'+base+'" onchange="_ccBriefSync()">'+aopts+'</select>'+
+          '</div>'+
+          '<div style="margin-bottom:14px">'+
+            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Urgency / Scarcity Trigger <span style="font-weight:400;text-transform:none;letter-spacing:0">— optional</span></label>'+
+            '<input type="text" id="cc-urgency-trigger" value="'+(b.urgency_trigger||'')+'" style="'+base+'" oninput="_ccBriefSync()" placeholder="e.g. Founding price $7.99/month ends at 5,000 families">'+
+          '</div>';
+        })()+
       '</div>'+
       '<div style="margin-top:18px;padding:14px 16px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;background:rgba(255,0,0,0.04)">'+
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:'+_CC_RED+';margin-bottom:10px">Review &amp; Approval</div>'+
@@ -21458,6 +21471,8 @@ function _ccBriefSync(){
   _el=_ccEl('cc-email-variants'); if(_el)            b.email_variants=parseInt(_el.value)||2;
   _el=_ccEl('cc-theme');          if(_el)            b.theme=_el.value;
   _el=_ccEl('cc-publish-day');    if(_el)            b.publish_day=_el.value;
+  _el=_ccEl('cc-campaign-angle'); if(_el&&_el.value) b.campaign_angle=_el.value;
+  _el=_ccEl('cc-urgency-trigger');if(_el)            b.urgency_trigger=_el.value;
   var banner=_ccEl('cc-flow-banner');
   if(banner) banner.innerHTML=_ccFlowBanner();
   _ccAutoSlug();
@@ -21841,7 +21856,7 @@ function _ccSlugStatus(state,slug,conflictId,isShared){
 }
 
 function _ccNewCampaign(){
-  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
+  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
   _campKickstartCopy=null;
   _campLastLp=null;
   _campSlugStatus='';
@@ -21888,6 +21903,9 @@ function _ccRestoreBriefValues(){
   var themeEl=document.getElementById('cc-theme');
   if(themeEl&&_campBrief.theme) themeEl.value=_campBrief.theme;
   if(_campBrief.publish_day) _ccSetSelect('cc-publish-day',_campBrief.publish_day);
+  if(_campBrief.campaign_angle) _ccSetSelect('cc-campaign-angle',_campBrief.campaign_angle);
+  var urgEl=document.getElementById('cc-urgency-trigger');
+  if(urgEl&&_campBrief.urgency_trigger) urgEl.value=_campBrief.urgency_trigger;
 }
 
 // ── Brief auto-fill — retries until dropdowns are populated ─────────────────
@@ -22122,6 +22140,12 @@ function _ccKickstart(){
       _campBrief.id='';
       _campBrief.slug='';
       _campSlugStatus='';
+      if(Array.isArray(j.channels)&&j.channels.length) _campBrief.channels=j.channels.map(function(c){return c.charAt(0).toUpperCase()+c.slice(1);});
+      if(j.theme) _campBrief.theme=j.theme;
+      if(j.publish_day) _campBrief.publish_day=j.publish_day;
+      if(j.cta_type) _campBrief.cta_type=j.cta_type;
+      if(j.campaign_angle) _campBrief.campaign_angle=j.campaign_angle;
+      if(j.urgency_trigger) _campBrief.urgency_trigger=j.urgency_trigger;
       _campKickstartCopy=j;
       // ── Render copy card + architecture sections ─────────────────────────
       if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''})+_ccRenderKickstartAssets(j);

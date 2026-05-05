@@ -129,6 +129,37 @@ function campaignKickstart(prompt) {
     'PRODUCT NAME: Always write "easyChef Pro". Never "the app", "this app", or "a meal planning app".\n' +
     'CTA RULE: Use the CTA destination for the detected cta_type above. Never link to the main website.\n\n' +
 
+    'CHANNELS DETECTION — scan the user prompt for platform mentions:\n' +
+    '- If prompt explicitly mentions specific platforms → array of those platform names in lowercase\n' +
+    '- If prompt says "all channels" or "everything" → ["facebook","instagram","tiktok","pinterest","nextdoor","email"]\n' +
+    '- If single platform mentioned → single-item array e.g. ["facebook"]\n' +
+    '- Default if nothing mentioned → ["facebook","instagram","email"]\n' +
+    '- Valid values: "facebook","instagram","tiktok","pinterest","nextdoor","email","push notifications","youtube","x","reddit"\n\n' +
+
+    'THEME DETECTION — scan the user prompt:\n' +
+    '- If prompt contains THEME: field → use that exact value\n' +
+    '- If prompt mentions a recurring event (Taco Tuesday, Meal Prep Sunday, Back to School, etc.) → extract the exact phrase\n' +
+    '- Default → empty string ""\n\n' +
+
+    'PUBLISH DAY DETECTION — scan the user prompt:\n' +
+    '- If prompt contains PUBLISH DAY: field → use that value\n' +
+    '- If prompt mentions posting on a specific weekday ("every Tuesday", "on Sundays", etc.) → extract the day name\n' +
+    '- Default → empty string ""\n\n' +
+
+    'CAMPAIGN ANGLE DETECTION — identify the dominant angle from the user prompt:\n' +
+    '- savings → user mentions money, budget, cost, grocery bill, $1,336\n' +
+    '- speed → user mentions time, quick, fast, 30 minutes, busy\n' +
+    '- waste → user mentions food waste, throwing away, 69.5%\n' +
+    '- proof → user mentions first responders, nurses, teachers, authority\n' +
+    '- urgency → user mentions founding price, launch date, deadline, $7.99, limited\n' +
+    '- theme → user mentions a content series, recipe, event, theme\n' +
+    '- Default → savings\n\n' +
+
+    'URGENCY TRIGGER DETECTION — extract the specific urgency or scarcity signal:\n' +
+    '- If prompt mentions founding price → "Founding price $7.99/month ends at 5,000 families"\n' +
+    '- If prompt mentions a date → include the date\n' +
+    '- If no urgency found → "Founding price $7.99/month ends at 5,000 families"\n\n' +
+
     'Return a JSON object with these exact fields:\n' +
     '{\n' +
     '  "icp_match": "Human-readable ICP name (e.g. Super Mom)",\n' +
@@ -136,6 +167,7 @@ function campaignKickstart(prompt) {
     '  "blueprint": "Funnel type — one of: A-Waitlist, B-App Download, C-Referral, D-Re-engagement, E-Content, F-Affiliate, G-Paywall Recovery",\n' +
     '  "campaign_name": "Short descriptive campaign name",\n' +
     '  "channel_recommendation": "Primary channel — one of: Email, Facebook, Instagram, TikTok, Pinterest, Nextdoor, YouTube, X, Reddit, Organic, Affiliate, Direct",\n' +
+    '  "channels": ["detected channel 1", "detected channel 2"],\n' +
     '  "slug": "Landing page slug path e.g. lp/waitlist-a",\n' +
     '  "headline": "Hook step — stops the scroll, specific to the ICP pain",\n' +
     '  "subheadline": "Problem step — names the exact pain in one plain sentence",\n' +
@@ -151,7 +183,14 @@ function campaignKickstart(prompt) {
     '  "social_hook": "Scroll-stopper first line, under 15 words",\n' +
     '  "share_mechanic": "Viral thank-you page prompt — 1 sentence, peer-to-peer framing, references the saving",\n' +
     '  "utm_campaign_code": "Lowercase hyphenated campaign code e.g. ec-2026-007",\n' +
-    '  "founding_offer": "One sentence framing the $7.99 founding price urgency"\n' +
+    '  "founding_offer": "One sentence framing the $7.99 founding price urgency",\n' +
+    '  "theme": "Detected theme or recurring series name — empty string if none",\n' +
+    '  "publish_day": "Detected day of week (Monday/Tuesday/etc) — empty string if none",\n' +
+    '  "campaign_angle": "One of: savings, speed, waste, proof, urgency, theme",\n' +
+    '  "post_count": 7,\n' +
+    '  "email_sequences": 2,\n' +
+    '  "email_variants": 2,\n' +
+    '  "urgency_trigger": "Specific scarcity or urgency sentence from the prompt or default founding price trigger"\n' +
     '}\n\n' +
     'Return only valid JSON. No markdown. No explanation before or after.';
 

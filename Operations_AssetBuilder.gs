@@ -395,7 +395,9 @@ function buildSocialPosts(brief, copy) {
     'Landing page: ' + lpUrl + '\n' +
     'Headline: '    + (copy && copy.headline    || '') + '\n' +
     'Social hook: ' + (copy && copy.social_hook || '') + '\n' +
-    'Primary CTA: ' + (copy && copy.cta_primary || '') + '\n\n' +
+    'Primary CTA: ' + (copy && copy.cta_primary || '') + '\n' +
+    'Campaign angle: ' + (brief.campaign_angle || 'savings') + ' — lead every post and email with this angle\n' +
+    'Urgency trigger: ' + (brief.urgency_trigger || 'Founding price $7.99/month ends at 5,000 families') + '\n\n' +
     _getStagesArcText() +
     'Total post length: 250–400 chars for Facebook.\n' +
     'The funnel_stage field in the output JSON must reflect the post\'s actual arc stage.\n\n' +
