@@ -304,6 +304,40 @@ function buildEmailCalendar(brief, copy) {
  *
  * Returns { ok:true, posts:[{post_num, scheduled_day, theme, hook, body_copy, ...}] }
  */
+
+/**
+ * Single API call for `count` social posts.
+ * Returns { ok:true, posts:[] } or { ok:false, error:'' }.
+ */
+function _sbSocialBatch(apiKey, systemPrompt, count, channel) {
+  var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key':         apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type':      'application/json'
+    },
+    payload: JSON.stringify({
+      model:      'claude-sonnet-4-20250514',
+      max_tokens: Math.min(8000, Math.max(2000, count * 700)),
+      system:     systemPrompt,
+      messages: [{ role: 'user', content: 'Generate ' + count + ' ' + channel + ' posts. Return only the JSON array.' }]
+    }),
+    muteHttpExceptions: true
+  });
+  var data  = JSON.parse(resp.getContentText());
+  var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
+  if (!reply && data.error) {
+    return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+  }
+  try {
+    var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+    return { ok: true, posts: JSON.parse(jsonStr) };
+  } catch (e) {
+    return { ok: false, error: 'JSON parse failed — truncated response. Raw tail: ' + reply.slice(-200) };
+  }
+}
+
 function buildSocialCalendar(brief, copy) {
   try {
     var props  = PropertiesService.getScriptProperties();
@@ -376,36 +410,20 @@ function buildSocialCalendar(brief, copy) {
       '  }\n' +
       ']';
 
-    var maxTokens = Math.max(1500, postCount * 450);
-
-    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type':      'application/json'
-      },
-      payload: JSON.stringify({
-        model:      'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        system:     systemPrompt,
-        messages: [{
-          role:    'user',
-          content: 'Generate the ' + postCount + '-post social calendar for ' + channel + '. Return only the JSON array.'
-        }]
-      }),
-      muteHttpExceptions: true
-    });
-
-    var data  = JSON.parse(resp.getContentText());
-    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
-
-    if (!reply && data.error) {
-      return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+    var posts;
+    if (postCount > 8) {
+      var half1 = Math.ceil(postCount / 2);
+      var half2 = postCount - half1;
+      var r1 = _sbSocialBatch(apiKey, systemPrompt, half1, channel);
+      if (!r1.ok) return { ok: false, error: 'Batch 1 failed: ' + r1.error };
+      var r2 = _sbSocialBatch(apiKey, systemPrompt, half2, channel);
+      if (!r2.ok) return { ok: false, error: 'Batch 2 failed: ' + r2.error };
+      posts = r1.posts.concat(r2.posts);
+    } else {
+      var r = _sbSocialBatch(apiKey, systemPrompt, postCount, channel);
+      if (!r.ok) return { ok: false, error: r.error };
+      posts = r.posts;
     }
-
-    var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-    var posts   = JSON.parse(jsonStr);
 
     var campaignId = brief.id || '';
 
