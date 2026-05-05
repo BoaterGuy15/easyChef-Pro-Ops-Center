@@ -280,6 +280,17 @@ function buildSocialPosts(brief, copy) {
       : 'No hashtags on this platform — leave hashtags field as empty string') + '\n' +
     'Content format: ' + (brief.content_format || 'post') + '\n' +
     'Link placement: ' + (brief.link_placement || '') + '\n\n' +
+    '=== IMAGE BRIEF REQUIREMENTS ===\n' +
+    'Every image_brief MUST contain exactly 3 sentences covering all of the following:\n' +
+    '1. Subject and action — who is in the image, what they are doing, specific emotion on their face\n' +
+    '   (choose one: relieved, exhausted, proud, surprised, calm), what they are wearing, age range.\n' +
+    '2. Setting and lighting — exact location (suburban kitchen, modest lived-in home — NOT aspirational),\n' +
+    '   time of day, lighting quality (warm golden hour, soft natural window light etc), background details,\n' +
+    '   warm colour temperature only.\n' +
+    '3. Brand and platform specs — warm tones only, red accent #FF0000 where appropriate,\n' +
+    '   NO blue, NO navy, NO cool tones anywhere, real lived-in kitchen not aspirational,\n' +
+    '   authentic not posed, NOT stock photo look, photo-realistic style,\n' +
+    '   platform dimensions (e.g. Facebook 1200x630px horizontal).\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY valid JSON. No markdown. No explanation.\n' +
     '{\n' +
@@ -291,7 +302,7 @@ function buildSocialPosts(brief, copy) {
     '      "cta": "Call to action line — under 10 words",\n' +
     '      "url": "' + lpUrl + '",\n' +
     '      "hashtags": "Relevant hashtags for this platform and ICP — empty string for Facebook and Nextdoor",\n' +
-    '      "image_brief": "One sentence describing the ideal image or video — include platform dimensions"\n' +
+    '      "image_brief": "A detailed 3-sentence image brief: (1) Subject and action — [person description, specific emotion e.g. relieved, clothing, age range, what they are doing]. (2) Setting and lighting — [exact location e.g. suburban modest lived-in kitchen, time of day, warm natural light description, background details, warm colour temperature]. (3) Brand and platform specs — warm tones only, red accent #FF0000 where appropriate, NO blue NO navy NO cool tones, real lived-in not aspirational, authentic not posed, NOT stock photo, photo-realistic, [platform dimensions e.g. Facebook 1200x630px horizontal]."\n' +
     '    }\n' +
     '  ]\n' +
     '}';

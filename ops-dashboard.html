@@ -21621,6 +21621,8 @@ function _ccAutoSlug(){
 function _ccSlugInput(){
   var el=document.getElementById('cc-slug');
   if(el) _campBrief.slug=el.value;
+  _campBrief._lpReused=false;
+  _campBrief._lpReusedFrom='';
   if(_campSlugStatus){
     _campSlugStatus='';
     var sd=document.getElementById('cc-slug-status'); if(sd) sd.innerHTML='';
@@ -21642,20 +21644,26 @@ function _ccCheckSlug(){
       if(d&&d.ok===true){_campSlugStatus='ok';_ccSlugStatus('ok',slug);}
       else{
         var cid=d?d.conflict_campaign_id:'';
-        if(cid&&_campBrief&&cid===_campBrief.id){_campSlugStatus='ok';_ccSlugStatus('ok',slug);}
-        else{_campSlugStatus='taken';_ccSlugStatus('taken',slug,cid);}
+        if((cid&&_campBrief&&cid===_campBrief.id)||_campBrief._lpReused){
+          _campSlugStatus='ok';_ccSlugStatus('ok',slug,null,!!_campBrief._lpReused);
+        }else{_campSlugStatus='taken';_ccSlugStatus('taken',slug,cid);}
       }
     })
     .catch(function(){_campSlugStatus='';_ccSlugStatus('',slug);});
 }
 
-function _ccSlugStatus(state,slug,conflictId){
+function _ccSlugStatus(state,slug,conflictId,isShared){
   var sd=document.getElementById('cc-slug-status');
   var sh=document.getElementById('cc-slug-hint');
   if(!sd) return;
   if(state==='ok'){
     sd.innerHTML='<span style="color:#22c55e">✓</span>';
-    if(sh){sh.innerHTML='<span style="color:#22c55e">Available — easychefpro.com/'+slug+'</span>';sh.style.color='';}
+    if(sh){
+      var okMsg=isShared
+        ?'<span style="color:#22c55e">Shared LP — reusing existing landing page</span>'
+        :'<span style="color:#22c55e">Available — easychefpro.com/'+slug+'</span>';
+      sh.innerHTML=okMsg;sh.style.color='';
+    }
   } else if(state==='taken'){
     sd.innerHTML='<span style="color:'+_CC_RED+'">✗</span>';
     if(sh){sh.innerHTML='<span style="color:'+_CC_RED+'">Already used by '+(conflictId||'another campaign')+' — change it before saving</span>';sh.style.color='';}
@@ -22088,7 +22096,7 @@ function _ccKsLpSearch(icp){
           '</div>'+
           '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+
             '<span style="font-size:10px;color:'+statusColor+'">'+status+'</span>'+
-            '<button onclick="_ccKsSelectLp(\''+slug+'\')" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Use This LP</button>'+
+            '<button onclick="_ccKsSelectLp(\''+slug+'\',\''+safe(p.campaign_id||'')+'\')" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Use This LP</button>'+
           '</div>'+
         '</div>';
       }).join('');
@@ -22104,8 +22112,10 @@ function _ccKsLpSearch(icp){
 }
 
 // User picks an existing LP — sets the brief slug
-function _ccKsSelectLp(slug){
+function _ccKsSelectLp(slug,campaignId){
   _campBrief.slug=slug;
+  _campBrief._lpReused=true;
+  _campBrief._lpReusedFrom=campaignId||'';
   _campSlugStatus='';
   var slugEl=document.getElementById('cc-slug');
   if(slugEl) slugEl.value=slug;
