@@ -15370,18 +15370,21 @@ window.addEventListener('DOMContentLoaded',()=>{
   window._dglPwHash=sessionStorage.getItem('dgl_pw_hash')||'';
   const _staleKeys=['dgl_superai_','dgl_task_comments_','dgl_notes_','dgl_task_slack_','dgl_agenda_slack_','dgl_profiles','dgl_assessment','dgl_tasks'];
   Object.keys(localStorage).forEach(k=>{ if(_staleKeys.some(p=>k.startsWith(p)||k===p)) localStorage.removeItem(k); });
-  _loadChannelAssignmentsFromSheets();
-  _loadDMChannelMap();
+  // Local reads first — no network
   loadFromLocal();
   loadBudgetFromLocal();
+  // Wave 0 — critical path (tasks + channel data needed immediately)
   loadFromSheets();
-  loadBudgetFromSheets();
-  loadAgendaFromSheets();
-  loadBudgetHistoryFromSheets();
-  loadPMFHistoryFromSheets();
-  loadProfilesFromSheets();
-  loadBetaMetricsFromSheets();
-  loadAppAnalyticsFromSheets();
+  setTimeout(_loadChannelAssignmentsFromSheets, 50);
+  // Wave 1 — staggered 100ms apart to prevent thundering herd
+  setTimeout(loadAgendaFromSheets,        200);
+  setTimeout(_loadDMChannelMap,           300);
+  setTimeout(loadBudgetFromSheets,        400);
+  setTimeout(loadBudgetHistoryFromSheets, 500);
+  setTimeout(loadPMFHistoryFromSheets,    600);
+  setTimeout(loadProfilesFromSheets,      700);
+  setTimeout(loadBetaMetricsFromSheets,   800);
+  setTimeout(loadAppAnalyticsFromSheets,  900);
   _initCustomTeamExtensions();
   buildCommandKPIs();
   buildGapList();
@@ -15418,7 +15421,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const _hashTab=(location.hash||'').replace(/^#/,'');
   showPage((_hashTab&&document.getElementById('page-'+_hashTab))?_hashTab:(sessionStorage.getItem('dgl_active_tab')||'agenda'));
   updateLiveDot();
-  loadHRFromSheets();
+  setTimeout(loadHRFromSheets, 1000);
   _handleDeepLink();
   // Inject ↗ pop-out button on every nav tab + middle-click support
   document.querySelectorAll('.nav-tab').forEach(tab=>{
@@ -21286,6 +21289,7 @@ var _ccChannels=[
   {name:'Vimeo',     slug_code:'vimeo',    utm_medium:'video',     utm_source:'vimeo',     dl_prefix:'SOC',status:'active'}
 ];
 var _ccChannelsLoaded=false;
+var _ccDataLoaded=false;
 var _ccLastPosts=[];
 var _ccChFormMode=null; // null=none, '__new__'=add form, channel_name=editing that row
 var _ccBlueprintConfigs=[];
@@ -24669,8 +24673,21 @@ var _CC_TABS=[
 ];
 function _campaignsRender(){
   var root=document.getElementById('campaigns-root'); if(!root) return;
-  _ccLoadChannels();
-  _ccLoadBlueprintConfigs();
+  if(!_ccDataLoaded){
+    _ccDataLoaded=true;
+    root.innerHTML='<div style="padding:40px 32px;font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted)">Loading campaign data…</div>';
+    setTimeout(function(){
+      _ccLoadChannels();
+      _ccLoadBlueprintConfigs();
+      _campaignsRenderInner(root);
+    },0);
+    return;
+  }
+  _campaignsRenderInner(root);
+}
+function _campaignsRenderInner(root){
+  if(!root) root=document.getElementById('campaigns-root');
+  if(!root) return;
   var tabBar=_CC_TABS.map(function(t){
     return '<button id="camp-tab-'+t.id+'" onclick="_campSwitchTab(\''+t.id+'\')" style="padding:9px 14px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;color:var(--muted)">'+t.lbl+'</button>';
   }).join('');
