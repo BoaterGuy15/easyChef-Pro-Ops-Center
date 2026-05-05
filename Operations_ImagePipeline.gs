@@ -52,14 +52,31 @@ function generateImagePrompt(body) {
     if (!openAiKey) return { ok: false, error: 'OPENAI_API_KEY not set in Script Properties' };
     if (!googleKey) return { ok: false, error: 'GOOGLE_AI_API_KEY not set in Script Properties' };
 
-    var imageBrief = body.image_brief || '';
-    var postHook   = body.post_hook   || '';
-    var postBody   = body.post_body   || '';
-    var appScreen  = body.app_screen  || 'meal planning interface';
-    var platform   = body.platform    || 'Instagram';
-    var icp        = body.icp         || 'super_mom';
-    var dimensions = body.dimensions  || '1080x1080px';
-    var useCase    = body.use_case    || 'social';
+    var imageBrief    = body.image_brief    || '';
+    var postHook      = body.post_hook      || '';
+    var postBody      = body.post_body      || '';
+    var appScreen     = body.app_screen     || 'meal planning interface';
+    var platform      = body.platform       || 'Instagram';
+    var icp           = body.icp            || 'super_mom';
+    var dimensions    = body.dimensions     || '1080x1080px';
+    var useCase       = body.use_case       || 'social';
+    var skipOptimize  = body.skip_optimize  === 'true' || body.skip_optimize === true;
+
+    // ── Fast path: custom prompt — skip Claude + GPT, send directly to Imagen
+    if (skipOptimize && imageBrief) {
+      var useNanaBananaFast = (useCase === 'lp' || useCase === 'blog');
+      var fastResult = useNanaBananaFast
+        ? _generateNanoBanana(imageBrief, googleKey, dimensions)
+        : _generateImagen4(imageBrief, googleKey, dimensions);
+      if (!fastResult.ok) return { ok: false, error: fastResult.error, gpt_prompt: imageBrief };
+      return {
+        ok: true, use_case: useCase, model_used: useNanaBananaFast ? 'nano-banana-pro-preview' : 'imagen-4.0-generate-001',
+        claude_brief: '(skipped — custom prompt used directly)',
+        gpt_prompt: imageBrief,
+        image_base64: fastResult.image_base64, mime_type: fastResult.mime_type,
+        platform: platform, dimensions: dimensions
+      };
+    }
 
     // ── Step 1: Claude → brand-aligned visual description ──────────────────
     var claudeSystem =

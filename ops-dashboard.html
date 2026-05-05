@@ -22724,16 +22724,23 @@ function _ccRenderSocialPosts(posts,container,channel){
     var bodyText=String(post.body||'');
     var hashText=pc.hashtags?(String(post.hashtags||'')||fallbackHash):'';
     var imgText=String(post.image_brief||'')||pc.imgFallback;
-    var bodyId='ks-post-'+i+'-body';
-    var cntId ='ks-post-'+i+'-cnt';
+    var pNum   = post.post_num||i+1;
+    var bodyId ='ks-post-'+i+'-body';
+    var cntId  ='ks-post-'+i+'-cnt';
     var hashId ='ks-post-'+i+'-hash';
-    var imgId  ='ks-post-'+i+'-img';
+    var imgId  ='cc-img-brief-'+pNum;
+    var hookId ='ks-post-'+i+'-hook';
+    var cpId   ='cc-custom-prompt-'+pNum;
+    var aiBriefId='cc-ai-brief-panel-'+pNum;
 
-    return '<div style="padding:16px;border-bottom:1px solid var(--border)">'+
-      // Post number
-      '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:10px">POST '+safe(String(post.post_num||i+1))+'</div>'+
-      // Hook
-      '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;line-height:1.4">'+safe(post.hook||'')+'</div>'+
+    return '<div id="cc-post-card-s-'+pNum+'" style="padding:16px;border-bottom:1px solid var(--border)">'+
+      // Post number + funnel stage
+      '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:10px">POST '+safe(String(pNum))+(post.funnel_stage?' · <span style="text-transform:capitalize">'+safe(post.funnel_stage)+'</span>':'')+'</div>'+
+      // Hook — editable input
+      '<div style="margin-bottom:12px">'+
+        fieldLabel('Hook line (scroll-stopper)')+
+        '<input type="text" id="'+hookId+'" value="'+safe(post.hook||'')+'" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:13px;font-weight:700;font-family:inherit;outline:none;box-sizing:border-box">'+
+      '</div>'+
       // Body textarea + char count
       '<div style="margin-bottom:10px">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'+
@@ -22751,6 +22758,7 @@ function _ccRenderSocialPosts(posts,container,channel){
         '<div style="margin-bottom:10px">'+
           fieldLabel('Hashtags',pc.hashLabel)+
           '<textarea id="'+hashId+'" rows="2" style="'+taStyle+'">'+safe(hashText)+'</textarea>'+
+          '<div style="font-size:10px;color:var(--muted);margin-top:3px">Facebook and Nextdoor = leave empty</div>'+
         '</div>'
       :'')+
       // Image brief
@@ -22759,14 +22767,26 @@ function _ccRenderSocialPosts(posts,container,channel){
         '<textarea id="'+imgId+'" rows="2" style="'+taStyle+'">'+safe(imgText)+'</textarea>'+
       '</div>'+
       // App screenshot picker
-      _ccRenderScreenshotPicker(post.post_num||i+1)+
+      _ccRenderScreenshotPicker(pNum)+
+      // Custom image prompt
+      '<div style="margin-bottom:12px">'+
+        fieldLabel('Custom image prompt','optional — overrides AI brief')+
+        '<textarea id="'+cpId+'" rows="3" placeholder="Describe exactly what you want to see — overrides AI brief.\nExample: A tired mom in a bright kitchen on a Tuesday evening, two kids at the table, holding a taco, phone showing easyChef Pro red screen, warm light, no blue tones" style="'+taStyle+'"></textarea>'+
+        '<div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">'+
+          '<button onclick="_ccShowAiBrief('+pNum+')" id="cc-show-brief-btn-'+pNum+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Show AI Brief</button>'+
+          '<button onclick="_ccTestImagePrompt('+pNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">💬 Test this prompt</button>'+
+        '</div>'+
+        '<div id="'+aiBriefId+'" style="display:none;margin-top:8px">'+
+          '<div style="font-size:10px;color:var(--muted);margin-bottom:4px">AI-generated visual description (Claude):</div>'+
+          '<textarea id="cc-ai-brief-text-'+pNum+'" rows="4" style="'+taStyle+'"></textarea>'+
+          '<div id="cc-test-compare-'+pNum+'"></div>'+
+        '</div>'+
+      '</div>'+
       // Generate Image button + result container
       '<div style="margin-bottom:12px">'+
-        '<button id="cc-gen-img-s-'+(post.post_num||i+1)+'" '+
-        'onclick="_ccQueueImage(\'s\','+(post.post_num||i+1)+')" '+
-        'style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">'+
+        '<button id="cc-gen-img-s-'+pNum+'" onclick="_ccQueueImage(\'s\','+pNum+')" style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">'+
         '🎨 Generate Image</button>'+
-        '<div id="cc-img-container-s-'+(post.post_num||i+1)+'"></div>'+
+        '<div id="cc-img-container-s-'+pNum+'"></div>'+
       '</div>'+
       // CTA + link placement row
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
@@ -22777,6 +22797,12 @@ function _ccRenderSocialPosts(posts,container,channel){
         '<div style="font-size:10px;padding:5px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:5px;color:var(--muted);white-space:nowrap;flex-shrink:0">'+
           safe(pc.linkNote)+
         '</div>'+
+      '</div>'+
+      // Save + Regen row
+      '<div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center">'+
+        '<button onclick="_ccSavePostEdits('+i+',\'s\')" style="background:#22c55e;border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Save Changes</button>'+
+        '<button onclick="_ccRegenSinglePost('+i+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate Post</button>'+
+        '<span id="ks-post-'+i+'-save-status" style="font-size:10px;color:#22c55e;display:none">✓ Saved</span>'+
       '</div>'+
     '</div>';
   }).join('');
@@ -22796,6 +22822,117 @@ function _ccRefreshPostPlatform(){
   var postsEl=document.getElementById('cc-ks-asset-output');
   if(!postsEl||!_ccLastPosts||!_ccLastPosts.length) return;
   _ccRenderSocialPosts(_ccLastPosts,postsEl,_campBrief.channel);
+}
+
+// ── Feature 1: Save + Regen individual posts ────────────────────────────────
+function _ccSavePostEdits(idx,prefix){
+  var post=_ccLastPosts[idx];if(!post) return;
+  var pNum=post.post_num||idx+1;
+  var hookEl=document.getElementById('ks-post-'+idx+'-hook');
+  var bodyEl=document.getElementById('ks-post-'+idx+'-body');
+  var hashEl=document.getElementById('ks-post-'+idx+'-hash');
+  var briefEl=document.getElementById('cc-img-brief-'+pNum);
+  if(hookEl) post.hook=hookEl.value;
+  if(bodyEl) post.body=bodyEl.value;
+  if(hashEl) post.hashtags=hashEl.value;
+  if(briefEl) post.image_brief=briefEl.value;
+  var statusEl=document.getElementById('ks-post-'+idx+'-save-status');
+  if(!CONFIG.sheetsUrl){if(statusEl){statusEl.style.display='inline';setTimeout(function(){statusEl.style.display='none';},2000);}return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'social_posts_write',post:{id:post.id||'',campaign_id:post.campaign_id||(_campBrief&&_campBrief.id)||'',channel:post.channel||_campBrief.channel||'',post_num:pNum,hook:post.hook,body:post.body,hashtags:post.hashtags||'',image_brief:post.image_brief||'',cta:post.cta||'',url:post.url||'',funnel_stage:post.funnel_stage||'',status:post.status||'draft'}})})
+    .then(function(r){return r.json();})
+    .then(function(d){if(statusEl){statusEl.textContent=d.ok?'✓ Saved':'✗ Save failed';statusEl.style.color=d.ok?'#22c55e':'var(--red)';statusEl.style.display='inline';setTimeout(function(){statusEl.style.display='none';},2500);}})
+    .catch(function(){if(statusEl){statusEl.textContent='✗ Error';statusEl.style.color='var(--red)';statusEl.style.display='inline';setTimeout(function(){statusEl.style.display='none';},2000);}});
+}
+
+function _ccRegenSinglePost(idx){
+  var post=_ccLastPosts[idx];if(!post) return;
+  var pNum=post.post_num||idx+1;
+  var card=document.getElementById('cc-post-card-s-'+pNum);
+  if(card){card.style.opacity='0.5';card.style.pointerEvents='none';}
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'build_social_posts',brief:_campBrief,copy:_campKickstartCopy,regen_stage:post.funnel_stage,regen_post_num:pNum,post_count:1})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var newPost=(d.posts&&d.posts[0])||null;
+      if(newPost){
+        newPost.post_num=pNum;newPost.funnel_stage=post.funnel_stage;newPost.id=post.id;newPost.campaign_id=post.campaign_id;
+        _ccLastPosts[idx]=newPost;
+        var container=document.getElementById('cc-ks-asset-output');
+        if(container) _ccRenderSocialPosts(_ccLastPosts,container,_campBrief.channel);
+      } else {
+        if(card){card.style.opacity='1';card.style.pointerEvents='';}
+        _showToast('<div>↺ Regen failed — no posts returned</div>',2000);
+      }
+    })
+    .catch(function(e){if(card){card.style.opacity='1';card.style.pointerEvents='';}});
+}
+
+// ── Feature 2: AI Brief toggle + Test prompt ────────────────────────────────
+function _ccShowAiBrief(postNum){
+  var panel=document.getElementById('cc-ai-brief-panel-'+postNum);
+  if(!panel) return;
+  var open=panel.style.display!=='none';
+  panel.style.display=open?'none':'block';
+  var btn=document.getElementById('cc-show-brief-btn-'+postNum);
+  if(btn) btn.textContent=open?'Show AI Brief':'Hide AI Brief';
+  if(!open){
+    var bta=document.getElementById('cc-ai-brief-text-'+postNum);
+    var stored=(window._ccClaudeBriefs||{})[postNum];
+    if(bta&&stored&&!bta.value) bta.value=stored;
+    if(bta&&!bta.value) bta.placeholder='Generate an image first to see the Claude brief here.';
+  }
+}
+
+function _ccTestImagePrompt(postNum){
+  var cpField=document.getElementById('cc-custom-prompt-'+postNum);
+  var prompt=(cpField&&cpField.value.trim())||'';
+  if(!prompt){_showToast('<div>Enter a custom prompt first to test it.</div>',2000);return;}
+  var panel=document.getElementById('cc-ai-brief-panel-'+postNum);
+  if(panel) panel.style.display='block';
+  var compareEl=document.getElementById('cc-test-compare-'+postNum);
+  if(!compareEl) return;
+  compareEl.innerHTML='<div style="font-size:10px;color:var(--muted);margin-top:8px;font-family:\'DM Mono\',monospace">💬 Testing prompt directly against Imagen (no optimization)…</div>';
+  var post=_ccLastPosts[postNum-1];if(!post) return;
+  var channelData=_ccGetChannelFromBrief();
+  var qs=new URLSearchParams({action:'generate_image_prompt',image_brief:prompt,post_hook:post.hook||'',post_body:post.body||'',app_screen:'meal planning interface',platform:_campBrief.channel||'Facebook',icp:_campBrief.icp||'super_mom',dimensions:(channelData&&channelData.image_dimensions)||'1200x630px',use_case:'social',skip_optimize:'true'});
+  fetch(CONFIG.sheetsUrl+'?'+qs.toString()).then(function(r){return r.json();}).then(function(d){
+    if(d.ok&&d.image_base64){
+      var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
+      compareEl.innerHTML='<div style="font-size:10px;color:var(--muted);margin-top:8px;font-family:\'DM Mono\',monospace">Test result (raw prompt → Imagen):</div>'+
+        '<img src="'+imgSrc+'" style="max-width:100%;border-radius:6px;margin-top:6px">'+
+        '<button onclick="_ccUseTestResult('+postNum+',\''+imgSrc+'\')" style="margin-top:6px;background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use this result</button>';
+    } else {
+      compareEl.innerHTML='<div style="font-size:10px;color:var(--red);margin-top:8px">Test failed: '+(d.error||'unknown error')+'</div>';
+    }
+  }).catch(function(e){compareEl.innerHTML='<div style="font-size:10px;color:var(--red);margin-top:8px">Test error: '+e.message+'</div>';});
+}
+
+function _ccUseTestResult(postNum,imgSrc){
+  var container=document.getElementById('cc-img-container-s-'+postNum);
+  if(!container) return;
+  var prefix='s';
+  container.innerHTML=_ccImageWithOverlay(postNum,imgSrc)+
+    '<div style="display:flex;gap:6px;margin-top:6px">'+
+      '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>'+
+      '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
+    '</div>';
+}
+
+// ── Feature 3: Generate All progress ────────────────────────────────────────
+function _ccUpdateGenAllProgress(){
+  var t=_ccImgAllTotal;var d=_ccImgAllDone;
+  var btn=document.getElementById('cc-gen-all-btn');
+  var bar=document.getElementById('cc-gen-all-bar');
+  var lbl=document.getElementById('cc-gen-all-label');
+  var pct=t>0?Math.round((d/t)*100):0;
+  if(bar) bar.style.width=pct+'%';
+  if(lbl) lbl.textContent=d+' / '+t+' images';
+  if(d>=t&&t>0){
+    if(btn){btn.textContent='✓ All '+t+' images ready';btn.disabled=false;btn.style.color='#22c55e';btn.style.borderColor='#22c55e';}
+    if(lbl) lbl.textContent='All '+t+' complete';
+  } else if(t>0&&d>0){
+    if(btn) btn.textContent='⏳ Generating '+(d+1)+' of '+t+'...';
+  }
 }
 
 function _ccGetChannelFromBrief(){
@@ -22825,9 +22962,15 @@ function _ccImageSkip(prefix,postNum){
 var _ccImageQueue=[];
 var _ccImageGenerating=false;
 
-function _ccQueueAllImages(){
-  var total=(_ccLastPosts||[]).length;
-  for(var i=1;i<=total;i++) _ccQueueImage('s',i);
+var _ccImgAllTotal=0;var _ccImgAllDone=0;
+function _ccQueueAllImages(btn,total){
+  total=total||(_ccLastPosts||[]).length;
+  _ccImgAllTotal=total;_ccImgAllDone=0;
+  var b=btn||document.getElementById('cc-gen-all-btn');
+  if(b){b.textContent='⏳ Generating 1 of '+total+'...';b.disabled=true;}
+  var prog=document.getElementById('cc-gen-all-progress');if(prog)prog.style.display='block';
+  _ccUpdateGenAllProgress();
+  for(var i=1;i<=total;i++) _ccQueueImage('m',i);
 }
 
 function _ccQueueImage(prefix,postNum){
@@ -22844,7 +22987,7 @@ function _ccQueueImage(prefix,postNum){
 }
 
 function _ccProcessImageQueue(){
-  if(_ccImageQueue.length===0){_ccImageGenerating=false;return;}
+  if(_ccImageQueue.length===0){_ccImageGenerating=false;_ccUpdateGenAllProgress();return;}
   _ccImageGenerating=true;
   var next=_ccImageQueue.shift();
   // Update queue position labels on remaining waiting buttons
@@ -22857,6 +23000,8 @@ function _ccProcessImageQueue(){
     }
   });
   _ccGeneratePostImage(next.prefix,next.num,function(){
+    _ccImgAllDone++;
+    _ccUpdateGenAllProgress();
     setTimeout(_ccProcessImageQueue,1000);
   });
 }
@@ -22869,27 +23014,36 @@ function _ccGeneratePostImage(prefix,postNum,callback){
   if(btn){btn.textContent='Generating...';btn.disabled=true;}
   var channelData=_ccGetChannelFromBrief();
   var briefField=document.getElementById('cc-img-brief-'+postNum);
+  var customPromptField=document.getElementById('cc-custom-prompt-'+postNum);
+  var customPrompt=(customPromptField&&customPromptField.value.trim())||'';
   var _shotIdx=_ccSelectedScreenshot[postNum];
   var _shots=_ccAssetLoad('ecp_asset_screenshots')||[];
   var appScreen=(_shotIdx!==undefined&&_shotIdx>=0&&_shots[_shotIdx]&&_shots[_shotIdx].label)
     ?_shots[_shotIdx].label
     :'meal planning interface';
   var qs=new URLSearchParams({
-    action:      'generate_image_prompt',
-    image_brief: (briefField&&briefField.value)||post.image_brief||'',
-    post_hook:   post.hook||'',
-    post_body:   post.body||post.body_copy||'',
-    app_screen:  appScreen,
-    platform:    _campBrief.channel||'Facebook',
-    icp:         _campBrief.icp||'super_mom',
-    dimensions:  (channelData&&channelData.image_dimensions)||'1200x630px',
-    use_case:    'social'
+    action:        'generate_image_prompt',
+    image_brief:   customPrompt||(briefField&&briefField.value)||post.image_brief||'',
+    post_hook:     post.hook||'',
+    post_body:     post.body||post.body_copy||'',
+    app_screen:    appScreen,
+    platform:      _campBrief.channel||'Facebook',
+    icp:           _campBrief.icp||'super_mom',
+    dimensions:    (channelData&&channelData.image_dimensions)||'1200x630px',
+    use_case:      'social'
   });
+  if(customPrompt) qs.set('skip_optimize','true');
   fetch(CONFIG.sheetsUrl+'?'+qs.toString())
   .then(function(r){return r.json();})
   .then(function(d){
     if(d.ok&&d.image_base64){
       _ccLastImages[postNum]={mime_type:d.mime_type,image_base64:d.image_base64};
+      if(d.claude_brief){
+        var bta=document.getElementById('cc-ai-brief-text-'+postNum);
+        if(bta)bta.value=d.claude_brief;
+        window._ccClaudeBriefs=window._ccClaudeBriefs||{};
+        window._ccClaudeBriefs[postNum]=d.claude_brief;
+      }
       if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
       var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
       if(container){
@@ -22963,7 +23117,13 @@ function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
   var imgChannels=order.filter(function(ch){var l=ch.toLowerCase();return l!=='nextdoor';});
   if(imgChannels.length>0){
     html+='<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'+
-      '<button onclick="_ccQueueAllImages()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">🎨 Generate All Images ('+posts.length+' posts)</button>'+
+      '<button id="cc-gen-all-btn" onclick="_ccQueueAllImages(this,'+posts.length+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">🎨 Generate All Images ('+posts.length+' posts)</button>'+
+      '<div id="cc-gen-all-progress" style="display:none;margin-top:8px">'+
+        '<div style="background:var(--surface);border-radius:4px;height:8px;overflow:hidden;width:100%;max-width:320px">'+
+          '<div id="cc-gen-all-bar" style="background:'+_CC_RED+';height:100%;width:0%;transition:width 0.3s"></div>'+
+        '</div>'+
+        '<div id="cc-gen-all-label" style="font-size:10px;color:var(--muted);margin-top:4px;font-family:\'DM Mono\',monospace"></div>'+
+      '</div>'+
     '</div>';
   }
 
@@ -24514,24 +24674,50 @@ function _ccRenderContentHub(){
     '<button onclick="_ccHubCache.loaded=false;var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'content-hub\')p.innerHTML=_ccRenderContentHub();" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">⟳ Reload</button>'+
   '</div>';
   var tBg={EMAIL:'#3b82f6',SOCIAL:'#8b5cf6',LP:'#22c55e',BLOG:'#f59e0b'};
-  var sCols={draft:'#eab308',approved:'#8b5cf6',scheduled:'#3b82f6',posted:'#22c55e'};
+  var sCols={draft:'#eab308',approved:'#8b5cf6',in_review:'#f59e0b',needs_revision:'#ef4444',scheduled:'#3b82f6',posted:'#22c55e'};
   var nextSt={draft:'approved',approved:'scheduled',scheduled:'posted',posted:'draft'};
+  var isSearah=window._DGL_USER==='searah';
+  var isTaylor=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
+  // Find campaigns that have in_review posts (for Approve All button)
+  var inReviewCamps=[];
+  if(isTaylor){_ccHubCache.social.forEach(function(p){if(p.status==='in_review'&&p.campaign_id&&inReviewCamps.indexOf(p.campaign_id)===-1)inReviewCamps.push(p.campaign_id);});}
+  var approveAllBar=isTaylor&&inReviewCamps.length?'<div style="padding:8px 0;margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">'+
+    inReviewCamps.map(function(cid){return'<button onclick="_ccApproveAllForCampaign(\''+cid+'\')" style="background:#22c55e;border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Approve All — '+cid+'</button>';}).join('')+
+  '</div>':'';
   var rows=vis.map(function(a){
     var tb=tBg[a._type]||'#6b7280';var sc=sCols[a.status]||'#6b7280';var ns=nextSt[a.status]||'approved';
     var typeKey=a._type==='EMAIL'?'email_sequence':a._type==='SOCIAL'?'social_post':'landing_page';
-    return'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);min-height:40px">'+
+    var esc=function(s){return (s||'').replace(/'/g,"\\'");};
+    var postLabel=(a.campaign_id||'')+(a.platform?' '+a.platform:'');
+    // Approval action buttons for SOCIAL items
+    var actionBtns='';
+    if(a._type==='SOCIAL'){
+      if(isSearah){
+        if(a.status==='in_review') actionBtns='<span style="font-size:9px;color:var(--muted);font-family:\'DM Mono\',monospace;white-space:nowrap">Pending review</span>';
+        else if(a.status==='needs_revision') actionBtns='<button onclick="_ccSubmitForApproval(\''+esc(a.id)+'\',\''+esc(a.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">↺ Resubmit</button>';
+        else if(a.status!=='posted') actionBtns='<button onclick="_ccSubmitForApproval(\''+esc(a.id)+'\',\''+esc(a.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">✓ Submit</button>'+
+          '<button onclick="_ccRequestEdit(\''+esc(a.id)+'\',\''+esc(a.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">✎ Edit</button>';
+      } else if(isTaylor){
+        if(a.status==='in_review') actionBtns='<button onclick="_ccApprovePost(\''+esc(a.id)+'\',\''+esc(a.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:#22c55e;border:none;color:#fff;padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">✓ Approve</button>'+
+          '<button onclick="_ccRevisionRequest(\''+esc(a.id)+'\',\''+esc(a.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">✎ Revise</button>';
+        else actionBtns='<button onclick="_ccUpdateAssetStatus(\''+typeKey+'\',\''+esc(a.id)+'\',\''+ns+'\')" title="Advance to '+ns+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">→ '+ns+'</button>';
+      } else actionBtns='<button onclick="_ccUpdateAssetStatus(\''+typeKey+'\',\''+esc(a.id)+'\',\''+ns+'\')" title="Advance to '+ns+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">→ '+ns+'</button>';
+    } else {
+      actionBtns='<button onclick="_ccUpdateAssetStatus(\''+typeKey+'\',\''+esc(a.id)+'\',\''+ns+'\')" title="Advance to '+ns+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">→ '+ns+'</button>';
+    }
+    return'<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);min-height:40px;flex-wrap:wrap">'+
       '<span style="font-size:9px;font-weight:800;padding:3px 7px;border-radius:4px;background:'+tb+';color:#fff;white-space:nowrap;min-width:44px;text-align:center;flex-shrink:0">'+a._type+'</span>'+
       '<span style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--muted);min-width:90px;white-space:nowrap;flex-shrink:0">'+(a.campaign_id||'—')+'</span>'+
       '<span style="font-size:11px;color:var(--muted);min-width:80px;white-space:nowrap;flex-shrink:0;overflow:hidden;text-overflow:ellipsis">'+(a.platform||'—')+'</span>'+
       '<span style="font-size:12px;color:var(--text);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+(a.label||'—')+'</span>'+
       '<span style="font-size:10px;padding:2px 8px;border-radius:100px;border:1px solid '+sc+'44;background:'+sc+'18;color:'+sc+';white-space:nowrap;font-weight:700;flex-shrink:0">'+a.status+'</span>'+
       '<span style="font-size:10px;padding:2px 8px;border-radius:100px;background:var(--surface);border:1px solid var(--border);color:var(--muted);white-space:nowrap;flex-shrink:0">'+a.assigned+'</span>'+
-      '<button onclick="_ccUpdateAssetStatus(\''+typeKey+'\',\''+a.id+'\',\''+ns+'\')" title="Advance to '+ns+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;flex-shrink:0">→ '+ns+'</button>'+
+      '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap">'+actionBtns+'</div>'+
     '</div>';
   }).join('');
   return'<div style="width:100%">'+
     _ccSecHdr('📦 Content Hub')+
-    filterBar+
+    filterBar+approveAllBar+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
       '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:'+_CC_BEIGE+';border-bottom:1px solid var(--border)">'+
         '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000;min-width:58px;flex-shrink:0">Type</span>'+
@@ -24607,10 +24793,43 @@ function _ccRenderSearah(){
         '<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:340px">'+safeUrl+'</span>'+
         '<button onclick="var u=this.getAttribute(\'data-u\');navigator.clipboard.writeText(u).catch(function(){});this.textContent=\'Copied!\';var b=this;setTimeout(function(){b.textContent=\'Copy URL\';},1400);" data-u="'+safeUrl+'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Copy URL</button>'+
       '</div>':'')+
-      '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'+
-        (p.status!=='scheduled'&&p.status!=='posted'?'<button onclick="_ccUpdateAssetStatus(\'social_post\',\''+p.id+'\',\'scheduled\')" style="background:transparent;border:1px solid #3b82f6;color:#3b82f6;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Mark Scheduled</button>':'')+
-        (p.status!=='posted'?'<button onclick="_ccUpdateAssetStatus(\'social_post\',\''+p.id+'\',\'posted\')" style="background:#22c55e;border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Mark Posted</button>':'')+
-      '</div>'+
+      (function(){
+        var st=p.status||'draft';
+        var postLabel=(p.campaign_id||'')+(p.post_num?' Post '+p.post_num:'');
+        var esc=function(s){return s.replace(/'/g,"\\'");};
+        var isSearah=window._DGL_USER==='searah';
+        var isTaylor=['taylor','steve','adam','hammad'].includes(window._DGL_USER||'');
+        // Standard scheduling buttons
+        var schedBtn=(st!=='scheduled'&&st!=='posted'?'<button onclick="_ccUpdateAssetStatus(\'social_post\',\''+p.id+'\',\'scheduled\')" style="background:transparent;border:1px solid #3b82f6;color:#3b82f6;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Mark Scheduled</button>':'');
+        var postBtn=(st!=='posted'?'<button onclick="_ccUpdateAssetStatus(\'social_post\',\''+p.id+'\',\'posted\')" style="background:#22c55e;border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Mark Posted</button>':'');
+        // Searah approval actions
+        var searahBtns='';
+        if(isSearah){
+          if(st==='in_review'){
+            searahBtns='<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:5px 0">Submitted — awaiting Taylor\'s approval</span>';
+          } else if(st==='needs_revision'){
+            searahBtns='<span style="font-size:10px;padding:3px 10px;border-radius:100px;border:1px solid #ef4444;color:#ef4444;font-weight:700">Edit requested</span>'+
+              '<button onclick="_ccSubmitForApproval(\''+esc(p.id||'')+'\',\''+esc(p.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Resubmit</button>';
+          } else if(st!=='posted'){
+            searahBtns=
+              '<button onclick="_ccSubmitForApproval(\''+esc(p.id||'')+'\',\''+esc(p.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Ready — Submit for Approval</button>'+
+              '<button onclick="_ccRequestEdit(\''+esc(p.id||'')+'\',\''+esc(p.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">✎ Request Edit</button>'+
+              '<button onclick="_ccQueueImage(\'s\',\''+(p.post_num||p.id||1)+'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate Image</button>'+
+              '<button onclick="_ccUpdateAssetStatus(\'social_post\',\''+esc(p.id||'')+'\',\'posted\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">✕ Skip Image</button>';
+          }
+        }
+        // Taylor approval actions
+        var taylorBtns='';
+        if(isTaylor&&st==='in_review'){
+          taylorBtns=
+            '<button onclick="_ccApprovePost(\''+esc(p.id||'')+'\',\''+esc(p.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:#22c55e;border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Approve</button>'+
+            '<button onclick="_ccRevisionRequest(\''+esc(p.id||'')+'\',\''+esc(p.campaign_id||'')+'\',\''+esc(postLabel)+'\')" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✎ Request Revision</button>';
+        }
+        return '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">'+
+          searahBtns+taylorBtns+
+          (!isSearah?schedBtn+postBtn:'')+
+        '</div>';
+      })()+
     '</div>';
   }
   function section(title,posts,empty){
@@ -24658,6 +24877,101 @@ function _ccUpdateAssetStatus(type,id,status){
       }
     })
     .catch(function(){});
+}
+
+// ── Feature 4: Approval flow helpers ────────────────────────────────────────
+function _ccSendApprovalNotif(to,from,type,campaignId,postId,message){
+  _logNotification(postId,to,'',message,type);
+}
+
+function _ccSubmitForApproval(postId,campaignId,postLabel){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'social_posts_write',post:{id:postId,status:'in_review'}})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        _ccSendApprovalNotif('taylor','searah','approval_request',campaignId,postId,'Searah submitted '+postLabel+' for approval');
+        _ccSearahCache.loaded=false;_ccHubCache.loaded=false;
+        var p=_ccEl('cc-panel');
+        if(p&&_campActiveTab==='searah') p.innerHTML=_ccRenderSearah();
+        else if(p&&_campActiveTab==='content-hub') p.innerHTML=_ccRenderContentHub();
+        _showToast('<div>✓ Submitted — awaiting Taylor\'s approval</div>',2500);
+      }
+    }).catch(function(){});
+}
+
+function _ccRequestEdit(postId,campaignId,postLabel){
+  var note=window.prompt('What needs to change?\n(Note sent to Taylor)');
+  if(!note||!note.trim()) return;
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'social_posts_write',post:{id:postId,status:'needs_revision'}})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        _ccSendApprovalNotif('taylor','searah','revision_request',campaignId,postId,'Searah requested edit on '+postLabel+': '+note);
+        _ccSearahCache.loaded=false;_ccHubCache.loaded=false;
+        var p=_ccEl('cc-panel');
+        if(p&&_campActiveTab==='searah') p.innerHTML=_ccRenderSearah();
+        else if(p&&_campActiveTab==='content-hub') p.innerHTML=_ccRenderContentHub();
+        _showToast('<div>✎ Edit request sent to Taylor</div>',2500);
+      }
+    }).catch(function(){});
+}
+
+function _ccApprovePost(postId,campaignId,postLabel){
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'social_posts_write',post:{id:postId,status:'approved'}})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        _ccSendApprovalNotif('searah','taylor','approved',campaignId,postId,'Taylor approved '+postLabel+' — ready to schedule');
+        _ccSearahCache.loaded=false;_ccHubCache.loaded=false;
+        var p=_ccEl('cc-panel');
+        if(p&&_campActiveTab==='searah') p.innerHTML=_ccRenderSearah();
+        else if(p&&_campActiveTab==='content-hub') p.innerHTML=_ccRenderContentHub();
+        _showToast('<div style="color:#22c55e">✓ Approved — Searah notified</div>',2500);
+      }
+    }).catch(function(){});
+}
+
+function _ccRevisionRequest(postId,campaignId,postLabel){
+  var note=window.prompt('Revision note for Searah:');
+  if(!note||!note.trim()) return;
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'social_posts_write',post:{id:postId,status:'needs_revision'}})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        _ccSendApprovalNotif('searah','taylor','revision_request',campaignId,postId,'Taylor requested revision on '+postLabel+': '+note);
+        _ccSearahCache.loaded=false;_ccHubCache.loaded=false;
+        var p=_ccEl('cc-panel');
+        if(p&&_campActiveTab==='searah') p.innerHTML=_ccRenderSearah();
+        else if(p&&_campActiveTab==='content-hub') p.innerHTML=_ccRenderContentHub();
+        _showToast('<div>✎ Revision request sent to Searah</div>',2500);
+      }
+    }).catch(function(){});
+}
+
+function _ccApproveAllForCampaign(campaignId){
+  if(!CONFIG.sheetsUrl) return;
+  if(!confirm('Approve all posts for campaign '+campaignId+'?')) return;
+  var posts=_ccHubCache.social.filter(function(p){return p.campaign_id===campaignId&&p.status!=='posted'&&p.status!=='approved';});
+  if(!posts.length){_showToast('<div>No posts to approve for '+campaignId+'</div>',2000);return;}
+  var done=0;
+  posts.forEach(function(p){
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'social_posts_write',post:{id:p.id,status:'approved'}})})
+      .then(function(r){return r.json();})
+      .then(function(){
+        done++;
+        if(done===posts.length){
+          _ccSendApprovalNotif('searah','taylor','approved',campaignId,'bulk','Taylor approved all posts for campaign '+campaignId+' — ready to schedule');
+          _ccSearahCache.loaded=false;_ccHubCache.loaded=false;
+          var panel=_ccEl('cc-panel');
+          if(panel&&_campActiveTab==='content-hub') panel.innerHTML=_ccRenderContentHub();
+          _showToast('<div style="color:#22c55e">✓ All '+posts.length+' posts approved</div>',2500);
+        }
+      }).catch(function(){});
+  });
 }
 
 // ── Main render + tab switcher ──────────────────────────────────────────────
