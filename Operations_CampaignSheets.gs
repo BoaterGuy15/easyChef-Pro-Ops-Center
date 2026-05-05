@@ -10,15 +10,17 @@ var _CC_SS_NAME   = 'easyChef Pro — Campaign Center';
 var _CC_SS_ID_KEY = 'CAMPAIGN_SHEETS_ID';
 
 var _CC_TAB = {
-  ICP:      'ICPProfiles',
-  CLAIMS:   'ApprovedClaims',
-  BRIEFS:   'CampaignBriefs',
-  COPY:     'GeneratedCopy',
-  DL:       'DeepLinkRegistry',
-  EMAIL:    'EmailSequences',
-  SOCIAL:   'SocialPosts',
-  PAGES:    'LandingPages',
-  CHANNELS: 'Channels'
+  ICP:            'ICPProfiles',
+  CLAIMS:         'ApprovedClaims',
+  BRIEFS:         'CampaignBriefs',
+  COPY:           'GeneratedCopy',
+  DL:             'DeepLinkRegistry',
+  EMAIL:          'EmailSequences',
+  SOCIAL:         'SocialPosts',
+  PAGES:          'LandingPages',
+  CHANNELS:       'Channels',
+  CAMPAIGN_TYPES: 'CampaignTypes',
+  FUNNEL_STAGES:  'FunnelStages'
 };
 
 var _CC_HDR = {
@@ -54,7 +56,18 @@ var _CC_HDR = {
     'id','campaign_id','sequence_code','email_number','subject_line',
     'preview_text','body_hook','body_problem','body_agitate','body_solve',
     'body_value','body_proof','body_cta','send_day','trigger_event',
-    'status','approved','approved_by','built_in_klaviyo','klaviyo_id'
+    'status','approved','approved_by','built_in_klaviyo','klaviyo_id',
+    'funnel_stage','subject_angle','body_theme','role','seq_template_id'
+  ],
+  CampaignTypes: [
+    'id','cta_type','label','cta_text','destination_url','destination_label',
+    'loss_aversion','phase','active','detection_keywords',
+    'email_subject_angle','social_hook_angle','created_at','notes'
+  ],
+  FunnelStages: [
+    'id','stage_name','stage_order','social_day','email_day','seq_offset_days',
+    'post_template','email_theme','social_theme','pair_id_prefix',
+    'loss_aversion_note','created_at','notes'
   ],
   SocialPosts: [
     'id','campaign_id','platform','hook','body_copy','cta','hashtags',
@@ -216,6 +229,34 @@ function _setupCampaignSheets() {
     ['X',         'x',        'social',    'x',         'SOC','active','','280',  '280',  'false','0', '0', '',                                                                                                    '1200x675px',  '16:9',   'Paste URL directly in post',                       'Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply','post'],
     ['Reddit',    'reddit',   'community', 'reddit',    'SOC','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'Link in post or comment',                          'Community tone — no promotional language · value first · r/easyChefPro and u/easyChef_Pro','post']
   ].forEach(function(row) { chSheet.appendRow(row); });
+
+  // Seed CampaignTypes
+  var ctSheet = ss.getSheetByName(_CC_TAB.CAMPAIGN_TYPES);
+  if (!ctSheet) ctSheet = ss.insertSheet(_CC_TAB.CAMPAIGN_TYPES);
+  _ccHdrStyle(ctSheet, _CC_HDR.CampaignTypes);
+  [
+    ['ct-001','waitlist','Waitlist Signup (pre-launch)','Join the waitlist free — early access July 1','https://easychefpro.com/lp/waitlist-a','/lp/waitlist-a','Founding price ends at 5,000 families','pre-launch','true','waitlist,sign up,pre-launch,before july','Save $1,336/year','6:30 PM fridge panic',now,'Primary'],
+    ['ct-002','download','App Download (post-launch)','Download free on App Store','app store','App Store/Google Play','Founding price ends soon','post-launch','false','download,app store,install,july 1','App is live — download now','Your dinner problem is solved',now,''],
+    ['ct-003','founding','Founding Price Lock','Lock in $7.99/month before price goes to $19.99','https://easychefpro.com/lp/waitlist-a','/lp/waitlist-a','60% off — first 5,000 families only','pre-launch urgency','true','founding,price,lock in,60% off,7.99','Price urgency — 60% off ends soon','Founding price ends when we hit 10,000 families',now,''],
+    ['ct-004','referral','Referral / Share','Share with one mom who needs this','https://easychefpro.com/thank-you','/thank-you','She saves $1,336 this year — or she doesn\'t','post-signup viral','true','referral,share,friend,refer','Share and help a friend','Know a mom who throws money away every week?',now,''],
+    ['ct-005','affiliate','Affiliate Partner','Get early access — no credit card','https://easychefpro.com/lp/[affiliate-slug]','/lp/[affiliate-slug]','Founding price for referred families only','all','true','affiliate,partner,influencer,commission','Exclusive access for [partner] readers','My readers save $1,336 a year with this',now,''],
+    ['ct-006','recipe','Recipe / Content SEO','See the full recipe free in easyChef Pro','https://easychefpro.com/recipes/[slug]','/recipes/[slug]','Free during beta — paid after launch','all','true','recipe,content,seo,blog','New recipe — ready in 30 minutes','30-minute dinner from what is in your fridge',now,''],
+    ['ct-007','upgrade','In-App Upgrade','Upgrade now — founding price locks forever','in-app paywall','Paywall (Tipping Point)','Price goes to $19.99 on July 1','post-install PLG','false','upgrade,paywall,in-app,tipping point','You have hit the tipping point','You have cooked 3 meals — here is what comes next',now,'']
+  ].forEach(function(row) { ctSheet.appendRow(row); });
+
+  // Seed FunnelStages
+  var fsSheet = ss.getSheetByName(_CC_TAB.FUNNEL_STAGES);
+  if (!fsSheet) fsSheet = ss.insertSheet(_CC_TAB.FUNNEL_STAGES);
+  _ccHdrStyle(fsSheet, _CC_HDR.FunnelStages);
+  [
+    ['fs-001','hook',    1, 0,  1,  0,  'Stop the scroll — make her feel seen in under 2 seconds. Mirror her exact moment.',                                                                                'Hook — subject line stops the scroll',           'Mirror her moment — emotional recognition', 'pair-1-hook',    'Every day she waits costs $3.66',              now,''],
+    ['fs-002','problem', 2, 2,  3,  0,  'Name the pain so precisely she thinks you wrote it about her specifically.',                                                                                      'Problem — name her pain precisely',              'Name the 6:30 PM moment exactly',           'pair-2-problem', 'The problem costs $1,336 a year',              now,''],
+    ['fs-003','agitate', 3, 5,  6,  0,  'Make the problem vivid, concrete, personal. Cost it out. $1,336/year — that is $111/month — that is $25/week going in the bin.',                                 'Agitate — cost the problem out',                 'Cost it out — specific dollar amount',      'pair-3-agitate', 'She cannot unsee this number',                 now,''],
+    ['fs-004','solve',   4, 9,  10, 0,  'Introduce easyChef Pro as the inevitable obvious answer. One sentence. No feature list.',                                                                         'Solve — introduce easyChef Pro as the answer',   'Introduce easyChef Pro — one sentence',     'pair-4-solve',   'The answer exists — she just needs to find it',now,''],
+    ['fs-005','value',   5, 13, 14, 0,  'Translate features into outcomes she actually wants. Feelings and results, not specs. 30 minutes. What you already have.',                                        'Value — outcomes not features',                  'Show the outcomes — 30 minutes, real food', 'pair-5-value',   'Every night without it costs her time and money',now,''],
+    ['fs-006','proof',   6, 24, 25, 0,  'One specific honest proof point. Validated across 10,000 household profiles. Built by first responders. Then the offer.',                                         'Proof — one honest stat, then the offer',         'One proof point — then founding price',     'pair-6-proof',   'Social proof closes the last objection',       now,''],
+    ['fs-007','cta',     7, 0,  1,  28, 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                                                           'CTA — one action, loss aversion, urgency',       'Founding price — last chance angle',        'pair-7-cta',     'Founding price ends at 5,000 families',        now,'']
+  ].forEach(function(row) { fsSheet.appendRow(row); });
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
@@ -567,7 +608,12 @@ function _seqRowToObj(r) {
     approved: r[16] === true || String(r[16]).toLowerCase() === 'true',
     approved_by: r[17],
     built_in_klaviyo: r[18] === true || String(r[18]).toLowerCase() === 'true',
-    klaviyo_id: r[19]
+    klaviyo_id:      r[19] || '',
+    funnel_stage:    r[20] || '',
+    subject_angle:   r[21] || '',
+    body_theme:      r[22] || '',
+    role:            r[23] || '',
+    seq_template_id: r[24] || ''
   };
 }
 
@@ -614,7 +660,12 @@ function setEmailSequence(item) {
     item.approved          !== undefined ? item.approved          : (ex ? ex[16] : false),
     item.approved_by       !== undefined ? item.approved_by       : (ex ? ex[17] : ''),
     item.built_in_klaviyo  !== undefined ? item.built_in_klaviyo  : (ex ? ex[18] : false),
-    item.klaviyo_id        !== undefined ? item.klaviyo_id        : (ex ? ex[19] : '')
+    item.klaviyo_id        !== undefined ? item.klaviyo_id        : (ex ? ex[19] : ''),
+    item.funnel_stage      !== undefined ? item.funnel_stage      : (ex ? ex[20] : ''),
+    item.subject_angle     !== undefined ? item.subject_angle     : (ex ? ex[21] : ''),
+    item.body_theme        !== undefined ? item.body_theme        : (ex ? ex[22] : ''),
+    item.role              !== undefined ? item.role              : (ex ? ex[23] : ''),
+    item.seq_template_id   !== undefined ? item.seq_template_id   : (ex ? ex[24] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -905,6 +956,101 @@ function _migrateChannelsTab() {
   try { SpreadsheetApp.getUi().alert('Channels tab migrated — ' + fullSeed.length + ' rows updated.'); } catch(e) {}
 }
 
+// ── CampaignTypes ─────────────────────────────────────────────────────────────
+
+function _ctRowToObj(r) {
+  return {
+    id:                   r[0]  || '',
+    cta_type:             r[1]  || '',
+    label:                r[2]  || '',
+    cta_text:             r[3]  || '',
+    destination_url:      r[4]  || '',
+    destination_label:    r[5]  || '',
+    loss_aversion:        r[6]  || '',
+    phase:                r[7]  || '',
+    active:               r[8] === true || String(r[8]).toLowerCase() === 'true',
+    detection_keywords:   r[9]  || '',
+    email_subject_angle:  r[10] || '',
+    social_hook_angle:    r[11] || '',
+    created_at:           _ccFmtDate(r[12]),
+    notes:                r[13] || ''
+  };
+}
+
+function getCampaignTypes(activeOnly) {
+  var sheet = _getCCSheet(_CC_TAB.CAMPAIGN_TYPES);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.CampaignTypes.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_ctRowToObj);
+  if (activeOnly === false) return rows;
+  return rows.filter(function(t) { return t.active; });
+}
+
+function getCampaignType(ctaType) {
+  if (!ctaType) return null;
+  var q = String(ctaType).toLowerCase().trim();
+  var types = getCampaignTypes(false);
+  for (var i = 0; i < types.length; i++) {
+    if (String(types[i].cta_type).toLowerCase() === q) return types[i];
+  }
+  return null;
+}
+
+// ── FunnelStages ──────────────────────────────────────────────────────────────
+
+function _fsRowToObj(r) {
+  return {
+    id:               r[0]  || '',
+    stage_name:       r[1]  || '',
+    stage_order:      parseInt(r[2])  || 0,
+    social_day:       parseInt(r[3])  || 0,
+    email_day:        parseInt(r[4])  || 0,
+    seq_offset_days:  parseInt(r[5])  || 0,
+    post_template:    r[6]  || '',
+    email_theme:      r[7]  || '',
+    social_theme:     r[8]  || '',
+    pair_id_prefix:   r[9]  || '',
+    loss_aversion_note: r[10] || '',
+    created_at:       _ccFmtDate(r[11]),
+    notes:            r[12] || ''
+  };
+}
+
+function getFunnelStages() {
+  var sheet = _getCCSheet(_CC_TAB.FUNNEL_STAGES);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  return sheet.getRange(2, 1, last - 1, _CC_HDR.FunnelStages.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_fsRowToObj)
+    .sort(function(a, b) { return a.stage_order - b.stage_order; });
+}
+
+function getFunnelStage(stageName) {
+  if (!stageName) return null;
+  var q = String(stageName).toLowerCase().trim();
+  var stages = getFunnelStages();
+  for (var i = 0; i < stages.length; i++) {
+    if (stages[i].stage_name.toLowerCase() === q) return stages[i];
+  }
+  return null;
+}
+
+// ── getEmailWireframe ─────────────────────────────────────────────────────────
+// Returns EmailSequences rows where campaign_id === 'TEMPLATE'.
+// These are wireframe definitions, not generated output.
+
+function getEmailWireframe() {
+  var sheet = _getCCSheet(_CC_TAB.EMAIL);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  return sheet.getRange(2, 1, last - 1, _CC_HDR.EmailSequences.length).getValues()
+    .filter(function(r) { return r[0] && String(r[1]) === 'TEMPLATE'; })
+    .map(_seqRowToObj);
+}
+
 function _addMissingChannels() {
   var now = _ccNow();
   var missing = [
@@ -926,4 +1072,14 @@ function _addMissingChannels() {
     });
   });
   Logger.log('Done — added ' + missing.length + ' channels');
+}
+
+// ── Diagnostic — run from Apps Script editor to verify all sheet tabs ─────────
+
+function _testSheetWiring() {
+  Logger.log('CampaignTypes: ' + getCampaignTypes().length + ' rows');
+  Logger.log('FunnelStages: '  + getFunnelStages().length  + ' rows');
+  Logger.log('ICPProfiles: '   + getIcpProfiles().length   + ' rows');
+  Logger.log('ApprovedClaims: '+ getApprovedClaims().length + ' rows');
+  Logger.log('Channels: '      + getChannels().length      + ' rows');
 }

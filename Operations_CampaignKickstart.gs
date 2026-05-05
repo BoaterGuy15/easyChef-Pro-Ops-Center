@@ -48,6 +48,61 @@ function campaignKickstart(prompt) {
     claimsContext = 'Use only: $1,336/year savings, 69.5% less food waste, 30 minutes fridge to table\n\n';
   }
 
+  // Load CampaignTypes for dynamic detection and destination blocks
+  var stagesLabel = 'Hook → Problem → Agitate → Solve → Value → Proof → CTA';
+  try {
+    var ksStages = getFunnelStages();
+    if (Array.isArray(ksStages) && ksStages.length) {
+      stagesLabel = ksStages.map(function(s) {
+        return s.stage_name.charAt(0).toUpperCase() + s.stage_name.slice(1);
+      }).join(' → ');
+    }
+  } catch(e) {}
+
+  var detectionBlock = '';
+  var ctaDestBlock   = '';
+  try {
+    var ksCtaTypes = getCampaignTypes(false);
+    if (Array.isArray(ksCtaTypes) && ksCtaTypes.length) {
+      detectionBlock = 'CAMPAIGN TYPE AUTO-DETECTION — infer cta_type from the user prompt:\n';
+      ksCtaTypes.forEach(function(t) {
+        var kws = (t.detection_keywords || '').split(',').map(function(k) {
+          return '"' + k.trim() + '"';
+        }).join(', ');
+        detectionBlock += '- mentions ' + kws + ' → cta_type: ' + t.cta_type + '\n';
+      });
+      detectionBlock += '- default → cta_type: waitlist\n\n';
+
+      ctaDestBlock = 'CTA DESTINATIONS BY TYPE:\n';
+      ksCtaTypes.forEach(function(t) {
+        ctaDestBlock += '- ' + t.cta_type + ':  CTA = "' + t.cta_text + '" | Destination: ' + t.destination_label + '\n';
+      });
+      ctaDestBlock += '\n';
+    }
+  } catch(e) {}
+
+  if (!detectionBlock) {
+    detectionBlock =
+      'CAMPAIGN TYPE AUTO-DETECTION — infer cta_type from the user prompt:\n' +
+      '- mentions "waitlist" or pre-July context → cta_type: waitlist\n' +
+      '- mentions "download" or "app store" or "install" → cta_type: download\n' +
+      '- mentions "founding" or "price" or "lock in" → cta_type: founding\n' +
+      '- mentions "referral" or "share" or "friend" → cta_type: referral\n' +
+      '- mentions "affiliate" or "partner" or "influencer" → cta_type: affiliate\n' +
+      '- mentions "recipe" or "content" or "SEO" → cta_type: recipe\n' +
+      '- mentions "upgrade" or "paywall" or "in-app" → cta_type: upgrade\n' +
+      '- default → cta_type: waitlist\n\n';
+    ctaDestBlock =
+      'CTA DESTINATIONS BY TYPE:\n' +
+      '- waitlist:  CTA = "Join the waitlist free" | Destination: /lp/waitlist-a or /lp/waitlist-b\n' +
+      '- download:  CTA = "Download free on App Store" | Destination: App Store / Google Play\n' +
+      '- founding:  CTA = "Lock in $7.99/month" | Destination: /lp/waitlist-a\n' +
+      '- referral:  CTA = "Share and get early access" | Destination: Branch.io referral link\n' +
+      '- affiliate: CTA = "Get early access" | Destination: /lp/[affiliate-slug]\n' +
+      '- recipe:    CTA = "See the full recipe free" | Destination: /recipes/[slug]\n' +
+      '- upgrade:   CTA = "Upgrade to founding price" | Destination: In-app paywall\n\n';
+  }
+
   var systemPrompt =
     'You are the easyChef Pro campaign architect. A user has described a target customer and goal. ' +
     'Your job is to identify which ICP profile this matches from the list below, select the correct ' +
@@ -61,27 +116,12 @@ function campaignKickstart(prompt) {
     'No markdown in output. Write like a friend texting not a corporation.\n\n' +
 
     '7-step framework every campaign follows:\n' +
-    'Hook → Problem → Agitate → Solve → Value → Proof → CTA\n' +
+    stagesLabel + '\n' +
     'The sequence never changes. Only the CTA destination changes by campaign type.\n\n' +
 
-    'CAMPAIGN TYPE AUTO-DETECTION — infer cta_type from the user prompt:\n' +
-    '- mentions "waitlist" or pre-July context → cta_type: waitlist\n' +
-    '- mentions "download" or "app store" or "install" → cta_type: download\n' +
-    '- mentions "founding" or "price" or "lock in" → cta_type: founding\n' +
-    '- mentions "referral" or "share" or "friend" → cta_type: referral\n' +
-    '- mentions "affiliate" or "partner" or "influencer" → cta_type: affiliate\n' +
-    '- mentions "recipe" or "content" or "SEO" → cta_type: recipe\n' +
-    '- mentions "upgrade" or "paywall" or "in-app" → cta_type: upgrade\n' +
-    '- default → cta_type: waitlist\n\n' +
+    detectionBlock +
 
-    'CTA DESTINATIONS BY TYPE:\n' +
-    '- waitlist:  CTA = "Join the waitlist free" | Destination: /lp/waitlist-a or /lp/waitlist-b\n' +
-    '- download:  CTA = "Download free on App Store" | Destination: App Store / Google Play\n' +
-    '- founding:  CTA = "Lock in $7.99/month" | Destination: /lp/waitlist-a\n' +
-    '- referral:  CTA = "Share and get early access" | Destination: Branch.io referral link\n' +
-    '- affiliate: CTA = "Get early access" | Destination: /lp/[affiliate-slug]\n' +
-    '- recipe:    CTA = "See the full recipe free" | Destination: /recipes/[slug]\n' +
-    '- upgrade:   CTA = "Upgrade to founding price" | Destination: In-app paywall\n\n' +
+    ctaDestBlock +
 
     'Architecture rules:\n' +
     'Every piece of content drives to a landing page. Landing pages belong to an ICP, not a campaign — ' +

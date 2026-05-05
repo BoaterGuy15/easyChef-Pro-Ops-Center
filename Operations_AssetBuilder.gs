@@ -52,6 +52,77 @@ function _getIcpContext(icpCode) {
   return 'ICP: ' + (icpCode || 'Unknown') + '\n';
 }
 
+// ── _getStagesArcText ─────────────────────────────────────────────────────────
+// Builds the campaign arc + individual post arc sections from FunnelStages tab.
+// Falls back to hardcoded text if the sheet is unavailable.
+
+function _getStagesArcText() {
+  var stages = [];
+  try { stages = getFunnelStages(); } catch(e) {}
+
+  if (!stages.length) {
+    return (
+      '=== CAMPAIGN FLOW RULE — CRITICAL ===\n' +
+      'Every campaign follows the 7-step sequence across the full post set AND within each individual post.\n\n' +
+      'THE CAMPAIGN ARC — assign funnel stages to posts in this order:\n' +
+      '  Post 1 → hook       (stop the scroll, make her feel seen)\n' +
+      '  Post 2 → problem    (name the problem precisely)\n' +
+      '  Post 3 → agitate    (make the pain vivid and costly)\n' +
+      '  Post 4 → solve      (introduce easyChef Pro as the answer)\n' +
+      '  Post 5 → value      (outcomes she wants, not features)\n' +
+      '  Post 6 → proof      (one honest proof point)\n' +
+      '  Post 7+ → cta       (one action, low friction)\n' +
+      'If post count is fewer than 7, compress — combine agitate+problem or value+proof.\n' +
+      'If post count is more than 7, expand the middle (more value or proof posts).\n\n' +
+      'THE INDIVIDUAL POST ARC — every post body follows this compressed sequence:\n' +
+      '  1. Hook line     (1 sentence — stop the scroll)\n' +
+      '  2. Problem       (1–2 sentences — name her pain)\n' +
+      '  3. Agitate       (1–2 sentences — cost it out, make it vivid)\n' +
+      '  4. Solve         (1 sentence — introduce the answer)\n' +
+      '  5. Value         (1–2 sentences — outcome not feature)\n' +
+      '  6. Proof         (1 sentence — one honest stat or claim)\n' +
+      '  7. CTA           (1 sentence — one action, outcome framed)\n\n' +
+      'Example for a savings-angle post:\n' +
+      '  Hook: "Your family threw away $1,336 last year."\n' +
+      '  Problem: "Not on bad decisions. On groceries that expired before you could use them."\n' +
+      '  Agitate: "The spinach. The leftovers nobody touched. The chicken you found too late."\n' +
+      '  Solve: "easyChef Pro plans meals around what you actually have."\n' +
+      '  Value: "30 minutes from fridge to table every night."\n' +
+      '  Proof: "Validated across 10,000 household profiles."\n' +
+      '  CTA: "Join the founding waitlist free — no credit card."\n\n'
+    );
+  }
+
+  var arcLines = stages.map(function(s, i) {
+    var label = i === stages.length - 1 ? 'Post ' + (i + 1) + '+' : 'Post ' + (i + 1) + ' ';
+    return '  ' + label + ' → ' + s.stage_name + '       (' + s.social_theme + ')';
+  }).join('\n');
+
+  var postArcLines = stages.map(function(s, i) {
+    return '  ' + (i + 1) + '. ' + s.stage_name.charAt(0).toUpperCase() + s.stage_name.slice(1) +
+      '         (' + s.post_template.split('.')[0] + ')';
+  }).join('\n');
+
+  return (
+    '=== CAMPAIGN FLOW RULE — CRITICAL ===\n' +
+    'Every campaign follows the 7-step sequence across the full post set AND within each individual post.\n\n' +
+    'THE CAMPAIGN ARC — assign funnel stages to posts in this order:\n' +
+    arcLines + '\n' +
+    'If post count is fewer than 7, compress — combine agitate+problem or value+proof.\n' +
+    'If post count is more than 7, expand the middle (more value or proof posts).\n\n' +
+    'THE INDIVIDUAL POST ARC — every post body follows this compressed sequence:\n' +
+    postArcLines + '\n\n' +
+    'Example for a savings-angle post:\n' +
+    '  Hook: "Your family threw away $1,336 last year."\n' +
+    '  Problem: "Not on bad decisions. On groceries that expired before you could use them."\n' +
+    '  Agitate: "The spinach. The leftovers nobody touched. The chicken you found too late."\n' +
+    '  Solve: "easyChef Pro plans meals around what you actually have."\n' +
+    '  Value: "30 minutes from fridge to table every night."\n' +
+    '  Proof: "Validated across 10,000 household profiles."\n' +
+    '  CTA: "Join the founding waitlist free — no credit card."\n\n'
+  );
+}
+
 function _getPlatformNote(channelName) {
   try {
     var channels = getChannels();
@@ -250,16 +321,16 @@ function buildSocialPosts(brief, copy) {
   var ctaType  = brief.cta_type || 'waitlist';
   var lpUrl    = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
 
-  var _ctaConfigs = {
-    waitlist: { cta: 'Join the waitlist free — early access July 1', loss: 'Founding price ends at 5,000 families' },
-    download: { cta: 'Download free on App Store',                   loss: 'Founding price ends soon' },
-    founding: { cta: 'Lock in $7.99/month before price goes to $19.99', loss: '60% off — first 5,000 families only' },
-    referral: { cta: 'Share with one mom who needs this',            loss: "She saves $1,336 this year — or she doesn't" },
-    affiliate:{ cta: 'Get early access — no credit card',            loss: 'Founding price for referred families only' },
-    recipe:   { cta: 'See the full recipe free in easyChef Pro',     loss: 'Free during beta — paid after launch' },
-    upgrade:  { cta: 'Upgrade now — founding price locks forever',   loss: 'Price goes to $19.99 on July 1' }
-  };
-  var ctaConf = _ctaConfigs[ctaType] || _ctaConfigs.waitlist;
+  var ctaConf = { cta: 'Join the waitlist free — early access July 1', loss: 'Founding price ends at 5,000 families' };
+  try {
+    var ctaTypes = getCampaignTypes(false);
+    for (var ci = 0; ci < ctaTypes.length; ci++) {
+      if (ctaTypes[ci].cta_type === ctaType) {
+        ctaConf = { cta: ctaTypes[ci].cta_text, loss: ctaTypes[ci].loss_aversion };
+        break;
+      }
+    }
+  } catch(ctaErr) {}
 
   var claimsCtx    = _getClaimsContext();
   var icpCtx       = _getIcpContext(brief.icp);
@@ -279,34 +350,7 @@ function buildSocialPosts(brief, copy) {
     'Headline: '    + (copy && copy.headline    || '') + '\n' +
     'Social hook: ' + (copy && copy.social_hook || '') + '\n' +
     'Primary CTA: ' + (copy && copy.cta_primary || '') + '\n\n' +
-    '=== CAMPAIGN FLOW RULE — CRITICAL ===\n' +
-    'Every campaign follows the 7-step sequence across the full post set AND within each individual post.\n\n' +
-    'THE CAMPAIGN ARC — assign funnel stages to posts in this order:\n' +
-    '  Post 1 → hook       (stop the scroll, make her feel seen)\n' +
-    '  Post 2 → problem    (name the problem precisely)\n' +
-    '  Post 3 → agitate    (make the pain vivid and costly)\n' +
-    '  Post 4 → solve      (introduce easyChef Pro as the answer)\n' +
-    '  Post 5 → value      (outcomes she wants, not features)\n' +
-    '  Post 6 → proof      (one honest proof point)\n' +
-    '  Post 7+ → cta       (one action, low friction)\n' +
-    'If post count is fewer than 7, compress — combine agitate+problem or value+proof.\n' +
-    'If post count is more than 7, expand the middle (more value or proof posts).\n\n' +
-    'THE INDIVIDUAL POST ARC — every post body follows this compressed sequence:\n' +
-    '  1. Hook line     (1 sentence — stop the scroll)\n' +
-    '  2. Problem       (1–2 sentences — name her pain)\n' +
-    '  3. Agitate       (1–2 sentences — cost it out, make it vivid)\n' +
-    '  4. Solve         (1 sentence — introduce the answer)\n' +
-    '  5. Value         (1–2 sentences — outcome not feature)\n' +
-    '  6. Proof         (1 sentence — one honest stat or claim)\n' +
-    '  7. CTA           (1 sentence — one action, outcome framed)\n\n' +
-    'Example for a savings-angle post:\n' +
-    '  Hook: "Your family threw away $1,336 last year."\n' +
-    '  Problem: "Not on bad decisions. On groceries that expired before you could use them."\n' +
-    '  Agitate: "The spinach. The leftovers nobody touched. The chicken you found too late."\n' +
-    '  Solve: "easyChef Pro plans meals around what you actually have."\n' +
-    '  Value: "30 minutes from fridge to table every night."\n' +
-    '  Proof: "Validated across 10,000 household profiles."\n' +
-    '  CTA: "Join the founding waitlist free — no credit card."\n\n' +
+    _getStagesArcText() +
     'Total post length: 250–400 chars for Facebook.\n' +
     'The funnel_stage field in the output JSON must reflect the post\'s actual arc stage.\n\n' +
     '=== UNIVERSAL CAMPAIGN ENGINE ===\n' +

@@ -403,6 +403,8 @@ function doGet(e) {
       try { return respond({ok:true, criteria:JSON.parse(obj.notes||'null')}); }
       catch(e) { return respond({ok:true, criteria:null}); }
     }
+    if(e.parameter.action === 'campaign_types_read') return respond({ok:true, types: getCampaignTypes()});
+    if(e.parameter.action === 'funnel_stages_read')  return respond({ok:true, stages: getFunnelStages()});
     return respond({ ok: true, tasks: getTasks() });
   } catch(err) {
     return respond({ ok: false, error: err.message });
