@@ -20,7 +20,8 @@ var _CC_TAB = {
   PAGES:          'LandingPages',
   CHANNELS:       'Channels',
   CAMPAIGN_TYPES: 'CampaignTypes',
-  FUNNEL_STAGES:  'FunnelStages'
+  FUNNEL_STAGES:  'FunnelStages',
+  BLUEPRINTS:     'BlueprintConfig'
 };
 
 var _CC_HDR = {
@@ -85,6 +86,11 @@ var _CC_HDR = {
     'optimal_chars','max_chars','use_hashtags','hashtag_count_min','hashtag_count_max',
     'hashtag_suggestions','image_dimensions','image_ratio','link_placement',
     'platform_note','content_format'
+  ],
+  BlueprintConfig: [
+    'id','blueprint_code','blueprint_name','sequences_included',
+    'email_count','social_post_count','cta_type_default',
+    'phase','active','description'
   ]
 };
 
@@ -257,6 +263,20 @@ function _setupCampaignSheets() {
     ['fs-006','proof',   6, 24, 25, 0,  'One specific honest proof point. Validated across 10,000 household profiles. Built by first responders. Then the offer.',                                         'Proof — one honest stat, then the offer',         'One proof point — then founding price',     'pair-6-proof',   'Social proof closes the last objection',       now,''],
     ['fs-007','cta',     7, 0,  1,  28, 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                                                           'CTA — one action, loss aversion, urgency',       'Founding price — last chance angle',        'pair-7-cta',     'Founding price ends at 5,000 families',        now,'']
   ].forEach(function(row) { fsSheet.appendRow(row); });
+
+  // Seed BlueprintConfig
+  var bpSheet = ss.getSheetByName(_CC_TAB.BLUEPRINTS);
+  if (!bpSheet) bpSheet = ss.insertSheet(_CC_TAB.BLUEPRINTS);
+  _ccHdrStyle(bpSheet, _CC_HDR.BlueprintConfig);
+  [
+    ['bp-001','A-Waitlist',        'Waitlist Growth',       'SEQ-1,SEQ-2,SEQ-3,SEQ-4', 13, 7, 'waitlist', 'pre-launch',   'true',  'Pre-launch waitlist acquisition — drives to LP, captures email, nurtures to app download on July 1'],
+    ['bp-002','B-App Download',    'App Download',          'SEQ-4',                    1,  7, 'download', 'post-launch',  'false', 'Post-launch app download — drives directly to App Store'],
+    ['bp-003','C-Referral',        'Referral Acquisition',  'SEQ-1',                    3,  5, 'referral', 'post-signup',  'true',  'Referral loop — share mechanic, Branch.io deep links'],
+    ['bp-004','D-Re-engagement',   'Re-engagement',         'SEQ-2',                    3,  5, 'download', 'post-install', 'false', 'Lapsed user re-engagement — push + email'],
+    ['bp-005','E-Content',         'Content-Led',           'SEQ-1,SEQ-2',              5,  7, 'recipe',   'all',          'true',  'Blog and recipe page traffic — content CTA drives to LP'],
+    ['bp-006','F-Affiliate',       'Affiliate Partner',     'SEQ-1,SEQ-2',              5,  7, 'affiliate','all',          'true',  'Affiliate partner traffic — Rewardful tracked, custom LP per partner'],
+    ['bp-007','G-Paywall Recovery','Paywall Recovery',      'SEQ-2',                    3,  5, 'upgrade',  'post-install', 'false', 'In-app paywall recovery — tipping point triggered']
+  ].forEach(function(row) { bpSheet.appendRow(row); });
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
@@ -1074,14 +1094,42 @@ function _addMissingChannels() {
   Logger.log('Done — added ' + missing.length + ' channels');
 }
 
+// ── BlueprintConfig ───────────────────────────────────────────────────────────
+
+function _bpRowToObj(r) {
+  return {
+    id:               String(r[0]),
+    blueprint_code:   String(r[1]),
+    blueprint_name:   String(r[2]),
+    sequences_included: String(r[3]),
+    email_count:      Number(r[4]),
+    social_post_count:Number(r[5]),
+    cta_type_default: String(r[6]),
+    phase:            String(r[7]),
+    active:           r[8] === true || String(r[8]).toLowerCase() === 'true',
+    description:      String(r[9])
+  };
+}
+
+function getBlueprintConfigs() {
+  var sheet = _getCCSheet(_CC_TAB.BLUEPRINTS);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  return sheet.getRange(2, 1, last - 1, _CC_HDR.BlueprintConfig.length)
+    .getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_bpRowToObj);
+}
+
 // ── Diagnostic — run from Apps Script editor to verify all sheet tabs ─────────
 
 function _testSheetWiring() {
-  Logger.log('CampaignTypes: ' + getCampaignTypes().length + ' rows');
-  Logger.log('FunnelStages: '  + getFunnelStages().length  + ' rows');
-  Logger.log('ICPProfiles: '   + getIcpProfiles().length   + ' rows');
-  Logger.log('ApprovedClaims: '+ getApprovedClaims().length + ' rows');
-  Logger.log('Channels: '      + getChannels().length      + ' rows');
+  Logger.log('CampaignTypes: '    + getCampaignTypes().length    + ' rows');
+  Logger.log('FunnelStages: '     + getFunnelStages().length     + ' rows');
+  Logger.log('BlueprintConfigs: ' + getBlueprintConfigs().length + ' rows');
+  Logger.log('ICPProfiles: '      + getIcpProfiles().length      + ' rows');
+  Logger.log('ApprovedClaims: '   + getApprovedClaims().length   + ' rows');
+  Logger.log('Channels: '         + getChannels().length         + ' rows');
 }
 
 // clasp auto-deploy verified — May 2026

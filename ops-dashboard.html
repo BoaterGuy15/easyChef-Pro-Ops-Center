@@ -21296,6 +21296,8 @@ var _ccChannels=[
 var _ccChannelsLoaded=false;
 var _ccLastPosts=[];
 var _ccChFormMode=null; // null=none, '__new__'=add form, channel_name=editing that row
+var _ccBlueprintConfigs=[];
+var _CC_SEQ_NAMES={'SEQ-1':'SEQ-1 Welcome','SEQ-2':'SEQ-2 Nurture','SEQ-3':'SEQ-3 Urgency','SEQ-4':'SEQ-4 Launch Day'};
 
 // ── CC shared helpers ───────────────────────────────────────────────────────
 function _ccEl(id){return document.getElementById(id);}
@@ -21344,7 +21346,15 @@ function _ccRenderBrief(){
         idField+
         _ccField('Campaign Name','cc-name','text',b.name,'','e.g. Waitlist A/B Test May 2026')+
         _ccField('Target ICP','cc-icp','select',b.icp,_CC_ICPS,'')+
-        _ccField('Funnel Blueprint','cc-funnel','select',b.funnel,_CC_FUNNELS,'')+
+        (function(){
+          var base='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+          var opts=_CC_FUNNELS.map(function(o){return '<option value="'+o+'"'+(b.funnel===o?' selected':'')+'>'+o+'</option>';}).join('');
+          return '<div style="margin-bottom:14px">'+
+            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Funnel Blueprint</label>'+
+            '<select id="cc-funnel" style="'+base+'" onchange="_ccBriefSync();_ccOnBlueprintChange()"><option value="">— select —</option>'+opts+'</select>'+
+          '</div>'+
+          '<div id="cc-blueprint-summary" style="grid-column:1/-1;display:none;margin-top:-10px;margin-bottom:14px;padding:10px 14px;border:1px solid rgba(201,168,76,0.25);border-radius:6px;background:rgba(201,168,76,0.05);font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;line-height:1.7"></div>';
+        })()+
         '<div style="margin-bottom:14px">'+
         '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Primary Channel</label>'+
         '<select id="cc-channel" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box" onchange="_ccBriefSync();_ccRefreshPostPlatform();_ccRefreshChannelLabel();_ccUpdateVolumeFields()"></select>'+
@@ -21623,6 +21633,55 @@ function _ccLoadChannels(){
       _ccChannelsLoaded=true;
       _ccPopulateChannelSelect(_ccChannels);
     });
+}
+
+function _ccLoadBlueprintConfigs(){
+  if(!CONFIG.sheetsUrl){_ccOnBlueprintChange();return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'blueprint_configs_read'})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d&&d.ok&&Array.isArray(d.blueprints)&&d.blueprints.length) _ccBlueprintConfigs=d.blueprints;
+      _ccOnBlueprintChange();
+    })
+    .catch(function(){_ccOnBlueprintChange();});
+}
+
+function _ccOnBlueprintChange(){
+  var sel=document.getElementById('cc-funnel');
+  var summary=document.getElementById('cc-blueprint-summary');
+  if(!sel) return;
+  var code=sel.value;
+  if(!code){if(summary) summary.style.display='none'; return;}
+  var bp=null;
+  for(var i=0;i<_ccBlueprintConfigs.length;i++){
+    if(_ccBlueprintConfigs[i].blueprint_code===code){bp=_ccBlueprintConfigs[i];break;}
+  }
+  if(!bp) return;
+  // Auto-set Campaign Goal
+  if(bp.cta_type_default){
+    _campBrief.cta_type=bp.cta_type_default;
+    _ccSetSelect('cc-cta-type',bp.cta_type_default);
+  }
+  // Auto-set Posts per Campaign
+  if(bp.social_post_count){
+    _campBrief.post_count=bp.social_post_count;
+    var pcEl=document.getElementById('cc-post-count');
+    if(pcEl) pcEl.value=bp.social_post_count;
+    _ccRefreshChannelLabel();
+  }
+  // Auto-set Email Sequences count
+  var seqList=(bp.sequences_included||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  if(seqList.length){
+    _campBrief.email_sequences=seqList.length;
+    var esEl=document.getElementById('cc-email-sequences');
+    if(esEl) esEl.value=seqList.length;
+  }
+  // Show summary
+  if(summary){
+    var seqStr=seqList.map(function(s){return _CC_SEQ_NAMES[s]||s;}).join(' → ');
+    summary.innerHTML='This blueprint fires: <strong style="color:var(--text)">'+seqStr+'</strong>&nbsp;&nbsp;·&nbsp;&nbsp;'+bp.email_count+' emails&nbsp;&nbsp;·&nbsp;&nbsp;'+bp.social_post_count+' posts';
+    summary.style.display='block';
+  }
 }
 
 function _ccAutoSlug(){
@@ -24030,6 +24089,7 @@ var _CC_TABS=[
 function _campaignsRender(){
   var root=document.getElementById('campaigns-root'); if(!root) return;
   _ccLoadChannels();
+  _ccLoadBlueprintConfigs();
   var tabBar=_CC_TABS.map(function(t){
     return '<button id="camp-tab-'+t.id+'" onclick="_campSwitchTab(\''+t.id+'\')" style="padding:9px 14px;background:transparent;border:none;border-bottom:2px solid transparent;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap;color:var(--muted)">'+t.lbl+'</button>';
   }).join('');
@@ -24065,7 +24125,7 @@ function _campSwitchTab(t){
   });
   var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
   var panel=_ccEl('cc-panel'); if(!panel) return;
-  if(t==='brief'){panel.innerHTML=_ccRenderBrief();_ccPopulateChannelSelect(_ccChannels);if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
+  if(t==='brief'){panel.innerHTML=_ccRenderBrief();_ccPopulateChannelSelect(_ccChannels);setTimeout(_ccOnBlueprintChange,0);if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
   else if(t==='utm') panel.innerHTML=_ccRenderUTM();
   else if(t==='registry'){panel.innerHTML=_ccRenderRegistry();setTimeout(_ccRedrawReg,120);}
   else if(t==='seo'){
