@@ -1310,6 +1310,181 @@ function _testSheetWiring() {
   Logger.log('LPInventory: '      + getLPInventory().length      + ' rows');
 }
 
+// ── Full end-to-end Campaign Center test ─────────────────────────────────────
+// Run from Apps Script editor: Run → _testCampaignCenterFull → View → Execution log
+
+function _testCampaignCenterFull() {
+  var results = [];
+
+  function check(name, fn) {
+    try {
+      var result = fn();
+      results.push({ test: name, pass: result.pass, note: result.note || '' });
+    } catch(e) {
+      results.push({ test: name, pass: false, note: 'ERROR: ' + e.message });
+    }
+  }
+
+  // ─── TEST SUITE 1 — SHEET DATA READS ─────────────────────────────────────
+
+  check('ICPProfiles read', function() {
+    var r = getIcpProfiles();
+    return { pass: r.length >= 5, note: r.length + ' profiles' };
+  });
+
+  check('ApprovedClaims read', function() {
+    var r = getApprovedClaims();
+    return { pass: r.length >= 10, note: r.length + ' claims' };
+  });
+
+  check('Channels read', function() {
+    var r = getChannels();
+    return { pass: r.length >= 10, note: r.length + ' channels' };
+  });
+
+  check('CampaignTypes read', function() {
+    var r = getCampaignTypes();
+    return { pass: r.length >= 5, note: r.length + ' types' };
+  });
+
+  check('FunnelStages read', function() {
+    var r = getFunnelStages();
+    return { pass: r.length === 7, note: r.length + ' stages' };
+  });
+
+  check('BlueprintConfigs read', function() {
+    var r = getBlueprintConfigs();
+    return { pass: r.length >= 7, note: r.length + ' blueprints' };
+  });
+
+  check('LPInventory read', function() {
+    var r = getLPInventory();
+    return { pass: r.length >= 3, note: r.length + ' LPs' };
+  });
+
+  // ─── TEST SUITE 2 — CAMPAIGN KICKSTART ───────────────────────────────────
+  // campaignKickstart() returns { ok, campaign: { icp_match, blueprint, ... } }
+
+  check('Kickstart — Super Mom Facebook', function() {
+    var result = campaignKickstart(
+      'Busy mom, 35, two kids, $75K income, ' +
+      'wastes half her groceries, orders DoorDash ' +
+      '3x per week. Goal: waitlist signups on Facebook.'
+    );
+    var c = result.campaign || {};
+    return {
+      pass: result.ok === true && !!c.icp_match && !!c.blueprint && c.cta_type === 'waitlist',
+      note: JSON.stringify({
+        icp:       c.icp_match,
+        blueprint: c.blueprint,
+        channel:   c.channel_recommendation,
+        cta_type:  c.cta_type,
+        post_count:c.post_count
+      })
+    };
+  });
+
+  check('Kickstart — Structured Taco Tuesday', function() {
+    var result = campaignKickstart(
+      'ICP: Busy mom who loves Taco Tuesday\n' +
+      'GOAL: Waitlist signups\n' +
+      'CHANNEL: Facebook + Instagram\n' +
+      'BLUEPRINT: A-Waitlist\n' +
+      'THEME: Taco Tuesday\n' +
+      'PUBLISH DAY: Tuesday\n' +
+      'POSTS: 7\n' +
+      'URGENCY: Founding price ends at 5,000 families'
+    );
+    var c = result.campaign || {};
+    return {
+      pass: result.ok === true && c.theme === 'Taco Tuesday' && c.publish_day === 'Tuesday',
+      note: JSON.stringify({
+        theme:       c.theme,
+        publish_day: c.publish_day,
+        channels:    c.channels,
+        post_count:  c.post_count
+      })
+    };
+  });
+
+  // ─── TEST SUITE 3 — ASSET BUILDER ────────────────────────────────────────
+
+  var testBrief = {
+    id:              'test-001',
+    name:            'Test Campaign',
+    icp:             'super_mom',
+    channel:         'Facebook',
+    channels:        ['Facebook', 'Instagram', 'Email'],
+    funnel:          'A-Waitlist',
+    cta_type:        'waitlist',
+    post_count:      7,
+    slug:            'lp/waitlist-a',
+    campaign_angle:  'savings',
+    urgency_trigger: 'Founding price $7.99/month ends at 5,000 families',
+    theme:           '',
+    publish_day:     ''
+  };
+
+  var testCopy = {
+    headline:        'Stop the 6:30 PM dinner panic',
+    social_hook:     'Your family threw away $1,336 last year',
+    cta_primary:     'Join the waitlist free',
+    proof_bar:       ['$1,336/year savings', '69.5% less food waste', '30 minutes fridge to table'],
+    problem_block:   'Every week you buy groceries with good intentions. Half ends up in the bin.',
+    agitate_block:   'That is $111/month — $1,336 a year — going straight to the trash.',
+    solve_block:     'easyChef Pro builds your weekly plan from exactly what is already in your fridge.',
+    urgency_trigger: 'Founding price $7.99/month ends at 5,000 families'
+  };
+
+  // buildSocialPosts returns { ok, posts: [...] }
+  check('buildSocialPosts — single channel Facebook', function() {
+    var result = buildSocialPosts(testBrief, testCopy);
+    return {
+      pass: result.ok === true && Array.isArray(result.posts) && result.posts.length >= 5,
+      note: result.ok
+        ? result.posts.length + ' posts'
+        : (result.error || 'unknown error')
+    };
+  });
+
+  // buildMultiChannelPosts returns { ok, posts: [...], stagger_schedule: [...] }
+  // Email is skipped (handled separately) — only Facebook + Instagram post
+  check('buildMultiChannelPosts — Facebook + Instagram', function() {
+    var result = buildMultiChannelPosts(testBrief, testCopy);
+    return {
+      pass: result.ok === true && Array.isArray(result.posts) && result.posts.length >= 5,
+      note: result.ok
+        ? result.posts.length + ' posts across channels'
+        : (result.error || 'unknown error')
+    };
+  });
+
+  // buildEmailSequence returns { ok, sequence: [...] }
+  check('buildEmailSequence — waitlist 8-email sequence', function() {
+    var result = buildEmailSequence(testBrief, testCopy);
+    return {
+      pass: result.ok === true && Array.isArray(result.sequence) && result.sequence.length >= 1,
+      note: result.ok
+        ? result.sequence.length + ' emails'
+        : (result.error || 'unknown error')
+    };
+  });
+
+  // ─── RESULTS SUMMARY ─────────────────────────────────────────────────────
+
+  Logger.log('══════════════════════════════════════════════════');
+  Logger.log('  CAMPAIGN CENTER FULL TEST — ' + new Date().toLocaleString());
+  Logger.log('══════════════════════════════════════════════════');
+  var pass = 0, fail = 0;
+  results.forEach(function(r) {
+    Logger.log((r.pass ? 'PASS' : 'FAIL') + ' │ ' + r.test + (r.note ? ' │ ' + r.note : ''));
+    if (r.pass) pass++; else fail++;
+  });
+  Logger.log('──────────────────────────────────────────────────');
+  Logger.log('TOTAL: ' + pass + ' passed, ' + fail + ' failed out of ' + results.length);
+  Logger.log('══════════════════════════════════════════════════');
+}
+
 // ── PushNotifications ─────────────────────────────────────────────────────────
 
 function _pushRowToObj(r) {
