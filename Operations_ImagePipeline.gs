@@ -13,9 +13,9 @@
 
 /**
  * 3-step AI image pipeline:
- *   Step 1 — Claude: refines image_brief into a brand-aligned visual description
- *   Step 2 — GPT-4o: rewrites Claude output as a detailed image-generation prompt
- *   Step 3 — Gemini Imagen: generates the actual image, returns base64
+ *   Step 1 — Claude:  refines image_brief into a brand-aligned visual description
+ *   Step 2 — GPT-4o:  rewrites Claude output as a detailed image-generation prompt
+ *   Step 3 — Google:  routes to Imagen 4 (social/recipe) or Nano Banana Pro (lp/blog)
  *
  * Takes:
  *   body.image_brief  — one sentence from the social post
@@ -23,36 +23,41 @@
  *   body.platform     — Facebook / Instagram / TikTok / Pinterest etc
  *   body.icp          — super_mom / budget_family etc
  *   body.dimensions   — e.g. "1200x630px"
+ *   body.use_case     — 'social' | 'lp' | 'blog' | 'recipe'  (default: 'social')
+ *                       social/recipe → Imagen 4.0
+ *                       lp/blog       → Nano Banana Pro
  *
  * Returns:
- *   { ok, claude_brief, gpt_prompt, image_base64, mime_type, platform, dimensions }
+ *   { ok, use_case, model_used, claude_brief, gpt_prompt,
+ *     image_base64, mime_type, platform, dimensions }
  */
 function generateImagePrompt(body) {
   try {
-    var props      = PropertiesService.getScriptProperties();
-    var claudeKey  = props.getProperty('ANTHROPIC_API_KEY');
-    var openAiKey  = props.getProperty('OPENAI_API_KEY');
-    var googleKey  = props.getProperty('GOOGLE_AI_API_KEY');
+    var props     = PropertiesService.getScriptProperties();
+    var claudeKey = props.getProperty('ANTHROPIC_API_KEY');
+    var openAiKey = props.getProperty('OPENAI_API_KEY');
+    var googleKey = props.getProperty('GOOGLE_AI_API_KEY');
 
-    if (!claudeKey)  return { ok: false, error: 'ANTHROPIC_API_KEY not set in Script Properties' };
-    if (!openAiKey)  return { ok: false, error: 'OPENAI_API_KEY not set in Script Properties' };
-    if (!googleKey)  return { ok: false, error: 'GOOGLE_AI_API_KEY not set in Script Properties' };
+    if (!claudeKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set in Script Properties' };
+    if (!openAiKey) return { ok: false, error: 'OPENAI_API_KEY not set in Script Properties' };
+    if (!googleKey) return { ok: false, error: 'GOOGLE_AI_API_KEY not set in Script Properties' };
 
     var imageBrief = body.image_brief || '';
     var postHook   = body.post_hook   || '';
     var platform   = body.platform    || 'Instagram';
     var icp        = body.icp         || 'super_mom';
     var dimensions = body.dimensions  || '1080x1080px';
+    var useCase    = body.use_case    || 'social';
 
     // ── Step 1: Claude → brand-aligned visual description ──────────────────
     var claudeSystem =
       'You are the easyChef Pro visual director. Your job is to translate a social post image brief ' +
-      'into a structured visual description that a professional photographer or AI image tool can execute.\n\n' +
+      'into a precise, image-generation-ready visual description that an AI image model can execute directly.\n\n' +
       'BRAND RULES — follow exactly:\n' +
       '- Photography style: warm, candid, real family moments — NOT stock photo aesthetic\n' +
-      '- Colour palette: warm whites, natural wood tones, soft creams, red accent (#FF0000) where it fits\n' +
-      '- NEVER use blue, navy, or cool tones anywhere in the image\n' +
-      '- Setting: real kitchens, real homes — lived-in and approachable, not aspirational\n' +
+      '- Colour palette: warm whites, natural wood tones, soft creams, red accent (#FF0000) where it fits naturally\n' +
+      '- NEVER include blue, navy, or cool tones anywhere in the image\n' +
+      '- Setting: real kitchens, real homes — lived-in and approachable, not aspirational or staged\n' +
       '- People: authentic expressions, not posed smiles\n' +
       '- Food: real, appetising, natural light — never studio-lit food photography\n' +
       '- App UI: if the easyChef Pro app appears, show the red-accented screen naturally in hand\n\n' +
@@ -61,21 +66,22 @@ function generateImagePrompt(body) {
       '- budget_family: family of 4, practical setting, value-focused, modest but warm home\n' +
       '- health_optimizer: clean counter space, fresh produce visible, mindful but not clinical\n' +
       '- professional: small kitchen, solo cook, efficient setup, weeknight meal prep\n\n' +
-      'OUTPUT FORMAT — return only a structured description with these sections:\n' +
-      'SCENE: [one sentence describing the primary subject and action]\n' +
-      'SETTING: [kitchen/location details]\n' +
-      'LIGHTING: [lighting style and quality]\n' +
-      'MOOD: [emotional tone]\n' +
-      'CAMERA: [angle and framing]\n' +
-      'COLOURS: [specific palette]\n' +
-      'PLATFORM NOTE: [any composition adjustment for the platform]\n' +
-      'No markdown. No explanation outside these sections.';
+      'OUTPUT FORMAT — write exactly 4 to 6 sentences of continuous prose. No headers, no bullet points, no labels.\n' +
+      'Cover all six elements in order within those sentences:\n' +
+      '1. Subject + action + emotion — who is in the scene, what they are doing, the specific feeling it conveys\n' +
+      '2. Setting + time of day + lighting — exact location, time of day, natural light direction and quality\n' +
+      '3. Colour palette + brand rules — warm whites, wood tones, soft creams, red accent where natural; zero blue or cool tones\n' +
+      '4. Composition + camera angle — framing style, depth of field, foreground versus background relationship\n' +
+      '5. Style reference — photorealistic, candid editorial family photography, warm and authentic, never stock-photo aesthetic\n' +
+      '6. Negative prompt — one sentence beginning with "Do not include:" listing what must be absent (blue or cool tones, studio lighting, posed smiles, fake backgrounds, text overlays)\n' +
+      'Output only the prose. No markdown, no section labels, no explanation.';
 
     var claudeUserMsg =
-      'Platform: ' + platform + '\n' +
-      'Dimensions: ' + dimensions + '\n' +
-      'ICP: ' + icp + '\n' +
-      'Post hook: ' + postHook + '\n' +
+      'Platform: '    + platform   + '\n' +
+      'Dimensions: '  + dimensions + '\n' +
+      'ICP: '         + icp        + '\n' +
+      'Use case: '    + useCase    + '\n' +
+      'Post hook: '   + postHook   + '\n' +
       'Image brief: ' + imageBrief;
 
     var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
@@ -89,7 +95,7 @@ function generateImagePrompt(body) {
         model:      'claude-sonnet-4-20250514',
         max_tokens: 600,
         system:     claudeSystem,
-        messages: [{ role: 'user', content: claudeUserMsg }]
+        messages:   [{ role: 'user', content: claudeUserMsg }]
       }),
       muteHttpExceptions: true
     });
@@ -138,72 +144,29 @@ function generateImagePrompt(body) {
     ) || '';
     if (!optimisedPrompt) return { ok: false, error: 'GPT-4o returned empty prompt' };
 
-    // ── Step 3: Imagen 4 → base64 image ────────────────────────────────────
-    var imagenResp = UrlFetchApp.fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=' + googleKey,
-      {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        payload: JSON.stringify({
-          instances:  [{ prompt: optimisedPrompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: _sbGetAspectRatio(dimensions)
-          }
-        }),
-        muteHttpExceptions: true
-      }
-    );
+    // ── Step 3: route to Imagen 4 or Nano Banana Pro ───────────────────────
+    var useNanoBanana = (useCase === 'lp' || useCase === 'blog');
+    var imageResult   = useNanoBanana
+      ? _generateNanoBanana(optimisedPrompt, googleKey, dimensions)
+      : _generateImagen4(optimisedPrompt, googleKey, dimensions);
 
-    var imagenCode = imagenResp.getResponseCode();
-    var imagenData = JSON.parse(imagenResp.getContentText());
-
-    if (imagenCode !== 200 || imagenData.error) {
-      var iErr = imagenData.error
-        ? (imagenData.error.message || JSON.stringify(imagenData.error))
-        : ('HTTP ' + imagenCode);
+    if (!imageResult.ok) {
       return {
         ok:           false,
-        error:        'Imagen step failed: ' + iErr,
+        error:        imageResult.error,
         claude_brief: claudeVisualDescription,
         gpt_prompt:   optimisedPrompt
-      };
-    }
-
-    // Extract base64 from Imagen 4 predict response
-    var image_base64 = '';
-    var mime_type    = 'image/png';
-    try {
-      var prediction = imagenData.predictions && imagenData.predictions[0];
-      if (prediction && prediction.bytesBase64Encoded) {
-        image_base64 = prediction.bytesBase64Encoded;
-        mime_type    = prediction.mimeType || 'image/png';
-      }
-    } catch (ex) {
-      return {
-        ok:           false,
-        error:        'Could not extract image: ' + ex.message,
-        claude_brief: claudeVisualDescription,
-        gpt_prompt:   optimisedPrompt
-      };
-    }
-
-    if (!image_base64) {
-      return {
-        ok:           false,
-        error:        'Imagen returned no image data. Check model availability and API quota.',
-        claude_brief: claudeVisualDescription,
-        gpt_prompt:   optimisedPrompt,
-        raw_imagen:   JSON.stringify(imagenData).slice(0, 500)
       };
     }
 
     return {
       ok:           true,
+      use_case:     useCase,
+      model_used:   useNanoBanana ? 'nano-banana-pro-preview' : 'imagen-4.0-generate-001',
       claude_brief: claudeVisualDescription,
       gpt_prompt:   optimisedPrompt,
-      image_base64: image_base64,
-      mime_type:    mime_type,
+      image_base64: imageResult.image_base64,
+      mime_type:    imageResult.mime_type,
       platform:     platform,
       dimensions:   dimensions
     };
@@ -211,6 +174,110 @@ function generateImagePrompt(body) {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+// ── Image generation helpers ──────────────────────────────────────────────────
+
+/**
+ * Calls Imagen 4.0 predict endpoint.
+ * Used for use_case: 'social', 'recipe'
+ */
+function _generateImagen4(prompt, googleKey, dimensions) {
+  var resp = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=' + googleKey,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      payload: JSON.stringify({
+        instances:  [{ prompt: prompt }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: _sbGetAspectRatio(dimensions)
+        }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var code = resp.getResponseCode();
+  var data = JSON.parse(resp.getContentText());
+
+  if (code !== 200 || data.error) {
+    var err = data.error
+      ? (data.error.message || JSON.stringify(data.error))
+      : ('HTTP ' + code);
+    return { ok: false, error: 'Imagen step failed: ' + err };
+  }
+
+  var image_base64 = '';
+  var mime_type    = 'image/png';
+  try {
+    var prediction = data.predictions && data.predictions[0];
+    if (prediction && prediction.bytesBase64Encoded) {
+      image_base64 = prediction.bytesBase64Encoded;
+      mime_type    = prediction.mimeType || 'image/png';
+    }
+  } catch (ex) {
+    return { ok: false, error: 'Could not extract image: ' + ex.message };
+  }
+
+  if (!image_base64) {
+    return {
+      ok:         false,
+      error:      'Imagen returned no image data. Check model availability and API quota.',
+      raw_imagen: JSON.stringify(data).slice(0, 500)
+    };
+  }
+
+  return { ok: true, image_base64: image_base64, mime_type: mime_type };
+}
+
+/**
+ * Calls Nano Banana Pro generateContent endpoint.
+ * Used for use_case: 'lp', 'blog'
+ */
+function _generateNanoBanana(prompt, googleKey, dimensions) {
+  var resp = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro-preview:generateContent?key=' + googleKey,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      payload: JSON.stringify({
+        contents:         [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+      }),
+      muteHttpExceptions: true
+    }
+  );
+
+  var code = resp.getResponseCode();
+  var data = JSON.parse(resp.getContentText());
+
+  if (code !== 200 || data.error) {
+    var err = data.error
+      ? (data.error.message || JSON.stringify(data.error))
+      : ('HTTP ' + code);
+    return { ok: false, error: 'Nano Banana step failed: ' + err };
+  }
+
+  var image_base64 = '';
+  var mime_type    = 'image/png';
+  try {
+    var parts = data.candidates[0].content.parts;
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].inlineData) {
+        image_base64 = parts[i].inlineData.data;
+        mime_type    = parts[i].inlineData.mimeType || 'image/png';
+        break;
+      }
+    }
+  } catch (e) {
+    return { ok: false, error: 'Could not extract image: ' + e.message };
+  }
+
+  if (!image_base64) return { ok: false, error: 'Nano Banana returned no image data' };
+
+  return { ok: true, image_base64: image_base64, mime_type: mime_type };
 }
 
 /**
@@ -226,26 +293,45 @@ function _sbGetAspectRatio(dimensions) {
   return '1:1';
 }
 
-// ── Diagnostic ────────────────────────────────────────────────────────────────
+// ── Diagnostics ───────────────────────────────────────────────────────────────
 // Run → _testImagePipeline → View Execution log
 function _testImagePipeline() {
-  var result = generateImagePrompt({
+  // Test 1: social use case → Imagen 4
+  Logger.log('=== TEST 1: social (Imagen 4) ===');
+  var r1 = generateImagePrompt({
     image_brief: 'A tired mom opening the fridge at 6pm, looking relieved when she sees a meal plan on her phone',
     post_hook:   'You already know what\'s for dinner tonight.',
     platform:    'Instagram',
     icp:         'super_mom',
-    dimensions:  '1080x1080px'
+    dimensions:  '1080x1080px',
+    use_case:    'social'
   });
-  Logger.log('ok: '           + result.ok);
-  Logger.log('claude_brief: ' + (result.claude_brief || '').slice(0, 200));
-  Logger.log('gpt_prompt: '   + (result.gpt_prompt   || '').slice(0, 200));
-  Logger.log('image_base64 length: ' + (result.image_base64 || '').length);
-  Logger.log('mime_type: '    + result.mime_type);
-  if (!result.ok) Logger.log('error: ' + result.error);
+  Logger.log('ok: '          + r1.ok);
+  Logger.log('model_used: '  + r1.model_used);
+  Logger.log('claude_brief: '+ (r1.claude_brief || '').slice(0, 150));
+  Logger.log('gpt_prompt: '  + (r1.gpt_prompt   || '').slice(0, 150));
+  Logger.log('image_base64 length: ' + (r1.image_base64 || '').length);
+  if (!r1.ok) Logger.log('error: ' + r1.error);
+
+  // Test 2: lp use case → Nano Banana Pro
+  Logger.log('=== TEST 2: lp (Nano Banana Pro) ===');
+  var r2 = generateImagePrompt({
+    image_brief: 'Hero image for landing page — family gathered around a table with a wholesome weeknight dinner',
+    post_hook:   '',
+    platform:    'Web',
+    icp:         'super_mom',
+    dimensions:  '1200x630px',
+    use_case:    'lp'
+  });
+  Logger.log('ok: '          + r2.ok);
+  Logger.log('model_used: '  + r2.model_used);
+  Logger.log('claude_brief: '+ (r2.claude_brief || '').slice(0, 150));
+  Logger.log('gpt_prompt: '  + (r2.gpt_prompt   || '').slice(0, 150));
+  Logger.log('image_base64 length: ' + (r2.image_base64 || '').length);
+  if (!r2.ok) Logger.log('error: ' + r2.error);
 }
 
-// ── List available Gemini models ──────────────────────────────────────────────
-// Run → _listGeminiModels → View Execution log to find the correct image model name
+// Run → _listGeminiModels → View Execution log to confirm available model names
 function _listGeminiModels() {
   var key = PropertiesService.getScriptProperties().getProperty('GOOGLE_AI_API_KEY');
   var resp = UrlFetchApp.fetch(
