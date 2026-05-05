@@ -5,11 +5,7 @@
 // that don't match this 14-column schema.
 // ─────────────────────────────────────────────────────────────────────────────
 
-var LP_SHEET = 'RoadMap';
-var LP_HEADERS = [
-  'id', 'workstream', 'name', 'sd', 'ed', 'color', 'status', 'notes',
-  'order', 'taskIds', 'linkedActions', 'createdBy', 'createdAt', 'updatedAt'
-];
+// LP_SHEET and LP_HEADERS defined in Operation.gs — canonical value is 'LaunchPlan'.
 
 function getLPSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();

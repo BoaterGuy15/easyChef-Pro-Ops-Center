@@ -1705,8 +1705,7 @@ function setupSheet() {
 }
 
 // ── Actions ───────────────────────────────────────────────────
-var ACTIONS_SHEET = 'Actions';
-var ACTIONS_HEADERS = ['id','taskId','agendaId','workstreamId','type','title','body','status','createdBy','createdAt','updatedAt','assignedTo','dueDate','priority'];
+// ACTIONS_SHEET and ACTIONS_HEADERS defined in Operations_Actions.gs.
 
 
 function _getActionsSheet() {

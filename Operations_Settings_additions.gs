@@ -3,8 +3,7 @@
 // Do NOT replace the existing file — paste these into it.
 // ─────────────────────────────────────────────────────────────────────────────
 
-var SETTINGS_SHEET = 'Settings';
-var SETTINGS_HEADERS = ['type', 'key', 'value', 'meta', 'updatedAt'];
+// SETTINGS_SHEET and SETTINGS_HEADERS defined in Settings.gs.
 
 function getSettingsSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
