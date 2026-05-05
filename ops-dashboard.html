@@ -21303,6 +21303,10 @@ var _ccComp=null;       // active screenshot compositor state
 var _ccBaseImages={};   // pre-composite base image per post
 var _ccLastShotSrc={};  // last screenshot data-URL per post
 var _COMP_HR=12;        // compositor handle radius (canvas px)
+var _ccBrandLib={logos:[],claimBars:[],fullOverlays:[]};
+var _ccPostImages={};   // per-post working images: {original, working}
+var _ccEditorState={};  // per-post editor state: {tab, prefix}
+var _ccDrawHistory={};  // per-post undo stacks for draw tool
 var _ccChFormMode=null; // null=none, '__new__'=add form, channel_name=editing that row
 var _ccBlueprintConfigs=[];
 var _CC_SEQ_NAMES={'SEQ-1':'SEQ-1 Welcome','SEQ-2':'SEQ-2 Nurture','SEQ-3':'SEQ-3 Urgency','SEQ-4':'SEQ-4 Launch Day'};
@@ -23653,15 +23657,19 @@ function _ccGeneratePostImage(prefix,postNum,callback){
         if(btn){btn.textContent='✓ Image ready';btn.disabled=false;}
         setTimeout(function(){_ccShowCompositor(postNum,prefix,imgSrc,_shotsC[_shotIdxC].data);},150);
       } else {
-        // No screenshot → show image with standard overlay panel
+        // No screenshot → show image + editor panel
+        if(!_ccPostImages[postNum])_ccPostImages[postNum]={};
+        _ccPostImages[postNum].original=imgSrc;_ccPostImages[postNum].working=imgSrc;
         if(container){
           container.innerHTML=
-            _ccImageWithOverlay(postNum,imgSrc)+
-            '<div style="display:flex;gap:6px;margin-top:6px">'+
+            '<img src="'+imgSrc+'" id="cc-img-final-'+postNum+'" style="width:100%;border-radius:8px;margin-top:8px" alt="Generated image">'+
+            '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
               '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>'+
+              '<button onclick="_ccDownloadPostImage('+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download PNG</button>'+
               '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
               '<button onclick="_ccImageSkip(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">✕ Skip</button>'+
-            '</div>';
+            '</div>'+
+            _ccRenderImageEditor(postNum,prefix,imgSrc);
         }
         if(btn){btn.textContent='✓ Image ready';btn.disabled=false;}
       }
@@ -23976,6 +23984,570 @@ function _ccSelectScreenshot(postNum,idx){
   if(newEl)newEl.style.border='2px solid '+_CC_RED;
 }
 
+// ─── Brand Overlay Library ────────────────────────────────────────────────────
+var _BL_KEY='easychef_brand_library';
+function _ccBLibLoad(){
+  try{var d=JSON.parse(localStorage.getItem(_BL_KEY)||'null')||{};
+    _ccBrandLib={logos:d.logos||[],claimBars:d.claimBars||[],fullOverlays:d.fullOverlays||[]};}
+  catch(e){_ccBrandLib={logos:[],claimBars:[],fullOverlays:[]};}
+}
+function _ccBLibSave(){try{localStorage.setItem(_BL_KEY,JSON.stringify(_ccBrandLib));}catch(e){}}
+function _ccBLibRefresh(){var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();}
+function _ccBLibUpload(type,input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  var fr=new FileReader();
+  fr.onload=function(ev){
+    var src=ev.target.result;
+    var id='bl-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
+    var lbl=file.name.replace(/\.[^/.]+$/,'');
+    var tmp=new Image();
+    tmp.onload=function(){
+      var w=tmp.naturalWidth,h=tmp.naturalHeight;
+      if(type==='logo'){
+        _ccBrandLib.logos.push({id:id,data:src,label:lbl,w:w,h:h,isDefault:_ccBrandLib.logos.length===0});
+      } else if(type==='claimBar'){
+        _ccBrandLib.claimBars.push({id:id,data:src,label:lbl,claimText:'',w:w,h:h,isDefault:_ccBrandLib.claimBars.length===0});
+      } else if(type==='fullOverlay'){
+        var plat=_ccBLibGuessPlatform(w,h);
+        _ccBrandLib.fullOverlays.push({id:id,data:src,label:lbl,platform:plat,w:w,h:h,isDefault:false});
+      }
+      _ccBLibSave();_ccBLibRefresh();
+    };
+    tmp.src=src;input.value='';
+  };
+  fr.readAsDataURL(file);
+}
+function _ccBLibGuessPlatform(w,h){
+  if(w===1200&&h===630)return'Facebook';
+  if(w===1080&&h===1080)return'Instagram Square';
+  if(w===1080&&h===1920)return'TikTok/Story';
+  if(w===1000&&h===1500)return'Pinterest';
+  if(w===1200&&h===675)return'X/Twitter';
+  return w+'×'+h;
+}
+function _ccBLibSetDefault(type,id){
+  _ccBrandLib[type].forEach(function(x){x.isDefault=(x.id===id);});
+  _ccBLibSave();_ccBLibRefresh();
+}
+function _ccBLibDelete(type,id){
+  _ccBrandLib[type]=_ccBrandLib[type].filter(function(x){return x.id!==id;});
+  if(_ccBrandLib[type].length&&!_ccBrandLib[type].some(function(x){return x.isDefault;}))
+    _ccBrandLib[type][0].isDefault=true;
+  _ccBLibSave();_ccBLibRefresh();
+}
+function _ccBLibSetLabel(type,id,val){
+  var item=_ccBrandLib[type].find(function(x){return x.id===id;});
+  if(item){item.label=val;_ccBLibSave();}
+}
+function _ccBLibSetClaim(id,val){
+  var item=_ccBrandLib.claimBars.find(function(x){return x.id===id;});
+  if(item){item.claimText=val;_ccBLibSave();}
+}
+function _ccBLibGetDefault(type){
+  return _ccBrandLib[type].find(function(x){return x.isDefault;})||_ccBrandLib[type][0]||null;
+}
+function _ccBLibDownloadTemplate(name,w,h){
+  var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  var ctx=cv.getContext('2d');
+  ctx.fillStyle='#f8f5f0';ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='#cccccc';ctx.lineWidth=3;ctx.setLineDash([12,8]);ctx.strokeRect(2,2,w-4,h-4);ctx.setLineDash([]);
+  ctx.fillStyle='#999';var fs=Math.max(18,Math.round(w/60));ctx.font='bold '+fs+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(name,w/2,h/2-fs);ctx.font=Math.round(fs*0.75)+'px monospace';ctx.fillText(w+'×'+h+'px — transparent overlay',w/2,h/2+fs*0.7);
+  var a=document.createElement('a');a.href=cv.toDataURL('image/png');
+  a.download=name.replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-template.png';
+  document.body.appendChild(a);a.click();a.remove();
+}
+function _ccRenderBrandLibrarySection(){
+  var mf="font-family:'DM Mono',monospace;";
+  var sec='background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:14px';
+  var sh=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  _ccBLibLoad();
+  var PLATS=[['Facebook',1200,630],['Instagram',1080,1080],['TikTok/Story',1080,1920],['Pinterest',1000,1500],['X/Twitter',1200,675]];
+
+  // Designer note + template downloads
+  var note='<div style="'+sec+';border-left:3px solid '+_CC_RED+'">'+
+    '<div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:6px;'+mf+'">📐 Designer Workflow</div>'+
+    '<div style="font-size:11px;color:var(--muted);'+mf+';line-height:1.6;margin-bottom:10px">Upload custom graphic assets here. Your graphic designer can create these in Figma, Canva, or Photoshop and upload the final PNG. All assets appear on every post card when applying brand overlays.</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      PLATS.map(function(p){return '<button onclick="_ccBLibDownloadTemplate(\''+p[0]+'\','+p[1]+','+p[2]+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 9px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">↓ '+p[0]+' template</button>';}).join('')+
+    '</div></div>';
+
+  // LOGOS
+  var logoItems=_ccBrandLib.logos.map(function(l){
+    return '<div style="display:inline-flex;flex-direction:column;gap:4px;margin:0 8px 8px 0;border:1px solid '+(l.isDefault?_CC_RED:'var(--border)')+';border-radius:8px;padding:8px;background:var(--bg);width:148px;box-sizing:border-box;vertical-align:top">'+
+      (l.isDefault?'<div style="font-size:9px;font-weight:700;color:'+_CC_RED+';'+mf+';text-align:center">★ DEFAULT</div>':'')+
+      '<img src="'+l.data+'" style="width:130px;height:56px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.06);display:block">'+
+      '<input value="'+sh(l.label)+'" onchange="_ccBLibSetLabel(\'logos\',\''+l.id+'\',this.value)" style="font-size:9px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);'+mf+'">'+
+      '<div style="font-size:9px;color:var(--muted);'+mf+'">'+l.w+'×'+l.h+'px</div>'+
+      '<div style="display:flex;gap:4px">'+
+        (!l.isDefault?'<button onclick="_ccBLibSetDefault(\'logos\',\''+l.id+'\')" style="font-size:9px;padding:2px 7px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--muted);cursor:pointer;flex:1;'+mf+'">Set default</button>':'')+
+        '<button onclick="_ccBLibDelete(\'logos\',\''+l.id+'\')" style="font-size:9px;padding:2px 7px;border:1px solid rgba(255,80,80,0.3);border-radius:3px;background:transparent;color:'+_CC_RED+';cursor:pointer;flex:1;'+mf+'">Delete</button>'+
+      '</div></div>';
+  }).join('');
+  var logosHtml='<div style="'+sec+'">'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:8px;'+mf+'">SECTION 1 — LOGO VARIANTS</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;'+mf+'">Upload logo variants: dark bg, light bg, icon only. The ★ default is used in all overlays unless overridden.</div>'+
+    (logoItems||'<div style="font-size:11px;color:var(--muted);'+mf+';margin-bottom:10px">No logos in library — upload your first variant.</div>')+
+    '<button onclick="document.getElementById(\'bl-logo-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Upload Logo</button>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">PNG with transparent background or SVG</div>'+
+    '<input id="bl-logo-input" type="file" accept="image/png,image/svg+xml" style="display:none" onchange="_ccBLibUpload(\'logo\',this)">'+
+  '</div>';
+
+  // CLAIM BARS
+  var cbPresets=['$1,336/year average savings','30 minutes fridge to table','69.5% less food waste','$7.99/month founding price','Built by first responders','800,000 products'];
+  var cbItems=_ccBrandLib.claimBars.map(function(cb){
+    return '<div style="margin-bottom:8px;border:1px solid '+(cb.isDefault?_CC_RED:'var(--border)')+';border-radius:8px;padding:8px;background:var(--bg)">'+
+      (cb.isDefault?'<div style="font-size:9px;font-weight:700;color:'+_CC_RED+';'+mf+';margin-bottom:3px">★ DEFAULT</div>':'')+
+      '<img src="'+cb.data+'" style="width:100%;max-height:64px;object-fit:contain;display:block;border-radius:4px;background:rgba(255,255,255,0.06)">'+
+      '<input value="'+sh(cb.claimText)+'" onchange="_ccBLibSetClaim(\''+cb.id+'\',this.value)" placeholder="Claim text (e.g. $1,336/year average savings)" style="width:100%;box-sizing:border-box;margin-top:5px;font-size:10px;padding:3px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);'+mf+'">'+
+      '<div style="display:flex;gap:5px;margin-top:5px">'+
+        (!cb.isDefault?'<button onclick="_ccBLibSetDefault(\'claimBars\',\''+cb.id+'\')" style="font-size:9px;padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--muted);cursor:pointer;'+mf+'">Set default</button>':'')+
+        '<button onclick="_ccBLibDelete(\'claimBars\',\''+cb.id+'\')" style="font-size:9px;padding:3px 8px;border:1px solid rgba(255,80,80,0.3);border-radius:3px;background:transparent;color:'+_CC_RED+';cursor:pointer;'+mf+'">Delete</button>'+
+      '</div></div>';
+  }).join('');
+  var claimBarsHtml='<div style="'+sec+'">'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:8px;'+mf+'">SECTION 2 — CLAIM BARS</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;'+mf+'">Upload custom claim bar PNGs (red bar + white text). AI generates these as fallback. One per approved claim:</div>'+
+    '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">'+
+      cbPresets.map(function(c){return '<span style="font-size:10px;color:var(--muted);'+mf+';border:1px solid var(--border);padding:2px 7px;border-radius:12px">'+c+'</span>';}).join('')+
+    '</div>'+
+    (cbItems||'')+
+    '<button onclick="document.getElementById(\'bl-cb-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Upload Claim Bar PNG</button>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">Full-width PNG — transparent above the bar, red bar + white text</div>'+
+    '<input id="bl-cb-input" type="file" accept="image/png" style="display:none" onchange="_ccBLibUpload(\'claimBar\',this)">'+
+  '</div>';
+
+  // FULL OVERLAYS
+  var foItems=_ccBrandLib.fullOverlays.map(function(fo){
+    return '<div style="display:inline-flex;flex-direction:column;gap:4px;margin:0 8px 8px 0;border:1px solid '+(fo.isDefault?_CC_RED:'var(--border)')+';border-radius:8px;padding:8px;background:var(--bg);width:148px;box-sizing:border-box;vertical-align:top">'+
+      '<div style="font-size:9px;color:var(--muted);'+mf+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+sh(fo.platform)+'</div>'+
+      '<img src="'+fo.data+'" style="width:130px;height:80px;object-fit:cover;border-radius:4px;background:rgba(255,255,255,0.06);display:block">'+
+      '<input value="'+sh(fo.label)+'" onchange="_ccBLibSetLabel(\'fullOverlays\',\''+fo.id+'\',this.value)" style="font-size:9px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);'+mf+'">'+
+      '<div style="font-size:9px;color:var(--muted);'+mf+'">'+fo.w+'×'+fo.h+'px</div>'+
+      '<div style="display:flex;gap:4px">'+
+        '<button onclick="_ccBLibSetDefault(\'fullOverlays\',\''+fo.id+'\')" style="font-size:9px;padding:2px 5px;border:1px solid '+(fo.isDefault?_CC_RED:'var(--border)')+';border-radius:3px;background:'+(fo.isDefault?_CC_RED:'transparent')+';color:'+(fo.isDefault?'#fff':'var(--muted)')+';cursor:pointer;flex:1;'+mf+'">'+(fo.isDefault?'✓ Default':'Set default')+'</button>'+
+        '<button onclick="_ccBLibDelete(\'fullOverlays\',\''+fo.id+'\')" style="font-size:9px;padding:2px 5px;border:1px solid rgba(255,80,80,0.3);border-radius:3px;background:transparent;color:'+_CC_RED+';cursor:pointer;flex:1;'+mf+'">Delete</button>'+
+      '</div></div>';
+  }).join('');
+  var fullOverlaysHtml='<div style="'+sec+'">'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:8px;'+mf+'">SECTION 3 — FULL OVERLAYS</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;'+mf+'">Upload complete transparent-background overlay PNGs (logo + claim bar + graphic elements). Must match platform pixel dimensions exactly.</div>'+
+    (foItems||'<div style="font-size:11px;color:var(--muted);'+mf+';margin-bottom:10px">No full overlays uploaded</div>')+
+    '<button onclick="document.getElementById(\'bl-fo-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Upload Full Overlay PNG</button>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">Transparent PNG at exact platform dimensions — system auto-detects the platform from pixel dimensions</div>'+
+    '<input id="bl-fo-input" type="file" accept="image/png" style="display:none" onchange="_ccBLibUpload(\'fullOverlay\',this)">'+
+  '</div>';
+
+  return note+logosHtml+claimBarsHtml+fullOverlaysHtml;
+}
+
+// ─── Image Editor (post-generation tabbed panel) ──────────────────────────────
+function _ccRenderImageEditor(pNum,prefix,imgSrc){
+  var mf="font-family:'DM Mono',monospace;";
+  if(!_ccEditorState[pNum])_ccEditorState[pNum]={};
+  _ccEditorState[pNum].prefix=prefix;
+  if(!_ccPostImages[pNum])_ccPostImages[pNum]={};
+  if(imgSrc)_ccPostImages[pNum].original=imgSrc;
+  if(imgSrc&&!_ccPostImages[pNum].working)_ccPostImages[pNum].working=imgSrc;
+  var active=_ccEditorState[pNum].tab||'generate';
+  var tabs=[{id:'generate',l:'🎨 Generate'},{id:'crop',l:'✂️ Crop'},{id:'resize',l:'↔ Resize'},{id:'draw',l:'🖌 Draw'},{id:'overlay',l:'🔲 Overlay'},{id:'background',l:'🖼 Background'}];
+  var tabBar=tabs.map(function(t){
+    var a=t.id===active;
+    return '<button onclick="_ccEditorTab('+pNum+',\''+prefix+'\',\''+t.id+'\')" style="padding:6px 11px;border:none;border-bottom:2px solid '+(a?_CC_RED:'transparent')+';background:'+(a?'rgba(255,0,0,0.08)':'transparent')+';color:'+(a?_CC_RED:'var(--muted)')+';font-size:10px;font-weight:'+(a?'700':'400')+';cursor:pointer;white-space:nowrap;'+mf+'">'+t.l+'</button>';
+  }).join('');
+  return '<div id="cc-img-editor-'+pNum+'" style="margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+
+    '<div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border);background:var(--bg)">'+tabBar+'</div>'+
+    '<div id="cc-img-editor-body-'+pNum+'" style="padding:12px 14px">'+_ccRenderEditorBody(pNum,prefix,active)+'</div>'+
+  '</div>';
+}
+function _ccEditorTab(pNum,prefix,tab){
+  if(!_ccEditorState[pNum])_ccEditorState[pNum]={};
+  _ccEditorState[pNum].tab=tab;_ccEditorState[pNum].prefix=prefix;
+  var body=document.getElementById('cc-img-editor-body-'+pNum);
+  if(body)body.innerHTML=_ccRenderEditorBody(pNum,prefix,tab);
+  var editor=document.getElementById('cc-img-editor-'+pNum);
+  if(editor){
+    var btns=editor.querySelectorAll('div:first-child button');
+    var tabIds=['generate','crop','resize','draw','overlay','background'];
+    btns.forEach(function(btn,i){
+      var a=tabIds[i]===tab;
+      btn.style.borderBottom='2px solid '+(a?_CC_RED:'transparent');
+      btn.style.background=a?'rgba(255,0,0,0.08)':'transparent';
+      btn.style.color=a?_CC_RED:'var(--muted)';
+      btn.style.fontWeight=a?'700':'400';
+    });
+  }
+  if(tab==='draw')setTimeout(function(){_ccDrawInit(pNum);},60);
+}
+function _ccRenderEditorBody(pNum,prefix,tab){
+  if(tab==='generate')return _ccRenderEditorGenerate(pNum,prefix);
+  if(tab==='crop')return _ccRenderEditorCrop(pNum,prefix);
+  if(tab==='resize')return _ccRenderEditorResize(pNum,prefix);
+  if(tab==='draw')return _ccRenderEditorDraw(pNum,prefix);
+  if(tab==='overlay')return _ccRenderEditorOverlay(pNum,prefix);
+  if(tab==='background')return _ccRenderEditorBg();
+  return '';
+}
+
+// Tab: Generate
+function _ccRenderEditorGenerate(pNum,prefix){
+  var mf="font-family:'DM Mono',monospace;";var ts=_CC_TA_STYLE;
+  var post=(_ccLastPosts&&_ccLastPosts[pNum-1])||{};
+  var bf=document.getElementById('cc-img-brief-'+pNum);
+  var briefVal=bf?bf.value:(post.image_brief||'');
+  return '<div>'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:3px;'+mf+'">Image Brief</div>'+
+    '<textarea id="cc-img-brief2-'+pNum+'" rows="3" style="'+ts+'" oninput="var f=document.getElementById(\'cc-img-brief-'+pNum+'\');if(f)f.value=this.value">'+briefVal+'</textarea>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:2px;margin-bottom:8px;'+mf+'">Describe: who · what they are doing · setting · phone · lighting · food</div>'+
+    '<div id="cc-img-fix-wrap-'+pNum+'" style="display:none;margin-bottom:8px">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:3px;'+mf+'">What to Fix</div>'+
+      '<textarea id="cc-img-fix-'+pNum+'" rows="2" placeholder="Remove extra arm. Tacos must look like tacos." style="'+ts+'"></textarea>'+
+    '</div>'+
+    '<div style="margin-bottom:8px">'+
+      [['ai','Full pipeline (Claude→GPT-4o→Imagen 4)'],['manual','Skip Claude (GPT-4o→Imagen 4)'],['raw','Raw → Imagen 4 only']].map(function(m){
+        return '<label style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;cursor:pointer;font-size:11px;color:var(--text);'+mf+'"><input type="radio" name="cc-gen-mode-'+pNum+'" value="'+m[0]+'"'+(m[0]==='ai'?' checked':'')+'>'+m[1]+'</label>';
+      }).join('')+
+    '</div>'+
+    '<div style="display:flex;gap:8px;align-items:center">'+
+      '<button id="cc-gen-img-'+prefix+'-'+pNum+'" onclick="var f=document.getElementById(\'cc-img-brief-'+pNum+'\');var f2=document.getElementById(\'cc-img-brief2-'+pNum+'\');if(f&&f2)f.value=f2.value;_ccQueueImage(\''+prefix+'\','+pNum+')" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">🎨 Generate</button>'+
+      '<button onclick="_ccTestRawPrompt('+pNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">💬 Test Raw</button>'+
+    '</div>'+
+  '</div>';
+}
+
+// Tab: Crop
+function _ccRenderEditorCrop(pNum,prefix){
+  var mf="font-family:'DM Mono',monospace;";
+  var cr=(_ccEditorState[pNum]&&_ccEditorState[pNum].crop)||{t:0,l:0,r:0,b:0,ratio:'free'};
+  var ratios=[{v:'free',l:'Free'},{v:'1:1',l:'1:1'},{v:'4:5',l:'4:5'},{v:'16:9',l:'16:9'},{v:'9:16',l:'9:16'},{v:'2:3',l:'2:3'}];
+  var rBtns=ratios.map(function(r){var a=(cr.ratio||'free')===r.v;return '<button onclick="_ccCropRatio('+pNum+',\''+prefix+'\',\''+r.v+'\')" style="padding:4px 10px;font-size:10px;border:1px solid '+(a?_CC_RED:'var(--border)')+';border-radius:5px;background:'+(a?_CC_RED:'transparent')+';color:'+(a?'#fff':'var(--muted)')+';cursor:pointer;'+mf+'">'+r.l+'</button>';}).join('');
+  function row(lbl,id,val){return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="font-size:10px;color:var(--text);'+mf+';width:60px">'+lbl+'</span><input id="'+id+'" type="range" min="0" max="49" value="'+val+'" style="flex:1" oninput="document.getElementById(\''+id+'-v\').textContent=this.value+\'%\'"><span id="'+id+'-v" style="font-size:10px;color:var(--muted);'+mf+';width:32px">'+val+'%</span></div>';}
+  return '<div>'+
+    '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">'+rBtns+'</div>'+
+    row('Crop top','cc-cr-t-'+pNum,cr.t||0)+row('Crop left','cc-cr-l-'+pNum,cr.l||0)+row('Crop right','cc-cr-r-'+pNum,cr.r||0)+row('Crop bottom','cc-cr-b-'+pNum,cr.b||0)+
+    '<div style="margin-top:6px;display:flex;gap:8px">'+
+      '<button onclick="_ccApplyCrop('+pNum+',\''+prefix+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">✓ Apply Crop</button>'+
+      '<button onclick="_ccCropReset('+pNum+',\''+prefix+'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">↺ Reset</button>'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:6px;'+mf+'">Values are % cropped from each edge. Use ratio presets to auto-balance.</div>'+
+  '</div>';
+}
+function _ccCropRatio(pNum,prefix,ratio){
+  if(!_ccEditorState[pNum])_ccEditorState[pNum]={};
+  if(!_ccEditorState[pNum].crop)_ccEditorState[pNum].crop={t:0,l:0,r:0,b:0};
+  _ccEditorState[pNum].crop.ratio=ratio;
+  var pi=_ccPostImages[pNum];if(!pi)return;
+  var src=pi.working||pi.original;if(!src)return;
+  var img=new Image();
+  img.onload=function(){
+    var iw=img.naturalWidth,ih=img.naturalHeight;
+    var cr=_ccEditorState[pNum].crop;
+    if(ratio==='1:1'){var side=Math.min(iw,ih);cr.t=Math.round((ih-side)/ih*50);cr.b=cr.t;cr.l=Math.round((iw-side)/iw*50);cr.r=cr.l;}
+    else if(ratio==='16:9'){var target=iw/(16/9);if(target<ih){cr.t=Math.round((ih-target)/ih*50);cr.b=cr.t;cr.l=0;cr.r=0;}else{var tw=ih*(16/9);cr.l=Math.round((iw-tw)/iw*50);cr.r=cr.l;cr.t=0;cr.b=0;}}
+    else if(ratio==='9:16'){var target2=iw/(9/16);if(target2<ih){cr.t=Math.round((ih-target2)/ih*50);cr.b=cr.t;cr.l=0;cr.r=0;}else{var tw2=ih*(9/16);cr.l=Math.round((iw-tw2)/iw*50);cr.r=cr.l;cr.t=0;cr.b=0;}}
+    else if(ratio==='4:5'){var target3=iw/(4/5);if(target3<ih){cr.t=Math.round((ih-target3)/ih*50);cr.b=cr.t;cr.l=0;cr.r=0;}else{var tw3=ih*(4/5);cr.l=Math.round((iw-tw3)/iw*50);cr.r=cr.l;cr.t=0;cr.b=0;}}
+    else if(ratio==='2:3'){var target4=iw/(2/3);if(target4<ih){cr.t=Math.round((ih-target4)/ih*50);cr.b=cr.t;cr.l=0;cr.r=0;}else{var tw4=ih*(2/3);cr.l=Math.round((iw-tw4)/iw*50);cr.r=cr.l;cr.t=0;cr.b=0;}}
+    else{cr.t=0;cr.l=0;cr.r=0;cr.b=0;}
+    cr.t=Math.max(0,Math.min(49,cr.t||0));cr.l=Math.max(0,Math.min(49,cr.l||0));cr.r=Math.max(0,Math.min(49,cr.r||0));cr.b=Math.max(0,Math.min(49,cr.b||0));
+    var bd=document.getElementById('cc-img-editor-body-'+pNum);
+    if(bd)bd.innerHTML=_ccRenderEditorBody(pNum,prefix,'crop');
+  };
+  img.src=src;
+}
+function _ccCropReset(pNum,prefix){
+  if(!_ccEditorState[pNum])_ccEditorState[pNum]={};
+  _ccEditorState[pNum].crop={t:0,l:0,r:0,b:0,ratio:'free'};
+  var bd=document.getElementById('cc-img-editor-body-'+pNum);
+  if(bd)bd.innerHTML=_ccRenderEditorBody(pNum,prefix,'crop');
+}
+function _ccApplyCrop(pNum,prefix){
+  var pi=_ccPostImages[pNum];if(!pi)return;
+  var src=pi.working||pi.original;if(!src)return;
+  var t=parseInt(document.getElementById('cc-cr-t-'+pNum).value)||0;
+  var l=parseInt(document.getElementById('cc-cr-l-'+pNum).value)||0;
+  var r=parseInt(document.getElementById('cc-cr-r-'+pNum).value)||0;
+  var b=parseInt(document.getElementById('cc-cr-b-'+pNum).value)||0;
+  var img=new Image();
+  img.onload=function(){
+    var iw=img.naturalWidth,ih=img.naturalHeight;
+    var cx=Math.round(iw*l/100),cy=Math.round(ih*t/100);
+    var cw=Math.round(iw*(1-(l+r)/100)),ch=Math.round(ih*(1-(t+b)/100));
+    if(cw<10||ch<10){_showToast('Crop too small',1500);return;}
+    var cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+    cv.getContext('2d').drawImage(img,cx,cy,cw,ch,0,0,cw,ch);
+    var res=cv.toDataURL('image/png');
+    pi.working=res;_ccLastImages[pNum]={image_base64:res.split(',')[1],mime_type:'image/png'};
+    var container=document.getElementById('cc-img-container-'+prefix+'-'+pNum);
+    if(container){var el=container.querySelector('img[id="cc-img-final-'+pNum+'"]');if(el)el.src=res;else{var els=container.querySelectorAll('img');if(els.length)els[0].src=res;}}
+    _showToast('Crop applied — '+cw+'×'+ch+'px',1500);
+  };
+  img.src=src;
+}
+
+// Tab: Resize
+function _ccRenderEditorResize(pNum,prefix){
+  var mf="font-family:'DM Mono',monospace;";
+  var ps=[{l:'Facebook feed',w:1200,h:630},{l:'Instagram square',w:1080,h:1080},{l:'Instagram story',w:1080,h:1920},{l:'TikTok',w:1080,h:1920},{l:'Pinterest',w:1000,h:1500},{l:'X/Twitter',w:1200,h:675}];
+  return '<div>'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:8px;'+mf+'">Platform Presets</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+
+      ps.map(function(p){return '<button onclick="_ccApplyResize('+pNum+',\''+prefix+'\','+p.w+','+p.h+')" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">'+p.l+' <span style="color:var(--muted)">'+p.w+'×'+p.h+'</span></button>';}).join('')+
+    '</div>'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:8px;'+mf+'">Custom Size</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+      '<label style="font-size:11px;color:var(--text);'+mf+';display:flex;align-items:center;gap:4px">W <input id="cc-rsz-w-'+pNum+'" type="number" value="1200" min="100" max="4000" style="width:66px;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;'+mf+'"></label>'+
+      '<span style="color:var(--muted)">×</span>'+
+      '<label style="font-size:11px;color:var(--text);'+mf+';display:flex;align-items:center;gap:4px">H <input id="cc-rsz-h-'+pNum+'" type="number" value="630" min="100" max="4000" style="width:66px;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;'+mf+'"></label>'+
+      '<button onclick="_ccApplyResize('+pNum+',\''+prefix+'\',parseInt(document.getElementById(\'cc-rsz-w-'+pNum+'\').value),parseInt(document.getElementById(\'cc-rsz-h-'+pNum+'\').value))" style="background:'+_CC_RED+';border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">Apply</button>'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:6px;'+mf+'">Scales to fill the target dimensions, center-crops if aspect ratio differs.</div>'+
+  '</div>';
+}
+function _ccApplyResize(pNum,prefix,w,h){
+  var pi=_ccPostImages[pNum];if(!pi)return;
+  var src=pi.working||pi.original;if(!src||!w||!h)return;
+  var img=new Image();
+  img.onload=function(){
+    var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    var ctx=cv.getContext('2d');
+    var iw=img.naturalWidth,ih=img.naturalHeight;
+    var sc=Math.max(w/iw,h/ih);
+    var sw=Math.round(iw*sc),sh=Math.round(ih*sc);
+    ctx.drawImage(img,Math.round((w-sw)/2),Math.round((h-sh)/2),sw,sh);
+    var res=cv.toDataURL('image/png');
+    pi.working=res;_ccLastImages[pNum]={image_base64:res.split(',')[1],mime_type:'image/png'};
+    var container=document.getElementById('cc-img-container-'+prefix+'-'+pNum);
+    if(container){var els=container.querySelectorAll('img');if(els.length)els[0].src=res;}
+    _showToast('Resized to '+w+'×'+h+'px',1500);
+  };
+  img.src=src;
+}
+
+// Tab: Draw
+function _ccRenderEditorDraw(pNum,prefix){
+  var mf="font-family:'DM Mono',monospace;";
+  return '<div>'+
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'+
+      '<label style="font-size:11px;color:var(--text);'+mf+';display:flex;align-items:center;gap:5px">Color <input id="cc-dw-col-'+pNum+'" type="color" value="#FF0000" style="width:32px;height:24px;border:1px solid var(--border);border-radius:3px;cursor:pointer;padding:1px"></label>'+
+      '<label style="font-size:11px;color:var(--text);'+mf+';display:flex;align-items:center;gap:5px">Size <input id="cc-dw-sz-'+pNum+'" type="range" min="1" max="40" value="4" style="width:70px" oninput="document.getElementById(\'cc-dw-sz-v-'+pNum+'\').textContent=this.value+\'px\'"> <span id="cc-dw-sz-v-'+pNum+'">4px</span></label>'+
+      '<label style="font-size:11px;color:var(--text);'+mf+';display:flex;align-items:center;gap:5px"><input type="radio" name="cc-dw-mode-'+pNum+'" value="pen" checked> Pen</label>'+
+      '<label style="font-size:11px;color:var(--text);'+mf+';display:flex;align-items:center;gap:5px"><input type="radio" name="cc-dw-mode-'+pNum+'" value="eraser"> Eraser</label>'+
+    '</div>'+
+    '<div style="position:relative;display:block;cursor:crosshair;border-radius:6px;overflow:hidden;border:1px solid var(--border)">'+
+      '<img id="cc-dw-base-'+pNum+'" style="width:100%;display:block;border-radius:6px" src="">'+
+      '<canvas id="cc-dw-cv-'+pNum+'" style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair"></canvas>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-top:8px">'+
+      '<button onclick="_ccDrawUndo('+pNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">↺ Undo</button>'+
+      '<button onclick="_ccDrawApply('+pNum+',\''+prefix+'\')" style="background:#22c55e;border:none;color:#fff;padding:5px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">✓ Apply Drawing</button>'+
+      '<button onclick="_ccDrawClear('+pNum+')" style="background:transparent;border:1px solid rgba(255,80,80,0.3);color:'+_CC_RED+';padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">✕ Clear all</button>'+
+    '</div>'+
+  '</div>';
+}
+function _ccDrawInit(pNum){
+  var baseEl=document.getElementById('cc-dw-base-'+pNum);
+  var cv=document.getElementById('cc-dw-cv-'+pNum);
+  if(!baseEl||!cv)return;
+  var pi=_ccPostImages[pNum];if(!pi)return;
+  var src=pi.working||pi.original;if(!src)return;
+  baseEl.onload=function(){cv.width=baseEl.naturalWidth;cv.height=baseEl.naturalHeight;_ccDrawBind(pNum,cv);};
+  baseEl.src=src;if(baseEl.complete&&baseEl.naturalWidth){cv.width=baseEl.naturalWidth;cv.height=baseEl.naturalHeight;_ccDrawBind(pNum,cv);}
+}
+function _ccDrawBind(pNum,cv){
+  if(cv._drawBound)return;cv._drawBound=true;
+  var ctx=cv.getContext('2d');
+  var drawing=false,lx,ly;
+  if(!_ccDrawHistory[pNum])_ccDrawHistory[pNum]=[];
+  function pt(e){var r=cv.getBoundingClientRect(),sc=cv.width/r.width;var s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*sc,y:(s.clientY-r.top)*sc};}
+  function col(){return document.getElementById('cc-dw-col-'+pNum).value||'#FF0000';}
+  function sz(){return parseInt(document.getElementById('cc-dw-sz-'+pNum).value)||4;}
+  function mode(){var el=document.querySelector('input[name="cc-dw-mode-'+pNum+'"]:checked');return el?el.value:'pen';}
+  function startDraw(e){e.preventDefault();drawing=true;var p=pt(e);lx=p.x;ly=p.y;_ccDrawHistory[pNum].push(ctx.getImageData(0,0,cv.width,cv.height));if(_ccDrawHistory[pNum].length>20)_ccDrawHistory[pNum].shift();}
+  function moveDraw(e){if(!drawing)return;e.preventDefault();var p=pt(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);if(mode()==='eraser'){ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='rgba(0,0,0,1)';}else{ctx.globalCompositeOperation='source-over';ctx.strokeStyle=col();}ctx.lineWidth=sz();ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();ctx.globalCompositeOperation='source-over';lx=p.x;ly=p.y;}
+  function endDraw(){drawing=false;}
+  cv.addEventListener('mousedown',startDraw);cv.addEventListener('mousemove',moveDraw);cv.addEventListener('mouseup',endDraw);cv.addEventListener('mouseleave',endDraw);
+  cv.addEventListener('touchstart',startDraw,{passive:false});cv.addEventListener('touchmove',moveDraw,{passive:false});cv.addEventListener('touchend',endDraw);
+}
+function _ccDrawUndo(pNum){
+  var cv=document.getElementById('cc-dw-cv-'+pNum);if(!cv)return;
+  var h=_ccDrawHistory[pNum];if(!h||!h.length)return;
+  cv.getContext('2d').putImageData(h.pop(),0,0);
+}
+function _ccDrawClear(pNum){
+  var cv=document.getElementById('cc-dw-cv-'+pNum);if(!cv)return;
+  cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
+}
+function _ccDrawApply(pNum,prefix){
+  var base=document.getElementById('cc-dw-base-'+pNum);
+  var drawCv=document.getElementById('cc-dw-cv-'+pNum);
+  if(!base||!drawCv)return;
+  var cv=document.createElement('canvas');cv.width=base.naturalWidth;cv.height=base.naturalHeight;
+  var ctx=cv.getContext('2d');ctx.drawImage(base,0,0,cv.width,cv.height);ctx.drawImage(drawCv,0,0,cv.width,cv.height);
+  var res=cv.toDataURL('image/png');
+  var pi=_ccPostImages[pNum];if(!pi)pi=_ccPostImages[pNum]={};
+  pi.working=res;_ccLastImages[pNum]={image_base64:res.split(',')[1],mime_type:'image/png'};
+  var container=document.getElementById('cc-img-container-'+prefix+'-'+pNum);
+  if(container){var els=container.querySelectorAll('img');if(els.length)els[0].src=res;}
+  base.src=res;drawCv.getContext('2d').clearRect(0,0,drawCv.width,drawCv.height);
+  _ccDrawHistory[pNum]=[];_showToast('Drawing applied',1500);
+}
+
+// Tab: Overlay (brand library)
+function _ccRenderEditorOverlay(pNum,prefix){
+  var mf="font-family:'DM Mono',monospace;";
+  _ccBLibLoad();
+  var ov=_ccBrandOverlay[pNum]||{logo:true,claimBar:true,logoPos:'top-right'};
+  // Logo selector
+  var logoOpts='<option value="">AI-generated fallback</option>'+
+    _ccBrandLib.logos.map(function(l){return '<option value="'+l.id+'"'+(l.isDefault?' selected':'')+'>'+l.label+'</option>';}).join('');
+  // Claim bar selector
+  var cbOpts='<option value="">AI-generated fallback</option><option value="none">None</option>'+
+    _ccBrandLib.claimBars.map(function(cb){return '<option value="'+cb.id+'">'+cb.label+(cb.claimText?' — '+cb.claimText:'')+' </option>';}).join('');
+  // Full overlay selector
+  var foOpts='<option value="">None</option>'+
+    _ccBrandLib.fullOverlays.map(function(fo){return '<option value="'+fo.id+'">'+fo.label+' ('+fo.platform+')</option>';}).join('');
+  var lpBtns=['none','top-left','top-right','bottom-left','bottom-right'].map(function(pos){
+    var a=(ov.logoPos||'top-right')===pos;
+    return '<button onclick="_ccEdOvSetLogoPos('+pNum+',\''+pos+'\')" style="padding:4px 8px;font-size:9px;border:1px solid '+(a?_CC_RED:'var(--border)')+';border-radius:4px;background:'+(a?_CC_RED:'transparent')+';color:'+(a?'#fff':'var(--muted)')+';cursor:pointer;'+mf+'">'+(pos==='none'?'None':pos.replace('-',' '))+'</button>';
+  }).join('');
+  return '<div>'+
+    '<div style="margin-bottom:10px">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:5px;'+mf+'">Logo</div>'+
+      '<select id="cc-ov-logo-sel-'+pNum+'" style="width:100%;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;'+mf+'">'+logoOpts+'</select>'+
+      '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">'+lpBtns+'</div>'+
+    '</div>'+
+    '<div style="margin-bottom:10px">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:5px;'+mf+'">Claim Bar</div>'+
+      '<select id="cc-ov-cb-sel-'+pNum+'" style="width:100%;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;'+mf+'">'+cbOpts+'</select>'+
+    '</div>'+
+    '<div style="margin-bottom:10px">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text);margin-bottom:5px;'+mf+'">Full Overlay</div>'+
+      '<select id="cc-ov-fo-sel-'+pNum+'" style="width:100%;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;'+mf+'">'+foOpts+'</select>'+
+    '</div>'+
+    '<button onclick="_ccEdApplyOverlay('+pNum+',\''+prefix+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">✓ Apply & Save</button>'+
+    '<div id="cc-ov-status-'+pNum+'" style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'"></div>'+
+  '</div>';
+}
+function _ccEdOvSetLogoPos(pNum,pos){
+  if(!_ccBrandOverlay[pNum])_ccBrandOverlay[pNum]={logo:true,claimBar:true,logoPos:'top-right'};
+  _ccBrandOverlay[pNum].logoPos=pos;
+  _ccLogoPosState[pNum]=pos;
+  var bd=document.getElementById('cc-img-editor-body-'+pNum);
+  var prefix=(_ccEditorState[pNum]&&_ccEditorState[pNum].prefix)||'s';
+  if(bd)bd.innerHTML=_ccRenderEditorBody(pNum,prefix,'overlay');
+}
+function _ccEdApplyOverlay(pNum,prefix){
+  var pi=_ccPostImages[pNum];if(!pi)return;
+  var src=pi.working||pi.original;if(!src){_showToast('Generate an image first',2000);return;}
+  var statusEl=document.getElementById('cc-ov-status-'+pNum);
+  if(statusEl)statusEl.textContent='Compositing…';
+  var logoSelEl=document.getElementById('cc-ov-logo-sel-'+pNum);
+  var cbSelEl=document.getElementById('cc-ov-cb-sel-'+pNum);
+  var foSelEl=document.getElementById('cc-ov-fo-sel-'+pNum);
+  var logoId=logoSelEl?logoSelEl.value:'';
+  var cbId=cbSelEl?cbSelEl.value:'';
+  var foId=foSelEl?foSelEl.value:'';
+  var ov=_ccBrandOverlay[pNum]||{logoPos:'top-right'};
+  var logoPos=ov.logoPos||'top-right';
+  var baseImg=new Image();
+  baseImg.onload=function(){
+    var iw=baseImg.naturalWidth,ih=baseImg.naturalHeight;
+    var cv=document.createElement('canvas');cv.width=iw;cv.height=ih;
+    var ctx=cv.getContext('2d');ctx.drawImage(baseImg,0,0,iw,ih);
+    // Step 1: full overlay (if selected)
+    function withFullOverlay(next){
+      if(!foId){next();return;}
+      var fo=_ccBrandLib.fullOverlays.find(function(x){return x.id===foId;});
+      if(!fo){next();return;}
+      var fImg=new Image();fImg.onload=function(){ctx.drawImage(fImg,0,0,iw,ih);next();};fImg.onerror=next;fImg.src=fo.data;
+    }
+    // Step 2: claim bar
+    function withClaimBar(next){
+      if(cbId==='none'){next();return;}
+      if(cbId){
+        var cb=_ccBrandLib.claimBars.find(function(x){return x.id===cbId;});
+        if(cb){var cImg=new Image();cImg.onload=function(){ctx.drawImage(cImg,0,ih-Math.round(cImg.naturalHeight*(iw/cImg.naturalWidth)),iw,Math.round(cImg.naturalHeight*(iw/cImg.naturalWidth)));next();};cImg.onerror=next;cImg.src=cb.data;return;}
+      }
+      // AI fallback
+      var ct=_ccGetAutoClaimBar(pNum);
+      ctx.fillStyle='rgba(0,0,0,0.64)';ctx.fillRect(0,ih-62,iw,62);
+      ctx.fillStyle='#FF0000';ctx.fillRect(0,ih-62,6,62);
+      ctx.fillStyle='#fff';ctx.font='bold 22px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ct,iw/2,ih-31);
+      next();
+    }
+    // Step 3: logo
+    function withLogo(next){
+      if(logoPos==='none'){next();return;}
+      function drawLogo(li){
+        if(!li){next();return;}
+        var lw=Math.round(iw*0.1),lh=Math.round(lw*(li.naturalHeight/Math.max(1,li.naturalWidth)));
+        var positions={
+          'top-left':[20,20],'top-right':[iw-lw-20,20],
+          'bottom-left':[20,ih-lh-20],'bottom-right':[iw-lw-20,ih-lh-20]
+        };
+        var xy=positions[logoPos]||[iw-lw-20,20];
+        ctx.drawImage(li,xy[0],xy[1],lw,lh);next();
+      }
+      if(logoId){
+        var lib=_ccBrandLib.logos.find(function(x){return x.id===logoId;});
+        if(lib){var lImg=new Image();lImg.onload=function(){drawLogo(lImg);};lImg.onerror=function(){_ccLoadLogo(drawLogo);};lImg.src=lib.data;return;}
+      }
+      _ccLoadLogo(drawLogo);
+    }
+    withFullOverlay(function(){withClaimBar(function(){withLogo(function(){
+      var res=cv.toDataURL('image/png');
+      pi.working=res;_ccLastImages[pNum]={image_base64:res.split(',')[1],mime_type:'image/png'};
+      var container=document.getElementById('cc-img-container-'+prefix+'-'+pNum);
+      if(container){var els=container.querySelectorAll('img');if(els.length)els[0].src=res;}
+      if(statusEl)statusEl.textContent='✓ Overlay applied';
+    });});});
+  };
+  baseImg.src=src;
+}
+
+// Tab: Background (stub — requires backend)
+function _ccRenderEditorBg(){
+  var mf="font-family:'DM Mono',monospace;";
+  return '<div style="text-align:center;padding:20px">'+
+    '<div style="font-size:32px;margin-bottom:10px">🖼</div>'+
+    '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;'+mf+'">Background Removal & Replacement</div>'+
+    '<div style="font-size:11px;color:var(--muted);max-width:380px;margin:0 auto;line-height:1.6;'+mf+'">'+
+      'This tab requires a <code style="font-size:10px;background:var(--bg);padding:2px 5px;border-radius:3px">remove_background</code> endpoint in the Apps Script backend.<br><br>'+
+      'When implemented, it will: remove the AI-generated background, let you replace it with studio colours, custom environments, or an AI-generated scene, then re-composite with the original subject.'+
+    '</div>'+
+    '<div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">'+
+      ['Studio white','Studio grey','Kitchen — warm','Kitchen — modern','Outdoor garden','Dining table'].map(function(bg){
+        return '<button disabled style="background:var(--bg);border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:5px;font-size:10px;cursor:not-allowed;'+mf+'">'+bg+'</button>';
+      }).join('')+
+    '</div>'+
+    '<div style="margin-top:12px;font-size:10px;color:var(--muted);'+mf+'">Coming soon — backend endpoint required</div>'+
+  '</div>';
+}
+
+// Download helpers
+function _ccDownloadPostImage(pNum){
+  var pi=_ccPostImages[pNum];
+  var src=pi?(pi.working||pi.original):null;
+  if(!src){var li=_ccLastImages[pNum];if(li)src='data:'+li.mime_type+';base64,'+li.image_base64;}
+  if(!src){_showToast('No image to download',1500);return;}
+  var a=document.createElement('a');a.href=src;a.download='post-'+pNum+'.png';document.body.appendChild(a);a.click();a.remove();
+}
+function _ccDownloadAllImages(){
+  var posts=_ccLastPosts||[];var n=0;
+  posts.forEach(function(p,i){
+    var pNum=i+1;
+    var pi=_ccPostImages[pNum];
+    var src=pi?(pi.working||pi.original):null;
+    if(!src){var li=_ccLastImages[pNum];if(li)src='data:'+li.mime_type+';base64,'+li.image_base64;}
+    if(!src)return;
+    setTimeout(function(){var a=document.createElement('a');a.href=src;a.download='post-'+pNum+'.png';document.body.appendChild(a);a.click();a.remove();},n*800);
+    n++;
+  });
+  if(!n)_showToast('No images to download',1500);
+  else _showToast('Downloading '+n+' images…',2000);
+}
+
 // ── Brand Assets & Overlay ──────────────────────────────────────────────────
 function _ccAssetLoad(key){
   try{
@@ -24180,7 +24752,10 @@ function _ccRenderBrandAssets(){
     '<input id="ba-prod-input" type="file" accept="image/png,image/jpeg" style="display:none" onchange="_ccUploadProd(this)">'+
     '</div>';
 
-  return _ccSecHdr('🎨 Brand Assets')+logoHtml+shotsHtml+prodsHtml;
+  var libHtml=_ccRenderBrandLibrarySection();
+  shotsHtml=shotsHtml.replace('SECTION 2 — APP SCREENSHOTS','SECTION 4 — APP SCREENSHOTS');
+  prodsHtml=prodsHtml.replace('SECTION 3 — PRODUCT IMAGES','SECTION 5 — PRODUCT IMAGES');
+  return _ccSecHdr('🎨 Brand Assets')+libHtml+shotsHtml+prodsHtml;
 }
 
 // ── Claim bar auto-selection ────────────────────────────────────────────────
@@ -25668,6 +26243,7 @@ function _ccWizardAdvance(toStep,summary){
         '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Traffic drivers that send visitors to the landing page. Each asset carries its own DL_ID so attribution is tracked per asset.</div>'+
         '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Channels: <span id="cc-ks-channel-label" style="color:var(--text);font-weight:700">'+chLabel+'</span></div>'+
         '<div id="cc-ks-section-b-buttons">'+_ccBuildSectionBButtons()+'</div>'+
+        '<div style="margin-top:10px"><button onclick="_ccDownloadAllImages()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download all post images</button></div>'+
       '</div>'+
       '<div id="cc-ks-asset-output"></div>';
   }
