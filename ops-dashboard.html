@@ -21263,7 +21263,7 @@ var _campActiveTab='brief';
 var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -21377,7 +21377,7 @@ function _ccRenderBrief(){
           return '<div id="cc-volume-social" style="'+_sec+'">'+
             _fhdr+'Content Volume — Social</div>'+
             _ig+
-              '<div>'+_lbl('Posts per Campaign')+'<input type="number" id="cc-post-count" min="1" max="30" value="'+(b.post_count||7)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
+              '<div>'+_lbl('Posts per Campaign')+'<input type="number" id="cc-post-count" min="1" max="30" value="'+(b.post_count||7)+'" style="'+_ns+'" oninput="_ccBriefSync();_ccRefreshChannelLabel()"></div>'+
               '<div>'+_lbl('Posting Frequency')+'<select id="cc-post-frequency" style="'+_ns+'" onchange="_ccBriefSync()">'+_fs+'</select></div>'+
             '</div>'+
           '</div>'+
@@ -21612,8 +21612,8 @@ function _ccLoadChannels(){
     .then(function(d){
       if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length){
         // Merge: Sheet data wins; fallback fills any channel names the Sheet doesn't define
-        var sheetNames=d.channels.map(function(c){return c.name;});
-        var extras=_ccChannels.filter(function(c){return sheetNames.indexOf(c.name)===-1;});
+        var sheetNames=d.channels.map(function(c){return c.name.toLowerCase();});
+        var extras=_ccChannels.filter(function(c){return sheetNames.indexOf(c.name.toLowerCase())===-1;});
         _ccChannels=d.channels.concat(extras);
       }
       _ccChannelsLoaded=true;
@@ -21703,7 +21703,7 @@ function _ccSlugStatus(state,slug,conflictId,isShared){
 }
 
 function _ccNewCampaign(){
-  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft'};
+  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7};
   _campKickstartCopy=null;
   _campLastLp=null;
   _campSlugStatus='';
@@ -21840,7 +21840,7 @@ function _ccAutoFillBrief(campaign){
           if(hdr) hdr.textContent=(_campBrief.id||'')+' · '+(_campBrief.icp||'')+' · '+(_campBrief.channel||'');
           _ccRefreshChannelLabel();
           // Set volume defaults on _campBrief
-          _campBrief.post_count      = _campBrief.post_count      || 5;
+          _campBrief.post_count      = _campBrief.post_count      || 7;
           _campBrief.post_frequency  = _campBrief.post_frequency  || 'every_2_days';
           _campBrief.email_sequences = _campBrief.email_sequences || 'seq1_seq2';
           _campBrief.email_variants  = _campBrief.email_variants  || 'both';
@@ -22054,7 +22054,7 @@ function _ccRenderKickstartAssets(campaign){
   var icp=campaign.icp_match||'';
   var channel=campaign.channel_recommendation||'';
   var isEmail=channel==='Email';
-  var assetLabel=isEmail?'Build Email Sequence (SEQ-1 + SEQ-2)':'Build '+channel+' Social Posts (5 posts)';
+  var assetLabel=isEmail?'Build Email Sequence (SEQ-1 + SEQ-2)':'Build '+channel+' Social Posts ('+((_campBrief.post_count||7))+' posts)';
   var assetAction=isEmail?'build_email_sequence':'build_social_posts';
   var secHdr=function(title,sub){
     return '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
@@ -22232,7 +22232,7 @@ function _ccKsBuildAssets(actionType){
   _briefWP.hashtag_count_max=_chData.hashtag_count_max||0;
   _briefWP.content_format=_chData.content_format||'post';
   _briefWP.link_placement=_chData.link_placement||'';
-  _briefWP.post_count=_campBrief.post_count||5;
+  _briefWP.post_count=_campBrief.post_count||7;
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:actionType,brief:_briefWP,copy:_campKickstartCopy||{}})})
     .then(function(r){return r.json();})
     .then(function(d){
@@ -22943,7 +22943,7 @@ function _ccRefreshChannelLabel(){
   var btn=document.getElementById('cc-ks-asset-btn');
   if(btn){
     var isEmail=ch==='Email';
-    btn.textContent=isEmail?'Build Email Sequence (SEQ-1 + SEQ-2)':'Build '+(ch||'Social')+' Social Posts (5 posts)';
+    btn.textContent=isEmail?'Build Email Sequence (SEQ-1 + SEQ-2)':'Build '+(ch||'Social')+' Social Posts ('+(_campBrief.post_count||7)+' posts)';
     btn.onclick=function(){_ccKsBuildAssets(isEmail?'build_email_sequence':'build_social_posts');};
   }
 }
@@ -23809,8 +23809,8 @@ function _ccAfterChannelWrite(){
     .then(function(r){return r.json();})
     .then(function(d){
       if(d&&d.ok&&Array.isArray(d.channels)&&d.channels.length){
-        var sheetNames=d.channels.map(function(c){return c.name;});
-        var extras=_ccChannels.filter(function(c){return sheetNames.indexOf(c.name)===-1;});
+        var sheetNames=d.channels.map(function(c){return c.name.toLowerCase();});
+        var extras=_ccChannels.filter(function(c){return sheetNames.indexOf(c.name.toLowerCase())===-1;});
         _ccChannels=d.channels.concat(extras);
       }
       _ccChannelsLoaded=true;
