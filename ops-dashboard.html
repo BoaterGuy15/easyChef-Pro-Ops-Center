@@ -21377,7 +21377,7 @@ function _ccRenderBrief(){
           return '<div id="cc-volume-social" style="'+_sec+'">'+
             _fhdr+'Content Volume — Social</div>'+
             _ig+
-              '<div>'+_lbl('Posts per Campaign')+'<input type="number" id="cc-post-count" min="1" max="30" value="'+(b.post_count||5)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
+              '<div>'+_lbl('Posts per Campaign')+'<input type="number" id="cc-post-count" min="1" max="30" value="'+(b.post_count||7)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
               '<div>'+_lbl('Posting Frequency')+'<select id="cc-post-frequency" style="'+_ns+'" onchange="_ccBriefSync()">'+_fs+'</select></div>'+
             '</div>'+
           '</div>'+
@@ -21429,7 +21429,7 @@ function _ccBriefSync(){
   _el=_ccEl('cc-slug');     if(_el&&_el.value)    b.slug=_el.value;
   _el=_ccEl('cc-launch');  if(_el&&_el.value)    b.launchDate=_el.value;
   _el=_ccEl('cc-approved');if(_el)               b.approved=_el.checked;
-  _el=_ccEl('cc-post-count');      if(_el)            b.post_count=parseInt(_el.value)||5;
+  _el=_ccEl('cc-post-count');      if(_el)            b.post_count=parseInt(_el.value)||7;
   _el=_ccEl('cc-post-frequency'); if(_el&&_el.value) b.post_frequency=_el.value;
   _el=_ccEl('cc-email-sequences');if(_el)            b.email_sequences=parseInt(_el.value)||2;
   _el=_ccEl('cc-email-variants'); if(_el)            b.email_variants=parseInt(_el.value)||2;
@@ -21583,7 +21583,13 @@ function _ccPopulateChannelSelect(channels){
   var sel=document.getElementById('cc-channel');
   if(!sel) return;
   var current=_campBrief.channel||sel.value;
-  var active=channels.filter(function(c){return c.status==='active';});
+  var seen={};
+  var active=channels.filter(function(c){
+    if(c.status!=='active') return false;
+    if(seen[c.name]) return false;
+    seen[c.name]=true;
+    return true;
+  });
   sel.innerHTML='<option value="">— select —</option>'+
     active.map(function(c){
       return '<option value="'+c.name+'"'+(c.name===current?' selected':'')+'>'+c.name+'</option>';
@@ -21840,7 +21846,7 @@ function _ccAutoFillBrief(campaign){
           _campBrief.email_variants  = _campBrief.email_variants  || 'both';
           // Reflect defaults into DOM so user sees them immediately
           var pcEl=document.getElementById('cc-post-count');
-          if(pcEl&&!pcEl.value) pcEl.value=5;
+          if(pcEl&&!pcEl.value) pcEl.value=7;
           var pfEl=document.getElementById('cc-post-frequency');
           if(pfEl&&!pfEl.value) pfEl.value='every_2_days';
           var esEl=document.getElementById('cc-email-sequences');
