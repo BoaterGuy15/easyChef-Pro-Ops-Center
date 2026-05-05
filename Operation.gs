@@ -410,6 +410,7 @@ function doGet(e) {
     if(e.parameter.action === 'content_calendar_read')   return respond({ok:true, entries:       getContentCalendar(e.parameter.campaign_id||'')});
     if(e.parameter.action === 'campaign_metrics_read')   return respond({ok:true, metrics:        getCampaignMetrics(e.parameter.campaign_id||'')});
     if(e.parameter.action === 'scheduled_posts_read')    return respond({ok:true, posts:          getScheduledPosts(e.parameter.campaign_id||'')});
+    if(e.parameter.action === 'lp_inventory_read')       return respond({ok:true, inventory:      getLPInventory(e.parameter.status||'')});
     return respond({ ok: true, tasks: getTasks() });
   } catch(err) {
     return respond({ ok: false, error: err.message });
@@ -625,6 +626,10 @@ function doPost(e) {
     // ── Scheduled Posts sheet ─────────────────────────────────────────────────────
     if(body.action === 'scheduled_posts_read')     return respond({ ok:true, posts: getScheduledPosts(body.campaign_id||'') });
     if(body.action === 'scheduled_post_write')     { setScheduledPost(body.post); return respond({ ok:true }); }
+
+    // ── LP Inventory sheet ────────────────────────────────────────────────────────
+    if(body.action === 'lp_inventory_read')        return respond({ ok:true, inventory: getLPInventory(body.status||'') });
+    if(body.action === 'lp_inventory_write')       { setLPInventoryEntry(body.entry); return respond({ ok:true }); }
 
     // ── Image Pipeline + Klaviyo ──────────────────────────────────────────────────
     if(body.action === 'klaviyo_push_sequence')  return respond(klaviyoPushSequence(body));

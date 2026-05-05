@@ -25,7 +25,8 @@ var _CC_TAB = {
   PUSH_NOTIFS:    'PushNotifications',
   CONTENT_CAL:    'ContentCalendar',
   METRICS:        'CampaignMetrics',
-  SCHEDULED:      'ScheduledPosts'
+  SCHEDULED:      'ScheduledPosts',
+  LP_INVENTORY:   'LPInventory'
 };
 
 var _CC_HDR = {
@@ -84,7 +85,16 @@ var _CC_HDR = {
     'og_title','og_description','hero_headline','hero_subheadline',
     'section_problem','section_agitate','section_solve','section_value',
     'section_proof','section_cta','tracking_convert','tracking_clarity',
-    'tracking_ga4','status','dev_built','qa_passed','pushed_to_production'
+    'tracking_ga4','status','dev_built','qa_passed','pushed_to_production',
+    'campaign_type','blueprint_code','icp_codes','theme','publish_day',
+    'ab_test_variant','convert_experiment_id','shared_by_campaigns',
+    'last_traffic_date','total_signups'
+  ],
+  LPInventory: [
+    'id','slug','full_url','campaign_type','blueprint_code','icp_codes','theme',
+    'status','dev_built','convert_installed','clarity_installed','ga4_installed',
+    'campaigns_using','total_signups','conversion_rate',
+    'created_at','last_updated','notes'
   ],
   Channels: [
     'name','slug_code','utm_medium','utm_source','dl_prefix','status','notes',
@@ -303,12 +313,25 @@ function _setupCampaignSheets() {
     ['bp-007','G-Paywall Recovery','Paywall Recovery',      'SEQ-2',                    3,  5, 'upgrade',  'post-install', 'false', 'In-app paywall recovery — tipping point triggered']
   ].forEach(function(row) { bpSheet.appendRow(row); });
 
-  // Ensure new tabs exist (idempotent — safe to run multiple times)
-  [_CC_TAB.PUSH_NOTIFS, _CC_TAB.CONTENT_CAL, _CC_TAB.METRICS, _CC_TAB.SCHEDULED].forEach(function(name) {
+  // Ensure newer tabs exist (idempotent — safe to run multiple times)
+  [_CC_TAB.PUSH_NOTIFS, _CC_TAB.CONTENT_CAL, _CC_TAB.METRICS, _CC_TAB.SCHEDULED, _CC_TAB.LP_INVENTORY].forEach(function(name) {
     var sheet = ss.getSheetByName(name);
     if (!sheet) sheet = ss.insertSheet(name);
     _ccHdrStyle(sheet, _CC_HDR[name]);
   });
+
+  // Seed LPInventory (only if empty)
+  var lpInvSheet = ss.getSheetByName(_CC_TAB.LP_INVENTORY);
+  if (lpInvSheet && lpInvSheet.getLastRow() < 2) {
+    [
+      ['lpi-001','lp/waitlist-a',   'https://easychefpro.com/lp/waitlist-a',   'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'A/B test control variant'],
+      ['lpi-002','lp/waitlist-b',   'https://easychefpro.com/lp/waitlist-b',   'waitlist','A-Waitlist','super_mom',     '','draft',false,false,false,false,'',0,'',now,now,'A/B test challenger variant'],
+      ['lpi-003','lp/alpha',        'https://easychefpro.com/lp/alpha',        'waitlist','A-Waitlist','alpha_recruit',  '','live', true, false,false,false,'',0,'',now,now,'Alpha Recruit ICP — founding price angle'],
+      ['lpi-004','lp/social-fb',    'https://easychefpro.com/lp/social-fb',    'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'Facebook organic traffic destination'],
+      ['lpi-005','lp/social-ig',    'https://easychefpro.com/lp/social-ig',    'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'Instagram bio link destination'],
+      ['lpi-006','lp/630pm-rescue', 'https://easychefpro.com/lp/630pm-rescue', 'waitlist','A-Waitlist','super_mom',     '','draft',false,false,false,false,'',0,'',now,now,'6:30 PM fridge panic angle — pending build']
+    ].forEach(function(row) { lpInvSheet.appendRow(row); });
+  }
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
@@ -793,7 +816,17 @@ function _pageRowToObj(r) {
     status: r[20],
     dev_built:            r[21] === true || String(r[21]).toLowerCase() === 'true',
     qa_passed:            r[22] === true || String(r[22]).toLowerCase() === 'true',
-    pushed_to_production: r[23] === true || String(r[23]).toLowerCase() === 'true'
+    pushed_to_production: r[23] === true || String(r[23]).toLowerCase() === 'true',
+    campaign_type:         String(r[24] || ''),
+    blueprint_code:        String(r[25] || ''),
+    icp_codes:             String(r[26] || ''),
+    theme:                 String(r[27] || ''),
+    publish_day:           String(r[28] || ''),
+    ab_test_variant:       String(r[29] || 'none'),
+    convert_experiment_id: String(r[30] || ''),
+    shared_by_campaigns:   String(r[31] || ''),
+    last_traffic_date:     _ccFmtDate(r[32]),
+    total_signups:         Number(r[33] || 0)
   };
 }
 
@@ -844,9 +877,21 @@ function setLandingPage(item) {
     item.status               !== undefined ? item.status               : (ex ? ex[20] : 'draft'),
     item.dev_built            !== undefined ? item.dev_built            : (ex ? ex[21] : false),
     item.qa_passed            !== undefined ? item.qa_passed            : (ex ? ex[22] : false),
-    item.pushed_to_production !== undefined ? item.pushed_to_production : (ex ? ex[23] : false)
+    item.pushed_to_production !== undefined ? item.pushed_to_production : (ex ? ex[23] : false),
+    item.campaign_type         !== undefined ? item.campaign_type         : (ex ? ex[24] : ''),
+    item.blueprint_code        !== undefined ? item.blueprint_code        : (ex ? ex[25] : ''),
+    item.icp_codes             !== undefined ? item.icp_codes             : (ex ? ex[26] : item.icp_code || ''),
+    item.theme                 !== undefined ? item.theme                 : (ex ? ex[27] : ''),
+    item.publish_day           !== undefined ? item.publish_day           : (ex ? ex[28] : ''),
+    item.ab_test_variant       !== undefined ? item.ab_test_variant       : (ex ? ex[29] : 'none'),
+    item.convert_experiment_id !== undefined ? item.convert_experiment_id : (ex ? ex[30] : ''),
+    item.shared_by_campaigns   !== undefined ? item.shared_by_campaigns   : (ex ? ex[31] : ''),
+    item.last_traffic_date     !== undefined ? item.last_traffic_date     : (ex ? ex[32] : ''),
+    item.total_signups         !== undefined ? item.total_signups         : (ex ? ex[33] : 0)
   ];
   _ccUpsert(sheet, headers, item.id, row);
+  // Keep LPInventory in sync: register slug and link this campaign
+  try { _registerLpInInventory(item.slug || row[3], item.campaign_id || row[1], item); } catch(e) {}
 }
 
 // ── Channels ──────────────────────────────────────────────────────────────────
@@ -1172,6 +1217,7 @@ function _testSheetWiring() {
   Logger.log('ContentCalendar: '  + getContentCalendar().length  + ' rows');
   Logger.log('CampaignMetrics: '  + getCampaignMetrics().length  + ' rows');
   Logger.log('ScheduledPosts: '   + getScheduledPosts().length   + ' rows');
+  Logger.log('LPInventory: '      + getLPInventory().length      + ' rows');
 }
 
 // ── PushNotifications ─────────────────────────────────────────────────────────
@@ -1416,6 +1462,129 @@ function setScheduledPost(item) {
     ex ? ex[10] : now
   ];
   _ccUpsert(sheet, headers, item.id, row);
+}
+
+// ── LPInventory ───────────────────────────────────────────────────────────────
+
+function _lpInvRowToObj(r) {
+  return {
+    id:                   String(r[0]  || ''),
+    slug:                 String(r[1]  || ''),
+    full_url:             String(r[2]  || ''),
+    campaign_type:        String(r[3]  || ''),
+    blueprint_code:       String(r[4]  || ''),
+    icp_codes:            String(r[5]  || ''),
+    theme:                String(r[6]  || ''),
+    status:               String(r[7]  || 'draft'),
+    dev_built:            r[8]  === true || String(r[8]).toLowerCase()  === 'true',
+    convert_installed:    r[9]  === true || String(r[9]).toLowerCase()  === 'true',
+    clarity_installed:    r[10] === true || String(r[10]).toLowerCase() === 'true',
+    ga4_installed:        r[11] === true || String(r[11]).toLowerCase() === 'true',
+    campaigns_using:      String(r[12] || ''),
+    total_signups:        Number(r[13] || 0),
+    conversion_rate:      String(r[14] || ''),
+    created_at:           _ccFmtDate(r[15]),
+    last_updated:         _ccFmtDate(r[16]),
+    notes:                String(r[17] || '')
+  };
+}
+
+function getLPInventory(statusFilter) {
+  var sheet = _getCCSheet(_CC_TAB.LP_INVENTORY);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.LPInventory.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_lpInvRowToObj);
+  if (!statusFilter) return rows;
+  return rows.filter(function(r) { return r.status === statusFilter; });
+}
+
+function setLPInventoryEntry(item) {
+  if (!item || !item.id) return;
+  var sheet   = _getCCSheet(_CC_TAB.LP_INVENTORY);
+  var headers = _CC_HDR.LPInventory;
+  var now     = _ccNow();
+  var ex      = null;
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(item.id)) { ex = rows[i]; break; }
+    }
+  }
+  var row = [
+    item.id,
+    item.slug               !== undefined ? item.slug               : (ex ? ex[1]  : ''),
+    item.full_url           !== undefined ? item.full_url           : (ex ? ex[2]  : ''),
+    item.campaign_type      !== undefined ? item.campaign_type      : (ex ? ex[3]  : ''),
+    item.blueprint_code     !== undefined ? item.blueprint_code     : (ex ? ex[4]  : ''),
+    item.icp_codes          !== undefined ? item.icp_codes          : (ex ? ex[5]  : ''),
+    item.theme              !== undefined ? item.theme              : (ex ? ex[6]  : ''),
+    item.status             !== undefined ? item.status             : (ex ? ex[7]  : 'draft'),
+    item.dev_built          !== undefined ? item.dev_built          : (ex ? ex[8]  : false),
+    item.convert_installed  !== undefined ? item.convert_installed  : (ex ? ex[9]  : false),
+    item.clarity_installed  !== undefined ? item.clarity_installed  : (ex ? ex[10] : false),
+    item.ga4_installed      !== undefined ? item.ga4_installed      : (ex ? ex[11] : false),
+    item.campaigns_using    !== undefined ? item.campaigns_using    : (ex ? ex[12] : ''),
+    item.total_signups      !== undefined ? item.total_signups      : (ex ? ex[13] : 0),
+    item.conversion_rate    !== undefined ? item.conversion_rate    : (ex ? ex[14] : ''),
+    ex ? ex[15] : now,
+    now,
+    item.notes              !== undefined ? item.notes              : (ex ? ex[17] : '')
+  ];
+  _ccUpsert(sheet, headers, item.id, row);
+}
+
+// Called automatically from setLandingPage — keeps LPInventory in sync.
+function _registerLpInInventory(slug, campaignId, item) {
+  if (!slug) return;
+  var sheet   = _getCCSheet(_CC_TAB.LP_INVENTORY);
+  var headers = _CC_HDR.LPInventory;
+  var now     = _ccNow();
+  var lastRow = sheet.getLastRow();
+  var existing     = null;
+  var existingRow  = -1;
+
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][1]).trim() === String(slug).trim()) {
+        existing    = rows[i];
+        existingRow = i + 2;
+        break;
+      }
+    }
+  }
+
+  if (!existing) {
+    // New LP — create draft row
+    var newRow = [
+      'lpi-' + Date.now().toString(36),
+      slug,
+      (item && item.full_url) ? item.full_url : 'https://easychefpro.com/' + slug,
+      (item && item.campaign_type)  || '',
+      (item && item.blueprint_code) || '',
+      (item && item.icp_codes)      || (item && item.icp_code) || '',
+      (item && item.theme)          || '',
+      'draft',
+      false, false, false, false,
+      campaignId || '',
+      0, '', now, now, ''
+    ];
+    var rng = sheet.getRange(sheet.getLastRow() + 1, 1, 1, headers.length);
+    rng.setNumberFormat('@');
+    rng.setValues([newRow]);
+  } else if (campaignId) {
+    // LP exists — append campaignId to campaigns_using if not already listed
+    var current = String(existing[12] || '');
+    var ids = current ? current.split(',').map(function(s) { return s.trim(); }) : [];
+    if (ids.indexOf(String(campaignId)) < 0) {
+      ids.push(String(campaignId));
+      sheet.getRange(existingRow, 13, 1, 1).setNumberFormat('@').setValue(ids.join(','));
+      sheet.getRange(existingRow, 17, 1, 1).setValue(now); // last_updated
+    }
+  }
 }
 
 // clasp auto-deploy verified — May 2026
