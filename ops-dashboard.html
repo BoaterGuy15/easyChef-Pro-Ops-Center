@@ -2459,13 +2459,6 @@ function getBlockingDeps(task){
     return now>end && dep.status!=='Done' && dep.status!=='Complete';
   });
 }
-function _toYMD(v){
-  if(!v) return '';
-  const s=String(v).trim();
-  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  if(s.length>10&&/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-  return '';
-}
 function taskProgress(t){
   const sd=_toYMD(t.sd), ed=_toYMD(t.ed);
   if(!sd||!ed) return '<td></td>';
@@ -13283,7 +13276,6 @@ function _buildPersonalBriefing(userKey){
   frag.appendChild(hdrDiv);
   // S0 — HIGH PRIORITY SECTIONS (draggable, hideable, order/hidden saved per user)
   {
-    function _toYMD(d){if(!d)return'';if(typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d))return d;const dt=new Date(d);if(isNaN(dt.getTime()))return'';return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
     function _dRange(sd,ed){const a=fmtD(sd),b=fmtD(ed);return a&&b?a+' → '+b:a||b||'—';}
     const todayY=_toYMD(new Date());
     const week7=_toYMD(new Date(Date.now()+7*86400000));
@@ -22651,11 +22643,11 @@ function _ccRenderSocialPosts(posts,container,channel){
       _ccRenderScreenshotPicker(post.post_num||i+1)+
       // Generate Image button + result container
       '<div style="margin-bottom:12px">'+
-        '<button id="cc-gen-img-'+(post.post_num||i+1)+'" '+
-        'onclick="_ccQueueImage('+(post.post_num||i+1)+')" '+
+        '<button id="cc-gen-img-s-'+(post.post_num||i+1)+'" '+
+        'onclick="_ccQueueImage(\'s\','+(post.post_num||i+1)+')" '+
         'style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">'+
         '🎨 Generate Image</button>'+
-        '<div id="cc-img-container-'+(post.post_num||i+1)+'"></div>'+
+        '<div id="cc-img-container-s-'+(post.post_num||i+1)+'"></div>'+
       '</div>'+
       // CTA + link placement row
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
@@ -22691,8 +22683,8 @@ function _ccGetChannelFromBrief(){
   return (_ccChannels||[]).find(function(c){return c.name===(_campBrief.channel||'');}) || {};
 }
 
-function _ccImageUse(postNum){
-  var container=document.getElementById('cc-img-container-'+postNum);
+function _ccImageUse(prefix,postNum){
+  var container=document.getElementById('cc-img-container-'+prefix+'-'+postNum);
   if(container){
     // Remove action buttons, keep the image
     var btns=container.querySelector('div[style*="display:flex"]');
@@ -22703,10 +22695,10 @@ function _ccImageUse(postNum){
   _showToast('<div style="color:#22c55e;font-size:12px">Post '+postNum+' image saved — will attach when campaign is exported.</div>',2500);
 }
 
-function _ccImageSkip(postNum){
-  var container=document.getElementById('cc-img-container-'+postNum);
+function _ccImageSkip(prefix,postNum){
+  var container=document.getElementById('cc-img-container-'+prefix+'-'+postNum);
   if(container) container.innerHTML='<span style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace">Image skipped — image_brief saved for manual creation.</span>';
-  var btn=document.getElementById('cc-gen-img-'+postNum);
+  var btn=document.getElementById('cc-gen-img-'+prefix+'-'+postNum);
   if(btn){btn.textContent='🎨 Generate Image';btn.disabled=false;}
 }
 
@@ -22716,13 +22708,13 @@ var _ccImageGenerating=false;
 
 function _ccQueueAllImages(){
   var total=(_ccLastPosts||[]).length;
-  for(var i=1;i<=total;i++) _ccQueueImage(i);
+  for(var i=1;i<=total;i++) _ccQueueImage('s',i);
 }
 
-function _ccQueueImage(postNum){
-  var btn=document.getElementById('cc-gen-img-'+postNum);
-  if(_ccImageQueue.indexOf(postNum)!==-1){return;} // already queued
-  _ccImageQueue.push(postNum);
+function _ccQueueImage(prefix,postNum){
+  var btn=document.getElementById('cc-gen-img-'+prefix+'-'+postNum);
+  if(_ccImageQueue.some(function(q){return q.prefix===prefix&&q.num===postNum;})){return;} // already queued
+  _ccImageQueue.push({prefix:prefix,num:postNum});
   if(!_ccImageGenerating){
     _ccProcessImageQueue();
   } else {
@@ -22738,23 +22730,23 @@ function _ccProcessImageQueue(){
   var next=_ccImageQueue.shift();
   // Update queue position labels on remaining waiting buttons
   _ccImageQueue.forEach(function(pn,idx){
-    var b=document.getElementById('cc-gen-img-'+pn);
+    var b=document.getElementById('cc-gen-img-'+pn.prefix+'-'+pn.num);
     if(b){
       var pos=idx+1;
       var ord=pos===1?'1st':pos===2?'2nd':pos===3?'3rd':(pos+'th');
       b.textContent='⏳ Queued ('+ord+')';
     }
   });
-  _ccGeneratePostImage(next,function(){
+  _ccGeneratePostImage(next.prefix,next.num,function(){
     setTimeout(_ccProcessImageQueue,1000);
   });
 }
 
-function _ccGeneratePostImage(postNum,callback){
+function _ccGeneratePostImage(prefix,postNum,callback){
   var post=_ccLastPosts[postNum-1];
   if(!post){if(callback)callback();return;}
-  var btn=document.getElementById('cc-gen-img-'+postNum);
-  var container=document.getElementById('cc-img-container-'+postNum);
+  var btn=document.getElementById('cc-gen-img-'+prefix+'-'+postNum);
+  var container=document.getElementById('cc-img-container-'+prefix+'-'+postNum);
   if(btn){btn.textContent='Generating...';btn.disabled=true;}
   var channelData=_ccGetChannelFromBrief();
   var briefField=document.getElementById('cc-img-brief-'+postNum);
@@ -22785,16 +22777,16 @@ function _ccGeneratePostImage(postNum,callback){
         container.innerHTML=
           _ccImageWithOverlay(postNum,imgSrc)+
           '<div style="display:flex;gap:6px;margin-top:6px">'+
-            '<button onclick="_ccImageUse('+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>'+
-            '<button onclick="_ccQueueImage('+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
-            '<button onclick="_ccImageSkip('+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">✕ Skip</button>'+
+            '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>'+
+            '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
+            '<button onclick="_ccImageSkip(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">✕ Skip</button>'+
           '</div>';
       }
       if(btn){btn.textContent='✓ Image ready';btn.disabled=false;}
     } else {
       console.error('[IMG] Post '+postNum+' failed:', d.error);
       if(container){
-        container.innerHTML='<button onclick="_ccQueueImage('+postNum+')" '+
+        container.innerHTML='<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" '+
           'style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid rgba(255,0,0,0.4);'+
           'color:'+_CC_RED+';border-radius:5px;cursor:pointer;margin-top:6px">↺ Retry Image</button>';
       }
@@ -22805,7 +22797,7 @@ function _ccGeneratePostImage(postNum,callback){
   .catch(function(e){
     console.error('[IMG] Post '+postNum+' fetch error:', e.message);
     if(container){
-      container.innerHTML='<button onclick="_ccQueueImage('+postNum+')" '+
+      container.innerHTML='<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" '+
         'style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid rgba(255,0,0,0.4);'+
         'color:'+_CC_RED+';border-radius:5px;cursor:pointer;margin-top:6px">↺ Retry Image</button>';
     }
@@ -22869,8 +22861,8 @@ function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
         '<textarea rows="3" style="'+taStyle+';margin-bottom:6px" oninput="this.closest(\'[data-pkey]\').querySelector(\'.mc-body-val\').textContent=this.value" data-field="body">'+safe(post.body||'')+'</textarea>'+
         (post.hashtags?'<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:6px">'+safe(post.hashtags)+'</div>':'')+
         '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
-          '<button onclick="_ccQueueImage('+idx+')" id="cc-gen-img-'+idx+'" style="font-size:10px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">🎨 Generate Image</button>'+
-          '<div id="cc-img-container-'+idx+'"></div>'+
+          '<button onclick="_ccQueueImage(\'m\','+idx+')" id="cc-gen-img-m-'+idx+'" style="font-size:10px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">🎨 Generate Image</button>'+
+          '<div id="cc-img-container-m-'+idx+'"></div>'+
         '</div>'+
       '</div>';
     });
@@ -24222,7 +24214,7 @@ function _ccRenderChannels(){
             _ccChInp('cc-ch-f-pfx','DL Prefix',ch.dl_prefix,'','oninput="this.value=this.value.toUpperCase()"')+
             _ccChInp('cc-ch-f-notes','Notes',ch.notes,'','')+
           '</div>'+
-          '<div id="cc-ch-f-err" style="font-size:11px;color:'+_CC_RED+';margin-bottom:8px;display:none"></div>'+
+          '<div id="cc-ch-f-err-edit" style="font-size:11px;color:'+_CC_RED+';margin-bottom:8px;display:none"></div>'+
           '<div style="display:flex;gap:8px">'+
             _ccBtn('Save','_ccChSave(false)',true)+
             _ccBtn('Cancel','_ccChCancelForm()',false)+
@@ -24284,7 +24276,7 @@ function _ccChCancelForm(){
 function _ccChSave(isNew){
   var name=(_ccEl('cc-ch-f-name')||{value:''}).value.trim();
   var slug=(_ccEl('cc-ch-f-slug')||{value:''}).value.trim();
-  var err=_ccEl('cc-ch-f-err');
+  var err=_ccEl(isNew?'cc-ch-f-err':'cc-ch-f-err-edit');
   if(!name||!slug){
     if(err){err.textContent='Channel Name and Slug Code are required.';err.style.display='';}
     return;
