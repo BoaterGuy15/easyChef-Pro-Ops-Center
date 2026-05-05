@@ -380,27 +380,51 @@ function _seedLPInventory(sheet) {
 
 function _deduplicateSeededTabs() {
   var tabs = [
-    { name: 'CampaignTypes', idCol: 0 },
-    { name: 'FunnelStages',  idCol: 0 },
-    { name: 'BlueprintConfig', idCol: 0 },
-    { name: 'ICPProfiles',   idCol: 0 }
+    { name: 'CampaignTypes',  idCol: 0 },
+    { name: 'FunnelStages',   idCol: 0 },
+    { name: 'BlueprintConfig',idCol: 0 },
+    { name: 'ICPProfiles',    idCol: 0 },
+    { name: 'ApprovedClaims', idCol: 0 },
+    { name: 'Channels',       idCol: 0 }
   ];
+
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+
   tabs.forEach(function(tab) {
     var sheet = ss.getSheetByName(tab.name);
-    if (!sheet || sheet.getLastRow() < 2) return;
+    if (!sheet) {
+      Logger.log(tab.name + ': TAB NOT FOUND');
+      return;
+    }
+    var lastRow = sheet.getLastRow();
+    Logger.log(tab.name + ': ' + lastRow + ' rows before dedup');
+
+    if (lastRow < 2) {
+      Logger.log(tab.name + ': skipping — empty');
+      return;
+    }
+
     var data = sheet.getDataRange().getValues();
     var seen = {};
     var toDelete = [];
+
     for (var i = 1; i < data.length; i++) {
-      var id = data[i][tab.idCol];
+      var id = String(data[i][tab.idCol]).trim();
       if (!id) continue;
-      if (seen[id]) { toDelete.push(i + 1); } else { seen[id] = true; }
+      if (seen[id]) {
+        toDelete.push(i + 1);
+      } else {
+        seen[id] = true;
+      }
     }
+
+    Logger.log(tab.name + ': ' + toDelete.length + ' duplicates found');
+
     for (var j = toDelete.length - 1; j >= 0; j--) {
       sheet.deleteRow(toDelete[j]);
     }
-    Logger.log(tab.name + ': deleted ' + toDelete.length + ' duplicate rows');
+
+    Logger.log(tab.name + ': ' + sheet.getLastRow() + ' rows after dedup');
   });
 }
 
