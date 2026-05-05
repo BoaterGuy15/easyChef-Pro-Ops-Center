@@ -35,7 +35,7 @@
         var slackState = e.parameter.state || ''; // username e.g. 'steve'
         var clientId   = '6011668670116.10944470791062';
         var clientSecret = PropertiesService.getScriptProperties().getProperty('SLACK_CLIENT_SECRET') || '';
-        var redirectUri  = 'https://script.google.com/macros/s/AKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw/exec';
+        var redirectUri  = 'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec';
         var stored = false;
         if (clientSecret) {
           var tokenResp = UrlFetchApp.fetch('https://slack.com/api/oauth.v2.access', {
@@ -851,7 +851,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 // CONFIG — paste your Apps Script Web App URL to enable sync
 // ─────────────────────────────────────────────────────────────
 const CONFIG = {
-  sheetsUrl: 'https://script.google.com/macros/s/AKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw/exec',
+  sheetsUrl: 'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec',
   sharedDriveUrl: 'https://drive.google.com/drive/folders/1p-unAqDk2pwlz-zO2NLh8uHZkTzFM7_h',
   anthropicKey: '' // paste your Anthropic API key here
 };
@@ -15034,7 +15034,7 @@ function _slackCanSend(){ return _SLACK_FOUNDERS.includes(window._DGL_USER||'');
 
 function _slackOAuthUrl(){
   const clientId='6011668670116.10944470791062';
-  const redirectUri='https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2FAKfycbzXDFBtoFiBvXN6Hf95N2glYvKZReVlojCevHKnCScJytxE4s7VZaTuLmIoDxU3UpQUYw%2Fexec';
+  const redirectUri='https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2FAKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ%2Fexec';
   const state=encodeURIComponent(window._DGL_USER||'');
   return `https://slack.com/oauth/v2/authorize?client_id=${clientId}&user_scope=chat:write&redirect_uri=${redirectUri}&state=${state}`;
 }
