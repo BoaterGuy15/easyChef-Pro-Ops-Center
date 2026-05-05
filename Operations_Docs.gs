@@ -65,15 +65,7 @@
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-var DOCS_SHEET = 'Documents';
-var DOCS_HEADERS = [
-  'id', 'taskId', 'agendaId', 'name', 'url', 'type',
-  'previewUrl', 'driveFileId', 'folderUrl', 'reviewNeeded', 'addedBy', 'addedAt'
-];
-
-// SHARED_DRIVE_FOLDER_ID is declared as const in Files.gs — used here by reference.
+// DOCS_SHEET, DOCS_HEADERS, and SHARED_DRIVE_FOLDER_ID are declared as const in Files.gs.
 
 // ── Sheet bootstrap ───────────────────────────────────────────────────────────
 
