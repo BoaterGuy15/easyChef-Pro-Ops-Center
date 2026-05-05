@@ -61,13 +61,33 @@ function campaignKickstart(prompt) {
     'No markdown in output. Write like a friend texting not a corporation.\n\n' +
 
     '7-step framework every campaign follows:\n' +
-    'Hook → Problem → Agitate → Solve → Value → Proof → CTA\n\n' +
+    'Hook → Problem → Agitate → Solve → Value → Proof → CTA\n' +
+    'The sequence never changes. Only the CTA destination changes by campaign type.\n\n' +
+
+    'CAMPAIGN TYPE AUTO-DETECTION — infer cta_type from the user prompt:\n' +
+    '- mentions "waitlist" or pre-July context → cta_type: waitlist\n' +
+    '- mentions "download" or "app store" or "install" → cta_type: download\n' +
+    '- mentions "founding" or "price" or "lock in" → cta_type: founding\n' +
+    '- mentions "referral" or "share" or "friend" → cta_type: referral\n' +
+    '- mentions "affiliate" or "partner" or "influencer" → cta_type: affiliate\n' +
+    '- mentions "recipe" or "content" or "SEO" → cta_type: recipe\n' +
+    '- mentions "upgrade" or "paywall" or "in-app" → cta_type: upgrade\n' +
+    '- default → cta_type: waitlist\n\n' +
+
+    'CTA DESTINATIONS BY TYPE:\n' +
+    '- waitlist:  CTA = "Join the waitlist free" | Destination: /lp/waitlist-a or /lp/waitlist-b\n' +
+    '- download:  CTA = "Download free on App Store" | Destination: App Store / Google Play\n' +
+    '- founding:  CTA = "Lock in $7.99/month" | Destination: /lp/waitlist-a\n' +
+    '- referral:  CTA = "Share and get early access" | Destination: Branch.io referral link\n' +
+    '- affiliate: CTA = "Get early access" | Destination: /lp/[affiliate-slug]\n' +
+    '- recipe:    CTA = "See the full recipe free" | Destination: /recipes/[slug]\n' +
+    '- upgrade:   CTA = "Upgrade to founding price" | Destination: In-app paywall\n\n' +
 
     'Architecture rules:\n' +
     'Every piece of content drives to a landing page. Landing pages belong to an ICP, not a campaign — ' +
     'multiple campaigns drive to the same LP. The slug in the output represents that shared LP.\n' +
     'PRODUCT NAME: Always write "easyChef Pro". Never "the app", "this app", or "a meal planning app".\n' +
-    'CTA RULE: Every CTA drives to the landing page. Never link to the main website or App Store.\n\n' +
+    'CTA RULE: Use the CTA destination for the detected cta_type above. Never link to the main website.\n\n' +
 
     'Return a JSON object with these exact fields:\n' +
     '{\n' +
@@ -86,7 +106,8 @@ function campaignKickstart(prompt) {
     '  "agitate_block": "One honest specific sentence deepening the pain",\n' +
     '  "solve_block": "One clear sentence introducing easyChef Pro as the answer",\n' +
     '  "proof_bar": ["exact wording claim 1 from approved list", "exact wording claim 2", "exact wording claim 3"],\n' +
-    '  "cta_primary": "Outcome-framed CTA, low friction, under 8 words",\n' +
+    '  "cta_type": "Auto-detected type — one of: waitlist, download, founding, referral, affiliate, recipe, upgrade",\n' +
+    '  "cta_primary": "Outcome-framed CTA matching the cta_type destination, low friction, under 8 words",\n' +
     '  "social_hook": "Scroll-stopper first line, under 15 words",\n' +
     '  "share_mechanic": "Viral thank-you page prompt — 1 sentence, peer-to-peer framing, references the saving",\n' +
     '  "utm_campaign_code": "Lowercase hyphenated campaign code e.g. ec-2026-007",\n' +

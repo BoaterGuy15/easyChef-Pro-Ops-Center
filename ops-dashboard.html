@@ -21351,6 +21351,22 @@ function _ccRenderBrief(){
         '</div>'+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
         (function(){
+          var ctaOpts=[
+            ['waitlist', 'Waitlist Signup (pre-launch)'],
+            ['download', 'App Download (post-launch)'],
+            ['founding', 'Founding Price Lock'],
+            ['referral', 'Referral / Share'],
+            ['affiliate','Affiliate Partner'],
+            ['recipe',   'Recipe / Content'],
+            ['upgrade',  'In-App Upgrade']
+          ];
+          var sel=ctaOpts.map(function(o){return '<option value="'+o[0]+'"'+((b.cta_type||'waitlist')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('');
+          return '<div style="margin-bottom:14px">'+
+            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Campaign Goal</label>'+
+            '<select id="cc-cta-type" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box" onchange="_ccBriefSync()">'+sel+'</select>'+
+          '</div>';
+        })()+
+        (function(){
           var _ns='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
           var _lbl=function(t){return '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">'+t+'</label>';};
           var _sec='grid-column:1/-1;display:none;margin-bottom:14px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.02)';
@@ -21408,8 +21424,9 @@ function _ccBriefSync(){
   _el=_ccEl('cc-icp');     if(_el&&_el.value)    b.icp=_el.value;
   _el=_ccEl('cc-funnel');  if(_el&&_el.value)    b.funnel=_el.value;
   _el=_ccEl('cc-channel'); if(_el&&_el.value)    b.channel=_el.value;
-  _el=_ccEl('cc-goal');    if(_el&&_el.value)    b.goal=_el.value;
-  _el=_ccEl('cc-slug');    if(_el&&_el.value)    b.slug=_el.value;
+  _el=_ccEl('cc-goal');     if(_el&&_el.value)    b.goal=_el.value;
+  _el=_ccEl('cc-cta-type'); if(_el&&_el.value)    b.cta_type=_el.value;
+  _el=_ccEl('cc-slug');     if(_el&&_el.value)    b.slug=_el.value;
   _el=_ccEl('cc-launch');  if(_el&&_el.value)    b.launchDate=_el.value;
   _el=_ccEl('cc-approved');if(_el)               b.approved=_el.checked;
   _el=_ccEl('cc-post-count');      if(_el)            b.post_count=parseInt(_el.value)||5;
@@ -21742,10 +21759,11 @@ function _ccAutoFillBrief(campaign){
     var icpEl2=document.getElementById('cc-icp');
     var bpEl=document.getElementById('cc-funnel');
     // Lock values into _campBrief before any DOM write
-    _campBrief.icp     = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||_campBrief.icp||'';
-    _campBrief.funnel  = campaign.blueprint||_campBrief.funnel||'';
-    _campBrief.channel = campaign.channel_recommendation||_campBrief.channel||'';
-    _campBrief.slug    = campaign.slug||'';
+    _campBrief.icp      = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||_campBrief.icp||'';
+    _campBrief.funnel   = campaign.blueprint||_campBrief.funnel||'';
+    _campBrief.channel  = campaign.channel_recommendation||_campBrief.channel||'';
+    _campBrief.slug     = campaign.slug||'';
+    _campBrief.cta_type = campaign.cta_type||'waitlist';
     var _goalMap={};
     _goalMap['A'+'-'+'Waitlist']        ='waitlist_signup_completed';
     _goalMap['B'+'-'+'App Download']    ='app_install';
@@ -21771,12 +21789,13 @@ function _ccAutoFillBrief(campaign){
 
     // Activate brief tab visually without re-rendering cc-panel, then paint values
     setTimeout(function(){
-      _campBrief.name    = finalName;
-      _campBrief.icp     = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||'';
-      _campBrief.funnel  = campaign.blueprint||'';
-      _campBrief.channel = campaign.channel_recommendation||'';
-      _campBrief.slug    = campaign.slug||'';
-      _campBrief.goal    = _goalMap[(_campBrief.funnel||'').trim()]||'waitlist_signup_completed';
+      _campBrief.name     = finalName;
+      _campBrief.icp      = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||'';
+      _campBrief.funnel   = campaign.blueprint||'';
+      _campBrief.channel  = campaign.channel_recommendation||'';
+      _campBrief.slug     = campaign.slug||'';
+      _campBrief.goal     = _goalMap[(_campBrief.funnel||'').trim()]||'waitlist_signup_completed';
+      _campBrief.cta_type = campaign.cta_type||'waitlist';
 
       // Style tab buttons active/inactive — does NOT touch cc-panel innerHTML
       _campActiveTab='brief';
@@ -21805,8 +21824,9 @@ function _ccAutoFillBrief(campaign){
           if(nameEl) nameEl.value=_rName;
           _ccSetSelect('cc-icp',    _rIcp);
           _ccSetSelect('cc-funnel', _rFunnel);
-          _ccSetSelect('cc-channel',_rChannel);
-          _ccSetSelect('cc-goal',   _rGoal);
+          _ccSetSelect('cc-channel', _rChannel);
+          _ccSetSelect('cc-goal',    _rGoal);
+          _ccSetSelect('cc-cta-type',_campBrief.cta_type||'waitlist');
           var slugEl=document.getElementById('cc-slug');
           if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
           setTimeout(_ccCheckSlug,100);
