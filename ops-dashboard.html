@@ -737,11 +737,11 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 /* ── Campaign Center select visibility fix ─────────────────────────────────
    Windows browsers render <select> with system colors, ignoring CSS vars.
    Hardcode bg + text so selected value is always visible on dark theme.   */
-#cc-icp,#cc-funnel,#cc-channel,#cc-goal{
+#cc-icp,#cc-funnel,#cc-goal{
   background:#0b0d10 !important;
   color:#e8eaf0 !important;
 }
-#cc-icp option,#cc-funnel option,#cc-channel option,#cc-goal option{
+#cc-icp option,#cc-funnel option,#cc-goal option{
   background:#0b0d10;
   color:#e8eaf0;
 }
@@ -21263,7 +21263,7 @@ var _campActiveTab='brief';
 var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -21355,9 +21355,10 @@ function _ccRenderBrief(){
           '</div>'+
           '<div id="cc-blueprint-summary" style="grid-column:1/-1;display:none;margin-top:-10px;margin-bottom:14px;padding:10px 14px;border:1px solid rgba(201,168,76,0.25);border-radius:6px;background:rgba(201,168,76,0.05);font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;line-height:1.7"></div>';
         })()+
-        '<div style="margin-bottom:14px">'+
-        '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Primary Channel</label>'+
-        '<select id="cc-channel" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box" onchange="_ccBriefSync();_ccRefreshPostPlatform();_ccRefreshChannelLabel();_ccUpdateVolumeFields()"></select>'+
+        '<div style="margin-bottom:14px;grid-column:1/-1">'+
+          '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">Campaign Channels</label>'+
+          '<div id="cc-channel-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px"></div>'+
+          '<div style="font-size:10px;color:var(--muted);margin-top:5px;font-family:\'DM Mono\',monospace">Social channels stagger one stage per day · Email runs in parallel</div>'+
         '</div>'+
         _ccField('Conversion Goal','cc-goal','select',b.goal,_CC_GOALS,'')+
         (function(){
@@ -21443,7 +21444,9 @@ function _ccBriefSync(){
   _el=_ccEl('cc-name');    if(_el&&_el.value)    b.name=_el.value;
   _el=_ccEl('cc-icp');     if(_el&&_el.value)    b.icp=_el.value;
   _el=_ccEl('cc-funnel');  if(_el&&_el.value)    b.funnel=_el.value;
-  _el=_ccEl('cc-channel'); if(_el&&_el.value)    b.channel=_el.value;
+  // channels array managed by _ccChannelToggle; derive primary social channel for backward compat
+  if(!b.channels||!b.channels.length) b.channels=['Facebook','Email'];
+  b.channel=(b.channels.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';})[0])||b.channels[0]||'';
   _el=_ccEl('cc-goal');     if(_el&&_el.value)    b.goal=_el.value;
   _el=_ccEl('cc-cta-type'); if(_el&&_el.value)    b.cta_type=_el.value;
   _el=_ccEl('cc-slug');     if(_el&&_el.value)    b.slug=_el.value;
@@ -21460,9 +21463,9 @@ function _ccBriefSync(){
   _ccAutoSlug();
 }
 function _ccUpdateVolumeFields(){
-  var ch=(_campBrief.channel||'').toLowerCase();
-  var isEmail=ch==='email';
-  var isSocial=ch!==''&&!isEmail;
+  var chs=(_campBrief.channels||[]).map(function(c){return c.toLowerCase();});
+  var isEmail=chs.indexOf('email')>=0;
+  var isSocial=chs.some(function(c){return c!=='email'&&c!=='push notifications'&&c!=='';});
   var sv=document.getElementById('cc-volume-social');
   var ev=document.getElementById('cc-volume-email');
   if(sv) sv.style.display=isSocial?'block':'none';
@@ -21471,8 +21474,8 @@ function _ccUpdateVolumeFields(){
 function _ccSaveBrief(next){
   _ccBriefSync();
   var b=_campBrief;
-  if(!b.name||!b.channel||!b.goal){
-    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Fill in Campaign Name, Channel, and Goal before saving.</div>',3000);
+  if(!b.name||!(b.channels&&b.channels.length)||!b.goal){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Fill in Campaign Name, Channels, and Goal before saving.</div>',3000);
     return;
   }
   if(_campSlugStatus==='taken'){
@@ -21488,8 +21491,8 @@ function _ccSaveBrief(next){
 function _ccSaveDraft(){
   _ccBriefSync();
   var b=_campBrief;
-  if(!b.name||!b.channel||!b.goal){
-    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Fill in Campaign Name, Channel, and Goal before saving.</div>',3000);
+  if(!b.name||!(b.channels&&b.channels.length)||!b.goal){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Fill in Campaign Name, Channels, and Goal before saving.</div>',3000);
     return;
   }
   if(_campSlugStatus==='taken'){
@@ -21602,22 +21605,86 @@ function _ccCh(name){
 }
 
 function _ccPopulateChannelSelect(channels){
+  // Legacy select (may not be in DOM anymore)
   var sel=document.getElementById('cc-channel');
-  if(!sel) return;
-  var current=_campBrief.channel||sel.value;
-  var seen={};
-  var active=channels.filter(function(c){
-    if(c.status!=='active') return false;
-    if(seen[c.name]) return false;
-    seen[c.name]=true;
-    return true;
-  });
-  sel.innerHTML='<option value="">— select —</option>'+
-    active.map(function(c){
-      return '<option value="'+c.name+'"'+(c.name===current?' selected':'')+'>'+c.name+'</option>';
-    }).join('');
-  sel.disabled=false;
-  sel.style.opacity='';
+  if(sel){
+    var current=_campBrief.channel||sel.value;
+    var seen={};
+    var active=channels.filter(function(c){
+      if(c.status!=='active') return false;
+      if(seen[c.name.toLowerCase()]) return false;
+      seen[c.name.toLowerCase()]=true;
+      return true;
+    });
+    sel.innerHTML='<option value="">— select —</option>'+
+      active.map(function(c){
+        return '<option value="'+c.name+'"'+(c.name===current?' selected':'')+'>'+c.name+'</option>';
+      }).join('');
+    sel.disabled=false;
+    sel.style.opacity='';
+  }
+  _ccPopulateChannelCards(channels);
+}
+
+function _ccPopulateChannelCards(channels){
+  var grid=document.getElementById('cc-channel-grid');
+  if(!grid) return;
+  var CARD_CHANNELS=[
+    {name:'Facebook',    dim:'1200×630px',   note:'feed posts'},
+    {name:'Instagram',   dim:'1080×1080px',  note:'feed + reel'},
+    {name:'TikTok',      dim:'1080×1920px',  note:'short video'},
+    {name:'Pinterest',   dim:'1000×1500px',  note:'pin'},
+    {name:'Nextdoor',    dim:'1200×630px',   note:'local post'},
+    {name:'Email',       dim:'600px wide',   note:'SEQ-1 + SEQ-2'},
+    {name:'Push Notifications', dim:'—',     note:'3 pushes'}
+  ];
+  var active=channels.filter(function(c){return c.status==='active';}).map(function(c){return c.name.toLowerCase();});
+  var savedChs=_campBrief.channels||['Facebook','Email'];
+  grid.innerHTML=CARD_CHANNELS.map(function(ch){
+    var inSheet=active.length===0||active.indexOf(ch.name.toLowerCase())>=0;
+    if(!inSheet) return '';
+    var on=savedChs.indexOf(ch.name)>=0;
+    return _ccChannelCardHtml(ch.name,ch.dim,ch.note,on);
+  }).join('');
+}
+
+function _ccChannelCardHtml(name,dim,note,on){
+  var border=on?'border:1.5px solid '+_CC_RED+';':'border:1px solid var(--border);';
+  var bg=on?'background:rgba(255,0,0,0.05);':'background:var(--bg);';
+  var dot=on?'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+_CC_RED+';flex-shrink:0"></span>':
+             '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--border);flex-shrink:0"></span>';
+  var id='cc-ch-'+name.toLowerCase().replace(/\s+/g,'-');
+  return '<div id="'+id+'" class="cc-ch-card" data-ch="'+name+'" onclick="_ccChannelToggle(\''+name+'\')" style="cursor:pointer;'+border+bg+'border-radius:7px;padding:9px 10px;user-select:none">'+
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+dot+'<span style="font-size:11px;font-weight:700;color:var(--text)">'+name+'</span></div>'+
+    '<div style="font-size:9px;color:var(--muted);font-family:\'DM Mono\',monospace;line-height:1.4">'+dim+'<br>'+note+'</div>'+
+  '</div>';
+}
+
+function _ccApplyCardState(card,on){
+  if(!card) return;
+  card.style.border=on?'1.5px solid '+_CC_RED:'1px solid var(--border)';
+  card.style.background=on?'rgba(255,0,0,0.05)':'var(--bg)';
+  var dot=card.querySelector('span');
+  if(dot) dot.style.background=on?_CC_RED:'var(--border)';
+}
+
+function _ccChannelToggle(name){
+  var chs=_campBrief.channels||[];
+  var idx=chs.indexOf(name);
+  if(idx>=0){
+    // Keep at least one channel selected
+    if(chs.length<=1){_showToast('<div style="font-size:12px;color:var(--muted)">At least one channel must be selected.</div>',2000);return;}
+    chs.splice(idx,1);
+  } else {
+    chs.push(name);
+  }
+  _campBrief.channels=chs;
+  _campBrief.channel=(chs.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';})[0])||chs[0]||'';
+  var id='cc-ch-'+name.toLowerCase().replace(/\s+/g,'-');
+  _ccApplyCardState(document.getElementById(id),idx<0);
+  _ccUpdateVolumeFields();
+  _ccRefreshChannelLabel();
+  _ccBriefSync();
 }
 
 function _ccLoadChannels(){
@@ -21774,7 +21841,7 @@ function _ccSlugStatus(state,slug,conflictId,isShared){
 }
 
 function _ccNewCampaign(){
-  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
+  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:''};
   _campKickstartCopy=null;
   _campLastLp=null;
   _campSlugStatus='';
@@ -21803,12 +21870,18 @@ function _ccSetSelect(id,value){
 
 // ── Restore _campBrief values to DOM after any innerHTML re-render ───────────
 function _ccRestoreBriefValues(){
-  if(!_campBrief.icp&&!_campBrief.name&&!_campBrief.channel) return;
+  if(!_campBrief.icp&&!_campBrief.name&&!(_campBrief.channels&&_campBrief.channels.length)) return;
   var nameEl=document.getElementById('cc-name');
   if(nameEl&&_campBrief.name) nameEl.value=_campBrief.name;
   _ccSetSelect('cc-icp',    _campBrief.icp||'');
   _ccSetSelect('cc-funnel', _campBrief.funnel||'');
-  _ccSetSelect('cc-channel',_campBrief.channel||'');
+  // Restore channel card selections
+  var savedChs=_campBrief.channels||[];
+  document.querySelectorAll('.cc-ch-card').forEach(function(card){
+    var name=card.getAttribute('data-ch');
+    var active=savedChs.indexOf(name)>=0;
+    _ccApplyCardState(card,active);
+  });
   var slugEl=document.getElementById('cc-slug');
   if(slugEl&&_campBrief.slug) slugEl.value=_campBrief.slug;
   if(_campBrief.goal) _ccSetSelect('cc-goal',_campBrief.goal);
@@ -21818,7 +21891,7 @@ function _ccRestoreBriefValues(){
 }
 
 // ── Brief auto-fill — retries until dropdowns are populated ─────────────────
-// Real field IDs: cc-id, cc-name, cc-icp, cc-funnel, cc-channel
+// Real field IDs: cc-id, cc-name, cc-icp, cc-funnel, cc-channel-grid (channel cards)
 function _ccAutoFillBrief(campaign){
   if(!campaign) return;
   var attempts=0;
@@ -21827,10 +21900,8 @@ function _ccAutoFillBrief(campaign){
   function trySetDropdowns(){
     attempts++;
     var icpEl=document.getElementById('cc-icp');
-    var chEl=document.getElementById('cc-channel');
     var icpReady=icpEl&&icpEl.options.length>1;
-    var chReady=chEl&&chEl.options.length>1;
-    if(!icpReady||!chReady){
+    if(!icpReady){
       if(attempts<maxAttempts) setTimeout(trySetDropdowns,100);
       return;
     }
@@ -21842,6 +21913,12 @@ function _ccAutoFillBrief(campaign){
     _campBrief.icp      = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||_campBrief.icp||'';
     _campBrief.funnel   = campaign.blueprint||_campBrief.funnel||'';
     _campBrief.channel  = campaign.channel_recommendation||_campBrief.channel||'';
+    // Restore channels array: prefer stored array, else build from recommendation
+    if(Array.isArray(campaign.channels)&&campaign.channels.length){
+      _campBrief.channels=campaign.channels;
+    } else if(_campBrief.channel&&(_campBrief.channels||[]).indexOf(_campBrief.channel)<0){
+      _campBrief.channels=(_campBrief.channel==='Email')?['Email']:([_campBrief.channel].concat(_campBrief.channels||[]).filter(function(c,i,a){return a.indexOf(c)===i;}));
+    }
     _campBrief.slug     = campaign.slug||'';
     _campBrief.cta_type = campaign.cta_type||'waitlist';
     var _goalMap={};
@@ -21865,7 +21942,6 @@ function _ccAutoFillBrief(campaign){
     // Apply to DOM — change events may trigger re-renders; the 200ms restore below wins
     _ccSetSelect('cc-icp',    _campBrief.icp);
     _ccSetSelect('cc-funnel', _campBrief.funnel);
-    _ccSetSelect('cc-channel',_campBrief.channel);
 
     // Activate brief tab visually without re-rendering cc-panel, then paint values
     setTimeout(function(){
@@ -21873,6 +21949,13 @@ function _ccAutoFillBrief(campaign){
       _campBrief.icp      = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||'';
       _campBrief.funnel   = campaign.blueprint||'';
       _campBrief.channel  = campaign.channel_recommendation||'';
+      if(Array.isArray(campaign.channels)&&campaign.channels.length){
+        _campBrief.channels=campaign.channels;
+      } else if(_campBrief.channel){
+        var _existing=_campBrief.channels||['Facebook','Email'];
+        if(_existing.indexOf(_campBrief.channel)<0) _existing.unshift(_campBrief.channel);
+        _campBrief.channels=_existing;
+      }
       _campBrief.slug     = campaign.slug||'';
       _campBrief.goal     = _goalMap[(_campBrief.funnel||'').trim()]||'waitlist_signup_completed';
       _campBrief.cta_type = campaign.cta_type||'waitlist';
@@ -21904,7 +21987,8 @@ function _ccAutoFillBrief(campaign){
           if(nameEl) nameEl.value=_rName;
           _ccSetSelect('cc-icp',    _rIcp);
           _ccSetSelect('cc-funnel', _rFunnel);
-          _ccSetSelect('cc-channel', _rChannel);
+          // Restore channel cards (no dropdown)
+          _ccRestoreBriefValues();
           _ccSetSelect('cc-goal',    _rGoal);
           _ccSetSelect('cc-cta-type',_campBrief.cta_type||'waitlist');
           var slugEl=document.getElementById('cc-slug');
@@ -22028,7 +22112,12 @@ function _ccKickstart(){
       }
       if(j.channel_recommendation){
         var cm=_ccChannels.find(function(c){return c.name.toLowerCase()===j.channel_recommendation.toLowerCase();});
-        if(cm) _campBrief.channel=cm.name;
+        if(cm){
+          _campBrief.channel=cm.name;
+          // Add recommendation to channels if not already present
+          if((_campBrief.channels||[]).indexOf(cm.name)<0) _campBrief.channels=(_campBrief.channels||[]).concat([cm.name]);
+          _ccRestoreBriefValues();
+        }
       }
       _campBrief.id='';
       _campBrief.slug='';
@@ -22077,8 +22166,8 @@ var _CC_APPROVED_CLAIMS=[
 function _ccGenerateCampaign(){
   _ccBriefSync();
   var b=_campBrief;
-  if(!b.icp||!b.channel){
-    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Select a Target ICP and Primary Channel before generating.</div>',3000);
+  if(!b.icp||!(b.channels&&b.channels.length)){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">Select a Target ICP and at least one Channel before generating.</div>',3000);
     return;
   }
   var btn=_ccEl('cc-gen-btn');
@@ -22155,9 +22244,19 @@ function _ccRenderCopyOutput(copy,b){
       row('Social Hook (First Line)',c.social_hook,'social')+
       row('Share Mechanic (Thank-You Page)',c.share_mechanic,'share')+
     '</div>'+
-    '<div style="display:flex;gap:8px;margin-top:12px">'+
+    '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
       '<button onclick="_ccGenerateCampaign()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
+      '<button id="cc-llm-refine-toggle" onclick="_ccShowLlmRefinePanel()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Paste LLM Suggestions</button>'+
       _ccBtn('Save &amp; Continue to UTMs →','_ccSaveBrief(true)',true)+
+    '</div>'+
+    '<div id="cc-llm-refine-panel" style="display:none;margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">'+
+      '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">'+
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">Paste LLM-revised copy below</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Use labels like <code>Headline:</code>, <code>Subject A:</code>, <code>Social Hook:</code>, <code>CTA:</code> etc. Unrecognised lines are ignored.</div>'+
+        '<textarea id="cc-llm-refine-input" rows="6" placeholder="Headline: The $1,336 family grocery bill that just got cancelled&#10;Subject A: I almost threw away $112 of food this week&#10;Social Hook: We wasted $1,336 last year without knowing it" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:10px 12px;font-size:12px;font-family:inherit;line-height:1.6;resize:vertical;box-sizing:border-box;outline:none"></textarea>'+
+        '<button onclick="_ccParseLlmSuggestions()" style="margin-top:8px;background:#000;border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Parse &amp; Preview Changes</button>'+
+      '</div>'+
+      '<div id="cc-llm-refine-diff" style="padding:14px 16px"></div>'+
     '</div>'+
   '</div>';
 }
@@ -22167,12 +22266,32 @@ function _ccBadge2(n){
 
 // ── Architecture sections — rendered below copy card after kickstart ──────────
 
+function _ccBuildSectionBButtons(){
+  var chs=_campBrief.channels||[];
+  var hasSocial=chs.some(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';});
+  var hasEmail=chs.some(function(c){return c.toLowerCase()==='email';});
+  var hasPush=chs.some(function(c){return c.toLowerCase()==='push notifications';});
+  var btns='';
+  if(hasSocial&&chs.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';}).length===1){
+    var ch=chs.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';})[0];
+    btns+='<button onclick="_ccKsBuildAssets(\'build_social_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin-right:8px">Build '+ch+' Posts ('+((_campBrief.post_count||7))+')</button>';
+  } else if(hasSocial){
+    var cnt=chs.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';}).length;
+    btns+='<button onclick="_ccKsBuildAssets(\'build_multi_channel_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin-right:8px">Build All '+cnt+' Channels ('+((_campBrief.post_count||7))+' posts each)</button>';
+  }
+  if(hasEmail){
+    btns+='<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:8px 18px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:\'DM Mono\',monospace;margin-right:8px">Build Email Sequence (SEQ-1 + SEQ-2)</button>';
+  }
+  if(hasPush){
+    btns+='<button disabled style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 18px;border-radius:6px;font-size:11px;cursor:not-allowed;font-family:\'DM Mono\',monospace">Push Notifications (coming soon)</button>';
+  }
+  return btns||'<span style="font-size:11px;color:var(--muted)">Select channels above to unlock asset building.</span>';
+}
+
 function _ccRenderKickstartAssets(campaign){
   var icp=campaign.icp_match||'';
-  var channel=campaign.channel_recommendation||'';
-  var isEmail=channel==='Email';
-  var assetLabel=isEmail?'Build Email Sequence (SEQ-1 + SEQ-2)':'Build '+channel+' Social Posts ('+((_campBrief.post_count||7))+' posts)';
-  var assetAction=isEmail?'build_email_sequence':'build_social_posts';
+  var chs=_campBrief.channels||[];
+  var chLabel=chs.length?chs.join(' + '):'—';
   var secHdr=function(title,sub){
     return '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
       '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">'+title+'</div>'+
@@ -22198,10 +22317,8 @@ function _ccRenderKickstartAssets(campaign){
         'Traffic drivers that send visitors to the landing page. Each asset carries its own DL_ID so attribution is tracked per asset.'
       )+
       '<div style="padding:14px 16px">'+
-        '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Channel: <span id="cc-ks-channel-label" style="color:var(--text);font-weight:700">'+channel+'</span> · Assets link to the LP selected above with unique DL_IDs</div>'+
-        '<button id="cc-ks-asset-btn" onclick="_ccKsBuildAssets(\''+assetAction+'\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">'+
-          assetLabel+
-        '</button>'+
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Channels: <span id="cc-ks-channel-label" style="color:var(--text);font-weight:700">'+chLabel+'</span> · Assets link to the LP above with unique DL_IDs</div>'+
+        '<div id="cc-ks-section-b-buttons">'+_ccBuildSectionBButtons()+'</div>'+
       '</div>'+
       '<div id="cc-ks-asset-output"></div>'+
     '</div>'+
@@ -22336,24 +22453,30 @@ function _ccKsBuildLp(){
 // Build email sequence or social posts — populates cc-ks-asset-output
 function _ccKsBuildAssets(actionType){
   var out=document.getElementById('cc-ks-asset-output');
-  var btn=document.getElementById('cc-ks-asset-btn');
   if(out) out.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">Building assets…</div>';
-  if(btn){btn.disabled=true;btn.textContent='Building…';}
-  if(!CONFIG.sheetsUrl){if(btn)btn.disabled=false;return;}
-  // Attach live platform requirements from Channels tab so the AI prompt is precise
-  var _chData=(_ccChannels||[]).find(function(c){return c.name===_campBrief.channel;})||{};
+  // Disable whichever button was clicked (they're identified by onclick, not id)
+  var allBtns=document.querySelectorAll('#cc-ks-section-b-buttons button');
+  allBtns.forEach(function(b){if(!b.disabled){b.setAttribute('data-was-text',b.textContent);b.disabled=true;b.textContent='Building…';}});
+  if(!CONFIG.sheetsUrl){allBtns.forEach(function(b){if(b.hasAttribute('data-was-text')){b.textContent=b.getAttribute('data-was-text');b.disabled=false;}});return;}
+
   var _briefWP=JSON.parse(JSON.stringify(_campBrief));
-  _briefWP.platform_optimal_chars=_chData.optimal_chars||'';
-  _briefWP.use_hashtags=_chData.use_hashtags||false;
-  _briefWP.hashtag_count_min=_chData.hashtag_count_min||0;
-  _briefWP.hashtag_count_max=_chData.hashtag_count_max||0;
-  _briefWP.content_format=_chData.content_format||'post';
-  _briefWP.link_placement=_chData.link_placement||'';
   _briefWP.post_count=_campBrief.post_count||7;
+
+  if(actionType!=='build_email_sequence'&&actionType!=='build_multi_channel_posts'){
+    // Single-channel: attach platform data for the primary social channel
+    var _chData=(_ccChannels||[]).find(function(c){return c.name===_campBrief.channel;})||{};
+    _briefWP.platform_optimal_chars=_chData.optimal_chars||'';
+    _briefWP.use_hashtags=_chData.use_hashtags||false;
+    _briefWP.hashtag_count_min=_chData.hashtag_count_min||0;
+    _briefWP.hashtag_count_max=_chData.hashtag_count_max||0;
+    _briefWP.content_format=_chData.content_format||'post';
+    _briefWP.link_placement=_chData.link_placement||'';
+  }
+
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:actionType,brief:_briefWP,copy:_campKickstartCopy||{}})})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(btn){btn.disabled=false;btn.textContent=actionType==='build_email_sequence'?'Regenerate Email Sequence':'Regenerate Social Posts';}
+      allBtns.forEach(function(b){if(b.hasAttribute('data-was-text')){b.textContent=b.getAttribute('data-was-text');b.disabled=false;}});
       var out2=document.getElementById('cc-ks-asset-output');
       if(!d.ok){
         if(out2) out2.innerHTML='<div style="padding:14px 16px;font-size:11px;color:'+_CC_RED+';border-top:1px solid var(--border)">Build failed: '+(d.error||'Unknown error')+'</div>';
@@ -22361,12 +22484,14 @@ function _ccKsBuildAssets(actionType){
       }
       if(actionType==='build_email_sequence'){
         _ccRenderEmailSequence(d.sequence||[],out2);
+      } else if(actionType==='build_multi_channel_posts'){
+        _ccRenderMultiChannelPosts(d.posts||[],d.stagger_schedule||[],out2);
       } else {
         _ccRenderSocialPosts(d.posts||[],out2,_campBrief.channel);
       }
     })
     .catch(function(e){
-      if(btn)btn.disabled=false;
+      allBtns.forEach(function(b){if(b.hasAttribute('data-was-text')){b.textContent=b.getAttribute('data-was-text');b.disabled=false;}});
       var out2=document.getElementById('cc-ks-asset-output');
       if(out2) out2.innerHTML='<div style="padding:14px 16px;font-size:11px;color:'+_CC_RED+';border-top:1px solid var(--border)">Request failed: '+e.message+'</div>';
     });
@@ -22631,6 +22756,122 @@ function _ccGeneratePostImage(postNum,callback){
     if(btn){btn.textContent='✗ Failed';btn.disabled=false;}
     if(callback) callback();
   });
+}
+
+// ── Multi-channel post renderer ──────────────────────────────────────────────
+function _ccRenderMultiChannelPosts(posts,schedule,container){
+  _ccLastPosts=posts;
+  if(!container) return;
+  if(!posts.length){
+    container.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">No posts returned.</div>';
+    return;
+  }
+  // Group by channel
+  var byChannel={};
+  var order=[];
+  posts.forEach(function(p){
+    var ch=p.channel||'Social';
+    if(!byChannel[ch]){byChannel[ch]=[];order.push(ch);}
+    byChannel[ch].push(p);
+  });
+  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var html='<div style="border-top:1px solid var(--border)">';
+
+  // Stagger schedule summary
+  if(schedule&&schedule.length){
+    html+='<div style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.05)">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">Stagger Schedule</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">'+
+      schedule.slice(0,21).map(function(s){
+        return '<span style="font-size:10px;font-family:\'DM Mono\',monospace;padding:3px 8px;border-radius:4px;border:1px solid var(--border);color:var(--muted)">Day '+s.day+' — '+s.channel+' · '+s.funnel_stage+'</span>';
+      }).join('')+
+      '</div></div>';
+  }
+
+  order.forEach(function(ch){
+    html+='<div style="padding:8px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border)">'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">'+safe(ch)+'</span>'+
+    '</div>';
+    var chPosts=byChannel[ch];
+    var _chObj=(_ccChannels||[]).find(function(c){return c.name===ch;})||{};
+    chPosts.forEach(function(post,i){
+      var idx=(post.post_num||i+1);
+      html+='<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
+        '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:8px">'+safe(ch)+' POST '+idx+'</div>'+
+        '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">'+safe(post.hook||'')+'</div>'+
+        '<div style="font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;background:var(--bg);padding:10px 12px;border-radius:6px;border:1px solid var(--border);margin-bottom:8px">'+safe(post.body||'')+'</div>'+
+        (post.hashtags?'<div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-family:\'DM Mono\',monospace">'+safe(post.hashtags)+'</div>':'')+
+        '<div style="font-size:10px;color:var(--muted);font-style:italic">'+safe(post.image_brief||_chObj.image_dimensions||'')+'</div>'+
+      '</div>';
+    });
+  });
+  html+='</div>';
+  container.innerHTML=html;
+}
+
+// ── LLM Refinement Loop ───────────────────────────────────────────────────────
+function _ccShowLlmRefinePanel(){
+  var panel=document.getElementById('cc-llm-refine-panel');
+  if(!panel) return;
+  var visible=panel.style.display!=='none';
+  panel.style.display=visible?'none':'block';
+  var btn=document.getElementById('cc-llm-refine-toggle');
+  if(btn) btn.textContent=visible?'Paste LLM Suggestions':'✕ Close Suggestions Panel';
+}
+
+function _ccParseLlmSuggestions(){
+  var ta=document.getElementById('cc-llm-refine-input');
+  if(!ta||!ta.value.trim()){return;}
+  var text=ta.value;
+  var parsed={};
+  var extract=function(key,patterns){
+    for(var i=0;i<patterns.length;i++){
+      var m=text.match(patterns[i]);
+      if(m&&m[1]&&m[1].trim()){parsed[key]=m[1].trim();return;}
+    }
+  };
+  extract('headline',     [/headline[:\s]+([^\n]+)/i, /hook[:\s]+([^\n]+)/i]);
+  extract('subheadline',  [/subheadline[:\s]+([^\n]+)/i, /problem[:\s]+([^\n]+)/i]);
+  extract('email_subject_a',[/subject\s*a[:\s]+([^\n]+)/i, /email subject a[:\s]+([^\n]+)/i]);
+  extract('email_subject_b',[/subject\s*b[:\s]+([^\n]+)/i, /email subject b[:\s]+([^\n]+)/i]);
+  extract('lp_hero',      [/lp hero[:\s]+([^\n]+)/i, /hero copy[:\s]+([^\n]+)/i]);
+  extract('cta_primary',  [/primary cta[:\s]+([^\n]+)/i, /cta[:\s]+([^\n]+)/i]);
+  extract('social_hook',  [/social hook[:\s]+([^\n]+)/i]);
+  extract('share_mechanic',[/share mechanic[:\s]+([^\n]+)/i]);
+
+  var prev=document.getElementById('cc-llm-refine-diff');
+  if(!prev) return;
+  if(!Object.keys(parsed).length){
+    prev.innerHTML='<div style="font-size:11px;color:var(--muted);padding:10px">No recognizable fields found. Use labels like <b>Headline:</b>, <b>Subject A:</b>, <b>Social Hook:</b> etc.</div>';
+    return;
+  }
+  var copy=_campKickstartCopy||{};
+  var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var diffHtml=Object.keys(parsed).map(function(k){
+    var oldV=copy[k]||'—';
+    var newV=parsed[k];
+    return '<div style="margin-bottom:10px">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px">'+safe(k.replace(/_/g,' '))+'</div>'+
+      '<div style="font-size:11px;color:var(--muted);text-decoration:line-through;margin-bottom:2px">'+safe(oldV)+'</div>'+
+      '<div style="font-size:12px;color:var(--text)">→ '+safe(newV)+'</div>'+
+    '</div>';
+  }).join('');
+  prev.innerHTML=diffHtml+'<div style="margin-top:12px">'+
+    '<button onclick="_ccApplyLlmSuggestions()" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Apply '+Object.keys(parsed).length+' Change'+(Object.keys(parsed).length>1?'s':'')+'</button>'+
+    '<button onclick="document.getElementById(\'cc-llm-refine-diff\').innerHTML=\'\'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;margin-left:8px">Clear</button>'+
+  '</div>';
+  // Store parsed for apply step
+  window._ccLlmParsed=parsed;
+}
+
+function _ccApplyLlmSuggestions(){
+  if(!window._ccLlmParsed||!Object.keys(window._ccLlmParsed).length) return;
+  _campKickstartCopy=Object.assign(_campKickstartCopy||{},window._ccLlmParsed);
+  window._ccLlmParsed=null;
+  var res=document.getElementById('cc-gen-result');
+  if(res) res.innerHTML=_ccRenderCopyOutput(_campKickstartCopy,_campBrief);
+  _showToast('<div style="color:#22c55e;font-size:12px">LLM suggestions applied.</div>',2500);
+  _ccShowLlmRefinePanel();
 }
 
 // ── Pre-generation screenshot picker ────────────────────────────────────────
@@ -23054,15 +23295,13 @@ function _ccApplyBrandOverlay(postNum){
 }
 
 function _ccRefreshChannelLabel(){
-  var ch=_campBrief.channel||'';
+  var chs=_campBrief.channels||[];
+  var label=chs.length?chs.join(' + '):'—';
   var chLabel=document.getElementById('cc-ks-channel-label');
-  if(chLabel) chLabel.textContent=ch||'Facebook';
-  var btn=document.getElementById('cc-ks-asset-btn');
-  if(btn){
-    var isEmail=ch==='Email';
-    btn.textContent=isEmail?'Build Email Sequence (SEQ-1 + SEQ-2)':'Build '+(ch||'Social')+' Social Posts ('+(_campBrief.post_count||7)+' posts)';
-    btn.onclick=function(){_ccKsBuildAssets(isEmail?'build_email_sequence':'build_social_posts');};
-  }
+  if(chLabel) chLabel.textContent=label;
+  // Rebuild Section B buttons
+  var assetOut=document.getElementById('cc-ks-section-b-buttons');
+  if(assetOut) assetOut.innerHTML=_ccBuildSectionBButtons();
 }
 
 // ── Panel 2: UTM Generator ──────────────────────────────────────────────────

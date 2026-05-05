@@ -432,6 +432,79 @@ function buildSocialPosts(brief, copy) {
   }
 }
 
+// ── buildMultiChannelPosts ────────────────────────────────────────────────────
+
+/**
+ * Generates social posts for every selected social channel in brief.channels.
+ * Email and Push Notifications are skipped (handled separately).
+ * Returns { ok: true, posts: [...all posts tagged with .channel], stagger_schedule: [...] }
+ */
+function buildMultiChannelPosts(brief, copy) {
+  if (!brief) return { ok: false, error: 'brief is required' };
+  var channels = Array.isArray(brief.channels) && brief.channels.length ? brief.channels : [brief.channel || 'Facebook'];
+  var socialChannels = channels.filter(function(ch) {
+    var lc = (ch || '').toLowerCase();
+    return lc && lc !== 'email' && lc !== 'push notifications';
+  });
+  if (!socialChannels.length) return { ok: true, posts: [], stagger_schedule: [] };
+
+  var allPosts = [];
+  var errors   = [];
+  var sheetChannels;
+  try { sheetChannels = getChannels(); } catch(e) { sheetChannels = []; }
+
+  for (var ci = 0; ci < socialChannels.length; ci++) {
+    var ch = socialChannels[ci];
+    var chBrief = JSON.parse(JSON.stringify(brief));
+    chBrief.channel = ch;
+    var chData = null;
+    for (var di = 0; di < sheetChannels.length; di++) {
+      if (sheetChannels[di].name.toLowerCase() === ch.toLowerCase() && sheetChannels[di].status === 'active') {
+        chData = sheetChannels[di]; break;
+      }
+    }
+    if (chData) {
+      chBrief.platform_optimal_chars = chData.optimal_chars      || '';
+      chBrief.use_hashtags            = chData.use_hashtags       || false;
+      chBrief.hashtag_count_min       = chData.hashtag_count_min  || 0;
+      chBrief.hashtag_count_max       = chData.hashtag_count_max  || 0;
+      chBrief.content_format          = chData.content_format     || 'post';
+      chBrief.link_placement          = chData.link_placement     || '';
+    }
+    var result = buildSocialPosts(chBrief, copy);
+    if (result.ok) {
+      (result.posts || []).forEach(function(p) { p.channel = ch; });
+      allPosts = allPosts.concat(result.posts || []);
+    } else {
+      errors.push(ch + ': ' + (result.error || 'failed'));
+    }
+  }
+
+  var schedule = _buildStaggerSchedule(socialChannels, brief.post_count || 7, brief.publish_day || '', brief.theme || '');
+  var out = { ok: true, posts: allPosts, stagger_schedule: schedule };
+  if (errors.length) out.errors = errors;
+  return out;
+}
+
+function _buildStaggerSchedule(socialChannels, postCount, publishDay, theme) {
+  var stages = ['hook','problem','solution','proof','urgency','re-engage','close'];
+  var schedule = [];
+  var day = 0;
+  for (var si = 0; si < Math.min(postCount, stages.length); si++) {
+    for (var ci = 0; ci < socialChannels.length; ci++) {
+      schedule.push({ day: day, channel: socialChannels[ci], funnel_stage: stages[si], post_num: si + 1 });
+      day++;
+    }
+  }
+  if (publishDay && publishDay !== '') {
+    schedule.forEach(function(s) {
+      s.weekday_anchor = publishDay;
+      if (theme) s.theme = theme;
+    });
+  }
+  return schedule;
+}
+
 // ── buildLandingPage ──────────────────────────────────────────────────────────
 
 /**

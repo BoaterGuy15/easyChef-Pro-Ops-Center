@@ -41,7 +41,7 @@ var _CC_HDR = {
     'launch_date','status','ml_approved','ml_approved_date',
     'created_by','created_at','updated_at','notes',
     'post_count','post_frequency','email_sequences','email_variants',
-    'theme','publish_day'
+    'theme','publish_day','channels'
   ],
   GeneratedCopy: [
     'id','campaign_id','icp_code','channel','headline','subheadline',
@@ -420,7 +420,8 @@ function _briefRowToObj(r) {
     email_sequences: String(r[17] || 'seq1_seq2'),
     email_variants:  String(r[18] || 'both'),
     theme:           String(r[19] || ''),
-    publish_day:     String(r[20] || '')
+    publish_day:     String(r[20] || ''),
+    channels:        (function(){try{return JSON.parse(r[21]||'[]');}catch(e){return [];}}())
   };
 }
 
@@ -472,7 +473,8 @@ function setCampaignBrief(item) {
     item.email_sequences  !== undefined ? item.email_sequences         : (ex ? ex[17] : 'seq1_seq2'),
     item.email_variants   !== undefined ? item.email_variants          : (ex ? ex[18] : 'both'),
     item.theme            !== undefined ? item.theme                   : (ex ? ex[19] : ''),
-    item.publish_day      !== undefined ? item.publish_day             : (ex ? ex[20] : '')
+    item.publish_day      !== undefined ? item.publish_day             : (ex ? ex[20] : ''),
+    item.channels         !== undefined ? JSON.stringify(item.channels) : (ex ? ex[21] : '[]')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
