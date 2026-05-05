@@ -601,3 +601,45 @@ function _testSequenceBuilder() {
     Logger.log('error: ' + result.error);
   }
 }
+
+// ── API Key diagnostics ───────────────────────────────────────────────────────
+// Run this from the Apps Script editor: Run → _testAllApiKeys → View Execution log
+function _testAllApiKeys() {
+  var props = PropertiesService.getScriptProperties();
+
+  // Anthropic
+  var ak = props.getProperty('ANTHROPIC_API_KEY');
+  Logger.log('ANTHROPIC: ' + (ak ? 'YES (' + ak.length + ' chars)' : 'MISSING'));
+
+  // OpenAI
+  var ok = props.getProperty('OPENAI_API_KEY');
+  Logger.log('OPENAI: ' + (ok ? 'YES (' + ok.length + ' chars)' : 'MISSING'));
+
+  // Google Gemini
+  var gk = props.getProperty('GOOGLE_AI_API_KEY');
+  Logger.log('GOOGLE_AI: ' + (gk ? 'YES (' + gk.length + ' chars)' : 'MISSING'));
+
+  // Klaviyo
+  var kk = props.getProperty('KLAVIYO_API_KEY');
+  Logger.log('KLAVIYO: ' + (kk ? 'YES (' + kk.length + ' chars)' : 'MISSING'));
+
+  // Test Gemini ping
+  if (gk) {
+    var resp = UrlFetchApp.fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models?key=' + gk,
+      { muteHttpExceptions: true }
+    );
+    Logger.log('GEMINI ping: ' + resp.getResponseCode());
+  }
+
+  // Test OpenAI ping
+  if (ok) {
+    var resp2 = UrlFetchApp.fetch('https://api.openai.com/v1/models', {
+      headers: { 'Authorization': 'Bearer ' + ok },
+      muteHttpExceptions: true
+    });
+    Logger.log('OPENAI ping: ' + resp2.getResponseCode());
+  }
+
+  Logger.log('All key checks complete.');
+}
