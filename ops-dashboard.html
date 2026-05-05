@@ -22269,7 +22269,7 @@ function _ccKickstart(){
       window._ccKs1Summ='✓ '+_ksName+(_ksIcp?' · '+_ksIcp:'')+' · '+_ksCta;
       if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''})+
         '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">'+
-          '<button onclick="_ccWizardAdvance(2,window._ccKs1Summ)" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
+          '<button onclick="_ccWizardAdvance(2,window._ccKs1Summ)" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Review Campaign Brief</button>'+
         '</div>';
       // ── Pre-warm LP search for step 2 ───────────────────────────────────
       var _ksIcpName=j.icp_match||'';
@@ -22513,6 +22513,49 @@ function _ccKsLpSearch(icp){
     });
 }
 
+// LP footer state helpers
+function _ccUpdateLpFooter(slug){
+  var lbl=document.getElementById('cc-lp-footer-label');
+  if(lbl) lbl.textContent=slug?'easychefpro.com/'+slug:'none selected';
+  var btn=document.getElementById('cc-lp-next-btn');
+  if(btn&&slug){btn.disabled=false;btn.style.background=_CC_RED;btn.style.color='#fff';btn.style.cursor='pointer';btn.style.opacity='1';}
+}
+function _ccLpAdvance(){
+  var slug=_campBrief.slug||'';
+  _ccWizardAdvance(4,slug?'✓ LP: easychefpro.com/'+slug:'✓ LP confirmed');
+}
+function _ccRegenLp(){
+  _campLastLp=null;
+  var out=document.getElementById('cc-ks-lp-output');
+  if(out) out.innerHTML='';
+  _ccKsBuildLp();
+}
+function _ccSaveLpDraft(){
+  var btn=document.getElementById('cc-save-lp-btn');
+  if(!_campLastLp){
+    _showToast('<div style="color:'+_CC_RED+';font-size:12px">No LP data to save — build the LP first.</div>',2500);
+    return;
+  }
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  if(!CONFIG.sheetsUrl){if(btn){btn.disabled=false;btn.textContent='✓ Save LP Draft';}return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+    action:'landing_page_save',
+    lp:Object.assign({},_campLastLp,{campaign_id:_campBrief.id||'',slug:_campBrief.slug||'',icp:_campBrief.icp||'',status:'draft'})
+  })})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(btn) btn.textContent='✓ Saved';
+    var conf=document.getElementById('cc-lp-save-confirm');
+    if(conf){
+      conf.style.display='block';
+      conf.textContent='✓ LP saved — '+(d.campaign_id||_campBrief.id||'—')+' · '+(d.slug||_campBrief.slug||'—');
+    }
+  })
+  .catch(function(e){
+    if(btn){btn.disabled=false;btn.textContent='✓ Save LP Draft';}
+    console.error('[CC] LP save error:',e.message);
+  });
+}
 // User picks an existing LP — sets the brief slug
 function _ccKsSelectLp(slug,campaignId){
   _campBrief.slug=slug;
@@ -22534,9 +22577,17 @@ function _ccKsSelectLp(slug,campaignId){
     res.appendChild(notice);
   }
   _showToast('<div style="color:#22c55e;font-size:12px">Landing page selected: /'+slug+'</div>',2500);
-  // Advance wizard to step 3 when LP is chosen in step 2
-  if(_ccWizardStep===2){
-    setTimeout(function(){_ccWizardAdvance(3,'✓ LP: easychefpro.com/'+slug);},700);
+  // Update persistent footer and enable next button
+  _ccUpdateLpFooter(slug);
+  // Show inline next-step button inside the results panel (FIX 2)
+  if(res){
+    var _prevNext=res.querySelector('.ks-lp-next');
+    if(_prevNext) _prevNext.remove();
+    var _nextWrap=document.createElement('div');
+    _nextWrap.className='ks-lp-next';
+    _nextWrap.style.cssText='margin-top:12px';
+    _nextWrap.innerHTML='<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Build Social Posts</button>';
+    res.appendChild(_nextWrap);
   }
 }
 
@@ -22576,15 +22627,21 @@ function _ccKsBuildLp(){
           '<div style="font-size:12px;color:var(--text);line-height:1.5">'+f[1]+'</div>'+
         '</div>';
       }).join('');
+      var mf2='font-family:\'DM Mono\',monospace;';
+      var btnS='padding:8px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf2;
       if(out2) out2.innerHTML='<div style="border-top:1px solid var(--border)">'+rows+
-        '<div style="padding:12px 16px">'+
-          _ccBtn('Copy CTA URL','_ccCopyText(\''+safe(lp.cta_url||'')+'\')',false)+
+        '<div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border)">'+
+          '<button onclick="_ccRegenLp()" style="background:transparent;border:1px solid var(--border);color:var(--muted);'+btnS+'">↺ Regenerate LP</button>'+
+          '<button id="cc-save-lp-btn" onclick="_ccSaveLpDraft()" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnS+'">✓ Save LP Draft</button>'+
+          '<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;'+btnS+'">→ Next: Build Social Posts</button>'+
         '</div>'+
+        '<div id="cc-lp-save-confirm" style="display:none;padding:6px 16px 12px;font-size:11px;color:#22c55e;'+mf2+'"></div>'+
       '</div>';
-      // Auto-select the LP slug from the CTA URL
-      if(lp.cta_url&&!_campBrief.slug){
+      // Auto-select the LP slug from the CTA URL and update footer
+      if(lp.cta_url){
         var slugPart=(lp.cta_url||'').replace(/^https?:\/\/easychefpro\.com\//,'').replace(/\?.*/,'').trim();
-        if(slugPart) _ccKsSelectLp(slugPart);
+        if(slugPart&&!_campBrief.slug) _ccKsSelectLp(slugPart);
+        _ccUpdateLpFooter(slugPart||_campBrief.slug||'');
       }
     })
     .catch(function(e){
@@ -24995,7 +25052,7 @@ function _ccApproveAllForCampaign(campaignId){
 // ── Campaign Wizard helpers ──────────────────────────────────────────────────
 function _ccRenderWizardBar(){
   var steps=[
-    {n:1,lbl:'Kickstart'},{n:2,lbl:'Landing Page'},{n:3,lbl:'Brief'},
+    {n:1,lbl:'Kickstart'},{n:2,lbl:'Brief'},{n:3,lbl:'Landing Page'},
     {n:4,lbl:'Assets'},{n:5,lbl:'UTMs'},{n:6,lbl:'Calendar'}
   ];
   return steps.map(function(s,i){
@@ -25038,16 +25095,34 @@ function _ccWizardAdvance(toStep,summary){
   var nextBody=document.getElementById('cc-step-'+toStep+'-body');
   if(nextEl) nextEl.style.display='block';
   // Lazy-render step content
-  if(toStep===3&&nextBody){
+  // Step 2 = Brief
+  if(toStep===2&&nextBody){
     nextBody.innerHTML=_ccRenderBrief()+
       '<div style="padding:14px 20px;border-top:1px solid var(--border)">'+
-        '<button onclick="_ccWizardAdvance(4,\'✓ Campaign: \'+(_campBrief.name||\'Draft\')+\' · \'+(_campBrief.icp||\'—\')+\' · \'+(_campBrief.cta_type||_campBrief.funnel||\'—\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Build Assets</button>'+
+        '<button onclick="_ccWizardAdvance(3,\'✓ Campaign: \'+(_campBrief.name||\'Draft\')+\' · \'+(_campBrief.icp||\'—\')+\' · \'+(_campBrief.cta_type||_campBrief.funnel||\'—\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
       '</div>';
     _ccPopulateChannelSelect(_ccChannels);
     setTimeout(_ccOnBlueprintChange,0);
     if(!_campBrief.id) setTimeout(_ccFetchNextId,50);
     if(!_ccChannelsLoaded) setTimeout(_ccLoadChannels,0);
   }
+  // Step 3 = Landing Page
+  if(toStep===3&&nextBody){
+    var mf='font-family:\'DM Mono\',monospace;';
+    nextBody.innerHTML=
+      '<div style="padding:14px 16px">'+
+        '<div id="cc-ks-lp-results"><div style="font-size:11px;color:var(--muted);'+mf+'">Searching for matching landing pages…</div></div>'+
+        '<div id="cc-ks-lp-output"></div>'+
+      '</div>'+
+      '<div id="cc-step3-footer" style="padding:12px 16px;border-top:2px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<span style="font-size:11px;color:var(--muted);'+mf+'">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">none selected</strong></span>'+
+        '<div style="flex:1;min-width:8px"></div>'+
+        '<button onclick="_ccWizardGoTo(2)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">← Back to Brief</button>'+
+        '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;'+mf+';opacity:0.5">→ Next: Build Posts</button>'+
+      '</div>';
+    setTimeout(function(){_ccKsLpSearch(_campBrief.icp||'');},0);
+  }
+  // Step 4 = Build Assets
   if(toStep===4&&nextBody){
     var chLabel=(_campBrief.channels||[]).join(' + ')||'—';
     nextBody.innerHTML=
@@ -25063,12 +25138,15 @@ function _ccWizardAdvance(toStep,summary){
 }
 function _ccWizardGoTo(step){
   if(!_ccWizardDone[step]&&step!==_ccWizardStep) return;
-  // Collapse currently active step if different
-  if(step!==_ccWizardStep&&_ccWizardDone[_ccWizardStep]){
+  // Always hide current step body when navigating away
+  if(step!==_ccWizardStep){
     var curBody=document.getElementById('cc-step-'+_ccWizardStep+'-body');
-    var curSumm=document.getElementById('cc-step-'+_ccWizardStep+'-summ');
     if(curBody) curBody.style.display='none';
-    if(curSumm) curSumm.style.display='flex';
+    // Show summary bar only if step was fully completed
+    if(_ccWizardDone[_ccWizardStep]){
+      var curSumm=document.getElementById('cc-step-'+_ccWizardStep+'-summ');
+      if(curSumm) curSumm.style.display='flex';
+    }
   }
   // Expand target
   var tBody=document.getElementById('cc-step-'+step+'-body');
@@ -25127,7 +25205,7 @@ function _campaignsRenderInner(root){
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
         '<div>'+
           '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
-          '<div style="font-size:12px;color:var(--muted);margin-top:2px">Kickstart → LP → Brief → Assets → UTMs → Calendar</div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px">Kickstart → Brief → LP → Assets → UTMs → Calendar</div>'+
         '</div>'+
         '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
       '</div>'+
@@ -25151,21 +25229,20 @@ function _campaignsRenderInner(root){
           '<div id="cc-ks-result" style="margin-top:16px"></div>'+
         '</div>'+
       '</div>'+
-      // ── Step 2: Landing Page ───────────────────────────────────────────────
+      // ── Step 2: Campaign Brief ─────────────────────────────────────────────
       '<div id="cc-step-2" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
-        sHdr(2,'Landing Page — Select an existing page or build a new one')+
+        sHdr(2,'Campaign Brief — Review and confirm all campaign details')+
         '<div id="cc-step-2-summ" '+summBar+'></div>'+
-        '<div id="cc-step-2-body" style="padding:14px 16px">'+
-          '<div id="cc-ks-lp-results"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Run Kickstart above to search for matching landing pages.</div></div>'+
-          '<div id="cc-ks-lp-output"></div>'+
+        '<div id="cc-step-2-body">'+
+          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Run Kickstart above to generate your campaign brief.</div>'+
         '</div>'+
       '</div>'+
-      // ── Step 3: Campaign Brief ─────────────────────────────────────────────
+      // ── Step 3: Landing Page ───────────────────────────────────────────────
       '<div id="cc-step-3" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
-        sHdr(3,'Campaign Brief — Review and confirm all campaign details')+
+        sHdr(3,'Landing Page — Select an existing page or build a new one')+
         '<div id="cc-step-3-summ" '+summBar+'></div>'+
         '<div id="cc-step-3-body">'+
-          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Select a landing page above to continue to the brief.</div>'+
+          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Confirm your campaign brief above to continue.</div>'+
         '</div>'+
       '</div>'+
       // ── Step 4: Build Assets ───────────────────────────────────────────────
@@ -25173,7 +25250,7 @@ function _campaignsRenderInner(root){
         sHdr(4,'Build Assets — Generate social posts, emails, and push copy')+
         '<div id="cc-step-4-summ" '+summBar+'></div>'+
         '<div id="cc-step-4-body">'+
-          '<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Complete the campaign brief to unlock asset building.</div>'+
+          '<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Select a landing page above to unlock asset building.</div>'+
         '</div>'+
       '</div>'+
       // ── Flow banner + tab bar + panel ──────────────────────────────────────
