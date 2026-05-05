@@ -1,61 +1,24 @@
+// clasp auto-deploy test — May 5, 2026
 // ─────────────────────────────────────────────────────────────────────────────
 // Operations_CampaignSheets.gs
-// Manages the standalone "easyChef Pro — Campaign Center" Google Sheet.
+// Manages the "easyChef Pro — Campaign Center" Google Sheet.
 //
-// SHEET SETUP: Run _setupCampaignSheets() once from the Apps Script editor
-// (Run → Run function → _setupCampaignSheets). It creates the spreadsheet,
-// builds all 8 tabs with seed data, and saves the spreadsheet ID in Script
-// Properties under CAMPAIGN_SHEETS_ID automatically.
-//
-// ── doGet additions (paste inside your existing doGet(e) if/else block) ──────
-//
-//   if (action === 'icp_profiles_read')    return json({ ok:true, icpProfiles: getIcpProfiles() });
-//   if (action === 'approved_claims_read') return json({ ok:true, claims: getApprovedClaims() });
-//   if (action === 'campaign_brief_read')  return json({ ok:true, briefs: getCampaignBriefs(e.parameter.id||'') });
-//   if (action === 'generated_copy_read')  return json({ ok:true, copy: getGeneratedCopy(e.parameter.campaign_id||'') });
-//   if (action === 'dl_registry_read')     return json({ ok:true, registry: getDlRegistry(e.parameter.campaign_id||'') });
-//   if (action === 'email_sequences_read') return json({ ok:true, sequences: getEmailSequences(e.parameter.campaign_id||'') });
-//   if (action === 'social_posts_read')    return json({ ok:true, posts: getSocialPosts(e.parameter.campaign_id||'') });
-//   if (action === 'landing_pages_read')   return json({ ok:true, pages: getLandingPages(e.parameter.campaign_id||'') });
-//
-// ── doPost additions (paste inside your existing doPost(e) if/else block) ────
-//
-//   if (body.action === 'icp_profiles_read')    return json({ ok:true, icpProfiles: getIcpProfiles() });
-//   if (body.action === 'approved_claims_read') return json({ ok:true, claims: getApprovedClaims() });
-//   if (body.action === 'campaign_brief_read')  return json({ ok:true, briefs: getCampaignBriefs(body.id||'') });
-//   if (body.action === 'campaign_brief_write') { setCampaignBrief(body.brief); return json({ ok:true }); }
-//   if (body.action === 'generated_copy_read')  return json({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
-//   if (body.action === 'generated_copy_write') { addGeneratedCopy(body.copy); return json({ ok:true }); }
-//   if (body.action === 'dl_registry_read')     return json({ ok:true, registry: getDlRegistry(body.campaign_id||'') });
-//   if (body.action === 'dl_registry_write')    { setDlRegistryEntry(body.entry); return json({ ok:true }); }
-//   if (body.action === 'email_sequences_read') return json({ ok:true, sequences: getEmailSequences(body.campaign_id||'') });
-//   if (body.action === 'email_sequences_write'){ setEmailSequence(body.sequence); return json({ ok:true }); }
-//   if (body.action === 'social_posts_read')    return json({ ok:true, posts: getSocialPosts(body.campaign_id||'') });
-//   if (body.action === 'social_posts_write')   { setSocialPost(body.post); return json({ ok:true }); }
-//   if (body.action === 'landing_pages_read')   return json({ ok:true, pages: getLandingPages(body.campaign_id||'') });
-//   if (body.action === 'landing_pages_write')  { setLandingPage(body.page); return json({ ok:true }); }
-//   if (body.action === 'get_next_campaign_id')  return json({ ok:true, id: getNextCampaignId() });
-//   if (body.action === 'check_slug_available')  return json(checkSlugAvailable(body.slug));
-//   if (body.action === 'channels_read')         return json({ ok:true, channels: getChannels() });
-//   if (body.action === 'channel_write')         { setChannel(body.channel); return json({ ok:true }); }
-//
+// SETUP: Run _setupCampaignSheets() once from the Apps Script editor.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// ── Constants ─────────────────────────────────────────────────────────────────
 
 var _CC_SS_NAME   = 'easyChef Pro — Campaign Center';
 var _CC_SS_ID_KEY = 'CAMPAIGN_SHEETS_ID';
 
 var _CC_TAB = {
-  ICP:       'ICPProfiles',
-  CLAIMS:    'ApprovedClaims',
-  BRIEFS:    'CampaignBriefs',
-  COPY:      'GeneratedCopy',
-  DL:        'DeepLinkRegistry',
-  EMAIL:     'EmailSequences',
-  SOCIAL:    'SocialPosts',
-  PAGES:     'LandingPages',
-  CHANNELS:  'Channels'
+  ICP:      'ICPProfiles',
+  CLAIMS:   'ApprovedClaims',
+  BRIEFS:   'CampaignBriefs',
+  COPY:     'GeneratedCopy',
+  DL:       'DeepLinkRegistry',
+  EMAIL:    'EmailSequences',
+  SOCIAL:   'SocialPosts',
+  PAGES:    'LandingPages',
+  CHANNELS: 'Channels'
 };
 
 var _CC_HDR = {
@@ -118,7 +81,7 @@ function _getCampaignSpreadsheet() {
   var props = PropertiesService.getScriptProperties();
   var ssId  = props.getProperty(_CC_SS_ID_KEY);
   if (ssId) {
-    try { return SpreadsheetApp.openById(ssId); } catch (e) { /* fall through to create */ }
+    try { return SpreadsheetApp.openById(ssId); } catch (e) {}
   }
   var ss = SpreadsheetApp.create(_CC_SS_NAME);
   props.setProperty(_CC_SS_ID_KEY, ss.getId());
@@ -156,7 +119,6 @@ function _ccFmtDate(v) {
   return String(v);
 }
 
-// Upsert helper: scans column 1 for id, updates if found, appends if not.
 function _ccUpsert(sheet, headers, id, rowValues) {
   var lastRow = sheet.getLastRow();
   if (lastRow >= 2) {
@@ -178,14 +140,12 @@ function _ccUpsert(sheet, headers, id, rowValues) {
 // ── ONE-TIME SETUP ────────────────────────────────────────────────────────────
 
 function _setupCampaignSheets() {
-  var ss   = _getCampaignSpreadsheet();
-  var now  = _ccNow();
+  var ss  = _getCampaignSpreadsheet();
+  var now = _ccNow();
 
-  // Remove default Sheet1 if empty
   var defaultSheet = ss.getSheetByName('Sheet1');
   if (defaultSheet && ss.getSheets().length > 1) ss.deleteSheet(defaultSheet);
 
-  // Create all tabs
   Object.keys(_CC_TAB).forEach(function(key) {
     var name  = _CC_TAB[key];
     var sheet = ss.getSheetByName(name);
@@ -193,78 +153,72 @@ function _setupCampaignSheets() {
     _ccHdrStyle(sheet, _CC_HDR[name]);
   });
 
-  // ── Seed ICPProfiles ────────────────────────────────────────────────────────
+  // Seed ICPProfiles
   var icpSheet = ss.getSheetByName(_CC_TAB.ICP);
-  var icpSeed = [
+  [
     ['super_mom','Super Mom','super_mom','Active','','','','','','','','','','','',false,'',now,now],
     ['budget_family','Budget Family','budget_family','Pending Validation','','','','','','','','','','','',false,'',now,now],
     ['health_optimizer','Health Optimizer','health_optimizer','Pending Validation','','','','','','','','','','','',false,'',now,now],
     ['professional','Working Professional','professional','Pending Validation','','','','','','','','','','','',false,'',now,now],
     ['alpha_recruit','Alpha Recruit','alpha_recruit','Active','','','','','','','','','','','',false,'',now,now]
-  ];
-  icpSeed.forEach(function(row) {
-    icpSheet.appendRow(row);
-  });
+  ].forEach(function(row) { icpSheet.appendRow(row); });
 
-  // ── Seed ApprovedClaims ─────────────────────────────────────────────────────
+  // Seed ApprovedClaims
   var claimSheet = ss.getSheetByName(_CC_TAB.CLAIMS);
-  var claimSeed = [
-    ['annual_savings',   'savings',           '$1,336/year — never $1,500',                          true,  'Taylor','',now,''],
-    ['food_waste',       'waste_reduction',   '69.5% — never 70%',                                   true,  'Taylor','',now,''],
-    ['fridge_to_table',  'speed',             '30 minutes fridge to table',                               true,  'Taylor','',now,''],
-    ['technologies',     'product',           '9 patent-pending technologies — never "9 patents"',   true,  'Taylor','',now,''],
-    ['database',         'product',           '800,000 products',                                         true,  'Taylor','',now,''],
-    ['recipes',          'product',           '10,000 recipe pages at launch',                            true,  'Taylor','',now,''],
-    ['dietitians',       'credibility',       'registered dietitians — word "registered" required',  true,  'Taylor','',now,''],
-    ['profiles',         'validation',        'validated across 10,000 household profiles',               true,  'Taylor','',now,''],
-    ['founding_discount','pricing',           '60% off — never 50% off',                             true,  'Taylor','',now,''],
-    ['founding_price',   'pricing',           '$7.99/month founding price',                               true,  'Taylor','',now,''],
-    ['standard_price',   'pricing',           '$19.99/month',                                             true,  'Taylor','',now,''],
-    ['annual_price',     'pricing',           '$191.88/year ($15.99/month)',                              true,  'Taylor','',now,''],
-    ['origin',           'brand',             'Built by first responders',                                true,  'Taylor','',now,''],
-    ['roi_framing',      'roi',               '$10/$111 (11:1 ROI)',                                      false, '',      '',now,'PENDING APPROVAL — requires Taylor sign-off before use'],
-    ['reddit_tone',      'channel_rule',      'Reddit: community-first tone — never direct promotion. Lead with genuine value. Mention easyChef Pro naturally only.', true, 'Taylor','',now,'Required for all Reddit posts — r/easyChefPro and u/easyChef_Pro']
-  ];
-  claimSeed.forEach(function(row) { claimSheet.appendRow(row); });
+  [
+    ['annual_savings',   'savings',      '$1,336/year — never $1,500',                        true, 'Taylor','',now,''],
+    ['food_waste',       'waste',        '69.5% — never 70%',                                 true, 'Taylor','',now,''],
+    ['fridge_to_table',  'speed',        '30 minutes fridge to table',                        true, 'Taylor','',now,''],
+    ['technologies',     'product',      '9 patent-pending technologies — never "9 patents"', true, 'Taylor','',now,''],
+    ['database',         'product',      '800,000 products',                                  true, 'Taylor','',now,''],
+    ['recipes',          'product',      '10,000 recipe pages at launch',                     true, 'Taylor','',now,''],
+    ['dietitians',       'credibility',  'registered dietitians — word "registered" required',true, 'Taylor','',now,''],
+    ['profiles',         'validation',   'validated across 10,000 household profiles',        true, 'Taylor','',now,''],
+    ['founding_discount','pricing',      '60% off — never 50% off',                          true, 'Taylor','',now,''],
+    ['founding_price',   'pricing',      '$7.99/month founding price',                        true, 'Taylor','',now,''],
+    ['standard_price',   'pricing',      '$19.99/month',                                      true, 'Taylor','',now,''],
+    ['annual_price',     'pricing',      '$191.88/year ($15.99/month)',                       true, 'Taylor','',now,''],
+    ['origin',           'brand',        'Built by first responders',                         true, 'Taylor','',now,''],
+    ['roi_framing',      'roi',          '$10/$111 (11:1 ROI)',                               false,'',      '',now,'PENDING APPROVAL'],
+    ['reddit_tone',      'channel_rule', 'Reddit: community-first tone — never direct promotion', true, 'Taylor','',now,'']
+  ].forEach(function(row) { claimSheet.appendRow(row); });
 
-  // ── Seed DeepLinkRegistry ───────────────────────────────────────────────────
+  // Seed DeepLinkRegistry
   var dlSheet = ss.getSheetByName(_CC_TAB.DL);
-  var dlSeed = [
-    // Email — ec-2026-001 waitlist campaign
-    ['DL-EM-0001','DL-EM-0001','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 1'],
-    ['DL-EM-0002','DL-EM-0002','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 2'],
-    ['DL-EM-0003','DL-EM-0003','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 3'],
-    ['DL-EM-0004','DL-EM-0004','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 1'],
-    ['DL-EM-0005','DL-EM-0005','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 2'],
-    ['DL-EM-0006','DL-EM-0006','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 3 Variant A'],
-    ['DL-EM-0007','DL-EM-0007','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 3 Variant B'],
-    // Social
-    ['DL-SOC-0001','DL-SOC-0001','ec-2026-001','Facebook',  '','facebook',  'social','ec-2026-001','active',now,'',now,'Facebook organic post'],
-    ['DL-SOC-0002','DL-SOC-0002','ec-2026-001','Instagram', '','instagram', 'social','ec-2026-001','active',now,'',now,'Instagram organic post'],
-    ['DL-SOC-0003','DL-SOC-0003','ec-2026-001','TikTok',    '','tiktok',    'social','ec-2026-001','active',now,'',now,'TikTok post'],
-    ['DL-SOC-0004','DL-SOC-0004','ec-2026-001','Pinterest', '','pinterest', 'social','ec-2026-001','active',now,'',now,'Pinterest pin'],
-    // Direct
-    ['DL-DIR-0001','DL-DIR-0001','ec-2026-001','Direct',    '','direct',    'direct','ec-2026-001','active',now,'',now,'Direct / QR code']
-  ];
-  dlSeed.forEach(function(row) { dlSheet.appendRow(row); });
+  [
+    ['DL-EM-0001','DL-EM-0001_seq1_email1_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 1'],
+    ['DL-EM-0002','DL-EM-0002_seq1_email2_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 2'],
+    ['DL-EM-0003','DL-EM-0003_seq1_email3_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-1 Email 3'],
+    ['DL-EM-0004','DL-EM-0004_seq2_email1_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 1'],
+    ['DL-EM-0005','DL-EM-0005_seq2_email2_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 2'],
+    ['DL-EM-0006','DL-EM-0006_seq2_email3a_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 3 Variant A'],
+    ['DL-EM-0007','DL-EM-0007_seq2_email3b_cta','ec-2026-001','Email','','klaviyo','email','ec-2026-001','active',now,'',now,'SEQ-2 Email 3 Variant B'],
+    ['DL-SOC-0001','DL-SOC-0001_fb_super_mom','ec-2026-001','Facebook','','facebook','social','ec-2026-001','active',now,'',now,'Facebook organic'],
+    ['DL-SOC-0002','DL-SOC-0002_ig_health','ec-2026-001','Instagram','','instagram','social','ec-2026-001','active',now,'',now,'Instagram organic'],
+    ['DL-SOC-0003','DL-SOC-0003_nextdoor','ec-2026-001','Nextdoor','','nextdoor','social','ec-2026-001','active',now,'',now,'Nextdoor post'],
+    ['DL-SOC-0004','DL-SOC-0004_tiktok_bio','ec-2026-001','TikTok','','tiktok','social','ec-2026-001','active',now,'',now,'TikTok bio link'],
+    ['DL-DIR-0001','DL-DIR-0001_alpha_recruit','ec-2026-001','Direct','','convertkit','referral','ec-2026-001','active',now,'',now,'Alpha recruit direct']
+  ].forEach(function(row) { dlSheet.appendRow(row); });
 
-  // ── Seed Channels ───────────────────────────────────────────────────────────
+  // Seed Channels
   var chSheet = ss.getSheetByName(_CC_TAB.CHANNELS);
-  var chSeed = [
-    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active','','200',      '',      'false','0','0','',                                                                                                                          '600x200px',           '3:1',    'Link in email body',                                  'Plain text body — no hashtags',                                                           'email'],
-    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active','','400',      '63206', 'false','0','0','',                                                                                                                          '1200x630px',          '1.91:1', 'Paste URL directly in post',                          'Link works in post — no hashtags needed',                                                 'post'],
-    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active','','125',      '2200',  'true', '5','15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',                                  '1080x1080px',         '1:1',    'Add URL to bio before posting — update bio DL_ID',    'No clickable link in post — use link in bio · hashtags at end of caption',                'post'],
-    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active','','150',      '2200',  'true', '3','5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                                                  '1080x1920px',         '9:16',   'Add URL to bio before posting',                       'Video script — hook must land in first 3 seconds · link in bio only',                    'video_script'],
-    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active','','500',      '500',   'true', '5','8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',                                  '1000x1500px',         '2:3',    'URL goes in destination link field',                  'Keyword-rich description — link goes directly to LP · vertical image performs best',     'pin'],
-    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',      '',      'false','0','0','',                                                                                                                          'Optional — community photo','',  'Paste URL in post',                                   'Neighbour tone — no hashtags, no corporate language · authentic personal voice only',     'post'],
-    ['Organic',   'organic',  'content',   'blog',      'ORG','active','','',         '',      'false','0','0','',                                                                                                                          '1200x630px',          '1.91:1', 'Link in article body and CTA button',                 'Blog post — SEO optimised · internal links to LP',                                       'article'],
-    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active','','',         '',      'false','0','0','',                                                                                                                          '',                    '',       'URL in affiliate brief',                              'Partner content — follows affiliate brand guidelines',                                   'brief'],
-    ['Direct',    'direct',   'referral',  'convertkit','DIR','active','','',         '',      'false','0','0','',                                                                                                                          '',                    '',       'URL in email body',                                   'Personal outreach — founder voice · one to one',                                         'email']
-  ];
-  chSeed.forEach(function(row) { chSheet.appendRow(row); });
+  [
+    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active','','200',  '',     'false','0', '0', '',                                                                                                    '600x200px',   '3:1',    'Link in email body',                               'Plain text body — no hashtags',                                                    'email'],
+    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active','','400',  '63206','false','0', '0', '',                                                                                                    '1200x630px',  '1.91:1', 'Paste URL directly in post',                       'Link works in post — no hashtags needed',                                          'post'],
+    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active','','125',  '2200', 'true', '5', '15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',          '1080x1080px', '1:1',    'Add URL to bio before posting — update bio DL_ID', 'No clickable link in post — use link in bio · hashtags at end of caption',         'post'],
+    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active','','150',  '2200', 'true', '3', '5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                          '1080x1920px', '9:16',   'Add URL to bio before posting',                    'Video script — hook must land in first 3 seconds · link in bio only',              'video_script'],
+    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active','','500',  '500',  'true', '5', '8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',          '1000x1500px', '2:3',    'URL goes in destination link field',               'Keyword-rich description — link goes directly to LP · vertical image performs best','pin'],
+    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',  '',     'false','0', '0', '',                                                                                                    'Optional — community photo','', 'Paste URL in post',                              'Neighbour tone — no hashtags, no corporate language · authentic personal voice only','post'],
+    ['Organic',   'organic',  'content',   'blog',      'ORG','active','','',     '',     'false','0', '0', '',                                                                                                    '1200x630px',  '1.91:1', 'Link in article body and CTA button',              'Blog post — SEO optimised · internal links to LP',                                 'article'],
+    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'URL in affiliate brief',                           'Partner content — follows affiliate brand guidelines',                              'brief'],
+    ['Direct',    'direct',   'referral',  'convertkit','DIR','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'URL in email body',                                'Personal outreach — founder voice · one to one',                                   'email'],
+    ['YouTube',   'yt',       'video',     'youtube',   'SOC','active','','',     '',     'false','0', '0', '',                                                                                                    '1920x1080px', '16:9',   'Link in description — pin comment with link',       'Video content — hook in first 30 seconds · description SEO optimised',             'video_script'],
+    ['X',         'x',        'social',    'x',         'SOC','active','','280',  '280',  'false','0', '0', '',                                                                                                    '1200x675px',  '16:9',   'Paste URL directly in post',                       'Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply','post'],
+    ['Reddit',    'reddit',   'community', 'reddit',    'SOC','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'Link in post or comment',                          'Community tone — no promotional language · value first · r/easyChefPro and u/easyChef_Pro','post']
+  ].forEach(function(row) { chSheet.appendRow(row); });
 
-  Logger.log('Campaign Center spreadsheet ready: ' + ss.getUrl());
-  try { SpreadsheetApp.getUi().alert('Campaign Center spreadsheet created.\n\n' + ss.getUrl()); } catch(e) {}
+  Logger.log('Campaign Center ready: ' + ss.getUrl());
+  try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
   return ss.getUrl();
 }
 
@@ -292,10 +246,6 @@ function getIcpProfiles() {
     .map(_icpRowToObj);
 }
 
-/**
- * Returns the ICP profile matching a code or display name (case-insensitive).
- * Returns null if not found or row exists but all profile fields are empty.
- */
 function getIcpProfile(codeOrName) {
   if (!codeOrName) return null;
   var q = String(codeOrName).toLowerCase().trim();
@@ -324,22 +274,22 @@ function setIcpProfile(item) {
   }
   var row = [
     item.id,
-    item.name               !== undefined ? item.name               : (ex ? ex[1]  : ''),
-    item.code               !== undefined ? item.code               : (ex ? ex[2]  : ''),
-    item.status             !== undefined ? item.status             : (ex ? ex[3]  : 'Pending Validation'),
-    item.demographics       !== undefined ? item.demographics       : (ex ? ex[4]  : ''),
-    item.psychographics     !== undefined ? item.psychographics     : (ex ? ex[5]  : ''),
-    item.primary_pain       !== undefined ? item.primary_pain       : (ex ? ex[6]  : ''),
-    item.secondary_pain     !== undefined ? item.secondary_pain     : (ex ? ex[7]  : ''),
-    item.value_trigger      !== undefined ? item.value_trigger      : (ex ? ex[8]  : ''),
-    item.loss_aversion      !== undefined ? item.loss_aversion      : (ex ? ex[9]  : ''),
-    item.channel_affinity   !== undefined ? item.channel_affinity   : (ex ? ex[10] : ''),
-    item.message_hierarchy  !== undefined ? item.message_hierarchy  : (ex ? ex[11] : ''),
-    item.conversion_triggers!== undefined ? item.conversion_triggers: (ex ? ex[12] : ''),
-    item.utm_campaign_codes !== undefined ? item.utm_campaign_codes : (ex ? ex[13] : ''),
-    item.lp_variants        !== undefined ? item.lp_variants        : (ex ? ex[14] : ''),
-    item.validated          !== undefined ? item.validated          : (ex ? ex[15] : false),
-    item.validation_notes   !== undefined ? item.validation_notes   : (ex ? ex[16] : ''),
+    item.name                !== undefined ? item.name                : (ex ? ex[1]  : ''),
+    item.code                !== undefined ? item.code                : (ex ? ex[2]  : ''),
+    item.status              !== undefined ? item.status              : (ex ? ex[3]  : 'Pending Validation'),
+    item.demographics        !== undefined ? item.demographics        : (ex ? ex[4]  : ''),
+    item.psychographics      !== undefined ? item.psychographics      : (ex ? ex[5]  : ''),
+    item.primary_pain        !== undefined ? item.primary_pain        : (ex ? ex[6]  : ''),
+    item.secondary_pain      !== undefined ? item.secondary_pain      : (ex ? ex[7]  : ''),
+    item.value_trigger       !== undefined ? item.value_trigger       : (ex ? ex[8]  : ''),
+    item.loss_aversion       !== undefined ? item.loss_aversion       : (ex ? ex[9]  : ''),
+    item.channel_affinity    !== undefined ? item.channel_affinity    : (ex ? ex[10] : ''),
+    item.message_hierarchy   !== undefined ? item.message_hierarchy   : (ex ? ex[11] : ''),
+    item.conversion_triggers !== undefined ? item.conversion_triggers : (ex ? ex[12] : ''),
+    item.utm_campaign_codes  !== undefined ? item.utm_campaign_codes  : (ex ? ex[13] : ''),
+    item.lp_variants         !== undefined ? item.lp_variants         : (ex ? ex[14] : ''),
+    item.validated           !== undefined ? item.validated           : (ex ? ex[15] : false),
+    item.validation_notes    !== undefined ? item.validation_notes    : (ex ? ex[16] : ''),
     ex ? ex[17] : now,
     now
   ];
@@ -356,7 +306,6 @@ function _claimRowToObj(r) {
   };
 }
 
-/** Returns all approved claims. Pass approved=false to get pending/rejected too. */
 function getApprovedClaims(approvedOnly) {
   var sheet = _getCCSheet(_CC_TAB.CLAIMS);
   var last  = sheet.getLastRow();
@@ -404,12 +353,13 @@ function _briefRowToObj(r) {
     ml_approved_date: _ccFmtDate(r[10]),
     created_by: r[11], created_at: _ccFmtDate(r[12]),
     updated_at: _ccFmtDate(r[13]), notes: r[14],
-    post_count: parseInt(r[15]) || 0, post_frequency: r[16] || '',
-    email_sequences: parseInt(r[17]) || 0, email_variants: parseInt(r[18]) || 0
+    post_count:      parseInt(r[15]) || 5,
+    post_frequency:  String(r[16] || 'every_2_days'),
+    email_sequences: String(r[17] || 'seq1_seq2'),
+    email_variants:  String(r[18] || 'both')
   };
 }
 
-/** Returns all campaign briefs, or a single brief when id is provided. */
 function getCampaignBriefs(id) {
   var sheet = _getCCSheet(_CC_TAB.BRIEFS);
   var last  = sheet.getLastRow();
@@ -439,24 +389,24 @@ function setCampaignBrief(item) {
   }
   var row = [
     item.id,
-    item.name            !== undefined ? item.name            : (ex ? ex[1]  : ''),
-    item.icp_code        !== undefined ? item.icp_code        : (ex ? ex[2]  : ''),
-    item.blueprint       !== undefined ? item.blueprint       : (ex ? ex[3]  : ''),
-    item.channel         !== undefined ? item.channel         : (ex ? ex[4]  : ''),
-    item.goal            !== undefined ? item.goal            : (ex ? ex[5]  : ''),
-    item.slug            !== undefined ? item.slug            : (ex ? ex[6]  : ''),
-    item.launch_date     !== undefined ? item.launch_date     : (ex ? ex[7]  : ''),
-    item.status          !== undefined ? item.status          : (ex ? ex[8]  : 'draft'),
-    item.ml_approved     !== undefined ? item.ml_approved     : (ex ? ex[9]  : false),
-    item.ml_approved_date!== undefined ? item.ml_approved_date: (ex ? ex[10] : ''),
+    item.name             !== undefined ? item.name             : (ex ? ex[1]  : ''),
+    item.icp_code         !== undefined ? item.icp_code         : (ex ? ex[2]  : ''),
+    item.blueprint        !== undefined ? item.blueprint        : (ex ? ex[3]  : ''),
+    item.channel          !== undefined ? item.channel          : (ex ? ex[4]  : ''),
+    item.goal             !== undefined ? item.goal             : (ex ? ex[5]  : ''),
+    item.slug             !== undefined ? item.slug             : (ex ? ex[6]  : ''),
+    item.launch_date      !== undefined ? item.launch_date      : (ex ? ex[7]  : ''),
+    item.status           !== undefined ? item.status           : (ex ? ex[8]  : 'draft'),
+    item.ml_approved      !== undefined ? item.ml_approved      : (ex ? ex[9]  : false),
+    item.ml_approved_date !== undefined ? item.ml_approved_date : (ex ? ex[10] : ''),
     ex ? ex[11] : (item.created_by || ''),
     ex ? ex[12] : now,
     now,
-    item.notes           !== undefined ? item.notes           : (ex ? ex[14] : ''),
-    item.post_count      !== undefined ? item.post_count      : (ex ? ex[15] : 0),
-    item.post_frequency  !== undefined ? item.post_frequency  : (ex ? ex[16] : ''),
-    item.email_sequences !== undefined ? item.email_sequences : (ex ? ex[17] : 0),
-    item.email_variants  !== undefined ? item.email_variants  : (ex ? ex[18] : 0)
+    item.notes            !== undefined ? item.notes            : (ex ? ex[14] : ''),
+    item.post_count       !== undefined ? String(item.post_count)      : (ex ? ex[15] : '5'),
+    item.post_frequency   !== undefined ? item.post_frequency          : (ex ? ex[16] : 'every_2_days'),
+    item.email_sequences  !== undefined ? item.email_sequences         : (ex ? ex[17] : 'seq1_seq2'),
+    item.email_variants   !== undefined ? item.email_variants          : (ex ? ex[18] : 'both')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -475,7 +425,6 @@ function _copyRowToObj(r) {
   };
 }
 
-/** Returns all generated copy rows for a campaign (or all rows if no campaignId). */
 function getGeneratedCopy(campaignId) {
   var sheet = _getCCSheet(_CC_TAB.COPY);
   var last  = sheet.getLastRow();
@@ -487,35 +436,31 @@ function getGeneratedCopy(campaignId) {
   return rows.filter(function(r) { return r.campaign_id === campaignId; });
 }
 
-/** Always appends — generated copy is an immutable log. */
 function addGeneratedCopy(item) {
   if (!item || !item.campaign_id) return;
-  var sheet   = _getCCSheet(_CC_TAB.COPY);
-  var headers = _CC_HDR.GeneratedCopy;
-  var now     = _ccNow();
-  var proofBar = Array.isArray(item.proof_bar)
-    ? item.proof_bar.join(' | ')
-    : (item.proof_bar || '');
-  var rng = sheet.getRange(sheet.getLastRow() + 1, 1, 1, headers.length);
+  var sheet  = _getCCSheet(_CC_TAB.COPY);
+  var now    = _ccNow();
+  var proof  = Array.isArray(item.proof_bar) ? item.proof_bar.join(' | ') : (item.proof_bar || '');
+  var rng    = sheet.getRange(sheet.getLastRow() + 1, 1, 1, _CC_HDR.GeneratedCopy.length);
   rng.setNumberFormat('@');
   rng.setValues([[
-    item.id            || ('copy-' + Date.now().toString(36)),
-    item.campaign_id   || '',
-    item.icp_code      || '',
-    item.channel       || '',
-    item.headline      || '',
-    item.subheadline   || '',
+    item.id              || ('copy-' + Date.now().toString(36)),
+    item.campaign_id     || '',
+    item.icp_code        || '',
+    item.channel         || '',
+    item.headline        || '',
+    item.subheadline     || '',
     item.email_subject_a || '',
     item.email_subject_b || '',
-    item.lp_hero       || '',
-    proofBar,
-    item.cta_primary   || '',
-    item.social_hook   || '',
-    item.share_mechanic|| '',
-    item.generated_at  || now,
-    item.approved      || false,
-    item.approved_by   || '',
-    item.approved_date || ''
+    item.lp_hero         || '',
+    proof,
+    item.cta_primary     || '',
+    item.social_hook     || '',
+    item.share_mechanic  || '',
+    item.generated_at    || now,
+    item.approved        || false,
+    item.approved_by     || '',
+    item.approved_date   || ''
   ]]);
 }
 
@@ -540,15 +485,6 @@ function getDlRegistry(campaignId) {
     .map(_dlRowToObj);
   if (!campaignId) return rows;
   return rows.filter(function(r) { return r.campaign_id === campaignId; });
-}
-
-function getDlById(dlId) {
-  if (!dlId) return null;
-  var all = getDlRegistry();
-  for (var i = 0; i < all.length; i++) {
-    if (all[i].dl_id === dlId) return all[i];
-  }
-  return null;
 }
 
 function setDlRegistryEntry(item) {
@@ -582,10 +518,6 @@ function setDlRegistryEntry(item) {
   _ccUpsert(sheet, headers, item.dl_id, row);
 }
 
-/**
- * Returns the next available DL_ID for a given channel prefix.
- * e.g. _nextDlId('EM') → 'DL-EM-0008' if DL-EM-0007 is the highest.
- */
 function _nextDlId(prefix) {
   var sheet   = _getCCSheet(_CC_TAB.DL);
   var lastRow = sheet.getLastRow();
@@ -601,11 +533,6 @@ function _nextDlId(prefix) {
   return 'DL-' + prefix + '-' + String(maxNum + 1).padStart(4, '0');
 }
 
-/**
- * Auto-registers a DRAFT DL entry for a campaign brief.
- * Called by campaignGen() after successful copy generation.
- * Returns the new dl_id.
- */
 function registerDraftDl(brief) {
   if (!brief) return '';
   var channel = brief.channel || 'Email';
@@ -669,25 +596,25 @@ function setEmailSequence(item) {
   }
   var row = [
     item.id,
-    item.campaign_id      !== undefined ? item.campaign_id      : (ex ? ex[1]  : ''),
-    item.sequence_code    !== undefined ? item.sequence_code    : (ex ? ex[2]  : ''),
-    item.email_number     !== undefined ? item.email_number     : (ex ? ex[3]  : ''),
-    item.subject_line     !== undefined ? item.subject_line     : (ex ? ex[4]  : ''),
-    item.preview_text     !== undefined ? item.preview_text     : (ex ? ex[5]  : ''),
-    item.body_hook        !== undefined ? item.body_hook        : (ex ? ex[6]  : ''),
-    item.body_problem     !== undefined ? item.body_problem     : (ex ? ex[7]  : ''),
-    item.body_agitate     !== undefined ? item.body_agitate     : (ex ? ex[8]  : ''),
-    item.body_solve       !== undefined ? item.body_solve       : (ex ? ex[9]  : ''),
-    item.body_value       !== undefined ? item.body_value       : (ex ? ex[10] : ''),
-    item.body_proof       !== undefined ? item.body_proof       : (ex ? ex[11] : ''),
-    item.body_cta         !== undefined ? item.body_cta         : (ex ? ex[12] : ''),
-    item.send_day         !== undefined ? item.send_day         : (ex ? ex[13] : ''),
-    item.trigger_event    !== undefined ? item.trigger_event    : (ex ? ex[14] : ''),
-    item.status           !== undefined ? item.status           : (ex ? ex[15] : 'draft'),
-    item.approved         !== undefined ? item.approved         : (ex ? ex[16] : false),
-    item.approved_by      !== undefined ? item.approved_by      : (ex ? ex[17] : ''),
-    item.built_in_klaviyo !== undefined ? item.built_in_klaviyo : (ex ? ex[18] : false),
-    item.klaviyo_id       !== undefined ? item.klaviyo_id       : (ex ? ex[19] : '')
+    item.campaign_id       !== undefined ? item.campaign_id       : (ex ? ex[1]  : ''),
+    item.sequence_code     !== undefined ? item.sequence_code     : (ex ? ex[2]  : ''),
+    item.email_number      !== undefined ? item.email_number      : (ex ? ex[3]  : ''),
+    item.subject_line      !== undefined ? item.subject_line      : (ex ? ex[4]  : ''),
+    item.preview_text      !== undefined ? item.preview_text      : (ex ? ex[5]  : ''),
+    item.body_hook         !== undefined ? item.body_hook         : (ex ? ex[6]  : ''),
+    item.body_problem      !== undefined ? item.body_problem      : (ex ? ex[7]  : ''),
+    item.body_agitate      !== undefined ? item.body_agitate      : (ex ? ex[8]  : ''),
+    item.body_solve        !== undefined ? item.body_solve        : (ex ? ex[9]  : ''),
+    item.body_value        !== undefined ? item.body_value        : (ex ? ex[10] : ''),
+    item.body_proof        !== undefined ? item.body_proof        : (ex ? ex[11] : ''),
+    item.body_cta          !== undefined ? item.body_cta          : (ex ? ex[12] : ''),
+    item.send_day          !== undefined ? item.send_day          : (ex ? ex[13] : ''),
+    item.trigger_event     !== undefined ? item.trigger_event     : (ex ? ex[14] : ''),
+    item.status            !== undefined ? item.status            : (ex ? ex[15] : 'draft'),
+    item.approved          !== undefined ? item.approved          : (ex ? ex[16] : false),
+    item.approved_by       !== undefined ? item.approved_by       : (ex ? ex[17] : ''),
+    item.built_in_klaviyo  !== undefined ? item.built_in_klaviyo  : (ex ? ex[18] : false),
+    item.klaviyo_id        !== undefined ? item.klaviyo_id        : (ex ? ex[19] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -755,8 +682,8 @@ function _pageRowToObj(r) {
     section_value: r[14], section_proof: r[15], section_cta: r[16],
     tracking_convert: r[17], tracking_clarity: r[18], tracking_ga4: r[19],
     status: r[20],
-    dev_built: r[21] === true || String(r[21]).toLowerCase() === 'true',
-    qa_passed: r[22] === true || String(r[22]).toLowerCase() === 'true',
+    dev_built:            r[21] === true || String(r[21]).toLowerCase() === 'true',
+    qa_passed:            r[22] === true || String(r[22]).toLowerCase() === 'true',
     pushed_to_production: r[23] === true || String(r[23]).toLowerCase() === 'true'
   };
 }
@@ -770,32 +697,6 @@ function getLandingPages(campaignId) {
     .map(_pageRowToObj);
   if (!campaignId) return rows;
   return rows.filter(function(r) { return r.campaign_id === campaignId; });
-}
-
-// ── Campaign ID sequencing ────────────────────────────────────────────────────
-
-/**
- * Reads CampaignBriefs, finds the highest EC-[YEAR]-[###] for the current year,
- * and returns the next sequential ID string (e.g. EC-2026-003).
- * Safe to call concurrently — reads only; the write lock is in setCampaignBrief.
- */
-function getNextCampaignId() {
-  var year    = new Date().getFullYear();
-  var sheet   = _getCCSheet(_CC_TAB.BRIEFS);
-  var lastRow = sheet.getLastRow();
-  var maxNum  = 0;
-  if (lastRow >= 2) {
-    var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    var pat = /^EC-(\d{4})-(\d{3})$/;
-    ids.forEach(function(r) {
-      var m = String(r[0]).match(pat);
-      if (m && parseInt(m[1], 10) === year) {
-        var n = parseInt(m[2], 10);
-        if (n > maxNum) maxNum = n;
-      }
-    });
-  }
-  return 'EC-' + year + '-' + String(maxNum + 1).padStart(3, '0');
 }
 
 function setLandingPage(item) {
@@ -864,9 +765,6 @@ function _channelRowToObj(r) {
   };
 }
 
-/**
- * Returns all rows from the Channels tab where status = 'active'.
- */
 function getChannels() {
   var sheet   = _getCCSheet(_CC_TAB.CHANNELS);
   var lastRow = sheet.getLastRow();
@@ -876,9 +774,6 @@ function getChannels() {
     .map(_channelRowToObj);
 }
 
-/**
- * Inserts or updates a row in the Channels tab, matched by name (case-insensitive).
- */
 function setChannel(item) {
   if (!item || !item.name) return;
   var sheet   = _getCCSheet(_CC_TAB.CHANNELS);
@@ -921,44 +816,75 @@ function setChannel(item) {
   rng.setValues([row]);
 }
 
-/**
- * One-time migration: adds the 11 new publishing-requirement columns to the
- * existing Channels tab and overwrites each row with the full seed data.
- * Run once from the Apps Script editor: Run → _migrateChannelsTab
- * Safe to re-run — it checks the column count first.
- */
+// ── Campaign ID Generator ─────────────────────────────────────────────────────
+
+function getNextCampaignId() {
+  var year    = new Date().getFullYear();
+  var sheet   = _getCCSheet(_CC_TAB.BRIEFS);
+  var lastRow = sheet.getLastRow();
+  var maxNum  = 0;
+  if (lastRow >= 2) {
+    var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    var pat = /^EC-(\d{4})-(\d{3})$/;
+    ids.forEach(function(r) {
+      var m = String(r[0]).match(pat);
+      if (m && parseInt(m[1], 10) === year) {
+        var n = parseInt(m[2], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+  }
+  return 'EC-' + year + '-' + String(maxNum + 1).padStart(3, '0');
+}
+
+// ── Slug availability check ───────────────────────────────────────────────────
+
+function checkSlugAvailable(slug) {
+  if (!slug) return { ok: false, error: 'slug is required' };
+  var sheet   = _getCCSheet(_CC_TAB.PAGES);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true };
+  var rows = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][3]).trim() === String(slug).trim()) {
+      return { ok: false, conflict_campaign_id: String(rows[i][1]) };
+    }
+  }
+  return { ok: true };
+}
+
+// ── Channels tab migration ────────────────────────────────────────────────────
+// Run once: Apps Script editor → select _migrateChannelsTab → Run
+
 function _migrateChannelsTab() {
   var sheet      = _getCCSheet(_CC_TAB.CHANNELS);
   var newHeaders = _CC_HDR.Channels;
 
   if (sheet.getLastColumn() >= newHeaders.length) {
-    Logger.log('Channels tab already has ' + sheet.getLastColumn() + ' columns — no migration needed.');
+    Logger.log('Already up to date — ' + sheet.getLastColumn() + ' columns.');
     try { SpreadsheetApp.getUi().alert('Already up to date — no migration needed.'); } catch(e) {}
     return;
   }
 
-  // Rewrite the header row with the full column list
   _ccHdrStyle(sheet, newHeaders);
 
   var fullSeed = [
-    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active','','200',  '',     'false','0','0','',                                                                                            '600x200px',             '3:1',    'Link in email body',                               'Plain text body — no hashtags',                                                        'email'],
-    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active','','400',  '63206','false','0','0','',                                                                                            '1200x630px',            '1.91:1', 'Paste URL directly in post',                       'Link works in post — no hashtags needed',                                              'post'],
-    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active','','125',  '2200', 'true', '5','15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',   '1080x1080px',           '1:1',    'Add URL to bio before posting — update bio DL_ID', 'No clickable link in post — use link in bio · hashtags at end of caption',             'post'],
-    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active','','150',  '2200', 'true', '3','5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                   '1080x1920px',           '9:16',   'Add URL to bio before posting',                    'Video script — hook must land in first 3 seconds · link in bio only',                 'video_script'],
-    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active','','500',  '500',  'true', '5','8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',   '1000x1500px',           '2:3',    'URL goes in destination link field',               'Keyword-rich description — link goes directly to LP · vertical image performs best',  'pin'],
-    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',  '',     'false','0','0','',                                                                                            'Optional — community photo','',    'Paste URL in post',                                'Neighbour tone — no hashtags, no corporate language · authentic personal voice only',  'post'],
-    ['Organic',   'organic',  'content',   'blog',      'ORG','active','','',     '',     'false','0','0','',                                                                                            '1200x630px',            '1.91:1', 'Link in article body and CTA button',              'Blog post — SEO optimised · internal links to LP',                                    'article'],
-    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active','','',     '',     'false','0','0','',                                                                                            '',                      '',       'URL in affiliate brief',                           'Partner content — follows affiliate brand guidelines',                                 'brief'],
-    ['Direct',    'direct',   'referral',  'convertkit','DIR','active','','',     '',     'false','0','0','',                                                                                            '',                      '',       'URL in email body',                                'Personal outreach — founder voice · one to one',                                      'email'],
-    ['YouTube',   'yt',       'video',     'youtube',   'SOC','active','','',     '',     'false','0','0','',                                                                                            '1920x1080px',           '16:9',   'Link in description — pin comment with link',      'Video content — hook in first 30 seconds · description SEO optimised · link in first line of description', 'video_script'],
-    ['X',         'x',        'social',    'x',         'SOC','active','','280',  '280',  'false','0','0','',                                                                                            '1200x675px',            '16:9',   'Paste URL directly in post',                       'Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply',  'post'],
-    ['Reddit',    'reddit',   'community', 'reddit',    'SOC','active','','',     '',     'false','0','0','',                                                                                            '',                      '',       'Link in post or comment',                          'Community tone — no promotional language · value first, product mention natural · r/easyChefPro and u/easyChef_Pro', 'post']
+    ['Email',     'email',    'email',     'klaviyo',   'EM', 'active','','200',  '',     'false','0', '0', '',                                                                                                    '600x200px',   '3:1',    'Link in email body',                               'Plain text body — no hashtags',                                                    'email'],
+    ['Facebook',  'fb',       'social',    'facebook',  'SOC','active','','400',  '63206','false','0', '0', '',                                                                                                    '1200x630px',  '1.91:1', 'Paste URL directly in post',                       'Link works in post — no hashtags needed',                                          'post'],
+    ['Instagram', 'ig',       'social',    'instagram', 'SOC','active','','125',  '2200', 'true', '5', '15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',          '1080x1080px', '1:1',    'Add URL to bio before posting — update bio DL_ID', 'No clickable link in post — use link in bio · hashtags at end of caption',         'post'],
+    ['TikTok',    'tiktok',   'social',    'tiktok',    'SOC','active','','150',  '2200', 'true', '3', '5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                          '1080x1920px', '9:16',   'Add URL to bio before posting',                    'Video script — hook must land in first 3 seconds · link in bio only',              'video_script'],
+    ['Pinterest', 'pin',      'social',    'pinterest', 'SOC','active','','500',  '500',  'true', '5', '8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',          '1000x1500px', '2:3',    'URL goes in destination link field',               'Keyword-rich description — link goes directly to LP · vertical image performs best','pin'],
+    ['Nextdoor',  'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',  '',     'false','0', '0', '',                                                                                                    'Optional — community photo','', 'Paste URL in post',                              'Neighbour tone — no hashtags, no corporate language · authentic personal voice only','post'],
+    ['Organic',   'organic',  'content',   'blog',      'ORG','active','','',     '',     'false','0', '0', '',                                                                                                    '1200x630px',  '1.91:1', 'Link in article body and CTA button',              'Blog post — SEO optimised · internal links to LP',                                 'article'],
+    ['Affiliate', 'aff',      'affiliate', 'affiliate', 'AFF','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'URL in affiliate brief',                           'Partner content — follows affiliate brand guidelines',                              'brief'],
+    ['Direct',    'direct',   'referral',  'convertkit','DIR','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'URL in email body',                                'Personal outreach — founder voice · one to one',                                   'email'],
+    ['YouTube',   'yt',       'video',     'youtube',   'SOC','active','','',     '',     'false','0', '0', '',                                                                                                    '1920x1080px', '16:9',   'Link in description — pin comment with link',       'Video content — hook in first 30 seconds · description SEO optimised',             'video_script'],
+    ['X',         'x',        'social',    'x',         'SOC','active','','280',  '280',  'false','0', '0', '',                                                                                                    '1200x675px',  '16:9',   'Paste URL directly in post',                       'Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply','post'],
+    ['Reddit',    'reddit',   'community', 'reddit',    'SOC','active','','',     '',     'false','0', '0', '',                                                                                                    '',            '',       'Link in post or comment',                          'Community tone — no promotional language · value first · r/easyChefPro and u/easyChef_Pro','post']
   ];
 
-  var lastRow      = sheet.getLastRow();
-  var existingNames = lastRow >= 2
-    ? sheet.getRange(2, 1, lastRow - 1, 1).getValues()
-    : [];
+  var lastRow       = sheet.getLastRow();
+  var existingNames = lastRow >= 2 ? sheet.getRange(2, 1, lastRow - 1, 1).getValues() : [];
 
   fullSeed.forEach(function(seedRow) {
     var foundRowIndex = -1;
@@ -975,27 +901,29 @@ function _migrateChannelsTab() {
     rng.setValues([seedRow]);
   });
 
-  Logger.log('Channels tab migrated: ' + newHeaders.length + ' columns, ' + fullSeed.length + ' rows updated.');
-  try { SpreadsheetApp.getUi().alert('Channels tab migrated successfully — ' + fullSeed.length + ' rows updated.'); } catch(e) {}
+  Logger.log('Channels tab migrated: ' + fullSeed.length + ' rows, ' + newHeaders.length + ' columns.');
+  try { SpreadsheetApp.getUi().alert('Channels tab migrated — ' + fullSeed.length + ' rows updated.'); } catch(e) {}
 }
 
-// ── Slug availability check ───────────────────────────────────────────────────
-
-/**
- * Checks whether a landing page slug is already registered in the LandingPages tab.
- * Returns { ok: true } if the slug is free.
- * Returns { ok: false, conflict_campaign_id: "EC-2026-001" } if already in use.
- */
-function checkSlugAvailable(slug) {
-  if (!slug) return { ok: false, error: 'slug is required' };
-  var sheet   = _getCCSheet(_CC_TAB.PAGES);
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { ok: true };
-  var rows = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
-  for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i][2]).trim() === String(slug).trim()) {
-      return { ok: false, conflict_campaign_id: String(rows[i][1]) };
-    }
-  }
-  return { ok: true };
+function _addMissingChannels() {
+  var now = _ccNow();
+  var missing = [
+    ['YouTube','yt','video','youtube','SOC','active','','','','false','0','0','','1920x1080px','16:9','Link in description — pin comment with link','Video content — hook in first 30 seconds · description SEO optimised','video_script'],
+    ['X','x','social','x','SOC','active','','280','280','false','0','0','','1200x675px','16:9','Paste URL directly in post','Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply','post'],
+    ['Reddit','reddit','community','reddit','SOC','active','','','','false','0','0','','','','Link in post or comment','Community tone — no promotional language · value first · r/easyChefPro and u/easyChef_Pro','post'],
+    ['Vimeo','vimeo','video','vimeo','SOC','active','','','','false','0','0','','1920x1080px','16:9','Link in description','Video content — same rules as YouTube','video_script']
+  ];
+  missing.forEach(function(row) {
+    setChannel({
+      name: row[0], slug_code: row[1], utm_medium: row[2],
+      utm_source: row[3], dl_prefix: row[4], status: row[5],
+      notes: row[6], optimal_chars: row[7], max_chars: row[8],
+      use_hashtags: row[9], hashtag_count_min: row[10],
+      hashtag_count_max: row[11], hashtag_suggestions: row[12],
+      image_dimensions: row[13], image_ratio: row[14],
+      link_placement: row[15], platform_note: row[16],
+      content_format: row[17]
+    });
+  });
+  Logger.log('Done — added ' + missing.length + ' channels');
 }
