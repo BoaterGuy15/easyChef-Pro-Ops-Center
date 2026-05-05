@@ -405,12 +405,21 @@ function doGet(e) {
     }
     if(e.parameter.action === 'campaign_types_read')   return respond({ok:true, types:      getCampaignTypes()});
     if(e.parameter.action === 'funnel_stages_read')    return respond({ok:true, stages:     getFunnelStages()});
-    if(e.parameter.action === 'blueprint_configs_read') return respond({ok:true, blueprints: getBlueprintConfigs()});
+    if(e.parameter.action === 'blueprint_configs_read') {
+      var _bps = getBlueprintConfigs();
+      Logger.log('blueprint_configs_read: ' + _bps.length + ' rows returned');
+      return respond({ok:true, blueprints: _bps});
+    }
     if(e.parameter.action === 'push_notifications_read') return respond({ok:true, notifications: getPushNotifications(e.parameter.campaign_id||'')});
     if(e.parameter.action === 'content_calendar_read')   return respond({ok:true, entries:       getContentCalendar(e.parameter.campaign_id||'')});
     if(e.parameter.action === 'campaign_metrics_read')   return respond({ok:true, metrics:        getCampaignMetrics(e.parameter.campaign_id||'')});
     if(e.parameter.action === 'scheduled_posts_read')    return respond({ok:true, posts:          getScheduledPosts(e.parameter.campaign_id||'')});
-    if(e.parameter.action === 'lp_inventory_read')       return respond({ok:true, inventory:      getLPInventory(e.parameter.status||'')});
+    if(e.parameter.action === 'lp_inventory_read') {
+      var _status = e.parameter.status || null;
+      var _inv    = getLPInventory(_status);
+      Logger.log('lp_inventory_read: ' + _inv.length + ' rows returned (status=' + _status + ')');
+      return respond({ok:true, inventory: _inv});
+    }
     return respond({ ok: true, tasks: getTasks() });
   } catch(err) {
     return respond({ ok: false, error: err.message });

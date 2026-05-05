@@ -21723,7 +21723,7 @@ function _ccLoadChannels(){
 
 function _ccLoadBlueprintConfigs(){
   if(!CONFIG.sheetsUrl){_ccOnBlueprintChange();return;}
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'blueprint_configs_read'})})
+  fetch(CONFIG.sheetsUrl+'?action=blueprint_configs_read')
     .then(function(r){return r.json();})
     .then(function(d){
       if(d&&d.ok&&Array.isArray(d.blueprints)&&d.blueprints.length) _ccBlueprintConfigs=d.blueprints;
