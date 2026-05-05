@@ -22355,7 +22355,7 @@ function _ccRenderSocialPosts(posts,container,channel){
       // Generate Image button + result container
       '<div style="margin-bottom:12px">'+
         '<button id="cc-gen-img-'+(post.post_num||i+1)+'" '+
-        'onclick="_ccGeneratePostImage('+(post.post_num||i+1)+')" '+
+        'onclick="_ccQueueImage('+(post.post_num||i+1)+')" '+
         'style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;cursor:pointer">'+
         '🎨 Generate Image</button>'+
         '<div id="cc-img-container-'+(post.post_num||i+1)+'"></div>'+
@@ -22394,12 +22394,47 @@ function _ccGetChannelFromBrief(){
   return (_ccChannels||[]).find(function(c){return c.name===(_campBrief.channel||'');}) || {};
 }
 
-function _ccGeneratePostImage(postNum){
-  var post=_ccLastPosts[postNum-1];
-  if(!post) return;
+// ── Image generation queue ──────────────────────────────────────────────────
+var _ccImageQueue=[];
+var _ccImageGenerating=false;
+
+function _ccQueueImage(postNum){
   var btn=document.getElementById('cc-gen-img-'+postNum);
-  btn.textContent='Generating...';
-  btn.disabled=true;
+  if(_ccImageQueue.indexOf(postNum)!==-1){return;} // already queued
+  _ccImageQueue.push(postNum);
+  if(!_ccImageGenerating){
+    _ccProcessImageQueue();
+  } else {
+    var pos=_ccImageQueue.length;
+    var ordinal=pos===1?'1st':pos===2?'2nd':pos===3?'3rd':(pos+'th');
+    if(btn){btn.textContent='⏳ Queued ('+ordinal+')';btn.disabled=true;}
+  }
+}
+
+function _ccProcessImageQueue(){
+  if(_ccImageQueue.length===0){_ccImageGenerating=false;return;}
+  _ccImageGenerating=true;
+  var next=_ccImageQueue.shift();
+  // Update queue position labels on remaining waiting buttons
+  _ccImageQueue.forEach(function(pn,idx){
+    var b=document.getElementById('cc-gen-img-'+pn);
+    if(b){
+      var pos=idx+1;
+      var ord=pos===1?'1st':pos===2?'2nd':pos===3?'3rd':(pos+'th');
+      b.textContent='⏳ Queued ('+ord+')';
+    }
+  });
+  _ccGeneratePostImage(next,function(){
+    setTimeout(_ccProcessImageQueue,1000);
+  });
+}
+
+function _ccGeneratePostImage(postNum,callback){
+  var post=_ccLastPosts[postNum-1];
+  if(!post){if(callback)callback();return;}
+  var btn=document.getElementById('cc-gen-img-'+postNum);
+  var container=document.getElementById('cc-img-container-'+postNum);
+  if(btn){btn.textContent='Generating...';btn.disabled=true;}
   var channelData=_ccGetChannelFromBrief();
   fetch(CONFIG.sheetsUrl,{
     method:'POST',
@@ -22418,20 +22453,33 @@ function _ccGeneratePostImage(postNum){
   .then(function(d){
     if(d.ok&&d.image_base64){
       var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
-      var container=document.getElementById('cc-img-container-'+postNum);
-      container.innerHTML=
-        '<img src="'+imgSrc+'" style="width:100%;border-radius:8px;margin-top:8px;" alt="Generated image">'+
-        '<a href="'+imgSrc+'" download="post-'+postNum+'-image.png" '+
-        'style="display:block;font-size:12px;margin-top:4px;color:var(--muted);">↓ Download</a>';
-      btn.textContent='✓ Image ready';
+      if(container){
+        container.innerHTML=
+          '<img src="'+imgSrc+'" style="width:100%;border-radius:8px;margin-top:8px;" alt="Generated image">'+
+          '<a href="'+imgSrc+'" download="post-'+postNum+'-image.png" '+
+          'style="display:block;font-size:12px;margin-top:4px;color:var(--muted);">↓ Download</a>';
+      }
+      if(btn) btn.textContent='✓ Image ready';
     } else {
-      btn.textContent='✗ Failed — retry';
-      btn.disabled=false;
+      console.error('[IMG] Post '+postNum+' failed:', d.error);
+      if(container){
+        container.innerHTML='<button onclick="_ccQueueImage('+postNum+')" '+
+          'style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid rgba(255,0,0,0.4);'+
+          'color:'+_CC_RED+';border-radius:5px;cursor:pointer;margin-top:6px">↺ Retry Image</button>';
+      }
+      if(btn){btn.textContent='✗ Failed';btn.disabled=false;}
     }
+    if(callback) callback();
   })
-  .catch(function(){
-    btn.textContent='✗ Failed — retry';
-    btn.disabled=false;
+  .catch(function(e){
+    console.error('[IMG] Post '+postNum+' fetch error:', e.message);
+    if(container){
+      container.innerHTML='<button onclick="_ccQueueImage('+postNum+')" '+
+        'style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid rgba(255,0,0,0.4);'+
+        'color:'+_CC_RED+';border-radius:5px;cursor:pointer;margin-top:6px">↺ Retry Image</button>';
+    }
+    if(btn){btn.textContent='✗ Failed';btn.disabled=false;}
+    if(callback) callback();
   });
 }
 
