@@ -138,64 +138,63 @@ function generateImagePrompt(body) {
     ) || '';
     if (!optimisedPrompt) return { ok: false, error: 'GPT-4o returned empty prompt' };
 
-    // ── Step 3: Gemini Imagen → base64 image ───────────────────────────────
-    var geminiResp = UrlFetchApp.fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=' + googleKey,
+    // ── Step 3: Imagen 4 → base64 image ────────────────────────────────────
+    var imagenResp = UrlFetchApp.fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=' + googleKey,
       {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         payload: JSON.stringify({
-          contents: [{
-            parts: [{ text: optimisedPrompt }]
-          }],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+          instances:  [{ prompt: optimisedPrompt }],
+          parameters: {
+            sampleCount: 1,
+            aspectRatio: _sbGetAspectRatio(dimensions)
+          }
         }),
         muteHttpExceptions: true
       }
     );
 
-    var geminiHttpCode = geminiResp.getResponseCode();
-    var geminiData     = JSON.parse(geminiResp.getContentText());
+    var imagenCode = imagenResp.getResponseCode();
+    var imagenData = JSON.parse(imagenResp.getContentText());
 
-    if (geminiHttpCode !== 200 || geminiData.error) {
-      var gErr = geminiData.error ? (geminiData.error.message || JSON.stringify(geminiData.error)) : ('HTTP ' + geminiHttpCode);
+    if (imagenCode !== 200 || imagenData.error) {
+      var iErr = imagenData.error
+        ? (imagenData.error.message || JSON.stringify(imagenData.error))
+        : ('HTTP ' + imagenCode);
       return {
-        ok:            false,
-        error:         'Gemini step failed: ' + gErr,
-        claude_brief:  claudeVisualDescription,
-        gpt_prompt:    optimisedPrompt
+        ok:           false,
+        error:        'Imagen step failed: ' + iErr,
+        claude_brief: claudeVisualDescription,
+        gpt_prompt:   optimisedPrompt
       };
     }
 
-    // Extract base64 image from Gemini response
+    // Extract base64 from Imagen 4 predict response
     var image_base64 = '';
     var mime_type    = 'image/png';
     try {
-      var parts = geminiData.candidates[0].content.parts;
-      for (var i = 0; i < parts.length; i++) {
-        if (parts[i].inlineData) {
-          image_base64 = parts[i].inlineData.data;
-          mime_type    = parts[i].inlineData.mimeType || 'image/png';
-          break;
-        }
+      var prediction = imagenData.predictions && imagenData.predictions[0];
+      if (prediction && prediction.bytesBase64Encoded) {
+        image_base64 = prediction.bytesBase64Encoded;
+        mime_type    = prediction.mimeType || 'image/png';
       }
     } catch (ex) {
       return {
         ok:           false,
-        error:        'Could not extract image from Gemini response: ' + ex.message,
+        error:        'Could not extract image: ' + ex.message,
         claude_brief: claudeVisualDescription,
-        gpt_prompt:   optimisedPrompt,
-        raw_gemini:   JSON.stringify(geminiData).slice(0, 500)
+        gpt_prompt:   optimisedPrompt
       };
     }
 
     if (!image_base64) {
       return {
         ok:           false,
-        error:        'Gemini returned no image data. Check model availability.',
+        error:        'Imagen returned no image data. Check model availability and API quota.',
         claude_brief: claudeVisualDescription,
         gpt_prompt:   optimisedPrompt,
-        raw_gemini:   JSON.stringify(geminiData).slice(0, 500)
+        raw_imagen:   JSON.stringify(imagenData).slice(0, 500)
       };
     }
 
@@ -212,6 +211,19 @@ function generateImagePrompt(body) {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+/**
+ * Maps a WxH dimension string to the nearest Imagen 4 aspect ratio.
+ */
+function _sbGetAspectRatio(dimensions) {
+  if (!dimensions) return '1:1';
+  if (dimensions.indexOf('1200x630')  > -1) return '16:9';
+  if (dimensions.indexOf('1080x1080') > -1) return '1:1';
+  if (dimensions.indexOf('1080x1920') > -1) return '9:16';
+  if (dimensions.indexOf('1000x1500') > -1) return '2:3';
+  if (dimensions.indexOf('1920x1080') > -1) return '16:9';
+  return '1:1';
 }
 
 // ── Diagnostic ────────────────────────────────────────────────────────────────
