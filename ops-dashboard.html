@@ -22992,18 +22992,23 @@ function _ccUseTestResult(postNum,imgSrc){
 
 // ── Feature 3: Generate All progress ────────────────────────────────────────
 function _ccUpdateGenAllProgress(){
-  var t=_ccImgAllTotal;var d=_ccImgAllDone;
+  var t=_ccGenAllTotal||_ccImgAllTotal;
+  var d=_ccGenAllDone||_ccImgAllDone;
+  var batchNum=_ccGenAllBatchIdx+1;
+  var totalBatches=Math.max(1,Math.ceil(t/_ccGenAllBatchSize));
+  var batchStart=_ccGenAllBatchIdx*_ccGenAllBatchSize+1;
+  var batchEnd=Math.min(batchStart+_ccGenAllBatchSize-1,t);
   var btn=document.getElementById('cc-gen-all-btn');
   var bar=document.getElementById('cc-gen-all-bar');
   var lbl=document.getElementById('cc-gen-all-label');
   var pct=t>0?Math.round((d/t)*100):0;
   if(bar) bar.style.width=pct+'%';
-  if(lbl) lbl.textContent=d+' / '+t+' images';
   if(d>=t&&t>0){
     if(btn){btn.textContent='✓ All '+t+' images ready';btn.disabled=false;btn.style.color='#22c55e';btn.style.borderColor='#22c55e';}
     if(lbl) lbl.textContent='All '+t+' complete';
-  } else if(t>0&&d>0){
-    if(btn) btn.textContent='⏳ Generating '+(d+1)+' of '+t+'...';
+  } else if(t>0){
+    if(btn) btn.textContent='⏳ Generating batch '+batchNum+' of '+totalBatches+' (images '+batchStart+'–'+batchEnd+' of '+t+')…';
+    if(lbl&&d>0) lbl.textContent=d+' of '+t+' done';
   }
 }
 
@@ -23035,14 +23040,80 @@ var _ccImageQueue=[];
 var _ccImageGenerating=false;
 
 var _ccImgAllTotal=0;var _ccImgAllDone=0;
+// ── Generate-All batch state ────────────────────────────────────────────────
+var _ccGenAllQueue=[];
+var _ccGenAllTotal=0;
+var _ccGenAllDone=0;
+var _ccGenAllBatchIdx=0;
+var _ccGenAllBatchSize=4;
+var _ccGenAllPaused=false;
+
 function _ccQueueAllImages(btn,total){
   total=total||(_ccLastPosts||[]).length;
+  _ccGenAllTotal=total;
+  _ccGenAllDone=0;
+  _ccGenAllBatchIdx=0;
+  _ccGenAllPaused=false;
+  _ccGenAllQueue=[];
+  for(var i=1;i<=total;i++) _ccGenAllQueue.push({prefix:'m',num:i});
+  // Keep legacy counters in sync for any callers that read them
   _ccImgAllTotal=total;_ccImgAllDone=0;
   var b=btn||document.getElementById('cc-gen-all-btn');
-  if(b){b.textContent='⏳ Generating 1 of '+total+'...';b.disabled=true;}
+  if(b){b.disabled=true;}
   var prog=document.getElementById('cc-gen-all-progress');if(prog)prog.style.display='block';
+  var pauseBtn=document.getElementById('cc-gen-pause-btn');if(pauseBtn)pauseBtn.style.display='inline-block';
   _ccUpdateGenAllProgress();
-  for(var i=1;i<=total;i++) _ccQueueImage('m',i);
+  _ccProcessGenAllBatch();
+}
+
+function _ccProcessGenAllBatch(){
+  if(_ccGenAllPaused) return;
+  var startIdx=_ccGenAllBatchIdx*_ccGenAllBatchSize;
+  var batch=_ccGenAllQueue.slice(startIdx,startIdx+_ccGenAllBatchSize);
+  if(!batch.length){
+    // All batches complete
+    var btn=document.getElementById('cc-gen-all-btn');
+    if(btn){btn.textContent='✓ All '+_ccGenAllTotal+' images ready';btn.disabled=false;btn.style.color='#22c55e';btn.style.borderColor='#22c55e';}
+    var lbl=document.getElementById('cc-gen-all-label');
+    if(lbl) lbl.textContent='All '+_ccGenAllTotal+' complete';
+    var pauseBtn=document.getElementById('cc-gen-pause-btn');if(pauseBtn)pauseBtn.style.display='none';
+    return;
+  }
+  _ccUpdateGenAllProgress();
+  // Process this batch sequentially
+  var idx=0;
+  function processNext(){
+    if(_ccGenAllPaused) return;
+    if(idx>=batch.length){
+      // Batch complete
+      _ccGenAllBatchIdx++;
+      var batchNum=_ccGenAllBatchIdx;
+      var totalBatches=Math.ceil(_ccGenAllTotal/_ccGenAllBatchSize);
+      var lbl=document.getElementById('cc-gen-all-label');
+      if(_ccGenAllDone<_ccGenAllTotal){
+        if(lbl) lbl.textContent='✓ Batch '+batchNum+' done · '+_ccGenAllDone+' of '+_ccGenAllTotal+' complete · Starting batch '+(batchNum+1)+'…';
+        setTimeout(_ccProcessGenAllBatch,2000);
+      } else {
+        _ccProcessGenAllBatch();
+      }
+      return;
+    }
+    var item=batch[idx]; idx++;
+    _ccGeneratePostImage(item.prefix,item.num,function(){
+      _ccGenAllDone++;
+      _ccImgAllDone=_ccGenAllDone;
+      _ccUpdateGenAllProgress();
+      setTimeout(processNext,500);
+    });
+  }
+  processNext();
+}
+
+function _ccToggleGenAllPause(){
+  _ccGenAllPaused=!_ccGenAllPaused;
+  var btn=document.getElementById('cc-gen-pause-btn');
+  if(btn) btn.textContent=_ccGenAllPaused?'▶ Resume':'⏸ Pause';
+  if(!_ccGenAllPaused) _ccProcessGenAllBatch();
 }
 
 function _ccQueueImage(prefix,postNum){
@@ -23191,8 +23262,11 @@ function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
     html+='<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'+
       '<button id="cc-gen-all-btn" onclick="_ccQueueAllImages(this,'+posts.length+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">🎨 Generate All Images ('+posts.length+' posts)</button>'+
       '<div id="cc-gen-all-progress" style="display:none;margin-top:8px">'+
-        '<div style="background:var(--surface);border-radius:4px;height:8px;overflow:hidden;width:100%;max-width:320px">'+
-          '<div id="cc-gen-all-bar" style="background:'+_CC_RED+';height:100%;width:0%;transition:width 0.3s"></div>'+
+        '<div style="display:flex;align-items:center;gap:10px">'+
+          '<div style="background:var(--surface);border-radius:4px;height:8px;overflow:hidden;flex:1;max-width:320px">'+
+            '<div id="cc-gen-all-bar" style="background:'+_CC_RED+';height:100%;width:0%;transition:width 0.3s"></div>'+
+          '</div>'+
+          '<button id="cc-gen-pause-btn" onclick="_ccToggleGenAllPause()" style="display:none;background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">⏸ Pause</button>'+
         '</div>'+
         '<div id="cc-gen-all-label" style="font-size:10px;color:var(--muted);margin-top:4px;font-family:\'DM Mono\',monospace"></div>'+
       '</div>'+
