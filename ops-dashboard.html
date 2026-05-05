@@ -823,6 +823,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 
     <div class="nav-tab" data-tab-id="actionplans" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actionplans')" style="display:none">Action Plans</div>
     <div class="nav-tab" data-tab-id="lp" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('lp')">Workstreams</div>
+    <div class="nav-tab" data-tab-id="comms" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('comms')">Comms</div>
     <div class="nav-tab" data-tab-id="actions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('actions')" style="display:none">⚡ Actions</div>
     <div class="nav-tab" data-tab-id="masteractions" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('masteractions')" style="display:none">📋 Master Actions</div>
     <div class="nav-tab" data-tab-id="seo" draggable="true" ondragstart="_navDragStart(event,this)" ondragover="_navDragOver(event,this)" ondragleave="_navDragLeave(event,this)" ondrop="_navDrop(event,this)" ondragend="_navDragEnd(event,this)" onclick="showPage('seo')" style="display:none">SEO</div>
@@ -9873,7 +9874,7 @@ function _refreshMyPanel(){
   if(body){
     const raciKey=(_USER_RACI_MAP||{})[u]||u;
     const wlHtml=_buildProfileWorkload(u,raciKey,'_closeMyPanel();');
-    body.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">LIVE WORKLOAD — TASKS · ACTIONS · AGENDA</div>'+wlHtml;
+    body.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--gold);letter-spacing:2px;margin-bottom:10px">LIVE WORKLOAD — TASKS · ACTIONS · AGENDA</div>'+wlHtml+'<div style="padding-top:10px;border-top:1px solid var(--border);margin-top:8px"><button onclick="_closeMyPanel();openProfileModal(\''+u+'\')" style="font-family:\'DM Mono\',monospace;font-size:9px;padding:4px 12px;border-radius:4px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;width:100%">👤 My Profile</button></div>';
     body.style.display=_mppCollapsed?'none':'block';
   }
 }
