@@ -22798,7 +22798,7 @@ function _ccRenderKickstartAssets(campaign){
         '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Channels: <span id="cc-ks-channel-label" style="color:var(--text);font-weight:700">'+chLabel+'</span> · Assets link to the LP above with unique DL_IDs</div>'+
         '<div id="cc-ks-section-b-buttons">'+_ccBuildSectionBButtons()+'</div>'+
       '</div>'+
-      '<div id="cc-ks-asset-output"></div>'+
+      '<div id="cc-ks-social-output"></div><div id="cc-ks-email-output"></div>'+
     '</div>'+
   '</div>';
 }
@@ -23044,9 +23044,10 @@ function _ccKsBuildLp(){
     });
 }
 
-// Build email sequence or social posts — populates cc-ks-asset-output
+// Build email sequence or social posts — routes to cc-ks-email-output or cc-ks-social-output
 function _ccKsBuildAssets(actionType){
-  var out=document.getElementById('cc-ks-asset-output');
+  var _outId=(actionType==='build_email_sequence')?'cc-ks-email-output':'cc-ks-social-output';
+  var out=document.getElementById(_outId);
   var _chs=(_campBrief.channels||[]).filter(function(c){var l=c.toLowerCase();return l!=='email'&&l!=='push notifications';});
   var _loadMsg={
     'build_social_posts':       'Generating '+(_campBrief.channel||'social')+' posts… this takes about 30 seconds',
@@ -23083,7 +23084,7 @@ function _ccKsBuildAssets(actionType){
     .then(function(r){return r.json();})
     .then(function(d){
       allBtns.forEach(function(b){if(b.hasAttribute('data-was-text')){b.textContent=b.getAttribute('data-was-text');b.disabled=false;}});
-      var out2=document.getElementById('cc-ks-asset-output');
+      var out2=document.getElementById(_outId);
       if(!d.ok){
         if(out2) out2.innerHTML='<div style="padding:14px 16px;font-size:11px;color:'+_CC_RED+';border-top:1px solid var(--border)">Build failed: '+(d.error||'Unknown error')+'</div>';
         return;
@@ -23100,7 +23101,7 @@ function _ccKsBuildAssets(actionType){
     })
     .catch(function(e){
       allBtns.forEach(function(b){if(b.hasAttribute('data-was-text')){b.textContent=b.getAttribute('data-was-text');b.disabled=false;}});
-      var out2=document.getElementById('cc-ks-asset-output');
+      var out2=document.getElementById(_outId);
       if(out2) out2.innerHTML='<div style="padding:14px 16px;font-size:11px;color:'+_CC_RED+';border-top:1px solid var(--border)">Request failed: '+e.message+'</div>';
     });
 }
@@ -23637,7 +23638,7 @@ function _ccRenderSocialPosts(posts,container,channel){
 }
 
 function _ccRefreshPostPlatform(){
-  var postsEl=document.getElementById('cc-ks-asset-output');
+  var postsEl=document.getElementById('cc-ks-social-output');
   if(!postsEl||!_ccLastPosts||!_ccLastPosts.length) return;
   _ccRenderSocialPosts(_ccLastPosts,postsEl,_campBrief.channel);
 }
@@ -23675,7 +23676,7 @@ function _ccRegenSinglePost(idx){
       if(newPost){
         newPost.post_num=pNum;newPost.funnel_stage=post.funnel_stage;newPost.id=post.id;newPost.campaign_id=post.campaign_id;
         _ccLastPosts[idx]=newPost;
-        var container=document.getElementById('cc-ks-asset-output');
+        var container=document.getElementById('cc-ks-social-output');
         if(container) _ccRenderSocialPosts(_ccLastPosts,container,_campBrief.channel);
       } else {
         if(card){card.style.opacity='1';card.style.pointerEvents='';}
@@ -26639,7 +26640,7 @@ function _ccWizardAdvance(toStep,summary){
         '<div id="cc-ks-section-b-buttons">'+_ccBuildSectionBButtons()+'</div>'+
         '<div style="margin-top:10px"><button onclick="_ccDownloadAllImages()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download all post images</button></div>'+
       '</div>'+
-      '<div id="cc-ks-asset-output"></div>';
+      '<div id="cc-ks-social-output"></div><div id="cc-ks-email-output"></div>';
   }
   if(nextEl) setTimeout(function(){nextEl.scrollIntoView({behavior:'smooth',block:'start'});},80);
 }
