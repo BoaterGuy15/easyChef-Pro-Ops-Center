@@ -21302,6 +21302,7 @@ var _ccWizardSumms={};
 var _ccBaseImages={};   // original generated image per post (for Replace Phone Screen)
 var _ccThemeLib={};         // theme library cache keyed by icp_code
 var _ccLastIcpForThemes=''; // tracks ICP changes to reload theme picker
+var _ccSelectedTheme=null;  // full ThemeLibrary row for the selected theme
 var _ccBrandLib={logos:[],claimBars:[],fullOverlays:[]};
 var _ccPostImages={};   // per-post working images: {original, working}
 var _ccEditorState={};  // per-post editor state: {tab, prefix}
@@ -21359,11 +21360,18 @@ function _ccRenderThemeCards(themes, selected) {
     var dayEsc  = (t.publish_day||'').replace(/'/g,"\\'");
     var angEsc  = (t.campaign_angle||'').replace(/'/g,"\\'");
     var urgEsc  = (t.urgency_trigger||'').replace(/'/g,"\\'");
+    var featureBadge = t.app_feature
+      ? '<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">'+
+          '<span style="font-size:9px;font-family:\'DM Mono\',monospace;font-weight:700;color:'+_CC_RED+';padding:1px 5px;border:1px solid rgba(255,0,0,0.25);border-radius:3px">'+t.app_feature+'</span>'+
+          (t.app_screen_label?'<span style="font-size:9px;color:var(--muted);padding:1px 5px;border:1px solid var(--border);border-radius:3px">'+t.app_screen_label+'</span>':'')+
+        '</div>'
+      : '';
     return '<div onclick="_ccSelectTheme(\''+nameEsc+'\',\''+dayEsc+'\',\''+angEsc+'\',\''+urgEsc+'\')" '+
       'style="cursor:pointer;padding:8px 12px;border-radius:6px;border:1px solid '+(active?_CC_RED:'var(--border)')+';background:'+(active?'rgba(255,0,0,0.06)':'var(--surface)')+';transition:border-color 0.15s,background 0.15s;flex-shrink:0;max-width:220px">'+
       '<div style="font-size:12px;font-weight:700;color:'+(active?_CC_RED:'var(--text)')+';margin-bottom:2px">'+t.theme_name+'</div>'+
       '<div style="font-size:10px;color:var(--muted);line-height:1.4">'+(t.category||'')+(t.publish_day?' · '+t.publish_day:'')+'</div>'+
-      '<div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4;font-style:italic">'+(t.emotional_entry||'').slice(0,50)+'</div>'+
+      '<div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4;font-style:italic">'+(t.emotional_entry||'').slice(0,55)+'</div>'+
+      featureBadge+
     '</div>';
   }).join('');
 }
@@ -21373,25 +21381,141 @@ function _ccSelectTheme(name, publishDay, angle, urgency) {
   if(publishDay) _campBrief.publish_day = publishDay;
   if(angle)      _campBrief.campaign_angle = angle;
   if(urgency)    _campBrief.urgency_trigger = urgency;
-  var el;
-  el = _ccEl('cc-theme');         if(el) el.value = name;
-  el = _ccEl('cc-publish-day');   if(el && publishDay) el.value = publishDay;
-  el = _ccEl('cc-campaign-angle');if(el && angle)      el.value = angle;
-  el = _ccEl('cc-urgency-trigger');if(el && urgency)   el.value = urgency;
+  // Resolve full theme object from cache
   var icp = _campBrief.icp ? _campBrief.icp.toLowerCase().replace(/\s+/g,'_') : '';
+  var themes = _ccThemeLib[icp] || [];
+  _ccSelectedTheme = null;
+  for(var i=0;i<themes.length;i++){if(themes[i].theme_name===name){_ccSelectedTheme=themes[i];break;}}
+  // Update form fields
+  var el;
+  el = _ccEl('cc-theme');          if(el) el.value = name;
+  el = _ccEl('cc-publish-day');    if(el && publishDay) el.value = publishDay;
+  el = _ccEl('cc-campaign-angle'); if(el && angle)      el.value = angle;
+  el = _ccEl('cc-urgency-trigger');if(el && urgency)    el.value = urgency;
+  // Refresh picker, strategy brief, story arc
   var picker = _ccEl('cc-theme-picker');
-  if(picker) picker.innerHTML = _ccRenderThemeCards(_ccThemeLib[icp]||[], name);
+  if(picker) picker.innerHTML = _ccRenderThemeCards(themes, name);
+  var stratEl = _ccEl('cc-strategy-brief');
+  if(stratEl) stratEl.innerHTML = _ccSelectedTheme ? _ccRenderStrategyBrief(_ccSelectedTheme) : '';
+  var arcEl = _ccEl('cc-story-arc-wrap');
+  if(arcEl) arcEl.innerHTML = _ccSelectedTheme ? _ccRenderStoryArc(_ccSelectedTheme) : '';
+  // Pre-fill kickstart textarea
+  if(_ccSelectedTheme) _ccKickstartFromTheme(_ccSelectedTheme);
+  _ccUpdateCompletionBar();
   _ccBriefSync();
   _showToast(name+' selected', 1500);
 }
 
 function _ccClearTheme() {
   _campBrief.theme = '';
+  _ccSelectedTheme = null;
   var el = _ccEl('cc-theme'); if(el) el.value = '';
   var icp = _campBrief.icp ? _campBrief.icp.toLowerCase().replace(/\s+/g,'_') : '';
   var picker = _ccEl('cc-theme-picker');
   if(picker) picker.innerHTML = _ccRenderThemeCards(_ccThemeLib[icp]||[], '');
+  var stratEl = _ccEl('cc-strategy-brief');  if(stratEl) stratEl.innerHTML = '';
+  var arcEl   = _ccEl('cc-story-arc-wrap');  if(arcEl)   arcEl.innerHTML   = '';
+  _ccUpdateCompletionBar();
   _ccBriefSync();
+}
+
+// ── Theme strategy helpers ──────────────────────────────────────────────────
+function _ccAngleLabel(a){
+  var m={savings:'$1,336/year average savings',speed:'30 minutes fridge to table',waste:'69.5% less food waste',proof:'built by first responders',urgency:'founding price $7.99/month'};
+  return m[a]||a||'';
+}
+function _ccKickstartFromTheme(t){
+  var ta=_ccEl('cc-kickstart-ta');
+  if(!ta||!t) return;
+  ta.value=[
+    'ICP: '+(t.emotional_entry||(_campBrief.icp||'Super Mom')+' — busy mom, weeknight dinner struggle'),
+    'GOAL: Waitlist signups before July 1',
+    'CHANNEL: Facebook + Instagram + Email',
+    'BLUEPRINT: '+(t.blueprint_code||'A-Waitlist'),
+    'ANGLE: '+(t.campaign_angle||'speed')+' — '+_ccAngleLabel(t.campaign_angle),
+    'THEME: '+t.theme_name,
+    'PUBLISH DAY: '+(t.publish_day||''),
+    'POSTS: '+(t.post_count||7),
+    'URGENCY: '+(t.urgency_trigger||'Founding price $7.99/month ends at 5,000 families'),
+    'APP FEATURE: '+(t.app_feature||'')+' — '+(t.feature_hook||''),
+    'APP SCREEN: '+(t.app_screen_label||'')
+  ].join('\n');
+}
+function _ccRenderStrategyBrief(t){
+  var row=function(lbl,val){return val?'<div style="padding:2px 0"><span style="color:var(--muted);display:inline-block;min-width:145px;font-size:10px">'+lbl+'</span><span style="font-size:11px;color:var(--text)">'+val+'</span></div>':'';};
+  return '<div style="padding:14px 16px;border:1px solid rgba(201,168,76,0.3);border-radius:8px;background:rgba(201,168,76,0.04)">'+
+    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#c9a84c;margin-bottom:10px;font-family:\'DM Mono\',monospace">✦ Campaign Strategy — '+t.theme_name+'</div>'+
+    '<div style="font-family:\'DM Mono\',monospace;line-height:1.85">'+
+      row('WHO',t.emotional_entry)+row('THEIR PAIN',t.problem_angle)+row('THE COST',t.agitate_angle)+
+      row('THE SOLUTION',t.feature_hook||t.hook_angle)+row('THE PROOF',t.feature_proof)+
+      row('FEELING WE SELL',t.emotional_payoff)+row('CTA UNLOCKS',t.image_mood_cta)+
+    '</div>'+
+    '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">'+
+      (t.app_feature?'<span style="font-size:10px;font-family:\'DM Mono\',monospace;font-weight:700;color:'+_CC_RED+';padding:3px 8px;border:1px solid rgba(255,0,0,0.25);border-radius:4px">'+t.app_feature+' feature</span>':'')+
+      (t.app_screen_label?'<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--muted);padding:3px 8px;border:1px solid var(--border);border-radius:4px">App: '+t.app_screen_label+'</span>':'')+
+      (t.publish_day?'<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--muted);padding:3px 8px;border:1px solid var(--border);border-radius:4px">'+t.publish_day+'s</span>':'')+
+      (t.campaign_angle?'<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--muted);padding:3px 8px;border:1px solid var(--border);border-radius:4px">'+t.campaign_angle+' angle</span>':'')+
+    '</div>'+
+  '</div>';
+}
+function _ccRenderStoryArc(t){
+  var stages=[
+    {n:1,lbl:'Hook',emo:'Recognised — she thinks you wrote this about her',copy:t.hook_angle,img:t.image_mood_hook,feat:false},
+    {n:2,lbl:'Problem',emo:'Understood — finally someone gets it',copy:t.problem_angle,img:'Same scene — frustration closer',feat:false},
+    {n:3,lbl:'Agitate',emo:'Activated — she cannot unsee this',copy:t.agitate_angle,img:'The cost made visible',feat:false},
+    {n:4,lbl:'Solve — APP APPEARS',emo:'Curious — this could actually work',copy:(t.app_feature?t.app_feature+' · ':'')+t.feature_hook,img:'Phone screen: '+(t.app_screen_label||''),feat:true},
+    {n:5,lbl:'Value',emo:'Relieved — she has this handled',copy:t.emotional_payoff||'Outcome language — the win, not the feature',img:'Cooking · calm · in control',feat:true},
+    {n:6,lbl:'Proof',emo:'Trusting — I believe this',copy:t.feature_proof||'Approved claim',img:'Family at the table · real smiles',feat:false},
+    {n:7,lbl:'CTA',emo:'Happy — I want this feeling forever',copy:'Founding price — final nudge',img:t.image_mood_cta,feat:false}
+  ];
+  var rows=stages.map(function(s){
+    return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'+
+      '<div style="width:20px;height:20px;border-radius:50%;background:'+(s.feat?_CC_RED:'var(--border)')+';color:'+(s.feat?'#fff':'var(--muted)')+';font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">'+s.n+'</div>'+
+      '<div style="flex:1">'+
+        '<div style="font-size:11px;font-weight:700;color:'+(s.feat?_CC_RED:'var(--text)')+'">'+s.lbl+'</div>'+
+        (s.copy?'<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:2px">Copy: '+s.copy+'</div>':'')+
+        (s.img?'<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:1px;font-style:italic">Image: '+s.img+'</div>':'')+
+        '<div style="font-size:10px;color:var(--muted);margin-top:1px">Emotion: '+s.emo+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  return '<div style="margin-top:10px">'+
+    '<div onclick="_ccToggleStoryArc()" style="cursor:pointer;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;padding:8px 0;display:flex;align-items:center;gap:6px;user-select:none" id="cc-story-arc-hdr">'+
+      '<span id="cc-story-arc-arrow">▸</span> Your 7-Post Story Arc — click to preview</div>'+
+    '<div id="cc-story-arc-body" style="display:none">'+rows+'</div>'+
+  '</div>';
+}
+function _ccToggleStoryArc(){
+  var b=_ccEl('cc-story-arc-body'),a=_ccEl('cc-story-arc-arrow');
+  if(!b) return;
+  var open=b.style.display!=='none';
+  b.style.display=open?'none':'block';
+  if(a) a.textContent=open?'▸':'▾';
+}
+function _ccRenderCompletionBar(){
+  var b=_campBrief,t=_ccSelectedTheme;
+  var checks=[
+    {lbl:'Theme',ok:!!b.theme,val:b.theme},
+    {lbl:'ICP',ok:!!b.icp,val:b.icp},
+    {lbl:'Blueprint',ok:!!b.funnel,val:b.funnel},
+    {lbl:'Channels',ok:!!(b.channels&&b.channels.length),val:b.channels&&b.channels.length?b.channels.length+' selected':''},
+    {lbl:'Feature',ok:!!(t&&t.app_feature),val:t?t.app_feature+' · '+t.app_screen_label:''},
+    {lbl:'Emotional Arc',ok:!!t,val:t?'mapped':''},
+    {lbl:'ML Approval',ok:!!b.approved,val:b.approved?'approved':'pending',warn:!b.approved}
+  ];
+  var html='<div style="display:flex;flex-wrap:wrap;gap:5px;padding:8px 0 4px">';
+  checks.forEach(function(c){
+    var icon=c.ok?'✓':(c.warn?'⚠':'○');
+    var col=c.ok?'#4caf50':(c.warn?'#f59e0b':'var(--muted)');
+    var bd=c.ok?'rgba(76,175,80,0.25)':(c.warn?'rgba(245,158,11,0.25)':'var(--border)');
+    html+='<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:'+col+';padding:3px 8px;border-radius:4px;border:1px solid '+bd+'">'+icon+' '+c.lbl+(c.ok&&c.val?' — '+c.val:'')+'</span>';
+  });
+  html+='</div>';
+  return html;
+}
+function _ccUpdateCompletionBar(){
+  var el=_ccEl('cc-completion-bar');
+  if(el) el.innerHTML=_ccRenderCompletionBar();
 }
 
 // ── Panel 1: Brief Builder ──────────────────────────────────────────────────
@@ -21412,6 +21536,7 @@ function _ccRenderBrief(){
   return '<div style="width:100%">'+
     _ccSecHdr('📋 Panel 1 — Campaign Brief Builder')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:22px 24px">'+
+      '<div id="cc-completion-bar" style="margin-bottom:16px">'+_ccRenderCompletionBar()+'</div>'+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">'+
         idField+
         _ccField('Campaign Name','cc-name','text',b.name,'','e.g. Waitlist A/B Test May 2026')+
@@ -21497,6 +21622,8 @@ function _ccRenderBrief(){
               '<button onclick="_ccClearTheme()" title="Clear theme" style="background:transparent;border:1px solid var(--border);color:var(--muted);width:34px;height:34px;border-radius:6px;font-size:16px;cursor:pointer;flex-shrink:0;font-family:inherit">×</button>'+
             '</div>'+
             '<div id="cc-theme-picker" style="display:flex;flex-wrap:wrap;gap:6px">'+cards+'</div>'+
+            '<div id="cc-strategy-brief" style="margin-top:10px">'+(_ccSelectedTheme?_ccRenderStrategyBrief(_ccSelectedTheme):'')+'</div>'+
+            '<div id="cc-story-arc-wrap">'+(_ccSelectedTheme?_ccRenderStoryArc(_ccSelectedTheme):'')+'</div>'+
           '</div>';
         })()+
         (function(){
@@ -21576,6 +21703,7 @@ function _ccBriefSync(){
   var banner=_ccEl('cc-flow-banner');
   if(banner) banner.innerHTML=_ccFlowBanner();
   _ccAutoSlug();
+  _ccUpdateCompletionBar();
 }
 function _ccUpdateVolumeFields(){
   var chs=(_campBrief.channels||[]).map(function(c){return c.toLowerCase();});
@@ -22993,7 +23121,15 @@ function _ccAutoImageBrief(post,brief){
   } else if(tl.indexOf('pasta')>-1){
     themeFood=' A pasta dish is visible on the counter or table.';
   }
-  return s.scene+themeFood+
+  var appNote='';
+  if(_ccSelectedTheme&&_ccSelectedTheme.app_screen_label&&(stage==='solve'||stage==='value'||stage==='proof'||stage==='cta')){
+    var screen=_ccSelectedTheme.app_screen_label;
+    if(stage==='solve') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+' — '+(_ccSelectedTheme.feature_hook||'')+'. The screen IS the answer to the problem in this scene. The character is discovering this feature for the first time.';
+    else if(stage==='value') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+' — she is using the feature, not discovering it. The app is a tool in her hands now.';
+    else if(stage==='proof') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+'. The result is visible in the room — the food, the smiling family.';
+    else if(stage==='cta') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+'. She has already won — the app is part of her life now.';
+  }
+  return s.scene+themeFood+appNote+
     '\n\nEmotion this image must convey: '+s.emotion+'.'+
     '\nPhotography style: warm candid family photography. Never staged. Never stock. Real kitchen, real people, real moment. No blue or navy anywhere. Warm natural lighting.';
 }
@@ -23554,7 +23690,7 @@ function _ccGeneratePostImage(prefix,postNum,callback){
   var _shots=_ccAssetLoad('ecp_asset_screenshots')||[];
   var appScreen=(_shotIdx!==undefined&&_shotIdx>=0&&_shots[_shotIdx]&&_shots[_shotIdx].label)
     ?_shots[_shotIdx].label
-    :'meal planning interface';
+    :(_ccSelectedTheme&&_ccSelectedTheme.app_screen_label)||'meal planning interface';
   var qs=new URLSearchParams({
     action:        'generate_image_prompt',
     image_brief:   fullBrief,

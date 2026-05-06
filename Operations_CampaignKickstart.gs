@@ -91,6 +91,30 @@ function campaignKickstart(prompt) {
     }).join(' → ');
   }
 
+  // ── Theme feature context — look up ThemeLibrary if THEME detected in prompt ─
+  var themeContext = '';
+  try {
+    var themeMatch = String(prompt).match(/THEME:\s*([^\n]+)/i);
+    if (themeMatch && themeMatch[1]) {
+      var themeQuery = themeMatch[1].trim().toLowerCase();
+      var allThemes = getThemeLibrary('');
+      for (var ti = 0; ti < allThemes.length; ti++) {
+        var tm = allThemes[ti];
+        if ((tm.theme_name || '').toLowerCase().indexOf(themeQuery) > -1 || themeQuery.indexOf((tm.theme_name || '').toLowerCase()) > -1) {
+          themeContext =
+            '\nTHEME LOOKUP — ' + tm.theme_name + ':\n' +
+            (tm.app_feature      ? 'App feature: ' + tm.app_feature + '\n' : '') +
+            (tm.app_screen_label ? 'App screen: '  + tm.app_screen_label + '\n' : '') +
+            (tm.feature_hook     ? 'Post 4 (solve) angle: ' + tm.feature_hook + '\n' : '') +
+            (tm.feature_proof    ? 'Post 6 (proof) stat: '  + tm.feature_proof + '\n' : '') +
+            (tm.emotional_entry  ? 'Entry emotion: ' + tm.emotional_entry + '\n' : '') +
+            (tm.emotional_payoff ? 'Payoff emotion: ' + tm.emotional_payoff + '\n' : '');
+          break;
+        }
+      }
+    }
+  } catch(e) {}
+
   // FIX 2 — compact system prompt, under 800 tokens
   var systemPrompt =
     'You are the easyChef Pro campaign architect. Match the user prompt to an ICP and output a campaign brief as JSON.\n\n' +
@@ -108,6 +132,8 @@ function campaignKickstart(prompt) {
     'Detect from prompt: channels (array, lowercase) | theme (recurring series name or "") | ' +
     'publish_day (day name or "") | campaign_angle (savings/speed/waste/proof/urgency/theme) | ' +
     'urgency_trigger (scarcity sentence, default "Founding price $7.99/month ends at 5,000 families").\n\n' +
+
+    (themeContext ? themeContext + '\n' : '') +
 
     'Return ONLY valid JSON, no markdown, no explanation:\n' +
     '{"icp_match":"","icp_code":"","blueprint":"","campaign_name":"","channel_recommendation":"","channels":[],' +

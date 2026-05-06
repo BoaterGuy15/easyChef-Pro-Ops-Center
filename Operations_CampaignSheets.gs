@@ -135,7 +135,8 @@ var _CC_HDR = {
     'food_type','publish_day','post_count',
     'blueprint_code','campaign_angle',
     'urgency_trigger','image_mood_hook',
-    'image_mood_cta','active','notes'
+    'image_mood_cta','active','notes',
+    'app_feature','app_screen_label','feature_hook','feature_proof'
   ]
 };
 
@@ -404,7 +405,10 @@ function _seedThemeLibrary(sheet) {
      'Free during beta — app launches July 1',
      'Tired mom staring at fridge at 6:30 PM',
      'Mom relaxed on couch after taco dinner, kids happy',
-     'true','Primary Taco Tuesday theme — highest resonance'],
+     'true','Primary Taco Tuesday theme — highest resonance',
+     'COOK','Recipe page',
+     'Tell us what is in your fridge. Get Taco Tuesday in 30 minutes.',
+     '10,000 recipe pages at launch · 800,000 products in database'],
     ['sm-002','super_mom','Meal Prep Sunday','meal-prep-sunday','weekend-wins',
      'Sunday anxiety about the week ahead',
      'Monday morning with a full plan and a clean fridge',
@@ -415,7 +419,10 @@ function _seedThemeLibrary(sheet) {
      'Sunday',7,'A-Waitlist','speed','',
      'Mom looking at empty containers Sunday afternoon, overwhelmed',
      'Mom smiling at a fridge full of organised prep containers Monday morning',
-     'true',''],
+     'true','',
+     'PLAN','Meal Plan view',
+     'One Sunday. Five dinners. All from what you already have.',
+     'Validated across 10,000 household profiles'],
     ['sm-003','super_mom','Back to School','back-to-school','seasonal',
      'First week of school chaos — dinner at 5 PM with no plan',
      'School nights handled without the 5 PM spiral',
@@ -426,7 +433,10 @@ function _seedThemeLibrary(sheet) {
      'Monday',7,'A-Waitlist','speed','',
      'Mom rushing, kids in uniforms, kitchen behind her at 5 PM',
      'Family at the table, homework done, dinner served, mom exhales',
-     'true',''],
+     'true','',
+     'PLAN','Meal Plan view',
+     'Tell easyChef Pro what is in your fridge. School nights handled.',
+     '30 minutes fridge to table · Validated across 10,000 household profiles'],
     ['sm-004','super_mom','Game Night','game-night','weekend-wins',
      'Feeding a crowd from the fridge with no plan',
      'Game night snacks and dinner handled in 45 minutes',
@@ -437,7 +447,10 @@ function _seedThemeLibrary(sheet) {
      'Friday',7,'A-Waitlist','savings','',
      'Mom looking stressed at a full fridge before guests arrive',
      'Full table of food, friends around it, mom relaxed and in her element',
-     'true','']
+     'true','',
+     'COOK','Recipe page',
+     'Tell us what is in your fridge. Feed the crowd in 45 minutes.',
+     '10,000 recipe pages at launch · 800,000 products in database']
   ].forEach(function(row) {
     if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
   });
@@ -454,7 +467,11 @@ function _tlRowToObj(r) {
     urgency_trigger: r[15], image_mood_hook: r[16],
     image_mood_cta: r[17],
     active: r[18] === true || String(r[18]).toLowerCase() === 'true',
-    notes: r[19]
+    notes: r[19],
+    app_feature:      r[20] || '',
+    app_screen_label: r[21] || '',
+    feature_hook:     r[22] || '',
+    feature_proof:    r[23] || ''
   };
 }
 
