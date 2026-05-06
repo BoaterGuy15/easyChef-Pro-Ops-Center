@@ -304,8 +304,10 @@ function doGet(e) {
       if(_tlTheme) {
         var _tlQ = _tlTheme.toLowerCase();
         _tlRows = _tlRows.filter(function(t){
-          return t.theme_name.toLowerCase().indexOf(_tlQ) > -1 ||
-                 t.theme_slug.toLowerCase().indexOf(_tlQ) > -1;
+          var _tn = t.theme_name.toLowerCase();
+          var _ts = t.theme_slug.toLowerCase();
+          return _tn.indexOf(_tlQ) > -1 || _tlQ.indexOf(_tn) > -1 ||
+                 _ts.indexOf(_tlQ) > -1 || _tlQ.indexOf(_ts) > -1;
         });
       }
       return respond({ok:true, themes:_tlRows});
