@@ -21263,7 +21263,7 @@ var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
 var _ccLogoPosState={}; // per-post logo position: 'none'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,ml_approved:false,status:'draft',post_count:7,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -21757,7 +21757,7 @@ function _ccBriefSync(){
   _el=_ccEl('cc-cta-type'); if(_el&&_el.value)    b.cta_type=_el.value;
   _el=_ccEl('cc-slug');     if(_el&&_el.value)    b.slug=_el.value;
   _el=_ccEl('cc-launch');  if(_el&&_el.value)    b.launchDate=_el.value;
-  _el=_ccEl('cc-approved');if(_el)               b.approved=_el.checked;
+  _el=_ccEl('cc-approved');if(_el){b.approved=_el.checked;b.ml_approved=_el.checked;}
   _el=_ccEl('cc-post-count');      if(_el)            b.post_count=parseInt(_el.value)||7;
   _el=_ccEl('cc-post-frequency'); if(_el&&_el.value) b.post_frequency=_el.value;
   _el=_ccEl('cc-email-sequences');if(_el)            b.email_sequences=parseInt(_el.value)||2;
@@ -22152,7 +22152,7 @@ function _ccSlugStatus(state,slug,conflictId,isShared){
 }
 
 function _ccNewCampaign(){
-  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,status:'draft',post_count:7,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
+  _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,ml_approved:false,status:'draft',post_count:7,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
   _campKickstartCopy=null;
   _campLastLp=null;
   _campSlugStatus='';
