@@ -92,7 +92,8 @@ var _CC_HDR = {
     'last_traffic_date','total_signups'
   ],
   LPInventory: [
-    'id','slug','full_url','campaign_type','blueprint_code','icp_codes','theme',
+    'id','slug','full_url','campaign_type','blueprint_code','icp_codes',
+    'campaign_angle','lp_variant','headline','cta_primary','proof_bar',
     'status','dev_built','convert_installed','clarity_installed','ga4_installed',
     'campaigns_using','total_signups','conversion_rate',
     'created_at','last_updated','notes'
@@ -234,6 +235,7 @@ function _setupCampaignSheets() {
     _ccHdrStyle(sheet, _CC_HDR[name]);
   });
   _seedLPInventory(ss.getSheetByName(_CC_TAB.LP_INVENTORY));
+  _seedLandingPages(ss.getSheetByName(_CC_TAB.PAGES));
   _seedThemeLibrary(ss.getSheetByName(_CC_TAB.THEME_LIBRARY));
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
@@ -379,13 +381,45 @@ function _seedLPInventory(sheet) {
   if (!sheet) return;
   var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
   var now = _ccNow();
+  var proof = '$1,336/year|69.5% less food waste|30 min fridge to table';
+  var cta   = 'Join the waitlist free — early access July 1';
+  // id, slug, full_url, campaign_type, blueprint_code, icp_codes,
+  // campaign_angle, lp_variant, headline, cta_primary, proof_bar,
+  // status, dev_built, convert_installed, clarity_installed, ga4_installed,
+  // campaigns_using, total_signups, conversion_rate, created_at, last_updated, notes
   [
-    ['lpi-001','lp/waitlist-a',   'https://easychefpro.com/lp/waitlist-a',   'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'A/B test control variant'],
-    ['lpi-002','lp/waitlist-b',   'https://easychefpro.com/lp/waitlist-b',   'waitlist','A-Waitlist','super_mom',     '','draft',false,false,false,false,'',0,'',now,now,'A/B test challenger variant'],
-    ['lpi-003','lp/alpha',        'https://easychefpro.com/lp/alpha',        'waitlist','A-Waitlist','alpha_recruit', '','live', true, false,false,false,'',0,'',now,now,'Alpha Recruit ICP — founding price angle'],
-    ['lpi-004','lp/social-fb',    'https://easychefpro.com/lp/social-fb',    'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'Facebook organic traffic destination'],
-    ['lpi-005','lp/social-ig',    'https://easychefpro.com/lp/social-ig',    'waitlist','A-Waitlist','super_mom',     '','live', true, false,false,false,'',0,'',now,now,'Instagram bio link destination'],
-    ['lpi-006','lp/630pm-rescue', 'https://easychefpro.com/lp/630pm-rescue', 'waitlist','A-Waitlist','super_mom',     '','draft',false,false,false,false,'',0,'',now,now,'6:30 PM fridge panic angle — pending build']
+    ['lpi-001','lp/waitlist-a',   'https://easychefpro.com/lp/waitlist-a',   'waitlist','A-Waitlist','super_mom',    'savings','A','You spend $300+ on groceries but still stare into a full fridge at 6:30 PM',cta,proof,'live', true, false,false,false,'',0,'',now,now,'A/B test control variant'],
+    ['lpi-002','lp/waitlist-b',   'https://easychefpro.com/lp/waitlist-b',   'waitlist','A-Waitlist','super_mom',    'emotion','B','It\'s 6:30 PM and you\'re already exhausted',cta,proof,'draft',false,false,false,false,'',0,'',now,now,'A/B test challenger variant'],
+    ['lpi-003','lp/alpha',        'https://easychefpro.com/lp/alpha',        'waitlist','A-Waitlist','alpha_recruit','founder','A','I\'d like to personally set up easyChef Pro for your family','Reply YES to join our founding family program',proof,'live', true, false,false,false,'',0,'',now,now,'Alpha Recruit ICP — founding price angle'],
+    ['lpi-004','lp/social-fb',    'https://easychefpro.com/lp/social-fb',    'waitlist','A-Waitlist','super_mom',    'savings','A','You spend $300+ on groceries but still stare into a full fridge at 6:30 PM',cta,proof,'live', true, false,false,false,'',0,'',now,now,'Facebook organic traffic destination'],
+    ['lpi-005','lp/social-ig',    'https://easychefpro.com/lp/social-ig',    'waitlist','A-Waitlist','super_mom',    'savings','A','Stop throwing away $111 every month on food you never use',cta,proof,'live', true, false,false,false,'',0,'',now,now,'Instagram bio link destination'],
+    ['lpi-006','lp/630pm-rescue', 'https://easychefpro.com/lp/630pm-rescue', 'waitlist','A-Waitlist','super_mom',    'emotion','B','It\'s 6:30 PM and your fridge is full but dinner isn\'t happening',cta,proof,'draft',false,false,false,false,'',0,'',now,now,'6:30 PM fridge panic angle — pending build']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _seedLandingPages(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  var proof = '$1,336/year|69.5% less food waste|30 min fridge to table';
+  var cta   = 'Join the waitlist free — early access July 1';
+  // id, campaign_id, icp_code, slug, full_url, title_tag, meta_description,
+  // og_title, og_description, hero_headline, hero_subheadline,
+  // section_problem, section_agitate, section_solve, section_value,
+  // section_proof, section_cta,
+  // tracking_convert, tracking_clarity, tracking_ga4,
+  // status, dev_built, qa_passed, pushed_to_production,
+  // campaign_type, blueprint_code, icp_codes, theme, publish_day,
+  // ab_test_variant, convert_experiment_id, shared_by_campaigns,
+  // last_traffic_date, total_signups
+  [
+    ['lp-001','','super_mom','lp/waitlist-a','https://easychefpro.com/lp/waitlist-a','easyChef Pro — Join the Waitlist','','','','You spend $300+ on groceries but still stare into a full fridge at 6:30 PM','easyChef Pro tells you what to cook from what you already have','','','','','',cta,false,false,false,'live', true,false,false,'waitlist','A-Waitlist','super_mom','','','A','','','',0],
+    ['lp-002','','super_mom','lp/waitlist-b','https://easychefpro.com/lp/waitlist-b','easyChef Pro — Join the Waitlist','','','','It\'s 6:30 PM and you\'re already exhausted','Stop staring at a full fridge with nothing to cook','','','','','',cta,false,false,false,'draft',false,false,false,'waitlist','A-Waitlist','super_mom','','','B','','','',0],
+    ['lp-003','','alpha_recruit','lp/alpha','https://easychefpro.com/lp/alpha','easyChef Pro — Founding Family Program','','','','I\'d like to personally set up easyChef Pro for your family','Founding families get lifetime founding price — locked before July 1','','','','','','Reply YES to join our founding family program',false,false,false,'live', true,false,false,'waitlist','A-Waitlist','alpha_recruit','','','A','','','',0],
+    ['lp-004','','super_mom','lp/social-fb','https://easychefpro.com/lp/social-fb','easyChef Pro — Join the Waitlist','','','','You spend $300+ on groceries but still stare into a full fridge at 6:30 PM','easyChef Pro tells you what to cook from what you already have','','','','','',cta,false,false,false,'live', true,false,false,'waitlist','A-Waitlist','super_mom','','','A','','','',0],
+    ['lp-005','','super_mom','lp/social-ig','https://easychefpro.com/lp/social-ig','easyChef Pro — Stop Wasting Groceries','','','','Stop throwing away $111 every month on food you never use','easyChef Pro turns your fridge into tonight\'s dinner in 30 minutes','','','','','',cta,false,false,false,'live', true,false,false,'waitlist','A-Waitlist','super_mom','','','A','','','',0],
+    ['lp-006','','super_mom','lp/630pm-rescue','https://easychefpro.com/lp/630pm-rescue','easyChef Pro — The 6:30 PM Rescue','','','','It\'s 6:30 PM and your fridge is full but dinner isn\'t happening','easyChef Pro sees what\'s in your fridge and builds tonight\'s plan','','','','','',cta,false,false,false,'draft',false,false,false,'waitlist','A-Waitlist','super_mom','','','B','','','',0]
   ].forEach(function(row) {
     if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
   });
@@ -1867,18 +1901,22 @@ function _lpInvRowToObj(r) {
     campaign_type:        String(r[3]  || ''),
     blueprint_code:       String(r[4]  || ''),
     icp_codes:            String(r[5]  || ''),
-    theme:                String(r[6]  || ''),
-    status:               String(r[7]  || 'draft'),
-    dev_built:            r[8]  === true || String(r[8]).toLowerCase()  === 'true',
-    convert_installed:    r[9]  === true || String(r[9]).toLowerCase()  === 'true',
-    clarity_installed:    r[10] === true || String(r[10]).toLowerCase() === 'true',
-    ga4_installed:        r[11] === true || String(r[11]).toLowerCase() === 'true',
-    campaigns_using:      String(r[12] || ''),
-    total_signups:        Number(r[13] || 0),
-    conversion_rate:      String(r[14] || ''),
-    created_at:           _ccFmtDate(r[15]),
-    last_updated:         _ccFmtDate(r[16]),
-    notes:                String(r[17] || '')
+    campaign_angle:       String(r[6]  || ''),
+    lp_variant:           String(r[7]  || ''),
+    headline:             String(r[8]  || ''),
+    cta_primary:          String(r[9]  || ''),
+    proof_bar:            String(r[10] || ''),
+    status:               String(r[11] || 'draft'),
+    dev_built:            r[12] === true || String(r[12]).toLowerCase() === 'true',
+    convert_installed:    r[13] === true || String(r[13]).toLowerCase() === 'true',
+    clarity_installed:    r[14] === true || String(r[14]).toLowerCase() === 'true',
+    ga4_installed:        r[15] === true || String(r[15]).toLowerCase() === 'true',
+    campaigns_using:      String(r[16] || ''),
+    total_signups:        Number(r[17] || 0),
+    conversion_rate:      String(r[18] || ''),
+    created_at:           _ccFmtDate(r[19]),
+    last_updated:         _ccFmtDate(r[20]),
+    notes:                String(r[21] || '')
   };
 }
 
@@ -1913,18 +1951,22 @@ function setLPInventoryEntry(item) {
     item.campaign_type      !== undefined ? item.campaign_type      : (ex ? ex[3]  : ''),
     item.blueprint_code     !== undefined ? item.blueprint_code     : (ex ? ex[4]  : ''),
     item.icp_codes          !== undefined ? item.icp_codes          : (ex ? ex[5]  : ''),
-    item.theme              !== undefined ? item.theme              : (ex ? ex[6]  : ''),
-    item.status             !== undefined ? item.status             : (ex ? ex[7]  : 'draft'),
-    item.dev_built          !== undefined ? item.dev_built          : (ex ? ex[8]  : false),
-    item.convert_installed  !== undefined ? item.convert_installed  : (ex ? ex[9]  : false),
-    item.clarity_installed  !== undefined ? item.clarity_installed  : (ex ? ex[10] : false),
-    item.ga4_installed      !== undefined ? item.ga4_installed      : (ex ? ex[11] : false),
-    item.campaigns_using    !== undefined ? item.campaigns_using    : (ex ? ex[12] : ''),
-    item.total_signups      !== undefined ? item.total_signups      : (ex ? ex[13] : 0),
-    item.conversion_rate    !== undefined ? item.conversion_rate    : (ex ? ex[14] : ''),
-    ex ? ex[15] : now,
+    item.campaign_angle     !== undefined ? item.campaign_angle     : (ex ? ex[6]  : ''),
+    item.lp_variant         !== undefined ? item.lp_variant         : (ex ? ex[7]  : ''),
+    item.headline           !== undefined ? item.headline           : (ex ? ex[8]  : ''),
+    item.cta_primary        !== undefined ? item.cta_primary        : (ex ? ex[9]  : ''),
+    item.proof_bar          !== undefined ? item.proof_bar          : (ex ? ex[10] : ''),
+    item.status             !== undefined ? item.status             : (ex ? ex[11] : 'draft'),
+    item.dev_built          !== undefined ? item.dev_built          : (ex ? ex[12] : false),
+    item.convert_installed  !== undefined ? item.convert_installed  : (ex ? ex[13] : false),
+    item.clarity_installed  !== undefined ? item.clarity_installed  : (ex ? ex[14] : false),
+    item.ga4_installed      !== undefined ? item.ga4_installed      : (ex ? ex[15] : false),
+    item.campaigns_using    !== undefined ? item.campaigns_using    : (ex ? ex[16] : ''),
+    item.total_signups      !== undefined ? item.total_signups      : (ex ? ex[17] : 0),
+    item.conversion_rate    !== undefined ? item.conversion_rate    : (ex ? ex[18] : ''),
+    ex ? ex[19] : now,
     now,
-    item.notes              !== undefined ? item.notes              : (ex ? ex[17] : '')
+    item.notes              !== undefined ? item.notes              : (ex ? ex[21] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -1959,7 +2001,11 @@ function _registerLpInInventory(slug, campaignId, item) {
       (item && item.campaign_type)  || '',
       (item && item.blueprint_code) || '',
       (item && item.icp_codes)      || (item && item.icp_code) || '',
-      (item && item.theme)          || '',
+      (item && item.campaign_angle) || '',
+      (item && item.lp_variant)     || '',
+      (item && item.headline)       || '',
+      (item && item.cta_primary)    || '',
+      (item && item.proof_bar)      || '',
       'draft',
       false, false, false, false,
       campaignId || '',
@@ -1970,12 +2016,12 @@ function _registerLpInInventory(slug, campaignId, item) {
     rng.setValues([newRow]);
   } else if (campaignId) {
     // LP exists — append campaignId to campaigns_using if not already listed
-    var current = String(existing[12] || '');
+    var current = String(existing[16] || '');
     var ids = current ? current.split(',').map(function(s) { return s.trim(); }) : [];
     if (ids.indexOf(String(campaignId)) < 0) {
       ids.push(String(campaignId));
-      sheet.getRange(existingRow, 13, 1, 1).setNumberFormat('@').setValue(ids.join(','));
-      sheet.getRange(existingRow, 17, 1, 1).setValue(now); // last_updated
+      sheet.getRange(existingRow, 17, 1, 1).setNumberFormat('@').setValue(ids.join(','));
+      sheet.getRange(existingRow, 21, 1, 1).setValue(now); // last_updated
     }
   }
 }
