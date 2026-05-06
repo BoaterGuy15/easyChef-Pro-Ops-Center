@@ -21373,6 +21373,7 @@ function _ccRenderThemeCards(themes, selected) {
       '<div style="font-size:12px;font-weight:700;color:'+(active?_CC_RED:'var(--text)')+';margin-bottom:2px">'+t.theme_name+'</div>'+
       '<div style="font-size:10px;color:var(--muted);line-height:1.4">'+(t.category||'')+(t.publish_day?' · '+t.publish_day:'')+'</div>'+
       '<div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4;font-style:italic">'+(t.emotional_entry||'').slice(0,55)+'</div>'+
+      (t.food_type?'<div style="font-size:9px;color:var(--muted);margin-top:3px;line-height:1.4">🥘 '+(t.food_type||'').split('—')[0].trim().slice(0,40)+'</div>':'')+
       featureBadge+
     '</div>';
   }).join('');
@@ -22798,7 +22799,7 @@ function _ccChoosePath(path){
 }
 
 // Fetch existing LPs for the given ICP and populate cc-ks-lp-results
-function _ccKsLpSearch(icp){
+function _ccKsLpSearch(icp, sortAngle){
   var res=document.getElementById('cc-ks-lp-results');
   if(!res) return;
   if(!CONFIG.sheetsUrl){
@@ -22818,7 +22819,16 @@ function _ccKsLpSearch(icp){
       var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
       var mf='font-family:\'DM Mono\',monospace;';
       var defaultProof=['$1,336/year','69.5% less food waste','30 min fridge to table'];
-      var cards=d.pages.map(function(p){
+      var pages=d.pages.slice();
+      if(sortAngle){
+        var _sa=sortAngle.toLowerCase();
+        pages.sort(function(a,b){
+          var aA=(a.slug||'').indexOf('-b')>-1?'emotion':'savings';
+          var bA=(b.slug||'').indexOf('-b')>-1?'emotion':'savings';
+          return (_sa===aA||_sa.indexOf(aA)>-1?0:1)-(_sa===bA||_sa.indexOf(bA)>-1?0:1);
+        });
+      }
+      var cards=pages.map(function(p){
         var slug=safe(p.slug||'');
         var headline=safe(p.hero_headline||slug);
         var status=(p.status||'Draft');
@@ -26536,7 +26546,7 @@ function _ccWizardAdvance(toStep,summary){
           '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;'+_mf2+'opacity:0.5">→ Next: Kickstart</button>'+
         '</div>'+
       '</div>';
-    _ccKsLpSearch(_campBrief.icp||'');
+    _ccKsLpSearch(_campBrief.icp||'', _campBrief.campaign_angle||'savings');
   }
   // Step 3 = Kickstart (lazy render)
   if(toStep===3&&nextBody){
@@ -26557,7 +26567,18 @@ function _ccWizardAdvance(toStep,summary){
         '<div id="cc-ks-err" style="margin-top:8px;font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace;min-height:16px"></div>'+
         '<div id="cc-ks-result" style="margin-top:16px"></div>'+
       '</div>';
-    if(_ccSelectedTheme) setTimeout(function(){_ccKickstartFromTheme(_ccSelectedTheme);},50);
+    if(_ccSelectedTheme) setTimeout(function(){
+      var ta=document.getElementById('cc-kickstart-ta');
+      if(!ta) return;
+      var t=_ccSelectedTheme;
+      ta.value=[
+        'Campaign Theme: '+(t.theme_name||''),
+        'Audience entry moment: '+(t.emotional_entry||''),
+        'Desired outcome: '+(t.emotional_payoff||''),
+        'Food: '+(t.food_type||''),
+        'LP angle: '+(_campBrief.campaign_angle||'savings')+' — '+(_campBrief.slug||'')
+      ].join('\n');
+    },50);
   }
   // Step 4 = Campaign Brief (lazy render)
   if(toStep===4&&nextBody){
