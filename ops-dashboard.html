@@ -22593,6 +22593,7 @@ function _ccKickstart(){
           if(row){
             _campBrief.themeData = row;
             _ccSelectedTheme = row;
+            if(row.theme_name) _campBrief.theme = row.theme_name;
             console.log('[THEME AUTO-LOADED]', JSON.stringify(row));
           }
         });
