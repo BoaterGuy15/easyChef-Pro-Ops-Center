@@ -23075,32 +23075,32 @@ function _ccAutoImageBrief(post,brief){
   var theme=(brief&&brief.theme)||'';
   var stageScenes={
     hook:{
-      scene:'A mom in her mid-30s in a warm kitchen at 6:30 PM. She is staring into an open fridge looking tired and overwhelmed — the weight of the day on her face. The kitchen is lived-in and real. Kids visible in background.',
-      emotion:'exhausted, defeated, recognisable — she is us'
+      scene:'A mom in her mid-30s in a warm kitchen at 6:30 PM. She is staring into an open fridge — nothing in her hands, just her and the problem. Her posture is tired, shoulders down, weight of the day visible. Kids audible in the background. The kitchen is lived-in and real.',
+      emotion:'EMOTION: She looks tired and defeated. This is the worst moment of her day. No hope yet. No solution visible.'
     },
     problem:{
-      scene:'Same mom, same kitchen. She is looking at her phone with a slightly frustrated expression — a food delivery app open, finger hovering. She knows this is not the answer but she is out of options. Food in the fridge going to waste behind her.',
-      emotion:'stuck, resigned, relatable guilt'
+      scene:'Same mom, same kitchen. She is staring at random ingredients scattered on the counter with a frustrated expression — packages open, nothing coming together. There is no phone in her hand. The easyChef Pro app has not appeared yet. The problem has no solution.',
+      emotion:'EMOTION: Frustration building. She knows this feeling too well. Nothing has ever fixed it.'
     },
     agitate:{
-      scene:'Close-up of the open fridge — wilted spinach, half-used ingredients, items past their best. Or the mom looking at a grocery receipt with a tired expression. The waste is visible and specific.',
-      emotion:'the cost of the problem made real and visible'
+      scene:'No phone. Close-up on the open fridge — wilted spinach, half-used ingredients, items past their best. Or the mom staring at a grocery receipt on the counter, arms folded. The waste is visible and specific. No technology in the scene. Just the cost of the problem made real.',
+      emotion:'EMOTION: Shock and recognition. She is seeing the true cost for the first time. Cannot look away.'
     },
     solve:{
-      scene:'The moment of discovery. The mom is looking at her phone — easyChef Pro open — and her expression is shifting. Eyebrows lifting slightly. A hint of surprise and relief. The fridge is still full but now it looks different to her.',
-      emotion:'the penny dropping, this could actually work'
+      scene:'PHONE APPEARS FOR THE FIRST TIME. The mom is holding her phone — easyChef Pro open — and her expression is shifting. Eyebrows lifting slightly. A hint of surprise and relief. This is the moment of discovery. The fridge is still full but now it looks like an answer, not a problem.',
+      emotion:'EMOTION: Curiosity and surprise. Her expression is shifting. Something is different. The penny is dropping.'
     },
     value:{
-      scene:'The mom is at the stove, relaxed posture, one hand stirring, phone propped up showing easyChef Pro. She looks calm and in control. Kids setting the table in the background. The kitchen feels warm.',
-      emotion:'competent, relieved, proud'
+      scene:'The mom is at the stove, relaxed posture, one hand stirring, phone in her other hand or propped up showing easyChef Pro. She looks calm and in control. Kids setting the table in the background. The kitchen feels warm and easy.',
+      emotion:'EMOTION: Calm confidence. She is handling it. This is what in control feels like.'
     },
     proof:{
-      scene:'The family at the dinner table. The food is on the table — real, appetising. The mom is smiling — not a posed smile, a real one. Kids eating. Partner reaching for seconds.',
-      emotion:'belonging, success, this is what a good evening feels like'
+      scene:'The family at the dinner table. The food is on the table — real, appetising. The mom is smiling — not a posed smile, a real one. Kids eating. Partner reaching for seconds. Phone visible on the table or in her hand.',
+      emotion:'EMOTION: Pride and warmth. Her family is happy. She did this. Real smile — not posed.'
     },
     cta:{
       scene:'The mom on the couch after dinner. Phone in hand showing easyChef Pro. Kids are settled. Kitchen is clean behind her. She looks genuinely happy and at ease — the kind of peace that comes from having handled it.',
-      emotion:'pure relief and satisfaction — this is the feeling the product delivers'
+      emotion:'EMOTION: Pure peace and satisfaction. The weight is gone. This is the feeling she is buying.'
     }
   };
   var s=stageScenes[stage]||stageScenes.hook;
@@ -23130,7 +23130,7 @@ function _ccAutoImageBrief(post,brief){
     else if(stage==='cta') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+'. She has already won — the app is part of her life now.';
   }
   return s.scene+themeFood+appNote+
-    '\n\nEmotion this image must convey: '+s.emotion+'.'+
+    '\n\n'+s.emotion+
     '\nPhotography style: warm candid family photography. Never staged. Never stock. Real kitchen, real people, real moment. No blue or navy anywhere. Warm natural lighting.';
 }
 
@@ -23688,9 +23688,13 @@ function _ccGeneratePostImage(prefix,postNum,callback){
   var genMode=modeEl?modeEl.value:'ai';
   var _shotIdx=_ccSelectedScreenshot[postNum];
   var _shots=_ccAssetLoad('ecp_asset_screenshots')||[];
-  var appScreen=(_shotIdx!==undefined&&_shotIdx>=0&&_shots[_shotIdx]&&_shots[_shotIdx].label)
-    ?_shots[_shotIdx].label
-    :(_ccSelectedTheme&&_ccSelectedTheme.app_screen_label)||'meal planning interface';
+  var postStage=(post&&post.funnel_stage)||'hook';
+  var noPhoneStage=['hook','problem','agitate'].indexOf(postStage)>=0;
+  var appScreen=noPhoneStage
+    ?'none'
+    :((_shotIdx!==undefined&&_shotIdx>=0&&_shots[_shotIdx]&&_shots[_shotIdx].label)
+      ?_shots[_shotIdx].label
+      :(_ccSelectedTheme&&_ccSelectedTheme.app_screen_label)||'meal planning interface');
   var qs=new URLSearchParams({
     action:        'generate_image_prompt',
     image_brief:   fullBrief,

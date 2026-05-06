@@ -115,9 +115,22 @@ function campaignKickstart(prompt) {
     }
   } catch(e) {}
 
+  // ── Pre-launch phase guard ──────────────────────────────────────────────────
+  var launchDate  = new Date('2026-07-01');
+  var now         = new Date();
+  var isPreLaunch = now < launchDate;
+  var phaseRule   = isPreLaunch
+    ? 'PHASE: PRE-LAUNCH (today is ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd') + ', app launches July 1 2026). ' +
+      'Blueprint MUST default to A-Waitlist for ALL campaigns. ' +
+      'cta_type MUST default to "waitlist". ' +
+      'Only use B-App Download if the user explicitly writes "app download", "after launch", or "July 1 onwards".'
+    : 'PHASE: POST-LAUNCH (app is live). Match blueprint and cta_type to campaign goal.';
+
   // FIX 2 — compact system prompt, under 800 tokens
   var systemPrompt =
     'You are the easyChef Pro campaign architect. Match the user prompt to an ICP and output a campaign brief as JSON.\n\n' +
+
+    phaseRule + '\n\n' +
 
     icpLines + '\n\n' +
 
@@ -175,6 +188,16 @@ function campaignKickstart(prompt) {
       var jsonStr = reply.trim();
       jsonStr = jsonStr.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
       var campaign = JSON.parse(jsonStr);
+      // Post-process: enforce pre-launch blueprint override
+      if (isPreLaunch) {
+        var pStr = String(prompt).toLowerCase();
+        var explicitDownload = pStr.indexOf('app download') > -1 || pStr.indexOf('after launch') > -1 || pStr.indexOf('july 1 onwards') > -1;
+        if (!explicitDownload) {
+          campaign.blueprint  = 'A-Waitlist';
+          campaign.cta_type   = 'waitlist';
+          if (!campaign.cta_primary) campaign.cta_primary = 'Join the waitlist free — early access July 1';
+        }
+      }
       return { ok: true, campaign: campaign };
     } catch (parseErr) {
       return { ok: true, campaign: null, raw: reply };

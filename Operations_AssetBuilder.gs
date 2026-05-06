@@ -364,6 +364,9 @@ function buildSocialPosts(brief, copy) {
 
   var channel  = brief.channel  || 'Facebook';
   var ctaType  = brief.cta_type || 'waitlist';
+  // Phase guard: before July 1 2026 launch, never use download CTA
+  var _launchDate = new Date('2026-07-01');
+  if (new Date() < _launchDate && ctaType === 'download') ctaType = 'waitlist';
   var lpUrl    = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
 
   var ctaConf = { cta: 'Join the waitlist free — early access July 1', loss: 'Founding price ends at 5,000 families' };
@@ -427,9 +430,10 @@ function buildSocialPosts(brief, copy) {
     '  serving dinner / reacting to kids asking for seconds). Not a generic action — the specific one.\n' +
     'Sentence 3 — WHERE + WHEN: Suburban kitchen, time of day from post (6 PM warm evening light /\n' +
     '  Sunday morning bright / weeknight dim), specific background details that match post context.\n' +
-    'Sentence 4 — BRAND SPECS: Character holds smartphone showing red easyChef Pro app interface\n' +
-    '  matching post theme (meal plan screen / savings screen / recipe screen). Warm tones only,\n' +
-    '  no blue or navy, no studio lighting, no posed expressions, Facebook 1200x630px horizontal.\n\n' +
+    'Sentence 4 — BRAND SPECS + PHONE RULE: For hook/problem/agitate posts (posts 1–3): no phone in the\n' +
+    '  character\'s hands — the story is about her pain before any solution exists. For solve/value/proof/cta\n' +
+    '  posts (posts 4–7): character holds smartphone showing red easyChef Pro app interface matching the post\n' +
+    '  theme. Always warm tones only, no blue or navy, no studio lighting, no posed expressions.\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY valid JSON. No markdown. No explanation.\n' +
     '{\n' +
