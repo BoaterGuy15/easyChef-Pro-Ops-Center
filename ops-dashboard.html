@@ -22826,14 +22826,21 @@ function _ccKsLpSearch(icp, sortAngle){
       var mf='font-family:\'DM Mono\',monospace;';
       var defaultProof=['$1,336/year','69.5% less food waste','30 min fridge to table'];
       var pages=d.pages.slice();
-      if(sortAngle){
-        var _sa=sortAngle.toLowerCase();
-        pages.sort(function(a,b){
+      var _ct=(_campBrief.theme||'').toLowerCase();
+      pages.sort(function(a,b){
+        // Layer 1: theme match first
+        var aT=(_ct&&(a.theme||'').toLowerCase()===_ct)?0:1;
+        var bT=(_ct&&(b.theme||'').toLowerCase()===_ct)?0:1;
+        if(aT!==bT) return aT-bT;
+        // Layer 2: angle match
+        if(sortAngle){
+          var _sa=sortAngle.toLowerCase();
           var aA=(a.slug||'').indexOf('-b')>-1?'emotion':'savings';
           var bA=(b.slug||'').indexOf('-b')>-1?'emotion':'savings';
-          return (_sa===aA||_sa.indexOf(aA)>-1?0:1)-(_sa===bA||_sa.indexOf(bA)>-1?0:1);
-        });
-      }
+          return ((_sa===aA||_sa.indexOf(aA)>-1)?0:1)-((_sa===bA||_sa.indexOf(bA)>-1)?0:1);
+        }
+        return 0;
+      });
       var cards=pages.map(function(p){
         var slug=safe(p.slug||'');
         var headline=safe(p.hero_headline||slug);
@@ -22843,7 +22850,8 @@ function _ccKsLpSearch(icp, sortAngle){
         var angle=slug.indexOf('-b')>-1?'emotion':'savings';
         var bp=p.blueprint_code||'';
         var cta=bp.toLowerCase().indexOf('waitlist')>-1?'Join the waitlist free — early access July 1':bp.toLowerCase().indexOf('founding')>-1?'Lock in $7.99/month founding price — 60% off forever':'Join the waitlist free — early access July 1';
-        var theme=p.theme?'<span style="font-size:9px;color:var(--muted);'+mf+'">'+safe(p.theme)+'</span>':'';
+        var _tmatch=_ct&&(p.theme||'').toLowerCase()===_ct;
+        var theme=p.theme?'<span style="font-size:9px;font-weight:700;color:'+(_tmatch?'#f59e0b':'var(--muted)')+';border:1px solid '+(_tmatch?'rgba(245,158,11,0.4)':'var(--border)')+';padding:2px 7px;border-radius:4px;'+mf+'">'+(_tmatch?'🎯 ':'')+safe(p.theme)+'</span>':'';
         var safeSlug=slug.replace(/'/g,"\\'");
         var safeHl=headline.replace(/'/g,"\\'");
         var safeCid=safe(p.campaign_id||'').replace(/'/g,"\\'");
@@ -22907,7 +22915,7 @@ function _ccSaveLpDraft(){
   if(!CONFIG.sheetsUrl){if(btn){btn.disabled=false;btn.textContent='✓ Save LP Draft';}return;}
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
     action:'landing_page_save',
-    lp:Object.assign({},_campLastLp,{campaign_id:_campBrief.id||'',slug:_campBrief.slug||'',icp:_campBrief.icp||'',status:'draft'})
+    lp:Object.assign({},_campLastLp,{campaign_id:_campBrief.id||'',slug:_campBrief.slug||'',icp:_campBrief.icp||'',status:'draft',theme:_campBrief.theme||''})
   })})
   .then(function(r){return r.json();})
   .then(function(d){

@@ -637,6 +637,33 @@ function doPost(e) {
     // ── Landing Pages ─────────────────────────────────────────────────────────────
     if(body.action === 'landing_pages_read')     return respond({ ok:true, pages: getLandingPages(body.campaign_id||'') });
     if(body.action === 'landing_pages_write')    { setLandingPage(body.page); return respond({ ok:true }); }
+    if(body.action === 'landing_page_save') {
+      var _lp=body.lp||{};
+      var _lpId=_lp.id||('lp-'+Date.now().toString(36));
+      var _lpProof=Array.isArray(_lp.proof_bar)?_lp.proof_bar.join(' | '):(_lp.proof_bar||'');
+      setLandingPage({
+        id:               _lpId,
+        campaign_id:      _lp.campaign_id    ||'',
+        icp_code:         _lp.icp||_lp.icp_code||'',
+        slug:             _lp.slug           ||'',
+        full_url:         'https://easychefpro.com/'+(_lp.slug||''),
+        hero_headline:    _lp.hero_headline  ||'',
+        hero_subheadline: _lp.hero_subheadline||'',
+        section_problem:  _lp.problem_section||_lp.section_problem||'',
+        section_agitate:  _lp.agitate_section||_lp.section_agitate||'',
+        section_solve:    _lp.solve_section  ||_lp.section_solve  ||'',
+        section_value:    _lp.value_section  ||_lp.section_value  ||'',
+        section_proof:    _lpProof,
+        section_cta:      _lp.cta_primary    ||_lp.section_cta    ||'',
+        status:           _lp.status         ||'draft',
+        campaign_type:    _lp.campaign_type  ||'waitlist',
+        blueprint_code:   _lp.blueprint_code ||'',
+        icp_codes:        _lp.icp||_lp.icp_code||'',
+        theme:            _lp.theme          ||'',
+        ab_test_variant:  _lp.ab_test_variant||(_lp.slug&&_lp.slug.indexOf('-b')>-1?'B':'A')
+      });
+      return respond({ok:true,id:_lpId,campaign_id:_lp.campaign_id||'',slug:_lp.slug||''});
+    }
 
     // ── Push Notifications sheet ──────────────────────────────────────────────────
     if(body.action === 'push_notifications_read')  return respond({ ok:true, notifications: getPushNotifications(body.campaign_id||'') });
