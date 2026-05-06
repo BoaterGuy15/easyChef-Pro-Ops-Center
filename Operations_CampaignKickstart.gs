@@ -171,6 +171,17 @@ function _normalizeKsFields(c, sheetData) {
 function campaignKickstart(prompt) {
   if (!prompt) return { ok: false, error: 'prompt is required' };
 
+  // ── LP locked context ────────────────────────────────────────────────────
+  // Frontend prepends "LP LOCKED: slug=... · angle=... · variant=..." when LP is
+  // selected first. Strip it from the user-facing prompt and inject into system.
+  var _lpLocked = '';
+  var _promptStr = String(prompt);
+  var _lpMatch = _promptStr.match(/^LP LOCKED:\s*([^\n]+)/im);
+  if (_lpMatch && _lpMatch[1]) {
+    _lpLocked = 'LOCKED FROM LP SELECTION (do not override these values):\n' + _lpMatch[1].trim() + '\n';
+    _promptStr = _promptStr.replace(/^LP LOCKED:[^\n]+\n?\n?/im, '').trim();
+  }
+
   var props  = PropertiesService.getScriptProperties();
   var apiKey = props.getProperty('ANTHROPIC_API_KEY');
   if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set in Script Properties' };
@@ -254,6 +265,8 @@ function campaignKickstart(prompt) {
     'Posts are built in a separate step. Your only job is the 29-field JSON brief.\n\n' +
 
     phaseRule + '\n\n' +
+
+    (_lpLocked ? _lpLocked + '\n' : '') +
 
     icpLines + '\n\n' +
 
@@ -347,7 +360,7 @@ function campaignKickstart(prompt) {
         system:     systemPrompt,
         messages: [{
           role:    'user',
-          content: String(prompt)
+          content: _promptStr
         }]
       }),
       muteHttpExceptions: true

@@ -22471,6 +22471,10 @@ function _ccKickstart(){
     if(err) err.textContent='Describe your target customer before generating.';
     return;
   }
+  // Prepend LP-locked context so kickstart AI treats slug/angle as fixed
+  if(_campBrief.slug){
+    promptText='LP LOCKED: slug='+_campBrief.slug+' · angle='+(_campBrief.campaign_angle||'savings')+' · variant='+(_campBrief.lp_variant||'A')+'\n\n'+promptText;
+  }
   if(!CONFIG.sheetsUrl){
     if(err) err.textContent='CONFIG.sheetsUrl is not set — check your deployment URL';
     return;
@@ -22515,7 +22519,7 @@ function _ccKickstart(){
         }
       }
       _campBrief.id='';
-      _campBrief.slug='';
+      if(!_campBrief._lpLocked) _campBrief.slug='';
       _campSlugStatus='';
       if(Array.isArray(j.channels)&&j.channels.length) _campBrief.channels=j.channels.map(function(c){return c.charAt(0).toUpperCase()+c.slice(1);});
       if(j.theme) _campBrief.theme=j.theme;
@@ -22544,13 +22548,16 @@ function _ccKickstart(){
       window._ccKs1Summ='✓ '+_ksName+(_ksIcp?' · '+_ksIcp:'')+' · '+_ksCta;
       if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''})+
         '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">'+
-          '<button onclick="_ccWizardAdvance(2,window._ccKs1Summ)" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Review Campaign Brief</button>'+
+          '<button onclick="_ccWizardAdvance(3,window._ccKs1Summ)" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Review Campaign Brief</button>'+
         '</div>';
-      // ── Pre-warm LP search for step 2 ───────────────────────────────────
-      var _ksIcpName=j.icp_match||'';
-      setTimeout(function(){_ccKsLpSearch(_ksIcpName);},120);
       // ── Auto-fill dropdowns + name + slug (retries until ready) ──────────
       _ccAutoFillBrief(j);
+      // Restore LP-locked fields — kickstart must not override LP selection
+      if(_campBrief._lpLocked){
+        _campBrief.slug          = _campBrief._lpLocked.slug;
+        _campBrief.campaign_angle= _campBrief._lpLocked.campaign_angle;
+        _campBrief.lp_variant    = _campBrief._lpLocked.lp_variant;
+      }
       // Auto-load theme data from Sheet when kickstart detects a theme
       if(j.theme){
         _ccLoadThemeData(j.theme, function(row){
@@ -22807,7 +22814,7 @@ function _ccUpdateLpFooter(slug){
 }
 function _ccLpAdvance(){
   var slug=_campBrief.slug||'';
-  _ccWizardAdvance(4,slug?'✓ LP: easychefpro.com/'+slug:'✓ LP confirmed');
+  _ccWizardAdvance(2,slug?'✓ LP: easychefpro.com/'+slug+' · angle: '+(_campBrief.campaign_angle||'savings'):'✓ LP confirmed');
 }
 function _ccRegenLp(){
   _campLastLp=null;
@@ -22846,6 +22853,12 @@ function _ccKsSelectLp(slug,campaignId){
   _campBrief.slug=slug;
   _campBrief._lpReused=true;
   _campBrief._lpReusedFrom=campaignId||'';
+  // Lock angle and variant from the LP slug — drives all downstream copy
+  var _lpAngle=slug.indexOf('-b')>-1?'emotion':'savings';
+  var _lpVariant=slug.indexOf('-b')>-1?'B':'A';
+  _campBrief.campaign_angle=_lpAngle;
+  _campBrief.lp_variant=_lpVariant;
+  _campBrief._lpLocked={slug:slug,campaign_angle:_lpAngle,lp_variant:_lpVariant};
   _campSlugStatus='';
   var slugEl=document.getElementById('cc-slug');
   if(slugEl) slugEl.value=slug;
@@ -22871,7 +22884,7 @@ function _ccKsSelectLp(slug,campaignId){
     var _nextWrap=document.createElement('div');
     _nextWrap.className='ks-lp-next';
     _nextWrap.style.cssText='margin-top:12px';
-    _nextWrap.innerHTML='<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Build Social Posts</button>';
+    _nextWrap.innerHTML='<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Campaign Kickstart</button>';
     res.appendChild(_nextWrap);
   }
 }
@@ -26390,7 +26403,7 @@ function _ccApproveAllForCampaign(campaignId){
 // ── Campaign Wizard helpers ──────────────────────────────────────────────────
 function _ccRenderWizardBar(){
   var steps=[
-    {n:1,lbl:'Kickstart'},{n:2,lbl:'Brief'},{n:3,lbl:'Landing Page'},
+    {n:1,lbl:'Landing Page'},{n:2,lbl:'Kickstart'},{n:3,lbl:'Brief'},
     {n:4,lbl:'Assets'},{n:5,lbl:'UTMs'},{n:6,lbl:'Calendar'}
   ];
   return steps.map(function(s,i){
@@ -26433,32 +26446,36 @@ function _ccWizardAdvance(toStep,summary){
   var nextBody=document.getElementById('cc-step-'+toStep+'-body');
   if(nextEl) nextEl.style.display='block';
   // Lazy-render step content
-  // Step 2 = Brief
+  // Step 2 = Kickstart (lazy render)
   if(toStep===2&&nextBody){
+    var mf='font-family:\'DM Mono\',monospace;';
+    var lpBanner=_campBrief.slug?
+      '<div style="padding:10px 16px;background:rgba(34,197,94,0.06);border-bottom:1px solid rgba(34,197,94,0.2);font-size:11px;'+mf+'">'+
+        '✓ LP locked: <strong>easychefpro.com/'+_campBrief.slug+'</strong> · angle: <strong>'+(_campBrief.campaign_angle||'savings')+'</strong>'+
+      '</div>':'';
+    nextBody.innerHTML=lpBanner+
+      '<div style="padding:18px 20px">'+
+        '<textarea id="cc-kickstart-ta" placeholder="Describe your campaign using this format:\n\nICP: [describe your target customer — age, income, pain point, daily struggle]\n\nGOAL: [what action you want them to take — waitlist signup / app download / founding price / referral / affiliate / recipe / upgrade]\n\nCHANNEL: [primary platform — Facebook / Instagram / TikTok / Pinterest / Nextdoor / Email / YouTube]\n\nBLUEPRINT: [campaign structure — A-Waitlist / B-App Download / C-Referral / D-Re-engagement / E-Content / F-Affiliate / G-Paywall Recovery]\n\nANGLE: [story angle — savings ($1,336/year) / speed (30 minutes) / waste (69.5%) / proof (first responders) / urgency (founding price)]\n\nPOSTS: [number of posts — default 7, one per funnel stage: hook, problem, agitate, solve, value, proof, cta]\n\nURGENCY: [what creates scarcity — founding price ends at 5,000 families / July 1 launch / limited beta spots]\n\nExample:\nICP: Busy mom, 35, two kids, $75K household, spends $400/month on groceries, half goes to waste, orders DoorDash 3x per week, guilty about waste and cost.\nGOAL: Waitlist signups before July 1\nCHANNEL: Facebook\nBLUEPRINT: A-Waitlist\nANGLE: Savings — $1,336/year\nPOSTS: 7\nURGENCY: Founding price $7.99/month ends at 5,000 families\n\n─── RECIPE / THEMED SERIES EXAMPLE ───\nICP: Super Mom who wants easy weeknight dinner wins her family will love\nGOAL: Recipe engagement — drive to recipe page, build app waitlist\nCHANNEL: Facebook + Instagram\nBLUEPRINT: E-Content\nANGLE: Speed — 30 minutes, ingredients already in your fridge\nTHEME: Taco Tuesday — weekly recurring series\nPUBLISH DAY: Tuesday only\nPOSTS: 5\nURGENCY: Early access to 10,000 recipes at launch — free during beta" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;font-family:\'DM Mono\',monospace;color:var(--text);resize:vertical;min-height:120px;outline:none;line-height:1.5;display:block"></textarea>'+
+        '<div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+          '<button id="cc-ks-btn" onclick="_ccKickstart()" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 22px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.05em">Generate Campaign</button>'+
+          '<button onclick="_ccCopyAsLlmPrompt()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">📋 Copy as LLM Prompt</button>'+
+          '<div id="cc-ks-copy-confirm" style="font-size:11px;color:#4caf50;font-family:\'DM Mono\',monospace;display:none">✓ Copied — paste into Claude, ChatGPT, or Gemini</div>'+
+          '<div id="cc-ks-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
+        '</div>'+
+        '<div id="cc-ks-err" style="margin-top:8px;font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace;min-height:16px"></div>'+
+        '<div id="cc-ks-result" style="margin-top:16px"></div>'+
+      '</div>';
+  }
+  // Step 3 = Campaign Brief (lazy render)
+  if(toStep===3&&nextBody){
     nextBody.innerHTML=_ccRenderBrief()+
       '<div style="padding:14px 20px;border-top:1px solid var(--border)">'+
-        '<button onclick="_ccWizardAdvance(3,\'✓ Campaign: \'+(_campBrief.name||\'Draft\')+\' · \'+(_campBrief.icp||\'—\')+\' · \'+(_campBrief.cta_type||_campBrief.funnel||\'—\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
+        '<button onclick="_ccWizardAdvance(4,\'✓ Campaign: \'+(_campBrief.name||\'Draft\')+\' · \'+(_campBrief.icp||\'—\')+\' · \'+(_campBrief.cta_type||_campBrief.funnel||\'—\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Build Assets</button>'+
       '</div>';
     _ccPopulateChannelSelect(_ccChannels);
     setTimeout(_ccOnBlueprintChange,0);
     if(!_campBrief.id) setTimeout(_ccFetchNextId,50);
     if(!_ccChannelsLoaded) setTimeout(_ccLoadChannels,0);
-  }
-  // Step 3 = Landing Page
-  if(toStep===3&&nextBody){
-    var mf='font-family:\'DM Mono\',monospace;';
-    nextBody.innerHTML=
-      '<div style="padding:14px 16px">'+
-        '<div id="cc-ks-lp-results"><div style="font-size:11px;color:var(--muted);'+mf+'">Searching for matching landing pages…</div></div>'+
-        '<div id="cc-ks-lp-output"></div>'+
-      '</div>'+
-      '<div id="cc-step3-footer" style="padding:12px 16px;border-top:2px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
-        '<span style="font-size:11px;color:var(--muted);'+mf+'">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">none selected</strong></span>'+
-        '<div style="flex:1;min-width:8px"></div>'+
-        '<button onclick="_ccWizardGoTo(2)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">← Back to Brief</button>'+
-        '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;'+mf+';opacity:0.5">→ Next: Build Posts</button>'+
-      '</div>';
-    setTimeout(function(){_ccKsLpSearch(_campBrief.icp||'');},0);
   }
   // Step 4 = Build Assets
   if(toStep===4&&nextBody){
@@ -26544,7 +26561,7 @@ function _campaignsRenderInner(root){
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
         '<div>'+
           '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
-          '<div style="font-size:12px;color:var(--muted);margin-top:2px">Kickstart → Brief → LP → Assets → UTMs → Calendar</div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px">LP → Kickstart → Brief → Assets → UTMs → Calendar</div>'+
         '</div>'+
         '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
       '</div>'+
@@ -26552,36 +26569,36 @@ function _campaignsRenderInner(root){
       '<div id="cc-wizard-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:20px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">'+
         _ccRenderWizardBar()+
       '</div>'+
-      // ── Step 1: Kickstart ──────────────────────────────────────────────────
+      // ── Step 1: Landing Page ──────────────────────────────────────────────
       '<div id="cc-step-1" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">'+
-        sHdr(1,'Campaign Kickstart — Describe your customer and goal')+
+        sHdr(1,'Landing Page — Select a page to anchor your campaign angle')+
         '<div id="cc-step-1-summ" '+summBar+'></div>'+
-        '<div id="cc-step-1-body" style="padding:18px 20px">'+
-          '<textarea id="cc-kickstart-ta" placeholder="Describe your campaign using this format:\n\nICP: [describe your target customer — age, income, pain point, daily struggle]\n\nGOAL: [what action you want them to take — waitlist signup / app download / founding price / referral / affiliate / recipe / upgrade]\n\nCHANNEL: [primary platform — Facebook / Instagram / TikTok / Pinterest / Nextdoor / Email / YouTube]\n\nBLUEPRINT: [campaign structure — A-Waitlist / B-App Download / C-Referral / D-Re-engagement / E-Content / F-Affiliate / G-Paywall Recovery]\n\nANGLE: [story angle — savings ($1,336/year) / speed (30 minutes) / waste (69.5%) / proof (first responders) / urgency (founding price)]\n\nPOSTS: [number of posts — default 7, one per funnel stage: hook, problem, agitate, solve, value, proof, cta]\n\nURGENCY: [what creates scarcity — founding price ends at 5,000 families / July 1 launch / limited beta spots]\n\nExample:\nICP: Busy mom, 35, two kids, $75K household, spends $400/month on groceries, half goes to waste, orders DoorDash 3x per week, guilty about waste and cost.\nGOAL: Waitlist signups before July 1\nCHANNEL: Facebook\nBLUEPRINT: A-Waitlist\nANGLE: Savings — $1,336/year\nPOSTS: 7\nURGENCY: Founding price $7.99/month ends at 5,000 families\n\n─── RECIPE / THEMED SERIES EXAMPLE ───\nICP: Super Mom who wants easy weeknight dinner wins her family will love\nGOAL: Recipe engagement — drive to recipe page, build app waitlist\nCHANNEL: Facebook + Instagram\nBLUEPRINT: E-Content\nANGLE: Speed — 30 minutes, ingredients already in your fridge\nTHEME: Taco Tuesday — weekly recurring series\nPUBLISH DAY: Tuesday only\nPOSTS: 5\nURGENCY: Early access to 10,000 recipes at launch — free during beta" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;font-family:\'DM Mono\',monospace;color:var(--text);resize:vertical;min-height:120px;outline:none;line-height:1.5;display:block"></textarea>'+
-          '<div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
-            '<button id="cc-ks-btn" onclick="_ccKickstart()" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 22px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.05em">Generate Campaign</button>'+
-            '<button onclick="_ccCopyAsLlmPrompt()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">📋 Copy as LLM Prompt</button>'+
-            '<div id="cc-ks-copy-confirm" style="font-size:11px;color:#4caf50;font-family:\'DM Mono\',monospace;display:none">✓ Copied — paste into Claude, ChatGPT, or Gemini</div>'+
-            '<div id="cc-ks-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
+        '<div id="cc-step-1-body" style="padding:0">'+
+          '<div style="padding:14px 16px">'+
+            '<div id="cc-ks-lp-results"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Searching for landing pages…</div></div>'+
+            '<div id="cc-ks-lp-output"></div>'+
           '</div>'+
-          '<div id="cc-ks-err" style="margin-top:8px;font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace;min-height:16px"></div>'+
-          '<div id="cc-ks-result" style="margin-top:16px"></div>'+
+          '<div id="cc-step1-footer" style="padding:12px 16px;border-top:2px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+            '<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">none selected</strong></span>'+
+            '<div style="flex:1;min-width:8px"></div>'+
+            '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;font-family:\'DM Mono\',monospace;opacity:0.5">→ Next: Campaign Kickstart</button>'+
+          '</div>'+
         '</div>'+
       '</div>'+
-      // ── Step 2: Campaign Brief ─────────────────────────────────────────────
+      // ── Step 2: Kickstart ─────────────────────────────────────────────────
       '<div id="cc-step-2" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
-        sHdr(2,'Campaign Brief — Review and confirm all campaign details')+
+        sHdr(2,'Campaign Kickstart — Describe your customer and goal')+
         '<div id="cc-step-2-summ" '+summBar+'></div>'+
         '<div id="cc-step-2-body">'+
-          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Run Kickstart above to generate your campaign brief.</div>'+
+          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Select a landing page above to continue.</div>'+
         '</div>'+
       '</div>'+
-      // ── Step 3: Landing Page ───────────────────────────────────────────────
+      // ── Step 3: Campaign Brief ────────────────────────────────────────────
       '<div id="cc-step-3" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
-        sHdr(3,'Landing Page — Select an existing page or build a new one')+
+        sHdr(3,'Campaign Brief — Review and confirm all campaign details')+
         '<div id="cc-step-3-summ" '+summBar+'></div>'+
         '<div id="cc-step-3-body">'+
-          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Confirm your campaign brief above to continue.</div>'+
+          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Run Kickstart above to generate your campaign brief.</div>'+
         '</div>'+
       '</div>'+
       // ── Step 4: Build Assets ───────────────────────────────────────────────
@@ -26589,7 +26606,7 @@ function _campaignsRenderInner(root){
         sHdr(4,'Build Assets — Generate social posts, emails, and push copy')+
         '<div id="cc-step-4-summ" '+summBar+'></div>'+
         '<div id="cc-step-4-body">'+
-          '<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Select a landing page above to unlock asset building.</div>'+
+          '<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Complete your brief above to unlock asset building.</div>'+
         '</div>'+
       '</div>'+
       // ── Flow banner + tab bar + panel ──────────────────────────────────────
@@ -26598,6 +26615,7 @@ function _campaignsRenderInner(root){
       '<div id="cc-panel"></div>'+
     '</div>';
   _campSwitchTab(_campActiveTab);
+  setTimeout(function(){_ccKsLpSearch('');},50);
 }
 function _campSwitchTab(t){
   _campActiveTab=t;
