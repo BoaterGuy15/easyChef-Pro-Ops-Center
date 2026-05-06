@@ -21426,7 +21426,8 @@ function _ccExtendBriefWithTheme(brief) {
   var ext = {};
   for (var k in brief) { if (Object.prototype.hasOwnProperty.call(brief, k)) ext[k] = brief[k]; }
   var t = _ccSelectedTheme;
-  if (!t) return ext;
+  console.log('[THEME CTX] _ccSelectedTheme=', JSON.stringify(t ? {theme_name:t.theme_name,icp_code:t.icp_code,hook_angle:t.hook_angle,problem_angle:t.problem_angle,agitate_angle:t.agitate_angle,feature_hook:t.feature_hook,emotional_entry:t.emotional_entry,emotional_payoff:t.emotional_payoff} : null));
+  if (!t) { console.log('[THEME CTX] no theme selected — brief sent without story context'); return ext; }
   ext.icp_entry        = t.emotional_entry  || ext.icp_entry        || '';
   ext.emotional_entry  = t.emotional_entry  || ext.emotional_entry  || '';
   ext.emotional_payoff = t.emotional_payoff || ext.emotional_payoff || '';
@@ -21439,6 +21440,7 @@ function _ccExtendBriefWithTheme(brief) {
   ext.problem_angle    = t.problem_angle    || ext.problem_angle    || '';
   ext.agitate_angle    = t.agitate_angle    || ext.agitate_angle    || '';
   if (t.urgency_trigger && !ext.urgency_trigger) ext.urgency_trigger = t.urgency_trigger;
+  console.log('[THEME CTX RESULT]', JSON.stringify({icp_entry:ext.icp_entry,hook_angle:ext.hook_angle,problem_angle:ext.problem_angle,agitate_angle:ext.agitate_angle,feature_hook:ext.feature_hook,emotional_entry:ext.emotional_entry,emotional_payoff:ext.emotional_payoff,app_feature:ext.app_feature,app_screen_label:ext.app_screen_label}));
   return ext;
 }
 
@@ -23132,16 +23134,42 @@ function _ccAutoImageBrief(post,brief){
   };
   var s=stageScenes[stage]||stageScenes.hook;
   var tl=theme.toLowerCase();
-  var themeFood='';
+  // Taco Tuesday: full per-stage scene override — themeFood not needed, story is in scene
   if(tl.indexOf('taco')>-1){
-    var tacoStage={
-      solve:' A plate of tacos is visible on the counter — crispy shells, filling prepped, ready to assemble.',
-      value:' She is assembling tacos — shells out, toppings in bowls, kids watching.',
-      proof:' The table has a full spread of tacos — crispy shells, seasoned meat, salsa, lime wedges, the works. Real food, not stock photography.',
-      cta:' A half-eaten plate of tacos sits on the counter. Taco Tuesday nailed.'
+    var _ts={
+      hook:{
+        scene:'Mom at the open fridge at 6:30 PM. Ground beef, tortillas, and cheese are all visible inside — she has everything for Taco Tuesday but does not know it yet. She is staring in, overwhelmed, seeing nothing useful. Nothing in her hands. No phone.',
+        emotion:'EMOTION: She looks tired and defeated. This is the worst moment of her day. No hope yet. No solution visible.'
+      },
+      problem:{
+        scene:'Same mom. A DoorDash app visible on a laptop or tablet open on the counter. The taco ingredients still sitting in the fridge behind her — unused. She is choosing the expensive option because nobody told her she already had everything she needed. No phone in her hand.',
+        emotion:'EMOTION: Frustration building. She knows this feeling too well. Nothing has ever fixed it.'
+      },
+      agitate:{
+        scene:'The taco ingredients from last Tuesday: ground beef packaging in the bin, tortillas dried out, cheese past its date. A DoorDash receipt on the counter — $30. The fridge held $8 worth of food that went to waste. No phone.',
+        emotion:'EMOTION: Shock and recognition. She is seeing the true cost for the first time. Cannot look away.'
+      },
+      solve:{
+        scene:'PHONE APPEARS FOR THE FIRST TIME. easyChef Pro screen showing a taco recipe — ground beef, tortillas, cheese, salsa listed. Her face: the penny dropping. She already had everything. She is holding the phone, looking at it with surprise and relief.',
+        emotion:'EMOTION: Curiosity and surprise. Her expression is shifting. Something is different. The penny is dropping.'
+      },
+      value:{
+        scene:'She is making tacos. Tortillas warming in a pan, ground beef browning on the stove, toppings in bowls on the counter. Kids excited in the background. Phone propped up showing easyChef Pro recipe. Same ingredients. Different Tuesday.',
+        emotion:'EMOTION: Calm confidence. She is handling it. This is what in control feels like.'
+      },
+      proof:{
+        scene:'Tacos on the dinner table — crispy shells, seasoned meat, salsa, lime wedges. Family eating. Kids reaching for more. Mom watching with a real smile — not posed. Taco Tuesday done right.',
+        emotion:'EMOTION: Pride and warmth. Her family is happy. She did this. Real smile — not posed.'
+      },
+      cta:{
+        scene:'Mom on the couch after Taco Tuesday. Kids settled. Cleared plates visible on the kitchen counter behind her. Phone in hand showing easyChef Pro. She is already thinking about next Tuesday.',
+        emotion:'EMOTION: Pure peace and satisfaction. The weight is gone. This is the feeling she is buying.'
+      }
     };
-    themeFood=tacoStage[stage]||' Tacos are visible on the counter or table — crispy shells with meat and toppings.';
-  } else if(tl.indexOf('meal prep')>-1){
+    s=_ts[stage]||_ts.hook;
+  }
+  var themeFood='';
+  if(tl.indexOf('meal prep')>-1){
     themeFood=' Multiple meal prep containers with colourful food are visible on the counter.';
   } else if(tl.indexOf('pizza')>-1){
     themeFood=' A pizza is visible on the counter or table.';

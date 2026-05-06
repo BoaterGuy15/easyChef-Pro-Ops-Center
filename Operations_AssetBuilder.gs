@@ -210,6 +210,9 @@ function _buildStoryContextBlock(context) {
  */
 function getMasterSystemPrompt(type, context) {
   var ctx        = context || {};
+  Logger.log('[MASTER PROMPT CTX] type=' + type + ' theme=' + (ctx.theme||'') + ' icp=' + (ctx.icp_code||'') +
+    ' hook_angle=' + (ctx.hook_angle||'') + ' problem_angle=' + (ctx.problem_angle||'') +
+    ' feature_hook=' + (ctx.feature_hook||'') + ' emotional_entry=' + (ctx.emotional_entry||''));
   var storyBlock = _buildStoryContextBlock(ctx);
   var claimsCtx  = '';
   try { claimsCtx = _getClaimsContext(); }
@@ -218,28 +221,43 @@ function getMasterSystemPrompt(type, context) {
   try { icpCtx = _getIcpContext(ctx.icp_code || ctx.icp || ''); }
   catch(e) { icpCtx = 'ICP: ' + (ctx.icp_code || '') + '\n'; }
 
+  // ── Taco Tuesday hardcoded story — fires for any theme containing "taco" ──
+  var tacoBlock = '';
+  if ((ctx.theme || '').toLowerCase().indexOf('taco') > -1) {
+    tacoBlock =
+      '=== THIS IS A TACO TUESDAY CAMPAIGN — EVERY POST MUST REFERENCE TACOS SPECIFICALLY ===\n' +
+      'Generic meal planning copy is wrong here. This is the Taco Tuesday story. Write it exactly.\n\n' +
+      'POST 1 (hook): 6:30 PM. She has ground beef, cheese, and tortillas in the fridge. She does not know she already has everything for Taco Tuesday.\n' +
+      'POST 2 (problem): She bought taco ingredients on Sunday but has no plan. Tuesday arrives. The ingredients are still uncooked. Kids want tacos. She orders DoorDash.\n' +
+      'POST 3 (agitate): $30 in DoorDash tacos. $8 worth of ingredients already in the fridge. $22 wasted. Every Tuesday.\n' +
+      'POST 4 (solve): easyChef Pro sees the ground beef, the tortillas, the cheese. It says: Taco Tuesday. 30 minutes. Here is how.\n' +
+      'POST 5 (value): Taco Tuesday handled every week. From fridge to table. The kids already asking for it again next Tuesday.\n' +
+      'POST 6 (proof): 10,000 recipe pages at launch. The taco recipe is already there. Your ingredients are already there. Built by first responders who understand Tuesday evenings.\n' +
+      'POST 7 (cta): Your fridge is already ready for Taco Tuesday. Join the waitlist free. Early access July 1.\n\n';
+  }
+
   if (type === 'social_post') {
     return 'You are the easyChef Pro social media writer.\n\n' +
-      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock +
+      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + tacoBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   if (type === 'landing_page') {
     return 'You are the easyChef Pro landing page writer. You write high-converting landing page copy.\n\n' +
       _AB_ARCH + _AB_VOICE +
       'CRITICAL: Never invent testimonials, names, or social proof stories. Never use statistics that are not in the approved claims list. Approved claims only — exact wording: $1,336/year · 69.5% · 30 minutes · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · validated across 10,000 household profiles · built by first responders\n\n' +
-      claimsCtx + storyBlock +
+      claimsCtx + storyBlock + tacoBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   if (type === 'email') {
     return 'You are the easyChef Pro email sequence writer. You write conversion email copy.\n\n' +
-      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock +
+      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + tacoBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   // image_prompt: story block only — caller merges with brand/visual rules
   if (type === 'image_prompt') {
-    return storyBlock;
+    return storyBlock + tacoBlock;
   }
-  return _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock +
+  return _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + tacoBlock +
     '=== TARGET ICP ===\n' + icpCtx + '\n';
 }
 
