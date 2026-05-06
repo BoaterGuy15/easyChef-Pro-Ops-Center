@@ -57,6 +57,7 @@ function _normalizeKsFields(c, sheetData) {
     icp_name:           'icp_match',
     campaign_theme:     'theme',
     landing_page_slug:  'slug',
+    landing_page:       'slug',
     problem_statement:  'problem_block',
     problem:            'problem_block',
     solution_statement: 'solve_block',
@@ -110,8 +111,13 @@ function _normalizeKsFields(c, sheetData) {
   // social_hook — fall back to headline
   if (!c.social_hook) c.social_hook = c.headline || '';
 
-  // share_mechanic — default empty
-  if (!c.share_mechanic) c.share_mechanic = '';
+  // share_mechanic — ICP-specific default
+  if (!c.share_mechanic) {
+    var _icp = (c.icp_code || '').toLowerCase();
+    c.share_mechanic = (_icp === 'super_mom' || _icp === 'budget_family')
+      ? 'Share with a mom who needs one less dinner decision'
+      : '';
+  }
 
   // utm_campaign_code — generate from icp_code + campaign_name
   if (!c.utm_campaign_code && c.campaign_name) {
@@ -125,6 +131,13 @@ function _normalizeKsFields(c, sheetData) {
     if (th.indexOf('taco') > -1 || th.indexOf('tuesday') > -1) c.publish_day = 'Tuesday';
     else if (th.indexOf('monday') > -1) c.publish_day = 'Monday';
     else c.publish_day = '';
+  }
+
+  // urgency_trigger — A-Waitlist default (post-launch blueprints keep their own value)
+  if (!c.urgency_trigger) {
+    c.urgency_trigger = (c.blueprint || '').indexOf('Waitlist') > -1
+      ? 'Free during beta — app launches July 1'
+      : 'Founding price $7.99/month ends at 5,000 families';
   }
 
   // numeric defaults
