@@ -21425,12 +21425,24 @@ function _ccClearTheme() {
 // Fetch a single ThemeLibrary row by name from the Sheet (used when kickstart auto-fills theme)
 function _ccLoadThemeData(themeName, cb) {
   var _cb = typeof cb === 'function' ? cb : function(){};
-  if(!CONFIG.sheetsUrl || !themeName) { _cb(null); return; }
-  fetch(CONFIG.sheetsUrl + '?action=theme_library_read&theme=' + encodeURIComponent(themeName))
-    .then(function(r){ return r.json(); })
+  if(!themeName) { _cb(null); return; }
+  var _tn = themeName.toLowerCase();
+  var _all = [];
+  Object.keys(_ccThemeLib||{}).forEach(function(k){ (_ccThemeLib[k]||[]).forEach(function(t){ _all.push(t); }); });
+  for(var i=0; i<_all.length; i++){
+    var _rn = (_all[i].theme_name||'').toLowerCase();
+    if(_tn.indexOf(_rn)>-1 || _rn.indexOf(_tn)>-1){
+      _ccSelectedTheme=_all[i]; _campBrief.themeData=_ccSelectedTheme;
+      _cb(_all[i]); return;
+    }
+  }
+  if(!CONFIG.sheetsUrl){ _cb(null); return; }
+  fetch(CONFIG.sheetsUrl+'?action=theme_library_read&theme='+encodeURIComponent(themeName))
+    .then(function(r){return r.json();})
     .then(function(d){
-      if(d.ok && Array.isArray(d.themes) && d.themes.length) { _cb(d.themes[0]); }
-      else { _cb(null); }
+      if(d.ok&&Array.isArray(d.themes)&&d.themes.length){
+        _ccSelectedTheme=d.themes[0]; _campBrief.themeData=_ccSelectedTheme; _cb(d.themes[0]);
+      } else { _cb(null); }
     })
     .catch(function(){ _cb(null); });
 }
