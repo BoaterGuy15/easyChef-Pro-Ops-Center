@@ -408,7 +408,8 @@ function getLandingPagesByIcp(icpFilter) {
 // ── buildEmailSequence ────────────────────────────────────────────────────────
 
 /**
- * Generates an 8-email sequence (SEQ-1: 3 emails + SEQ-2: 5 emails) via Claude.
+ * Generates 2 proof-of-concept emails (SEQ-1-E1 Day 0 + SEQ-2-E1 Day 7) via Claude.
+ * Capped at 2 to stay within Apps Script execution limits — full 8-email build TBD.
  * brief: { id, name, icp, channel, goal, slug }
  * copy:  { headline, subheadline, email_subject_a, email_subject_b, lp_hero, proof_bar, cta_primary }
  * Returns { ok: true, sequence: [ { seq_id, send_day, subject, preheader, body, cta_text, cta_url } ] }
@@ -433,16 +434,9 @@ function buildEmailSequence(brief, copy) {
     'LP Hero: '     + (copy && copy.lp_hero     || '') + '\n' +
     'Primary CTA: ' + (copy && copy.cta_primary || '') + '\n\n' +
     '=== EMAIL SEQUENCE STRUCTURE ===\n' +
-    'SEQ-1 — Welcome (3 emails, days 0 / 2 / 5):\n' +
-    '  Email 1 (Day 0): Welcome + hook. Subject uses money angle. Body delivers the promise.\n' +
-    '  Email 2 (Day 2): Problem deepener. Agitate the pain, introduce the solution.\n' +
-    '  Email 3 (Day 5): Social proof + founding price urgency. One strong testimonial-style story.\n\n' +
-    'SEQ-2 — Nurture (5 emails, days 7 / 10 / 14 / 18 / 25):\n' +
-    '  Email 4 (Day 7):  Feature spotlight — meal planning saves $1,336/year. Show the maths.\n' +
-    '  Email 5 (Day 10): Feature spotlight — 30 minutes fridge to table. Paint the scene.\n' +
-    '  Email 6 (Day 14): Feature spotlight — 69.5% less food waste. Make it feel real.\n' +
-    '  Email 7 (Day 18): Objection handler — "Is this worth $7.99?" Answer directly.\n' +
-    '  Email 8 (Day 25): Final urgency. Founding price closes soon. Last chance framing.\n\n' +
+    'Build 2 emails only (proof of concept — format approval before full build):\n' +
+    '  SEQ-1-E1 (Day 0): Welcome + hook. Subject uses money angle. Body delivers the promise. 3-4 short paragraphs.\n' +
+    '  SEQ-2-E1 (Day 7): Feature spotlight — meal planning saves $1,336/year. Show the maths. 3-4 short paragraphs.\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY valid JSON. No markdown. No explanation.\n' +
     '{\n' +
@@ -452,7 +446,7 @@ function buildEmailSequence(brief, copy) {
     '      "send_day": 0,\n' +
     '      "subject": "under 50 chars, no emojis",\n' +
     '      "preheader": "under 90 chars, extends the subject",\n' +
-    '      "body": "Plain text email body, 3-5 short paragraphs, no markdown",\n' +
+    '      "body": "Plain text email body, 3-4 short paragraphs, no markdown",\n' +
     '      "cta_text": "under 6 words",\n' +
     '      "cta_url": "' + lpUrl + '"\n' +
     '    }\n' +
@@ -469,9 +463,9 @@ function buildEmailSequence(brief, copy) {
       },
       payload: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 1500,
         system: systemPrompt,
-        messages: [{ role: 'user', content: 'Generate the 8-email sequence for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object.' }]
+        messages: [{ role: 'user', content: 'Generate the 2-email proof of concept for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object with exactly 2 entries in the sequence array.' }]
       }),
       muteHttpExceptions: true
     });
