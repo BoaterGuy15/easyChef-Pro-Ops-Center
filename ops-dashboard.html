@@ -21424,14 +21424,15 @@ function _ccClearTheme() {
 
 // Fetch a single ThemeLibrary row by name from the Sheet (used when kickstart auto-fills theme)
 function _ccLoadThemeData(themeName, cb) {
-  if(!CONFIG.sheetsUrl || !themeName) { cb(null); return; }
+  var _cb = typeof cb === 'function' ? cb : function(){};
+  if(!CONFIG.sheetsUrl || !themeName) { _cb(null); return; }
   fetch(CONFIG.sheetsUrl + '?action=theme_library_read&theme=' + encodeURIComponent(themeName))
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if(d.ok && Array.isArray(d.themes) && d.themes.length) { cb(d.themes[0]); }
-      else { cb(null); }
+      if(d.ok && Array.isArray(d.themes) && d.themes.length) { _cb(d.themes[0]); }
+      else { _cb(null); }
     })
-    .catch(function(){ cb(null); });
+    .catch(function(){ _cb(null); });
 }
 
 // ── Brief + theme context merger ───────────────────────────────────────────
