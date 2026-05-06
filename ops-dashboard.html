@@ -23228,6 +23228,139 @@ function _ccUploadOwnImage(postNum,prefix,input){
   fr.readAsDataURL(file);
 }
 
+// ── Simple screenshot compositor (no 3D tilt, no drag-rotate handle) ──────────
+function _ccCompRotate(deg){
+  if(!_ccComp)return;
+  _ccComp.rot+=deg*Math.PI/180;
+  _ccCompDraw();
+}
+function _ccCompSetOp(val){
+  if(!_ccComp)return;
+  _ccComp.op=val/100;
+  _ccCompDraw();
+  [70,80,90,100].forEach(function(v){
+    var b=document.getElementById('cc-simp-op-'+v);if(!b)return;
+    var a=v===val;
+    b.style.background=a?'#22c55e':'transparent';
+    b.style.color=a?'#fff':'var(--muted)';
+    b.style.borderColor=a?'#22c55e':'var(--border)';
+  });
+}
+function _ccSimpleShotCompositor(postNum,prefix){
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var idx=_ccSelectedScreenshot[postNum];
+  if(idx===undefined||idx<0||!shots[idx]){alert('Select a screenshot first.');return;}
+  var baseSrc=_ccBaseImages[postNum];
+  if(!baseSrc){var li=_ccLastImages[postNum];if(li)baseSrc='data:'+li.mime_type+';base64,'+li.image_base64;}
+  if(!baseSrc){alert('No base image found. Generate an image first.');return;}
+  var shotSrc=shots[idx].data;
+  var mf="font-family:'DM Mono',monospace;";
+  var old=document.getElementById('cc-simp-comp-modal');if(old)old.remove();
+  var modal=document.createElement('div');
+  modal.id='cc-simp-comp-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.86);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px';
+  modal.innerHTML=
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:700px;max-height:96vh;overflow-y:auto;padding:18px 18px 16px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'+
+        '<span style="font-size:12px;font-weight:700;color:var(--text);'+mf+'">📱 Add Screenshot to Phone Screen — Post '+postNum+'</span>'+
+        '<button onclick="document.getElementById(\'cc-simp-comp-modal\').remove();_ccComp=null;" style="background:transparent;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px">×</button>'+
+      '</div>'+
+      '<div id="cc-simp-comp-msg" style="font-size:11px;color:var(--muted);margin-bottom:8px;min-height:16px;'+mf+'">Detecting phone screen position…</div>'+
+      '<canvas id="cc-simp-comp-canvas" style="display:block;width:100%;border-radius:8px;cursor:move;touch-action:none;border:1px solid var(--border)"></canvas>'+
+      '<div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+        '<span style="font-size:11px;color:var(--text);'+mf+'">Opacity:</span>'+
+        '<button id="cc-simp-op-70" onclick="_ccCompSetOp(70)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">70%</button>'+
+        '<button id="cc-simp-op-80" onclick="_ccCompSetOp(80)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">80%</button>'+
+        '<button id="cc-simp-op-90" onclick="_ccCompSetOp(90)" style="background:#22c55e;border:1px solid #22c55e;color:#fff;padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">90%</button>'+
+        '<button id="cc-simp-op-100" onclick="_ccCompSetOp(100)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">100%</button>'+
+      '</div>'+
+      '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+        '<span style="font-size:11px;color:var(--text);'+mf+'">Rotate:</span>'+
+        '<button onclick="_ccCompRotate(-5)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">↺ −5°</button>'+
+        '<button onclick="_ccCompRotate(5)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">↻ +5°</button>'+
+      '</div>'+
+      '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button onclick="_ccCompResetSimple()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">↺ Reset</button>'+
+        '<button id="cc-simp-apply-btn" onclick="_ccCompApplySimple('+postNum+',\''+prefix+'\')" style="background:#22c55e;border:none;color:#fff;padding:6px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">✓ Apply — Lock it in</button>'+
+        '<button onclick="document.getElementById(\'cc-simp-comp-modal\').remove();_ccComp=null;" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">✕ Cancel — keep original</button>'+
+      '</div>'+
+      '<div style="margin-top:8px;font-size:10px;color:var(--muted);'+mf+'">Drag to move · Bottom corners to resize</div>'+
+    '</div>';
+  document.body.appendChild(modal);
+  var canvas=document.getElementById('cc-simp-comp-canvas');
+  _ccComp={pn:postNum,px:prefix,canvas:canvas,bImg:null,sImg:null,lImg:null,
+    x:0,y:0,w:0,h:0,rot:0,op:0.9,persp:false,
+    drag:null,dsx:0,dsy:0,dox:0,doy:0,dow:0,doh:0};
+  var n=0;
+  function onLoad(){n++;if(n>=2)_ccSimpleCompInit();}
+  _ccComp.bImg=new Image();_ccComp.bImg.onload=onLoad;_ccComp.bImg.onerror=onLoad;_ccComp.bImg.src=baseSrc;
+  _ccComp.sImg=new Image();_ccComp.sImg.onload=onLoad;_ccComp.sImg.onerror=onLoad;_ccComp.sImg.src=shotSrc;
+  canvas.addEventListener('mousedown',_ccCompDown);
+  canvas.addEventListener('touchstart',_ccCompDown,{passive:false});
+}
+function _ccSimpleCompInit(){
+  var c=_ccComp;if(!c||!c.bImg)return;
+  var iw=c.bImg.naturalWidth||1200,ih=c.bImg.naturalHeight||630;
+  c.canvas.width=iw;c.canvas.height=ih;
+  var al=_ccCompAutoAlign(iw,ih);
+  var msg=document.getElementById('cc-simp-comp-msg');
+  if(al){
+    c.x=al.x;c.y=al.y;c.w=al.w;c.h=al.h;
+    if(msg)msg.innerHTML='✓ Auto-aligned — drag handles to adjust, or <span style="color:#22c55e;cursor:pointer;text-decoration:underline" onclick="_ccCompApplySimple('+c.pn+',\''+c.px+'\')">apply now</span>.';
+  } else {
+    var sh=c.sImg?c.sImg.naturalHeight:0,sw2=c.sImg?c.sImg.naturalWidth:1;
+    c.w=Math.round(iw*0.25);
+    c.h=sh>0?Math.round(c.w*(sh/sw2)):Math.round(c.w*1.85);
+    c.x=Math.round(iw*0.63);c.y=Math.round((ih-c.h)/2);
+    if(msg)msg.textContent='Could not auto-detect phone screen. Drag the overlay onto the phone screen.';
+  }
+  _ccCompDraw();
+  _ccLoadLogo(function(li){if(_ccComp){_ccComp.lImg=li;_ccCompDraw();}});
+}
+function _ccCompResetSimple(){
+  if(!_ccComp)return;
+  var c=_ccComp;c.rot=0;_ccCompSetOp(90);
+  var iw=c.canvas.width,ih=c.canvas.height;
+  var al=_ccCompAutoAlign(iw,ih);
+  if(al){c.x=al.x;c.y=al.y;c.w=al.w;c.h=al.h;}
+  else{c.w=Math.round(iw*0.25);c.h=Math.round(c.w*1.85);c.x=Math.round(iw*0.63);c.y=Math.round((ih-c.h)/2);}
+  _ccCompDraw();
+}
+function _ccCompApplySimple(postNum,prefix){
+  var c=_ccComp;if(!c||!c.bImg)return;
+  var btn=document.getElementById('cc-simp-apply-btn');
+  if(btn){btn.textContent='Compositing…';btn.disabled=true;}
+  var iw=c.bImg.naturalWidth||1200,ih=c.bImg.naturalHeight||630;
+  var sc=iw/c.canvas.width;
+  var cv2=document.createElement('canvas');cv2.width=iw;cv2.height=ih;
+  var ctx=cv2.getContext('2d');ctx.drawImage(c.bImg,0,0,iw,ih);
+  if(c.sImg){
+    var sx=c.x*sc,sy=c.y*sc,sw=c.w*sc,sh=c.h*sc;
+    ctx.save();ctx.globalAlpha=c.op;
+    ctx.translate(sx+sw/2,sy+sh/2);ctx.rotate(c.rot);
+    ctx.translate(-sw/2,-sh/2);
+    _ccRoundRect(ctx,0,0,sw,sh,Math.round(8*sc));ctx.clip();
+    ctx.drawImage(c.sImg,0,0,sw,sh);ctx.restore();
+  }
+  var result=cv2.toDataURL('image/png');
+  _ccLastImages[postNum]={mime_type:'image/png',image_base64:result.split(',')[1]};
+  var container=document.getElementById('cc-img-container-'+prefix+'-'+postNum);
+  if(container){
+    var mf="font-family:'DM Mono',monospace;";
+    container.innerHTML=
+      '<div style="font-size:10px;color:#22c55e;'+mf+';margin-bottom:4px">✓ Screenshot composited</div>'+
+      '<img src="'+result+'" style="width:100%;border-radius:8px" alt="Composited">'+
+      '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
+        '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;'+mf+'">✓ Use This</button>'+
+        '<a href="'+result+'" download="post-'+postNum+'-composited.png" style="font-size:10px;color:var(--muted);display:inline-flex;align-items:center;padding:4px 10px;border:1px solid var(--border);border-radius:5px;text-decoration:none;'+mf+'">↓ Download</a>'+
+        '<button onclick="_ccSimpleShotCompositor('+postNum+',\''+prefix+'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">📱 Reposition</button>'+
+        '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">↺ Regenerate</button>'+
+      '</div>';
+  }
+  var modal=document.getElementById('cc-simp-comp-modal');if(modal)modal.remove();
+  _ccComp=null;
+}
+
 function _ccRenderSocialPosts(posts,container,channel){
   _ccLastPosts=posts;
   if(!container) return;
@@ -23660,6 +23793,8 @@ function _ccGeneratePostImage(prefix,postNum,callback){
         // No screenshot → show image + editor panel
         if(!_ccPostImages[postNum])_ccPostImages[postNum]={};
         _ccPostImages[postNum].original=imgSrc;_ccPostImages[postNum].working=imgSrc;
+        _ccBaseImages[postNum]=imgSrc;
+        var _hasShotNow=(_ccSelectedScreenshot[postNum]!==undefined&&_ccSelectedScreenshot[postNum]>=0);
         if(container){
           container.innerHTML=
             '<img src="'+imgSrc+'" id="cc-img-final-'+postNum+'" style="width:100%;border-radius:8px;margin-top:8px" alt="Generated image">'+
@@ -23668,6 +23803,9 @@ function _ccGeneratePostImage(prefix,postNum,callback){
               '<button onclick="_ccDownloadPostImage('+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download PNG</button>'+
               '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
               '<button onclick="_ccImageSkip(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">✕ Skip</button>'+
+            '</div>'+
+            '<div id="cc-add-shot-wrap-'+postNum+'" style="display:'+(_hasShotNow?'block':'none')+';margin-top:8px">'+
+              '<button onclick="_ccSimpleShotCompositor('+postNum+',\''+prefix+'\')" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">📱 Add Screenshot to Phone Screen</button>'+
             '</div>'+
             _ccRenderImageEditor(postNum,prefix,imgSrc);
         }
@@ -23982,6 +24120,8 @@ function _ccSelectScreenshot(postNum,idx){
   if(prevEl)prevEl.style.border='2px solid transparent';
   var newEl=document.getElementById(_ccShotThumbId(postNum,idx));
   if(newEl)newEl.style.border='2px solid '+_CC_RED;
+  var addShotWrap=document.getElementById('cc-add-shot-wrap-'+postNum);
+  if(addShotWrap)addShotWrap.style.display=(idx>=0)?'block':'none';
 }
 
 // ─── Brand Overlay Library ────────────────────────────────────────────────────
@@ -23996,11 +24136,22 @@ function _ccBLibRefresh(){var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-
 function _ccBLibUpload(type,input){
   if(!input.files||!input.files[0])return;
   var file=input.files[0];
+  var isEps=(file.type==='application/postscript'||file.name.toLowerCase().slice(-4)==='.eps');
   var fr=new FileReader();
   fr.onload=function(ev){
     var src=ev.target.result;
     var id='bl-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
     var lbl=file.name.replace(/\.[^/.]+$/,'');
+    if(isEps){
+      if(type==='logo'){
+        _ccBrandLib.logos.push({id:id,data:src,label:lbl,w:0,h:0,isDefault:_ccBrandLib.logos.length===0,isEps:true});
+      } else if(type==='claimBar'){
+        _ccBrandLib.claimBars.push({id:id,data:src,label:lbl,claimText:'',w:0,h:0,isDefault:_ccBrandLib.claimBars.length===0,isEps:true});
+      } else if(type==='fullOverlay'){
+        _ccBrandLib.fullOverlays.push({id:id,data:src,label:lbl,platform:'EPS',w:0,h:0,isDefault:false,isEps:true});
+      }
+      _ccBLibSave();_ccBLibRefresh();input.value='';return;
+    }
     var tmp=new Image();
     tmp.onload=function(){
       var w=tmp.naturalWidth,h=tmp.naturalHeight;
@@ -24077,7 +24228,9 @@ function _ccRenderBrandLibrarySection(){
   var logoItems=_ccBrandLib.logos.map(function(l){
     return '<div style="display:inline-flex;flex-direction:column;gap:4px;margin:0 8px 8px 0;border:1px solid '+(l.isDefault?_CC_RED:'var(--border)')+';border-radius:8px;padding:8px;background:var(--bg);width:148px;box-sizing:border-box;vertical-align:top">'+
       (l.isDefault?'<div style="font-size:9px;font-weight:700;color:'+_CC_RED+';'+mf+';text-align:center">★ DEFAULT</div>':'')+
-      '<img src="'+l.data+'" style="width:130px;height:56px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.06);display:block">'+
+      (l.isEps
+        ?'<div style="width:130px;height:56px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;background:rgba(255,255,255,0.04);border-radius:4px"><span style="font-size:18px">📄</span><span style="font-size:9px;color:var(--muted);'+mf+'">EPS</span></div>'
+        :'<img src="'+l.data+'" style="width:130px;height:56px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.06);display:block">')+
       '<input value="'+sh(l.label)+'" onchange="_ccBLibSetLabel(\'logos\',\''+l.id+'\',this.value)" style="font-size:9px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);'+mf+'">'+
       '<div style="font-size:9px;color:var(--muted);'+mf+'">'+l.w+'×'+l.h+'px</div>'+
       '<div style="display:flex;gap:4px">'+
@@ -24090,8 +24243,8 @@ function _ccRenderBrandLibrarySection(){
     '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;'+mf+'">Upload logo variants: dark bg, light bg, icon only. The ★ default is used in all overlays unless overridden.</div>'+
     (logoItems||'<div style="font-size:11px;color:var(--muted);'+mf+';margin-bottom:10px">No logos in library — upload your first variant.</div>')+
     '<button onclick="document.getElementById(\'bl-logo-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Upload Logo</button>'+
-    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">PNG with transparent background or SVG</div>'+
-    '<input id="bl-logo-input" type="file" accept="image/png,image/svg+xml" style="display:none" onchange="_ccBLibUpload(\'logo\',this)">'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">PNG (transparent), SVG, or JPG — EPS accepted for storage/download only</div>'+
+    '<input id="bl-logo-input" type="file" accept="image/png,image/svg+xml,image/jpeg,.jpg,.jpeg,.eps,application/postscript" style="display:none" onchange="_ccBLibUpload(\'logo\',this)">'+
   '</div>';
 
   // CLAIM BARS
@@ -24113,9 +24266,9 @@ function _ccRenderBrandLibrarySection(){
       cbPresets.map(function(c){return '<span style="font-size:10px;color:var(--muted);'+mf+';border:1px solid var(--border);padding:2px 7px;border-radius:12px">'+c+'</span>';}).join('')+
     '</div>'+
     (cbItems||'')+
-    '<button onclick="document.getElementById(\'bl-cb-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Upload Claim Bar PNG</button>'+
-    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">Full-width PNG — transparent above the bar, red bar + white text</div>'+
-    '<input id="bl-cb-input" type="file" accept="image/png" style="display:none" onchange="_ccBLibUpload(\'claimBar\',this)">'+
+    '<button onclick="document.getElementById(\'bl-cb-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Upload Claim Bar</button>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">PNG or JPG — transparent above the bar, red bar + white text</div>'+
+    '<input id="bl-cb-input" type="file" accept="image/png,image/jpeg,.jpg,.jpeg" style="display:none" onchange="_ccBLibUpload(\'claimBar\',this)">'+
   '</div>';
 
   // FULL OVERLAYS
@@ -24134,9 +24287,9 @@ function _ccRenderBrandLibrarySection(){
     '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:8px;'+mf+'">SECTION 3 — FULL OVERLAYS</div>'+
     '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;'+mf+'">Upload complete transparent-background overlay PNGs (logo + claim bar + graphic elements). Must match platform pixel dimensions exactly.</div>'+
     (foItems||'<div style="font-size:11px;color:var(--muted);'+mf+';margin-bottom:10px">No full overlays uploaded</div>')+
-    '<button onclick="document.getElementById(\'bl-fo-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Upload Full Overlay PNG</button>'+
-    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">Transparent PNG at exact platform dimensions — system auto-detects the platform from pixel dimensions</div>'+
-    '<input id="bl-fo-input" type="file" accept="image/png" style="display:none" onchange="_ccBLibUpload(\'fullOverlay\',this)">'+
+    '<button onclick="document.getElementById(\'bl-fo-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">+ Upload Full Overlay</button>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:5px;'+mf+'">PNG or JPG at exact platform dimensions — system auto-detects platform from pixel dimensions</div>'+
+    '<input id="bl-fo-input" type="file" accept="image/png,image/jpeg,.jpg,.jpeg" style="display:none" onchange="_ccBLibUpload(\'fullOverlay\',this)">'+
   '</div>';
 
   return note+logosHtml+claimBarsHtml+fullOverlaysHtml;
@@ -24577,8 +24730,21 @@ function _ccUploadLogo(input){
   var file=input.files[0];
   console.log('[BRAND] file selected:', file.name, file.type, file.size+'B');
   var isSvg=(file.type==='image/svg+xml'||file.name.toLowerCase().slice(-4)==='.svg');
+  var isEps=(file.type==='application/postscript'||file.name.toLowerCase().slice(-4)==='.eps');
   var fr=new FileReader();
-  if(isSvg){
+  if(isEps){
+    fr.onload=function(e){
+      var result=e.target.result;
+      try{
+        localStorage.setItem('ecp_asset_logo',result);
+        localStorage.setItem('ecp_asset_logo_type','eps');
+        localStorage.removeItem('ecp_asset_logo_svg');
+        var p=_ccEl('cc-panel');if(p&&_campActiveTab==='brand-assets')p.innerHTML=_ccRenderBrandAssets();
+      }catch(err){alert('Save failed: '+err.message);}
+    };
+    fr.onerror=function(e){console.error('[BRAND] FileReader error (EPS):',e);};
+    fr.readAsDataURL(file);
+  } else if(isSvg){
     fr.onload=function(e){
       var result=e.target.result;
       console.log('[BRAND] SVG reader result length:', result.length);
@@ -24687,11 +24853,12 @@ function _ccRenderBrandAssets(){
   var logo=_ccAssetLoad('ecp_asset_logo');
   var logoType=localStorage.getItem('ecp_asset_logo_type')||'png';
   var logoSvgText=(logoType==='svg')?localStorage.getItem('ecp_asset_logo_svg'):null;
-  var hasLogo=!!(logo||(logoType==='svg'&&logoSvgText));
+  var isEpsLogo=(logoType==='eps');
+  var hasLogo=isEpsLogo||!!(logo||(logoType==='svg'&&logoSvgText));
   var logoPreviewSrc=(logoType==='svg'&&logoSvgText)
     ?'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(logoSvgText)
     :(logo||'');
-  var logoTypeBadge=hasLogo?(logoType==='svg'?'SVG vector':'PNG raster'):'';
+  var logoTypeBadge=hasLogo?(logoType==='svg'?'SVG vector':logoType==='eps'?'EPS vector (preview unavailable)':'PNG/JPG raster'):'';
   var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
   var prods=_ccAssetLoad('ecp_asset_products')||[];
 
@@ -24700,15 +24867,17 @@ function _ccRenderBrandAssets(){
     '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:12px">SECTION 1 — LOGO</div>'+
     '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">easyChef Pro Logo</div>'+
     (hasLogo
-      ?'<img src="'+logoPreviewSrc+'" style="width:200px;max-height:100px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:8px;background:rgba(255,255,255,0.04);margin-bottom:6px;display:block" alt="Logo">'+
+      ?(isEpsLogo
+        ?'<div style="width:200px;height:80px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;margin-bottom:6px;background:rgba(255,255,255,0.02)"><span style="font-size:20px">📄</span><div style="font-size:10px;color:var(--muted);'+mf+'">EPS file — preview unavailable</div></div>'
+        :'<img src="'+logoPreviewSrc+'" style="width:200px;max-height:100px;object-fit:contain;border:1px solid var(--border);border-radius:6px;padding:8px;background:rgba(255,255,255,0.04);margin-bottom:6px;display:block" alt="Logo">')+
        '<div style="font-size:10px;color:var(--muted);'+mf+';margin-bottom:10px">'+logoTypeBadge+'</div>'
       :'<div style="width:200px;height:100px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;'+mf+';margin-bottom:10px">No logo uploaded</div>')+
     '<div style="display:flex;gap:10px;align-items:center">'+
     '<button onclick="document.getElementById(\'ba-logo-input\').click()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">Upload Logo</button>'+
     (hasLogo?'<button onclick="localStorage.removeItem(\'ecp_asset_logo\');localStorage.removeItem(\'ecp_asset_logo_svg\');localStorage.removeItem(\'ecp_asset_logo_type\');var p=_ccEl(\'cc-panel\');if(p&&_campActiveTab===\'brand-assets\')p.innerHTML=_ccRenderBrandAssets();" style="background:transparent;border:1px solid rgba(255,80,80,0.4);color:'+_CC_RED+';padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">✕ Remove</button>':'')+
     '</div>'+
-    '<div style="font-size:10px;color:var(--muted);margin-top:6px;'+mf+'">Accepted: PNG (transparent background) or SVG</div>'+
-    '<input id="ba-logo-input" type="file" accept=".png,.svg,image/png,image/svg+xml" style="display:none" onchange="_ccUploadLogo(this)">'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:6px;'+mf+'">Accepted: PNG, SVG, JPG, EPS (EPS stored for reference — not used in compositor)</div>'+
+    '<input id="ba-logo-input" type="file" accept=".png,.svg,.jpg,.jpeg,.eps,image/png,image/svg+xml,image/jpeg,application/postscript" style="display:none" onchange="_ccUploadLogo(this)">'+
     '</div>';
 
   var shotThumb=shots.map(function(s,i){
@@ -24850,6 +25019,7 @@ function _ccOvSelectShot(postNum,idx){
 // ── Canvas compositing ───────────────────────────────────────────────────────
 function _ccLoadLogo(callback){
   var logoType=localStorage.getItem('ecp_asset_logo_type')||'png';
+  if(logoType==='eps'){callback(null);return;}
   var img=new Image();
   if(logoType==='svg'){
     var svgText=localStorage.getItem('ecp_asset_logo_svg');
