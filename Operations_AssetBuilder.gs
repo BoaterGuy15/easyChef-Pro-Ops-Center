@@ -381,13 +381,17 @@ function getLandingPagesByIcp(icpFilter) {
         // Enrich with resolved icp_code so dashboard can display it
         var resolved = icpMap[String(p.campaign_id || '')] || p.icp_code || p.icp || '';
         return {
-          id:           p.id,
-          campaign_id:  p.campaign_id,
-          slug:         p.slug,
-          hero_headline:p.hero_headline,
-          status:       p.status || 'draft',
-          icp_code:     resolved,
-          name:         p.hero_headline || p.slug || p.id
+          id:              p.id,
+          campaign_id:     p.campaign_id,
+          slug:            p.slug,
+          hero_headline:   p.hero_headline   || '',
+          hero_subheadline:p.hero_subheadline|| '',
+          status:          p.status          || 'draft',
+          icp_code:        resolved,
+          name:            p.hero_headline   || p.slug || p.id,
+          ab_test_variant: p.ab_test_variant || '',
+          blueprint_code:  p.blueprint_code  || '',
+          theme:           p.theme           || ''
         };
       });
 

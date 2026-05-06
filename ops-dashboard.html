@@ -22793,22 +22793,43 @@ function _ccKsLpSearch(icp){
         return;
       }
       var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+      var mf='font-family:\'DM Mono\',monospace;';
+      var defaultProof=['$1,336/year','69.5% less food waste','30 min fridge to table'];
       var cards=d.pages.map(function(p){
         var slug=safe(p.slug||'');
-        var name=safe(p.name||slug);
-        var status=safe(p.status||'Draft');
+        var headline=safe(p.hero_headline||slug);
+        var status=(p.status||'Draft');
         var statusColor=status==='Live'?'#22c55e':status==='Active'?'#3b82f6':'var(--muted)';
-        var campaignId=safe(p.campaign_id||p.id||'—');
-        var headline=safe((p.hero_headline||p.name||slug).substring(0,80));
-        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">'+
-          '<div style="flex:1;min-width:0;margin-right:12px">'+
-            '<div style="font-size:12px;font-weight:700;color:var(--text)">'+campaignId+'</div>'+
-            '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace">easychefpro.com/'+slug+'</div>'+
-            '<div style="font-size:11px;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+headline+'</div>'+
+        var variant=(p.ab_test_variant&&p.ab_test_variant!=='none')?p.ab_test_variant.toUpperCase():(slug.indexOf('-b')>-1?'B':'A');
+        var angle=slug.indexOf('-b')>-1?'emotion':'savings';
+        var bp=p.blueprint_code||'';
+        var cta=bp.toLowerCase().indexOf('waitlist')>-1?'Join the waitlist free — early access July 1':bp.toLowerCase().indexOf('founding')>-1?'Lock in $7.99/month founding price — 60% off forever':'Join the waitlist free — early access July 1';
+        var theme=p.theme?'<span style="font-size:9px;color:var(--muted);'+mf+'">'+safe(p.theme)+'</span>':'';
+        var safeSlug=slug.replace(/'/g,"\\'");
+        var safeHl=headline.replace(/'/g,"\\'");
+        var safeCid=safe(p.campaign_id||'').replace(/'/g,"\\'");
+        return '<div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px">'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">'+
+            '<span style="font-size:11px;font-weight:700;color:var(--text);'+mf+'">'+slug+'</span>'+
+            '<span style="font-size:9px;font-weight:700;background:'+_CC_RED+';color:#fff;padding:2px 7px;border-radius:3px">'+variant+'</span>'+
+            '<span style="font-size:9px;font-weight:700;background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:0.05em">'+angle+'</span>'+
+            theme+
           '</div>'+
-          '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+
-            '<span style="font-size:10px;color:'+statusColor+'">'+status+'</span>'+
-            '<button onclick="_ccKsSelectLp(\''+slug+'\',\''+safe(p.campaign_id||'')+'\')" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">Use This LP</button>'+
+          '<div style="margin-bottom:5px">'+
+            '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-right:8px;'+mf+'">Hook</span>'+
+            '<span style="font-size:12px;color:var(--text)">'+headline+'</span>'+
+          '</div>'+
+          '<div style="margin-bottom:10px">'+
+            '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-right:8px;'+mf+'">CTA</span>'+
+            '<span style="font-size:11px;color:var(--muted)">'+safe(cta)+'</span>'+
+          '</div>'+
+          '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">'+
+            defaultProof.map(function(pr){return '<span style="font-size:9px;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:10px;'+mf+'">'+pr+'</span>';}).join('')+
+          '</div>'+
+          '<div style="display:flex;align-items:center;gap:10px">'+
+            '<span style="font-size:10px;font-weight:700;color:'+statusColor+';border:1px solid '+statusColor+';padding:2px 8px;border-radius:10px;'+mf+'">'+safe(status)+'</span>'+
+            '<div style="flex:1"></div>'+
+            '<button onclick="_ccKsSelectLp(\''+safeSlug+'\',\''+safeCid+'\',\''+safeHl+'\')" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">Use This LP</button>'+
           '</div>'+
         '</div>';
       }).join('');
@@ -22867,7 +22888,7 @@ function _ccSaveLpDraft(){
   });
 }
 // User picks an existing LP — sets the brief slug
-function _ccKsSelectLp(slug,campaignId){
+function _ccKsSelectLp(slug,campaignId,headline){
   _campBrief.slug=slug;
   _campBrief._lpReused=true;
   _campBrief._lpReusedFrom=campaignId||'';
@@ -22876,7 +22897,7 @@ function _ccKsSelectLp(slug,campaignId){
   var _lpVariant=slug.indexOf('-b')>-1?'B':'A';
   _campBrief.campaign_angle=_lpAngle;
   _campBrief.lp_variant=_lpVariant;
-  _campBrief._lpLocked={slug:slug,campaign_angle:_lpAngle,lp_variant:_lpVariant};
+  _campBrief._lpLocked={slug:slug,campaign_angle:_lpAngle,lp_variant:_lpVariant,headline:headline||''};
   _campSlugStatus='';
   var slugEl=document.getElementById('cc-slug');
   if(slugEl) slugEl.value=slug;
