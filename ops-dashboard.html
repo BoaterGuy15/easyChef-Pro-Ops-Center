@@ -22737,14 +22737,24 @@ function _ccBuildSectionBButtons(){
   var btns='<div style="display:flex;flex-wrap:wrap;gap:0;align-items:center;margin-bottom:4px">';
   if(socialChs.length===1){
     var ch=socialChs[0];
-    btns+='<button onclick="_ccKsBuildAssets(\'build_social_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+'">Build '+ch+' ('+_ccGetChCount(ch)+' posts)</button>';
+    var chCt=_ccGetChCount(ch);
+    btns+='<div style="margin:0 8px 8px 0">'+
+      '<button onclick="_ccKsBuildAssets(\'build_social_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+';margin:0">Generate '+ch+' Posts → '+chCt+' posts</button>'+
+      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Each post has image controls and a Generate Image button</div>'+
+    '</div>';
   } else if(socialChs.length>1){
-    var chList=socialChs.map(function(c){return c+' '+_ccGetChCount(c);}).join(' · ');
-    btns+='<button onclick="_ccKsBuildAssets(\'build_multi_channel_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+'">Build All Social ('+socialChs.length+' channels)</button>';
-    btns+='<span style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-right:12px">'+chList+'</span>';
+    var _totalPosts=socialChs.reduce(function(s,c){return s+_ccGetChCount(c);},0);
+    var _chParts=socialChs.map(function(c){return c+' ('+_ccGetChCount(c)+')';}).join(' + ');
+    btns+='<div style="margin:0 8px 8px 0">'+
+      '<button onclick="_ccKsBuildAssets(\'build_multi_channel_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+';margin:0">Generate '+_totalPosts+' Social Posts → '+_chParts+'</button>'+
+      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Each post has image controls and a Generate Image button</div>'+
+    '</div>';
   }
   if(hasEmail){
-    btns+='<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+'">Build Email (SEQ-1+2 · 8 emails)</button>';
+    btns+='<div style="margin:0 8px 8px 0">'+
+      '<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+';margin:0">Generate Email Sequence → SEQ-1 E1 + SEQ-2 E1 · 2 preview emails</button>'+
+      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Approve format before building full 8-email sequence · Subject line A/B variants included</div>'+
+    '</div>';
   }
   if(hasPush){
     btns+='<button onclick="_ccKsBuildAssets(\'build_push_notifications\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+'">Build Push Copy (3 notifications)</button>';
@@ -23037,7 +23047,14 @@ function _ccKsBuildLp(){
 // Build email sequence or social posts — populates cc-ks-asset-output
 function _ccKsBuildAssets(actionType){
   var out=document.getElementById('cc-ks-asset-output');
-  if(out) out.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">Building assets…</div>';
+  var _chs=(_campBrief.channels||[]).filter(function(c){var l=c.toLowerCase();return l!=='email'&&l!=='push notifications';});
+  var _loadMsg={
+    'build_social_posts':       'Generating '+(_campBrief.channel||'social')+' posts… this takes about 30 seconds',
+    'build_multi_channel_posts':'Generating '+_chs.join(' posts, then ')+((_chs.length>1)?' posts':' posts')+'… this takes about 60 seconds',
+    'build_email_sequence':     'Generating email sequence — SEQ-1 E1 (Day 0) then SEQ-2 E1 (Day 7)… this takes about 30 seconds',
+    'build_push_notifications': 'Generating 3 push notifications… this takes about 15 seconds'
+  }[actionType]||'Building assets…';
+  if(out) out.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">'+_loadMsg+'</div>';
   // Disable whichever button was clicked (they're identified by onclick, not id)
   var allBtns=document.querySelectorAll('#cc-ks-section-b-buttons button');
   allBtns.forEach(function(b){if(!b.disabled){b.setAttribute('data-was-text',b.textContent);b.disabled=true;b.textContent='Building…';}});
