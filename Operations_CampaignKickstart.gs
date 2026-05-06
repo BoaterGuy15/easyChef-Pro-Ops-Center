@@ -108,7 +108,9 @@ function campaignKickstart(prompt) {
             (tm.feature_hook     ? 'Post 4 (solve) angle: ' + tm.feature_hook + '\n' : '') +
             (tm.feature_proof    ? 'Post 6 (proof) stat: '  + tm.feature_proof + '\n' : '') +
             (tm.emotional_entry  ? 'Entry emotion: ' + tm.emotional_entry + '\n' : '') +
-            (tm.emotional_payoff ? 'Payoff emotion: ' + tm.emotional_payoff + '\n' : '');
+            (tm.emotional_payoff ? 'Payoff emotion: ' + tm.emotional_payoff + '\n' : '') +
+            (tm.agitate_angle    ? 'Agitate angle (use this specific cost in agitate_block): ' + tm.agitate_angle + '\n' : '') +
+            (tm.urgency_trigger  ? 'Urgency trigger for this theme: ' + tm.urgency_trigger + '\n' : '');
           break;
         }
       }
@@ -140,7 +142,10 @@ function campaignKickstart(prompt) {
 
     'Rules: Product is always "easyChef Pro". ' +
     'Approved stats (use exact wording): $1,336/year savings | 69.5% less food waste | 30 minutes fridge to table. ' +
-    'Slug format: lp/waitlist-a for waitlist, lp/alpha for founding, /recipes/[slug] for recipe.\n\n' +
+    'Slug format: lp/waitlist-a for waitlist, lp/alpha for founding, /recipes/[slug] for recipe.\n' +
+    'FOUNDING OFFER: founding_offer field must be exactly: "Lock in $7.99/month founding price — 60% off forever". Never "50% off" in any form.\n' +
+    'AGITATE BLOCK: agitate_block must name the specific cost from the theme (e.g. "$25 in DoorDash when tacos were already in the fridge"). Never use vague language like "feel guilty about the cost". Use the exact dollar figure.\n' +
+    'SUBHEADLINE RULE: subheadline must NOT claim existing member counts. Do not write "Join X families" or "Join 5,000 families" — 5,000 is the founding member cap, not a current count. Use benefit copy instead.\n\n'
 
     'PROOF BAR RULE — CRITICAL:\n' +
     'Return exactly these strings in the proof_bar array. No additions, no prefixes, no paraphrasing:\n' +
@@ -155,7 +160,7 @@ function campaignKickstart(prompt) {
 
     'Detect from prompt: channels (array, lowercase) | theme (recurring series name or "") | ' +
     'publish_day (day name or "") | campaign_angle (savings/speed/waste/proof/urgency/theme) | ' +
-    'urgency_trigger (scarcity sentence, default "Founding price $7.99/month ends at 5,000 families").\n\n' +
+    'urgency_trigger (scarcity sentence — for A-Waitlist use theme urgency_trigger or "Free during beta — app launches July 1"; for founding use "Founding price $7.99/month ends at 5,000 families").\n\n' +
 
     (themeContext ? themeContext + '\n' : '') +
 
