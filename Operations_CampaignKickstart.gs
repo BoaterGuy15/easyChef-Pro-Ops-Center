@@ -48,7 +48,7 @@ function _getKsSheetData() {
 // ── Key normalizer ────────────────────────────────────────────────────────────
 // Maps whatever key names Claude invents to the 29 parser-expected keys,
 // then fills in missing fields from related fields or safe defaults.
-function _normalizeKsFields(c, sheetData) {
+function _normalizeKsFields(c, sheetData, lpLockedStr) {
   if (!c) return c;
 
   // Rename common aliases → correct parser keys
@@ -159,8 +159,11 @@ function _normalizeKsFields(c, sheetData) {
   if (!c.email_sequences) c.email_sequences = 2;
   if (!c.email_variants)  c.email_variants  = 2;
 
-  // campaign_angle — default by theme
-  if (!c.campaign_angle) {
+  // campaign_angle — LP locked always wins; theme-based default if no LP
+  var _lpAngleMatch = lpLockedStr ? lpLockedStr.match(/angle=([\w]+)/i) : null;
+  if (_lpAngleMatch && _lpAngleMatch[1]) {
+    c.campaign_angle = _lpAngleMatch[1].toLowerCase();
+  } else if (!c.campaign_angle) {
     var th2 = (c.theme || '').toLowerCase();
     c.campaign_angle = (th2.indexOf('taco') > -1) ? 'speed' : 'savings';
   }
@@ -399,7 +402,7 @@ function campaignKickstart(prompt) {
       var lb = jsonStr.lastIndexOf('}');
       if (lb > -1) jsonStr = jsonStr.slice(0, lb + 1);
       campaign = JSON.parse(jsonStr);
-      campaign = _normalizeKsFields(campaign, sheetData);
+      campaign = _normalizeKsFields(campaign, sheetData, _lpLocked);
       // Path A override — LP selection locks the waitlist urgency message
       if (_lpLocked && campaign) {
         campaign.urgency_trigger = 'Free during beta — app launches July 1';
