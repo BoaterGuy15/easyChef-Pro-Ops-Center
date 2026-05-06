@@ -225,6 +225,10 @@ function getMasterSystemPrompt(type, context) {
   try { claimsCtx = _getClaimsContext(); }
   catch(e) { claimsCtx = 'Use only approved claims. Do not invent statistics.\n\n'; }
   claimsCtx += 'FOUNDING OFFER RULE: founding_offer field must use exact wording: "Lock in $7.99/month founding price — 60% off forever". Never write "50% off" in any form.\n\n';
+  claimsCtx += 'PROOF BAR RULE: proof_bar is always an array of exactly 3 items.\n' +
+    '  Item 1 — creative social proof statement generated per campaign. Style: "Busy families are already..." or similar descriptive trust language. NEVER a stat. NEVER a percentage. NEVER a dollar amount. NEVER an invented user count. Descriptive trust language only.\n' +
+    '  Item 2 — exact wording always: "69.5% less food waste"\n' +
+    '  Item 3 — exact wording always: "30 minutes fridge to table"\n\n';
   var icpCtx = '';
   try { icpCtx = _getIcpContext(ctx.icp_code || ctx.icp || ''); }
   catch(e) { icpCtx = 'ICP: ' + (ctx.icp_code || '') + '\n'; }
