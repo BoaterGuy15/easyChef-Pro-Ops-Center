@@ -22754,10 +22754,11 @@ function _ccBuildSocialBtnLabel(){
 }
 
 var _CC_EMAIL_SEQ_DEFS=[
-  {key:'SEQ-1',label:'SEQ-1 Welcome', days:'Days 0–5',  defaultCount:3},
-  {key:'SEQ-2',label:'SEQ-2 Nurture', days:'Days 7–25', defaultCount:5},
-  {key:'SEQ-3',label:'SEQ-3 Urgency', days:'Days 28–40',defaultCount:3},
-  {key:'SEQ-4',label:'SEQ-4 Launch Day',days:'Day 42',  defaultCount:2}
+  {key:'SEQ-1',label:'SEQ-1 Welcome',    days:'Days 0–5',  defaultCount:3},
+  {key:'SEQ-2',label:'SEQ-2 Nurture',    days:'Days 7–25', defaultCount:5},
+  {key:'SEQ-3',label:'SEQ-3 Urgency',    days:'Days 28–40',defaultCount:3},
+  {key:'SEQ-4',label:'SEQ-4 Launch Day', days:'Day 42',    defaultCount:2},
+  {key:'SEQ-5',label:'SEQ-5 Campaign',   days:'Days 2–9',  defaultCount:4}
 ];
 var _ccEmailOpts=null; // {sequences:{SEQ-1:{label,days,enabled,count},...},variants:'AB'|'A'}
 
@@ -22766,7 +22767,8 @@ function _ccInitEmailOpts(){
   var numVars=parseInt(_campBrief.email_variants)||2;
   _ccEmailOpts={sequences:{},variants:numVars>=2?'AB':'A'};
   _CC_EMAIL_SEQ_DEFS.forEach(function(def,i){
-    _ccEmailOpts.sequences[def.key]={label:def.label,days:def.days,enabled:i<numSeqs,count:def.defaultCount};
+    var enabled=def.key==='SEQ-5'?!!((_campBrief&&_campBrief.theme)):i<numSeqs;
+    _ccEmailOpts.sequences[def.key]={label:def.label,days:def.days,enabled:enabled,count:def.defaultCount};
   });
 }
 function _ccEmailOptChange(key,type,val){
@@ -22801,6 +22803,7 @@ function _ccBuildSectionBButtons(){
         '<label for="cc-sopt-cb-'+k+'" style="font-size:11px;font-weight:700;color:var(--text);cursor:pointer;min-width:88px;font-family:\'DM Mono\',monospace">'+ch+'</label>'+
         '<input type="number" id="cc-sopt-ct-'+k+'" value="'+_ccGetChCount(ch)+'" min="1" max="20" onchange="_ccSocialOptChange(\''+k+'\',\'count\',Math.max(1,parseInt(this.value)||1))" style="width:50px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;font-family:\'DM Mono\',monospace;text-align:center">'+
         '<span style="font-size:10px;color:var(--muted)">posts</span>'+
+        '<span id="cc-sopt-status-'+k+'" style="font-size:10px;color:var(--muted);margin-left:4px"></span>'+
       '</div>';
     }).join('');
     btns+='<div style="width:100%;margin-bottom:12px">'+
@@ -22819,12 +22822,14 @@ function _ccBuildSectionBButtons(){
     var _seqRows=_CC_EMAIL_SEQ_DEFS.map(function(def){
       var st=_ccEmailOpts.sequences[def.key]||{};
       var k=def.key.replace('-','').toLowerCase();
+      var _seqLabel=def.key==='SEQ-5'?('SEQ-5 Campaign'+((_campBrief&&_campBrief.theme)?' — '+_campBrief.theme:'')):def.label;
       return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
         '<input type="checkbox" id="cc-eopt-cb-'+k+'" '+(st.enabled?'checked':'')+' onchange="_ccEmailOptChange(\''+def.key+'\',\'enabled\',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:'+_CC_RED+'">'+
-        '<label for="cc-eopt-cb-'+k+'" style="font-size:11px;font-weight:700;color:var(--text);cursor:pointer;min-width:116px;font-family:\'DM Mono\',monospace">'+def.label+'</label>'+
+        '<label for="cc-eopt-cb-'+k+'" style="font-size:11px;font-weight:700;color:var(--text);cursor:pointer;min-width:116px;font-family:\'DM Mono\',monospace">'+_seqLabel+'</label>'+
         '<span style="font-size:10px;color:var(--muted);min-width:66px">'+def.days+'</span>'+
         '<input type="number" id="cc-eopt-ct-'+k+'" value="'+st.count+'" min="1" max="10" onchange="_ccEmailOptChange(\''+def.key+'\',\'count\',Math.max(1,parseInt(this.value)||1))" style="width:50px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;font-family:\'DM Mono\',monospace;text-align:center">'+
         '<span style="font-size:10px;color:var(--muted)">emails</span>'+
+        '<span id="cc-eopt-status-'+k+'" style="font-size:10px;color:var(--muted);margin-left:4px"></span>'+
       '</div>';
     }).join('');
     var _varRow='<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">'+
@@ -22869,6 +22874,8 @@ function _ccBuildSocialWithOpts(){
       return;
     }
     var opt=active[i];
+    var _statusEl=document.getElementById('cc-sopt-status-'+opt.name.toLowerCase());
+    if(_statusEl){_statusEl.style.color='var(--muted)';_statusEl.textContent='Building…';}
     var _brf;
     try{_brf=_ccExtendBriefWithTheme(JSON.parse(JSON.stringify(_campBrief)));}
     catch(e){_brf=Object.assign({},_campBrief);}
@@ -22890,15 +22897,18 @@ function _ccBuildSocialWithOpts(){
           _ccLastPosts=_allPosts;
           var out=document.getElementById('cc-ks-social-output');
           if(out) _ccRenderSocialPosts(_allPosts,out,_campBrief.channel);
+          if(_statusEl){_statusEl.style.color='#22c55e';_statusEl.textContent='✓ '+opt.name+' — '+d.posts.length+' posts ready';}
         } else if(!d.ok){
           var out=document.getElementById('cc-ks-social-output');
           if(out) out.insertAdjacentHTML('beforeend','<div style="padding:8px 16px;font-size:11px;color:var(--red)">'+opt.name+' build failed: '+(d.error||'unknown error')+'</div>');
+          if(_statusEl){_statusEl.style.color='var(--red)';_statusEl.textContent='✗ Failed — retry';}
         }
         _buildNext(i+1);
       })
       .catch(function(e){
         var out=document.getElementById('cc-ks-social-output');
         if(out) out.insertAdjacentHTML('beforeend','<div style="padding:8px 16px;font-size:11px;color:var(--red)">'+opt.name+' request failed: '+e.message+'</div>');
+        if(_statusEl){_statusEl.style.color='var(--red)';_statusEl.textContent='✗ Failed — retry';}
         _buildNext(i+1);
       });
   }
@@ -23252,11 +23262,12 @@ function _ccRenderEmailSequence(sequence,container){
     return;
   }
   var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-  var seqGroups={'SEQ-1':[],'SEQ-2':[],'other':[]};
+  var seqGroups={'SEQ-1':[],'SEQ-2':[],'SEQ-5':[],'other':[]};
   sequence.forEach(function(e){
     var id=String(e.seq_id||'');
     if(id.indexOf('SEQ-1')===0) seqGroups['SEQ-1'].push(e);
     else if(id.indexOf('SEQ-2')===0) seqGroups['SEQ-2'].push(e);
+    else if(id.indexOf('SEQ-5')===0) seqGroups['SEQ-5'].push(e);
     else seqGroups['other'].push(e);
   });
   var renderEmail=function(email){
@@ -23289,13 +23300,23 @@ function _ccRenderEmailSequence(sequence,container){
       '<button id="cc-klaviyo-push-btn" disabled title="Approve sequence first" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;opacity:0.45">Push to Klaviyo</button>'+
       '<span id="cc-email-approve-status" style="font-size:11px;color:var(--muted)"></span>'+
     '</div>';
+  var _seq5RenderLabel='SEQ-5 Campaign'+((_campBrief&&_campBrief.theme)?' — '+_campBrief.theme:'')+' (Days 2–9)';
   container.innerHTML=
     '<div style="border-top:1px solid var(--border)">'+
     renderGroup('SEQ-1 — Welcome Sequence (Days 0–5)',seqGroups['SEQ-1'])+
     renderGroup('SEQ-2 — Nurture Sequence (Days 7–25)',seqGroups['SEQ-2'])+
+    renderGroup(_seq5RenderLabel,seqGroups['SEQ-5'])+
     renderGroup('Additional Emails',seqGroups['other'])+
     actionBar+
     '</div>';
+  _CC_EMAIL_SEQ_DEFS.forEach(function(def){
+    var k=def.key.replace('-','').toLowerCase();
+    var grp=seqGroups[def.key]||[];
+    var el=document.getElementById('cc-eopt-status-'+k);
+    if(!el) return;
+    if(grp.length){el.style.color='#22c55e';el.textContent='✓ '+grp.length+' ready';}
+    else{el.style.color='var(--muted)';el.textContent='';}
+  });
 }
 function _ccExportEmailToDrive(){
   _showToast('<div style="font-size:12px;color:var(--muted)">Drive export — coming soon</div>',2500);
