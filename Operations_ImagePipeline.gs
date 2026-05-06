@@ -141,7 +141,8 @@ function generateImagePrompt(body) {
       '4. Composition + camera angle — framing style, depth of field, foreground versus background relationship\n' +
       '5. Style reference — photorealistic, candid editorial family photography, warm and authentic, never stock-photo aesthetic\n' +
       '6. Negative prompt — one sentence beginning with "Do not include:" listing what must be absent (blue or cool tones, studio lighting, posed smiles, fake backgrounds, text overlays)\n' +
-      'Output only the prose. No markdown, no section labels, no explanation.';
+      'Output only the prose. No markdown, no section labels, no explanation.\n\n' +
+      'EMOTIONAL PROGRESSION RULE: The 7 posts in this campaign tell an emotional journey from exhausted and defeated (Post 1 hook) to genuinely happy and at peace (Post 7 cta). Each image must show the correct emotion for its stage. The same character becomes progressively happier and more confident as the campaign progresses. The CTA image is the emotional payoff — show the feeling the product delivers, not the product itself.';
 
     var claudeUserMsg =
       'Platform: '              + platform   + '\n' +

@@ -22850,22 +22850,56 @@ function _ccAutoImageBrief(post,brief){
   var stage=(post.funnel_stage||'hook').toLowerCase();
   var theme=(brief&&brief.theme)||'';
   var stageScenes={
-    hook:'A mom in her mid-30s in a warm kitchen, surprised and delighted expression, holding her phone showing the easyChef Pro app',
-    problem:'A tired mom at 6:30 PM staring into the open fridge, looking overwhelmed, cluttered kitchen counter behind her',
-    agitate:'A frustrated mom looking at expensive takeout on the counter next to produce going bad, exhausted expression',
-    solve:'A relaxed mom smiling at her phone showing the easyChef Pro app, standing comfortably in the kitchen',
-    value:'A happy family gathered at the dinner table eating together, mom looking proud and at ease',
-    proof:'A mom looking pleasantly surprised at her phone showing savings in the easyChef Pro app',
-    cta:'A confident mom holding her phone showing the easyChef Pro app, warm kitchen in the background'
+    hook:{
+      scene:'A mom in her mid-30s in a warm kitchen at 6:30 PM. She is staring into an open fridge looking tired and overwhelmed — the weight of the day on her face. The kitchen is lived-in and real. Kids visible in background.',
+      emotion:'exhausted, defeated, recognisable — she is us'
+    },
+    problem:{
+      scene:'Same mom, same kitchen. She is looking at her phone with a slightly frustrated expression — a food delivery app open, finger hovering. She knows this is not the answer but she is out of options. Food in the fridge going to waste behind her.',
+      emotion:'stuck, resigned, relatable guilt'
+    },
+    agitate:{
+      scene:'Close-up of the open fridge — wilted spinach, half-used ingredients, items past their best. Or the mom looking at a grocery receipt with a tired expression. The waste is visible and specific.',
+      emotion:'the cost of the problem made real and visible'
+    },
+    solve:{
+      scene:'The moment of discovery. The mom is looking at her phone — easyChef Pro open — and her expression is shifting. Eyebrows lifting slightly. A hint of surprise and relief. The fridge is still full but now it looks different to her.',
+      emotion:'the penny dropping, this could actually work'
+    },
+    value:{
+      scene:'The mom is at the stove, relaxed posture, one hand stirring, phone propped up showing easyChef Pro. She looks calm and in control. Kids setting the table in the background. The kitchen feels warm.',
+      emotion:'competent, relieved, proud'
+    },
+    proof:{
+      scene:'The family at the dinner table. The food is on the table — real, appetising. The mom is smiling — not a posed smile, a real one. Kids eating. Partner reaching for seconds.',
+      emotion:'belonging, success, this is what a good evening feels like'
+    },
+    cta:{
+      scene:'The mom on the couch after dinner. Phone in hand showing easyChef Pro. Kids are settled. Kitchen is clean behind her. She looks genuinely happy and at ease — the kind of peace that comes from having handled it.',
+      emotion:'pure relief and satisfaction — this is the feeling the product delivers'
+    }
   };
-  var scene=stageScenes[stage]||stageScenes.hook;
-  var themeFood='';
+  var s=stageScenes[stage]||stageScenes.hook;
   var tl=theme.toLowerCase();
-  if(tl.indexOf('taco')>-1) themeFood=' Crispy taco shells filled with seasoned meat, salsa, lime, and toppings are visible on a plate on the counter or table.';
-  else if(tl.indexOf('meal prep')>-1) themeFood=' Multiple meal prep containers with colourful food are visible on the counter.';
-  else if(tl.indexOf('pizza')>-1) themeFood=' A pizza is visible on the counter or table.';
-  else if(tl.indexOf('pasta')>-1) themeFood=' A pasta dish is visible on the counter or table.';
-  return scene+themeFood+' Warm natural lighting, no blue or navy tones. The phone shows the easyChef Pro red-accented interface. Candid family photography style, not staged.';
+  var themeFood='';
+  if(tl.indexOf('taco')>-1){
+    var tacoStage={
+      solve:' A plate of tacos is visible on the counter — crispy shells, filling prepped, ready to assemble.',
+      value:' She is assembling tacos — shells out, toppings in bowls, kids watching.',
+      proof:' The table has a full spread of tacos — crispy shells, seasoned meat, salsa, lime wedges, the works. Real food, not stock photography.',
+      cta:' A half-eaten plate of tacos sits on the counter. Taco Tuesday nailed.'
+    };
+    themeFood=tacoStage[stage]||' Tacos are visible on the counter or table — crispy shells with meat and toppings.';
+  } else if(tl.indexOf('meal prep')>-1){
+    themeFood=' Multiple meal prep containers with colourful food are visible on the counter.';
+  } else if(tl.indexOf('pizza')>-1){
+    themeFood=' A pizza is visible on the counter or table.';
+  } else if(tl.indexOf('pasta')>-1){
+    themeFood=' A pasta dish is visible on the counter or table.';
+  }
+  return s.scene+themeFood+
+    '\n\nEmotion this image must convey: '+s.emotion+'.'+
+    '\nPhotography style: warm candid family photography. Never staged. Never stock. Real kitchen, real people, real moment. No blue or navy anywhere. Warm natural lighting.';
 }
 
 function _ccRenderImagePanel(pNum,prefix,post){
