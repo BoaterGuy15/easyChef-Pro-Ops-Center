@@ -22916,31 +22916,23 @@ function _ccKsSelectLp(slug,campaignId,headline){
   // Mark selection in the LP results panel
   var res=document.getElementById('cc-ks-lp-results');
   if(res){
-    var existing=res.querySelector('.ks-lp-selected');
-    if(existing) existing.remove();
-    var notice=document.createElement('div');
-    notice.className='ks-lp-selected';
-    notice.style.cssText='margin-top:10px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:6px;font-size:11px;color:#22c55e;font-family:\'DM Mono\',monospace';
-    notice.textContent='✓ LP selected: easychefpro.com/'+slug;
-    res.appendChild(notice);
+    var _sd=slug.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    var _eicp=(_campBrief.icp||'').replace(/'/g,"\\'");
+    res.innerHTML=
+      '<div style="padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:6px;font-size:11px;color:#22c55e;font-family:\'DM Mono\',monospace;margin-bottom:12px">'+
+        '✓ LP locked: easychefpro.com/'+_sd+
+        ' &nbsp;<span onclick="_ccKsLpSearch(\''+_eicp+'\')" style="cursor:pointer;color:var(--muted);font-size:10px;text-decoration:underline">Edit</span>'+
+      '</div>'+
+      '<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Campaign Kickstart</button>';
   }
   _showToast('<div style="color:#22c55e;font-size:12px">Landing page selected: /'+slug+'</div>',2500);
-  // Update persistent footer and enable next button
   _ccUpdateLpFooter(slug);
-  // Show inline next-step button inside the results panel (FIX 2)
-  if(res){
-    var _prevNext=res.querySelector('.ks-lp-next');
-    if(_prevNext) _prevNext.remove();
-    var _nextWrap=document.createElement('div');
-    _nextWrap.className='ks-lp-next';
-    _nextWrap.style.cssText='margin-top:12px';
-    _nextWrap.innerHTML='<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Campaign Kickstart</button>';
-    res.appendChild(_nextWrap);
-  }
 }
 
 // Build a new LP via Claude — populates cc-ks-lp-output
 function _ccKsBuildLp(){
+  var _resList=document.getElementById('cc-ks-lp-results');
+  if(_resList) _resList.style.display='none';
   var out=document.getElementById('cc-ks-lp-output');
   if(out) out.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">Building landing page copy…</div>';
   if(!CONFIG.sheetsUrl) return;
