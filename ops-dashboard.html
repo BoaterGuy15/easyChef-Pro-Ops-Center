@@ -22728,42 +22728,126 @@ function _ccBadge2(n){
 var _CC_CH_POST_COUNTS={facebook:7,instagram:7,tiktok:7,pinterest:5,nextdoor:3};
 function _ccGetChCount(name){return _CC_CH_POST_COUNTS[(name||'').toLowerCase()]||(_campBrief.post_count||7);}
 
+var _ccSocialChOpts=null; // {channelLower:{name,enabled,count}} — per-build overrides
+
+function _ccInitSocialOpts(){
+  var chs=(_campBrief.channels||[]).filter(function(c){var l=c.toLowerCase();return l!=='email'&&l!=='push notifications';});
+  _ccSocialChOpts={};
+  chs.forEach(function(ch){
+    var k=ch.toLowerCase();
+    _ccSocialChOpts[k]={name:ch,enabled:true,count:_ccGetChCount(ch)};
+  });
+}
+function _ccSocialOptChange(chKey,type,val){
+  if(!_ccSocialChOpts||!_ccSocialChOpts[chKey]) return;
+  _ccSocialChOpts[chKey][type]=val;
+  var lbl=document.getElementById('cc-ks-social-btn-label');
+  if(lbl) lbl.textContent=_ccBuildSocialBtnLabel();
+}
+function _ccBuildSocialBtnLabel(){
+  if(!_ccSocialChOpts) return 'Generate Social Posts';
+  var active=Object.keys(_ccSocialChOpts).filter(function(k){return _ccSocialChOpts[k].enabled;}).map(function(k){return _ccSocialChOpts[k];});
+  if(!active.length) return 'Select a channel';
+  var total=active.reduce(function(s,o){return s+(o.count||0);},0);
+  var parts=active.map(function(o){return o.name+' ('+o.count+')';}).join(' + ');
+  return 'Generate '+total+' Posts → '+parts;
+}
+
 function _ccBuildSectionBButtons(){
   var chs=_campBrief.channels||[];
   var socialChs=chs.filter(function(c){var l=c.toLowerCase();return l!=='email'&&l!=='push notifications';});
   var hasEmail=chs.some(function(c){return c.toLowerCase()==='email';});
   var hasPush=chs.some(function(c){return c.toLowerCase()==='push notifications';});
-  var btnStyle='padding:8px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin:0 8px 8px 0';
-  var btns='<div style="display:flex;flex-wrap:wrap;gap:0;align-items:center;margin-bottom:4px">';
-  if(socialChs.length===1){
-    var ch=socialChs[0];
-    var chCt=_ccGetChCount(ch);
-    btns+='<div style="margin:0 8px 8px 0">'+
-      '<button onclick="_ccKsBuildAssets(\'build_social_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+';margin:0">Generate '+ch+' Posts → '+chCt+' posts</button>'+
-      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Each post has image controls and a Generate Image button</div>'+
+  var btnStyle='padding:8px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin:0';
+  var btns='<div style="display:flex;flex-wrap:wrap;gap:0;align-items:flex-start;margin-bottom:4px">';
+  if(socialChs.length){
+    _ccInitSocialOpts();
+    var ctrlRows=socialChs.map(function(ch){
+      var k=ch.toLowerCase();
+      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+        '<input type="checkbox" id="cc-sopt-cb-'+k+'" checked onchange="_ccSocialOptChange(\''+k+'\',\'enabled\',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:'+_CC_RED+'">'+
+        '<label for="cc-sopt-cb-'+k+'" style="font-size:11px;font-weight:700;color:var(--text);cursor:pointer;min-width:88px;font-family:\'DM Mono\',monospace">'+ch+'</label>'+
+        '<input type="number" id="cc-sopt-ct-'+k+'" value="'+_ccGetChCount(ch)+'" min="1" max="20" onchange="_ccSocialOptChange(\''+k+'\',\'count\',Math.max(1,parseInt(this.value)||1))" style="width:50px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;font-family:\'DM Mono\',monospace;text-align:center">'+
+        '<span style="font-size:10px;color:var(--muted)">posts</span>'+
+      '</div>';
+    }).join('');
+    btns+='<div style="width:100%;margin-bottom:12px">'+
+      '<div style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px">'+
+        '<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Build Controls</div>'+
+        ctrlRows+
+      '</div>'+
     '</div>';
-  } else if(socialChs.length>1){
-    var _totalPosts=socialChs.reduce(function(s,c){return s+_ccGetChCount(c);},0);
-    var _chParts=socialChs.map(function(c){return c+' ('+_ccGetChCount(c)+')';}).join(' + ');
-    btns+='<div style="margin:0 8px 8px 0">'+
-      '<button onclick="_ccKsBuildAssets(\'build_multi_channel_posts\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+';margin:0">Generate '+_totalPosts+' Social Posts → '+_chParts+'</button>'+
+    btns+='<div style="margin:0 12px 8px 0">'+
+      '<button onclick="_ccBuildSocialWithOpts()" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+'"><span id="cc-ks-social-btn-label">'+_ccBuildSocialBtnLabel()+'</span></button>'+
       '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Each post has image controls and a Generate Image button</div>'+
     '</div>';
   }
   if(hasEmail){
-    btns+='<div style="margin:0 8px 8px 0">'+
-      '<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+';margin:0">Generate Email Sequence → SEQ-1 E1 + SEQ-2 E1 · 2 preview emails</button>'+
+    btns+='<div style="margin:0 12px 8px 0">'+
+      '<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+'">Generate Email Sequence → SEQ-1 E1 + SEQ-2 E1 · 2 preview emails</button>'+
       '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Approve format before building full 8-email sequence · Subject line A/B variants included</div>'+
     '</div>';
   }
   if(hasPush){
-    btns+='<button onclick="_ccKsBuildAssets(\'build_push_notifications\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+'">Build Push Copy (3 notifications)</button>';
+    btns+='<button onclick="_ccKsBuildAssets(\'build_push_notifications\')" style="background:transparent;border:1px solid var(--border);color:var(--text);'+btnStyle+';margin:0 12px 8px 0">Build Push Copy (3 notifications)</button>';
   }
   if(!socialChs.length&&!hasEmail&&!hasPush){
     btns+='<span style="font-size:11px;color:var(--muted)">Select channels above to unlock asset building.</span>';
   }
   btns+='</div>';
   return btns;
+}
+
+function _ccBuildSocialWithOpts(){
+  if(!_ccSocialChOpts) return;
+  var active=Object.keys(_ccSocialChOpts).filter(function(k){return _ccSocialChOpts[k].enabled;}).map(function(k){return _ccSocialChOpts[k];});
+  if(!active.length){_showToast('<div style="font-size:12px">Select at least one channel.</div>',2000);return;}
+  var allBtns=document.querySelectorAll('#cc-ks-section-b-buttons button');
+  allBtns.forEach(function(b){b.setAttribute('data-was-text',b.textContent);b.disabled=true;b.textContent='Building…';});
+  var socialOut=document.getElementById('cc-ks-social-output');
+  if(socialOut) socialOut.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">Generating '+active.map(function(o){return o.name+' posts';}).join(', then ')+'…</div>';
+  if(!CONFIG.sheetsUrl){allBtns.forEach(function(b){b.textContent=b.getAttribute('data-was-text')||b.textContent;b.disabled=false;});return;}
+  var _allPosts=[];
+  function _buildNext(i){
+    if(i>=active.length){
+      allBtns.forEach(function(b){b.textContent=b.getAttribute('data-was-text')||b.textContent;b.disabled=false;});
+      return;
+    }
+    var opt=active[i];
+    var _brf;
+    try{_brf=_ccExtendBriefWithTheme(JSON.parse(JSON.stringify(_campBrief)));}
+    catch(e){_brf=Object.assign({},_campBrief);}
+    _brf.channel=opt.name;
+    _brf.post_count=opt.count;
+    _brf.channels=[opt.name];
+    var _chd=(_ccChannels||[]).find(function(c){return c.name===opt.name;})||{};
+    _brf.platform_optimal_chars=_chd.optimal_chars||'';
+    _brf.use_hashtags=_chd.use_hashtags||false;
+    _brf.hashtag_count_min=_chd.hashtag_count_min||0;
+    _brf.hashtag_count_max=_chd.hashtag_count_max||0;
+    _brf.content_format=_chd.content_format||'post';
+    _brf.link_placement=_chd.link_placement||'';
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'build_social_posts',brief:_brf,copy:_campKickstartCopy||{}})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.ok&&d.posts&&d.posts.length){
+          _allPosts=_allPosts.concat(d.posts);
+          _ccLastPosts=_allPosts;
+          var out=document.getElementById('cc-ks-social-output');
+          if(out) _ccRenderSocialPosts(_allPosts,out,_campBrief.channel);
+        } else if(!d.ok){
+          var out=document.getElementById('cc-ks-social-output');
+          if(out) out.insertAdjacentHTML('beforeend','<div style="padding:8px 16px;font-size:11px;color:var(--red)">'+opt.name+' build failed: '+(d.error||'unknown error')+'</div>');
+        }
+        _buildNext(i+1);
+      })
+      .catch(function(e){
+        var out=document.getElementById('cc-ks-social-output');
+        if(out) out.insertAdjacentHTML('beforeend','<div style="padding:8px 16px;font-size:11px;color:var(--red)">'+opt.name+' request failed: '+e.message+'</div>');
+        _buildNext(i+1);
+      });
+  }
+  _buildNext(0);
 }
 
 function _ccRenderKickstartAssets(campaign){
