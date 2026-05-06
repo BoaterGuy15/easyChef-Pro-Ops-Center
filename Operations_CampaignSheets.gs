@@ -136,7 +136,8 @@ var _CC_HDR = {
     'blueprint_code','campaign_angle',
     'urgency_trigger','image_mood_hook',
     'image_mood_cta','active','notes',
-    'app_feature','app_screen_label','feature_hook','feature_proof'
+    'app_feature','app_screen_label','feature_hook','feature_proof',
+    'persona_rotation'
   ]
 };
 
@@ -408,7 +409,8 @@ function _seedThemeLibrary(sheet) {
      'true','Primary Taco Tuesday theme — highest resonance',
      'COOK','Recipe page',
      'Tell us what is in your fridge. Get Taco Tuesday in 30 minutes.',
-     '10,000 recipe pages at launch · 800,000 products in database'],
+     '10,000 recipe pages at launch · 800,000 products in database',
+     '1: Last-Minute Dinner Fixer (6:30 PM panic — she has tacos in the fridge and does not know it) | 2: Takeout Trap (orders DoorDash instead of using the $8 of ingredients already there) | 3: Fridge Full (has everything for Taco Tuesday but no plan and no idea what to make) | 4: Routine Builder (wants Taco Tuesday on autopilot every week without thinking) | 5: Budget-Conscious Shopper ($30 DoorDash receipt next to $8 of unused taco ingredients is the wake-up call)'],
     ['sm-002','super_mom','Meal Prep Sunday','meal-prep-sunday','weekend-wins',
      'Sunday anxiety about the week ahead',
      'Monday morning with a full plan and a clean fridge',
@@ -470,8 +472,9 @@ function _tlRowToObj(r) {
     notes: r[19],
     app_feature:      r[20] || '',
     app_screen_label: r[21] || '',
-    feature_hook:     r[22] || '',
-    feature_proof:    r[23] || ''
+    feature_hook:      r[22] || '',
+    feature_proof:     r[23] || '',
+    persona_rotation:  r[24] || ''
   };
 }
 
