@@ -23313,9 +23313,10 @@ function _ccRenderEmailSequence(sequence,container){
   _CC_EMAIL_SEQ_DEFS.forEach(function(def){
     var k=def.key.toLowerCase();
     var grp=seqGroups[def.key]||[];
+    var seqEnabled=_ccEmailOpts&&_ccEmailOpts.sequences[def.key]&&_ccEmailOpts.sequences[def.key].enabled;
     var el=document.getElementById('cc-eopt-status-'+k);
     if(!el) return;
-    if(grp.length){el.style.color='#22c55e';el.textContent='✓ '+grp.length+' ready';}
+    if(grp.length&&seqEnabled){el.style.color='#22c55e';el.textContent='✓ '+grp.length+' ready';}
     else{el.style.color='var(--muted)';el.textContent='';}
   });
 }
