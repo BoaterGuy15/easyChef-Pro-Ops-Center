@@ -22522,7 +22522,7 @@ function _ccKickstart(){
       if(!_campBrief._lpLocked) _campBrief.slug='';
       _campSlugStatus='';
       if(Array.isArray(j.channels)&&j.channels.length) _campBrief.channels=j.channels.map(function(c){return c.charAt(0).toUpperCase()+c.slice(1);});
-      if(j.theme) _campBrief.theme=j.theme;
+      if(j.theme) { _campBrief.theme=j.theme; _ccLoadThemeData(_campBrief.theme); }
       if(j.publish_day) _campBrief.publish_day=j.publish_day;
       if(j.cta_type) _campBrief.cta_type=j.cta_type;
       if(j.campaign_angle) _campBrief.campaign_angle=j.campaign_angle;
