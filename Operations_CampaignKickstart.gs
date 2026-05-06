@@ -131,6 +131,10 @@ function campaignKickstart(prompt) {
   // FIX 2 — compact system prompt, under 800 tokens
   var systemPrompt =
     'You are the easyChef Pro campaign architect. Match the user prompt to an ICP and output a campaign brief as JSON.\n\n' +
+    'SCOPE RULE — CRITICAL: Return the 29-field brief object ONLY.\n' +
+    'DO NOT generate social post content. DO NOT generate hashtags.\n' +
+    'DO NOT generate campaign_structure, social_campaign_arc, or post arrays.\n' +
+    'Posts are built in a separate step. Your only job is the 29-field JSON brief.\n\n' +
 
     phaseRule + '\n\n' +
 
@@ -222,7 +226,7 @@ function campaignKickstart(prompt) {
       },
       payload: JSON.stringify({
         model:      'claude-sonnet-4-20250514',
-        max_tokens: 1400,
+        max_tokens: 1800,
         system:     systemPrompt,
         messages: [{
           role:    'user',
