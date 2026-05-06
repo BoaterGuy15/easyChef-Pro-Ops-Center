@@ -21368,7 +21368,8 @@ function _ccRenderThemeCards(themes, selected) {
           (t.app_screen_label?'<span style="font-size:9px;color:var(--muted);padding:1px 5px;border:1px solid var(--border);border-radius:3px">'+t.app_screen_label+'</span>':'')+
         '</div>'
       : '';
-    return '<div onclick="_ccSelectTheme(\''+nameEsc+'\',\''+dayEsc+'\',\''+angEsc+'\',\''+urgEsc+'\')" '+
+    var _td=JSON.stringify(t).replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return '<div data-theme="'+_td+'" onclick="_ccSelectTheme(\''+nameEsc+'\',\''+dayEsc+'\',\''+angEsc+'\',\''+urgEsc+'\',JSON.parse(this.dataset.theme))" '+
       'style="cursor:pointer;padding:8px 12px;border-radius:6px;border:1px solid '+(active?_CC_RED:'var(--border)')+';background:'+(active?'rgba(255,0,0,0.06)':'var(--surface)')+';transition:border-color 0.15s,background 0.15s;flex-shrink:0;max-width:220px">'+
       '<div style="font-size:12px;font-weight:700;color:'+(active?_CC_RED:'var(--text)')+';margin-bottom:2px">'+t.theme_name+'</div>'+
       '<div style="font-size:10px;color:var(--muted);line-height:1.4">'+(t.category||'')+(t.publish_day?' · '+t.publish_day:'')+'</div>'+
@@ -21379,16 +21380,20 @@ function _ccRenderThemeCards(themes, selected) {
   }).join('');
 }
 
-function _ccSelectTheme(name, publishDay, angle, urgency) {
+function _ccSelectTheme(name, publishDay, angle, urgency, themeObj) {
   _campBrief.theme = name;
   if(publishDay) _campBrief.publish_day = publishDay;
   if(angle)      _campBrief.campaign_angle = angle;
   if(urgency)    _campBrief.urgency_trigger = urgency;
-  // Resolve full theme object from cache
-  var icp = _campBrief.icp ? _campBrief.icp.toLowerCase().replace(/\s+/g,'_') : '';
-  var themes = _ccThemeLib[icp] || [];
-  _ccSelectedTheme = null;
-  for(var i=0;i<themes.length;i++){if(themes[i].theme_name===name){_ccSelectedTheme=themes[i];break;}}
+  // Use provided theme object directly if available, else resolve from cache
+  if(themeObj && typeof themeObj === 'object' && themeObj.theme_name) {
+    _ccSelectedTheme = themeObj;
+  } else {
+    var icp = _campBrief.icp ? _campBrief.icp.toLowerCase().replace(/\s+/g,'_') : '';
+    var themes = _ccThemeLib[icp] || [];
+    _ccSelectedTheme = null;
+    for(var i=0;i<themes.length;i++){if(themes[i].theme_name===name){_ccSelectedTheme=themes[i];break;}}
+  }
   _campBrief.themeData = _ccSelectedTheme;
   console.log('[THEME ROW LOADED]', JSON.stringify(_campBrief.themeData));
   // Update form fields
