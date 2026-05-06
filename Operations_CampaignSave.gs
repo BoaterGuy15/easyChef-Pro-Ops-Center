@@ -118,7 +118,42 @@ function saveCampaignDraft(body) {
       saved.posts = posts.length;
     }
 
-    return { ok: true, saved: saved };
+    // 5 — Auto-generate and activate UTMs when ML approved
+    var utms = [];
+    if ((brief.approved || brief.ml_approved) && brief.id) {
+      var _utmAssets = [];
+      if (lp && (lp.hero_headline || lp.solve_section)) {
+        _utmAssets.push({asset_name:'Landing Page',descriptor:'lp',asset_type:'lp'});
+      }
+      posts.forEach(function(p, i) {
+        var _descs = ['post1_hook','post2_problem','post3_solve','post4_proof','post5_urgency'];
+        _utmAssets.push({
+          asset_name:  'Post '+(i+1)+' — '+(p.hook||'').substring(0,40),
+          descriptor:   _descs[i] || ('post'+(i+1)),
+          asset_type:  'post'
+        });
+      });
+      if (_utmAssets.length) {
+        var _utmCode = (brief.name||brief.id||'').toLowerCase()
+          .replace(/['\-]/g,'').replace(/[^a-z0-9]+/g,'_')
+          .replace(/^_+|_+$/g,'').substring(0,50);
+        var _utmResult = generateUtmUrls({
+          brief: {id:brief.id, name:brief.name, channel:brief.channel, slug:brief.slug},
+          assets: _utmAssets,
+          utm_campaign: _utmCode,
+          force: true
+        });
+        if (_utmResult.ok && _utmResult.urls && _utmResult.urls.length) {
+          _utmResult.urls.forEach(function(u) {
+            setDlRegistryEntry({dl_id:u.dl_id, status:'ACTIVE'});
+            u.status = 'ACTIVE';
+          });
+          utms = _utmResult.urls;
+        }
+      }
+    }
+
+    return { ok: true, saved: saved, utms: utms };
 
   } catch (e) {
     return { ok: false, error: e.message };
