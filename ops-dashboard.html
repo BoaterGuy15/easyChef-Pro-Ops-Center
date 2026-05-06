@@ -22767,7 +22767,7 @@ function _ccInitEmailOpts(){
   var numVars=parseInt(_campBrief.email_variants)||2;
   _ccEmailOpts={sequences:{},variants:numVars>=2?'AB':'A'};
   _CC_EMAIL_SEQ_DEFS.forEach(function(def,i){
-    var enabled=def.key==='SEQ-5'?!!((_campBrief&&_campBrief.theme)):i<numSeqs;
+    var enabled=def.key==='SEQ-5'?!!((_ccSelectedTheme&&_ccSelectedTheme.theme_name)):i<numSeqs;
     _ccEmailOpts.sequences[def.key]={label:def.label,days:def.days,enabled:enabled,count:def.defaultCount};
   });
 }
@@ -22821,8 +22821,9 @@ function _ccBuildSectionBButtons(){
     _ccInitEmailOpts();
     var _seqRows=_CC_EMAIL_SEQ_DEFS.map(function(def){
       var st=_ccEmailOpts.sequences[def.key]||{};
-      var k=def.key.replace('-','').toLowerCase();
-      var _seqLabel=def.key==='SEQ-5'?('SEQ-5 Campaign'+((_campBrief&&_campBrief.theme)?' — '+_campBrief.theme:'')):def.label;
+      var k=def.key.toLowerCase();
+      var _seq5Name=(_ccSelectedTheme&&_ccSelectedTheme.theme_name)||'';
+      var _seqLabel=def.key==='SEQ-5'?('SEQ-5 Campaign'+(_seq5Name?' — '+_seq5Name:'')):def.label;
       return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
         '<input type="checkbox" id="cc-eopt-cb-'+k+'" '+(st.enabled?'checked':'')+' onchange="_ccEmailOptChange(\''+def.key+'\',\'enabled\',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:'+_CC_RED+'">'+
         '<label for="cc-eopt-cb-'+k+'" style="font-size:11px;font-weight:700;color:var(--text);cursor:pointer;min-width:116px;font-family:\'DM Mono\',monospace">'+_seqLabel+'</label>'+
@@ -23300,7 +23301,7 @@ function _ccRenderEmailSequence(sequence,container){
       '<button id="cc-klaviyo-push-btn" disabled title="Approve sequence first" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;opacity:0.45">Push to Klaviyo</button>'+
       '<span id="cc-email-approve-status" style="font-size:11px;color:var(--muted)"></span>'+
     '</div>';
-  var _seq5RenderLabel='SEQ-5 Campaign'+((_campBrief&&_campBrief.theme)?' — '+_campBrief.theme:'')+' (Days 2–9)';
+  var _seq5RenderLabel='SEQ-5 Campaign'+((_ccSelectedTheme&&_ccSelectedTheme.theme_name)?' — '+_ccSelectedTheme.theme_name:'')+' (Days 2–9)';
   container.innerHTML=
     '<div style="border-top:1px solid var(--border)">'+
     renderGroup('SEQ-1 — Welcome Sequence (Days 0–5)',seqGroups['SEQ-1'])+
@@ -23310,7 +23311,7 @@ function _ccRenderEmailSequence(sequence,container){
     actionBar+
     '</div>';
   _CC_EMAIL_SEQ_DEFS.forEach(function(def){
-    var k=def.key.replace('-','').toLowerCase();
+    var k=def.key.toLowerCase();
     var grp=seqGroups[def.key]||[];
     var el=document.getElementById('cc-eopt-status-'+k);
     if(!el) return;
