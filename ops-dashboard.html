@@ -22753,6 +22753,38 @@ function _ccBuildSocialBtnLabel(){
   return 'Generate '+total+' Posts → '+parts;
 }
 
+var _CC_EMAIL_SEQ_DEFS=[
+  {key:'SEQ-1',label:'SEQ-1 Welcome', days:'Days 0–5',  defaultCount:3},
+  {key:'SEQ-2',label:'SEQ-2 Nurture', days:'Days 7–25', defaultCount:5},
+  {key:'SEQ-3',label:'SEQ-3 Urgency', days:'Days 28–40',defaultCount:3},
+  {key:'SEQ-4',label:'SEQ-4 Launch Day',days:'Day 42',  defaultCount:2}
+];
+var _ccEmailOpts=null; // {sequences:{SEQ-1:{label,days,enabled,count},...},variants:'AB'|'A'}
+
+function _ccInitEmailOpts(){
+  var numSeqs=parseInt(_campBrief.email_sequences)||2;
+  var numVars=parseInt(_campBrief.email_variants)||2;
+  _ccEmailOpts={sequences:{},variants:numVars>=2?'AB':'A'};
+  _CC_EMAIL_SEQ_DEFS.forEach(function(def,i){
+    _ccEmailOpts.sequences[def.key]={label:def.label,days:def.days,enabled:i<numSeqs,count:def.defaultCount};
+  });
+}
+function _ccEmailOptChange(key,type,val){
+  if(!_ccEmailOpts) return;
+  if(type==='variant'){ _ccEmailOpts.variants=val; }
+  else if(key&&_ccEmailOpts.sequences[key]){ _ccEmailOpts.sequences[key][type]=val; }
+  var lbl=document.getElementById('cc-ks-email-btn-label');
+  if(lbl) lbl.textContent=_ccBuildEmailBtnLabel();
+}
+function _ccBuildEmailBtnLabel(){
+  if(!_ccEmailOpts) return 'Generate Email Sequence';
+  var active=_CC_EMAIL_SEQ_DEFS.filter(function(d){return _ccEmailOpts.sequences[d.key]&&_ccEmailOpts.sequences[d.key].enabled;}).map(function(d){return {key:d.key,count:_ccEmailOpts.sequences[d.key].count};});
+  if(!active.length) return 'Select a sequence';
+  var total=active.reduce(function(s,o){return s+o.count;},0);
+  var parts=active.map(function(o){return o.key+' ('+o.count+' email'+(o.count!==1?'s':'')+')';}).join(' + ');
+  return 'Generate Email Sequence → '+parts+' · '+total+' total · '+(_ccEmailOpts.variants==='AB'?'A+B':'A only');
+}
+
 function _ccBuildSectionBButtons(){
   var chs=_campBrief.channels||[];
   var socialChs=chs.filter(function(c){var l=c.toLowerCase();return l!=='email'&&l!=='push notifications';});
@@ -22783,9 +22815,32 @@ function _ccBuildSectionBButtons(){
     '</div>';
   }
   if(hasEmail){
+    _ccInitEmailOpts();
+    var _seqRows=_CC_EMAIL_SEQ_DEFS.map(function(def){
+      var st=_ccEmailOpts.sequences[def.key]||{};
+      var k=def.key.replace('-','').toLowerCase();
+      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+        '<input type="checkbox" id="cc-eopt-cb-'+k+'" '+(st.enabled?'checked':'')+' onchange="_ccEmailOptChange(\''+def.key+'\',\'enabled\',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:'+_CC_RED+'">'+
+        '<label for="cc-eopt-cb-'+k+'" style="font-size:11px;font-weight:700;color:var(--text);cursor:pointer;min-width:116px;font-family:\'DM Mono\',monospace">'+def.label+'</label>'+
+        '<span style="font-size:10px;color:var(--muted);min-width:66px">'+def.days+'</span>'+
+        '<input type="number" id="cc-eopt-ct-'+k+'" value="'+st.count+'" min="1" max="10" onchange="_ccEmailOptChange(\''+def.key+'\',\'count\',Math.max(1,parseInt(this.value)||1))" style="width:50px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;font-family:\'DM Mono\',monospace;text-align:center">'+
+        '<span style="font-size:10px;color:var(--muted)">emails</span>'+
+      '</div>';
+    }).join('');
+    var _varRow='<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">'+
+      '<input type="checkbox" id="cc-eopt-ab" '+(_ccEmailOpts.variants==='AB'?'checked':'')+' onchange="_ccEmailOptChange(\'\',\'variant\',this.checked?\'AB\':\'A\')" style="width:14px;height:14px;cursor:pointer;accent-color:'+_CC_RED+'">'+
+      '<label for="cc-eopt-ab" style="font-size:11px;color:var(--text);cursor:pointer;font-family:\'DM Mono\',monospace">Include B variant per email <span style="color:var(--muted)">(A/B subject line test)</span></label>'+
+    '</div>';
+    btns+='<div style="width:100%;margin-bottom:12px">'+
+      '<div style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px">'+
+        '<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Build Controls</div>'+
+        _seqRows+_varRow+
+      '</div>'+
+    '</div>';
+    var _eLbl=_ccBuildEmailBtnLabel();
     btns+='<div style="margin:0 12px 8px 0">'+
-      '<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+'">Generate Email Sequence → SEQ-1 E1 + SEQ-2 E1 · 2 preview emails</button>'+
-      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Approve format before building full 8-email sequence · Subject line A/B variants included</div>'+
+      '<button onclick="_ccKsBuildAssets(\'build_email_sequence\')" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+'"><span id="cc-ks-email-btn-label">'+_eLbl+'</span></button>'+
+      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Approve format before building full sequence · Subject line A/B variants included</div>'+
     '</div>';
   }
   if(hasPush){
@@ -23227,12 +23282,32 @@ function _ccRenderEmailSequence(sequence,container){
     '</div>'+
     emails.map(renderEmail).join('');
   };
+  var actionBar=
+    '<div style="padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+      '<button onclick="_ccExportEmailToDrive()" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">↑ Export to Drive</button>'+
+      '<button id="cc-email-approve-btn" onclick="_ccApproveEmailSeq()" style="background:transparent;border:1px solid rgba(34,197,94,0.5);color:#22c55e;padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Approve Email Sequence</button>'+
+      '<button id="cc-klaviyo-push-btn" disabled title="Approve sequence first" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;opacity:0.45">Push to Klaviyo</button>'+
+      '<span id="cc-email-approve-status" style="font-size:11px;color:var(--muted)"></span>'+
+    '</div>';
   container.innerHTML=
     '<div style="border-top:1px solid var(--border)">'+
     renderGroup('SEQ-1 — Welcome Sequence (Days 0–5)',seqGroups['SEQ-1'])+
     renderGroup('SEQ-2 — Nurture Sequence (Days 7–25)',seqGroups['SEQ-2'])+
     renderGroup('Additional Emails',seqGroups['other'])+
+    actionBar+
     '</div>';
+}
+function _ccExportEmailToDrive(){
+  _showToast('<div style="font-size:12px;color:var(--muted)">Drive export — coming soon</div>',2500);
+}
+function _ccApproveEmailSeq(){
+  var btn=document.getElementById('cc-email-approve-btn');
+  var kBtn=document.getElementById('cc-klaviyo-push-btn');
+  var status=document.getElementById('cc-email-approve-status');
+  if(btn){btn.textContent='✓ Approved';btn.style.background='rgba(34,197,94,0.1)';btn.style.border='1px solid rgba(34,197,94,0.5)';btn.disabled=true;}
+  if(kBtn){kBtn.disabled=false;kBtn.style.opacity='1';kBtn.style.color='var(--text)';kBtn.style.borderColor='var(--border)';}
+  if(status) status.textContent='Approved — Klaviyo export unlocked';
+  _showToast('<div style="color:#22c55e;font-size:12px">✓ Email sequence approved</div>',2500);
 }
 
 // Live char count updater — called oninput on each post body textarea
