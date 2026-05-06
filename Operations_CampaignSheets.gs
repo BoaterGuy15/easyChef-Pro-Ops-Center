@@ -425,6 +425,12 @@ function _seedLandingPages(sheet) {
   });
 }
 
+// Run this once from the Apps Script editor to populate the LandingPages sheet.
+function seedLpData() {
+  _seedLandingPages(_getCCSheet(_CC_TAB.PAGES));
+  Logger.log('seedLpData: LandingPages sheet seeded');
+}
+
 function _seedThemeLibrary(sheet) {
   if (!sheet) return;
   var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
