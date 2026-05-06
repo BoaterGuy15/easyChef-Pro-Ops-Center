@@ -45,6 +45,110 @@ function _getKsSheetData() {
   return result;
 }
 
+// ── Key normalizer ────────────────────────────────────────────────────────────
+// Maps whatever key names Claude invents to the 29 parser-expected keys,
+// then fills in missing fields from related fields or safe defaults.
+function _normalizeKsFields(c, sheetData) {
+  if (!c) return c;
+
+  // Rename common aliases → correct parser keys
+  var renames = {
+    icp:                'icp_code',
+    icp_name:           'icp_match',
+    campaign_theme:     'theme',
+    landing_page_slug:  'slug',
+    problem_statement:  'problem_block',
+    problem:            'problem_block',
+    solution_statement: 'solve_block',
+    solution:           'solve_block',
+    urgency_factor:     'urgency_trigger',
+    urgency:            'urgency_trigger',
+    hook:               'social_hook',
+    value_proposition:  'lp_hero',
+    primary_headline:   'headline',
+    campaign_headline:  'headline',
+    proof_points:       'proof_bar'
+  };
+  Object.keys(renames).forEach(function(alias) {
+    var target = renames[alias];
+    if (c[alias] !== undefined && (c[target] === undefined || c[target] === '')) {
+      c[target] = c[alias];
+    }
+    delete c[alias];
+  });
+
+  // channels — default by ICP if missing or empty
+  if (!Array.isArray(c.channels) || !c.channels.length) {
+    var icp = (c.icp_code || '').toLowerCase();
+    if (icp === 'alpha_recruit') {
+      c.channels = ['instagram', 'tiktok', 'email'];
+    } else {
+      c.channels = ['instagram', 'facebook', 'email'];
+    }
+  }
+
+  // email subjects — fall back to headline / subheadline
+  if (!c.email_subject_a) c.email_subject_a = c.headline    || '';
+  if (!c.email_subject_b) c.email_subject_b = c.subheadline || '';
+
+  // lp_hero — fall back to headline
+  if (!c.lp_hero) c.lp_hero = c.headline || '';
+
+  // proof_bar — normalize string, pipe-delimited, or missing → approved defaults
+  var defaultProof = ['$1,336/year', '69.5% less food waste', '30 minutes fridge to table'];
+  if (!Array.isArray(c.proof_bar) || !c.proof_bar.length) {
+    if (typeof c.social_proof === 'string' && c.social_proof) {
+      c.proof_bar = c.social_proof.split('|').map(function(s) { return s.trim(); }).filter(Boolean);
+    } else {
+      c.proof_bar = defaultProof.slice();
+    }
+  }
+  while (c.proof_bar.length < 3) c.proof_bar.push(defaultProof[c.proof_bar.length] || '');
+  c.proof_bar = c.proof_bar.slice(0, 3);
+  delete c.social_proof;
+
+  // social_hook — fall back to headline
+  if (!c.social_hook) c.social_hook = c.headline || '';
+
+  // share_mechanic — default empty
+  if (!c.share_mechanic) c.share_mechanic = '';
+
+  // utm_campaign_code — generate from icp_code + campaign_name
+  if (!c.utm_campaign_code && c.campaign_name) {
+    c.utm_campaign_code = (c.icp_code || 'ec') + '_' +
+      String(c.campaign_name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').slice(0, 28);
+  }
+
+  // publish_day — infer from theme name if missing
+  if (!c.publish_day) {
+    var th = (c.theme || '').toLowerCase();
+    if (th.indexOf('taco') > -1 || th.indexOf('tuesday') > -1) c.publish_day = 'Tuesday';
+    else if (th.indexOf('monday') > -1) c.publish_day = 'Monday';
+    else c.publish_day = '';
+  }
+
+  // numeric defaults
+  if (!c.post_count)      c.post_count      = 7;
+  if (!c.email_sequences) c.email_sequences = 2;
+  if (!c.email_variants)  c.email_variants  = 2;
+
+  // campaign_angle — default by theme
+  if (!c.campaign_angle) {
+    var th2 = (c.theme || '').toLowerCase();
+    c.campaign_angle = (th2.indexOf('taco') > -1) ? 'speed' : 'savings';
+  }
+
+  // icp_match — display name from icp_code
+  if (!c.icp_match && c.icp_code) {
+    var names = { super_mom: 'Super Mom', alpha_recruit: 'Alpha Recruit',
+                  budget_family: 'Budget Family', professional: 'Working Professional',
+                  health_optimizer: 'Health Optimizer' };
+    c.icp_match = names[c.icp_code] || c.icp_code;
+  }
+
+  return c;
+}
+
 /**
  * Takes a plain-language customer description and goal, identifies the matching
  * ICP, selects the right funnel blueprint, and returns a complete campaign brief
@@ -255,6 +359,7 @@ function campaignKickstart(prompt) {
       var lb = jsonStr.lastIndexOf('}');
       if (lb > -1) jsonStr = jsonStr.slice(0, lb + 1);
       campaign = JSON.parse(jsonStr);
+      campaign = _normalizeKsFields(campaign, sheetData);
     } catch (parseErr) {
       Logger.log('[PARSE ERROR] ' + parseErr.message);
       rawFallback = reply;
