@@ -22037,11 +22037,6 @@ function _ccOnBlueprintChange(){
   }
   // Auto-set Email Sequences count
   var seqList=(bp.sequences_included||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
-  if(seqList.length){
-    _campBrief.email_sequences=seqList.length;
-    var esEl=document.getElementById('cc-email-sequences');
-    if(esEl) esEl.value=seqList.length;
-  }
   // Show summary
   if(summary){
     var seqStr=seqList.map(function(s){return _CC_SEQ_NAMES[s]||s;}).join(' → ');
