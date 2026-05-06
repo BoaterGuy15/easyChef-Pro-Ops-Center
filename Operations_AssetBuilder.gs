@@ -599,9 +599,9 @@ function buildSocialPosts(brief, copy) {
       },
       payload: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: systemPrompt,
-        messages: [{ role: 'user', content: 'Generate 5 ' + channel + ' posts for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object.' }]
+        messages: [{ role: 'user', content: 'Generate ' + (brief.post_count || 7) + ' ' + channel + ' posts for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object.' }]
       }),
       muteHttpExceptions: true
     });
