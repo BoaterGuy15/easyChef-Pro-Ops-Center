@@ -386,6 +386,10 @@ function campaignKickstart(prompt) {
       if (lb > -1) jsonStr = jsonStr.slice(0, lb + 1);
       campaign = JSON.parse(jsonStr);
       campaign = _normalizeKsFields(campaign, sheetData);
+      // Path A override — LP selection locks the waitlist urgency message
+      if (_lpLocked && campaign) {
+        campaign.urgency_trigger = 'Free during beta — app launches July 1';
+      }
     } catch (parseErr) {
       Logger.log('[PARSE ERROR] ' + parseErr.message);
       rawFallback = reply;
