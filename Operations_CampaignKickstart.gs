@@ -164,13 +164,43 @@ function campaignKickstart(prompt) {
 
     (themeContext ? themeContext + '\n' : '') +
 
-    'Return ONLY valid JSON, no markdown, no explanation:\n' +
-    '{"icp_match":"","icp_code":"","blueprint":"","campaign_name":"","channel_recommendation":"","channels":[],' +
-    '"slug":"","headline":"","subheadline":"","email_subject_a":"","email_subject_b":"",' +
-    '"lp_hero":"","problem_block":"","agitate_block":"","solve_block":"",' +
-    '"proof_bar":["","",""],"cta_type":"","cta_primary":"","social_hook":"","share_mechanic":"",' +
-    '"utm_campaign_code":"","founding_offer":"","theme":"","publish_day":"","campaign_angle":"",' +
-    '"post_count":7,"email_sequences":2,"email_variants":2,"urgency_trigger":""}';
+    'STRUCTURE RULE — CRITICAL:\n' +
+    'Return a SINGLE flat JSON object. All 29 fields must be at the ROOT level.\n' +
+    'No wrappers (no "campaign_brief", no "campaign", no "result" key).\n' +
+    'No nested objects. No sub-arrays except "channels" and "proof_bar".\n' +
+    'Do not group fields. Do not add extra keys. Output starts with { and ends with }.\n\n' +
+    'Return ONLY this JSON structure with all 29 fields filled in:\n' +
+    '{\n' +
+    '  "icp_match": "Human-readable ICP name",\n' +
+    '  "icp_code": "snake_case_icp_code",\n' +
+    '  "blueprint": "A-Waitlist",\n' +
+    '  "campaign_name": "Campaign name",\n' +
+    '  "channel_recommendation": "Primary channel",\n' +
+    '  "channels": ["facebook","instagram"],\n' +
+    '  "slug": "lp/waitlist-a",\n' +
+    '  "headline": "Campaign headline under 12 words",\n' +
+    '  "subheadline": "Benefit-focused subheadline — no member counts",\n' +
+    '  "email_subject_a": "Email subject line A",\n' +
+    '  "email_subject_b": "Email subject line B",\n' +
+    '  "lp_hero": "Landing page hero copy",\n' +
+    '  "problem_block": "Problem copy",\n' +
+    '  "agitate_block": "Agitate copy — must name exact dollar cost from theme",\n' +
+    '  "solve_block": "Solution copy",\n' +
+    '  "proof_bar": ["$1,336/year", "69.5% less food waste", "30 minutes fridge to table"],\n' +
+    '  "cta_type": "waitlist",\n' +
+    '  "cta_primary": "Join the waitlist free — early access July 1",\n' +
+    '  "social_hook": "Hook line for social posts",\n' +
+    '  "share_mechanic": "",\n' +
+    '  "utm_campaign_code": "utm_code_here",\n' +
+    '  "founding_offer": "Lock in $7.99/month founding price — 60% off forever",\n' +
+    '  "theme": "Theme name or empty string",\n' +
+    '  "publish_day": "Tuesday or empty string",\n' +
+    '  "campaign_angle": "savings",\n' +
+    '  "post_count": 7,\n' +
+    '  "email_sequences": 2,\n' +
+    '  "email_variants": 2,\n' +
+    '  "urgency_trigger": "Free during beta — app launches July 1"\n' +
+    '}';
 
   try {
     var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
@@ -182,7 +212,7 @@ function campaignKickstart(prompt) {
       },
       payload: JSON.stringify({
         model:      'claude-sonnet-4-20250514',
-        max_tokens: 900,
+        max_tokens: 1400,
         system:     systemPrompt,
         messages: [{
           role:    'user',
