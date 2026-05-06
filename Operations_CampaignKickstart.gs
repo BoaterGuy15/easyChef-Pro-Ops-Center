@@ -108,6 +108,20 @@ function _normalizeKsFields(c, sheetData) {
   c.proof_bar = c.proof_bar.slice(0, 3);
   delete c.social_proof;
 
+  // proof_bar item 1 — number validation against approved figures
+  // Scans for any integer or decimal; flags unapproved numbers before they reach assets.
+  var _APPROVED_FIGS = [1336, 69.5, 30, 9, 800000, 10000, 7.99, 60];
+  if (c.proof_bar[0] && typeof c.proof_bar[0] === 'string') {
+    var _nums = c.proof_bar[0].match(/\d[\d,]*(?:\.\d+)?/g) || [];
+    var _hasUnapproved = _nums.some(function(n) {
+      return _APPROVED_FIGS.indexOf(parseFloat(n.replace(/,/g, ''))) === -1;
+    });
+    if (_hasUnapproved) c.proof_bar[0] += ' [CLAIM PENDING APPROVAL]';
+  }
+  // Items 2 and 3 locked to exact approved wording regardless of model output
+  c.proof_bar[1] = '69.5% less food waste';
+  c.proof_bar[2] = '30 minutes fridge to table';
+
   // social_hook — fall back to headline
   if (!c.social_hook) c.social_hook = c.headline || '';
 
