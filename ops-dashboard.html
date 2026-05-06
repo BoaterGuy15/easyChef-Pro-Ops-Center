@@ -22845,11 +22845,7 @@ function _ccKsLpSearch(icp){
           '</div>'+
         '</div>';
       }).join('');
-      res.innerHTML=
-        '<div>'+cards+'</div>'+
-        '<div style="margin-top:12px">'+
-          '<button onclick="_ccKsBuildLp()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">+ Build New LP Instead</button>'+
-        '</div>';
+      res.innerHTML='<div>'+cards+'</div>';
     })
     .catch(function(e){
       if(res) res.innerHTML='<div style="font-size:11px;color:var(--muted)">LP search unavailable: '+e.message+'</div>';
@@ -22921,7 +22917,7 @@ function _ccKsSelectLp(slug,campaignId,headline){
     var _eicp=(_campBrief.icp||'').replace(/'/g,"\\'");
     res.innerHTML=
       '<div style="padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:6px;font-size:11px;color:#22c55e;font-family:\'DM Mono\',monospace;margin-bottom:12px">'+
-        '✓ LP locked: easychefpro.com/'+_sd+
+        '✓ LP locked: <a href="https://easychefpro.com/'+_sd+'" target="_blank" rel="noopener" style="color:#22c55e;text-decoration:underline;font-family:\'DM Mono\',monospace">easychefpro.com/'+_sd+'</a>'+
         ' &nbsp;<span onclick="_ccKsLpSearch(\''+_eicp+'\')" style="cursor:pointer;color:var(--muted);font-size:10px;text-decoration:underline">Edit</span>'+
       '</div>'+
       '<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Campaign Kickstart</button>';
