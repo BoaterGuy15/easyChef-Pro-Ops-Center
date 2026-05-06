@@ -54,6 +54,7 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
   // Rename common aliases → correct parser keys
   var renames = {
     icp:                'icp_code',
+    target_icp:         'icp_code',
     icp_name:           'icp_match',
     campaign_theme:     'theme',
     landing_page_slug:  'slug',
