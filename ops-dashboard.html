@@ -23130,64 +23130,117 @@ function _ccRenderScreenshotPickerInner(postNum){
 function _ccAutoImageBrief(post,brief){
   var stage=(post.funnel_stage||'hook').toLowerCase();
   var td=(brief&&brief.themeData)||{};
+  var food=td.food_type||'';
+  var foodName=food.indexOf('—')>-1?food.split('—')[0].trim():(food.split('-')[0].trim()||food);
+  var noPhone=['hook','problem','agitate'].indexOf(stage)>=0;
 
-  var stageScenes={
-    hook:    'A mom in her mid-30s in a warm kitchen at 6:30 PM. She is staring into an open fridge looking tired and overwhelmed — the weight of the day on her face. The kitchen is lived-in and real. Kids visible in background. Emotion: exhausted, defeated, recognisable. She is US.',
-    problem: 'Same mom, same kitchen. She is looking at her phone with a slightly frustrated expression — DoorDash app open, finger hovering. She knows this is not the answer but she is out of options. Food in the fridge going to waste behind her. Emotion: stuck, resigned, relatable guilt.',
-    agitate: 'Close-up of the fridge — wilted spinach, half-used ingredients, expired items. Or the mom looking at a grocery receipt with a tired expression. The waste is visible and specific. Emotion: the cost of the problem made real.',
-    solve:   'The moment of discovery. The mom is looking at her phone — easyChef Pro open — and her expression is shifting. Eyebrows lifting slightly. A hint of surprise and relief. The fridge is still full but now it looks different to her. Emotion: the penny dropping. This could actually work.',
-    value:   'The mom is at the stove, relaxed posture, one hand stirring, phone propped up showing easyChef Pro. She looks calm and in control. Kids setting the table in the background. The kitchen smells like dinner. Emotion: competent, relieved, proud.',
-    proof:   'The family at the dinner table. The food is on the table — real, appetising, exactly the theme food. The mom is smiling — not a posed smile, a real one. Kids eating. Partner reaching for seconds. Emotion: belonging, success, this is what a good evening feels like.',
-    cta:     'The mom on the couch after dinner. Phone in hand showing easyChef Pro. Kids are settled. Kitchen is clean behind her. She looks genuinely happy and at ease — the kind of peace that comes from having handled it. Emotion: pure relief and satisfaction. This is the feeling she is buying. THIS is what the CTA unlocks.'
+  var defs={
+    hook:{
+      subject:  'Tired woman in her early 30s, dark hair in a loose ponytail, wearing a faded t-shirt and jeans. Shoulders slumped, eyes unfocused and staring blankly into the open fridge. Expression: exhausted and defeated — the weight of the day visible.',
+      action:   'Left hand gripping the fridge door handle, right arm hanging at her side. Body turned slightly toward the fridge. Not reaching for anything. Just staring.',
+      depth:    'Foreground — fridge door edge and her hand on the handle. Midground — her body and open fridge interior. Background — kitchen counter with scattered mail or a school backpack, window with warm 6:30 PM amber light.',
+      camera:   'Medium shot. Slightly below eye level. Subject occupies left 60% of frame. Fridge interior visible on right 40%.',
+      lighting: 'Warm amber light from window behind and to the right. 6:30 PM golden hour. Fridge interior light adds minimal cool contrast. Overall warm.',
+      emotion:  'Exhausted, defeated — she is us.'
+    },
+    problem:{
+      subject:  'Same woman. Expression: mild frustration building — brow slightly furrowed, lips pressed together, eyes fixed on her phone screen.',
+      action:   'Both hands holding phone with thumbs hovering. Weight shifted to one hip. Phone angled toward her face. Shoulders slightly raised — resigned, defensive posture.',
+      depth:    'Foreground — kitchen counter edge. Midground — her from waist up with phone prominent. Background — open fridge visible behind her, ingredients unused.',
+      camera:   'Medium shot. Eye level. Subject centered, phone taking up right third of frame.',
+      lighting: 'Warm kitchen overhead light. 6:45 PM. Phone screen glow adds slight warmth to her face.',
+      emotion:  'Stuck, resigned, relatable guilt.'
+    },
+    agitate:{
+      subject:  'Close-up on the fridge interior or a grocery receipt on the counter. If person visible: exhausted expression, jaw slightly slack, staring at the waste in disbelief.',
+      action:   'Fridge contents showing waste — wilted greens, half-used containers with dried edges, packaging past its date. Or: takeout receipt on counter next to untouched grocery bag.',
+      depth:    'Foreground — nearest wasted item in sharp focus. Midground — fridge shelf or counter surface. Background — soft kitchen blur.',
+      camera:   'Close or medium-close shot. Eye level or slightly above. Food waste fills 80% of frame — this is about the cost, not the person.',
+      lighting: 'Fridge interior light or kitchen overhead. Slightly cooler and starker than other posts — this is the uncomfortable moment.',
+      emotion:  'The cost of the problem made real.'
+    },
+    solve:{
+      subject:  'Same woman. Expression changing — eyebrows lifting, head tilting slightly, mouth relaxing from tension. The very beginning of surprise and recognition.',
+      action:   'Holding phone with both hands, screen facing her. Elbows slightly raised. She just found something. Body still but full attention on the screen.',
+      depth:    'Foreground — phone screen edge visible. Midground — her face and upper body. Background — fridge still open, same ingredients now looking like an answer.',
+      camera:   'Medium shot. Slightly below eye level. Phone and face share equal framing — this is the discovery moment.',
+      lighting: 'Warm kitchen light. Phone screen adds warm glow. 6:50 PM — still golden hour.',
+      emotion:  'The penny dropping. This could actually work.'
+    },
+    value:{
+      subject:  'Same woman. Visibly calmer. Relaxed jaw, soft eyes, small natural smile forming — not posed, just present. She is handling it.',
+      action:   'One hand stirring a pan on the stove. Other hand holding phone propped on the counter, following a recipe. Feet planted, comfortable stance.',
+      depth:    'Foreground — pan on stove with food cooking. Midground — her from waist up. Background — kids visible setting the table, warm kitchen glow.',
+      camera:   'Medium shot. Eye level. She occupies center-left frame with stove visible on the right.',
+      lighting: 'Warm overhead kitchen light. 7:00 PM. Steam from cooking adds warmth and texture.',
+      emotion:  'Competent, relieved, proud.'
+    },
+    proof:{
+      subject:  'Real smile — not posed. Eyes crinkling at the corners. Looking at her family at the table, not at the camera. Expression: belonging and quiet pride.',
+      action:   'Seated at the table or standing behind it, hands resting on the back of a chair. Partner reaching for seconds. Kids eating. Nobody performing for the camera.',
+      depth:    'Foreground — plates of food in sharp focus. Midground — her smiling face. Background — family at the table, warm kitchen behind.',
+      camera:   'Medium-wide shot. Eye level. Family fills the frame. She is part of the scene, not isolated.',
+      lighting: 'Warm evening dining light. 7:15 PM. Pendant light or candle glow over the table.',
+      emotion:  'Belonging, success — this is what a good evening feels like.'
+    },
+    cta:{
+      subject:  'Same woman. Fully relaxed — eyes soft, genuine quiet contentment on her face. She is done. It worked. Nothing left to solve.',
+      action:   'Seated on a couch, phone in one hand, other hand holding a mug. Unhurried. Legs tucked under her. Kids settled in the background.',
+      depth:    'Foreground — her hands and phone. Midground — her relaxed posture on the couch. Background — clean kitchen visible through a doorway, kids doing homework or watching TV.',
+      camera:   'Medium shot. Slightly above eye level — intimate and warm. She looks at peace, not performing.',
+      lighting: 'Soft warm lamp light. 8:00 PM. No harsh kitchen overhead. Low and golden.',
+      emotion:  'Pure relief and satisfaction. This is the feeling she is buying.'
+    }
   };
 
-  var stageEmotions={
-    hook:    'Exhausted, defeated, recognisable — she is us.',
-    problem: 'Stuck, resigned, relatable guilt.',
-    agitate: 'The cost of the problem made real.',
-    solve:   'The penny dropping. This could actually work.',
-    value:   'Competent, relieved, proud.',
-    proof:   'Belonging, success — this is what a good evening feels like.',
-    cta:     'Pure relief and satisfaction. This is the feeling she is buying.'
-  };
+  var def=defs[stage]||defs.hook;
 
-  var scene=stageScenes[stage]||stageScenes.hook;
-  var stageEmo=stageEmotions[stage]||stageEmotions.hook;
+  // ThemeLibrary image_mood overrides — hook and cta SUBJECT line
+  var subjectLine=def.subject;
+  if(stage==='hook'&&td.image_mood_hook) subjectLine=td.image_mood_hook;
+  else if(stage==='cta'&&td.image_mood_cta) subjectLine=td.image_mood_cta;
 
-  // ThemeLibrary overrides: hook and cta use image_mood fields from the sheet
-  if(stage==='hook'&&td.image_mood_hook){scene=td.image_mood_hook;}
-  else if(stage==='cta'&&td.image_mood_cta){scene=td.image_mood_cta;}
-
-  // Story angle context for pre-solution stages (no food, no phone)
-  var storyNote='';
-  if(stage==='problem'&&td.problem_angle){storyNote='\nContext: '+td.problem_angle+'.';}
-  else if(stage==='agitate'&&td.agitate_angle){storyNote='\nContext: '+td.agitate_angle+'.';}
-
-  // Food injection at solve/value/proof/cta — dynamic from ThemeLibrary food_type
-  var foodNote='';
-  if(td.food_type&&(stage==='solve'||stage==='value'||stage==='proof'||stage==='cta')){
-    var food=td.food_type;
-    var foodName=food.indexOf('—')>-1?food.split('—')[0].trim():(food.indexOf('-')>-1?food.split('-')[0].trim():food);
-    var themeName=td.theme_name||'';
-    if(stage==='solve')  foodNote='\nThe food in the scene: '+food+' — ready to prepare.';
-    else if(stage==='value')  foodNote='\nShe is making '+food+' — filling visible, everything being assembled.';
-    else if(stage==='proof')  foodNote='\nThe table has a full spread of '+food+'. Real food, not stock photography.';
-    else if(stage==='cta')    foodNote='\nA half-eaten plate of '+foodName+' on the counter.'+(themeName?' '+themeName+' nailed.':'');
+  // FOOD section — stage-specific language named from ThemeLibrary food_type
+  var foodLine='';
+  if(food){
+    if(stage==='hook')
+      foodLine='Ingredients for '+food+' visible in the open fridge — in original packaging, untouched. She does not know she already has everything.';
+    else if(stage==='problem')
+      foodLine='Ingredients for '+food+' visible in the fridge behind her — still unused while she considers ordering takeout.';
+    else if(stage==='agitate')
+      foodLine=food+' in packaging, unused, going to waste. Visible on the shelf or counter next to evidence of takeout spending.';
+    else if(stage==='solve')
+      foodLine='Ingredients for '+food+' on the counter or visible in the fridge — same things she already had. Now they look like a plan.';
+    else if(stage==='value')
+      foodLine=food+' being prepared — cooking in progress. Filling visible, process underway.';
+    else if(stage==='proof')
+      foodLine='Finished '+food+' on the table — plated, real, appetising. Not styled for photography.';
+    else if(stage==='cta')
+      foodLine='Remnants of '+foodName+' — cleared plates or leftovers on the counter. Evidence it happened.'+(td.theme_name?' '+td.theme_name+' nailed.':'');
   }
 
-  // App screen note for solve/value/proof/cta
-  var appNote='';
-  if(td.app_screen_label&&(stage==='solve'||stage==='value'||stage==='proof'||stage==='cta')){
-    var screen=td.app_screen_label;
-    if(stage==='solve')      appNote='\n\nThe phone screen shows the easyChef Pro '+screen+' — '+(td.feature_hook||'')+'. The screen IS the answer to the problem in this scene. The character is discovering this feature for the first time.';
-    else if(stage==='value') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+' — she is using the feature, not discovering it. The app is a tool in her hands now.';
-    else if(stage==='proof') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+'. The result is visible in the room — the food, the smiling family.';
-    else if(stage==='cta')   appNote='\n\nThe phone screen shows the easyChef Pro '+screen+'. She has already won — the app is part of her life now.';
+  // App screen line — solve/value/proof/cta only
+  var appLine='';
+  if(td.app_screen_label&&!noPhone){
+    var scr=td.app_screen_label;
+    if(stage==='solve')      appLine='Phone screen: easyChef Pro '+scr+' — '+(td.feature_hook||'the recipe she needed')+'. She is discovering this for the first time.';
+    else if(stage==='value') appLine='Phone propped on counter showing easyChef Pro '+scr+' — she is following it, not discovering it.';
+    else if(stage==='proof') appLine='Phone visible on table showing easyChef Pro '+scr+'.';
+    else if(stage==='cta')   appLine='Phone screen shows easyChef Pro '+scr+'. She has already won.';
   }
 
-  return scene+storyNote+foodNote+appNote+
-    '\n\nEmotion this image must convey: '+stageEmo+
-    '\nPhotography style: warm candid family photography. Never staged. Never stock. Real kitchen, real people, real moment. No blue or navy anywhere. Warm natural lighting.';
+  var foodSection=[foodLine,appLine].filter(Boolean).join(' ');
+
+  return [
+    'SUBJECT: '+subjectLine,
+    'ACTION: '+def.action,
+    foodSection?'FOOD: '+foodSection:'',
+    'DEPTH: '+def.depth,
+    'CAMERA: '+def.camera,
+    'LIGHTING: '+def.lighting,
+    'NEVER: Blue or navy. Studio lighting. Posed expressions. Stock photo aesthetic.'+(noPhone?' No phone or app visible in this post — pre-solution stage.':''),
+    'Emotion this image must convey: '+def.emotion
+  ].filter(Boolean).join('\n\n');
 }
 
 function _ccRenderImagePanel(pNum,prefix,post){
