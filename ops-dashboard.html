@@ -22558,6 +22558,17 @@ function _ccKickstart(){
         _campBrief.campaign_angle= _campBrief._lpLocked.campaign_angle;
         _campBrief.lp_variant    = _campBrief._lpLocked.lp_variant;
       }
+      // Explicit select sync — runs after LP restore so LP-locked values win
+      // Text inputs update via .value assignment; selects need explicit sync separately
+      (function(){
+        _ccSetSelect('cc-icp',            _campBrief.icp);
+        _ccSetSelect('cc-funnel',         _campBrief.funnel);
+        _ccSetSelect('cc-goal',           _campBrief.goal);
+        _ccSetSelect('cc-cta-type',       _campBrief.cta_type||'waitlist');
+        _ccSetSelect('cc-campaign-angle', _campBrief.campaign_angle||'savings');
+        var _slugEl=document.getElementById('cc-slug');
+        if(_slugEl&&_campBrief.slug) _slugEl.value=_campBrief.slug;
+      })();
       // Auto-load theme data from Sheet when kickstart detects a theme
       if(j.theme){
         _ccLoadThemeData(j.theme, function(row){
