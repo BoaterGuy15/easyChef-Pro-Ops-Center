@@ -195,12 +195,26 @@ function campaignKickstart(prompt) {
       return { ok: false, error: errMsg };
     }
 
+    var campaign    = null;
+    var rawFallback = null;
+
     try {
       var jsonStr = reply.trim();
       jsonStr = jsonStr.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-      var campaign = JSON.parse(jsonStr);
-      // Post-process: unconditional pre-launch blueprint override
-      Logger.log('[PHASE GUARD] date check: ' + new Date().toISOString() + ' | isPreLaunch=' + isPreLaunch + ' | blueprint was: ' + campaign.blueprint);
+      var fb = jsonStr.indexOf('{');
+      if (fb > 0) jsonStr = jsonStr.slice(fb);
+      var lb = jsonStr.lastIndexOf('}');
+      if (lb > -1) jsonStr = jsonStr.slice(0, lb + 1);
+      campaign = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      Logger.log('[PARSE ERROR] ' + parseErr.message);
+      rawFallback = reply;
+    }
+
+    // Phase guard runs OUTSIDE try/catch — applies regardless of parse outcome
+    Logger.log('[PHASE GUARD] isPreLaunch=' + isPreLaunch + ' | campaign=' + (campaign ? 'parsed' : 'null/raw'));
+
+    if (campaign) {
       if (isPreLaunch) {
         campaign.blueprint        = 'A-Waitlist';
         campaign.cta_type         = 'waitlist';
@@ -210,9 +224,15 @@ function campaignKickstart(prompt) {
         Logger.log('[PHASE GUARD] overridden to A-Waitlist');
       }
       return { ok: true, campaign: campaign };
-    } catch (parseErr) {
-      return { ok: true, campaign: null, raw: reply };
     }
+
+    // Raw fallback path — patch blueprint + cta_type via regex before frontend parses
+    if (isPreLaunch && rawFallback) {
+      rawFallback = rawFallback.replace(/"blueprint"\s*:\s*"[^"]*"/g,  '"blueprint":"A-Waitlist"');
+      rawFallback = rawFallback.replace(/"cta_type"\s*:\s*"[^"]*"/g,   '"cta_type":"waitlist"');
+      Logger.log('[PHASE GUARD] raw fallback patched');
+    }
+    return { ok: true, campaign: null, raw: rawFallback || reply };
 
   } catch (e) {
     return { ok: false, error: e.message };
