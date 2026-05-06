@@ -22756,6 +22756,24 @@ function _ccRenderKickstartAssets(campaign){
   '</div>';
 }
 
+// Step 1 path chooser
+function _ccChoosePath(path){
+  _campBrief._wizardPath=path;
+  var cardA=document.getElementById('cc-path-a-card');
+  var cardB=document.getElementById('cc-path-b-card');
+  var lpPanel=document.getElementById('cc-path-a-lp');
+  if(path==='A'){
+    if(cardA) cardA.style.borderColor=_CC_RED;
+    if(cardB) cardB.style.borderColor='var(--border)';
+    if(lpPanel){lpPanel.style.display='block';_ccKsLpSearch('');}
+  } else {
+    if(cardA) cardA.style.borderColor='var(--border)';
+    if(cardB) cardB.style.borderColor=_CC_RED;
+    if(lpPanel) lpPanel.style.display='none';
+    _ccWizardAdvance(2,'✓ Fresh idea — LP matched after brief');
+  }
+}
+
 // Fetch existing LPs for the given ICP and populate cc-ks-lp-results
 function _ccKsLpSearch(icp){
   var res=document.getElementById('cc-ks-lp-results');
@@ -26571,17 +26589,27 @@ function _campaignsRenderInner(root){
       '</div>'+
       // ── Step 1: Landing Page ──────────────────────────────────────────────
       '<div id="cc-step-1" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">'+
-        sHdr(1,'Landing Page — Select a page to anchor your campaign angle')+
+        sHdr(1,'How do you want to start this campaign?')+
         '<div id="cc-step-1-summ" '+summBar+'></div>'+
-        '<div id="cc-step-1-body" style="padding:0">'+
-          '<div style="padding:14px 16px">'+
+        '<div id="cc-step-1-body" style="padding:20px">'+
+          '<div style="display:flex;gap:16px;flex-wrap:wrap">'+
+            '<div id="cc-path-a-card" onclick="_ccChoosePath(\'A\')" style="flex:1;min-width:220px;border:2px solid var(--border);border-radius:10px;padding:18px 20px;cursor:pointer;transition:border-color 0.15s">'+
+              '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">📄 Start with an LP</div>'+
+              '<div style="font-size:11px;color:var(--muted);line-height:1.6">Select an existing landing page as your messaging template. Slug, angle, headline, and proof bar are locked. Kickstart only fills the theme and ICP-specific copy that matches that LP.</div>'+
+            '</div>'+
+            '<div id="cc-path-b-card" onclick="_ccChoosePath(\'B\')" style="flex:1;min-width:220px;border:2px solid var(--border);border-radius:10px;padding:18px 20px;cursor:pointer;transition:border-color 0.15s">'+
+              '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">💡 Start with a fresh idea</div>'+
+              '<div style="font-size:11px;color:var(--muted);line-height:1.6">Describe your campaign idea. Kickstart builds the brief. After review the system matches or builds the right landing page from your copy — LP is created from the idea, not the idea from the LP.</div>'+
+            '</div>'+
+          '</div>'+
+          '<div id="cc-path-a-lp" style="display:none;margin-top:20px">'+
             '<div id="cc-ks-lp-results"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Searching for landing pages…</div></div>'+
             '<div id="cc-ks-lp-output"></div>'+
-          '</div>'+
-          '<div id="cc-step1-footer" style="padding:12px 16px;border-top:2px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
-            '<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">none selected</strong></span>'+
-            '<div style="flex:1;min-width:8px"></div>'+
-            '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;font-family:\'DM Mono\',monospace;opacity:0.5">→ Next: Campaign Kickstart</button>'+
+            '<div id="cc-step1-footer" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+              '<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">none selected</strong></span>'+
+              '<div style="flex:1;min-width:8px"></div>'+
+              '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;font-family:\'DM Mono\',monospace;opacity:0.5">→ Next: Campaign Kickstart</button>'+
+            '</div>'+
           '</div>'+
         '</div>'+
       '</div>'+
@@ -26615,7 +26643,6 @@ function _campaignsRenderInner(root){
       '<div id="cc-panel"></div>'+
     '</div>';
   _campSwitchTab(_campActiveTab);
-  setTimeout(function(){_ccKsLpSearch('');},50);
 }
 function _campSwitchTab(t){
   _campActiveTab=t;
