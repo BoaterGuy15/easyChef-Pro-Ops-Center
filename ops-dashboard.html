@@ -21419,6 +21419,29 @@ function _ccClearTheme() {
   _ccBriefSync();
 }
 
+// ── Brief + theme context merger ───────────────────────────────────────────
+// Copies all brief fields then merges ThemeLibrary row into the story context
+// fields that getMasterSystemPrompt() / _buildStoryContextBlock() read server-side.
+function _ccExtendBriefWithTheme(brief) {
+  var ext = {};
+  for (var k in brief) { if (Object.prototype.hasOwnProperty.call(brief, k)) ext[k] = brief[k]; }
+  var t = _ccSelectedTheme;
+  if (!t) return ext;
+  ext.icp_entry        = t.emotional_entry  || ext.icp_entry        || '';
+  ext.emotional_entry  = t.emotional_entry  || ext.emotional_entry  || '';
+  ext.emotional_payoff = t.emotional_payoff || ext.emotional_payoff || '';
+  ext.theme_food       = t.food_type        || ext.theme_food       || '';
+  ext.app_feature      = t.app_feature      || ext.app_feature      || '';
+  ext.app_screen_label = t.app_screen_label || ext.app_screen_label || '';
+  ext.feature_hook     = t.feature_hook     || ext.feature_hook     || '';
+  ext.feature_proof    = t.feature_proof    || ext.feature_proof    || '';
+  ext.hook_angle       = t.hook_angle       || ext.hook_angle       || '';
+  ext.problem_angle    = t.problem_angle    || ext.problem_angle    || '';
+  ext.agitate_angle    = t.agitate_angle    || ext.agitate_angle    || '';
+  if (t.urgency_trigger && !ext.urgency_trigger) ext.urgency_trigger = t.urgency_trigger;
+  return ext;
+}
+
 // ── Theme strategy helpers ──────────────────────────────────────────────────
 function _ccAngleLabel(a){
   var m={savings:'$1,336/year average savings',speed:'30 minutes fridge to table',waste:'69.5% less food waste',proof:'built by first responders',urgency:'founding price $7.99/month'};
@@ -22826,7 +22849,7 @@ function _ccKsBuildLp(){
   var out=document.getElementById('cc-ks-lp-output');
   if(out) out.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border)">Building landing page copy…</div>';
   if(!CONFIG.sheetsUrl) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'build_landing_page',brief:_campBrief,copy:_campKickstartCopy||{}})})
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'build_landing_page',brief:_ccExtendBriefWithTheme(_campBrief),copy:_campKickstartCopy||{}})})
     .then(function(r){return r.json();})
     .then(function(d){
       var out2=document.getElementById('cc-ks-lp-output');
@@ -22894,7 +22917,7 @@ function _ccKsBuildAssets(actionType){
   if(!CONFIG.sheetsUrl){allBtns.forEach(function(b){if(b.hasAttribute('data-was-text')){b.textContent=b.getAttribute('data-was-text');b.disabled=false;}});return;}
 
   var _briefWP;
-  try{_briefWP=JSON.parse(JSON.stringify(_campBrief));}
+  try{_briefWP=_ccExtendBriefWithTheme(JSON.parse(JSON.stringify(_campBrief)));}
   catch(e){console.error('[CC] JSON parse error:',e.message,'input:',_campBrief);_briefWP={};}
 
   _briefWP.post_count=_campBrief.post_count||7;
@@ -23699,17 +23722,31 @@ function _ccGeneratePostImage(prefix,postNum,callback){
     :((_shotIdx!==undefined&&_shotIdx>=0&&_shots[_shotIdx]&&_shots[_shotIdx].label)
       ?_shots[_shotIdx].label
       :(_ccSelectedTheme&&_ccSelectedTheme.app_screen_label)||'meal planning interface');
+  var _t=_ccSelectedTheme||{};
   var qs=new URLSearchParams({
-    action:        'generate_image_prompt',
-    image_brief:   fullBrief,
-    post_hook:     post.hook||'',
-    post_body:     post.body||post.body_copy||'',
-    app_screen:    appScreen,
-    platform:      _campBrief.channel||'Facebook',
-    icp:           _campBrief.icp||'super_mom',
-    dimensions:    (channelData&&channelData.image_dimensions)||'1200x630px',
-    use_case:      'social',
-    theme:         _campBrief.theme||''
+    action:          'generate_image_prompt',
+    image_brief:     fullBrief,
+    post_hook:       post.hook||'',
+    post_body:       post.body||post.body_copy||'',
+    app_screen:      appScreen,
+    platform:        _campBrief.channel||'Facebook',
+    icp:             _campBrief.icp||'super_mom',
+    dimensions:      (channelData&&channelData.image_dimensions)||'1200x630px',
+    use_case:        'social',
+    theme:           _campBrief.theme||'',
+    stage:           postStage,
+    post_number:     String(postNum),
+    icp_entry:       _t.emotional_entry  ||_campBrief.icp_entry       ||'',
+    emotional_entry: _t.emotional_entry  ||_campBrief.emotional_entry  ||'',
+    emotional_payoff:_t.emotional_payoff ||_campBrief.emotional_payoff ||'',
+    theme_food:      _t.food_type        ||_campBrief.theme_food       ||'',
+    app_feature:     _t.app_feature      ||_campBrief.app_feature      ||'',
+    feature_hook:    _t.feature_hook     ||_campBrief.feature_hook     ||'',
+    feature_proof:   _t.feature_proof    ||_campBrief.feature_proof    ||'',
+    hook_angle:      _t.hook_angle       ||_campBrief.hook_angle       ||'',
+    problem_angle:   _t.problem_angle    ||_campBrief.problem_angle    ||'',
+    agitate_angle:   _t.agitate_angle    ||_campBrief.agitate_angle    ||'',
+    urgency_trigger: _campBrief.urgency_trigger||''
   });
   if(genMode==='raw') qs.set('skip_optimize','true');
   if(genMode==='manual') qs.set('skip_claude','true');

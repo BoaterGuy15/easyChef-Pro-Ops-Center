@@ -123,6 +123,126 @@ function _getStagesArcText() {
   );
 }
 
+// ── Stage emotional directions (shared by story context + image pipeline) ────
+var _STAGE_EMOTIONS = {
+  hook:    'Exhausted and defeated. This is the worst moment of her day. No hope yet. No solution visible.',
+  problem: 'Frustration building. She knows this feeling too well. Nothing has ever fixed it.',
+  agitate: 'Shock and recognition. She is seeing the true cost for the first time. Cannot look away.',
+  solve:   'Curiosity and surprise. Her expression is shifting. Something is different. The penny is dropping.',
+  value:   'Calm confidence. She is handling it. This is what in control feels like.',
+  proof:   'Pride and warmth. Her family is happy. She did this. Real smile — not posed.',
+  cta:     'Pure peace and satisfaction. The weight is gone. This is the feeling she is buying.'
+};
+
+/**
+ * Builds a story context object from a brief, picking up all theme-injected fields
+ * the frontend adds via _ccExtendBriefWithTheme().
+ */
+function _buildBriefStoryCtx(brief) {
+  return {
+    icp_code:         brief.icp             || '',
+    icp_entry:        brief.icp_entry       || '',
+    theme:            brief.theme           || '',
+    theme_food:       brief.theme_food      || '',
+    app_feature:      brief.app_feature     || '',
+    app_screen_label: brief.app_screen_label || '',
+    feature_hook:     brief.feature_hook    || '',
+    feature_proof:    brief.feature_proof   || '',
+    emotional_entry:  brief.emotional_entry  || '',
+    emotional_payoff: brief.emotional_payoff || '',
+    campaign_angle:   brief.campaign_angle   || 'savings',
+    hook_angle:       brief.hook_angle       || '',
+    problem_angle:    brief.problem_angle    || '',
+    agitate_angle:    brief.agitate_angle    || '',
+    urgency_trigger:  brief.urgency_trigger  || ''
+  };
+}
+
+/**
+ * Returns the STORY CONTEXT block string.
+ * When context.stage is set, appends a THIS POST section with emotional direction.
+ */
+function _buildStoryContextBlock(context) {
+  var ctx   = context || {};
+  var stage = (ctx.stage || '').toLowerCase();
+  var emo   = stage ? (_STAGE_EMOTIONS[stage] || '') : '';
+
+  var block =
+    '=== STORY CONTEXT FOR THIS CAMPAIGN ===\n' +
+    'WHO: '          + (ctx.icp_entry      || ctx.icp_code || '') + '\n' +
+    'THEIR MOMENT: ' + (ctx.emotional_entry || '') + '\n' +
+    'THE HOOK: '     + (ctx.hook_angle     || '') + '\n' +
+    'THE PAIN: '     + (ctx.problem_angle  || '') + '\n' +
+    'THE COST: '     + (ctx.agitate_angle  || '') + '\n';
+
+  if (ctx.feature_hook)
+    block += 'THE SOLUTION: ' + ctx.feature_hook +
+             (ctx.app_feature ? ' — ' + ctx.app_feature + ' feature' : '') + '\n';
+  if (ctx.app_screen_label && ctx.app_screen_label !== 'none')
+    block += 'THE SCREEN: '  + ctx.app_screen_label + '\n';
+  if (ctx.feature_proof)
+    block += 'THE PROOF: '   + ctx.feature_proof   + '\n';
+  if (ctx.emotional_payoff)
+    block += 'THE PAYOFF: '  + ctx.emotional_payoff + '\n';
+
+  block += 'THE URGENCY: ' +
+    (ctx.urgency_trigger || 'Founding price $7.99/month ends at 5,000 families') + '\n';
+
+  if (stage) {
+    block +=
+      '\nTHIS POST:\n' +
+      'Stage: '     + stage + '\n' +
+      (ctx.platform    ? 'Platform: '    + ctx.platform    + '\n' : '') +
+      (ctx.post_number ? 'Post number: ' + ctx.post_number + ' of 7\n' : '') +
+      (emo             ? 'Emotional direction: ' + emo     + '\n' : '') +
+      'Write the ' + stage + ' post for this exact story. Make it specific to ' +
+      (ctx.theme || ctx.icp_code || 'this campaign') +
+      ' — not generic meal planning copy.\n';
+  }
+
+  return block + '\n';
+}
+
+/**
+ * Returns a complete base system prompt with STORY CONTEXT injected.
+ * type: 'social_post' | 'landing_page' | 'email' | 'image_prompt'
+ * context: same object as _buildStoryContextBlock
+ */
+function getMasterSystemPrompt(type, context) {
+  var ctx        = context || {};
+  var storyBlock = _buildStoryContextBlock(ctx);
+  var claimsCtx  = '';
+  try { claimsCtx = _getClaimsContext(); }
+  catch(e) { claimsCtx = 'Use only approved claims. Do not invent statistics.\n\n'; }
+  var icpCtx = '';
+  try { icpCtx = _getIcpContext(ctx.icp_code || ctx.icp || ''); }
+  catch(e) { icpCtx = 'ICP: ' + (ctx.icp_code || '') + '\n'; }
+
+  if (type === 'social_post') {
+    return 'You are the easyChef Pro social media writer.\n\n' +
+      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock +
+      '=== TARGET ICP ===\n' + icpCtx + '\n';
+  }
+  if (type === 'landing_page') {
+    return 'You are the easyChef Pro landing page writer. You write high-converting landing page copy.\n\n' +
+      _AB_ARCH + _AB_VOICE +
+      'CRITICAL: Never invent testimonials, names, or social proof stories. Never use statistics that are not in the approved claims list. Approved claims only — exact wording: $1,336/year · 69.5% · 30 minutes · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · validated across 10,000 household profiles · built by first responders\n\n' +
+      claimsCtx + storyBlock +
+      '=== TARGET ICP ===\n' + icpCtx + '\n';
+  }
+  if (type === 'email') {
+    return 'You are the easyChef Pro email sequence writer. You write conversion email copy.\n\n' +
+      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock +
+      '=== TARGET ICP ===\n' + icpCtx + '\n';
+  }
+  // image_prompt: story block only — caller merges with brand/visual rules
+  if (type === 'image_prompt') {
+    return storyBlock;
+  }
+  return _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock +
+    '=== TARGET ICP ===\n' + icpCtx + '\n';
+}
+
 function _getPlatformNote(channelName) {
   try {
     var channels = getChannels();
@@ -273,16 +393,10 @@ function buildEmailSequence(brief, copy) {
 
   var lpUrl = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
 
-  var claimsCtx = _getClaimsContext();
-  var icpCtx    = _getIcpContext(brief.icp);
+  var _esStoryCtx = _buildBriefStoryCtx(brief);
 
   var systemPrompt =
-    'You are the easyChef Pro email sequence writer. You write conversion email copy.\n\n' +
-    _AB_ARCH +
-    claimsCtx +
-    _AB_VOICE +
-    '=== TARGET ICP ===\n' +
-    icpCtx + '\n' +
+    getMasterSystemPrompt('email', _esStoryCtx) +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Campaign: '    + (brief.name || '') + '\n' +
     'Landing page: ' + lpUrl + '\n' +
@@ -380,20 +494,15 @@ function buildSocialPosts(brief, copy) {
     }
   } catch(ctaErr) {}
 
-  var claimsCtx    = _getClaimsContext();
-  var icpCtx       = _getIcpContext(brief.icp);
   var platformNote = _getPlatformNote(channel);
   var channelRules = _getChannelRules(channel);
+  var _spStoryCtx  = _buildBriefStoryCtx(brief);
+  _spStoryCtx.platform = channel;
 
   var systemPrompt =
-    'You are the easyChef Pro social media writer.\n\n' +
-    _AB_ARCH +
-    claimsCtx +
-    _AB_VOICE +
+    getMasterSystemPrompt('social_post', _spStoryCtx) +
     '=== PLATFORM ===\n' +
     (channelRules || platformNote) + '\n\n' +
-    '=== TARGET ICP ===\n' +
-    icpCtx + '\n' +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Landing page: ' + lpUrl + '\n' +
     'Headline: '    + (copy && copy.headline    || '') + '\n' +
@@ -727,16 +836,10 @@ function buildLandingPage(brief, copy) {
       'Value: First outcome must be "Weeknight dinners on autopilot from September through June."\n\n';
   }
 
-  var claimsCtx = _getClaimsContext();
-  var icpCtx    = _getIcpContext(brief.icp);
+  var _lpStoryCtx = _buildBriefStoryCtx(brief);
 
   var systemPrompt =
-    'You are the easyChef Pro landing page writer. You write high-converting landing page copy.\n\n' +
-    _AB_ARCH +
-    _AB_VOICE +
-    'CRITICAL: Never invent testimonials, names, or social proof stories. Never use statistics that are not in the approved claims list. Approved claims only — exact wording: $1,336/year · 69.5% · 30 minutes · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · validated across 10,000 household profiles · built by first responders\n\n' +
-    claimsCtx +
-    '=== TARGET ICP ===\n' + icpCtx + '\n' +
+    getMasterSystemPrompt('landing_page', _lpStoryCtx) +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Landing page URL: ' + lpUrl + '\n' +
     'Funnel: '          + (brief.funnel         || 'A-Waitlist') + '\n' +

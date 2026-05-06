@@ -117,6 +117,29 @@ function generateImagePrompt(body) {
     }
 
     // ── Step 1: Claude → brand-aligned visual description ──────────────────
+    // Build story context from body params so the image reflects the exact campaign story
+    var _imgStoryCtx = {
+      icp_code:         icp,
+      icp_entry:        body.icp_entry        || '',
+      theme:            theme,
+      theme_food:       body.theme_food       || '',
+      app_feature:      body.app_feature      || '',
+      app_screen_label: (appScreen !== 'none') ? appScreen : '',
+      feature_hook:     body.feature_hook     || '',
+      feature_proof:    body.feature_proof    || '',
+      emotional_entry:  body.emotional_entry  || '',
+      emotional_payoff: body.emotional_payoff || '',
+      hook_angle:       body.hook_angle       || '',
+      problem_angle:    body.problem_angle    || '',
+      agitate_angle:    body.agitate_angle    || '',
+      urgency_trigger:  body.urgency_trigger  || '',
+      stage:            body.stage            || '',
+      platform:         platform,
+      post_number:      body.post_number      || ''
+    };
+    var _imgStoryBlock = '';
+    try { _imgStoryBlock = _buildStoryContextBlock(_imgStoryCtx); } catch(e) {}
+
     var claudeSystem =
       'You are the easyChef Pro visual director. Your job is to translate a social post image brief ' +
       'into a precise, image-generation-ready visual description that an AI image model can execute directly.\n\n' +
@@ -143,7 +166,8 @@ function generateImagePrompt(body) {
       '6. Negative prompt — one sentence beginning with "Do not include:" listing what must be absent (blue or cool tones, studio lighting, posed smiles, fake backgrounds, text overlays)\n' +
       'Output only the prose. No markdown, no section labels, no explanation.\n\n' +
       'EMOTIONAL PROGRESSION RULE: The 7 posts in this campaign tell an emotional journey from exhausted and defeated (Post 1 hook) to genuinely happy and at peace (Post 7 cta). Each image must show the correct emotion for its stage. The same character becomes progressively happier and more confident as the campaign progresses. The CTA image is the emotional payoff — show the feeling the product delivers, not the product itself.\n\n' +
-      'PHONE RULE: The easyChef Pro app and phone NEVER appear in hook, problem, or agitate stage images. For those stages the character has nothing in her hands — the story is purely about her pain before any solution exists. The phone and easyChef Pro app appear FOR THE FIRST TIME in the solve stage. From solve onwards she holds the phone naturally with the app screen visible. If the brief says "No phone" or marks the post as a pre-solution stage, obey that instruction absolutely — do not place a phone in the image.';
+      'PHONE RULE: The easyChef Pro app and phone NEVER appear in hook, problem, or agitate stage images. For those stages the character has nothing in her hands — the story is purely about her pain before any solution exists. The phone and easyChef Pro app appear FOR THE FIRST TIME in the solve stage. From solve onwards she holds the phone naturally with the app screen visible. If the brief says "No phone" or marks the post as a pre-solution stage, obey that instruction absolutely — do not place a phone in the image.' +
+      (_imgStoryBlock ? '\n\n' + _imgStoryBlock : '');
 
     var claudeUserMsg =
       'Platform: '   + platform   + '\n' +
