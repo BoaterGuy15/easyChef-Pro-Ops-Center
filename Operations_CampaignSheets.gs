@@ -1981,3 +1981,19 @@ function _registerLpInInventory(slug, campaignId, item) {
 }
 
 // clasp auto-deploy verified — May 2026
+
+// ── TEMPORARY — run once from Apps Script editor, then delete ─────────────────
+function deleteLpRow() {
+  var sheet   = _getCCSheet(_CC_TAB.LP_INVENTORY);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { Logger.log('LPInventory is empty'); return; }
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === 'lpi-moucnbx0') {
+      sheet.deleteRow(i + 2); // +2: 1-indexed + header row
+      Logger.log('Deleted row ' + (i + 2) + ' — id: lpi-moucnbx0');
+      return;
+    }
+  }
+  Logger.log('Row not found — id: lpi-moucnbx0');
+}
