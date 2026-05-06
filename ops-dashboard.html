@@ -21800,7 +21800,7 @@ function _ccSaveDraft(){
     action:'campaign_save_draft',
     brief:b,
     copy:_campKickstartCopy||{},
-    lp:_campLastLp||null,
+    lp:(_campBrief._lpLocked&&_campBrief._lpLocked.slug)?null:(_campLastLp||null),
     posts:_ccLastPosts||[],
     timestamp:new Date().toISOString()
   };
