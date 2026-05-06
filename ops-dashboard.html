@@ -21422,6 +21422,18 @@ function _ccClearTheme() {
   _ccBriefSync();
 }
 
+// Fetch a single ThemeLibrary row by name from the Sheet (used when kickstart auto-fills theme)
+function _ccLoadThemeData(themeName, cb) {
+  if(!CONFIG.sheetsUrl || !themeName) { cb(null); return; }
+  fetch(CONFIG.sheetsUrl + '?action=theme_library_read&theme=' + encodeURIComponent(themeName))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.ok && Array.isArray(d.themes) && d.themes.length) { cb(d.themes[0]); }
+      else { cb(null); }
+    })
+    .catch(function(){ cb(null); });
+}
+
 // ── Brief + theme context merger ───────────────────────────────────────────
 // Copies all brief fields then merges ThemeLibrary row into the story context
 // fields that getMasterSystemPrompt() / _buildStoryContextBlock() read server-side.
@@ -22535,6 +22547,16 @@ function _ccKickstart(){
       setTimeout(function(){_ccKsLpSearch(_ksIcpName);},120);
       // ── Auto-fill dropdowns + name + slug (retries until ready) ──────────
       _ccAutoFillBrief(j);
+      // Auto-load theme data from Sheet when kickstart detects a theme
+      if(j.theme){
+        _ccLoadThemeData(j.theme, function(row){
+          if(row){
+            _campBrief.themeData = row;
+            _ccSelectedTheme = row;
+            console.log('[THEME AUTO-LOADED]', JSON.stringify(row));
+          }
+        });
+      }
     })
     .catch(function(e){
       if(btn){btn.disabled=false;btn.textContent='Generate Campaign';}

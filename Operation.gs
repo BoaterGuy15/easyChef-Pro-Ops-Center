@@ -297,7 +297,19 @@ function doGet(e) {
       return respond({ ok: true, connected: data.ok === true });
     }
     if(e.parameter.action === 'lp_search') return respond(getLandingPagesByIcp(e.parameter.icp||''));
-    if(e.parameter.action === 'theme_library_read') return respond({ok:true, themes: getThemeLibrary(e.parameter.icp_code||'')});
+    if(e.parameter.action === 'theme_library_read') {
+      var _tlIcp   = e.parameter.icp_code || '';
+      var _tlTheme = e.parameter.theme    || '';
+      var _tlRows  = getThemeLibrary(_tlIcp);
+      if(_tlTheme) {
+        var _tlQ = _tlTheme.toLowerCase();
+        _tlRows = _tlRows.filter(function(t){
+          return t.theme_name.toLowerCase().indexOf(_tlQ) > -1 ||
+                 t.theme_slug.toLowerCase().indexOf(_tlQ) > -1;
+        });
+      }
+      return respond({ok:true, themes:_tlRows});
+    }
     if(e.parameter.action === 'generate_image_prompt') return respond(generateImagePrompt({ image_brief: decodeURIComponent(e.parameter.image_brief||''), post_hook: decodeURIComponent(e.parameter.post_hook||''), post_body: decodeURIComponent(e.parameter.post_body||''), app_screen: decodeURIComponent(e.parameter.app_screen||'meal planning interface'), platform: e.parameter.platform||'Facebook', icp: e.parameter.icp||'super_mom', dimensions: e.parameter.dimensions||'1200x630px', use_case: e.parameter.use_case||'social', skip_optimize: e.parameter.skip_optimize||'', skip_claude: e.parameter.skip_claude||'', theme: decodeURIComponent(e.parameter.theme||'') }));
     if(e.parameter.action === 'ir_read') return respond({ok:true, requests: getInfoRequests(e.parameter.taskId||'', e.parameter.id||'')});
     if(e.parameter.action === 'slack_send') return respond(sendSlackMessage(e.parameter.channel, e.parameter.text, e.parameter.user||''));

@@ -142,6 +142,13 @@ function campaignKickstart(prompt) {
     'Approved stats (use exact wording): $1,336/year savings | 69.5% less food waste | 30 minutes fridge to table. ' +
     'Slug format: lp/waitlist-a for waitlist, lp/alpha for founding, /recipes/[slug] for recipe.\n\n' +
 
+    'PROOF BAR EXACT WORDING — always use these exact strings, no added words:\n' +
+    '- "$1,336/year" (not "Families save $1,336/year")\n' +
+    '- "69.5% less food waste" (not "69.5%")\n' +
+    '- "30 minutes fridge to table" (exact)\n' +
+    '- "Validated across 10,000 household profiles"\n' +
+    '- "Built by first responders"\n\n' +
+
     'Detect from prompt: channels (array, lowercase) | theme (recurring series name or "") | ' +
     'publish_day (day name or "") | campaign_angle (savings/speed/waste/proof/urgency/theme) | ' +
     'urgency_trigger (scarcity sentence, default "Founding price $7.99/month ends at 5,000 families").\n\n' +
@@ -193,9 +200,11 @@ function campaignKickstart(prompt) {
         var pStr = String(prompt).toLowerCase();
         var explicitDownload = pStr.indexOf('app download') > -1 || pStr.indexOf('after launch') > -1 || pStr.indexOf('july 1 onwards') > -1;
         if (!explicitDownload) {
-          campaign.blueprint  = 'A-Waitlist';
-          campaign.cta_type   = 'waitlist';
-          if (!campaign.cta_primary) campaign.cta_primary = 'Join the waitlist free — early access July 1';
+          campaign.blueprint        = 'A-Waitlist';
+          campaign.cta_type         = 'waitlist';
+          campaign.cta_primary      = 'Join the waitlist free — early access July 1';
+          campaign.conversion_goal  = 'waitlist_signup_completed';
+          campaign.email_sequences  = 2;
         }
       }
       return { ok: true, campaign: campaign };
