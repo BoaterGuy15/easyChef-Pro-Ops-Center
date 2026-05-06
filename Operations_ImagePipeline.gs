@@ -136,6 +136,25 @@ function generateImagePrompt(body) {
     var _imgStoryBlock = '';
     try { _imgStoryBlock = _buildStoryContextBlock(_imgStoryCtx); } catch(e) {}
 
+    // Per-stage phone rule + emotional arc — explicit override so Claude cannot default to a generic scene
+    var _stageKey = (body.stage || '').toLowerCase();
+    var _stageInstruction = '';
+    if (_stageKey === 'hook') {
+      _stageInstruction = '\n\nTHIS POST — STAGE: HOOK (Post 1)\nNO phone. NO easyChef Pro app. NO device of any kind in the character\'s hands or visible anywhere.\nShe has not discovered the solution yet. Her hands are empty.\nREQUIRED EMOTION: exhausted and defeated — this is the worst moment of her day. No hope visible yet.';
+    } else if (_stageKey === 'problem') {
+      _stageInstruction = '\n\nTHIS POST — STAGE: PROBLEM (Post 2)\nNO phone. NO easyChef Pro app. NO device visible.\nShe has not discovered the solution yet.\nREQUIRED EMOTION: frustrated — she knows this feeling too well. Nothing has ever fixed it.';
+    } else if (_stageKey === 'agitate') {
+      _stageInstruction = '\n\nTHIS POST — STAGE: AGITATE (Post 3)\nNO phone. NO easyChef Pro app. NO device visible.\nShe has not discovered the solution yet.\nREQUIRED EMOTION: shock and recognition — she is seeing the true cost for the first time. Cannot look away.';
+    } else if (_stageKey === 'solve') {
+      _stageInstruction = '\n\nTHIS POST — STAGE: SOLVE (Post 4)\nThe easyChef Pro phone appears FOR THE FIRST TIME in this image. She holds it naturally, red app interface glowing on screen.\nREQUIRED EMOTION: curious, penny dropping — she is realising this might actually work. Cautious hope, not full relief yet.';
+    } else if (_stageKey === 'value') {
+      _stageInstruction = '\n\nTHIS POST — STAGE: VALUE (Post 5)\nPhone is visible — she holds it naturally with the easyChef Pro app on screen.\nREQUIRED EMOTION: relieved and grateful — the outcome is real. Dinner is handled. She exhales.';
+    } else if (_stageKey === 'proof') {
+      _stageInstruction = '\n\nTHIS POST — STAGE: PROOF (Post 6)\nPhone is visible — she holds it naturally with the easyChef Pro app on screen.\nREQUIRED EMOTION: calm and trusting — the evidence confirms what she hoped was true.';
+    } else if (_stageKey === 'cta') {
+      _stageInstruction = '\n\nTHIS POST — STAGE: CTA (Post 7)\nPhone is visible — she holds it naturally with the easyChef Pro app on screen.\nREQUIRED EMOTION: genuinely happy and at peace — the emotional payoff. Show the feeling the product delivers, not the product itself.';
+    }
+
     var claudeSystem =
       'You are the easyChef Pro visual director. Your job is to translate a social post image brief ' +
       'into a precise, image-generation-ready visual description that an AI image model can execute directly.\n\n' +
@@ -163,6 +182,7 @@ function generateImagePrompt(body) {
       'Output only the prose. No markdown, no section labels, no explanation.\n\n' +
       'EMOTIONAL PROGRESSION RULE: The 7 posts in this campaign tell an emotional journey from exhausted and defeated (Post 1 hook) to genuinely happy and at peace (Post 7 cta). Each image must show the correct emotion for its stage. The same character becomes progressively happier and more confident as the campaign progresses. The CTA image is the emotional payoff — show the feeling the product delivers, not the product itself.\n\n' +
       'PHONE RULE: The easyChef Pro app and phone NEVER appear in hook, problem, or agitate stage images. For those stages the character has nothing in her hands — the story is purely about her pain before any solution exists. The phone and easyChef Pro app appear FOR THE FIRST TIME in the solve stage. From solve onwards she holds the phone naturally with the app screen visible. If the brief says "No phone" or marks the post as a pre-solution stage, obey that instruction absolutely — do not place a phone in the image.' +
+      _stageInstruction +
       (_imgStoryBlock ? '\n\n' + _imgStoryBlock : '');
 
     var claudeUserMsg =
