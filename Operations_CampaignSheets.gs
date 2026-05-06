@@ -1980,23 +1980,4 @@ function _registerLpInInventory(slug, campaignId, item) {
   }
 }
 
-// ── One-time: fix lp/waitlist slug → lp/waitlist-a in live LPInventory sheet ─
-function fixLpWaitlistSlug() {
-  var sheet = _getCCSheet(_CC_TAB.LP_INVENTORY);
-  var last  = sheet.getLastRow();
-  if (last < 2) { Logger.log('LPInventory empty'); return; }
-  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.LPInventory.length).getValues();
-  var fixed = 0;
-  for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i][1]) === 'lp/waitlist') {
-      sheet.getRange(i + 2, 2).setValue('lp/waitlist-a');
-      sheet.getRange(i + 2, 3).setValue('https://easychefpro.com/lp/waitlist-a');
-      sheet.getRange(i + 2, 17).setValue(_ccNow());
-      fixed++;
-      Logger.log('Fixed row ' + (i + 2) + ': lp/waitlist → lp/waitlist-a');
-    }
-  }
-  Logger.log('fixLpWaitlistSlug complete — ' + fixed + ' row(s) updated');
-}
-
 // clasp auto-deploy verified — May 2026
