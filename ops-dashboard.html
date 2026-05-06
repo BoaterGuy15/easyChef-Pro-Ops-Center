@@ -21444,6 +21444,7 @@ function _ccExtendBriefWithTheme(brief) {
   console.log('[THEME CTX] _ccSelectedTheme=', JSON.stringify(t ? {theme_name:t.theme_name,icp_code:t.icp_code,hook_angle:t.hook_angle,problem_angle:t.problem_angle,agitate_angle:t.agitate_angle,feature_hook:t.feature_hook,emotional_entry:t.emotional_entry,emotional_payoff:t.emotional_payoff} : null));
   if (!t) { console.log('[THEME CTX] no theme selected — brief sent without story context'); return ext; }
   ext.themeData        = t;
+  if (t.icp_code) { ext.icp_code = t.icp_code; _campBrief.icp_code = t.icp_code; console.log('[THEME CTX] icp_code overridden to', t.icp_code); }
   ext.icp_entry        = t.emotional_entry  || ext.icp_entry        || '';
   ext.emotional_entry  = t.emotional_entry  || ext.emotional_entry  || '';
   ext.emotional_payoff = t.emotional_payoff || ext.emotional_payoff || '';

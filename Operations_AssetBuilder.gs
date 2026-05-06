@@ -157,7 +157,8 @@ function _buildBriefStoryCtx(brief) {
     agitate_angle:    t.agitate_angle        || brief.agitate_angle    || '',
     urgency_trigger:  t.urgency_trigger      || brief.urgency_trigger  || '',
     image_mood_hook:  t.image_mood_hook      || '',
-    image_mood_cta:   t.image_mood_cta       || ''
+    image_mood_cta:   t.image_mood_cta       || '',
+    blueprint:        brief.blueprint        || ''
   };
 }
 
@@ -188,8 +189,11 @@ function _buildStoryContextBlock(context) {
   if (ctx.emotional_payoff)
     block += 'THE PAYOFF: '  + ctx.emotional_payoff + '\n';
 
-  block += 'THE URGENCY: ' +
-    (ctx.urgency_trigger || 'Founding price $7.99/month ends at 5,000 families') + '\n';
+  var _isWaitlist = (ctx.blueprint || '').indexOf('Waitlist') > -1;
+  var _urgencyDefault = _isWaitlist
+    ? 'Free during beta — app launches July 1'
+    : 'Founding price $7.99/month ends at 5,000 families';
+  block += 'THE URGENCY: ' + (ctx.urgency_trigger || _urgencyDefault) + '\n';
 
   if (stage) {
     block +=
@@ -220,6 +224,7 @@ function getMasterSystemPrompt(type, context) {
   var claimsCtx  = '';
   try { claimsCtx = _getClaimsContext(); }
   catch(e) { claimsCtx = 'Use only approved claims. Do not invent statistics.\n\n'; }
+  claimsCtx += 'FOUNDING OFFER RULE: founding_offer field must use exact wording: "Lock in $7.99/month founding price — 60% off forever". Never write "50% off" in any form.\n\n';
   var icpCtx = '';
   try { icpCtx = _getIcpContext(ctx.icp_code || ctx.icp || ''); }
   catch(e) { icpCtx = 'ICP: ' + (ctx.icp_code || '') + '\n'; }
