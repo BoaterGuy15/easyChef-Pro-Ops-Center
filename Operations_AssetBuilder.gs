@@ -670,7 +670,62 @@ function buildLandingPage(brief, copy) {
   var apiKey = props.getProperty('ANTHROPIC_API_KEY');
   if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
 
-  var lpUrl = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
+  var lpUrl   = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
+  var ctaType = brief.cta_type || 'waitlist';
+  // Phase guard: pre-launch
+  var _lpLaunchDate = new Date('2026-07-01');
+  if (new Date() < _lpLaunchDate && ctaType === 'download') ctaType = 'waitlist';
+
+  // CTA text from CampaignTypes sheet
+  var ctaConf = ctaType === 'download'
+    ? { cta: 'Download free on App Store', scarcity: '', loss: '' }
+    : { cta: 'Join the waitlist free — early access July 1 — no credit card required',
+        scarcity:  'First 5,000 families lock in $7.99/month forever',
+        loss:      'After that: $19.99/month' };
+  try {
+    var _lpCtaTypes = getCampaignTypes(false);
+    for (var _lpCi = 0; _lpCi < _lpCtaTypes.length; _lpCi++) {
+      if (_lpCtaTypes[_lpCi].cta_type === ctaType) {
+        ctaConf.cta  = _lpCtaTypes[_lpCi].cta_text      || ctaConf.cta;
+        ctaConf.loss = _lpCtaTypes[_lpCi].loss_aversion  || ctaConf.loss;
+        break;
+      }
+    }
+  } catch(e) {}
+
+  // Theme injection block
+  var theme      = ((brief.theme || '')).toLowerCase();
+  var themeBlock = '';
+  if (theme.indexOf('taco') > -1) {
+    themeBlock =
+      '=== TACO TUESDAY THEME — INJECT THROUGHOUT ===\n' +
+      'Hero: Reference tacos and the 6:30 PM taco moment in headline and subheadline.\n' +
+      'Problem: Name the taco-specific moment — ingredients in fridge, no plan, kids wanting tacos tonight.\n' +
+      'Agitate: Cost angle — $30 DoorDash tacos vs $8 worth of ingredients already in the fridge.\n' +
+      'Solve: Write exactly: "easyChef Pro turns your fridge into 30-minute tacos."\n' +
+      'Value: First outcome must be "Taco Tuesday handled every week — without the 6:30 PM panic."\n' +
+      'Proof: Use COOK feature proof — "10,000 recipe pages at launch · 800,000 products in database"\n' +
+      'CTA: Close with "Start with Taco Tuesday. Your fridge is already ready."\n\n';
+  } else if (theme.indexOf('meal prep') > -1) {
+    themeBlock =
+      '=== MEAL PREP SUNDAY THEME — INJECT THROUGHOUT ===\n' +
+      'Hero: Reference Sunday meal prep and the feeling of having the week handled.\n' +
+      'Problem: Standing in the kitchen Sunday morning with no plan.\n' +
+      'Value: First outcome must be "The whole week handled in one Sunday session."\n' +
+      'CTA: Close with "Make next Sunday the last Sunday you figure it out alone."\n\n';
+  } else if (theme.indexOf('game night') > -1) {
+    themeBlock =
+      '=== GAME NIGHT THEME — INJECT THROUGHOUT ===\n' +
+      'Hero: Reference game night food and the Friday 6 PM scramble.\n' +
+      'Problem: Everyone is over in an hour and nothing is ready.\n' +
+      'Value: First outcome must be "Game Night food handled in 30 minutes from what is already in the fridge."\n\n';
+  } else if (theme.indexOf('back to school') > -1) {
+    themeBlock =
+      '=== BACK TO SCHOOL THEME — INJECT THROUGHOUT ===\n' +
+      'Hero: Reference the back-to-school Monday chaos and dinner timing.\n' +
+      'Problem: First day back and no one has the energy to cook.\n' +
+      'Value: First outcome must be "Weeknight dinners on autopilot from September through June."\n\n';
+  }
 
   var claimsCtx = _getClaimsContext();
   var icpCtx    = _getIcpContext(brief.icp);
@@ -678,35 +733,54 @@ function buildLandingPage(brief, copy) {
   var systemPrompt =
     'You are the easyChef Pro landing page writer. You write high-converting landing page copy.\n\n' +
     _AB_ARCH +
-    claimsCtx +
     _AB_VOICE +
-    '=== TARGET ICP ===\n' +
-    icpCtx + '\n' +
+    'CRITICAL: Never invent testimonials, names, or social proof stories. Never use statistics that are not in the approved claims list. Approved claims only — exact wording: $1,336/year · 69.5% · 30 minutes · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · validated across 10,000 household profiles · built by first responders\n\n' +
+    claimsCtx +
+    '=== TARGET ICP ===\n' + icpCtx + '\n' +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Landing page URL: ' + lpUrl + '\n' +
-    'Funnel: '       + (brief.funnel || '') + '\n' +
-    'Campaign name: '+ (brief.name   || '') + '\n' +
-    (copy ? 'Existing headline: ' + (copy.headline || '') + '\n' : '') +
-    (copy ? 'LP hero copy: '      + (copy.lp_hero  || '') + '\n' : '') + '\n' +
-    '=== LP STRUCTURE ===\n' +
-    'Hero: Headline + subheadline + primary CTA above the fold.\n' +
-    'Problem block: 2-3 sentences making the pain feel real and present.\n' +
-    'Solve block: One clear sentence introducing easyChef Pro as the answer.\n' +
-    'Proof bar: 3 exact stats from the approved claims list.\n' +
-    'Social proof: One believable family outcome story (2-3 sentences).\n' +
-    'Closing CTA: Urgency-framed founding price offer.\n\n' +
+    'Funnel: '          + (brief.funnel         || 'A-Waitlist') + '\n' +
+    'Campaign name: '   + (brief.name           || '') + '\n' +
+    'Campaign angle: '  + (brief.campaign_angle || 'savings') + '\n' +
+    'Urgency trigger: ' + (brief.urgency_trigger || 'Founding price $7.99/month ends at 5,000 families') + '\n' +
+    (copy && copy.headline ? 'Campaign headline: ' + copy.headline + '\n' : '') +
+    (copy && copy.lp_hero  ? 'LP hero copy: '     + copy.lp_hero  + '\n' : '') + '\n' +
+    themeBlock +
+    '=== 7-SECTION LP STRUCTURE — FOLLOW EXACTLY ===\n\n' +
+    'SECTION 1 — HOOK (hero)\n' +
+    'hero_headline: Mirrors the campaign hook. Specific to the ICP pain. Under 12 words.\n' +
+    'hero_subheadline: Names the exact moment in plain language. One sentence. Under 20 words.\n' +
+    'hero_cta: Use this exact text: "' + ctaConf.cta + '"\n\n' +
+    'SECTION 2 — PROBLEM\n' +
+    'problem_section: Her exact moment. Name the 6:30 PM wall precisely. No solution. No product mention. 2-3 sentences.\n\n' +
+    'SECTION 3 — AGITATE\n' +
+    'agitate_section: The cost. Use $1,336/year exact wording. Also $111/month. Also $25/week. One undeniable number per sentence. 2-3 sentences maximum.\n\n' +
+    'SECTION 4 — SOLVE\n' +
+    'solve_section: One sentence only. Write: "easyChef Pro looks at what is in your fridge and tells you exactly what to make tonight." Do not add feature lists.\n\n' +
+    'SECTION 5 — VALUE\n' +
+    'value_section: Three outcomes she wants. Not features — feelings and results. Write as 3 flowing sentences, not bullet points.\n\n' +
+    'SECTION 6 — PROOF\n' +
+    'proof_bar: Array of exactly 3 approved claims. Use only exact wording from the approved list. NEVER invent testimonials, names, or make-up stats. Do not write "Join 10,000 families" — that is not an approved claim. Use: "Validated across 10,000 household profiles" and "Built by first responders" and one stat from the claims list.\n\n' +
+    'SECTION 7 — CTA\n' +
+    'closing_headline: Urgency-framed founding price headline. One sentence.\n' +
+    'cta_primary: Write exactly: "' + ctaConf.cta + '"\n' +
+    'cta_scarcity: Write exactly: "First 5,000 families lock in $7.99/month forever"\n' +
+    'cta_loss_aversion: Write exactly: "After that: $19.99/month"\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY valid JSON. No markdown. No explanation.\n' +
     '{\n' +
-    '  "hero_headline": "Stops the scroll — specific to the ICP pain",\n' +
-    '  "hero_subheadline": "Names the exact pain in one plain sentence",\n' +
-    '  "hero_cta": "Outcome-framed, under 6 words",\n' +
-    '  "problem_section": "2-3 sentences making the pain feel real",\n' +
-    '  "solve_section": "One sentence introducing easyChef Pro",\n' +
-    '  "proof_items": ["exact claim from approved list", "exact claim", "exact claim"],\n' +
-    '  "social_proof": "2-3 sentence believable family outcome story",\n' +
-    '  "closing_headline": "Urgency headline for final CTA section",\n' +
-    '  "cta_primary": "Founding price offer — one sentence",\n' +
+    '  "hero_headline": "",\n' +
+    '  "hero_subheadline": "",\n' +
+    '  "hero_cta": "' + ctaConf.cta + '",\n' +
+    '  "problem_section": "",\n' +
+    '  "agitate_section": "",\n' +
+    '  "solve_section": "easyChef Pro looks at what is in your fridge and tells you exactly what to make tonight.",\n' +
+    '  "value_section": "",\n' +
+    '  "proof_bar": ["Validated across 10,000 household profiles", "Built by first responders", ""],\n' +
+    '  "closing_headline": "",\n' +
+    '  "cta_primary": "' + ctaConf.cta + '",\n' +
+    '  "cta_scarcity": "First 5,000 families lock in $7.99/month forever",\n' +
+    '  "cta_loss_aversion": "After that: $19.99/month",\n' +
     '  "cta_url": "' + lpUrl + '"\n' +
     '}';
 
@@ -722,7 +796,7 @@ function buildLandingPage(brief, copy) {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 2048,
         system: systemPrompt,
-        messages: [{ role: 'user', content: 'Generate landing page copy for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object.' }]
+        messages: [{ role: 'user', content: 'Generate landing page copy for the ' + (brief.icp || 'selected') + ' ICP' + (brief.theme ? ' with theme: ' + brief.theme : '') + '. Follow the 7-section structure exactly. Return only the JSON object.' }]
       }),
       muteHttpExceptions: true
     });
@@ -734,6 +808,8 @@ function buildLandingPage(brief, copy) {
     try {
       var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
       var result = JSON.parse(jsonStr);
+      // Back-compat: keep proof_items pointing to same array as proof_bar
+      result.proof_items = Array.isArray(result.proof_bar) ? result.proof_bar : (result.proof_items || []);
       return { ok: true, lp: result };
     } catch (e) {
       return { ok: true, lp: null, raw: reply };

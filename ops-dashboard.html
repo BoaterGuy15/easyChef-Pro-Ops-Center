@@ -22838,17 +22838,21 @@ function _ccKsBuildLp(){
       _campLastLp=lp;
       console.log('[CC] _campLastLp set:',_campLastLp?_campLastLp.hero_headline:'NULL');
       var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+      var _pb=lp.proof_bar||lp.proof_items||[];
       var fields=[
         ['Campaign ID',          safe(_campBrief.id||'—')],
-        ['Hero Headline',        safe(lp.hero_headline||'')],
-        ['Hero Subheadline',     safe(lp.hero_subheadline||'')],
-        ['Hero CTA',             safe(lp.hero_cta||'')],
-        ['Problem Section',      safe(lp.problem_section||'')],
-        ['Solve Section',        safe(lp.solve_section||'')],
-        ['Proof Items',          Array.isArray(lp.proof_items)?lp.proof_items.map(function(s,i){return _ccBadge2(i+1)+' '+safe(s);}).join(' '):safe(String(lp.proof_items||''))],
-        ['Social Proof',         safe(lp.social_proof||'')],
-        ['Closing Headline',     safe(lp.closing_headline||'')],
-        ['Primary CTA',          safe(lp.cta_primary||'')],
+        ['§1 Hero Headline',     safe(lp.hero_headline||'')],
+        ['§1 Hero Subheadline',  safe(lp.hero_subheadline||'')],
+        ['§1 Hero CTA',          safe(lp.hero_cta||'')],
+        ['§2 Problem',           safe(lp.problem_section||'')],
+        ['§3 Agitate',           safe(lp.agitate_section||'')],
+        ['§4 Solve',             safe(lp.solve_section||'')],
+        ['§5 Value',             safe(lp.value_section||'')],
+        ['§6 Proof Bar',         Array.isArray(_pb)?_pb.map(function(s,i){return _ccBadge2(i+1)+' '+safe(s);}).join(' '):safe(String(_pb||''))],
+        ['§7 Closing Headline',  safe(lp.closing_headline||'')],
+        ['§7 CTA',               safe(lp.cta_primary||'')],
+        ['§7 Scarcity',          safe(lp.cta_scarcity||'')],
+        ['§7 Loss Aversion',     safe(lp.cta_loss_aversion||'')],
         ['CTA URL',              safe(lp.cta_url||'')]
       ];
       var rows=fields.map(function(f){
