@@ -26,7 +26,8 @@ var _CC_TAB = {
   CONTENT_CAL:    'ContentCalendar',
   METRICS:        'CampaignMetrics',
   SCHEDULED:      'ScheduledPosts',
-  LP_INVENTORY:   'LPInventory'
+  LP_INVENTORY:   'LPInventory',
+  THEME_LIBRARY:  'ThemeLibrary'
 };
 
 var _CC_HDR = {
@@ -126,6 +127,15 @@ var _CC_HDR = {
     'id','campaign_id','social_post_id','channel','scheduled_date',
     'scheduled_time','status','posted_url','posted_at',
     'scheduling_tool','created_at'
+  ],
+  ThemeLibrary: [
+    'id','icp_code','theme_name','theme_slug',
+    'category','emotional_entry','emotional_payoff',
+    'hook_angle','problem_angle','agitate_angle',
+    'food_type','publish_day','post_count',
+    'blueprint_code','campaign_angle',
+    'urgency_trigger','image_mood_hook',
+    'image_mood_cta','active','notes'
   ]
 };
 
@@ -222,6 +232,7 @@ function _setupCampaignSheets() {
     _ccHdrStyle(sheet, _CC_HDR[name]);
   });
   _seedLPInventory(ss.getSheetByName(_CC_TAB.LP_INVENTORY));
+  _seedThemeLibrary(ss.getSheetByName(_CC_TAB.THEME_LIBRARY));
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
@@ -376,6 +387,88 @@ function _seedLPInventory(sheet) {
   ].forEach(function(row) {
     if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
   });
+}
+
+function _seedThemeLibrary(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  [
+    ['sm-001','super_mom','Taco Tuesday','taco-tuesday','weeknight-wins',
+     'It is 6:30 PM and she has no plan',
+     'Taco Tuesday nailed without the panic',
+     'What if Taco Tuesday was faster than takeout?',
+     'You bought the ingredients but never planned what to make',
+     '$25 in DoorDash when tacos were already in the fridge',
+     'Tacos — crispy shells, meat, salsa, lime',
+     'Tuesday',7,'A-Waitlist','speed',
+     'Free during beta — app launches July 1',
+     'Tired mom staring at fridge at 6:30 PM',
+     'Mom relaxed on couch after taco dinner, kids happy',
+     'true','Primary Taco Tuesday theme — highest resonance'],
+    ['sm-002','super_mom','Meal Prep Sunday','meal-prep-sunday','weekend-wins',
+     'Sunday anxiety about the week ahead',
+     'Monday morning with a full plan and a clean fridge',
+     'The Sunday reset that actually works',
+     'You start every week intending to meal prep and end up not',
+     'By Wednesday you are back to ordering because Sunday slipped away again',
+     'Meal prep containers — grains, proteins, vegetables portioned out',
+     'Sunday',7,'A-Waitlist','speed','',
+     'Mom looking at empty containers Sunday afternoon, overwhelmed',
+     'Mom smiling at a fridge full of organised prep containers Monday morning',
+     'true',''],
+    ['sm-003','super_mom','Back to School','back-to-school','seasonal',
+     'First week of school chaos — dinner at 5 PM with no plan',
+     'School nights handled without the 5 PM spiral',
+     'School is back. Your evenings are not ready.',
+     'Summer was easy. School nights are a different level of chaos.',
+     'Three activities, two kids, one hour to get dinner on the table',
+     'Quick family dinner — pasta, protein, something kids will eat',
+     'Monday',7,'A-Waitlist','speed','',
+     'Mom rushing, kids in uniforms, kitchen behind her at 5 PM',
+     'Family at the table, homework done, dinner served, mom exhales',
+     'true',''],
+    ['sm-004','super_mom','Game Night','game-night','weekend-wins',
+     'Feeding a crowd from the fridge with no plan',
+     'Game night snacks and dinner handled in 45 minutes',
+     '8 people are coming over. Your fridge is full. Now what?',
+     'Game night used to mean panic ordering pizza for everyone',
+     '$80 on delivery when you had everything to make something better',
+     'Finger foods and shareable dishes — nachos, sliders, dips',
+     'Friday',7,'A-Waitlist','savings','',
+     'Mom looking stressed at a full fridge before guests arrive',
+     'Full table of food, friends around it, mom relaxed and in her element',
+     'true','']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+}
+
+function _tlRowToObj(r) {
+  return {
+    id: r[0], icp_code: r[1], theme_name: r[2], theme_slug: r[3],
+    category: r[4], emotional_entry: r[5], emotional_payoff: r[6],
+    hook_angle: r[7], problem_angle: r[8], agitate_angle: r[9],
+    food_type: r[10], publish_day: String(r[11] || ''),
+    post_count: parseInt(r[12]) || 7,
+    blueprint_code: r[13], campaign_angle: r[14],
+    urgency_trigger: r[15], image_mood_hook: r[16],
+    image_mood_cta: r[17],
+    active: r[18] === true || String(r[18]).toLowerCase() === 'true',
+    notes: r[19]
+  };
+}
+
+function getThemeLibrary(icp_code) {
+  var sheet = _getCCSheet(_CC_TAB.THEME_LIBRARY);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.ThemeLibrary.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_tlRowToObj)
+    .filter(function(t) { return t.active; });
+  if (!icp_code) return rows;
+  var code = String(icp_code).toLowerCase().replace(/\s+/g, '_');
+  return rows.filter(function(t) { return !t.icp_code || String(t.icp_code).toLowerCase() === code; });
 }
 
 function _deduplicateSeededTabs() {

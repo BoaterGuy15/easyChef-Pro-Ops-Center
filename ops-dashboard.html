@@ -21300,6 +21300,8 @@ var _ccWizardStep=1;
 var _ccWizardDone={};
 var _ccWizardSumms={};
 var _ccBaseImages={};   // original generated image per post (for Replace Phone Screen)
+var _ccThemeLib={};         // theme library cache keyed by icp_code
+var _ccLastIcpForThemes=''; // tracks ICP changes to reload theme picker
 var _ccBrandLib={logos:[],claimBars:[],fullOverlays:[]};
 var _ccPostImages={};   // per-post working images: {original, working}
 var _ccEditorState={};  // per-post editor state: {tab, prefix}
@@ -21331,6 +21333,65 @@ function _ccField(lbl,id,type,val,opts,hint){
     hint='';
   }
   return '<div style="margin-bottom:14px"><label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">'+lbl+'</label>'+ctrl+(hint?'<div style="font-size:10px;color:var(--muted);margin-top:3px">'+hint+'</div>':'')+'</div>';
+}
+
+// ── Theme Library picker ────────────────────────────────────────────────────
+function _ccLoadThemeLibrary(icp) {
+  if(!CONFIG.sheetsUrl || !icp) return;
+  var code = icp.toLowerCase().replace(/\s+/g,'_');
+  fetch(CONFIG.sheetsUrl+'?action=theme_library_read&icp_code='+encodeURIComponent(code))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok && Array.isArray(d.themes)) {
+        _ccThemeLib[code] = d.themes;
+        var picker = _ccEl('cc-theme-picker');
+        if(picker) picker.innerHTML = _ccRenderThemeCards(d.themes, _campBrief.theme||'');
+      }
+    })
+    .catch(function(){});
+}
+
+function _ccRenderThemeCards(themes, selected) {
+  if(!themes || !themes.length) return '<div style="font-size:11px;color:var(--muted);padding:4px 0">No themes available for this ICP yet.</div>';
+  return themes.map(function(t) {
+    var active = (selected||'').toLowerCase() === (t.theme_name||'').toLowerCase();
+    var nameEsc = (t.theme_name||'').replace(/'/g,"\\'");
+    var dayEsc  = (t.publish_day||'').replace(/'/g,"\\'");
+    var angEsc  = (t.campaign_angle||'').replace(/'/g,"\\'");
+    var urgEsc  = (t.urgency_trigger||'').replace(/'/g,"\\'");
+    return '<div onclick="_ccSelectTheme(\''+nameEsc+'\',\''+dayEsc+'\',\''+angEsc+'\',\''+urgEsc+'\')" '+
+      'style="cursor:pointer;padding:8px 12px;border-radius:6px;border:1px solid '+(active?_CC_RED:'var(--border)')+';background:'+(active?'rgba(255,0,0,0.06)':'var(--surface)')+';transition:border-color 0.15s,background 0.15s;flex-shrink:0;max-width:220px">'+
+      '<div style="font-size:12px;font-weight:700;color:'+(active?_CC_RED:'var(--text)')+';margin-bottom:2px">'+t.theme_name+'</div>'+
+      '<div style="font-size:10px;color:var(--muted);line-height:1.4">'+(t.category||'')+(t.publish_day?' · '+t.publish_day:'')+'</div>'+
+      '<div style="font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4;font-style:italic">'+(t.emotional_entry||'').slice(0,50)+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function _ccSelectTheme(name, publishDay, angle, urgency) {
+  _campBrief.theme = name;
+  if(publishDay) _campBrief.publish_day = publishDay;
+  if(angle)      _campBrief.campaign_angle = angle;
+  if(urgency)    _campBrief.urgency_trigger = urgency;
+  var el;
+  el = _ccEl('cc-theme');         if(el) el.value = name;
+  el = _ccEl('cc-publish-day');   if(el && publishDay) el.value = publishDay;
+  el = _ccEl('cc-campaign-angle');if(el && angle)      el.value = angle;
+  el = _ccEl('cc-urgency-trigger');if(el && urgency)   el.value = urgency;
+  var icp = _campBrief.icp ? _campBrief.icp.toLowerCase().replace(/\s+/g,'_') : '';
+  var picker = _ccEl('cc-theme-picker');
+  if(picker) picker.innerHTML = _ccRenderThemeCards(_ccThemeLib[icp]||[], name);
+  _ccBriefSync();
+  _showToast(name+' selected', 1500);
+}
+
+function _ccClearTheme() {
+  _campBrief.theme = '';
+  var el = _ccEl('cc-theme'); if(el) el.value = '';
+  var icp = _campBrief.icp ? _campBrief.icp.toLowerCase().replace(/\s+/g,'_') : '';
+  var picker = _ccEl('cc-theme-picker');
+  if(picker) picker.innerHTML = _ccRenderThemeCards(_ccThemeLib[icp]||[], '');
+  _ccBriefSync();
 }
 
 // ── Panel 1: Brief Builder ──────────────────────────────────────────────────
@@ -21421,7 +21482,23 @@ function _ccRenderBrief(){
           '</div>';
         })()+
         _ccField('Launch Date','cc-launch','date',b.launchDate,'','')+
-        _ccField('Content Theme','cc-theme','text',b.theme||'','','e.g. Taco Tuesday, Meal Prep Sunday, Back to School — optional')+
+        (function(){
+          var ibase='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+          var icp=b.icp ? b.icp.toLowerCase().replace(/\s+/g,'_') : '';
+          var themes=_ccThemeLib[icp]||[];
+          var cards=themes.length
+            ? _ccRenderThemeCards(themes, b.theme||'')
+            : (icp ? '<div style="font-size:11px;color:var(--muted);padding:4px 0">Loading themes…</div>' : '<div style="font-size:11px;color:var(--muted);padding:4px 0">Select an ICP above to see themes.</div>');
+          if(icp && !_ccThemeLib[icp]) setTimeout(function(){_ccLoadThemeLibrary(b.icp);}, 60);
+          return '<div style="margin-bottom:14px;grid-column:1/-1">'+
+            '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Content Theme <span style="font-weight:400;text-transform:none;letter-spacing:0">— optional</span></label>'+
+            '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">'+
+              '<input type="text" id="cc-theme" value="'+(b.theme||'')+'" style="'+ibase+'" oninput="_ccBriefSync()" placeholder="Type a theme or pick one below">'+
+              '<button onclick="_ccClearTheme()" title="Clear theme" style="background:transparent;border:1px solid var(--border);color:var(--muted);width:34px;height:34px;border-radius:6px;font-size:16px;cursor:pointer;flex-shrink:0;font-family:inherit">×</button>'+
+            '</div>'+
+            '<div id="cc-theme-picker" style="display:flex;flex-wrap:wrap;gap:6px">'+cards+'</div>'+
+          '</div>';
+        })()+
         (function(){
           var base='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
           var days=['Daily','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -21465,6 +21542,20 @@ function _ccBriefSync(){
   _el=_ccEl('cc-id');      if(_el&&_el.value)    b.id=_el.value;
   _el=_ccEl('cc-name');    if(_el&&_el.value)    b.name=_el.value;
   _el=_ccEl('cc-icp');     if(_el&&_el.value)    b.icp=_el.value;
+  (function(){
+    if(!b.icp) return;
+    var code=b.icp.toLowerCase().replace(/\s+/g,'_');
+    if(code===_ccLastIcpForThemes) return;
+    _ccLastIcpForThemes=code;
+    var picker=_ccEl('cc-theme-picker');
+    if(!picker) return;
+    if(_ccThemeLib[code]) {
+      picker.innerHTML=_ccRenderThemeCards(_ccThemeLib[code],b.theme||'');
+    } else {
+      picker.innerHTML='<div style="font-size:11px;color:var(--muted);padding:4px 0">Loading themes…</div>';
+      _ccLoadThemeLibrary(b.icp);
+    }
+  })();
   _el=_ccEl('cc-funnel');  if(_el&&_el.value)    b.funnel=_el.value;
   // channels array managed by _ccChannelToggle; derive primary social channel for backward compat
   if(!b.channels||!b.channels.length) b.channels=['Facebook','Email'];
@@ -21911,6 +22002,11 @@ function _ccRestoreBriefValues(){
   if(_campBrief.goal) _ccSetSelect('cc-goal',_campBrief.goal);
   var themeEl=document.getElementById('cc-theme');
   if(themeEl&&_campBrief.theme) themeEl.value=_campBrief.theme;
+  var themePickerEl=document.getElementById('cc-theme-picker');
+  if(themePickerEl&&_campBrief.icp){
+    var _tpCode=_campBrief.icp.toLowerCase().replace(/\s+/g,'_');
+    if(_ccThemeLib[_tpCode]) themePickerEl.innerHTML=_ccRenderThemeCards(_ccThemeLib[_tpCode],_campBrief.theme||'');
+  }
   if(_campBrief.publish_day) _ccSetSelect('cc-publish-day',_campBrief.publish_day);
   if(_campBrief.campaign_angle) _ccSetSelect('cc-campaign-angle',_campBrief.campaign_angle);
   var urgEl=document.getElementById('cc-urgency-trigger');
