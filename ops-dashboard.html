@@ -22490,6 +22490,8 @@ function _ccKickstart(){
       var j=d.campaign;
       if(!j&&d.raw){try{var m=d.raw.match(/\{[\s\S]*\}/);j=m?JSON.parse(m[0]):null;}catch(e){}}
       if(!j){
+        console.log('[KICKSTART RAW]', d.raw);
+        console.log('[KICKSTART ERROR]', 'campaign null — raw length:', d.raw ? d.raw.length : 0);
         if(err) err.textContent='Could not parse campaign JSON from API response.';
         return;
       }
