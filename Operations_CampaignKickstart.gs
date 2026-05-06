@@ -164,37 +164,47 @@ function campaignKickstart(prompt) {
 
     (themeContext ? themeContext + '\n' : '') +
 
-    'STRUCTURE RULE — CRITICAL:\n' +
-    'Return a SINGLE flat JSON object. All 29 fields must be at the ROOT level.\n' +
-    'No wrappers (no "campaign_brief", no "campaign", no "result" key).\n' +
-    'No nested objects. No sub-arrays except "channels" and "proof_bar".\n' +
-    'Do not group fields. Do not add extra keys. Output starts with { and ends with }.\n\n' +
-    'Return ONLY this JSON structure with all 29 fields filled in:\n' +
+    'KEY NAMES — LOCKED. These are the only valid key names. Do not rename any of them:\n' +
+    'icp_match, icp_code, blueprint, campaign_name, channel_recommendation, channels,\n' +
+    'slug, headline, subheadline, email_subject_a, email_subject_b, lp_hero,\n' +
+    'problem_block, agitate_block, solve_block, proof_bar, cta_type, cta_primary,\n' +
+    'social_hook, share_mechanic, utm_campaign_code, founding_offer, theme,\n' +
+    'publish_day, campaign_angle, post_count, email_sequences, email_variants, urgency_trigger\n\n' +
+    'WRONG NAMES — these will break the parser. Never use them:\n' +
+    '"icp" → must be "icp_code"\n' +
+    '"primary_headline" or "campaign_headline" → must be "headline"\n' +
+    '"problem_statement" or "problem" → must be "problem_block"\n' +
+    '"solution_statement" or "solution" → must be "solve_block"\n' +
+    '"social_proof" → must be "proof_bar" and must be an array, not a string\n' +
+    '"hook" alone → must be "social_hook"\n\n' +
+    'STRUCTURE: Single flat JSON object. All 29 keys at root level. No wrappers. No nesting.\n' +
+    'Output starts with { and ends with }. Only "channels" and "proof_bar" are arrays.\n\n' +
+    'Return ONLY this JSON with all 29 fields filled in:\n' +
     '{\n' +
-    '  "icp_match": "Human-readable ICP name",\n' +
-    '  "icp_code": "snake_case_icp_code",\n' +
+    '  "icp_match": "Super Mom",\n' +
+    '  "icp_code": "super_mom",\n' +
     '  "blueprint": "A-Waitlist",\n' +
-    '  "campaign_name": "Campaign name",\n' +
-    '  "channel_recommendation": "Primary channel",\n' +
+    '  "campaign_name": "Taco Tuesday — Week 1",\n' +
+    '  "channel_recommendation": "Facebook",\n' +
     '  "channels": ["facebook","instagram"],\n' +
     '  "slug": "lp/waitlist-a",\n' +
-    '  "headline": "Campaign headline under 12 words",\n' +
-    '  "subheadline": "Benefit-focused subheadline — no member counts",\n' +
-    '  "email_subject_a": "Email subject line A",\n' +
-    '  "email_subject_b": "Email subject line B",\n' +
-    '  "lp_hero": "Landing page hero copy",\n' +
-    '  "problem_block": "Problem copy",\n' +
-    '  "agitate_block": "Agitate copy — must name exact dollar cost from theme",\n' +
-    '  "solve_block": "Solution copy",\n' +
+    '  "headline": "Your taco ingredients are already in the fridge",\n' +
+    '  "subheadline": "easyChef Pro tells you exactly what to make — tonight",\n' +
+    '  "email_subject_a": "Your fridge already has Taco Tuesday in it",\n' +
+    '  "email_subject_b": "The $25 DoorDash you did not need to order",\n' +
+    '  "lp_hero": "Stop ordering takeout from ingredients already in your fridge",\n' +
+    '  "problem_block": "It is 6:30 PM and nobody knows what is for dinner",\n' +
+    '  "agitate_block": "You spent $25 on DoorDash when tacos were already in the fridge",\n' +
+    '  "solve_block": "easyChef Pro looks at what is in your fridge and tells you exactly what to make",\n' +
     '  "proof_bar": ["$1,336/year", "69.5% less food waste", "30 minutes fridge to table"],\n' +
     '  "cta_type": "waitlist",\n' +
     '  "cta_primary": "Join the waitlist free — early access July 1",\n' +
-    '  "social_hook": "Hook line for social posts",\n' +
+    '  "social_hook": "Your taco ingredients have been sitting there all week",\n' +
     '  "share_mechanic": "",\n' +
-    '  "utm_campaign_code": "utm_code_here",\n' +
+    '  "utm_campaign_code": "sm_taco_tuesday_wk1",\n' +
     '  "founding_offer": "Lock in $7.99/month founding price — 60% off forever",\n' +
-    '  "theme": "Theme name or empty string",\n' +
-    '  "publish_day": "Tuesday or empty string",\n' +
+    '  "theme": "Taco Tuesday",\n' +
+    '  "publish_day": "Tuesday",\n' +
     '  "campaign_angle": "savings",\n' +
     '  "post_count": 7,\n' +
     '  "email_sequences": 2,\n' +
