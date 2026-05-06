@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   ╔══════════════════════════════════════════════════════════════════════╗
   ║  GOOGLE APPS SCRIPT — Code.gs                                       ║
   ║  Deploy: Extensions → Apps Script → Deploy → New deployment         ║
@@ -21299,10 +21299,7 @@ var _ccLastPosts=[];
 var _ccWizardStep=1;
 var _ccWizardDone={};
 var _ccWizardSumms={};
-var _ccComp=null;       // active screenshot compositor state
-var _ccBaseImages={};   // pre-composite base image per post
-var _ccLastShotSrc={};  // last screenshot data-URL per post
-var _COMP_HR=12;        // compositor handle radius (canvas px)
+var _ccBaseImages={};   // original generated image per post (for Replace Phone Screen)
 var _ccBrandLib={logos:[],claimBars:[],fullOverlays:[]};
 var _ccPostImages={};   // per-post working images: {original, working}
 var _ccEditorState={};  // per-post editor state: {tab, prefix}
@@ -22770,15 +22767,6 @@ function _ccUpdatePostCount(el,cntId,optimal){
 
 // ── Per-post image control panel helpers ────────────────────────────────────
 var _CC_TA_STYLE='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:10px 12px;font-size:12px;font-family:inherit;line-height:1.65;resize:vertical;box-sizing:border-box;outline:none';
-function _ccGetPhoneReq(dims){
-  var pw=250,ph=450;
-  if(dims){
-    if(dims.indexOf('1200x630')>-1){pw=180;ph=350;}
-    else if(dims.indexOf('1080x1920')>-1){pw=280;ph=520;}
-    else if(dims.indexOf('1000x1500')>-1){pw=260;ph=480;}
-  }
-  return '\n\nCRITICAL PHONE REQUIREMENTS: The character MUST hold the phone with the screen facing the camera at a slight angle (15-20 degrees). The phone MUST be positioned in the RIGHT THIRD of the image. The phone screen area MUST be a clean rectangle approximately '+pw+'px wide by '+ph+'px tall in the final image, free of UI elements so a screenshot can be composited over it. The phone must be a modern smartphone with a plain dark screen — no visible apps, icons, or UI on the phone screen itself. The easyChef Pro app screenshot will be composited onto the screen in post-production.';
-}
 function _ccSetLogoPos(postNum,pos){
   _ccLogoPosState[postNum]=pos;
   if(!_ccBrandOverlay[postNum])_ccBrandOverlay[postNum]={logo:true,claimBar:true,screenshot:false,screenshotIdx:0};
@@ -22858,11 +22846,33 @@ function _ccRenderScreenshotPickerInner(postNum){
   }).join('');
   return '<div id="cc-shot-grid-'+postNum+'" style="display:flex;flex-wrap:wrap;gap:4px;max-height:200px;overflow-y:auto;padding:4px 0">'+noneBtn+thumbs+'</div>';
 }
+function _ccAutoImageBrief(post,brief){
+  var stage=(post.funnel_stage||'hook').toLowerCase();
+  var theme=(brief&&brief.theme)||'';
+  var stageScenes={
+    hook:'A mom in her mid-30s in a warm kitchen, surprised and delighted expression, holding her phone showing the easyChef Pro app',
+    problem:'A tired mom at 6:30 PM staring into the open fridge, looking overwhelmed, cluttered kitchen counter behind her',
+    agitate:'A frustrated mom looking at expensive takeout on the counter next to produce going bad, exhausted expression',
+    solve:'A relaxed mom smiling at her phone showing the easyChef Pro app, standing comfortably in the kitchen',
+    value:'A happy family gathered at the dinner table eating together, mom looking proud and at ease',
+    proof:'A mom looking pleasantly surprised at her phone showing savings in the easyChef Pro app',
+    cta:'A confident mom holding her phone showing the easyChef Pro app, warm kitchen in the background'
+  };
+  var scene=stageScenes[stage]||stageScenes.hook;
+  var themeFood='';
+  var tl=theme.toLowerCase();
+  if(tl.indexOf('taco')>-1) themeFood=' Crispy taco shells filled with seasoned meat, salsa, lime, and toppings are visible on a plate on the counter or table.';
+  else if(tl.indexOf('meal prep')>-1) themeFood=' Multiple meal prep containers with colourful food are visible on the counter.';
+  else if(tl.indexOf('pizza')>-1) themeFood=' A pizza is visible on the counter or table.';
+  else if(tl.indexOf('pasta')>-1) themeFood=' A pasta dish is visible on the counter or table.';
+  return scene+themeFood+' Warm natural lighting, no blue or navy tones. The phone shows the easyChef Pro red-accented interface. Candid family photography style, not staged.';
+}
+
 function _ccRenderImagePanel(pNum,prefix,post){
   var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
   var mf="font-family:'DM Mono',monospace;";
   var ts=_CC_TA_STYLE;
-  var imgText=safe(post.image_brief||'');
+  var imgText=safe(post.image_brief||_ccAutoImageBrief(post,_campBrief));
   var logoPos=(_ccLogoPosState[pNum]||(_ccBrandOverlay[pNum]&&_ccBrandOverlay[pNum].logoPos)||'top-right');
   var lpBtns=[{v:'none',l:'No logo'},{v:'top-left',l:'↖ Top-left'},{v:'top-right',l:'↗ Top-right'},{v:'bottom-left',l:'↙ Bottom-left'},{v:'bottom-right',l:'↘ Bottom-right'}].map(function(b){
     var k=b.v.replace(/-/g,'');
@@ -22886,11 +22896,21 @@ function _ccRenderImagePanel(pNum,prefix,post){
       '<button onclick="document.getElementById(\'cc-shot-upload-'+pNum+'\').click()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">+ Upload screenshot</button>'+
       (shots.length?'<span style="font-size:10px;color:var(--muted);'+mf+';margin-left:8px">'+shots.length+' uploaded</span>':'')+
     '</div>';
+  var theme=(_campBrief&&_campBrief.theme)||'';
+  var postCtx='Post '+pNum+(post.funnel_stage?' · '+safe(post.funnel_stage):'')+(theme?' · '+safe(theme):'');
+  var hookPreview=safe((post.hook||'').slice(0,80));
+  var bodyPreview=safe((post.body||post.body_copy||'').slice(0,100));
   return '<div style="margin-top:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+
     '<div style="padding:7px 12px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">'+
       '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:'+_CC_RED+';'+mf+'">🎨 Image Controls</span>'+
-      '<span style="font-size:10px;color:var(--muted);'+mf+'">Post '+pNum+(post.funnel_stage?' · '+safe(post.funnel_stage):'')+'</span>'+
+      '<span style="font-size:10px;color:var(--muted);'+mf+'">'+postCtx+'</span>'+
     '</div>'+
+    (hookPreview?'<div style="padding:7px 12px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border)">'+
+      '<div style="font-size:10px;color:var(--muted);'+mf+';line-height:1.5">'+
+        '<span style="color:var(--text);font-weight:600">Hook:</span> '+hookPreview+
+        (bodyPreview?'<br><span style="color:var(--text);font-weight:600">Body:</span> '+bodyPreview+(post.body&&post.body.length>100?'…':''):'')+
+      '</div>'+
+    '</div>':'')+
     '<div style="padding:12px 14px">'+
       // WHAT TO SHOW
       '<div style="margin-bottom:10px">'+
@@ -22932,273 +22952,64 @@ function _ccRenderImagePanel(pNum,prefix,post){
     '</div>'+
   '</div>';
 }
-// ─── Screenshot Compositor ────────────────────────────────────────────────────
-function _ccShowCompositor(postNum,prefix,baseSrc,shotSrc){
-  var mf="font-family:'DM Mono',monospace;";
-  var old=document.getElementById('cc-comp-modal');if(old)old.remove();
-  var modal=document.createElement('div');
-  modal.id='cc-comp-modal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.86);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px';
-  modal.innerHTML=
-    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:700px;max-height:96vh;overflow-y:auto;padding:18px 18px 16px">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'+
-        '<span style="font-size:12px;font-weight:700;color:var(--text);'+mf+'">📱 Position App Screenshot — Post '+postNum+'</span>'+
-        '<button onclick="document.getElementById(\'cc-comp-modal\').remove();_ccComp=null;" style="background:transparent;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px">×</button>'+
-      '</div>'+
-      '<div id="cc-comp-msg" style="font-size:11px;color:var(--muted);margin-bottom:8px;min-height:16px;'+mf+'">Detecting phone screen position…</div>'+
-      '<canvas id="cc-comp-canvas" style="display:block;width:100%;border-radius:8px;cursor:move;touch-action:none;border:1px solid var(--border)"></canvas>'+
-      '<div style="margin-top:10px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">'+
-        '<label style="font-size:11px;color:var(--text);'+mf+';display:flex;align-items:center;gap:6px">'+
-          'Opacity <input id="cc-comp-op" type="range" min="40" max="100" value="90" style="width:80px"> <span id="cc-comp-opv">90%</span>'+
-        '</label>'+
-        '<label style="font-size:11px;color:var(--text);'+mf+';display:flex;align-items:center;gap:5px">'+
-          '<input id="cc-comp-persp" type="checkbox"> 3D tilt (match phone angle)'+
-        '</label>'+
-      '</div>'+
-      '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'+
-        '<button onclick="_ccCompReset()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">↺ Reset</button>'+
-        '<button id="cc-comp-apply-btn" onclick="_ccCompApply()" style="background:#22c55e;border:none;color:#fff;padding:6px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">✓ Apply & Save</button>'+
-        '<button onclick="_ccCompNoShot()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">✕ Save without screenshot</button>'+
-      '</div>'+
-      '<div style="margin-top:8px;font-size:10px;color:var(--muted);'+mf+'">Drag to move · Bottom corners to resize · Circle above to rotate</div>'+
-    '</div>';
-  document.body.appendChild(modal);
-
-  var canvas=document.getElementById('cc-comp-canvas');
-  var opSlider=document.getElementById('cc-comp-op');
-  var opVal=document.getElementById('cc-comp-opv');
-  var perspCk=document.getElementById('cc-comp-persp');
-  opSlider.oninput=function(){opVal.textContent=opSlider.value+'%';if(_ccComp){_ccComp.op=parseInt(opSlider.value)/100;_ccCompDraw();}};
-  perspCk.onchange=function(){if(_ccComp){_ccComp.persp=perspCk.checked;_ccCompDraw();}};
-
-  _ccComp={pn:postNum,px:prefix,canvas:canvas,bImg:null,sImg:null,lImg:null,
-    x:0,y:0,w:0,h:0,rot:0,op:0.9,persp:false,
-    drag:null,dsx:0,dsy:0,dox:0,doy:0,dow:0,doh:0};
-
-  var n=0;
-  function onImgLoad(){n++;if(n>=2)_ccCompInit();}
-  _ccComp.bImg=new Image();_ccComp.bImg.onload=onImgLoad;_ccComp.bImg.onerror=onImgLoad;_ccComp.bImg.src=baseSrc;
-  _ccComp.sImg=new Image();_ccComp.sImg.onload=onImgLoad;_ccComp.sImg.onerror=onImgLoad;_ccComp.sImg.src=shotSrc;
-
-  canvas.addEventListener('mousedown',_ccCompDown);
-  canvas.addEventListener('touchstart',_ccCompDown,{passive:false});
-}
-
-function _ccCompInit(){
-  var c=_ccComp;if(!c||!c.bImg)return;
-  var iw=c.bImg.naturalWidth||1200,ih=c.bImg.naturalHeight||630;
-  c.canvas.width=iw;c.canvas.height=ih;
-  var al=_ccCompAutoAlign(iw,ih);
-  var msg=document.getElementById('cc-comp-msg');
-  if(al){
-    c.x=al.x;c.y=al.y;c.w=al.w;c.h=al.h;
-    if(msg)msg.innerHTML='✓ Auto-aligned to detected phone screen — drag handles to adjust, or <span style="color:#22c55e;cursor:pointer;text-decoration:underline" onclick="_ccCompApply()">apply now</span>.';
-  } else {
-    var sh=c.sImg?c.sImg.naturalHeight:0,sw2=c.sImg?c.sImg.naturalWidth:1;
-    c.w=Math.round(iw*0.25);
-    c.h=sh>0?Math.round(c.w*(sh/sw2)):Math.round(c.w*1.85);
-    c.x=Math.round(iw*0.63);c.y=Math.round((ih-c.h)/2);
-    if(msg)msg.textContent='Could not auto-detect phone screen. Drag the overlay onto the phone screen.';
-  }
-  _ccCompDraw();
-  _ccLoadLogo(function(li){if(_ccComp){_ccComp.lImg=li;_ccCompDraw();}});
-}
-
-function _ccCompAutoAlign(iw,ih){
-  var c=_ccComp;if(!c||!c.bImg)return null;
-  var sw=Math.round(iw*0.42),sh=ih,startX=iw-sw;
-  var tmp=document.createElement('canvas');tmp.width=sw;tmp.height=sh;
-  var ctx=tmp.getContext('2d');
-  ctx.drawImage(c.bImg,startX,0,sw,sh,0,0,sw,sh);
-  var id;try{id=ctx.getImageData(0,0,sw,sh).data;}catch(e){return null;}
-  var gw=8,gh=8,cw=sw/gw,ch=sh/gh,grid=[];
-  for(var r=0;r<gh;r++)for(var col=0;col<gw;col++){
-    var sum=0,cnt=0;
-    var x0=Math.floor(col*cw),y0=Math.floor(r*ch),x1=Math.floor((col+1)*cw),y1=Math.floor((r+1)*ch);
-    for(var py=y0;py<y1;py+=3)for(var px=x0;px<x1;px+=3){var i=(py*sw+px)*4;sum+=(id[i]*0.299+id[i+1]*0.587+id[i+2]*0.114);cnt++;}
-    grid.push(cnt?sum/cnt:255);
-  }
-  var best=null,bs=Infinity;
-  for(var r2=0;r2<=gh-3;r2++)for(var col2=0;col2<=gw-2;col2++){
-    var s=0;
-    for(var by=r2;by<r2+3;by++)for(var bx=col2;bx<col2+2;bx++)s+=grid[by*gw+bx];
-    s/=6;if(s<bs){bs=s;best={c:col2,r:r2};}
-  }
-  if(!best||bs>90)return null;
-  var ox=startX+Math.round(best.c*cw)-Math.round(cw*0.2);
-  var oy=Math.round(best.r*ch)-Math.round(ch*0.2);
-  var ow=Math.round(2*cw+cw*0.4),oh=Math.round(3*ch+ch*0.4);
-  ox=Math.max(0,ox);oy=Math.max(0,oy);
-  ow=Math.min(iw-ox,ow);oh=Math.min(ih-oy,oh);
-  if(ow<50||oh<80)return null;
-  return {x:ox,y:oy,w:ow,h:oh};
-}
-
-function _ccCompPt(e){
-  var cv=_ccComp.canvas,r=cv.getBoundingClientRect(),sc=cv.width/r.width;
-  var s=e.touches?e.touches[0]:e;
-  return {x:(s.clientX-r.left)*sc,y:(s.clientY-r.top)*sc};
-}
-
-function _ccCompLocalPt(mx,my){
-  var c=_ccComp,wcx=c.x+c.w/2,wcy=c.y+c.h/2;
-  var dx=mx-wcx,dy=my-wcy;
-  var cos=Math.cos(-c.rot),sin=Math.sin(-c.rot);
-  return {x:dx*cos-dy*sin+c.w/2,y:dx*sin+dy*cos+c.h/2};
-}
-
-function _ccCompHitTest(mx,my){
-  if(!_ccComp||!_ccComp.sImg)return null;
-  var lp=_ccCompLocalPt(mx,my),lx=lp.x,ly=lp.y,r=_COMP_HR+5;
-  if(Math.hypot(lx-_ccComp.w,ly-_ccComp.h)<=r)return 'se';
-  if(Math.hypot(lx,ly-_ccComp.h)<=r)return 'sw';
-  if(Math.hypot(lx-_ccComp.w/2,ly+_COMP_HR*2)<=r)return 'rot';
-  if(lx>=0&&lx<=_ccComp.w&&ly>=0&&ly<=_ccComp.h)return 'move';
-  return null;
-}
-
-function _ccCompDown(e){
-  if(e.touches&&e.touches.length>1)return;
-  var pt=_ccCompPt(e);
-  var hit=_ccCompHitTest(pt.x,pt.y);if(!hit)return;
-  e.preventDefault();
-  var c=_ccComp;
-  c.drag=hit;c.dsx=pt.x;c.dsy=pt.y;c.dox=c.x;c.doy=c.y;c.dow=c.w;c.doh=c.h;
-  document.addEventListener('mousemove',_ccCompMove);document.addEventListener('mouseup',_ccCompUp);
-  document.addEventListener('touchmove',_ccCompMove,{passive:false});document.addEventListener('touchend',_ccCompUp);
-}
-
-function _ccCompMove(e){
-  if(!_ccComp||!_ccComp.drag)return;e.preventDefault();
-  var pt=_ccCompPt(e),c=_ccComp,dx=pt.x-c.dsx,dy=pt.y-c.dsy;
-  if(c.drag==='move'){c.x=c.dox+dx;c.y=c.doy+dy;}
-  else if(c.drag==='se'){
-    var proj=dx*Math.cos(c.rot)+dy*Math.sin(c.rot);
-    var nw=Math.max(40,c.dow+proj);c.w=nw;c.h=Math.round(nw*(c.doh/Math.max(1,c.dow)));
-  } else if(c.drag==='sw'){
-    var proj2=-(dx*Math.cos(c.rot)+dy*Math.sin(c.rot));
-    var nw2=Math.max(40,c.dow+proj2);
-    c.x=c.dox+(c.dow-nw2)*Math.cos(c.rot);c.y=c.doy+(c.dow-nw2)*Math.sin(c.rot);
-    c.w=nw2;c.h=Math.round(nw2*(c.doh/Math.max(1,c.dow)));
-  } else if(c.drag==='rot'){
-    var wcx=c.x+c.w/2,wcy=c.y+c.h/2;c.rot=Math.atan2(pt.y-wcy,pt.x-wcx)+Math.PI/2;
-  }
-  _ccCompDraw();
-}
-
-function _ccCompUp(){
-  if(!_ccComp)return;_ccComp.drag=null;
-  document.removeEventListener('mousemove',_ccCompMove);document.removeEventListener('mouseup',_ccCompUp);
-  document.removeEventListener('touchmove',_ccCompMove);document.removeEventListener('touchend',_ccCompUp);
-}
-
-function _ccCompDraw(){
-  var c=_ccComp;if(!c||!c.canvas)return;
-  var cv=c.canvas,ctx=cv.getContext('2d');
-  ctx.clearRect(0,0,cv.width,cv.height);
-  if(c.bImg)ctx.drawImage(c.bImg,0,0,cv.width,cv.height);
-  if(c.sImg){
-    // Draw screenshot with transform
-    ctx.save();
-    ctx.globalAlpha=c.op;
-    ctx.translate(c.x+c.w/2,c.y+c.h/2);ctx.rotate(c.rot);
-    if(c.persp){ctx.transform(1,0.07,0,0.93,0,0);}
-    ctx.translate(-c.w/2,-c.h/2);
-    _ccRoundRect(ctx,0,0,c.w,c.h,8);ctx.clip();
-    ctx.drawImage(c.sImg,0,0,c.w,c.h);ctx.restore();
-    // Draw handles (same transform for correct positions)
-    ctx.save();ctx.globalAlpha=1;
-    ctx.translate(c.x+c.w/2,c.y+c.h/2);ctx.rotate(c.rot);ctx.translate(-c.w/2,-c.h/2);
-    ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=2;
-    _ccRoundRect(ctx,0,0,c.w,c.h,8);ctx.stroke();
-    [[c.w,c.h],[0,c.h],[c.w/2,-_COMP_HR*2]].forEach(function(pt){
-      ctx.beginPath();ctx.arc(pt[0],pt[1],_COMP_HR,0,Math.PI*2);
-      ctx.fillStyle='#fff';ctx.fill();
-      ctx.strokeStyle=_CC_RED;ctx.lineWidth=2;ctx.stroke();
-    });
-    ctx.setLineDash([5,4]);ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(c.w/2,0);ctx.lineTo(c.w/2,-_COMP_HR*2);ctx.stroke();
-    ctx.setLineDash([]);ctx.restore();
-  }
-  if(c.lImg){
-    var lw=Math.round(cv.width*0.09),lh=Math.round(lw*(c.lImg.naturalHeight/Math.max(1,c.lImg.naturalWidth)));
-    ctx.save();ctx.globalAlpha=0.5;ctx.drawImage(c.lImg,cv.width-lw-14,14,lw,lh);ctx.restore();
-  }
-}
-
-function _ccCompReset(){
-  if(!_ccComp)return;
-  var c=_ccComp;c.rot=0;c.op=0.9;c.persp=false;
-  var op=document.getElementById('cc-comp-op');if(op)op.value=90;
-  var opv=document.getElementById('cc-comp-opv');if(opv)opv.textContent='90%';
-  var pk=document.getElementById('cc-comp-persp');if(pk)pk.checked=false;
-  var iw=c.canvas.width,ih=c.canvas.height;
-  var al=_ccCompAutoAlign(iw,ih);
-  if(al){c.x=al.x;c.y=al.y;c.w=al.w;c.h=al.h;}
-  else{c.w=Math.round(iw*0.25);c.h=Math.round(c.w*1.85);c.x=Math.round(iw*0.63);c.y=Math.round((ih-c.h)/2);}
-  _ccCompDraw();
-}
-
-function _ccCompNoShot(){
-  var c=_ccComp;if(!c||!c.bImg)return;
-  var iw=c.bImg.naturalWidth||1200,ih=c.bImg.naturalHeight||630;
-  var cv2=document.createElement('canvas');cv2.width=iw;cv2.height=ih;
-  cv2.getContext('2d').drawImage(c.bImg,0,0,iw,ih);
-  _ccCompFinishCanvas(cv2,c.pn,c.px,true);
-}
-
-function _ccCompApply(){
-  var c=_ccComp;if(!c||!c.bImg)return;
-  var btn=document.getElementById('cc-comp-apply-btn');
-  if(btn){btn.textContent='Compositing…';btn.disabled=true;}
-  var iw=c.bImg.naturalWidth||1200,ih=c.bImg.naturalHeight||630;
-  var sc=iw/c.canvas.width;
-  var cv2=document.createElement('canvas');cv2.width=iw;cv2.height=ih;
-  var ctx=cv2.getContext('2d');ctx.drawImage(c.bImg,0,0,iw,ih);
-  if(c.sImg){
-    var sx=c.x*sc,sy=c.y*sc,sw=c.w*sc,sh=c.h*sc;
-    ctx.save();ctx.globalAlpha=c.op;
-    ctx.translate(sx+sw/2,sy+sh/2);ctx.rotate(c.rot);
-    if(c.persp){ctx.transform(1,0.07,0,0.93,0,0);}
-    ctx.translate(-sw/2,-sh/2);
-    _ccRoundRect(ctx,0,0,sw,sh,Math.round(8*sc));ctx.clip();
-    ctx.drawImage(c.sImg,0,0,sw,sh);ctx.restore();
-  }
-  _ccCompFinishCanvas(cv2,c.pn,c.px,false);
-}
-
-function _ccCompFinishCanvas(cv2,postNum,prefix,noShot){
-  var ctx=cv2.getContext('2d'),iw=cv2.width,ih=cv2.height;
-  var ov=_ccBrandOverlay[postNum]||{};
-  if(ov.claimBar!==false){
-    var ct=_ccGetAutoClaimBar(postNum);
-    ctx.fillStyle='rgba(0,0,0,0.64)';ctx.fillRect(0,ih-62,iw,62);
-    ctx.fillStyle='#FF0000';ctx.fillRect(0,ih-62,6,62);
-    ctx.fillStyle='#fff';ctx.font='bold 22px monospace';
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ct,iw/2,ih-31);
-  }
-  _ccLoadLogo(function(li){
-    if(li&&ov.logo!==false){
-      var lw=Math.round(iw*0.1),lh=Math.round(lw*(li.naturalHeight/Math.max(1,li.naturalWidth)));
-      ctx.drawImage(li,iw-lw-20,20,lw,lh);
+// ─── Replace Phone Screen (AI inpainting) ────────────────────────────────────
+function _ccReplacePhoneScreen(postNum,prefix){
+  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
+  var idx=_ccSelectedScreenshot[postNum];
+  if(idx===undefined||idx<0||!shots[idx]){_showToast('<div style="color:var(--muted)">Select a screenshot first.</div>',2000);return;}
+  var li=_ccLastImages[postNum];
+  if(!li){_showToast('<div style="color:var(--muted)">Generate an image first.</div>',2000);return;}
+  var baseImg='data:'+li.mime_type+';base64,'+li.image_base64;
+  var shotData=shots[idx].data;
+  var shotLabel=shots[idx].label||'app screen';
+  var container=document.getElementById('cc-img-container-'+prefix+'-'+postNum);
+  var btn=document.getElementById('cc-replace-phone-btn-'+postNum);
+  if(btn){btn.textContent='Replacing…';btn.disabled=true;}
+  if(container)container.innerHTML='<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:6px 0">Sending to AI for phone screen replacement…</div>';
+  if(!CONFIG.sheetsUrl){if(btn){btn.textContent='📱 Replace Phone Screen';btn.disabled=false;}return;}
+  fetch(CONFIG.sheetsUrl,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({
+      action:'replace_phone_screen',
+      base_image:li.image_base64,
+      base_mime:li.mime_type||'image/png',
+      screenshot:shotData.indexOf(',')>-1?shotData.split(',')[1]:shotData,
+      shot_mime:'image/png',
+      shot_label:shotLabel,
+      image_brief:(document.getElementById('cc-img-brief-'+postNum)||{}).value||'',
+      post_hook:(_ccLastPosts[postNum-1]&&_ccLastPosts[postNum-1].hook)||'',
+      post_body:(_ccLastPosts[postNum-1]&&(_ccLastPosts[postNum-1].body||_ccLastPosts[postNum-1].body_copy))||'',
+      platform:_campBrief.channel||'Facebook',
+      icp:_campBrief.icp||'super_mom',
+      theme:_campBrief.theme||''
+    })
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(btn){btn.textContent='📱 Replace Phone Screen';btn.disabled=false;}
+    if(d.ok&&d.image_base64){
+      _ccLastImages[postNum]={mime_type:d.mime_type||'image/png',image_base64:d.image_base64};
+      var imgSrc='data:'+(d.mime_type||'image/png')+';base64,'+d.image_base64;
+      var mf="font-family:'DM Mono',monospace;";
+      if(container){
+        container.innerHTML=
+          '<div style="font-size:10px;color:#22c55e;'+mf+';margin-bottom:4px">✓ Phone screen replaced'+(d.fallback?' (regenerated with brief)':' via AI editing')+'</div>'+
+          '<img src="'+imgSrc+'" style="width:100%;border-radius:8px" alt="Edited image">'+
+          '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
+            '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;'+mf+'">✓ Use This</button>'+
+            '<a href="'+imgSrc+'" download="post-'+postNum+'-replaced.png" style="font-size:10px;color:var(--muted);display:inline-flex;align-items:center;padding:4px 10px;border:1px solid var(--border);border-radius:5px;text-decoration:none;'+mf+'">↓ Download</a>'+
+            '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">↺ Regenerate</button>'+
+          '</div>'+
+          _ccRenderImageEditor(postNum,prefix,imgSrc);
+      }
+    } else {
+      if(container)container.innerHTML='<div style="font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace">Replace failed: '+(d.error||'Unknown error')+'</div>';
     }
-    var result=cv2.toDataURL('image/png');
-    _ccLastImages[postNum]={mime_type:'image/png',image_base64:result.split(',')[1]};
-    var container=document.getElementById('cc-img-container-'+prefix+'-'+postNum);
-    var hasShotBtn=!noShot&&_ccBaseImages[postNum]&&_ccLastShotSrc[postNum];
-    if(container){
-      container.innerHTML=
-        '<div style="font-size:10px;color:#22c55e;font-family:\'DM Mono\',monospace;margin-bottom:4px">✓ Composited'+(noShot?'':' — screenshot placed')+'</div>'+
-        '<img src="'+result+'" style="width:100%;border-radius:8px" alt="Final image">'+
-        '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
-          '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>'+
-          '<a href="'+result+'" download="post-'+postNum+'-final.png" style="font-size:10px;color:var(--muted);display:inline-flex;align-items:center;padding:4px 10px;border:1px solid var(--border);border-radius:5px;text-decoration:none;font-family:\'DM Mono\',monospace">↓ Download</a>'+
-          (hasShotBtn?'<button onclick="_ccShowCompositor('+postNum+',\''+prefix+'\',_ccBaseImages['+postNum+'],_ccLastShotSrc['+postNum+'])" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">📱 Reposition</button>':'')+
-          '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
-        '</div>';
-    }
-    var modal=document.getElementById('cc-comp-modal');if(modal)modal.remove();
-    _ccComp=null;
+  })
+  .catch(function(e){
+    if(btn){btn.textContent='📱 Replace Phone Screen';btn.disabled=false;}
+    if(container)container.innerHTML='<div style="font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace">Request failed: '+e.message+'</div>';
   });
 }
 
@@ -23226,139 +23037,6 @@ function _ccUploadOwnImage(postNum,prefix,input){
     if(genBtn){genBtn.textContent='✓ Custom image';genBtn.disabled=false;}
   };
   fr.readAsDataURL(file);
-}
-
-// ── Simple screenshot compositor (no 3D tilt, no drag-rotate handle) ──────────
-function _ccCompRotate(deg){
-  if(!_ccComp)return;
-  _ccComp.rot+=deg*Math.PI/180;
-  _ccCompDraw();
-}
-function _ccCompSetOp(val){
-  if(!_ccComp)return;
-  _ccComp.op=val/100;
-  _ccCompDraw();
-  [70,80,90,100].forEach(function(v){
-    var b=document.getElementById('cc-simp-op-'+v);if(!b)return;
-    var a=v===val;
-    b.style.background=a?'#22c55e':'transparent';
-    b.style.color=a?'#fff':'var(--muted)';
-    b.style.borderColor=a?'#22c55e':'var(--border)';
-  });
-}
-function _ccSimpleShotCompositor(postNum,prefix){
-  var shots=_ccAssetLoad('ecp_asset_screenshots')||[];
-  var idx=_ccSelectedScreenshot[postNum];
-  if(idx===undefined||idx<0||!shots[idx]){alert('Select a screenshot first.');return;}
-  var baseSrc=_ccBaseImages[postNum];
-  if(!baseSrc){var li=_ccLastImages[postNum];if(li)baseSrc='data:'+li.mime_type+';base64,'+li.image_base64;}
-  if(!baseSrc){alert('No base image found. Generate an image first.');return;}
-  var shotSrc=shots[idx].data;
-  var mf="font-family:'DM Mono',monospace;";
-  var old=document.getElementById('cc-simp-comp-modal');if(old)old.remove();
-  var modal=document.createElement('div');
-  modal.id='cc-simp-comp-modal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.86);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px';
-  modal.innerHTML=
-    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:700px;max-height:96vh;overflow-y:auto;padding:18px 18px 16px">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'+
-        '<span style="font-size:12px;font-weight:700;color:var(--text);'+mf+'">📱 Add Screenshot to Phone Screen — Post '+postNum+'</span>'+
-        '<button onclick="document.getElementById(\'cc-simp-comp-modal\').remove();_ccComp=null;" style="background:transparent;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px">×</button>'+
-      '</div>'+
-      '<div id="cc-simp-comp-msg" style="font-size:11px;color:var(--muted);margin-bottom:8px;min-height:16px;'+mf+'">Detecting phone screen position…</div>'+
-      '<canvas id="cc-simp-comp-canvas" style="display:block;width:100%;border-radius:8px;cursor:move;touch-action:none;border:1px solid var(--border)"></canvas>'+
-      '<div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-        '<span style="font-size:11px;color:var(--text);'+mf+'">Opacity:</span>'+
-        '<button id="cc-simp-op-70" onclick="_ccCompSetOp(70)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">70%</button>'+
-        '<button id="cc-simp-op-80" onclick="_ccCompSetOp(80)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">80%</button>'+
-        '<button id="cc-simp-op-90" onclick="_ccCompSetOp(90)" style="background:#22c55e;border:1px solid #22c55e;color:#fff;padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">90%</button>'+
-        '<button id="cc-simp-op-100" onclick="_ccCompSetOp(100)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">100%</button>'+
-      '</div>'+
-      '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-        '<span style="font-size:11px;color:var(--text);'+mf+'">Rotate:</span>'+
-        '<button onclick="_ccCompRotate(-5)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">↺ −5°</button>'+
-        '<button onclick="_ccCompRotate(5)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;'+mf+'">↻ +5°</button>'+
-      '</div>'+
-      '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'+
-        '<button onclick="_ccCompResetSimple()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">↺ Reset</button>'+
-        '<button id="cc-simp-apply-btn" onclick="_ccCompApplySimple('+postNum+',\''+prefix+'\')" style="background:#22c55e;border:none;color:#fff;padding:6px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">✓ Apply — Lock it in</button>'+
-        '<button onclick="document.getElementById(\'cc-simp-comp-modal\').remove();_ccComp=null;" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">✕ Cancel — keep original</button>'+
-      '</div>'+
-      '<div style="margin-top:8px;font-size:10px;color:var(--muted);'+mf+'">Drag to move · Bottom corners to resize</div>'+
-    '</div>';
-  document.body.appendChild(modal);
-  var canvas=document.getElementById('cc-simp-comp-canvas');
-  _ccComp={pn:postNum,px:prefix,canvas:canvas,bImg:null,sImg:null,lImg:null,
-    x:0,y:0,w:0,h:0,rot:0,op:0.9,persp:false,
-    drag:null,dsx:0,dsy:0,dox:0,doy:0,dow:0,doh:0};
-  var n=0;
-  function onLoad(){n++;if(n>=2)_ccSimpleCompInit();}
-  _ccComp.bImg=new Image();_ccComp.bImg.onload=onLoad;_ccComp.bImg.onerror=onLoad;_ccComp.bImg.src=baseSrc;
-  _ccComp.sImg=new Image();_ccComp.sImg.onload=onLoad;_ccComp.sImg.onerror=onLoad;_ccComp.sImg.src=shotSrc;
-  canvas.addEventListener('mousedown',_ccCompDown);
-  canvas.addEventListener('touchstart',_ccCompDown,{passive:false});
-}
-function _ccSimpleCompInit(){
-  var c=_ccComp;if(!c||!c.bImg)return;
-  var iw=c.bImg.naturalWidth||1200,ih=c.bImg.naturalHeight||630;
-  c.canvas.width=iw;c.canvas.height=ih;
-  var al=_ccCompAutoAlign(iw,ih);
-  var msg=document.getElementById('cc-simp-comp-msg');
-  if(al){
-    c.x=al.x;c.y=al.y;c.w=al.w;c.h=al.h;
-    if(msg)msg.innerHTML='✓ Auto-aligned — drag handles to adjust, or <span style="color:#22c55e;cursor:pointer;text-decoration:underline" onclick="_ccCompApplySimple('+c.pn+',\''+c.px+'\')">apply now</span>.';
-  } else {
-    var sh=c.sImg?c.sImg.naturalHeight:0,sw2=c.sImg?c.sImg.naturalWidth:1;
-    c.w=Math.round(iw*0.25);
-    c.h=sh>0?Math.round(c.w*(sh/sw2)):Math.round(c.w*1.85);
-    c.x=Math.round(iw*0.63);c.y=Math.round((ih-c.h)/2);
-    if(msg)msg.textContent='Could not auto-detect phone screen. Drag the overlay onto the phone screen.';
-  }
-  _ccCompDraw();
-  _ccLoadLogo(function(li){if(_ccComp){_ccComp.lImg=li;_ccCompDraw();}});
-}
-function _ccCompResetSimple(){
-  if(!_ccComp)return;
-  var c=_ccComp;c.rot=0;_ccCompSetOp(90);
-  var iw=c.canvas.width,ih=c.canvas.height;
-  var al=_ccCompAutoAlign(iw,ih);
-  if(al){c.x=al.x;c.y=al.y;c.w=al.w;c.h=al.h;}
-  else{c.w=Math.round(iw*0.25);c.h=Math.round(c.w*1.85);c.x=Math.round(iw*0.63);c.y=Math.round((ih-c.h)/2);}
-  _ccCompDraw();
-}
-function _ccCompApplySimple(postNum,prefix){
-  var c=_ccComp;if(!c||!c.bImg)return;
-  var btn=document.getElementById('cc-simp-apply-btn');
-  if(btn){btn.textContent='Compositing…';btn.disabled=true;}
-  var iw=c.bImg.naturalWidth||1200,ih=c.bImg.naturalHeight||630;
-  var sc=iw/c.canvas.width;
-  var cv2=document.createElement('canvas');cv2.width=iw;cv2.height=ih;
-  var ctx=cv2.getContext('2d');ctx.drawImage(c.bImg,0,0,iw,ih);
-  if(c.sImg){
-    var sx=c.x*sc,sy=c.y*sc,sw=c.w*sc,sh=c.h*sc;
-    ctx.save();ctx.globalAlpha=c.op;
-    ctx.translate(sx+sw/2,sy+sh/2);ctx.rotate(c.rot);
-    ctx.translate(-sw/2,-sh/2);
-    _ccRoundRect(ctx,0,0,sw,sh,Math.round(8*sc));ctx.clip();
-    ctx.drawImage(c.sImg,0,0,sw,sh);ctx.restore();
-  }
-  var result=cv2.toDataURL('image/png');
-  _ccLastImages[postNum]={mime_type:'image/png',image_base64:result.split(',')[1]};
-  var container=document.getElementById('cc-img-container-'+prefix+'-'+postNum);
-  if(container){
-    var mf="font-family:'DM Mono',monospace;";
-    container.innerHTML=
-      '<div style="font-size:10px;color:#22c55e;'+mf+';margin-bottom:4px">✓ Screenshot composited</div>'+
-      '<img src="'+result+'" style="width:100%;border-radius:8px" alt="Composited">'+
-      '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
-        '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;'+mf+'">✓ Use This</button>'+
-        '<a href="'+result+'" download="post-'+postNum+'-composited.png" style="font-size:10px;color:var(--muted);display:inline-flex;align-items:center;padding:4px 10px;border:1px solid var(--border);border-radius:5px;text-decoration:none;'+mf+'">↓ Download</a>'+
-        '<button onclick="_ccSimpleShotCompositor('+postNum+',\''+prefix+'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">📱 Reposition</button>'+
-        '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">↺ Regenerate</button>'+
-      '</div>';
-  }
-  var modal=document.getElementById('cc-simp-comp-modal');if(modal)modal.remove();
-  _ccComp=null;
 }
 
 function _ccRenderSocialPosts(posts,container,channel){
@@ -23739,11 +23417,6 @@ function _ccGeneratePostImage(prefix,postNum,callback){
   var briefText=(briefField&&briefField.value.trim())||post.image_brief||'';
   var fixText=(fixField&&fixField.value.trim())||'';
   var fullBrief=fixText?briefText+'\n\nCorrections: '+fixText:briefText;
-  // Tell Imagen to leave a blank phone screen when screenshot will be composited
-  var _shotIdxReq=_ccSelectedScreenshot[postNum];
-  if(_shotIdxReq!==undefined&&_shotIdxReq>=0&&genMode!=='raw'){
-    fullBrief+=_ccGetPhoneReq((channelData&&channelData.image_dimensions)||'');
-  }
   // Read generation mode radio
   var modeEl=document.querySelector('input[name="cc-gen-mode-'+postNum+'"]:checked');
   var genMode=modeEl?modeEl.value:'ai';
@@ -23761,9 +23434,9 @@ function _ccGeneratePostImage(prefix,postNum,callback){
     platform:      _campBrief.channel||'Facebook',
     icp:           _campBrief.icp||'super_mom',
     dimensions:    (channelData&&channelData.image_dimensions)||'1200x630px',
-    use_case:      'social'
+    use_case:      'social',
+    theme:         _campBrief.theme||''
   });
-  // skip_optimize: raw mode = bypass Claude + GPT; manual mode = bypass Claude, keep GPT
   if(genMode==='raw') qs.set('skip_optimize','true');
   if(genMode==='manual') qs.set('skip_claude','true');
   fetch(CONFIG.sheetsUrl+'?'+qs.toString())
@@ -23781,36 +23454,24 @@ function _ccGeneratePostImage(prefix,postNum,callback){
       _ccShowImgFixPanel(postNum);
       var imgSrc='data:'+d.mime_type+';base64,'+d.image_base64;
       _ccBaseImages[postNum]=imgSrc;
-      var _shotIdxC=_ccSelectedScreenshot[postNum];
-      var _shotsC=_ccAssetLoad('ecp_asset_screenshots')||[];
-      if(_shotIdxC!==undefined&&_shotIdxC>=0&&_shotsC[_shotIdxC]){
-        // Screenshot selected → store src and open compositor
-        _ccLastShotSrc[postNum]=_shotsC[_shotIdxC].data;
-        if(container)container.innerHTML='<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:6px 0">Opening screenshot compositor…</div>';
-        if(btn){btn.textContent='✓ Image ready';btn.disabled=false;}
-        setTimeout(function(){_ccShowCompositor(postNum,prefix,imgSrc,_shotsC[_shotIdxC].data);},150);
-      } else {
-        // No screenshot → show image + editor panel
-        if(!_ccPostImages[postNum])_ccPostImages[postNum]={};
-        _ccPostImages[postNum].original=imgSrc;_ccPostImages[postNum].working=imgSrc;
-        _ccBaseImages[postNum]=imgSrc;
-        var _hasShotNow=(_ccSelectedScreenshot[postNum]!==undefined&&_ccSelectedScreenshot[postNum]>=0);
-        if(container){
-          container.innerHTML=
-            '<img src="'+imgSrc+'" id="cc-img-final-'+postNum+'" style="width:100%;border-radius:8px;margin-top:8px" alt="Generated image">'+
-            '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
-              '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>'+
-              '<button onclick="_ccDownloadPostImage('+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download PNG</button>'+
-              '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
-              '<button onclick="_ccImageSkip(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">✕ Skip</button>'+
-            '</div>'+
-            '<div id="cc-add-shot-wrap-'+postNum+'" style="display:'+(_hasShotNow?'block':'none')+';margin-top:8px">'+
-              '<button onclick="_ccSimpleShotCompositor('+postNum+',\''+prefix+'\')" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">📱 Add Screenshot to Phone Screen</button>'+
-            '</div>'+
-            _ccRenderImageEditor(postNum,prefix,imgSrc);
-        }
-        if(btn){btn.textContent='✓ Image ready';btn.disabled=false;}
+      if(!_ccPostImages[postNum])_ccPostImages[postNum]={};
+      _ccPostImages[postNum].original=imgSrc;_ccPostImages[postNum].working=imgSrc;
+      var _hasShotNow=(_ccSelectedScreenshot[postNum]!==undefined&&_ccSelectedScreenshot[postNum]>=0);
+      if(container){
+        container.innerHTML=
+          '<img src="'+imgSrc+'" id="cc-img-final-'+postNum+'" style="width:100%;border-radius:8px;margin-top:8px" alt="Generated image">'+
+          '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+
+            '<button onclick="_ccImageUse(\''+prefix+'\','+postNum+')" style="background:#22c55e;border:none;color:#fff;padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">✓ Use This</button>'+
+            '<button onclick="_ccDownloadPostImage('+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download PNG</button>'+
+            '<button onclick="_ccQueueImage(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↺ Regenerate</button>'+
+            '<button onclick="_ccImageSkip(\''+prefix+'\','+postNum+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">✕ Skip</button>'+
+          '</div>'+
+          '<div id="cc-replace-phone-wrap-'+postNum+'" style="display:'+(_hasShotNow?'block':'none')+';margin-top:8px">'+
+            '<button id="cc-replace-phone-btn-'+postNum+'" onclick="_ccReplacePhoneScreen('+postNum+',\''+prefix+'\')" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">📱 Replace Phone Screen</button>'+
+          '</div>'+
+          _ccRenderImageEditor(postNum,prefix,imgSrc);
       }
+      if(btn){btn.textContent='✓ Image ready';btn.disabled=false;}
     } else {
       console.error('[IMG] Post '+postNum+' failed:', d.error);
       if(container){
@@ -24120,8 +23781,8 @@ function _ccSelectScreenshot(postNum,idx){
   if(prevEl)prevEl.style.border='2px solid transparent';
   var newEl=document.getElementById(_ccShotThumbId(postNum,idx));
   if(newEl)newEl.style.border='2px solid '+_CC_RED;
-  var addShotWrap=document.getElementById('cc-add-shot-wrap-'+postNum);
-  if(addShotWrap)addShotWrap.style.display=(idx>=0)?'block':'none';
+  var replaceWrap=document.getElementById('cc-replace-phone-wrap-'+postNum);
+  if(replaceWrap)replaceWrap.style.display=(idx>=0)?'block':'none';
 }
 
 // ─── Brand Overlay Library ────────────────────────────────────────────────────

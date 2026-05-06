@@ -60,6 +60,7 @@ function generateImagePrompt(body) {
     var icp           = body.icp            || 'super_mom';
     var dimensions    = body.dimensions     || '1080x1080px';
     var useCase       = body.use_case       || 'social';
+    var theme         = body.theme          || '';
     var skipOptimize  = body.skip_optimize  === 'true' || body.skip_optimize === true;
     var skipClaude    = body.skip_claude    === 'true' || body.skip_claude   === true;
 
@@ -177,6 +178,15 @@ function generateImagePrompt(body) {
       Array.isArray(claudeData.content) && claudeData.content[0] && claudeData.content[0].text
     ) || '';
     if (!claudeVisualDescription) return { ok: false, error: 'Claude returned empty response' };
+
+    // ── Theme food enforcement ─────────────────────────────────────────────
+    if (theme) {
+      var tl = theme.toLowerCase();
+      if      (tl.indexOf('taco')      > -1) claudeVisualDescription += '\n\nREQUIRED FOOD: Tacos must be clearly and prominently visible — crispy shells, seasoned meat filling, salsa, toppings. This is a Taco Tuesday campaign. No other food.';
+      else if (tl.indexOf('meal prep') > -1) claudeVisualDescription += '\n\nREQUIRED: Multiple meal prep containers with colourful food must be clearly visible on the counter.';
+      else if (tl.indexOf('pizza')     > -1) claudeVisualDescription += '\n\nREQUIRED FOOD: Pizza must be clearly visible in the scene.';
+      else if (tl.indexOf('pasta')     > -1) claudeVisualDescription += '\n\nREQUIRED FOOD: A pasta dish must be clearly visible in the scene.';
+    }
 
     // ── Step 2: GPT-4o → image-generation optimised prompt ─────────────────
     var gptResp = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
@@ -359,6 +369,117 @@ function _sbGetAspectRatio(dimensions) {
   if (dimensions.indexOf('1000x1500') > -1) return '2:3';
   if (dimensions.indexOf('1920x1080') > -1) return '16:9';
   return '1:1';
+}
+
+// ── Replace Phone Screen ──────────────────────────────────────────────────────
+/**
+ * Replaces the phone screen in a generated image with a provided app screenshot.
+ * Primary: Gemini 2.0 Flash image editing (two images → edited image).
+ * Fallback: regenerate full image with explicit phone screen brief appended.
+ *
+ * body.base_image   — base64 of generated image (no data: prefix)
+ * body.base_mime    — mime type of base image
+ * body.screenshot   — base64 of app screenshot (no data: prefix)
+ * body.shot_label   — descriptive label of screenshot (e.g. "Meal plan view")
+ * body.image_brief  — original image brief (for fallback regen)
+ * body.post_hook    — post hook text (for fallback regen)
+ * body.post_body    — post body text (for fallback regen)
+ * body.platform, icp, theme — campaign context
+ */
+function replacePhoneScreen(body) {
+  try {
+    var props     = PropertiesService.getScriptProperties();
+    var googleKey = props.getProperty('GOOGLE_AI_API_KEY');
+    if (!googleKey) return { ok: false, error: 'GOOGLE_AI_API_KEY not set' };
+
+    var baseImg  = body.base_image  || '';
+    var baseMime = body.base_mime   || 'image/png';
+    var shotImg  = body.screenshot  || '';
+    var shotLabel= body.shot_label  || 'app screen';
+    if (!baseImg) return { ok: false, error: 'base_image is required' };
+    if (!shotImg) return { ok: false, error: 'screenshot is required' };
+
+    // ── Primary: Gemini 2.0 Flash image editing ───────────────────────────
+    var editPrompt =
+      'Replace the phone screen in this image with the provided app screenshot. ' +
+      'Keep everything else in the image exactly the same — the person, their hands, ' +
+      'the background, the lighting, and the food. ' +
+      'Only change what is displayed on the phone screen. ' +
+      'The replacement screen should match the angle and perspective of the phone.';
+
+    var geminiResp = UrlFetchApp.fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + googleKey,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        payload: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: editPrompt },
+              { inlineData: { mimeType: baseMime,   data: baseImg  } },
+              { inlineData: { mimeType: 'image/png', data: shotImg } }
+            ]
+          }],
+          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+        }),
+        muteHttpExceptions: true
+      }
+    );
+
+    var gemCode = geminiResp.getResponseCode();
+    var gemData = {};
+    try { gemData = JSON.parse(geminiResp.getContentText()); } catch(e) {}
+
+    if (gemCode === 200 && !gemData.error) {
+      try {
+        var parts = gemData.candidates[0].content.parts;
+        for (var i = 0; i < parts.length; i++) {
+          if (parts[i].inlineData && parts[i].inlineData.data) {
+            return {
+              ok:           true,
+              image_base64: parts[i].inlineData.data,
+              mime_type:    parts[i].inlineData.mimeType || 'image/png',
+              method:       'gemini-edit'
+            };
+          }
+        }
+      } catch(ex) {}
+    }
+
+    // ── Fallback: regenerate with explicit phone screen brief ─────────────
+    var briefWithScreen =
+      (body.image_brief || '') +
+      '\n\nThe phone screen must show exactly this content: ' + shotLabel +
+      '. The phone screen must be clearly visible and fill approximately 30% of the image width. ' +
+      'Position the phone so the screen faces the camera directly.';
+
+    var regenResult = generateImagePrompt({
+      image_brief:   briefWithScreen,
+      post_hook:     body.post_hook  || '',
+      post_body:     body.post_body  || '',
+      app_screen:    shotLabel,
+      platform:      body.platform   || 'Facebook',
+      icp:           body.icp        || 'super_mom',
+      dimensions:    '1200x630px',
+      use_case:      'social',
+      theme:         body.theme      || ''
+    });
+
+    if (!regenResult.ok) {
+      return { ok: false, error: 'Gemini edit failed (HTTP ' + gemCode + ') and fallback regen also failed: ' + regenResult.error };
+    }
+
+    return {
+      ok:           true,
+      image_base64: regenResult.image_base64,
+      mime_type:    regenResult.mime_type,
+      method:       'regen-fallback',
+      fallback:     true
+    };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // ── Diagnostics ───────────────────────────────────────────────────────────────
