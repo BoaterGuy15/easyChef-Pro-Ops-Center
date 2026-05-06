@@ -23480,6 +23480,8 @@ function _ccUploadOwnImage(postNum,prefix,input){
 }
 
 function _ccRenderSocialPosts(posts,container,channel){
+  var _ft=(_campBrief.themeData&&_campBrief.themeData.food_type)||_campBrief.theme_food||'';
+  if(_ft) posts.forEach(function(p){if(!p.food_type)p.food_type=_ft;});
   _ccLastPosts=posts;
   if(!container) return;
   if(!posts.length){
@@ -23955,6 +23957,8 @@ function _ccGeneratePostImage(prefix,postNum,callback){
 
 // ── Multi-channel post renderer ──────────────────────────────────────────────
 function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
+  var _ft=(_campBrief.themeData&&_campBrief.themeData.food_type)||_campBrief.theme_food||'';
+  if(_ft) posts.forEach(function(p){if(!p.food_type)p.food_type=_ft;});
   _ccLastPosts=posts;
   if(!container) return;
   var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};

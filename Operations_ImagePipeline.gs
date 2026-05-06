@@ -140,11 +140,14 @@ function generateImagePrompt(body) {
     var _stageKey = (body.stage || '').toLowerCase();
     var _stageInstruction = '';
     if (_stageKey === 'hook') {
-      _stageInstruction = '\n\nTHIS POST — STAGE: HOOK (Post 1)\nNO phone. NO easyChef Pro app. NO device of any kind in the character\'s hands or visible anywhere.\nShe has not discovered the solution yet. Her hands are empty.\nREQUIRED EMOTION: exhausted and defeated — this is the worst moment of her day. No hope visible yet.';
+      _stageInstruction = '\n\nTHIS POST — STAGE: HOOK (Post 1)\nNO phone. NO easyChef Pro app. NO device of any kind in the character\'s hands or visible anywhere.\nShe has not discovered the solution yet. Her hands are empty.\nREQUIRED EMOTION: exhausted and defeated — this is the worst moment of her day. No hope visible yet.' +
+        (body.theme_food ? '\nFRIDGE CONTENTS VISIBLE: ' + body.theme_food + ' — items scattered and unorganised. She cannot see a meal. She sees random ingredients.' : '');
     } else if (_stageKey === 'problem') {
-      _stageInstruction = '\n\nTHIS POST — STAGE: PROBLEM (Post 2)\nNO phone. NO easyChef Pro app. NO device visible.\nShe has not discovered the solution yet.\nREQUIRED EMOTION: frustrated — she knows this feeling too well. Nothing has ever fixed it.';
+      _stageInstruction = '\n\nTHIS POST — STAGE: PROBLEM (Post 2)\nNO phone. NO easyChef Pro app. NO device visible.\nShe has not discovered the solution yet.\nREQUIRED EMOTION: frustrated — she knows this feeling too well. Nothing has ever fixed it.' +
+        (body.theme_food ? '\nFRIDGE CONTENTS VISIBLE: ' + body.theme_food + ' — items scattered and unorganised. She cannot see a meal. She sees random ingredients.' : '');
     } else if (_stageKey === 'agitate') {
-      _stageInstruction = '\n\nTHIS POST — STAGE: AGITATE (Post 3)\nNO phone. NO easyChef Pro app. NO device visible.\nShe has not discovered the solution yet.\nREQUIRED EMOTION: shock and recognition — she is seeing the true cost for the first time. Cannot look away.';
+      _stageInstruction = '\n\nTHIS POST — STAGE: AGITATE (Post 3)\nNO phone. NO easyChef Pro app. NO device visible.\nShe has not discovered the solution yet.\nREQUIRED EMOTION: shock and recognition — she is seeing the true cost for the first time. Cannot look away.' +
+        (body.theme_food ? '\nFRIDGE CONTENTS VISIBLE: ' + body.theme_food + ' — items scattered and unorganised. She cannot see a meal. She sees random ingredients.' : '');
     } else if (_stageKey === 'solve') {
       _stageInstruction = '\n\nTHIS POST — STAGE: SOLVE (Post 4)\nThe easyChef Pro phone appears FOR THE FIRST TIME in this image. She holds it naturally, red app interface glowing on screen.\nREQUIRED EMOTION: curious, penny dropping — she is realising this might actually work. Cautious hope, not full relief yet.';
     } else if (_stageKey === 'value') {

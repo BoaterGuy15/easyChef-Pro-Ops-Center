@@ -613,7 +613,10 @@ function buildSocialPosts(brief, copy) {
     try {
       var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
       var result = JSON.parse(jsonStr);
-      return { ok: true, posts: result.posts || [] };
+      var _foodType = (brief.themeData && brief.themeData.food_type) || brief.theme_food || brief.food_type || '';
+      var _posts = result.posts || [];
+      if (_foodType) _posts.forEach(function(p) { if (!p.food_type) p.food_type = _foodType; });
+      return { ok: true, posts: _posts };
     } catch (e) {
       return { ok: true, posts: [], raw: reply };
     }
