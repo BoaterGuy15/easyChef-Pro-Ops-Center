@@ -1981,20 +1981,3 @@ function _registerLpInInventory(slug, campaignId, item) {
 }
 
 // clasp auto-deploy verified — May 2026
-
-// ── TEMPORARY — run once from Apps Script editor, then delete ─────────────────
-function deleteLpRowBySlug() {
-  var TARGET_SLUG = 'lp/waitlist';
-  var sheet   = _getCCSheet(_CC_TAB.LP_INVENTORY);
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) { Logger.log('LPInventory is empty'); return; }
-  var slugs = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // col B = slug
-  for (var i = 0; i < slugs.length; i++) {
-    if (String(slugs[i][0]).trim() === TARGET_SLUG) {
-      sheet.deleteRow(i + 2); // +2: 1-indexed + header row
-      Logger.log('Deleted row ' + (i + 2) + ' — slug: ' + TARGET_SLUG);
-      return;
-    }
-  }
-  Logger.log('Row not found — slug: ' + TARGET_SLUG);
-}
