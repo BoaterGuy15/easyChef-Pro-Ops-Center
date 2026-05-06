@@ -142,12 +142,16 @@ function campaignKickstart(prompt) {
     'Approved stats (use exact wording): $1,336/year savings | 69.5% less food waste | 30 minutes fridge to table. ' +
     'Slug format: lp/waitlist-a for waitlist, lp/alpha for founding, /recipes/[slug] for recipe.\n\n' +
 
-    'PROOF BAR EXACT WORDING — always use these exact strings, no added words:\n' +
-    '- "$1,336/year" (not "Families save $1,336/year")\n' +
-    '- "69.5% less food waste" (not "69.5%")\n' +
-    '- "30 minutes fridge to table" (exact)\n' +
-    '- "Validated across 10,000 household profiles"\n' +
-    '- "Built by first responders"\n\n' +
+    'PROOF BAR RULE — CRITICAL:\n' +
+    'Return exactly these strings in the proof_bar array. No additions, no prefixes, no paraphrasing:\n' +
+    '"$1,336/year"\n' +
+    '"69.5% less food waste"\n' +
+    '"30 minutes fridge to table"\n' +
+    'Never add words before them. Examples of what is WRONG:\n' +
+    '"Families save $1,336/year" — WRONG\n' +
+    '"Average 30 minutes fridge to table" — WRONG\n' +
+    '"69.5%" — WRONG (too short)\n' +
+    'You may also use: "Validated across 10,000 household profiles" | "Built by first responders"\n\n' +
 
     'Detect from prompt: channels (array, lowercase) | theme (recurring series name or "") | ' +
     'publish_day (day name or "") | campaign_angle (savings/speed/waste/proof/urgency/theme) | ' +
@@ -195,17 +199,15 @@ function campaignKickstart(prompt) {
       var jsonStr = reply.trim();
       jsonStr = jsonStr.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
       var campaign = JSON.parse(jsonStr);
-      // Post-process: enforce pre-launch blueprint override
+      // Post-process: unconditional pre-launch blueprint override
+      Logger.log('[PHASE GUARD] date check: ' + new Date().toISOString() + ' | isPreLaunch=' + isPreLaunch + ' | blueprint was: ' + campaign.blueprint);
       if (isPreLaunch) {
-        var pStr = String(prompt).toLowerCase();
-        var explicitDownload = pStr.indexOf('app download') > -1 || pStr.indexOf('after launch') > -1 || pStr.indexOf('july 1 onwards') > -1;
-        if (!explicitDownload) {
-          campaign.blueprint        = 'A-Waitlist';
-          campaign.cta_type         = 'waitlist';
-          campaign.cta_primary      = 'Join the waitlist free — early access July 1';
-          campaign.conversion_goal  = 'waitlist_signup_completed';
-          campaign.email_sequences  = 2;
-        }
+        campaign.blueprint        = 'A-Waitlist';
+        campaign.cta_type         = 'waitlist';
+        campaign.cta_primary      = 'Join the waitlist free — early access July 1';
+        campaign.conversion_goal  = 'waitlist_signup_completed';
+        campaign.email_sequences  = 2;
+        Logger.log('[PHASE GUARD] overridden to A-Waitlist');
       }
       return { ok: true, campaign: campaign };
     } catch (parseErr) {
