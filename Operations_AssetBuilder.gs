@@ -139,22 +139,25 @@ var _STAGE_EMOTIONS = {
  * the frontend adds via _ccExtendBriefWithTheme().
  */
 function _buildBriefStoryCtx(brief) {
+  var t = brief.themeData || {};
   return {
-    icp_code:         brief.icp             || '',
-    icp_entry:        brief.icp_entry       || '',
-    theme:            brief.theme           || '',
-    theme_food:       brief.theme_food      || '',
-    app_feature:      brief.app_feature     || '',
-    app_screen_label: brief.app_screen_label || '',
-    feature_hook:     brief.feature_hook    || '',
-    feature_proof:    brief.feature_proof   || '',
-    emotional_entry:  brief.emotional_entry  || '',
-    emotional_payoff: brief.emotional_payoff || '',
+    icp_code:         brief.icp              || '',
+    icp_entry:        t.emotional_entry      || brief.icp_entry        || '',
+    theme:            brief.theme            || '',
+    theme_food:       t.food_type            || brief.theme_food       || '',
+    app_feature:      t.app_feature          || brief.app_feature      || '',
+    app_screen_label: t.app_screen_label     || brief.app_screen_label || '',
+    feature_hook:     t.feature_hook         || brief.feature_hook     || '',
+    feature_proof:    t.feature_proof        || brief.feature_proof    || '',
+    emotional_entry:  t.emotional_entry      || brief.emotional_entry  || '',
+    emotional_payoff: t.emotional_payoff     || brief.emotional_payoff || '',
     campaign_angle:   brief.campaign_angle   || 'savings',
-    hook_angle:       brief.hook_angle       || '',
-    problem_angle:    brief.problem_angle    || '',
-    agitate_angle:    brief.agitate_angle    || '',
-    urgency_trigger:  brief.urgency_trigger  || ''
+    hook_angle:       t.hook_angle           || brief.hook_angle       || '',
+    problem_angle:    t.problem_angle        || brief.problem_angle    || '',
+    agitate_angle:    t.agitate_angle        || brief.agitate_angle    || '',
+    urgency_trigger:  t.urgency_trigger      || brief.urgency_trigger  || '',
+    image_mood_hook:  t.image_mood_hook      || '',
+    image_mood_cta:   t.image_mood_cta       || ''
   };
 }
 
@@ -221,43 +224,38 @@ function getMasterSystemPrompt(type, context) {
   try { icpCtx = _getIcpContext(ctx.icp_code || ctx.icp || ''); }
   catch(e) { icpCtx = 'ICP: ' + (ctx.icp_code || '') + '\n'; }
 
-  // ── Taco Tuesday hardcoded story — fires for any theme containing "taco" ──
-  var tacoBlock = '';
-  if ((ctx.theme || '').toLowerCase().indexOf('taco') > -1) {
-    tacoBlock =
-      '=== THIS IS A TACO TUESDAY CAMPAIGN — EVERY POST MUST REFERENCE TACOS SPECIFICALLY ===\n' +
-      'Generic meal planning copy is wrong here. This is the Taco Tuesday story. Write it exactly.\n\n' +
-      'POST 1 (hook): 6:30 PM. She has ground beef, cheese, and tortillas in the fridge. She does not know she already has everything for Taco Tuesday.\n' +
-      'POST 2 (problem): She bought taco ingredients on Sunday but has no plan. Tuesday arrives. The ingredients are still uncooked. Kids want tacos. She orders DoorDash.\n' +
-      'POST 3 (agitate): $30 in DoorDash tacos. $8 worth of ingredients already in the fridge. $22 wasted. Every Tuesday.\n' +
-      'POST 4 (solve): easyChef Pro sees the ground beef, the tortillas, the cheese. It says: Taco Tuesday. 30 minutes. Here is how.\n' +
-      'POST 5 (value): Taco Tuesday handled every week. From fridge to table. The kids already asking for it again next Tuesday.\n' +
-      'POST 6 (proof): 10,000 recipe pages at launch. The taco recipe is already there. Your ingredients are already there. Built by first responders who understand Tuesday evenings.\n' +
-      'POST 7 (cta): Your fridge is already ready for Taco Tuesday. Join the waitlist free. Early access July 1.\n\n';
+  // Dynamic visual anchor block — built from ThemeLibrary fields, works for any theme
+  var visualBlock = '';
+  if (ctx.image_mood_hook || ctx.image_mood_cta || ctx.theme_food) {
+    visualBlock = '=== VISUAL ANCHORS FOR THIS CAMPAIGN ===\n';
+    if (ctx.image_mood_hook) visualBlock += 'HOOK IMAGE MOOD: '           + ctx.image_mood_hook + '\n';
+    if (ctx.image_mood_cta)  visualBlock += 'CTA IMAGE MOOD: '            + ctx.image_mood_cta  + '\n';
+    if (ctx.theme_food)      visualBlock += 'FOOD IN THIS CAMPAIGN: '     + ctx.theme_food      + '\n';
+    visualBlock += 'Every post must match these visual scenes. Write copy that pairs with these images.\n\n';
   }
 
   if (type === 'social_post') {
     return 'You are the easyChef Pro social media writer.\n\n' +
-      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + tacoBlock +
+      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + visualBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   if (type === 'landing_page') {
     return 'You are the easyChef Pro landing page writer. You write high-converting landing page copy.\n\n' +
       _AB_ARCH + _AB_VOICE +
       'CRITICAL: Never invent testimonials, names, or social proof stories. Never use statistics that are not in the approved claims list. Approved claims only — exact wording: $1,336/year · 69.5% · 30 minutes · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · validated across 10,000 household profiles · built by first responders\n\n' +
-      claimsCtx + storyBlock + tacoBlock +
+      claimsCtx + storyBlock + visualBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   if (type === 'email') {
     return 'You are the easyChef Pro email sequence writer. You write conversion email copy.\n\n' +
-      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + tacoBlock +
+      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + visualBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   // image_prompt: story block only — caller merges with brand/visual rules
   if (type === 'image_prompt') {
-    return storyBlock + tacoBlock;
+    return storyBlock + visualBlock;
   }
-  return _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + tacoBlock +
+  return _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + visualBlock +
     '=== TARGET ICP ===\n' + icpCtx + '\n';
 }
 
@@ -820,40 +818,6 @@ function buildLandingPage(brief, copy) {
     }
   } catch(e) {}
 
-  // Theme injection block
-  var theme      = ((brief.theme || '')).toLowerCase();
-  var themeBlock = '';
-  if (theme.indexOf('taco') > -1) {
-    themeBlock =
-      '=== TACO TUESDAY THEME — INJECT THROUGHOUT ===\n' +
-      'Hero: Reference tacos and the 6:30 PM taco moment in headline and subheadline.\n' +
-      'Problem: Name the taco-specific moment — ingredients in fridge, no plan, kids wanting tacos tonight.\n' +
-      'Agitate: Cost angle — $30 DoorDash tacos vs $8 worth of ingredients already in the fridge.\n' +
-      'Solve: Write exactly: "easyChef Pro turns your fridge into 30-minute tacos."\n' +
-      'Value: First outcome must be "Taco Tuesday handled every week — without the 6:30 PM panic."\n' +
-      'Proof: Use COOK feature proof — "10,000 recipe pages at launch · 800,000 products in database"\n' +
-      'CTA: Close with "Start with Taco Tuesday. Your fridge is already ready."\n\n';
-  } else if (theme.indexOf('meal prep') > -1) {
-    themeBlock =
-      '=== MEAL PREP SUNDAY THEME — INJECT THROUGHOUT ===\n' +
-      'Hero: Reference Sunday meal prep and the feeling of having the week handled.\n' +
-      'Problem: Standing in the kitchen Sunday morning with no plan.\n' +
-      'Value: First outcome must be "The whole week handled in one Sunday session."\n' +
-      'CTA: Close with "Make next Sunday the last Sunday you figure it out alone."\n\n';
-  } else if (theme.indexOf('game night') > -1) {
-    themeBlock =
-      '=== GAME NIGHT THEME — INJECT THROUGHOUT ===\n' +
-      'Hero: Reference game night food and the Friday 6 PM scramble.\n' +
-      'Problem: Everyone is over in an hour and nothing is ready.\n' +
-      'Value: First outcome must be "Game Night food handled in 30 minutes from what is already in the fridge."\n\n';
-  } else if (theme.indexOf('back to school') > -1) {
-    themeBlock =
-      '=== BACK TO SCHOOL THEME — INJECT THROUGHOUT ===\n' +
-      'Hero: Reference the back-to-school Monday chaos and dinner timing.\n' +
-      'Problem: First day back and no one has the energy to cook.\n' +
-      'Value: First outcome must be "Weeknight dinners on autopilot from September through June."\n\n';
-  }
-
   var _lpStoryCtx = _buildBriefStoryCtx(brief);
 
   var systemPrompt =
@@ -866,7 +830,6 @@ function buildLandingPage(brief, copy) {
     'Urgency trigger: ' + (brief.urgency_trigger || 'Founding price $7.99/month ends at 5,000 families') + '\n' +
     (copy && copy.headline ? 'Campaign headline: ' + copy.headline + '\n' : '') +
     (copy && copy.lp_hero  ? 'LP hero copy: '     + copy.lp_hero  + '\n' : '') + '\n' +
-    themeBlock +
     '=== 7-SECTION LP STRUCTURE — FOLLOW EXACTLY ===\n\n' +
     'SECTION 1 — HOOK (hero)\n' +
     'hero_headline: Mirrors the campaign hook. Specific to the ICP pain. Under 12 words.\n' +

@@ -21386,6 +21386,8 @@ function _ccSelectTheme(name, publishDay, angle, urgency) {
   var themes = _ccThemeLib[icp] || [];
   _ccSelectedTheme = null;
   for(var i=0;i<themes.length;i++){if(themes[i].theme_name===name){_ccSelectedTheme=themes[i];break;}}
+  _campBrief.themeData = _ccSelectedTheme;
+  console.log('[THEME ROW LOADED]', JSON.stringify(_campBrief.themeData));
   // Update form fields
   var el;
   el = _ccEl('cc-theme');          if(el) el.value = name;
@@ -21408,6 +21410,7 @@ function _ccSelectTheme(name, publishDay, angle, urgency) {
 
 function _ccClearTheme() {
   _campBrief.theme = '';
+  _campBrief.themeData = null;
   _ccSelectedTheme = null;
   var el = _ccEl('cc-theme'); if(el) el.value = '';
   var icp = _campBrief.icp ? _campBrief.icp.toLowerCase().replace(/\s+/g,'_') : '';
@@ -21428,6 +21431,7 @@ function _ccExtendBriefWithTheme(brief) {
   var t = _ccSelectedTheme;
   console.log('[THEME CTX] _ccSelectedTheme=', JSON.stringify(t ? {theme_name:t.theme_name,icp_code:t.icp_code,hook_angle:t.hook_angle,problem_angle:t.problem_angle,agitate_angle:t.agitate_angle,feature_hook:t.feature_hook,emotional_entry:t.emotional_entry,emotional_payoff:t.emotional_payoff} : null));
   if (!t) { console.log('[THEME CTX] no theme selected — brief sent without story context'); return ext; }
+  ext.themeData        = t;
   ext.icp_entry        = t.emotional_entry  || ext.icp_entry        || '';
   ext.emotional_entry  = t.emotional_entry  || ext.emotional_entry  || '';
   ext.emotional_payoff = t.emotional_payoff || ext.emotional_payoff || '';
@@ -23101,7 +23105,7 @@ function _ccRenderScreenshotPickerInner(postNum){
 }
 function _ccAutoImageBrief(post,brief){
   var stage=(post.funnel_stage||'hook').toLowerCase();
-  var theme=(brief&&brief.theme)||'';
+  var td=(brief&&brief.themeData)||{};
   var stageScenes={
     hook:{
       scene:'A mom in her mid-30s in a warm kitchen at 6:30 PM. She is staring into an open fridge — nothing in her hands, just her and the problem. Her posture is tired, shoulders down, weight of the day visible. Kids audible in the background. The kitchen is lived-in and real.',
@@ -23133,58 +23137,37 @@ function _ccAutoImageBrief(post,brief){
     }
   };
   var s=stageScenes[stage]||stageScenes.hook;
-  var tl=theme.toLowerCase();
-  // Taco Tuesday: full per-stage scene override — themeFood not needed, story is in scene
-  if(tl.indexOf('taco')>-1){
-    var _ts={
-      hook:{
-        scene:'Mom at the open fridge at 6:30 PM. Ground beef, tortillas, and cheese are all visible inside — she has everything for Taco Tuesday but does not know it yet. She is staring in, overwhelmed, seeing nothing useful. Nothing in her hands. No phone.',
-        emotion:'EMOTION: She looks tired and defeated. This is the worst moment of her day. No hope yet. No solution visible.'
-      },
-      problem:{
-        scene:'Same mom. A DoorDash app visible on a laptop or tablet open on the counter. The taco ingredients still sitting in the fridge behind her — unused. She is choosing the expensive option because nobody told her she already had everything she needed. No phone in her hand.',
-        emotion:'EMOTION: Frustration building. She knows this feeling too well. Nothing has ever fixed it.'
-      },
-      agitate:{
-        scene:'The taco ingredients from last Tuesday: ground beef packaging in the bin, tortillas dried out, cheese past its date. A DoorDash receipt on the counter — $30. The fridge held $8 worth of food that went to waste. No phone.',
-        emotion:'EMOTION: Shock and recognition. She is seeing the true cost for the first time. Cannot look away.'
-      },
-      solve:{
-        scene:'PHONE APPEARS FOR THE FIRST TIME. easyChef Pro screen showing a taco recipe — ground beef, tortillas, cheese, salsa listed. Her face: the penny dropping. She already had everything. She is holding the phone, looking at it with surprise and relief.',
-        emotion:'EMOTION: Curiosity and surprise. Her expression is shifting. Something is different. The penny is dropping.'
-      },
-      value:{
-        scene:'She is making tacos. Tortillas warming in a pan, ground beef browning on the stove, toppings in bowls on the counter. Kids excited in the background. Phone propped up showing easyChef Pro recipe. Same ingredients. Different Tuesday.',
-        emotion:'EMOTION: Calm confidence. She is handling it. This is what in control feels like.'
-      },
-      proof:{
-        scene:'Tacos on the dinner table — crispy shells, seasoned meat, salsa, lime wedges. Family eating. Kids reaching for more. Mom watching with a real smile — not posed. Taco Tuesday done right.',
-        emotion:'EMOTION: Pride and warmth. Her family is happy. She did this. Real smile — not posed.'
-      },
-      cta:{
-        scene:'Mom on the couch after Taco Tuesday. Kids settled. Cleared plates visible on the kitchen counter behind her. Phone in hand showing easyChef Pro. She is already thinking about next Tuesday.',
-        emotion:'EMOTION: Pure peace and satisfaction. The weight is gone. This is the feeling she is buying.'
-      }
-    };
-    s=_ts[stage]||_ts.hook;
+
+  // ThemeLibrary overrides: hook and cta get full image_mood scenes; middle stages get story-angle context
+  if(stage==='hook'&&td.image_mood_hook){
+    s={scene:td.image_mood_hook,emotion:stageScenes.hook.emotion};
+  } else if(stage==='cta'&&td.image_mood_cta){
+    s={scene:td.image_mood_cta,emotion:stageScenes.cta.emotion};
   }
-  var themeFood='';
-  if(tl.indexOf('meal prep')>-1){
-    themeFood=' Multiple meal prep containers with colourful food are visible on the counter.';
-  } else if(tl.indexOf('pizza')>-1){
-    themeFood=' A pizza is visible on the counter or table.';
-  } else if(tl.indexOf('pasta')>-1){
-    themeFood=' A pasta dish is visible on the counter or table.';
+
+  // Stage-specific story context note from ThemeLibrary angles
+  var storyNote='';
+  if(stage==='problem'&&td.problem_angle){
+    storyNote='\nContext: '+td.problem_angle+(td.food_type?' — food visible: '+td.food_type+'.':'.');
+  } else if(stage==='agitate'&&td.agitate_angle){
+    storyNote='\nContext: '+td.agitate_angle+(td.food_type?' Food visible: '+td.food_type+'.':'.');
+  } else if(stage==='solve'&&td.feature_hook){
+    storyNote='\nContext: '+td.feature_hook+(td.food_type?' Food in the scene: '+td.food_type+'.':'.');
+  } else if(td.food_type&&stage!=='hook'&&stage!=='cta'){
+    storyNote='\nFood in this scene: '+td.food_type+'.';
   }
+
+  // App screen note for solve/value/proof/cta stages
   var appNote='';
-  if(_ccSelectedTheme&&_ccSelectedTheme.app_screen_label&&(stage==='solve'||stage==='value'||stage==='proof'||stage==='cta')){
-    var screen=_ccSelectedTheme.app_screen_label;
-    if(stage==='solve') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+' — '+(_ccSelectedTheme.feature_hook||'')+'. The screen IS the answer to the problem in this scene. The character is discovering this feature for the first time.';
+  if(td.app_screen_label&&(stage==='solve'||stage==='value'||stage==='proof'||stage==='cta')){
+    var screen=td.app_screen_label;
+    if(stage==='solve') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+' — '+(td.feature_hook||'')+'. The screen IS the answer to the problem in this scene. The character is discovering this feature for the first time.';
     else if(stage==='value') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+' — she is using the feature, not discovering it. The app is a tool in her hands now.';
     else if(stage==='proof') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+'. The result is visible in the room — the food, the smiling family.';
     else if(stage==='cta') appNote='\n\nThe phone screen shows the easyChef Pro '+screen+'. She has already won — the app is part of her life now.';
   }
-  return s.scene+themeFood+appNote+
+
+  return s.scene+storyNote+appNote+
     '\n\n'+s.emotion+
     '\nPhotography style: warm candid family photography. Never staged. Never stock. Real kitchen, real people, real moment. No blue or navy anywhere. Warm natural lighting.';
 }
