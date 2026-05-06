@@ -64,15 +64,12 @@ function generateImagePrompt(body) {
     var skipOptimize  = body.skip_optimize  === 'true' || body.skip_optimize === true;
     var skipClaude    = body.skip_claude    === 'true' || body.skip_claude   === true;
 
-    // ── Fast path: custom prompt — skip Claude + GPT, send directly to Imagen
+    // ── Fast path: custom prompt — skip Claude + GPT, send directly to Nano Banana Pro
     if (skipOptimize && imageBrief) {
-      var useNanaBananaFast = (useCase === 'lp' || useCase === 'blog');
-      var fastResult = useNanaBananaFast
-        ? _generateNanoBanana(imageBrief, googleKey, dimensions)
-        : _generateImagen4(imageBrief, googleKey, dimensions);
+      var fastResult = _generateNanoBanana(imageBrief, googleKey, dimensions);
       if (!fastResult.ok) return { ok: false, error: fastResult.error, gpt_prompt: imageBrief };
       return {
-        ok: true, use_case: useCase, model_used: useNanaBananaFast ? 'nano-banana-pro-preview' : 'imagen-4.0-generate-001',
+        ok: true, use_case: useCase, model_used: 'nano-banana-pro-preview',
         claude_brief: '(skipped — custom prompt used directly)',
         gpt_prompt: imageBrief,
         image_base64: fastResult.image_base64, mime_type: fastResult.mime_type,
@@ -90,7 +87,7 @@ function generateImagePrompt(body) {
           messages: [
             {
               role:    'system',
-              content: 'You are an expert at writing image generation prompts. Take the visual description and rewrite it as a highly detailed, specific image generation prompt. Include: subject, setting, lighting, mood, camera angle, style. The character is holding a smartphone showing: ' + appScreen + '. The screen is clearly visible with red interface elements. Output only the prompt — no explanation.'
+              content: 'You are an expert at writing image generation prompts for Nano Banana Pro. Preserve all scene specifics exactly. Do not rewrite or improve the scene. Only: ensure woman is in the first 3 words, strip any food category names and replace with specific named items already in the brief, append to end: no text, no words, no labels, no signs, no UI elements, no phone screens, no studio lighting, warm tones only, no blue no navy. Output only the prompt — no explanation.'
             },
             { role: 'user', content: imageBrief }
           ],
@@ -104,11 +101,10 @@ function generateImagePrompt(body) {
       }
       var optimisedSc = (gptDataSc.choices && gptDataSc.choices[0] && gptDataSc.choices[0].message && gptDataSc.choices[0].message.content) || '';
       if (!optimisedSc) return { ok: false, error: 'GPT-4o returned empty prompt' };
-      var useNanaSc = (useCase === 'lp' || useCase === 'blog');
-      var imgResultSc = useNanaSc ? _generateNanoBanana(optimisedSc, googleKey, dimensions) : _generateImagen4(optimisedSc, googleKey, dimensions);
+      var imgResultSc = _generateNanoBanana(optimisedSc, googleKey, dimensions);
       if (!imgResultSc.ok) return { ok: false, error: imgResultSc.error, gpt_prompt: optimisedSc };
       return {
-        ok: true, use_case: useCase, model_used: useNanaSc ? 'nano-banana-pro-preview' : 'imagen-4.0-generate-001',
+        ok: true, use_case: useCase, model_used: 'nano-banana-pro-preview',
         claude_brief: '(skipped — user-written brief)',
         gpt_prompt: optimisedSc,
         image_base64: imgResultSc.image_base64, mime_type: imgResultSc.mime_type,
@@ -228,7 +224,7 @@ function generateImagePrompt(body) {
         messages: [
           {
             role:    'system',
-            content: 'You are an expert at writing image generation prompts. Take the visual description and rewrite it as a highly detailed, specific image generation prompt. Include: subject, setting, lighting, mood, camera angle, style. The character is holding a smartphone showing: ' + appScreen + '. The screen is clearly visible with red interface elements. Output only the prompt — no explanation.'
+            content: 'You are an expert at writing image generation prompts for Nano Banana Pro. Preserve all scene specifics exactly. Do not rewrite or improve the scene. Only: ensure woman is in the first 3 words, strip any food category names and replace with specific named items already in the brief, append to end: no text, no words, no labels, no signs, no UI elements, no phone screens, no studio lighting, warm tones only, no blue no navy. Output only the prompt — no explanation.'
           },
           {
             role:    'user',
@@ -250,11 +246,8 @@ function generateImagePrompt(body) {
     ) || '';
     if (!optimisedPrompt) return { ok: false, error: 'GPT-4o returned empty prompt' };
 
-    // ── Step 3: route to Imagen 4 or Nano Banana Pro ───────────────────────
-    var useNanoBanana = (useCase === 'lp' || useCase === 'blog');
-    var imageResult   = useNanoBanana
-      ? _generateNanoBanana(optimisedPrompt, googleKey, dimensions)
-      : _generateImagen4(optimisedPrompt, googleKey, dimensions);
+    // ── Step 3: Nano Banana Pro for all use cases ─────────────────────────
+    var imageResult = _generateNanoBanana(optimisedPrompt, googleKey, dimensions);
 
     if (!imageResult.ok) {
       return {
@@ -268,7 +261,7 @@ function generateImagePrompt(body) {
     return {
       ok:           true,
       use_case:     useCase,
-      model_used:   useNanoBanana ? 'nano-banana-pro-preview' : 'imagen-4.0-generate-001',
+      model_used:   'nano-banana-pro-preview',
       claude_brief: claudeVisualDescription,
       gpt_prompt:   optimisedPrompt,
       image_base64: imageResult.image_base64,
