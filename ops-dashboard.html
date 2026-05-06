@@ -21347,6 +21347,8 @@ function _ccLoadThemeLibrary(icp) {
         _ccThemeLib[code] = d.themes;
         var picker = _ccEl('cc-theme-picker');
         if(picker) picker.innerHTML = _ccRenderThemeCards(d.themes, _campBrief.theme||'');
+        var s1p = document.getElementById('cc-step1-theme-picker');
+        if(s1p) s1p.innerHTML = _ccRenderThemeCards(d.themes, _campBrief.theme||'');
       }
     })
     .catch(function(){});
@@ -21406,6 +21408,8 @@ function _ccSelectTheme(name, publishDay, angle, urgency) {
   _ccUpdateCompletionBar();
   _ccBriefSync();
   _showToast(name+' selected', 1500);
+  var _s1n=document.getElementById('cc-step1-theme-next');
+  if(_s1n) _s1n.style.display='block';
 }
 
 function _ccClearTheme() {
@@ -22556,7 +22560,7 @@ function _ccKickstart(){
       window._ccKs1Summ='✓ '+_ksName+(_ksIcp?' · '+_ksIcp:'')+' · '+_ksCta;
       if(res) res.innerHTML=_ccRenderCopyOutput(j,{id:j.utm_campaign_code||'',icp:j.icp_match||'',channel:j.channel_recommendation||''})+
         '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">'+
-          '<button onclick="_ccWizardAdvance(3,window._ccKs1Summ)" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Review Campaign Brief</button>'+
+          '<button onclick="_ccWizardAdvance(4,window._ccKs1Summ)" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Review Campaign Brief</button>'+
         '</div>';
       // ── Auto-fill dropdowns + name + slug (retries until ready) ──────────
       _ccAutoFillBrief(j);
@@ -22869,7 +22873,7 @@ function _ccUpdateLpFooter(slug){
 }
 function _ccLpAdvance(){
   var slug=_campBrief.slug||'';
-  _ccWizardAdvance(2,slug?'✓ LP: easychefpro.com/'+slug+' · angle: '+(_campBrief.campaign_angle||'savings'):'✓ LP confirmed');
+  _ccWizardAdvance(3,slug?'✓ LP: easychefpro.com/'+slug+' · angle: '+(_campBrief.campaign_angle||'savings'):'✓ LP confirmed');
 }
 function _ccRegenLp(){
   _campLastLp=null;
@@ -26454,8 +26458,8 @@ function _ccApproveAllForCampaign(campaignId){
 // ── Campaign Wizard helpers ──────────────────────────────────────────────────
 function _ccRenderWizardBar(){
   var steps=[
-    {n:1,lbl:'Landing Page'},{n:2,lbl:'Kickstart'},{n:3,lbl:'Brief'},
-    {n:4,lbl:'Assets'},{n:5,lbl:'UTMs'},{n:6,lbl:'Calendar'}
+    {n:1,lbl:'Theme'},{n:2,lbl:'LP'},{n:3,lbl:'Kickstart'},{n:4,lbl:'Brief'},
+    {n:5,lbl:'Assets'},{n:6,lbl:'UTMs'},{n:7,lbl:'Calendar'}
   ];
   return steps.map(function(s,i){
     var done=!!_ccWizardDone[s.n];
@@ -26467,8 +26471,8 @@ function _ccRenderWizardBar(){
     var cursor=done||active?'pointer':'default';
     var oc='';
     if(done) oc='_ccWizardGoTo('+s.n+')';
-    if(s.n===5) oc='_campSwitchTab(\'utm\');var p=document.getElementById(\'cc-panel\');if(p)setTimeout(function(){p.scrollIntoView({behavior:\'smooth\'});},80)';
-    if(s.n===6) oc='_campSwitchTab(\'searah\');var p=document.getElementById(\'cc-panel\');if(p)setTimeout(function(){p.scrollIntoView({behavior:\'smooth\'});},80)';
+    if(s.n===6) oc='_campSwitchTab(\'utm\');var p=document.getElementById(\'cc-panel\');if(p)setTimeout(function(){p.scrollIntoView({behavior:\'smooth\'});},80)';
+    if(s.n===7) oc='_campSwitchTab(\'searah\');var p=document.getElementById(\'cc-panel\');if(p)setTimeout(function(){p.scrollIntoView({behavior:\'smooth\'});},80)';
     return (i>0?'<span style="color:var(--border);font-size:10px;margin:0 1px">›</span>':'')+
       '<button onclick="'+oc+'" style="background:'+bg+';border:1px solid '+border+';color:'+col+';padding:5px 13px;border-radius:20px;font-size:10px;font-weight:700;cursor:'+cursor+';font-family:\'DM Mono\',monospace;white-space:nowrap;transition:background 0.15s,color 0.15s">'+
         '<span class="cc-wiz-full">'+lbl+'</span>'+
@@ -26497,8 +26501,45 @@ function _ccWizardAdvance(toStep,summary){
   var nextBody=document.getElementById('cc-step-'+toStep+'-body');
   if(nextEl) nextEl.style.display='block';
   // Lazy-render step content
-  // Step 2 = Kickstart (lazy render)
+  // Step 1 = Theme picker (re-render on Edit)
+  if(toStep===1&&nextBody){
+    var _tpCode=(_campBrief.icp||'super_mom').toLowerCase().replace(/\s+/g,'_');
+    nextBody.innerHTML=
+      '<div style="padding:18px 20px">'+
+        '<div id="cc-step1-theme-picker">'+
+          '<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Loading themes…</div>'+
+        '</div>'+
+        '<div id="cc-step1-theme-next" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:'+(_campBrief.theme?'block':'none')+'">'+
+          '<button onclick="_ccWizardAdvance(2,\'✓ Theme: \'+(_campBrief.theme||\'\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
+        '</div>'+
+      '</div>';
+    if(_ccThemeLib[_tpCode]){
+      var _s1p=document.getElementById('cc-step1-theme-picker');
+      if(_s1p) _s1p.innerHTML=_ccRenderThemeCards(_ccThemeLib[_tpCode],_campBrief.theme||'');
+    } else { _ccLoadThemeLibrary(_campBrief.icp||'super_mom'); }
+  }
+  // Step 2 = LP auto-suggest (lazy render)
   if(toStep===2&&nextBody){
+    var _mf2='font-family:\'DM Mono\',monospace;';
+    nextBody.innerHTML=
+      '<div style="padding:18px 20px">'+
+        '<div style="font-size:11px;color:var(--muted);'+_mf2+'margin-bottom:12px">'+
+          (_campBrief.campaign_angle?
+            'Showing LPs for angle: <strong style="color:var(--text)">'+_campBrief.campaign_angle+'</strong> — confirm or build new.':
+            'Select a landing page for this campaign.')+
+        '</div>'+
+        '<div id="cc-ks-lp-results"><div style="font-size:11px;color:var(--muted);'+_mf2+'">Searching…</div></div>'+
+        '<div id="cc-ks-lp-output"></div>'+
+        '<div id="cc-step1-footer" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+          '<span style="font-size:11px;color:var(--muted);'+_mf2+'">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">none selected</strong></span>'+
+          '<div style="flex:1;min-width:8px"></div>'+
+          '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;'+_mf2+'opacity:0.5">→ Next: Kickstart</button>'+
+        '</div>'+
+      '</div>';
+    _ccKsLpSearch(_campBrief.icp||'');
+  }
+  // Step 3 = Kickstart (lazy render)
+  if(toStep===3&&nextBody){
     var mf='font-family:\'DM Mono\',monospace;';
     var lpBanner=_campBrief.slug?
       '<div style="padding:10px 16px;background:rgba(34,197,94,0.06);border-bottom:1px solid rgba(34,197,94,0.2);font-size:11px;'+mf+'">'+
@@ -26516,20 +26557,21 @@ function _ccWizardAdvance(toStep,summary){
         '<div id="cc-ks-err" style="margin-top:8px;font-size:11px;color:'+_CC_RED+';font-family:\'DM Mono\',monospace;min-height:16px"></div>'+
         '<div id="cc-ks-result" style="margin-top:16px"></div>'+
       '</div>';
+    if(_ccSelectedTheme) setTimeout(function(){_ccKickstartFromTheme(_ccSelectedTheme);},50);
   }
-  // Step 3 = Campaign Brief (lazy render)
-  if(toStep===3&&nextBody){
+  // Step 4 = Campaign Brief (lazy render)
+  if(toStep===4&&nextBody){
     nextBody.innerHTML=_ccRenderBrief()+
       '<div style="padding:14px 20px;border-top:1px solid var(--border)">'+
-        '<button onclick="_ccWizardAdvance(4,\'✓ Campaign: \'+(_campBrief.name||\'Draft\')+\' · \'+(_campBrief.icp||\'—\')+\' · \'+(_campBrief.cta_type||_campBrief.funnel||\'—\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Build Assets</button>'+
+        '<button onclick="_ccWizardAdvance(5,\'✓ Campaign: \'+(_campBrief.name||\'Draft\')+\' · \'+(_campBrief.icp||\'—\')+\' · \'+(_campBrief.cta_type||_campBrief.funnel||\'—\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Build Assets</button>'+
       '</div>';
     _ccPopulateChannelSelect(_ccChannels);
     setTimeout(_ccOnBlueprintChange,0);
     if(!_campBrief.id) setTimeout(_ccFetchNextId,50);
     if(!_ccChannelsLoaded) setTimeout(_ccLoadChannels,0);
   }
-  // Step 4 = Build Assets
-  if(toStep===4&&nextBody){
+  // Step 5 = Build Assets
+  if(toStep===5&&nextBody){
     var chLabel=(_campBrief.channels||[]).join(' + ')||'—';
     nextBody.innerHTML=
       '<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
@@ -26612,7 +26654,7 @@ function _campaignsRenderInner(root){
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
         '<div>'+
           '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
-          '<div style="font-size:12px;color:var(--muted);margin-top:2px">LP → Kickstart → Brief → Assets → UTMs → Calendar</div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px">Theme → LP → Kickstart → Brief → Assets → UTMs → Calendar</div>'+
         '</div>'+
         '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
       '</div>'+
@@ -26620,53 +26662,46 @@ function _campaignsRenderInner(root){
       '<div id="cc-wizard-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:20px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">'+
         _ccRenderWizardBar()+
       '</div>'+
-      // ── Step 1: Landing Page ──────────────────────────────────────────────
+      // ── Step 1: Theme ─────────────────────────────────────────────────────
       '<div id="cc-step-1" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">'+
-        sHdr(1,'How do you want to start this campaign?')+
+        sHdr(1,'Choose a Theme — sets food type, emotional arc, publish day, and app feature')+
         '<div id="cc-step-1-summ" '+summBar+'></div>'+
         '<div id="cc-step-1-body" style="padding:20px">'+
-          '<div style="display:flex;gap:16px;flex-wrap:wrap">'+
-            '<div id="cc-path-a-card" onclick="_ccChoosePath(\'A\')" style="flex:1;min-width:220px;border:2px solid var(--border);border-radius:10px;padding:18px 20px;cursor:pointer;transition:border-color 0.15s">'+
-              '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">📄 Start with an LP</div>'+
-              '<div style="font-size:11px;color:var(--muted);line-height:1.6">Select an existing landing page as your messaging template. Slug, angle, headline, and proof bar are locked. Kickstart only fills the theme and ICP-specific copy that matches that LP.</div>'+
-            '</div>'+
-            '<div id="cc-path-b-card" onclick="_ccChoosePath(\'B\')" style="flex:1;min-width:220px;border:2px solid var(--border);border-radius:10px;padding:18px 20px;cursor:pointer;transition:border-color 0.15s">'+
-              '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">💡 Start with a fresh idea</div>'+
-              '<div style="font-size:11px;color:var(--muted);line-height:1.6">Describe your campaign idea. Kickstart builds the brief. After review the system matches or builds the right landing page from your copy — LP is created from the idea, not the idea from the LP.</div>'+
-            '</div>'+
-          '</div>'+
-          '<div id="cc-path-a-lp" style="display:none;margin-top:20px">'+
-            '<div id="cc-ks-lp-results"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Searching for landing pages…</div></div>'+
-            '<div id="cc-ks-lp-output"></div>'+
-            '<div id="cc-step1-footer" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
-              '<span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">none selected</strong></span>'+
-              '<div style="flex:1;min-width:8px"></div>'+
-              '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;font-family:\'DM Mono\',monospace;opacity:0.5">→ Next: Campaign Kickstart</button>'+
-            '</div>'+
+          '<div id="cc-step1-theme-picker"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Loading themes…</div></div>'+
+          '<div id="cc-step1-theme-next" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:none">'+
+            '<button onclick="_ccWizardAdvance(2,\'✓ Theme: \'+(_campBrief.theme||\'\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
           '</div>'+
         '</div>'+
       '</div>'+
-      // ── Step 2: Kickstart ─────────────────────────────────────────────────
+      // ── Step 2: LP ────────────────────────────────────────────────────────
       '<div id="cc-step-2" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
-        sHdr(2,'Campaign Kickstart — Describe your customer and goal')+
+        sHdr(2,'Landing Page — confirm or build the LP that anchors this campaign')+
         '<div id="cc-step-2-summ" '+summBar+'></div>'+
         '<div id="cc-step-2-body">'+
-          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Select a landing page above to continue.</div>'+
+          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Select a theme above to continue.</div>'+
         '</div>'+
       '</div>'+
-      // ── Step 3: Campaign Brief ────────────────────────────────────────────
+      // ── Step 3: Kickstart ─────────────────────────────────────────────────
       '<div id="cc-step-3" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
-        sHdr(3,'Campaign Brief — Review and confirm all campaign details')+
+        sHdr(3,'Campaign Kickstart — review pre-filled brief and generate')+
         '<div id="cc-step-3-summ" '+summBar+'></div>'+
         '<div id="cc-step-3-body">'+
+          '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Confirm your LP above to continue.</div>'+
+        '</div>'+
+      '</div>'+
+      // ── Step 4: Campaign Brief ────────────────────────────────────────────
+      '<div id="cc-step-4" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
+        sHdr(4,'Campaign Brief — review and confirm all campaign details')+
+        '<div id="cc-step-4-summ" '+summBar+'></div>'+
+        '<div id="cc-step-4-body">'+
           '<div style="padding:20px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Run Kickstart above to generate your campaign brief.</div>'+
         '</div>'+
       '</div>'+
-      // ── Step 4: Build Assets ───────────────────────────────────────────────
-      '<div id="cc-step-4" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
-        sHdr(4,'Build Assets — Generate social posts, emails, and push copy')+
-        '<div id="cc-step-4-summ" '+summBar+'></div>'+
-        '<div id="cc-step-4-body">'+
+      // ── Step 5: Build Assets ───────────────────────────────────────────────
+      '<div id="cc-step-5" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;display:none">'+
+        sHdr(5,'Build Assets — Generate social posts, emails, and push copy')+
+        '<div id="cc-step-5-summ" '+summBar+'></div>'+
+        '<div id="cc-step-5-body">'+
           '<div style="padding:14px 16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Complete your brief above to unlock asset building.</div>'+
         '</div>'+
       '</div>'+
@@ -26676,6 +26711,16 @@ function _campaignsRenderInner(root){
       '<div id="cc-panel"></div>'+
     '</div>';
   _campSwitchTab(_campActiveTab);
+  // Init Step 1 theme picker on first render
+  setTimeout(function(){
+    var _icp=(_campBrief.icp||'super_mom').toLowerCase().replace(/\s+/g,'_');
+    var _s1p=document.getElementById('cc-step1-theme-picker');
+    if(!_s1p) return;
+    if(_ccThemeLib[_icp]){
+      _s1p.innerHTML=_ccRenderThemeCards(_ccThemeLib[_icp],_campBrief.theme||'');
+      if(_campBrief.theme){var _n=document.getElementById('cc-step1-theme-next');if(_n)_n.style.display='block';}
+    } else { _ccLoadThemeLibrary(_campBrief.icp||'super_mom'); }
+  },0);
 }
 function _campSwitchTab(t){
   _campActiveTab=t;
