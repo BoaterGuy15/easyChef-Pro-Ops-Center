@@ -80,3 +80,32 @@ function organizeTeamDocs() {
 
   Logger.log('Complete — moved: ' + moved + ', skipped: ' + skipped);
 }
+
+function organizeTeamDocs2() {
+  var PARENT_ID = '1k8LS8p2NUSpda4QOdo-03M26vWdlUVus';
+  var parent = DriveApp.getFolderById(PARENT_ID);
+
+  var moves = [
+    { name: 'easyChef Pro Project Slack export', folder: '1hrbndh6a3XrxTvVsXkqzeKz3dq91BQDe', newName: 'SLACK — easyChef Pro Export Oct 2023 - Apr 2026' },
+    { name: 'Screenshot 2026-05-03',             folder: '1nNBP7NmFl9W1FqGOLgsc7-NUssUjemlN', newName: 'SCREENSHOT — GA4 UTM Checklist 2026-05-03' },
+    { name: 'easyChef_FB_Cover',                 folder: '16S9rAuZ4fKpnFxm_e90C0s3JWXwbV0nj', newName: 'BRAND — easyChef Pro FB Cover Apple Style' },
+    { name: 'EasyChef-Symbol-Red',               folder: '16S9rAuZ4fKpnFxm_e90C0s3JWXwbV0nj', newName: 'BRAND — easyChef Pro Symbol Red' }
+  ];
+
+  moves.forEach(function(m) {
+    var iter = parent.getFiles();
+    var matched = false;
+    while (iter.hasNext()) {
+      var f = iter.next();
+      if (f.getName().indexOf(m.name) > -1) {
+        f.setName(m.newName);
+        f.moveTo(DriveApp.getFolderById(m.folder));
+        Logger.log('[MOVED] ' + m.newName);
+        matched = true;
+      }
+    }
+    if (!matched) Logger.log('[SKIP] No file found containing: ' + m.name);
+  });
+
+  Logger.log('organizeTeamDocs2 complete.');
+}
