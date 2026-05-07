@@ -198,6 +198,10 @@ function buildEmailCalendar(brief, copy) {
       _AB_ARCH +
       _AB_VOICE +
       '=== APPROVED CLAIMS ===\n' + claimsCtx +
+      '=== NUMBERS POLICY — STRICTLY ENFORCED ===\n' +
+      'ONLY use statistics and figures that appear verbatim in the APPROVED CLAIMS section above.\n' +
+      'NEVER invent, estimate, or extrapolate any number — no user counts, dollar amounts, or percentages that are not in APPROVED CLAIMS.\n' +
+      'If no approved stat fits, write without a statistic rather than inventing one.\n\n' +
       '=== TARGET ICP ===\n' + icpCtx + '\n' +
       '=== CAMPAIGN ===\n' +
       'Name: '                  + (brief.name || '')                      + '\n' +
@@ -356,19 +360,24 @@ function buildSocialCalendar(brief, copy) {
     var apiKey = props.getProperty('ANTHROPIC_API_KEY');
     if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set in Script Properties' };
 
-    var postCount     = parseInt(brief.post_count)  || 5;
-    var frequency     = brief.post_frequency        || '3x_week';
-    var seqMode       = _sbNormalizeSeqMode(brief.email_sequences);
-    var activeSeqs    = _SB_SEQ_MAP[seqMode]        || _SB_SEQ_MAP['seq1_seq2'];
-    var channel       = brief.channel               || 'Facebook';
-    var lpUrl         = 'https://easychefpro.com/'  + (brief.slug || 'lp/waitlist');
+    var postCount  = parseInt(brief.post_count) || 5;
+    var frequency  = brief.post_frequency       || '3x_week';
+    var seqMode    = _sbNormalizeSeqMode(brief.email_sequences);
+    var activeSeqs = _SB_SEQ_MAP[seqMode]       || _SB_SEQ_MAP['seq1_seq2'];
+    var lpUrl      = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
+    var campaignId = brief.id || '';
+
+    // All selected channels — fall back to brief.channel if channels array absent
+    var channels = (Array.isArray(brief.channels) && brief.channels.length)
+      ? brief.channels
+      : [brief.channel || 'Facebook'];
+
     var seqOffsets    = _sbGetSeqOffsets();
     var activeWF      = _sbGetWireframe().filter(function(e) { return activeSeqs.indexOf(e.seq) !== -1; });
     var themeSchedule = _sbBuildSocialSchedule(activeWF, postCount, seqOffsets);
 
-    var icpCtx       = _getIcpContext(brief.icp || '');
-    var claimsCtx    = _getClaimsContext();
-    var platformNote = _getPlatformNote(channel);
+    var icpCtx    = _getIcpContext(brief.icp || '');
+    var claimsCtx = _getClaimsContext();
 
     var scheduleDesc = themeSchedule.map(function(t, i) {
       return 'Post ' + (i + 1) +
@@ -377,109 +386,122 @@ function buildSocialCalendar(brief, copy) {
         ' | Aligns with email: ' + t.role;
     }).join('\n');
 
-    var systemPrompt =
-      'You are the easyChef Pro social media writer building a synchronized content calendar.\n' +
-      'These posts run in parallel with the email sequence — each post primes the audience for the email that follows.\n\n' +
-      _AB_ARCH +
-      _AB_VOICE +
-      '=== APPROVED CLAIMS ===\n' + claimsCtx +
-      '=== PLATFORM ===\n' + platformNote + '\n\n' +
-      '=== TARGET ICP ===\n' + icpCtx + '\n' +
-      '=== CAMPAIGN ===\n' +
-      'Name: '        + (brief.name || '')                 + '\n' +
-      'Landing page: '+ lpUrl                               + '\n' +
-      'Headline: '    + (copy && copy.headline    || '')    + '\n' +
-      'Social hook: ' + (copy && copy.social_hook || '')    + '\n' +
-      'CTA: '         + (copy && copy.cta_primary || '')    + '\n\n' +
-      '=== POSTING FREQUENCY ===\n' +
-      'Frequency: ' + frequency + '\n' +
-      'Total posts: ' + postCount + '\n\n' +
-      '=== CONTENT SCHEDULE — ' + postCount + ' POSTS ===\n' +
-      'Each post is 1 day ahead of the aligned email to prime the inbox open.\n' +
-      scheduleDesc + '\n\n' +
-      '=== PLATFORM REQUIREMENTS ===\n' +
-      'Optimal character count: ' + (brief.platform_optimal_chars || '150-300') + '\n' +
-      'Hashtags: ' + (brief.use_hashtags
-        ? 'Include ' + (brief.hashtag_count_min || 0) + '-' + (brief.hashtag_count_max || 0) + ' hashtags'
-        : 'No hashtags on this platform — leave hashtags as empty string') + '\n' +
-      'Content format: ' + (brief.content_format || 'post') + '\n' +
-      'Link placement: ' + (brief.link_placement || 'in post body') + '\n\n' +
-      '=== OUTPUT FORMAT ===\n' +
-      'Return ONLY a valid JSON array. No markdown. No explanation.\n' +
-      '[\n' +
-      '  {\n' +
-      '    "post_num": 1,\n' +
-      '    "scheduled_day": 0,\n' +
-      '    "theme": "welcome",\n' +
-      '    "hook": "Scroll-stopper first line — under 15 words",\n' +
-      '    "body_copy": "Full post body — plain text, no markdown, no asterisks",\n' +
-      '    "cta": "CTA line — under 10 words",\n' +
-      '    "hashtags": "hashtags or empty string",\n' +
-      '    "image_brief": "One sentence describing the ideal image or video for this post"\n' +
-      '  }\n' +
-      ']';
-
     var maxTokens = Math.min(8000, Math.max(2000, postCount * 600));
+    var allPosts  = [];
 
-    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type':      'application/json'
-      },
-      payload: JSON.stringify({
-        model:      'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        system:     systemPrompt,
-        messages:   [{ role: 'user', content: 'Generate the ' + postCount + '-post social calendar for ' + channel + '. Return only the JSON array.' }]
-      }),
-      muteHttpExceptions: true
-    });
+    // One API call per channel — each channel gets its own platform-tuned posts
+    for (var ci = 0; ci < channels.length; ci++) {
+      var channel      = channels[ci];
+      var platformNote = _getPlatformNote(channel);
 
-    var data  = JSON.parse(resp.getContentText());
-    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
-    if (!reply && data.error) {
-      return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+      var systemPrompt =
+        'You are the easyChef Pro social media writer building a synchronized content calendar.\n' +
+        'These posts run in parallel with the email sequence — each post primes the audience for the email that follows.\n\n' +
+        _AB_ARCH +
+        _AB_VOICE +
+        '=== APPROVED CLAIMS ===\n' + claimsCtx +
+        '=== NUMBERS POLICY — STRICTLY ENFORCED ===\n' +
+        'ONLY use statistics and figures that appear verbatim in the APPROVED CLAIMS section above.\n' +
+        'NEVER invent, estimate, or extrapolate any number — no follower counts, waitlist sizes, dollar amounts, or percentages that are not in APPROVED CLAIMS.\n' +
+        'If no approved stat fits a post, write the post without a statistic rather than inventing one.\n\n' +
+        '=== PLATFORM ===\n' + platformNote + '\n\n' +
+        '=== TARGET ICP ===\n' + icpCtx + '\n' +
+        '=== CAMPAIGN ===\n' +
+        'Name: '        + (brief.name || '')              + '\n' +
+        'Landing page: '+ lpUrl                            + '\n' +
+        'Headline: '    + (copy && copy.headline    || '') + '\n' +
+        'Social hook: ' + (copy && copy.social_hook || '') + '\n' +
+        'CTA: '         + (copy && copy.cta_primary || '') + '\n\n' +
+        '=== POSTING FREQUENCY ===\n' +
+        'Frequency: ' + frequency + '\n' +
+        'Total posts: ' + postCount + '\n\n' +
+        '=== CONTENT SCHEDULE — ' + postCount + ' POSTS ===\n' +
+        'Each post is 1 day ahead of the aligned email to prime the inbox open.\n' +
+        scheduleDesc + '\n\n' +
+        '=== PLATFORM REQUIREMENTS ===\n' +
+        'Optimal character count: ' + (brief.platform_optimal_chars || '150-300') + '\n' +
+        'Hashtags: ' + (brief.use_hashtags
+          ? 'Include ' + (brief.hashtag_count_min || 0) + '-' + (brief.hashtag_count_max || 0) + ' hashtags'
+          : 'No hashtags on this platform — leave hashtags as empty string') + '\n' +
+        'Content format: ' + (brief.content_format || 'post') + '\n' +
+        'Link placement: ' + (brief.link_placement || 'in post body') + '\n\n' +
+        '=== OUTPUT FORMAT ===\n' +
+        'Return ONLY a valid JSON array. No markdown. No explanation.\n' +
+        '[\n' +
+        '  {\n' +
+        '    "post_num": 1,\n' +
+        '    "scheduled_day": 0,\n' +
+        '    "theme": "welcome",\n' +
+        '    "hook": "Scroll-stopper first line — under 15 words",\n' +
+        '    "body_copy": "Full post body — plain text, no markdown, no asterisks",\n' +
+        '    "cta": "CTA line — under 10 words",\n' +
+        '    "hashtags": "hashtags or empty string",\n' +
+        '    "image_brief": "One sentence describing the ideal image or video for this post"\n' +
+        '  }\n' +
+        ']';
+
+      var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key':         apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type':      'application/json'
+        },
+        payload: JSON.stringify({
+          model:      'claude-sonnet-4-20250514',
+          max_tokens: maxTokens,
+          system:     systemPrompt,
+          messages:   [{ role: 'user', content: 'Generate the ' + postCount + '-post social calendar for ' + channel + '. Return only the JSON array.' }]
+        }),
+        muteHttpExceptions: true
+      });
+
+      var data  = JSON.parse(resp.getContentText());
+      var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
+      if (!reply && data.error) {
+        Logger.log('[buildSocialCalendar] ' + channel + ' error: ' + JSON.stringify(data.error));
+        continue; // skip this channel on error, keep going for others
+      }
+
+      var jsonStr    = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+      var chPosts    = JSON.parse(jsonStr);
+      var chSlug     = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      chPosts.forEach(function(p, i) {
+        var sched  = themeSchedule[i] || {};
+        var postId = campaignId + '-' + chSlug + '-POST-' + String(i + 1).padStart(3, '0');
+
+        p.id          = postId;
+        p.campaign_id = campaignId;
+        p.platform    = channel;
+        if (p.scheduled_day === undefined) p.scheduled_day = sched.day   || 0;
+        if (!p.theme)                      p.theme         = sched.theme || '';
+
+        var _sched = '';
+        if (brief.launchDate && p.scheduled_day !== undefined) {
+          try {
+            var _ld = new Date(brief.launchDate + 'T12:00:00');
+            _ld.setDate(_ld.getDate() + p.scheduled_day);
+            _sched = Utilities.formatDate(_ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+          } catch(de) { _sched = ''; }
+        }
+        setSocialPost({
+          id:             postId,
+          campaign_id:    campaignId,
+          platform:       channel,
+          hook:           p.hook        || '',
+          body_copy:      p.body_copy   || '',
+          cta:            p.cta         || '',
+          hashtags:       p.hashtags    || '',
+          image_brief:    p.image_brief || '',
+          scheduled_date: _sched,
+          status:         'draft'
+        });
+        allPosts.push(p);
+      });
     }
 
-    var jsonStr    = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-    var posts      = JSON.parse(jsonStr);
-    var campaignId = brief.id || '';
-
-    posts.forEach(function(p, i) {
-      var sched  = themeSchedule[i] || {};
-      var postId = campaignId + '-POST-' + String(i + 1).padStart(3, '0');
-
-      p.id          = postId;
-      p.campaign_id = campaignId;
-      p.platform    = channel;
-      if (p.scheduled_day === undefined) p.scheduled_day = sched.day   || 0;
-      if (!p.theme)                      p.theme         = sched.theme || '';
-
-      var _sched = '';
-      if (brief.launchDate && p.scheduled_day !== undefined) {
-        try {
-          var _ld = new Date(brief.launchDate + 'T12:00:00');
-          _ld.setDate(_ld.getDate() + p.scheduled_day);
-          _sched = Utilities.formatDate(_ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-        } catch(de) { _sched = ''; }
-      }
-      setSocialPost({
-        id:             postId,
-        campaign_id:    campaignId,
-        platform:       channel,
-        hook:           p.hook        || '',
-        body_copy:      p.body_copy   || '',
-        cta:            p.cta         || '',
-        hashtags:       p.hashtags    || '',
-        image_brief:    p.image_brief || '',
-        scheduled_date: _sched,
-        status:         'draft'
-      });
-    });
-
-    return { ok: true, posts: posts, frequency: frequency };
+    return { ok: true, posts: allPosts, frequency: frequency };
 
   } catch (e) {
     return { ok: false, error: e.message };

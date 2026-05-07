@@ -79,7 +79,7 @@ var _CC_HDR = {
   ],
   SocialPosts: [
     'id','campaign_id','platform','hook','body_copy','cta','hashtags',
-    'image_brief','scheduled_date','status','dl_id','utm_url','posted_url'
+    'image_brief','image_url','scheduled_date','scheduled_time','status','dl_id','utm_url','posted_url'
   ],
   LandingPages: [
     'id','campaign_id','icp_code','slug','full_url','title_tag','meta_description',
@@ -1000,8 +1000,10 @@ function _socialRowToObj(r) {
   return {
     id: r[0], campaign_id: r[1], platform: r[2], hook: r[3],
     body_copy: r[4], cta: r[5], hashtags: r[6], image_brief: r[7],
-    scheduled_date: _ccFmtDate(r[8]), status: r[9],
-    dl_id: r[10], utm_url: r[11], posted_url: r[12]
+    image_url: r[8] || '',
+    scheduled_date: _ccFmtDate(r[9]), scheduled_time: r[10] || '08:00',
+    status: r[11],
+    dl_id: r[12], utm_url: r[13], posted_url: r[14]
   };
 }
 
@@ -1037,11 +1039,13 @@ function setSocialPost(item) {
     item.cta            !== undefined ? item.cta            : (ex ? ex[5]  : ''),
     item.hashtags       !== undefined ? item.hashtags       : (ex ? ex[6]  : ''),
     item.image_brief    !== undefined ? item.image_brief    : (ex ? ex[7]  : ''),
-    item.scheduled_date !== undefined ? item.scheduled_date : (ex ? ex[8]  : ''),
-    item.status         !== undefined ? item.status         : (ex ? ex[9]  : 'draft'),
-    item.dl_id          !== undefined ? item.dl_id          : (ex ? ex[10] : ''),
-    item.utm_url        !== undefined ? item.utm_url        : (ex ? ex[11] : ''),
-    item.posted_url     !== undefined ? item.posted_url     : (ex ? ex[12] : '')
+    item.image_url      !== undefined ? item.image_url      : (ex ? ex[8]  : ''),
+    item.scheduled_date !== undefined ? item.scheduled_date : (ex ? ex[9]  : ''),
+    item.scheduled_time !== undefined ? item.scheduled_time : (ex ? ex[10] : '08:00'),
+    item.status         !== undefined ? item.status         : (ex ? ex[11] : 'draft'),
+    item.dl_id          !== undefined ? item.dl_id          : (ex ? ex[12] : ''),
+    item.utm_url        !== undefined ? item.utm_url        : (ex ? ex[13] : ''),
+    item.posted_url     !== undefined ? item.posted_url     : (ex ? ex[14] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
