@@ -528,7 +528,8 @@ function doPost(e) {
     if(body.action === 'message_write') { addMessage(body); return respond({ok:true}); }
     if(body.action === 'message_delete') { deleteMessage(body.id); return respond({ok:true}); }
     if(body.action === 'completion_delete') { deleteCompletion(body.id); return respond({ok:true}); }
-    if(body.action === 'drive_create_upload_session') { var driveToken = ScriptApp.getOAuthToken(); var driveMeta = JSON.stringify({name: body.filename, parents: ['1p-unAqDk2pwlz-zO2NLh8uHZkTzFM7_h']}); var driveResp = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {method:'post',headers:{'Authorization':'Bearer '+driveToken,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':body.mimeType,'X-Upload-Content-Length':body.fileSize},payload:driveMeta,muteHttpExceptions:true}); var uploadUrl=(driveResp.getHeaders()['Location']||driveResp.getHeaders()['location']||''); return respond({ok:true,uploadUrl:uploadUrl}); }
+    if(body.action === 'drive_create_upload_session') return respond(driveCreateUploadSession(body));
+    if(body.action === 'drive_upload_chunk') return respond(driveUploadChunk(body));
     if(body.action === 'callout_write') { addCallout(body); return respond({ok:true}); }
     if(body.action === 'callout_dismiss') { dismissCallout(body.id, body.dismissedBy, body.dismissedAt); return respond({ok:true}); }
     if(body.action === 'callout_delete') { deleteCallout(body.id); return respond({ok:true}); }
