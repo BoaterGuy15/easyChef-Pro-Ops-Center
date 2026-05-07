@@ -4288,6 +4288,7 @@ let _sharedFolderDefs=(()=>{try{return JSON.parse(localStorage.getItem('dgl_fold
 let _customDriveFolders=(()=>{try{return JSON.parse(localStorage.getItem('dgl_custom_drive_folders')||'[]');}catch(_){return[];}})();
 let _driveFolderCache={};
 let _driveFolderLoading=false;
+let _expandedFolders=new Set();
 let _docsTreeExpanded=new Set();
 // Returns Sheets docs + Drive-only files merged and deduped by driveFileId.
 // When a Drive file matches a Sheets doc, backfills the category on the Sheets doc
@@ -4436,6 +4437,12 @@ function _setDocsFilter(cat){
   _sharedDocsFilter=cat;
   _renderSharedDocs();
 }
+function _clickFolder(cat){
+  if(_expandedFolders.has(cat)) _expandedFolders.delete(cat);
+  else _expandedFolders.add(cat);
+  _sharedDocsFilter=cat;
+  _renderSharedDocs();
+}
 // ── Static sidebar nav ────────────────────────────────────────
 const _DOCS_NAV=[
   {type:'item',label:'All Files',         cat:'All',                  icon:'🗂️'},
@@ -4480,21 +4487,27 @@ function _renderDocsSidebar(){
     if(n.type==='link'){ html+=`<a href="${n.url}" target="_blank" rel="noopener" style="${row};background:none;color:var(--muted);text-decoration:none">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span><span style="font-size:9px;opacity:0.4;flex-shrink:0">↗</span></a>`; continue; }
     const active=_sharedDocsFilter===n.cat;
     const _merged=_getMergedDocs();
-    // Count includes files in sub-categories
     const cnt=n.cat==='All'?_merged.length:n.cat==='Linked Files'?_sharedDocsCache.filter(d=>(!d.folderUrl||d.folderUrl==='')&&_docFileIcon(d.name||'')!=='🎬').length:_merged.filter(d=>_sharedDocTag(d)===n.cat||_sharedDocTag(d).startsWith(n.cat+'/')).length;
-    html+=`<button onclick="_setDocsFilter('${n.cat}')" style="${row};background:${active?'rgba(201,168,76,0.15)':'none'};color:${active?'var(--gold-light)':'var(--text)'}">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span>${cnt>0?`<span style="font-size:8px;color:${active?'var(--gold)':'var(--muted)'};flex-shrink:0">${cnt}</span>`:''}</button>`;
-    // Discovered Drive sub-categories (all depths below this item)
-    Object.keys(_driveFolderCache||{}).filter(k=>k.startsWith(n.cat+'/')).sort().forEach(subCat=>{
-      const relPath=subCat.slice(n.cat.length+1); // e.g. "Training Videos/DGL Ops Center"
-      const depth=relPath.split('/').length;       // 1=direct child, 2=grandchild, etc.
-      const subLabel=relPath.split('/').pop();     // last segment only
-      const indent=10+depth*12;                    // 22px / 34px / 46px
-      const safeSub=subCat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const subActive=_sharedDocsFilter===subCat||_sharedDocsFilter.startsWith(subCat+'/');
-      const subCnt=_merged.filter(d=>_sharedDocTag(d)===subCat||_sharedDocTag(d).startsWith(subCat+'/')).length;
-      const arrows='↳'.repeat(depth);
-      html+=`<button onclick="_setDocsFilter('${safeSub}')" style="${row};padding-left:${indent}px;background:${subActive?'rgba(201,168,76,0.12)':'none'};color:${subActive?'var(--gold-light)':'var(--muted)'}"><span style="font-size:9px;flex-shrink:0">${arrows}</span>&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${subLabel}</span>${subCnt>0?`<span style="font-size:8px;color:${subActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${subCnt}</span>`:''}</button>`;
-    });
+    const _subCatKeys=Object.keys(_driveFolderCache||{}).filter(k=>k.startsWith(n.cat+'/'));
+    const _hasSubCats=_subCatKeys.length>0;
+    const _isExpanded=_expandedFolders.has(n.cat);
+    const _chevron=_hasSubCats?`<span style="font-size:9px;flex-shrink:0;opacity:0.5;transition:transform 0.15s">${_isExpanded?'▾':'▸'}</span>`:'';
+    const _clickFn=_hasSubCats?`_clickFolder('${n.cat}')`:`_setDocsFilter('${n.cat}')`;
+    html+=`<button onclick="${_clickFn}" style="${row};background:${active?'rgba(201,168,76,0.15)':'none'};color:${active?'var(--gold-light)':'var(--text)'}">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span>${cnt>0?`<span style="font-size:8px;color:${active?'var(--gold)':'var(--muted)'};flex-shrink:0">${cnt}</span>`:''}${_chevron}</button>`;
+    // Sub-categories — only show when expanded
+    if(_hasSubCats&&_isExpanded){
+      _subCatKeys.sort().forEach(subCat=>{
+        const relPath=subCat.slice(n.cat.length+1);
+        const depth=relPath.split('/').length;
+        const subLabel=relPath.split('/').pop();
+        const indent=10+depth*12;
+        const safeSub=subCat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        const subActive=_sharedDocsFilter===subCat||_sharedDocsFilter.startsWith(subCat+'/');
+        const subCnt=_merged.filter(d=>_sharedDocTag(d)===subCat||_sharedDocTag(d).startsWith(subCat+'/')).length;
+        const arrows='↳'.repeat(depth);
+        html+=`<button onclick="_setDocsFilter('${safeSub}')" style="${row};padding-left:${indent}px;background:${subActive?'rgba(201,168,76,0.12)':'none'};color:${subActive?'var(--gold-light)':'var(--muted)'}"><span style="font-size:9px;flex-shrink:0">${arrows}</span>&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${subLabel}</span>${subCnt>0?`<span style="font-size:8px;color:${subActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${subCnt}</span>`:''}</button>`;
+      });
+    }
     // Inject custom team-docs folders after static 'Other' item
     if(n.cat==='Other'){
       _customDriveFolders.filter(f=>f.section==='team-docs').forEach(f=>{
