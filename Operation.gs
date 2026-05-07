@@ -724,6 +724,7 @@ function doPost(e) {
     // ── Deep Link Registry ────────────────────────────────────────────────────────
     if(body.action === 'dl_registry_read')       return respond({ ok:true, registry: getDlRegistry(body.campaign_id||'') });
     if(body.action === 'dl_registry_write')      { setDlRegistryEntry(body.entry); return respond({ ok:true }); }
+    if(body.action === 'deeplinks_status')       { setDlRegistryEntry({dl_id:body.dlId, status:body.status, activated_at:(body.status||'').toUpperCase()==='ACTIVE'?new Date().toISOString():''}); return respond({ ok:true }); }
 
     // ── Email Sequences ───────────────────────────────────────────────────────────
     if(body.action === 'email_sequences_read')   return respond({ ok:true, sequences: getEmailSequences(body.campaign_id||'') });

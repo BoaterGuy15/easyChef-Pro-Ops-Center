@@ -26183,7 +26183,7 @@ function _ccActivateAllDraft(){
 
 // ── Panel 3: Deep Link Registry ─────────────────────────────────────────────
 function _ccRenderRegistry(){
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'dl_registry_read',campaign_id:_campBrief.id})}).then(function(r){return r.json();}).then(function(d){if(d.ok&&Array.isArray(d.registry)){_campDLCache=d.registry;_ccRedrawReg();}}).catch(function(){});
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'dl_registry_read',campaign_id:_campBrief.id})}).then(function(r){return r.json();}).then(function(d){if(d.ok&&Array.isArray(d.registry)){_campDLCache=d.registry;_ccRedrawReg();}}).catch(function(e){var w=_ccEl('cc-reg-wrap');if(w)w.innerHTML='<div style="padding:20px;font-size:11px;color:var(--muted)">Registry fetch failed: '+e.message+'</div>';});
   return '<div style="width:100%">'+_ccSecHdr('📎 Panel 3 — Deep Link Registry')+'<div id="cc-reg-wrap"><div style="color:var(--muted);font-size:12px;padding:20px">Loading…</div></div></div>';
 }
 function _ccRedrawReg(){
@@ -27628,7 +27628,7 @@ function _campSwitchTab(t){
   var panel=_ccEl('cc-panel'); if(!panel) return;
   if(t==='brief'){panel.innerHTML=_ccRenderBrief();_ccPopulateChannelSelect(_ccChannels);setTimeout(_ccOnBlueprintChange,0);if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
   else if(t==='utm') panel.innerHTML=_ccRenderUTM();
-  else if(t==='registry'){panel.innerHTML=_ccRenderRegistry();setTimeout(_ccRedrawReg,120);}
+  else if(t==='registry'){panel.innerHTML=_ccRenderRegistry();if(_campDLCache.length)_ccRedrawReg();}
   else if(t==='seo'){
     // Pre-fill SEO page from slug if provided
     if(_campBrief.slug&&DASHBOARD_DATA.seo){
