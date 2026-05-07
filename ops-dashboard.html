@@ -22208,6 +22208,17 @@ function _ccSaveDraft(){
         // Re-render post cards so URL field shows full UTM link
         var _soEl=document.getElementById('cc-ks-social-output');
         if(_soEl&&_ccLastPosts.length) _ccRenderSocialPosts(_ccLastPosts,_soEl,_campBrief.channel);
+        // Reload DL registry so Panel 6 (Distribution) shows data immediately
+        if(CONFIG.sheetsUrl){
+          fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'dl_registry_read',campaign_id:b.id})})
+            .then(function(r){return r.json();})
+            .then(function(dr){
+              if(dr.ok&&Array.isArray(dr.registry)){
+                _campDLCache=dr.registry;
+                if(_campActiveTab==='distribution'){var _p=_ccEl('cc-panel');if(_p)_p.innerHTML=_ccRenderDistribution();}
+              }
+            }).catch(function(){});
+        }
       }
       if(d.drive_url){
         b.drive_url=d.drive_url;
@@ -27629,7 +27640,12 @@ function _campSwitchTab(t){
     _seoRender();
   }
   else if(t==='tracking') panel.innerHTML=_ccRenderTracking();
-  else if(t==='distribution') panel.innerHTML=_ccRenderDistribution();
+  else if(t==='distribution'){
+    panel.innerHTML=_ccRenderDistribution();
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=deeplinks_read').then(function(r){return r.json();}).then(function(d){
+      if(Array.isArray(d.entries)){_campDLCache=d.entries;if(_campActiveTab==='distribution'){var _p=_ccEl('cc-panel');if(_p)_p.innerHTML=_ccRenderDistribution();}}
+    }).catch(function(){});
+  }
   else if(t==='performance') panel.innerHTML=_ccRenderPerformance();
   else if(t==='channels'){panel.innerHTML=_ccRenderChannels();setTimeout(_ccLoadChannels,0);}
   else if(t==='content-hub'){panel.innerHTML=_ccRenderContentHub();if(!_ccHubCache.loaded)setTimeout(_ccLoadHub,0);}
