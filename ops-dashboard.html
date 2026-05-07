@@ -25897,11 +25897,11 @@ function _ccRenderDistribution(){
   });
 
   function dlsForChannel(ch){
+    var chUtmSrc=(ch.utm_source||'').toLowerCase();
+    var chSlug=(ch.slug_code||'').toLowerCase();
     return allDLs.filter(function(d){
-      var chField=_dlChannel(d);
-      var id=_dlId(d);
       var src=(d.utm_source||'').toLowerCase();
-      return chField===ch.name||src===(ch.utm_source||'').toLowerCase()||((!chField)&&id.indexOf(ch.dl_prefix+'-')===0);
+      return src&&(src===chUtmSrc||src===chSlug);
     });
   }
 
