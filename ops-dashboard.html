@@ -21296,6 +21296,7 @@ var _ccChannels=[
 var _ccChannelsLoaded=false;
 var _ccDataLoaded=false;
 var _ccLastPosts=[];
+var _ccLastEmails=[];
 var _ccWizardStep=1;
 var _ccWizardDone={};
 var _ccWizardSumms={};
@@ -22173,6 +22174,7 @@ function _ccNewCampaign(){
   _campLastLp=null;
   _campSlugStatus='';
   _ccLastPosts=[];
+  _ccLastEmails=[];
   _campUtmUrls=[];
   _campUtmConflict=null;
   _campDraftSaved=false;
@@ -23274,6 +23276,7 @@ function _ccKsBuildAssets(actionType){
 
 function _ccRenderEmailSequence(sequence,container){
   if(!container) return;
+  _ccLastEmails=sequence;
   if(!sequence.length){
     container.innerHTML='<div style="padding:14px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">No sequence data returned.</div>';
     return;
@@ -26835,6 +26838,13 @@ function _ccWizardAdvance(toStep,summary){
         '<div style="margin-top:10px"><button onclick="_ccDownloadAllImages()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download all post images</button></div>'+
       '</div>'+
       '<div id="cc-ks-social-output"></div><div id="cc-ks-email-output"></div>';
+    // Restore previously built posts so navigating back doesn't blank the output
+    (function(){
+      var _sp=document.getElementById('cc-ks-social-output');
+      if(_sp&&_ccLastPosts&&_ccLastPosts.length) _ccRenderSocialPosts(_ccLastPosts,_sp,_campBrief.channel);
+      var _ep=document.getElementById('cc-ks-email-output');
+      if(_ep&&_ccLastEmails&&_ccLastEmails.length) _ccRenderEmailSequence(_ccLastEmails,_ep);
+    })();
   }
   if(nextEl) setTimeout(function(){nextEl.scrollIntoView({behavior:'smooth',block:'start'});},80);
 }
