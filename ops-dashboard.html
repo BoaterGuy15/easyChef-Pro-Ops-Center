@@ -25972,6 +25972,11 @@ function _ccBuildUtmAssets(){
       :('Post '+(i+1)+' — '+(p.hook||'').substring(0,40));
     assets.push({asset_name:label,descriptor:d,asset_type:isEmail?'email':'post'});
   });
+  // Add Email Campaign asset when email is a secondary channel and sequences are built
+  var _hasEmailCh=(b.channels||[]).some(function(c){return c.toLowerCase()==='email';});
+  if(_hasEmailCh&&!isEmail&&_ccLastEmails&&_ccLastEmails.length){
+    assets.push({asset_name:'Email Campaign — '+_ccLastEmails.length+' email'+(+_ccLastEmails.length!==1?'s':''),descriptor:'email_campaign',asset_type:'email'});
+  }
   return assets;
 }
 function _ccRenderUTM(){
@@ -25982,7 +25987,9 @@ function _ccRenderUTM(){
   var codeBadge=isValid?'<span style="font-size:10px;color:#22c55e;margin-left:4px">✓</span>':'';
   var lpCount=_campLastLp?1:0;
   var postCount=(_ccLastPosts||[]).length;
-  var total=lpCount+postCount;
+  var emailCount=(_ccLastEmails||[]).length;
+  var _hasEmailCh2=(b.channels||[]).some(function(c){return c.toLowerCase()==='email';});
+  var total=lpCount+postCount+emailCount+(_campUtmUrls&&_campUtmUrls.length?1:0);
   if(!total) return '<div style="width:100%">'+
     _ccSecHdr('🔗 Panel 2 — UTM Generator')+
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center">'+
@@ -25991,7 +25998,7 @@ function _ccRenderUTM(){
       _ccBtn('← Go to Brief','_campSwitchTab(\'brief\')',true)+
     '</div>'+
   '</div>';
-  var badges=(lpCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.2);color:'+_CC_RED+'">1 LP</span> ':'')+(postCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.05);border:1px solid var(--border);color:var(--text)">'+postCount+' post'+(postCount!==1?'s':'')+'</span>':'');
+  var badges=(lpCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.2);color:'+_CC_RED+'">1 LP</span> ':'')+(_hasEmailCh2&&emailCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.05);border:1px solid var(--border);color:var(--text)">'+emailCount+' email'+(emailCount!==1?'s':'')+'</span> ':'')+(postCount?'<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.05);border:1px solid var(--border);color:var(--text)">'+postCount+' post'+(postCount!==1?'s':'')+'</span>':'');
   // Filter to current campaign only, drop CANCELLED
   var visibleUrls=(_campUtmUrls||[]).filter(function(u){
     var st=(u.status||'').toUpperCase();
@@ -27634,7 +27641,31 @@ function _campSwitchTab(t){
   var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
   var panel=_ccEl('cc-panel'); if(!panel) return;
   if(t==='brief'){panel.innerHTML=_ccRenderBrief();_ccPopulateChannelSelect(_ccChannels);setTimeout(_ccOnBlueprintChange,0);if(!_campBrief.id)setTimeout(_ccFetchNextId,50);if(!_ccChannelsLoaded)setTimeout(_ccLoadChannels,0);}
-  else if(t==='utm') panel.innerHTML=_ccRenderUTM();
+  else if(t==='utm'){
+    // Pre-populate from DL cache so LP and previously-saved assets show without re-generating
+    if(!_campUtmUrls.length&&_campDLCache.length){
+      _campUtmUrls=_campDLCache.filter(function(r){return (r.status||'').toUpperCase()!=='CANCELLED';}).map(function(r){
+        var fullUrl=(r.destination_url||'')+'?utm_source='+encodeURIComponent(r.utm_source||'')+'&utm_medium='+encodeURIComponent(r.utm_medium||'')+'&utm_campaign='+encodeURIComponent(r.utm_campaign||'')+'&utm_content='+encodeURIComponent(r.utm_content||'');
+        return {dl_id:r.dl_id,utm_content:r.utm_content,asset_name:r.notes||r.utm_content,full_url:fullUrl,status:r.status,campaign_id:r.campaign_id};
+      });
+    }
+    panel.innerHTML=_ccRenderUTM();
+    // Also fetch registry if cache is stale and campaign is saved
+    if(_campBrief.id&&CONFIG.sheetsUrl&&!_campDLCache.length){
+      fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'dl_registry_read',campaign_id:_campBrief.id})}).then(function(r){return r.json();}).then(function(d){
+        if(d.ok&&Array.isArray(d.registry)&&d.registry.length){
+          _campDLCache=d.registry;
+          if(!_campUtmUrls.length){
+            _campUtmUrls=d.registry.filter(function(r){return (r.status||'').toUpperCase()!=='CANCELLED';}).map(function(r){
+              var fullUrl=(r.destination_url||'')+'?utm_source='+encodeURIComponent(r.utm_source||'')+'&utm_medium='+encodeURIComponent(r.utm_medium||'')+'&utm_campaign='+encodeURIComponent(r.utm_campaign||'')+'&utm_content='+encodeURIComponent(r.utm_content||'');
+              return {dl_id:r.dl_id,utm_content:r.utm_content,asset_name:r.notes||r.utm_content,full_url:fullUrl,status:r.status,campaign_id:r.campaign_id};
+            });
+            if(_campActiveTab==='utm'){var _p=_ccEl('cc-panel');if(_p)_p.innerHTML=_ccRenderUTM();}
+          }
+        }
+      }).catch(function(){});
+    }
+  }
   else if(t==='registry'){panel.innerHTML=_ccRenderRegistry();if(_campDLCache.length)_ccRedrawReg();}
   else if(t==='seo'){
     // Pre-fill SEO page from slug if provided

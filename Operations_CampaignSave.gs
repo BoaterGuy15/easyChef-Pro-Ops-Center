@@ -134,6 +134,24 @@ function saveCampaignDraft(body) {
           return { dl_id:u.dl_id, utm_content:u.utm_content, asset_name:u.notes||u.utm_content, full_url:fullUrl, status:'ACTIVE' };
         });
         Logger.log('[CampaignSave] reusing ' + utms.length + ' existing ACTIVE DL_IDs');
+        // Supplement any missing email channel DLs (e.g. campaign saved before email DL fix)
+        var _suppCode = (brief.name||brief.id||'').toLowerCase()
+          .replace(/['\-]/g,'').replace(/[^a-z0-9]+/g,'_')
+          .replace(/^_+|_+$/g,'').substring(0,50);
+        var _suppBase = 'https://easychefpro.com/' + (brief.slug||'').replace(/^\//,'');
+        var _suppChs  = (Array.isArray(brief.channels)&&brief.channels.length)?brief.channels:[brief.channel||'Facebook'];
+        _suppChs.forEach(function(ch) {
+          var _chD = _getChannelData(ch);
+          if ((_chD.utm_medium||'').toLowerCase() !== 'email') return;
+          var _hasDl = _activeDls.some(function(r){ return (r.channel||'').toLowerCase()===ch.toLowerCase(); });
+          if (_hasDl) return;
+          var _dlId  = _nextDlId(_chD.dl_prefix||'SOC');
+          var _utmC  = _dlId + '_email_campaign';
+          var _fu    = _suppBase+'?utm_source='+encodeURIComponent(_chD.utm_source)+'&utm_medium='+encodeURIComponent(_chD.utm_medium)+'&utm_campaign='+encodeURIComponent(_suppCode)+'&utm_content='+encodeURIComponent(_utmC);
+          setDlRegistryEntry({dl_id:_dlId,utm_content:_utmC,campaign_id:brief.id,channel:ch,destination_url:_suppBase,utm_source:_chD.utm_source,utm_medium:_chD.utm_medium,utm_campaign:_suppCode,status:'ACTIVE',notes:'Email Campaign'});
+          utms.push({dl_id:_dlId,utm_content:_utmC,asset_name:'Email Campaign',full_url:_fu,status:'ACTIVE'});
+          Logger.log('[CampaignSave] supplemented missing email DL: ' + _dlId + ' for channel: ' + ch);
+        });
       } else {
         // No ACTIVE entries — generate one DL_ID per asset per channel
         var _utmCode = (brief.name||brief.id||'').toLowerCase()
