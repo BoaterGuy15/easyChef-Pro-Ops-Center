@@ -153,7 +153,24 @@ function saveCampaignDraft(body) {
       }
     }
 
-    return { ok: true, saved: saved, utms: utms };
+    // 6 — Auto-export to Drive when ML approved
+    var driveUrl  = '';
+    var driveDocs = {};
+    if ((brief.approved || brief.ml_approved) && brief.id) {
+      try {
+        var _driveResult = exportCampaignToDrive(brief, copy, posts, lp, body.emails || []);
+        if (_driveResult.ok) {
+          driveUrl  = _driveResult.folder_url  || '';
+          driveDocs = _driveResult.doc_urls    || {};
+        } else {
+          Logger.log('[CampaignSave] Drive export failed: ' + (_driveResult.error || 'unknown'));
+        }
+      } catch(e) {
+        Logger.log('[CampaignSave] Drive export exception: ' + e.message);
+      }
+    }
+
+    return { ok: true, saved: saved, utms: utms, drive_url: driveUrl, drive_docs: driveDocs };
 
   } catch (e) {
     return { ok: false, error: e.message };

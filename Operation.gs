@@ -601,6 +601,7 @@ function doPost(e) {
     if(body.action === 'campaign_brief_read')    return respond({ ok:true, briefs: getCampaignBriefs(body.id||'') });
     if(body.action === 'campaign_brief_write')   { setCampaignBrief(body.brief); return respond({ ok:true }); }
     if(body.action === 'campaign_save_draft') return respond(saveCampaignDraft(body));
+    if(body.action === 'export_to_drive')    return respond(exportCampaignToDrive(body.brief||{}, body.copy||{}, body.posts||[], body.lp||null, body.emails||[]));
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });

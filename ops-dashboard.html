@@ -21846,10 +21846,26 @@ function _ccSaveDraft(){
       if(postsCount>0) parts.push(postsCount+' post'+(postsCount!==1?'s':''));
       _campDraftSaved=true;
       if(d.utms&&d.utms.length) _campUtmUrls=d.utms;
+      if(d.drive_url){
+        b.drive_url=d.drive_url;
+        _sharedDocsCache.push({
+          id:'camp-drive-'+(b.id||Date.now().toString(36)),
+          taskId:'campaigns',agendaId:'',
+          name:(b.name||'Campaign')+' — Drive Workspace',
+          url:d.drive_url,previewUrl:'',
+          driveFileId:'',mimeType:'application/vnd.google-apps.folder',
+          reviewNeeded:false,addedBy:'campaign-wizard',
+          addedAt:new Date().toISOString(),folderUrl:d.drive_url
+        });
+        if(typeof _renderSharedDocs==='function') _renderSharedDocs();
+      }
       if(btn){btn.disabled=false;btn.textContent='Save Draft';}
       var flowBanner=_ccEl('cc-flow-banner');if(flowBanner)flowBanner.innerHTML=_ccFlowBanner();
       var _utmLine=d.utms&&d.utms.length
         ?'<div style="font-size:12px;font-weight:600;color:#22c55e;margin-top:6px">✓ '+d.utms.length+' UTM'+(d.utms.length!==1?'s':'')+' generated and activated</div>'
+        :'';
+      var _driveLine=d.drive_url
+        ?'<div style="font-size:12px;font-weight:600;color:#22c55e;margin-top:6px">✓ Drive workspace created — <a href="'+d.drive_url+'" target="_blank" style="color:#22c55e">📁 Open in Drive</a></div>'
         :'';
       var _nextBtn=d.utms&&d.utms.length
         ?'<button onclick="_campSwitchTab(\'searah\')" style="background:'+_CC_RED+';border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Build Calendar →</button>'
@@ -21857,7 +21873,7 @@ function _ccSaveDraft(){
       if(statusEl) statusEl.innerHTML=
         '<div style="margin-top:12px;padding:12px 16px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px">'+
           '<div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:6px">✓ Draft saved — '+(parts.length?parts.join(', '):b.id)+' written to Campaign Center Sheet</div>'+
-          _utmLine+
+          _utmLine+_driveLine+
           '<div style="margin-top:10px">'+_nextBtn+'</div>'+
         '</div>';
     })
