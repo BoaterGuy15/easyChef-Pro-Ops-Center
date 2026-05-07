@@ -23854,11 +23854,7 @@ function _ccSavePostEdits(idx,prefix){
   if(hashEl) post.hashtags=hashEl.value;
   if(briefEl) post.image_brief=briefEl.value;
   var statusEl=document.getElementById('ks-post-'+idx+'-save-status');
-  if(!CONFIG.sheetsUrl){if(statusEl){statusEl.style.display='inline';setTimeout(function(){statusEl.style.display='none';},2000);}return;}
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'social_posts_write',post:{id:post.id||'',campaign_id:post.campaign_id||(_campBrief&&_campBrief.id)||'',channel:post.channel||_campBrief.channel||'',post_num:pNum,hook:post.hook,body:post.body,hashtags:post.hashtags||'',image_brief:post.image_brief||'',cta:post.cta||'',url:post.url||'',funnel_stage:post.funnel_stage||'',status:post.status||'draft'}})})
-    .then(function(r){return r.json();})
-    .then(function(d){if(statusEl){statusEl.textContent=d.ok?'✓ Saved':'✗ Save failed';statusEl.style.color=d.ok?'#22c55e':'var(--red)';statusEl.style.display='inline';setTimeout(function(){statusEl.style.display='none';},2500);}})
-    .catch(function(){if(statusEl){statusEl.textContent='✗ Error';statusEl.style.color='var(--red)';statusEl.style.display='inline';setTimeout(function(){statusEl.style.display='none';},2000);}});
+  if(statusEl){statusEl.textContent='✓ Saved';statusEl.style.color='#22c55e';statusEl.style.display='inline';setTimeout(function(){statusEl.style.display='none';},2000);}
 }
 
 function _ccRegenSinglePost(idx){
