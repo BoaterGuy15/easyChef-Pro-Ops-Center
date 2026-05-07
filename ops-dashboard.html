@@ -25975,6 +25975,22 @@ function _ccBuildFullCalendar(){
         return;
       }
       _ccRenderCalendarResult(d,res);
+      // Auto-save to ContentCalendar Sheet so work is never lost
+      if(CONFIG.sheetsUrl&&(d.calendar||[]).length>0){
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+          action:'save_calendar',
+          campaign_id:_campBrief.id||'',
+          publish_day:_campBrief.publish_day||'',
+          post_frequency:_campBrief.post_frequency||'',
+          calendar:d.calendar||[]
+        })})
+        .then(function(r){return r.json();})
+        .then(function(sd){
+          if(sd.ok) console.log('[CC] calendar saved: '+sd.saved_count+' rows to Sheet');
+          else console.warn('[CC] calendar auto-save failed:',sd.error);
+        })
+        .catch(function(e){console.warn('[CC] calendar auto-save error:',e.message);});
+      }
     })
     .catch(function(e){
       if(btn){btn.disabled=false;btn.innerHTML='✦ Build Full Calendar';}

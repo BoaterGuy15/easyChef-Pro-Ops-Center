@@ -673,6 +673,7 @@ function doPost(e) {
     // ── Content Calendar sheet ────────────────────────────────────────────────────
     if(body.action === 'content_calendar_read')    return respond({ ok:true, entries: getContentCalendar(body.campaign_id||'') });
     if(body.action === 'content_calendar_write')   { setContentCalendarEntry(body.entry); return respond({ ok:true }); }
+    if(body.action === 'save_calendar')            return respond(saveCalendarEntries(body));
 
     // ── Campaign Metrics sheet ────────────────────────────────────────────────────
     if(body.action === 'campaign_metrics_read')    return respond({ ok:true, metrics: getCampaignMetrics(body.campaign_id||'') });

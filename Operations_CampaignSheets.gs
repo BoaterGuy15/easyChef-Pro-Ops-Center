@@ -1777,6 +1777,63 @@ function setContentCalendarEntry(item) {
   _ccUpsert(sheet, headers, item.id, row);
 }
 
+/**
+ * Bulk-writes calendar entries from a build_full_sequence result.
+ * body: { campaign_id, publish_day, calendar: [{day, emails:[], posts:[]}] }
+ */
+function saveCalendarEntries(body) {
+  try {
+    var campaignId = body.campaign_id || '';
+    var publishDay = body.publish_day || '';
+    var calendar   = body.calendar    || [];
+    var saved = 0;
+
+    calendar.forEach(function(dayEntry) {
+      var absDay = dayEntry.day || 0;
+
+      (dayEntry.emails || []).forEach(function(e) {
+        setContentCalendarEntry({
+          id:             campaignId + '-em-' + (e.seq_id || (absDay + '-' + saved)),
+          campaign_id:    campaignId,
+          day_number:     absDay,
+          scheduled_date: '',
+          channel:        'Email',
+          asset_type:     'email',
+          asset_id:       e.seq_id || '',
+          funnel_stage:   e.funnel_stage || '',
+          pair_id:        '',
+          theme:          e.sequence_code || '',
+          publish_day:    publishDay,
+          status:         'draft'
+        });
+        saved++;
+      });
+
+      (dayEntry.posts || []).forEach(function(p) {
+        setContentCalendarEntry({
+          id:             campaignId + '-post-' + (p.post_num || (absDay + '-' + saved)),
+          campaign_id:    campaignId,
+          day_number:     absDay,
+          scheduled_date: '',
+          channel:        p.platform || '',
+          asset_type:     'social',
+          asset_id:       String(p.post_num || ''),
+          funnel_stage:   p.theme || '',
+          pair_id:        '',
+          theme:          p.hook || '',
+          publish_day:    publishDay,
+          status:         'draft'
+        });
+        saved++;
+      });
+    });
+
+    return { ok: true, saved_count: saved };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── CampaignMetrics ───────────────────────────────────────────────────────────
 
 function _metricsRowToObj(r) {
