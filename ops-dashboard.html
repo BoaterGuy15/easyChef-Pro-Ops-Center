@@ -22101,7 +22101,7 @@ function _ccBriefSync(){
   _el=_ccEl('cc-approved');if(_el){b.approved=_el.checked;b.ml_approved=_el.checked;}
   _el=_ccEl('cc-post-count');      if(_el)            b.post_count=parseInt(_el.value)||7;
   _el=_ccEl('cc-post-frequency'); if(_el&&_el.value) b.post_frequency=_el.value;
-  _el=_ccEl('cc-email-sequences');if(_el)            b.email_sequences=parseInt(_el.value)||2;
+  _el=_ccEl('cc-email-sequences');if(_el){var _esNew=parseInt(_el.value)||2;if(_esNew!==(parseInt(b.email_sequences)||2))b.email_sequence_mode=null;b.email_sequences=_esNew;}
   _el=_ccEl('cc-email-variants'); if(_el)            b.email_variants=parseInt(_el.value)||2;
   _el=_ccEl('cc-theme');          if(_el)            b.theme=_el.value;
   _el=_ccEl('cc-publish-day');    if(_el)            b.publish_day=_el.value;
@@ -22262,19 +22262,21 @@ function _ccExportCampaignToDrive(){
     .then(function(d){
       if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
       if(!d.ok){_showToast('Drive export failed: '+(d.error||'Unknown error'),3000);return;}
-      if(d.drive_url){
-        _campBrief.drive_url=d.drive_url;
+      var _eu=d.folder_url||d.drive_url;
+      if(_eu){
+        _campBrief.drive_url=_eu;
         _sharedDocsCache.push({
           id:'camp-drive-'+(_campBrief.id||Date.now().toString(36)),
           taskId:'campaigns',agendaId:'',
           name:(_campBrief.name||'Campaign')+' — Drive Workspace',
-          url:d.drive_url,previewUrl:'',driveFileId:'',
+          url:_eu,previewUrl:'',driveFileId:'',
           mimeType:'application/vnd.google-apps.folder',
           reviewNeeded:false,addedBy:'campaign-wizard',
-          addedAt:new Date().toISOString(),folderUrl:d.drive_url
+          addedAt:new Date().toISOString(),folderUrl:_eu
         });
         if(typeof _renderSharedDocs==='function') _renderSharedDocs();
-        _showToast('<span style="font-size:12px">📁 Drive workspace ready — <a href="'+d.drive_url+'" target="_blank" style="color:#22c55e;text-decoration:underline">Open folder</a></span>',5000);
+        window.open(_eu,'_blank');
+        _showToast('<span style="font-size:12px">📁 Drive workspace ready — <a href="'+_eu+'" target="_blank" style="color:#22c55e;text-decoration:underline">Open folder</a></span>',5000);
       }
     })
     .catch(function(e){
@@ -22488,9 +22490,11 @@ function _ccOnBlueprintChange(){
       return v.length===seqList.length&&seqList.every(function(s){return v.indexOf(s)!==-1;});
     })[0]||null;
     if(_modeKey){
-      _campBrief.email_sequences=_modeKey;
-      var _seqEl=document.getElementById('cc-email-seqs');
-      if(_seqEl) _seqEl.value=_modeKey;
+      _campBrief.email_sequence_mode=_modeKey;
+      var _modeCount=_CC_SEQ_MODE_MAP[_modeKey].length;
+      _campBrief.email_sequences=_modeCount;
+      var _seqEl=document.getElementById('cc-email-sequences');
+      if(_seqEl) _seqEl.value=_modeCount;
     }
   }
   // Show summary
@@ -23199,7 +23203,7 @@ var _ccEmailOpts=null; // {sequences:{SEQ-1:{label,days,enabled,count},...},vari
 function _ccInitEmailOpts(){
   var numVars=parseInt(_campBrief.email_variants)||2;
   _ccEmailOpts={sequences:{},variants:numVars>=2?'AB':'A'};
-  var mode=_campBrief.email_sequences||'seq1_seq2';
+  var mode=_campBrief.email_sequence_mode||_campBrief.email_sequences||'seq1_seq2';
   var enabledList=_CC_SEQ_MODE_MAP[mode]||null;
   _CC_EMAIL_SEQ_DEFS.forEach(function(def,i){
     var enabled;
@@ -23765,7 +23769,24 @@ function _ccRenderEmailSequence(sequence,container){
   });
 }
 function _ccExportEmailToDrive(){
-  _showToast('<div style="font-size:12px;color:var(--muted)">Drive export — coming soon</div>',2500);
+  if(!CONFIG.sheetsUrl){_showToast('Sheet URL not configured',2000);return;}
+  var btn=document.getElementById('cc-email-export-drive-btn');
+  if(btn){btn.disabled=true;btn.textContent='Exporting…';}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+    action:'export_to_drive',brief:_campBrief,copy:_campKickstartCopy||{},
+    posts:_ccLastPosts||[],lp:_campLastLp||null,emails:_ccLastEmails||[]
+  })})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
+    if(!d.ok){_showToast('Export failed: '+(d.error||'Unknown error'),3000);return;}
+    var _url=d.folder_url||d.drive_url;
+    if(_url){window.open(_url,'_blank');_showToast('<span style="font-size:12px">📁 Drive workspace ready — <a href="'+_url+'" target="_blank" style="color:#22c55e">Open folder</a></span>',5000);}
+  })
+  .catch(function(e){
+    if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
+    _showToast('Export failed: '+e.message,2500);
+  });
 }
 function _ccApproveEmailSeq(){
   var btn=document.getElementById('cc-email-approve-btn');
@@ -26376,7 +26397,7 @@ function _ccCopyText(text){
 // ── Campaign Calendar Builder ─────────────────────────────────────────────────
 
 function _ccCalEmailCount(){
-  var s=_campBrief.email_sequences||'seq1_seq2';
+  var s=_campBrief.email_sequence_mode||_campBrief.email_sequences||'seq1_seq2';
   var map={'seq1_only':3,'seq1_seq2':8,'seq1_seq2_seq3':12,'full':13,'seq5_only':2};
   if(map[s]) return map[s];
   var n=parseInt(s,10);
@@ -26456,14 +26477,16 @@ function _ccRenderCalendarResult(d,container){
     var dayHtml=wkDays.map(function(c){
       var items='';
       (c.emails||[]).forEach(function(e){
-        var _ek=(e.sequence_code||'X')+'_E'+(e.email_number||'0');
+        var _seqCode=e.sequence_code||(e.seq_id?String(e.seq_id).replace(/-E\d+$/i,''):'EMAIL');
+        var _emailNum=e.email_number||(e.seq_id?parseInt((String(e.seq_id).match(/-E(\d+)$/i)||[])[1])||1:1);
+        var _ek=_seqCode+'_E'+_emailNum;
         if(!window._ccCalTimes[_ek]) window._ccCalTimes[_ek]='08:00';
         items+=
           '<div style="padding:6px 14px 6px 24px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
             '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(0,0,0,0.07);color:var(--text);font-family:\'DM Mono\',monospace">EMAIL</span>'+
             '<div style="flex:1;min-width:0">'+
-              '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">Day '+c.day+(dayToDate(c.day)?' · '+dayToDate(c.day):'')+' · '+safe(e.sequence_code||'')+'-E'+(e.email_number||'')+' · '+safe(e.trigger_event||'')+'</div>'+
-              '<div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+safe(e.subject_line_a||e.seq_id||'(no subject)')+'</div>'+
+              '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">Day '+c.day+(dayToDate(c.day)?' · '+dayToDate(c.day):'')+' · '+safe(_seqCode)+'-E'+_emailNum+' · '+safe(e.trigger_event||'')+'</div>'+
+              '<div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+safe(e.subject_line_a||e.subject||e.seq_id||'(no subject)')+'</div>'+
             '</div>'+
             '<input type="time" value="'+window._ccCalTimes[_ek]+'" onchange="_ccSetCalTime(\''+_ek+'\',this.value)" title="Send time" style="flex-shrink:0;width:86px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:10px;font-family:\'DM Mono\',monospace;cursor:pointer">'+
           '</div>';
@@ -26476,9 +26499,9 @@ function _ccRenderCalendarResult(d,container){
           '<div style="padding:6px 14px 6px 24px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
             '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(99,102,241,0.1);color:#6366f1;font-family:\'DM Mono\',monospace">SOCIAL</span>'+
             '<div style="flex:1;min-width:0">'+
-              '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">Day '+c.day+(dayToDate(c.day)?' · '+dayToDate(c.day):'')+' · '+safe(p.platform||'Social')+'</div>'+
-              '<div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+safe(p.hook||'')+'</div>'+
-            '</div>'+
+              '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">Day '+c.day+(dayToDate(c.day)?' · '+dayToDate(c.day):'')+' · '+safe(p.platform||p.channel||'Social')+(p.dl_id?' · <span style="color:#22c55e">'+safe(p.dl_id)+'</span>':'')+'</div>'+
+              '<div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+safe(p.hook||p.body_copy||'')+'</div>'+
+              (p.utm_url?'<div style="font-size:9px;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px"><a href="'+p.utm_url+'" target="_blank" style="color:#22c55e">🔗 '+safe(p.utm_url)+'</a></div>':'')+'</div>'+
             '<input type="time" value="'+window._ccCalTimes[_pk]+'" onchange="_ccSetCalTime(\''+_pk+'\',this.value)" title="Publish time" style="flex-shrink:0;width:86px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:10px;font-family:\'DM Mono\',monospace;cursor:pointer">'+
           '</div>';
       });
@@ -26526,19 +26549,21 @@ function _ccExportToDrive(){
     .then(function(d){
       if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
       if(!d.ok){_showToast('Drive export failed: '+(d.error||'Unknown error'),3000);return;}
-      if(d.drive_url){
-        _campBrief.drive_url=d.drive_url;
+      var _url=d.folder_url||d.drive_url;
+      if(_url){
+        _campBrief.drive_url=_url;
         _sharedDocsCache.push({
           id:'camp-drive-'+(_campBrief.id||Date.now().toString(36)),
           taskId:'campaigns',agendaId:'',
           name:(_campBrief.name||'Campaign')+' — Drive Workspace',
-          url:d.drive_url,previewUrl:'',driveFileId:'',
+          url:_url,previewUrl:'',driveFileId:'',
           mimeType:'application/vnd.google-apps.folder',
           reviewNeeded:false,addedBy:'campaign-wizard',
-          addedAt:new Date().toISOString(),folderUrl:d.drive_url
+          addedAt:new Date().toISOString(),folderUrl:_url
         });
         if(typeof _renderSharedDocs==='function') _renderSharedDocs();
-        window.open(d.drive_url,'_blank');
+        window.open(_url,'_blank');
+        _showToast('<span style="font-size:12px">📁 Drive workspace ready</span>',3000);
       }
     })
     .catch(function(e){
@@ -26564,10 +26589,17 @@ function _ccDownloadCalendarCSV(){
   var _csvDt=function(day,key){var t=(window._ccCalTimes&&window._ccCalTimes[key])||'08:00';var dStr=_csvDayToDate(day);return dStr?dStr+' '+t:t;};
   var rows=[['Day','Scheduled Date/Time','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA URL','Image Brief','Hashtags','Status']];
   emails.forEach(function(e){
-    var day=(e.send_day||0)+(seqOff[e.sequence_code]||0);
-    var _ek=(e.sequence_code||'X')+'_E'+(e.email_number||'0');
-    rows.push([day,_csvDt(day,_ek),wkLbl(day),e.funnel_stage||'',e.sequence_code+'-E'+(e.email_number||'')+' (A)','Email',e.subject_line_a||'',e.preview_text_a||'',e.body_cta||'','','',e.status||'draft']);
-    if(e.subject_line_b) rows.push([day,_csvDt(day,_ek),wkLbl(day),e.funnel_stage||'',e.sequence_code+'-E'+(e.email_number||'')+' (B)','Email',e.subject_line_b||'',e.preview_text_b||'',e.body_cta||'','','',e.status||'draft']);
+    var _seqCode=e.sequence_code||(e.seq_id?String(e.seq_id).replace(/-E\d+$/i,''):'EMAIL');
+    var _emailNum=e.email_number||(e.seq_id?parseInt((String(e.seq_id).match(/-E(\d+)$/i)||[])[1])||1:1);
+    var _subA=e.subject_line_a||e.subject||'';
+    var _subB=e.subject_line_b||'';
+    var _preA=e.preview_text_a||e.preheader||'';
+    var _preB=e.preview_text_b||'';
+    var _cta=e.body_cta||e.cta_text||'';
+    var day=(e.send_day||0)+(seqOff[_seqCode]||0);
+    var _ek=_seqCode+'_E'+_emailNum;
+    rows.push([day,_csvDt(day,_ek),wkLbl(day),e.funnel_stage||'',_seqCode+'-E'+_emailNum+' (A)','Email',_subA,_preA,_cta,'','',e.status||'draft']);
+    if(_subB) rows.push([day,_csvDt(day,_ek),wkLbl(day),e.funnel_stage||'',_seqCode+'-E'+_emailNum+' (B)','Email',_subB,_preB,_cta,'','',e.status||'draft']);
   });
   posts.forEach(function(p){
     var pday=p.scheduled_day||0;

@@ -137,6 +137,29 @@ function buildFullSequence(brief, copy, existingPosts, existingEmails) {
     // ── Emails ──────────────────────────────────────────────────────────────
     var emailResult;
     if (Array.isArray(existingEmails) && existingEmails.length > 0) {
+      // Normalize AssetBuilder format { seq_id, send_day, subject, preheader, body, cta_text }
+      // to SequenceBuilder format { sequence_code, email_number, subject_line_a, preview_text_a, … }
+      existingEmails = existingEmails.map(function(e) {
+        if (e.subject_line_a !== undefined) return e;
+        var seqCode  = e.seq_id ? String(e.seq_id).replace(/-E\d+$/i, '') : 'EMAIL';
+        var emailNum = parseInt((String(e.seq_id || '').match(/-E(\d+)$/i) || [])[1]) || 1;
+        return {
+          seq_id:         e.seq_id        || '',
+          sequence_code:  seqCode,
+          email_number:   emailNum,
+          subject_line_a: e.subject       || '',
+          subject_line_b: e.subject_b     || '',
+          preview_text_a: e.preheader     || '',
+          body_hook:      e.body          || '',
+          body_cta:       e.cta_text      || '',
+          send_day:       e.send_day      || 0,
+          trigger_event:  e.trigger_event || '',
+          theme:          e.theme         || '',
+          funnel_stage:   e.funnel_stage  || '',
+          status:         e.status        || 'draft',
+          campaign_id:    e.campaign_id   || ''
+        };
+      });
       Logger.log('[buildFullSequence] using ' + existingEmails.length + ' existing emails');
       emailResult = { ok: true, emails: existingEmails };
     } else {
@@ -180,7 +203,7 @@ function _sbScheduleExistingPosts(brief, existingPosts) {
   try {
     var postCount   = existingPosts.length;
     var frequency   = brief.post_frequency || '3x_week';
-    var seqMode     = _sbNormalizeSeqMode(brief.email_sequences);
+    var seqMode     = _sbNormalizeSeqMode(brief.email_sequence_mode || brief.email_sequences);
     var activeSeqs  = _SB_SEQ_MAP[seqMode] || _SB_SEQ_MAP['seq1_seq2'];
     var campaignId  = brief.id || '';
     var activeWF    = _sbGetWireframe().filter(function(e) { return activeSeqs.indexOf(e.seq) !== -1; });
@@ -323,7 +346,7 @@ function buildEmailCalendar(brief, copy) {
     var apiKey = props.getProperty('ANTHROPIC_API_KEY');
     if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set in Script Properties' };
 
-    var seqMode = _sbNormalizeSeqMode(brief.email_sequences);
+    var seqMode = _sbNormalizeSeqMode(brief.email_sequence_mode || brief.email_sequences);
     var varMode = _sbNormalizeVariantMode(brief.email_variants);
 
     var activeSeqs = _SB_SEQ_MAP[seqMode] || _SB_SEQ_MAP['seq1_seq2'];
@@ -530,7 +553,7 @@ function buildSocialCalendar(brief, copy) {
 
     var postCount  = parseInt(brief.post_count) || 5;
     var frequency  = brief.post_frequency       || '3x_week';
-    var seqMode    = _sbNormalizeSeqMode(brief.email_sequences);
+    var seqMode    = _sbNormalizeSeqMode(brief.email_sequence_mode || brief.email_sequences);
     var activeSeqs = _SB_SEQ_MAP[seqMode]       || _SB_SEQ_MAP['seq1_seq2'];
     var lpUrl      = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
     var campaignId = brief.id || '';
@@ -779,7 +802,7 @@ function _testSequenceBuilder() {
     proof_bar:   ['Save $1,336/year','69.5% less food waste','30 minutes fridge to table']
   };
 
-  Logger.log('=== SEQ MODE: '     + _sbNormalizeSeqMode(brief.email_sequences));
+  Logger.log('=== SEQ MODE: '     + _sbNormalizeSeqMode(brief.email_sequence_mode || brief.email_sequences));
   Logger.log('=== VARIANT MODE: ' + _sbNormalizeVariantMode(brief.email_variants));
   Logger.log('=== WIREFRAME (SEQ-1 only — 3 emails):');
   _sbGetWireframe().filter(function(e) { return e.seq === 'SEQ-1'; }).forEach(function(e) {
