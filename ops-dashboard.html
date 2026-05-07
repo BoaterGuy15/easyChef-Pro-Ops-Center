@@ -4628,11 +4628,11 @@ function _renderFolderTreeInPanel(){
   const roots=allCats.filter(c=>!c.includes('/'));
   const childrenOf=p=>allCats.filter(c=>c.startsWith(p+'/')&&c.split('/').length===p.split('/').length+1);
   const rowStyle=(active,depth)=>`display:flex;align-items:center;gap:6px;width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:10px;padding:7px 14px 7px ${14+depth*18}px;background:${active?'rgba(212,160,23,0.15)':'none'};border:none;color:${active?'var(--gold-light)':'var(--text)'};cursor:pointer;white-space:nowrap;box-sizing:border-box;border-left:2px solid ${active?'var(--gold)':'transparent'}`;
-  let html=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0">
-    <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px">FOLDERS</span>
+  let html=`<div onmousedown="_startFolderPanelDrag(event)" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0;cursor:grab;user-select:none">
+    <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px">⠿ FOLDERS</span>
     <div style="display:flex;gap:6px;align-items:center">
-      <button onclick="_addSharedFolder()" title="New folder" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,0.12);color:var(--gold-light,#f5c842);cursor:pointer;font-weight:700">+ New Folder</button>
-      <button onclick="document.getElementById('docs-folder-panel').style.display='none';document.removeEventListener('mousedown',_docsFolderPanelOutside,true)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1">×</button>
+      <button onmousedown="event.stopPropagation()" onclick="_addSharedFolder()" title="New folder" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,0.12);color:var(--gold-light,#f5c842);cursor:pointer;font-weight:700">+ New Folder</button>
+      <button onmousedown="event.stopPropagation()" onclick="document.getElementById('docs-folder-panel').style.display='none';document.removeEventListener('mousedown',_docsFolderPanelOutside,true)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1">×</button>
     </div>
   </div>
   <div style="padding:4px 0">`;
@@ -4665,6 +4665,25 @@ function _renderFolderTreeInPanel(){
   }
   html+=`</div>`;
   panel.innerHTML=html;
+}
+function _startFolderPanelDrag(e){
+  const panel=document.getElementById('docs-folder-panel');
+  if(!panel) return;
+  const r=panel.getBoundingClientRect();
+  const ox=e.clientX-r.left, oy=e.clientY-r.top;
+  panel.style.cursor='grabbing';
+  function onMove(ev){
+    panel.style.left=Math.max(0,Math.min(window.innerWidth-r.width,ev.clientX-ox))+'px';
+    panel.style.top=Math.max(0,Math.min(window.innerHeight-r.height,ev.clientY-oy))+'px';
+  }
+  function onUp(){
+    panel.style.cursor='';
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+  }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+  e.preventDefault();
 }
 function _toggleTreeNode(folderName){
   if(_docsTreeExpanded.has(folderName)) _docsTreeExpanded.delete(folderName);
