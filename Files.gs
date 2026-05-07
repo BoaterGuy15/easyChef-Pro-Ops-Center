@@ -31,9 +31,11 @@ const VIDEOS_CATEGORY_IDS = {
   'Videos/Other':    '1pg0HE24Onqxot22MD9T9mQtiMEQ1dpcT'
 };
 
-function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName, category) {
+function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName, category, customFolderDriveId) {
   var subFolder;
-  if (sourceType === 'shared' || (sourceType !== 'agenda' && sourceType !== 'profile' && sourceType !== 'task' && !sourceId)) {
+  if (customFolderDriveId) {
+    subFolder = DriveApp.getFolderById(customFolderDriveId);
+  } else if (sourceType === 'shared' || (sourceType !== 'agenda' && sourceType !== 'profile' && sourceType !== 'task' && !sourceId)) {
     // Docs tab upload — route to Videos or Team Documents by category
     var catId = category ? (VIDEOS_CATEGORY_IDS[category] || TEAM_DOCS_CATEGORY_IDS[category]) : null;
     var defaultId = (category && category.startsWith('Videos')) ? VIDEOS_FOLDER_ID : TEAM_DOCS_FOLDER_ID;

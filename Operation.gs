@@ -138,34 +138,7 @@ function getNotifications() {
 }
 
 
-function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName) {
-  const root = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
-  
-  let typeFolder;
-  if(sourceType === 'agenda') {
-    typeFolder = getOrCreateFolder(root, 'Agenda');
-  } else if(sourceType === 'profile') {
-    typeFolder = getOrCreateFolder(root, 'Profiles');
-  } else {
-    typeFolder = getOrCreateFolder(root, 'Tasks');
-  }
-  
-  const subFolderName = sourceType === 'profile' 
-    ? (sourceName || sourceId || 'team')
-    : ((sourceId || '') + (sourceName ? ' — ' + sourceName.replace(/[\/\\:*?"<>|]/g,'').trim().slice(0,40) : ''));
-  
-  const subFolder = getOrCreateFolder(typeFolder, subFolderName);
-  const blob = Utilities.newBlob(Utilities.base64Decode(base64data), mimeType, filename);
-  const file = subFolder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  
-  return {
-    id: file.getId(),
-    url: file.getUrl(),
-    previewUrl: 'https://drive.google.com/file/d/'+file.getId()+'/preview',
-    folderUrl: subFolder.getUrl()
-  };
-}
+// uploadFileToDrive is defined in Files.gs — do not duplicate here
 
 function checkFolderId() {
   Logger.log('SHARED_DRIVE_FOLDER_ID: ' + SHARED_DRIVE_FOLDER_ID);
@@ -262,6 +235,30 @@ function _saveFolderDefs(folders) {
   }
 }
 
+function _getCustomFolders() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('CustomFolders');
+  if(!sheet || sheet.getLastRow() < 2) return [];
+  const data = sheet.getDataRange().getValues();
+  return data.slice(1).filter(row => row[0]).map(row => ({
+    name: String(row[0]||''), section: String(row[1]||''), driveId: String(row[2]||''), url: String(row[3]||'')
+  }));
+}
+
+function _saveCustomFolder(folder) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('CustomFolders');
+  if(!sheet) {
+    sheet = ss.insertSheet('CustomFolders');
+    sheet.appendRow(['name','section','driveId','url']);
+  }
+  const existing = sheet.getLastRow() > 1 ? sheet.getDataRange().getValues() : [];
+  for(var i=1; i<existing.length; i++) {
+    if(String(existing[i][2]) === String(folder.driveId||'')) return;
+  }
+  sheet.appendRow([folder.name||'', folder.section||'', folder.driveId||'', folder.url||'']);
+}
+
 function doGet(e) {
   try {
     if(e.parameter.code) return doGetSlackOAuth(e);
@@ -327,6 +324,7 @@ function doGet(e) {
       catch(err) { return respond({ ok: false, error: err.message }); }
     }
     if(e.parameter.action === 'folders_read') return respond({ok:true, folders: _getFolderDefs()});
+    if(e.parameter.action === 'custom_folders_read') return respond({ok:true, folders: _getCustomFolders()});
     if(e.parameter.action === 'slack_archive_search') return respond({ok:true, messages: searchSlackArchive(e.parameter.query||'')});
     if(e.parameter.action === 'callouts_read') return respond({ok:true, callouts: getCallouts(e.parameter.user||'')});
     if(e.parameter.action === 'docs_read') return respond({ok:true, docs: getDocuments(e.parameter.taskId||'', e.parameter.agendaId||'')});
@@ -488,6 +486,20 @@ function doPost(e) {
     if(body.action === 'ir_write') { addInfoRequest(body); return respond({ok:true}); }
     if(body.action === 'ir_update') { updateInfoRequest(body.id, body); return respond({ok:true}); }
     if(body.action === 'folders_write') { _saveFolderDefs(body.folders); return respond({ok:true}); }
+    if(body.action === 'folder_create') {
+      try {
+        var cfName=(body.name||'').trim();
+        var cfParentId=(body.parentId||'').trim()||TEAM_DOCS_FOLDER_ID;
+        if(!cfName) return respond({ok:false, error:'Folder name required'});
+        var cfParent=DriveApp.getFolderById(cfParentId);
+        var cfIt=cfParent.getFoldersByName(cfName);
+        var cfFolder=cfIt.hasNext()?cfIt.next():cfParent.createFolder(cfName);
+        try{cfFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);}catch(se){}
+        var cfDef={name:cfName,section:body.section||'',driveId:cfFolder.getId(),url:cfFolder.getUrl()};
+        _saveCustomFolder(cfDef);
+        return respond({ok:true, folder:cfDef});
+      } catch(e) { return respond({ok:false, error:e.message}); }
+    }
     if(body.action === 'budget_write') { setBudget(body.budget); return respond({ ok: true }); }
     if(body.action === 'pmf_write') { setPMFHistory(body); return respond({ ok: true }); }
     if(body.action === 'slack_send') return respond(sendSlackMessage(body.channelId, body.text, body.dglUser));
@@ -570,7 +582,7 @@ function doPost(e) {
     if(body.action === 'file_upload') {
       try {
         const fname = body.docName||body.filename||'untitled';
-        const fileInfo = uploadFileToDrive(fname, body.mimeType||'application/octet-stream', body.base64data, body.sourceType||'task', body.taskId||body.agendaId||'', body.sourceName||'', body.category||'');
+        const fileInfo = uploadFileToDrive(fname, body.mimeType||'application/octet-stream', body.base64data, body.sourceType||'task', body.taskId||body.agendaId||'', body.sourceName||'', body.category||'', body.customFolderDriveId||'');
         addDocument({ id:'doc-'+Date.now(), taskId:body.taskId||'', agendaId:body.agendaId||'', name:fname, url:fileInfo.url, previewUrl:fileInfo.previewUrl, driveFileId:fileInfo.id, mimeType:body.mimeType||'', reviewNeeded:body.reviewNeeded||'false', addedBy:body.addedBy||'', addedAt:new Date().toISOString(), folderUrl:fileInfo.folderUrl||'', category:body.category||'' });
         return respond({ ok:true, ...fileInfo, name:fname });
       } catch(err) { return respond({ ok:false, error:err.message }); }
