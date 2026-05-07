@@ -21299,6 +21299,7 @@ var _ccLastPosts=[];
 var _ccLastEmails=[];
 var _ccWizardStep=1;
 var _ccWizardDone={};
+var _ccWizardEditReturn=0;
 var _ccWizardSumms={};
 var _ccBaseImages={};   // original generated image per post (for Replace Phone Screen)
 var _ccThemeLib={};         // theme library cache keyed by icp_code
@@ -21771,6 +21772,7 @@ function _ccBriefSync(){
   if(banner) banner.innerHTML=_ccFlowBanner();
   _ccAutoSlug();
   _ccUpdateCompletionBar();
+  _ccRefreshChannelLabel();
 }
 function _ccUpdateVolumeFields(){
   var chs=(_campBrief.channels||[]).map(function(c){return c.toLowerCase();});
@@ -26851,25 +26853,63 @@ function _ccWizardAdvance(toStep,summary){
 }
 function _ccWizardGoTo(step){
   if(!_ccWizardDone[step]&&step!==_ccWizardStep) return;
-  // Always hide current step body when navigating away
   if(step!==_ccWizardStep){
     var curBody=document.getElementById('cc-step-'+_ccWizardStep+'-body');
     if(curBody) curBody.style.display='none';
-    // Show summary bar only if step was fully completed
     if(_ccWizardDone[_ccWizardStep]){
       var curSumm=document.getElementById('cc-step-'+_ccWizardStep+'-summ');
       if(curSumm) curSumm.style.display='flex';
     }
   }
-  // Expand target
   var tBody=document.getElementById('cc-step-'+step+'-body');
   var tSumm=document.getElementById('cc-step-'+step+'-summ');
   if(tBody) tBody.style.display='block';
   if(tSumm) tSumm.style.display='none';
+  // Entering a confirmed step to edit — inject Cancel bar and record return step
+  if(_ccWizardDone[step]&&step!==_ccWizardStep){
+    _ccWizardEditReturn=_ccWizardStep;
+    var _cid='cc-step-'+step+'-cancel';
+    var _cb=document.getElementById(_cid);
+    if(!_cb&&tBody){
+      tBody.insertAdjacentHTML('afterbegin',
+        '<div id="'+_cid+'" style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.25);border-radius:6px;padding:8px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;font-family:\'DM Mono\',monospace;font-size:11px">'+
+        '<span style="color:var(--muted);flex:1">Editing this step — changes update your brief.</span>'+
+        '<button onclick="_ccCancelEdit()" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 12px;border-radius:4px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;flex-shrink:0">← Back to Assets</button>'+
+        '</div>');
+    } else if(_cb){
+      _cb.style.display='flex';
+    }
+  }
   _ccWizardStep=step;
   var bar=document.getElementById('cc-wizard-bar');
   if(bar) bar.innerHTML=_ccRenderWizardBar();
   var el=document.getElementById('cc-step-'+step);
+  if(el) setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'start'});},40);
+}
+function _ccCancelEdit(){
+  if(!_ccWizardEditReturn) return;
+  var editStep=_ccWizardStep;
+  var returnStep=_ccWizardEditReturn;
+  _ccWizardEditReturn=0;
+  // Hide the Cancel bar in the step we're leaving
+  var _cb=document.getElementById('cc-step-'+editStep+'-cancel');
+  if(_cb) _cb.style.display='none';
+  // Collapse edit step back to its summary bar
+  var editBody=document.getElementById('cc-step-'+editStep+'-body');
+  var editSumm=document.getElementById('cc-step-'+editStep+'-summ');
+  if(editBody) editBody.style.display='none';
+  if(editSumm) editSumm.style.display='flex';
+  // Restore the return step (Step 5 / Assets)
+  var retEl=document.getElementById('cc-step-'+returnStep);
+  var retBody=document.getElementById('cc-step-'+returnStep+'-body');
+  var retSumm=document.getElementById('cc-step-'+returnStep+'-summ');
+  if(retEl) retEl.style.display='block';
+  if(retBody) retBody.style.display='block';
+  if(retSumm) retSumm.style.display='none';
+  _ccWizardStep=returnStep;
+  var bar=document.getElementById('cc-wizard-bar');
+  if(bar) bar.innerHTML=_ccRenderWizardBar();
+  var el=document.getElementById('cc-step-'+returnStep);
   if(el) setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'start'});},40);
 }
 // ── Main render + tab switcher ──────────────────────────────────────────────
