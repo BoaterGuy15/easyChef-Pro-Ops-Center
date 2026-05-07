@@ -22570,6 +22570,7 @@ function _ccKickstart(){
   var status=document.getElementById('cc-ks-status');
   if(btn){btn.disabled=true;btn.textContent='Generating…';}
   if(status) status.textContent='Calling Anthropic API…';
+  _campBrief._lockedChannels=(_campBrief.channels||[]).slice();
 
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'campaign_kickstart',prompt:promptText})})
     .then(function(r){return r.json();})
@@ -22609,6 +22610,7 @@ function _ccKickstart(){
       if(!_campBrief._lpLocked) _campBrief.slug='';
       _campSlugStatus='';
       if(Array.isArray(j.channels)&&j.channels.length){var _existing=_campBrief.channels||[];var _merged=_existing.concat(j.channels.map(function(c){return c.charAt(0).toUpperCase()+c.slice(1);}));_campBrief.channels=_merged.filter(function(c,i,arr){return arr.findIndex(function(x){return x.toLowerCase()===c.toLowerCase();})=== i;});}
+      if(_campBrief._lockedChannels&&_campBrief._lockedChannels.length>0) _campBrief.channels=_campBrief._lockedChannels;
       if(j.theme) { _campBrief.theme=j.theme; _ccLoadThemeData(_campBrief.theme); }
       if(j.publish_day) _campBrief.publish_day=j.publish_day;
       if(j.cta_type) _campBrief.cta_type=j.cta_type;
