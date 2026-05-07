@@ -1711,6 +1711,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         <div id="docs-breadcrumb" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);font-weight:600">All Files</div>
         <div style="display:flex;gap:8px;align-items:center">
           <input id="docs-search" type="text" placeholder="Search…" oninput="_renderSharedDocs()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:var(--bg);color:var(--text);outline:none;width:140px">
+          <button id="docs-drive-sync-btn" onclick="_loadDriveFilesBackground()" title="Sync from Drive" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap">↻ Drive</button>
           <button onclick="_openSharedDocPasteModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap">🔗 Link</button>
           <label style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer;white-space:nowrap">
             📎 Upload
@@ -4286,6 +4287,7 @@ let _sharedDocsFilter='All';
 let _sharedFolderDefs=(()=>{try{return JSON.parse(localStorage.getItem('dgl_folder_defs')||'[]');}catch(_){return[];}})();
 let _customDriveFolders=(()=>{try{return JSON.parse(localStorage.getItem('dgl_custom_drive_folders')||'[]');}catch(_){return[];}})();
 let _driveFolderCache={};
+let _driveFolderLoading=false;
 let _docsTreeExpanded=new Set();
 // Returns Sheets docs + Drive-only files merged and deduped by driveFileId
 function _getMergedDocs(){
@@ -4328,10 +4330,29 @@ function _loadSharedDocs(){
 }
 function _loadDriveFilesBackground(){
   if(!CONFIG.sheetsUrl) return;
+  if(_driveFolderLoading) return; // prevent double-fire
+  _driveFolderLoading=true;
+  const btn=document.getElementById('docs-drive-sync-btn');
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  _renderSharedDocs();
   fetch(CONFIG.sheetsUrl+'?action=drive_all_folders_list')
     .then(r=>r.json()).then(data=>{
-      if(data.ok&&data.results){ _driveFolderCache=data.results; _renderSharedDocs(); }
-    }).catch(()=>{});
+      _driveFolderLoading=false;
+      if(btn){btn.textContent='↻ Drive';btn.disabled=false;}
+      if(data.ok&&data.results){
+        _driveFolderCache=data.results;
+        const total=Object.values(data.results).reduce((s,a)=>s+(a.length||0),0);
+        console.log('[DGL] Drive sync complete:',total,'files across',Object.keys(data.results).length,'folders');
+      } else {
+        console.warn('[DGL] drive_all_folders_list failed:',data.error||data);
+      }
+      _renderSharedDocs();
+    }).catch(e=>{
+      _driveFolderLoading=false;
+      if(btn){btn.textContent='↻ Drive';btn.disabled=false;}
+      console.warn('[DGL] drive_all_folders_list error:',e);
+      _renderSharedDocs();
+    });
 }
 function _renderSharedDocs(){
   const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
@@ -4346,8 +4367,18 @@ function _renderSharedDocs(){
   if(q) docs=docs.filter(d=>(d.name||'').toLowerCase().includes(q)||_sharedDocTag(d).toLowerCase().includes(q));
 
   if(!docs.length){
-    const _hasDriveData=Object.keys(_driveFolderCache).length>0;
-    grid.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">${_getMergedDocs().length?'No docs match.':_hasDriveData?'No documents in this folder yet — upload a file above.':'Loading Drive contents…'}</div>`;
+    const _inSpecificFolder=_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files';
+    let _emptyMsg;
+    if(_driveFolderLoading&&_inSpecificFolder){
+      _emptyMsg=`<span class="dgl-runner">⏳</span> Loading Drive contents…`;
+    } else if(_getMergedDocs().length&&!q){
+      _emptyMsg='No documents in this folder yet — upload a file above.';
+    } else if(q){
+      _emptyMsg='No docs match.';
+    } else {
+      _emptyMsg='No documents yet — upload a file or paste a URL above.';
+    }
+    grid.innerHTML=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);grid-column:1/-1;padding:40px;text-align:center">${_emptyMsg}</div>`;
     return;
   }
   const cu=window._DGL_USER||'';
