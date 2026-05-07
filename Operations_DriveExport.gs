@@ -320,14 +320,3 @@ function _dpair(body, label, value) {
 function _deSafe(str, maxLen) {
   return String(str || '').replace(/[\/\\:*?"<>|]/g, '').trim().substring(0, maxLen || 80);
 }
-
-function testExport() {
-  var result = exportCampaignToDrive(
-    {id:'EC-TEST-001', name:'Test Export', icp:'super_mom', slug:'test', launchDate:'2026-06-01', ml_approved:true},
-    {headline:'Test headline'},
-    [],
-    {},
-    []
-  );
-  Logger.log('[testExport] result: ' + JSON.stringify(result));
-}
