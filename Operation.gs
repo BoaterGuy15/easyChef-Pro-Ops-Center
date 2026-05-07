@@ -235,6 +235,30 @@ function _saveFolderDefs(folders) {
   }
 }
 
+// Recursively list all files in a folder up to maxDepth levels of subfolders
+function _scanFolderDeep(folder, cat, maxDepth) {
+  var results = [];
+  var folderUrl = folder.getUrl();
+  try {
+    var fileIt = folder.getFiles();
+    while(fileIt.hasNext()) {
+      var f = fileIt.next();
+      results.push({id:'drive-'+f.getId(), name:f.getName(), url:f.getUrl(),
+        previewUrl:'https://drive.google.com/file/d/'+f.getId()+'/preview',
+        driveFileId:f.getId(), mimeType:f.getMimeType(), folderUrl:folderUrl,
+        addedAt:f.getDateCreated().toISOString(), addedBy:'',
+        category:cat, taskId:'', agendaId:'', shared:'true'});
+    }
+    if(maxDepth > 0) {
+      var subIt = folder.getFolders();
+      while(subIt.hasNext()) {
+        results = results.concat(_scanFolderDeep(subIt.next(), cat, maxDepth - 1));
+      }
+    }
+  } catch(e) { Logger.log('_scanFolderDeep error '+cat+': '+e.message); }
+  return results;
+}
+
 function _getCustomFolders() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('CustomFolders');
@@ -328,23 +352,19 @@ function doGet(e) {
     if(e.parameter.action === 'drive_all_folders_list') {
       try {
         var _allFolderMap = {};
+        // Category subfolders
         Object.keys(TEAM_DOCS_CATEGORY_IDS).forEach(function(cat){ _allFolderMap[cat]=TEAM_DOCS_CATEGORY_IDS[cat]; });
         Object.keys(VIDEOS_CATEGORY_IDS).forEach(function(cat){ _allFolderMap[cat]=VIDEOS_CATEGORY_IDS[cat]; });
+        // Root folders — catch files uploaded before category structure existed
+        _allFolderMap['Other'] = _allFolderMap['Other'] || TEAM_DOCS_FOLDER_ID;
+        _allFolderMap['Videos/Other'] = _allFolderMap['Videos/Other'] || VIDEOS_FOLDER_ID;
+        // Custom folders
         _getCustomFolders().forEach(function(cf){ if(cf.driveId) _allFolderMap[cf.name]=cf.driveId; });
         var _driveResults = {};
         Object.keys(_allFolderMap).forEach(function(cat) {
           try {
             var _f = DriveApp.getFolderById(_allFolderMap[cat]);
-            var _files = []; var _it = _f.getFiles();
-            while(_it.hasNext()){
-              var _file=_it.next();
-              _files.push({id:'drive-'+_file.getId(),name:_file.getName(),url:_file.getUrl(),
-                previewUrl:'https://drive.google.com/file/d/'+_file.getId()+'/preview',
-                driveFileId:_file.getId(),mimeType:_file.getMimeType(),folderUrl:_f.getUrl(),
-                addedAt:_file.getDateCreated().toISOString(),addedBy:'',
-                category:cat,taskId:'',agendaId:'',shared:'true'});
-            }
-            _driveResults[cat]=_files;
+            _driveResults[cat] = _scanFolderDeep(_f, cat, 3); // recurse 3 levels deep
           } catch(fe){ _driveResults[cat]=[]; }
         });
         return respond({ok:true, results:_driveResults});
