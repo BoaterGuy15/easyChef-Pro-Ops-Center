@@ -23687,6 +23687,13 @@ function _ccKsBuildAssets(actionType){
     _briefWP.link_placement=_chData.link_placement||'';
   }
 
+  // Sync email UI selections → brief before sending to server
+  if(actionType==='build_email_sequence'&&_ccEmailOpts){
+    var _enabledKeys=_CC_EMAIL_SEQ_DEFS.filter(function(d){return _ccEmailOpts.sequences[d.key]&&_ccEmailOpts.sequences[d.key].enabled;}).map(function(d){return d.key;});
+    var _derivedMode=Object.keys(_CC_SEQ_MODE_MAP).filter(function(k){var v=_CC_SEQ_MODE_MAP[k];return v.length===_enabledKeys.length&&_enabledKeys.every(function(s){return v.indexOf(s)!==-1;});})[0]||null;
+    if(_derivedMode){_briefWP.email_sequence_mode=_derivedMode;_briefWP.email_sequences=_CC_SEQ_MODE_MAP[_derivedMode].length;}
+    _briefWP.email_variants=_ccEmailOpts.variants==='AB'?2:1;
+  }
   var _emailPayload={action:actionType,brief:_briefWP,copy:_campKickstartCopy||{}};
   console.log('[ASSET BUILD] action='+actionType+' brief.id='+(_briefWP.id||'none')+' copy keys='+Object.keys(_campKickstartCopy||{}).join(','));
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_emailPayload)})
