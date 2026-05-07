@@ -1689,29 +1689,46 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
 </div>
 
 <!-- ══ PAGE: DOCS ══ -->
-<div id="page-docs" class="page">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-    <div>
-      <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:900">Team <span style="color:var(--gold)">Documents</span></h2>
-      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px">Shared library for easyChef Pro</div>
+<div id="page-docs" class="page" style="padding:0!important">
+  <div style="display:flex;height:calc(100vh - 112px);border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">
+
+    <!-- ── Sidebar ── -->
+    <div style="width:200px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)">
+      <div style="padding:18px 14px 10px;flex-shrink:0">
+        <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:900">Team <span style="color:var(--gold)">Docs</span></div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">easyChef Pro library</div>
+      </div>
+      <div id="docs-sidebar-nav" style="flex:1;overflow-y:auto;scrollbar-width:none;padding:0 8px 16px">
+        <style>#docs-sidebar-nav::-webkit-scrollbar{display:none}</style>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="_openSharedDocPasteModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">🔗 Paste URL</button>
-      <label style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer">
-        📎 Upload
-        <input type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
-      </label>
+
+    <!-- ── Main content ── -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+      <!-- Header bar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;flex-wrap:wrap">
+        <div id="docs-breadcrumb" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text);font-weight:600">All Files</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="docs-search" type="text" placeholder="Search…" oninput="_renderSharedDocs()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:var(--bg);color:var(--text);outline:none;width:140px">
+          <button onclick="_openSharedDocPasteModal()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap">🔗 Link</button>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);cursor:pointer;white-space:nowrap">
+            📎 Upload
+            <input id="docs-upload-input" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
+          </label>
+        </div>
+      </div>
+
+      <!-- Drop zone + grid -->
+      <div style="flex:1;overflow-y:auto;padding:16px 20px">
+        <div id="docs-dz-shared-team" style="border:2px dashed var(--border);border-radius:8px;padding:14px 20px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:16px;cursor:pointer;transition:border-color 0.15s" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'shared','team','Team Documents')" onclick="document.getElementById('docs-upload-input').click()">
+          <span class="dz-label">📎 Drop files here or click to upload &nbsp;·&nbsp; 🎬 Videos upload in chunks</span>
+        </div>
+        <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px"></div>
+      </div>
+
     </div>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-    <div id="docs-filter-tabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
-    <input id="docs-search" type="text" placeholder="Search docs…" oninput="_renderSharedDocs()" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;width:160px">
-  </div>
-  <div id="docs-dz-shared-team" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:20px;cursor:pointer;transition:border-color 0.15s" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_handleDocUpload(event.dataTransfer.files,'shared','team','Team Documents')" onclick="const _dfi=document.getElementById('docs-fi-shared-team');if(_dfi)_dfi.click()">
-    <span class="dz-label">📎 Drop files here or click to upload &nbsp;·&nbsp; 🎬 Videos upload in chunks</span>
-    <input id="docs-fi-shared-team" type="file" multiple style="display:none" onchange="_handleDocUpload(this.files,'shared','team','Team Documents');this.value=''">
-  </div>
-  <div id="docs-grid" oncontextmenu="_showGridCtxMenu(event)" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;min-height:80px"></div>
 </div>
 
 <!-- ══ PAGE: ASK CLAUDE ══ -->
@@ -4294,27 +4311,9 @@ function _loadSharedDocs(){
 }
 function _renderSharedDocs(){
   const q=((document.getElementById('docs-search')||{}).value||'').toLowerCase();
-  const tagSet=new Set(_sharedDocsCache.map(d=>_sharedDocTag(d)).filter(Boolean));
-  const linkedCount=_sharedDocsCache.filter(d=>!d.driveFileId||d.driveFileId==='').length;
-  // Merge defined folders with live tag data; preserve Linked Files always
-  const allCats=[...new Set([..._sharedFolderDefs,...tagSet])].sort();
-  if(_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files'&&!allCats.includes(_sharedDocsFilter)) _sharedDocsFilter='All';
-  const filterBar=document.getElementById('docs-filter-tabs');
   const grid=document.getElementById('docs-grid');
   if(!grid) return;
-
-  // ── Filter pill bar ──
-  if(filterBar){
-    const simplePill=(val,label,active)=>`<button onclick="_setDocsFilter('${val}')" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-dim)':'transparent'};color:${active?'var(--gold-light)':'var(--muted)'};cursor:pointer;white-space:nowrap;flex-shrink:0">${label}</button>`;
-    const inFolder=_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files';
-    const activeCrumb=inFolder
-      ?`<span style="display:inline-flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:9px;padding:4px 10px;border-radius:99px;border:1px solid var(--gold);background:var(--gold-dim);color:var(--gold-light);flex-shrink:0">
-          📁 ${_sharedDocsFilter.split('/').pop()}
-          <button onclick="_setDocsFilter('All')" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:11px;padding:0;line-height:1;margin-top:-1px">×</button>
-        </span>`:'';
-    const folderTreeBtn=`<button id="docs-folder-tree-btn" onclick="_toggleFolderTree(this)" style="font-family:'DM Mono',monospace;font-size:9px;padding:4px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0">📂 Folders ▾</button>`;
-    filterBar.innerHTML=simplePill('All','All',_sharedDocsFilter==='All')+(linkedCount>0?simplePill('Linked Files','🔗 Linked Files',_sharedDocsFilter==='Linked Files'):'')+folderTreeBtn+activeCrumb;
-  }
+  _renderDocsSidebar();
 
   // ── Filter docs (parent filter includes all subfolders) ──
   let docs=_sharedDocsCache.slice();
@@ -4368,8 +4367,44 @@ function _renderSharedDocs(){
 function _setDocsFilter(cat){
   _sharedDocsFilter=cat;
   _renderSharedDocs();
-  const p=document.getElementById('docs-folder-panel');
-  if(p&&p.style.display!=='none') _renderFolderTreeInPanel();
+}
+// ── Static sidebar nav ────────────────────────────────────────
+const _DOCS_NAV=[
+  {type:'item',label:'All Files',         cat:'All',                  icon:'🗂️'},
+  {type:'sep'},
+  {type:'label',label:'TEAM DOCUMENTS'},
+  {type:'item',label:'Meeting Transcripts',cat:'Meeting Transcripts',icon:'🎙️'},
+  {type:'item',label:'Product Docs',       cat:'Product Docs',        icon:'📄'},
+  {type:'item',label:'Brand Assets',       cat:'Brand Assets',        icon:'🎨'},
+  {type:'item',label:'Screenshots',        cat:'Screenshots',          icon:'🖼️'},
+  {type:'item',label:'Slack Archive',      cat:'Slack Archive',        icon:'💬'},
+  {type:'item',label:'Other',              cat:'Other',                icon:'📦'},
+  {type:'sep'},
+  {type:'label',label:'LINKED FILES'},
+  {type:'item',label:'Linked Files',       cat:'Linked Files',         icon:'🔗'},
+  {type:'sep'},
+  {type:'label',label:'DRIVE'},
+  {type:'link',label:'Campaigns',  url:'https://drive.google.com/drive/folders/1OUu2k1Iv-6nk1APO3sF3qm217YV3sGJf',icon:'🗂️'},
+  {type:'link',label:'RACI Tasks', url:'https://drive.google.com/drive/folders/1Q9JhRTr-zMvCSLAwKwYKLaMFPFMPxagy', icon:'📋'},
+  {type:'link',label:'Team Docs',  url:'https://drive.google.com/drive/folders/1aEpsK07UjYtiitntt56ezq6wxK3Blt7Z',  icon:'📁'},
+];
+function _renderDocsSidebar(){
+  const nav=document.getElementById('docs-sidebar-nav');
+  if(!nav) return;
+  const row='display:flex;align-items:center;gap:7px;width:100%;text-align:left;font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 10px;border-radius:7px;border:none;cursor:pointer;box-sizing:border-box;white-space:nowrap;overflow:hidden';
+  nav.innerHTML=_DOCS_NAV.map(n=>{
+    if(n.type==='sep') return `<div style="height:1px;background:var(--border);margin:5px 4px"></div>`;
+    if(n.type==='label') return `<div style="font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--muted);padding:8px 10px 3px;text-transform:uppercase">${n.label}</div>`;
+    if(n.type==='link') return `<a href="${n.url}" target="_blank" rel="noopener" style="${row};background:none;color:var(--muted);text-decoration:none">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span><span style="font-size:9px;opacity:0.4;flex-shrink:0">↗</span></a>`;
+    const active=_sharedDocsFilter===n.cat;
+    const cnt=n.cat==='All'?_sharedDocsCache.length:n.cat==='Linked Files'?_sharedDocsCache.filter(d=>!d.driveFileId||d.driveFileId==='').length:_sharedDocsCache.filter(d=>_sharedDocTag(d)===n.cat).length;
+    return `<button onclick="_setDocsFilter('${n.cat}')" style="${row};background:${active?'rgba(201,168,76,0.15)':'none'};color:${active?'var(--gold-light)':'var(--text)'}">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span>${cnt>0?`<span style="font-size:8px;color:${active?'var(--gold)':'var(--muted)'};flex-shrink:0">${cnt}</span>`:''}</button>`;
+  }).join('');
+  const bc=document.getElementById('docs-breadcrumb');
+  if(bc){
+    const cur=_DOCS_NAV.find(n=>n.type==='item'&&n.cat===_sharedDocsFilter);
+    bc.textContent=cur?cur.label:_sharedDocsFilter||'All Files';
+  }
 }
 // ── Folder management ────────────────────────────────────────
 function _saveFolderDefs(){
@@ -4593,7 +4628,7 @@ function _getDocsFolderPanel(){
     if(p) p.remove();
     p=document.createElement('div');
     p.id='docs-folder-panel';
-    p.style.cssText='position:fixed;z-index:9998;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:12px;min-width:240px;max-width:280px;overflow:visible;display:none;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.65)';
+    p.style.cssText='position:fixed;z-index:9998;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:12px;min-width:240px;max-width:280px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.65);max-height:480px';
     document.body.appendChild(p);
   }
   return p;
@@ -4635,7 +4670,8 @@ function _renderFolderTreeInPanel(){
       <button onmousedown="event.stopPropagation()" onclick="document.getElementById('docs-folder-panel').style.display='none';document.removeEventListener('mousedown',_docsFolderPanelOutside,true)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1">×</button>
     </div>
   </div>
-  <div style="padding:4px 0">`;
+  <style>#docs-fscroll::-webkit-scrollbar{display:none}</style>
+  <div id="docs-fscroll" style="padding:4px 0;overflow-y:auto;flex:1;scrollbar-width:none;-ms-overflow-style:none">`;
   if(!roots.length){
     html+=`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:24px;text-align:center">No folders yet.<br>Click + New to create one.</div>`;
   } else {
