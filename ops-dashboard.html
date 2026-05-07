@@ -26054,6 +26054,7 @@ function _ccRenderCalendarResult(d,container){
   if(!container) return;
   container.style.display='block';
   _ccUpdateProgressRail();
+  window._ccCalTimes={};
   var emails=d.emails||[];
   var posts=d.posts||[];
   var calendar=d.calendar||[];
@@ -26077,23 +26078,30 @@ function _ccRenderCalendarResult(d,container){
     var dayHtml=wkDays.map(function(c){
       var items='';
       (c.emails||[]).forEach(function(e){
+        var _ek=(e.sequence_code||'X')+'_E'+(e.email_number||'0');
+        if(!window._ccCalTimes[_ek]) window._ccCalTimes[_ek]='08:00';
         items+=
-          '<div style="padding:6px 14px 6px 24px;border-top:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">'+
-            '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(0,0,0,0.07);color:var(--text);margin-top:2px;font-family:\'DM Mono\',monospace">EMAIL</span>'+
-            '<div>'+
+          '<div style="padding:6px 14px 6px 24px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
+            '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(0,0,0,0.07);color:var(--text);font-family:\'DM Mono\',monospace">EMAIL</span>'+
+            '<div style="flex:1;min-width:0">'+
               '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">Day '+c.day+(dayToDate(c.day)?' · '+dayToDate(c.day):'')+' · '+safe(e.sequence_code||'')+'-E'+(e.email_number||'')+' · '+safe(e.trigger_event||'')+'</div>'+
-              '<div style="font-size:12px;color:var(--text)">'+safe(e.subject_line_a||e.seq_id||'(no subject)')+'</div>'+
+              '<div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+safe(e.subject_line_a||e.seq_id||'(no subject)')+'</div>'+
             '</div>'+
+            '<input type="time" value="'+window._ccCalTimes[_ek]+'" onchange="_ccSetCalTime(\''+_ek+'\',this.value)" title="Send time" style="flex-shrink:0;width:86px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:10px;font-family:\'DM Mono\',monospace;cursor:pointer">'+
           '</div>';
       });
+      var _pIdx=0;
       (c.posts||[]).forEach(function(p){
+        var _pk=(p.id)||((p.platform||'post')+'_d'+c.day+'_'+(_pIdx++));
+        if(!window._ccCalTimes[_pk]) window._ccCalTimes[_pk]='08:00';
         items+=
-          '<div style="padding:6px 14px 6px 24px;border-top:1px solid var(--border);display:flex;align-items:flex-start;gap:10px">'+
-            '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(99,102,241,0.1);color:#6366f1;margin-top:2px;font-family:\'DM Mono\',monospace">SOCIAL</span>'+
-            '<div>'+
+          '<div style="padding:6px 14px 6px 24px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
+            '<span style="flex-shrink:0;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(99,102,241,0.1);color:#6366f1;font-family:\'DM Mono\',monospace">SOCIAL</span>'+
+            '<div style="flex:1;min-width:0">'+
               '<div style="font-size:10px;color:var(--muted);margin-bottom:2px">Day '+c.day+(dayToDate(c.day)?' · '+dayToDate(c.day):'')+' · '+safe(p.platform||'Social')+'</div>'+
-              '<div style="font-size:12px;color:var(--text)">'+safe(p.hook||'')+'</div>'+
+              '<div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+safe(p.hook||'')+'</div>'+
             '</div>'+
+            '<input type="time" value="'+window._ccCalTimes[_pk]+'" onchange="_ccSetCalTime(\''+_pk+'\',this.value)" title="Publish time" style="flex-shrink:0;width:86px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:10px;font-family:\'DM Mono\',monospace;cursor:pointer">'+
           '</div>';
       });
       return items;
@@ -26118,6 +26126,10 @@ function _ccRenderCalendarResult(d,container){
 function _ccCalToggleWeek(idx){
   var el=document.getElementById('cc-cal-week-'+idx);
   if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
+function _ccSetCalTime(key,val){
+  if(!window._ccCalTimes) window._ccCalTimes={};
+  window._ccCalTimes[key]=val;
 }
 function _ccExportToDrive(){
   if(!CONFIG.sheetsUrl) return;
@@ -26169,14 +26181,20 @@ function _ccDownloadCalendarCSV(){
     return 'Week 1 Awareness';
   };
   var q=function(s){return '"'+String(s||'').replace(/"/g,'""')+'"';};
-  var rows=[['Day','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA URL','Image Brief','Hashtags','Status']];
+  var _csvLdate=(function(){var s=(_campBrief||{}).launchDate||'';if(!s)return null;var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);})();
+  var _csvDayToDate=function(n){if(!_csvLdate)return '';var dt=new Date(_csvLdate);dt.setDate(dt.getDate()+n);return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});};
+  var _csvDt=function(day,key){var t=(window._ccCalTimes&&window._ccCalTimes[key])||'08:00';var dStr=_csvDayToDate(day);return dStr?dStr+' '+t:t;};
+  var rows=[['Day','Scheduled Date/Time','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA URL','Image Brief','Hashtags','Status']];
   emails.forEach(function(e){
     var day=(e.send_day||0)+(seqOff[e.sequence_code]||0);
-    rows.push([day,wkLbl(day),e.funnel_stage||'',e.sequence_code+'-E'+(e.email_number||'')+' (A)','Email',e.subject_line_a||'',e.preview_text_a||'',e.body_cta||'','','',e.status||'draft']);
-    if(e.subject_line_b) rows.push([day,wkLbl(day),e.funnel_stage||'',e.sequence_code+'-E'+(e.email_number||'')+' (B)','Email',e.subject_line_b||'',e.preview_text_b||'',e.body_cta||'','','',e.status||'draft']);
+    var _ek=(e.sequence_code||'X')+'_E'+(e.email_number||'0');
+    rows.push([day,_csvDt(day,_ek),wkLbl(day),e.funnel_stage||'',e.sequence_code+'-E'+(e.email_number||'')+' (A)','Email',e.subject_line_a||'',e.preview_text_a||'',e.body_cta||'','','',e.status||'draft']);
+    if(e.subject_line_b) rows.push([day,_csvDt(day,_ek),wkLbl(day),e.funnel_stage||'',e.sequence_code+'-E'+(e.email_number||'')+' (B)','Email',e.subject_line_b||'',e.preview_text_b||'',e.body_cta||'','','',e.status||'draft']);
   });
   posts.forEach(function(p){
-    rows.push([p.scheduled_day||0,wkLbl(p.scheduled_day||0),p.theme||'','Social',p.platform||'',p.hook||'',p.body_copy||'',p.cta||'',p.image_brief||'',p.hashtags||'',p.status||'draft']);
+    var pday=p.scheduled_day||0;
+    var _pk=(p.id)||(p.platform||'post')+'_d'+pday+'_0';
+    rows.push([pday,_csvDt(pday,_pk),wkLbl(pday),p.theme||'','Social',p.platform||'',p.hook||'',p.body_copy||'',p.cta||'',p.image_brief||'',p.hashtags||'',p.status||'draft']);
   });
   rows.slice(1).sort(function(a,b){return (parseInt(a[0])||0)-(parseInt(b[0])||0);});
   var csv=[rows[0]].concat(rows.slice(1).sort(function(a,b){return (parseInt(a[0])||0)-(parseInt(b[0])||0);})).map(function(r){return r.map(q).join(',');}).join('\n');
