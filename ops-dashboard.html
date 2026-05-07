@@ -4623,15 +4623,13 @@ function _renderDocsSidebar(){
     // Sub-categories — only show when expanded
     if(_hasSubCats&&_isExpanded){
       _subCatKeys.sort().forEach(subCat=>{
+        const subCnt=_merged.filter(d=>_sharedDocTag(d)===subCat).length;
+        if(subCnt===0) return;
         const relPath=subCat.slice(n.cat.length+1);
-        const depth=relPath.split('/').length;
         const subLabel=relPath.split('/').pop();
-        const indent=10+depth*12;
         const safeSub=subCat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const subActive=_sharedDocsFilter===subCat;
-        const subCnt=_merged.filter(d=>_sharedDocTag(d)===subCat).length;
-        const arrows='↳'.repeat(depth);
-        html+=`<button onclick="_setDocsFilter('${safeSub}')" oncontextmenu="_showFolderCtxMenu(event,'${safeSub}')" style="${row};padding-left:${indent}px;background:${subActive?'rgba(201,168,76,0.12)':'none'};color:${subActive?'var(--gold-light)':'var(--muted)'}"><span style="font-size:9px;flex-shrink:0">${arrows}</span>&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${subLabel}</span>${subCnt>0?`<span style="font-size:8px;color:${subActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${subCnt}</span>`:''}</button>`;
+        html+=`<button onclick="_setDocsFilter('${safeSub}')" oncontextmenu="_showFolderCtxMenu(event,'${safeSub}')" style="${row};padding-left:22px;background:${subActive?'rgba(201,168,76,0.12)':'none'};color:${subActive?'var(--gold-light)':'var(--muted)'}"><span style="font-size:9px;flex-shrink:0">↳</span>&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${subLabel}</span><span style="font-size:8px;color:${subActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${subCnt}</span></button>`;
       });
     }
     // Inject custom team-docs folders after static 'Other' item
