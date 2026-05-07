@@ -11,8 +11,10 @@ function getOrCreateFolder(parentFolder, folderName) {
   return parentFolder.createFolder(folderName);
 }
 
-// Known Team Documents subfolders (Drive IDs pinned for reliable routing)
-const TEAM_DOCS_FOLDER_ID = '1k8LS8p2NUSpda4QOdo-03M26vWdlUVus';
+// Pinned Drive folder IDs — confirmed from listRoots() 2026-05-07
+const RACI_TASK_DOCS_ID  = '1Q9JhRTr-zMvCSLAwKwYKLaMFPFMPxagy'; // RACI-WorkFlow/RACI Task Docs
+const RACI_PROFILES_ID   = '1kU0tNpIW3xptTDI-evT02wHSY1fuFAIT'; // RACI-WorkFlow/Profiles
+const TEAM_DOCS_FOLDER_ID = '1aEpsK07UjYtiitntt56ezq6wxK3Blt7Z'; // Ops.DGL.dev/Team Documents
 const TEAM_DOCS_CATEGORY_IDS = {
   'Meeting Transcripts': '13BpmsRdamqwHr29p48ypJ9trQDjJe5TA',
   'Product Docs':        '1k21edP2f_ocaaGv6-F5z7kAEnat_ZQJx',
@@ -22,29 +24,26 @@ const TEAM_DOCS_CATEGORY_IDS = {
 };
 
 function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName, category) {
-  const root = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
-
   var subFolder;
   if (sourceType === 'shared' || (sourceType !== 'agenda' && sourceType !== 'profile' && sourceType !== 'task' && !sourceId)) {
     // Docs tab upload — route to Team Documents / [category] /
     var catId = category ? TEAM_DOCS_CATEGORY_IDS[category] : null;
-    var parent = catId ? DriveApp.getFolderById(catId) : DriveApp.getFolderById(TEAM_DOCS_FOLDER_ID);
-    subFolder = parent;
+    subFolder = DriveApp.getFolderById(catId || TEAM_DOCS_FOLDER_ID);
   } else if (sourceType === 'agenda') {
-    const typeFolder = getOrCreateFolder(root, 'Agenda');
+    const archiveFolder = DriveApp.getFolderById('1szyMEyxtoxJUCZiHXpw2Z1sCYcVKeg_v'); // Archive
     const cleanName = (sourceName||'').replace(/[\/\\:*?"<>|]/g,'').trim();
     const subFolderName = cleanName ? (sourceId + ' — ' + cleanName) : sourceId;
-    subFolder = getOrCreateFolder(typeFolder, subFolderName || sourceId || 'misc');
+    subFolder = getOrCreateFolder(archiveFolder, subFolderName || sourceId || 'misc');
   } else if (sourceType === 'profile') {
-    const typeFolder = getOrCreateFolder(root, 'Profiles');
+    const profilesFolder = DriveApp.getFolderById(RACI_PROFILES_ID);
     const cleanName = (sourceName||'').replace(/[\/\\:*?"<>|]/g,'').trim();
-    subFolder = getOrCreateFolder(typeFolder, cleanName || sourceId || 'misc');
+    subFolder = getOrCreateFolder(profilesFolder, cleanName || sourceId || 'misc');
   } else {
-    // task (default)
-    const typeFolder = getOrCreateFolder(root, 'RACI Task Docs');
+    // task (default) — pin directly to RACI Task Docs
+    const taskDocsFolder = DriveApp.getFolderById(RACI_TASK_DOCS_ID);
     const cleanName = (sourceName||'').replace(/[\/\\:*?"<>|]/g,'').trim();
     const subFolderName = cleanName ? (sourceId + ' — ' + cleanName) : sourceId;
-    subFolder = getOrCreateFolder(typeFolder, subFolderName || sourceId || 'misc');
+    subFolder = getOrCreateFolder(taskDocsFolder, subFolderName || sourceId || 'misc');
   }
 
   const blob = Utilities.newBlob(Utilities.base64Decode(base64data), mimeType, filename);
