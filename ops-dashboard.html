@@ -22269,6 +22269,8 @@ function _ccRestoreBriefValues(){
   if(_campBrief.campaign_angle) _ccSetSelect('cc-campaign-angle',_campBrief.campaign_angle);
   var urgEl=document.getElementById('cc-urgency-trigger');
   if(urgEl&&_campBrief.urgency_trigger) urgEl.value=_campBrief.urgency_trigger;
+  var approvedEl=document.getElementById('cc-approved');
+  if(approvedEl) approvedEl.checked=!!_campBrief.approved;
 }
 
 // ── Brief auto-fill — retries until dropdowns are populated ─────────────────
