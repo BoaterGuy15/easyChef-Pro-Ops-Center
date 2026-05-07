@@ -26833,25 +26833,10 @@ function _ccRenderProgressRail(){
         '<span style="font-size:11px;color:'+col+';font-weight:'+(isCurrent?'700':'400')+'">'+s.lbl+'</span>'+
       '</span>';
   }).join('');
-  // Breadcrumb summary row
-  var crumbs=[];
-  if(b.id)   crumbs.push('<span style="font-weight:700;color:var(--text)">'+b.id+'</span>');
-  if(b.name) crumbs.push((b.name||'').substring(0,24));
-  if(b.icp)  crumbs.push((b.icp||'').replace(/_/g,' '));
-  if(b.slug) crumbs.push('/'+b.slug);
-  var pc=(_ccLastPosts||[]).length;
-  if(pc)     crumbs.push(pc+' posts');
-  var uc=(_campUtmUrls||[]).filter(function(u){return (u.status||'').toUpperCase()==='ACTIVE';}).length;
-  if(uc)     crumbs.push(uc+' UTMs');
-  if(calDone) crumbs.push('Calendar ✓');
-  var breadcrumb=crumbs.length?
-    '<div style="'+mf+'font-size:10px;color:var(--muted);padding:4px 12px 6px;border-top:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+
-      crumbs.join('<span style="margin:0 5px;color:var(--border)">›</span>')+
-    '</div>':'';
   return '<div style="display:flex;align-items:center;gap:0;padding:7px 12px;flex-wrap:nowrap;overflow-x:auto">'+
     '<span style="'+mf+'font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);flex-shrink:0;margin-right:10px;padding-right:10px;border-right:1px solid var(--border)">Progress</span>'+
     stepsHtml+
-  '</div>'+breadcrumb;
+  '</div>';
 }
 function _ccUpdateProgressRail(){
   var rail=document.getElementById('cc-progress-rail');
