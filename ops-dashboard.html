@@ -4593,7 +4593,7 @@ function _getDocsFolderPanel(){
     if(p) p.remove();
     p=document.createElement('div');
     p.id='docs-folder-panel';
-    p.style.cssText='position:fixed;z-index:9998;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:12px;min-width:230px;max-width:270px;max-height:440px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.65)';
+    p.style.cssText='position:fixed;z-index:9998;background:var(--card,#1a1a1a);border:1px solid var(--border);border-radius:12px;min-width:240px;max-width:280px;overflow:visible;display:none;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.65)';
     document.body.appendChild(p);
   }
   return p;
@@ -4631,11 +4631,11 @@ function _renderFolderTreeInPanel(){
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0">
     <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px">FOLDERS</span>
     <div style="display:flex;gap:6px;align-items:center">
-      <button onclick="_addSharedFolder()" title="New folder" style="font-family:'DM Mono',monospace;font-size:8px;padding:3px 8px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">+ New</button>
+      <button onclick="_addSharedFolder()" title="New folder" style="font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;border-radius:99px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,0.12);color:var(--gold-light,#f5c842);cursor:pointer;font-weight:700">+ New Folder</button>
       <button onclick="document.getElementById('docs-folder-panel').style.display='none';document.removeEventListener('mousedown',_docsFolderPanelOutside,true)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1">×</button>
     </div>
   </div>
-  <div style="overflow-y:auto;max-height:380px;padding:4px 0">`;
+  <div style="padding:4px 0">`;
   if(!roots.length){
     html+=`<div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);padding:24px;text-align:center">No folders yet.<br>Click + New to create one.</div>`;
   } else {
