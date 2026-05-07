@@ -25973,7 +25973,9 @@ function _ccRenderDistribution(){
   var _seqK=String(b.email_sequences||'seq1_seq2');
   var _varK=String(b.email_variants||'both');
   var _freqK=String(b.post_frequency||'every_2_days');
-  var _calSum=(_seqLbl[_seqK]||_seqK)+' · '+(_varLbl[_varK]||_varK)+' · '+(b.post_count||5)+' posts · '+(_freqLbl[_freqK]||_freqK);
+  var _calActualPosts=(_ccLastPosts&&_ccLastPosts.length)||b.post_count||5;
+  var _calActualEmails=(_ccLastEmails&&_ccLastEmails.length)||_ccCalEmailCount();
+  var _calSum=(_seqLbl[_seqK]||_seqK).replace(/\d+ emails/,_calActualEmails+' emails')+' · '+(_varLbl[_varK]||_varK)+' · '+_calActualPosts+' posts · '+(_freqLbl[_freqK]||_freqK);
   var _calCard=
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:22px 24px;margin-bottom:16px">'+
       '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:'+_CC_RED+';margin-bottom:10px">📅 Campaign Calendar Builder</div>'+
@@ -26016,11 +26018,11 @@ function _ccBuildFullCalendar(){
     if(res){res.style.display='block';res.innerHTML='<div style="padding:10px 14px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;font-size:12px;color:'+_CC_RED+'">CONFIG.sheetsUrl is not set — connect your Google Sheet first.</div>';}
     return;
   }
-  var emailCount=_ccCalEmailCount();
-  var postCount=_campBrief.post_count||5;
+  var emailCount=(_ccLastEmails&&_ccLastEmails.length)||_ccCalEmailCount();
+  var postCount=(_ccLastPosts&&_ccLastPosts.length)||_campBrief.post_count||5;
   if(btn){btn.disabled=true;btn.textContent='Building '+emailCount+' emails + '+postCount+' posts…';}
   if(res){res.style.display='none';res.innerHTML='';}
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'build_full_sequence',brief:_campBrief,copy:_campKickstartCopy||{}})})
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'build_full_sequence',brief:Object.assign({},_campBrief,{post_count:postCount}),copy:_campKickstartCopy||{},posts:_ccLastPosts||[],emails:_ccLastEmails||[]})})
     .then(function(r){return r.json();})
     .then(function(d){
       if(btn){btn.disabled=false;btn.innerHTML='✦ Build Full Calendar';}
