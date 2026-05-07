@@ -22608,7 +22608,7 @@ function _ccKickstart(){
       _campBrief.id='';
       if(!_campBrief._lpLocked) _campBrief.slug='';
       _campSlugStatus='';
-      if(Array.isArray(j.channels)&&j.channels.length){var _jcSeen={};_campBrief.channels=j.channels.map(function(c){return c.charAt(0).toUpperCase()+c.slice(1);}).filter(function(c){var k=c.toLowerCase();return _jcSeen[k]?false:(_jcSeen[k]=true);});}
+      if(Array.isArray(j.channels)&&j.channels.length){var _existing=_campBrief.channels||[];var _merged=_existing.concat(j.channels.map(function(c){return c.charAt(0).toUpperCase()+c.slice(1);}));_campBrief.channels=_merged.filter(function(c,i,arr){return arr.findIndex(function(x){return x.toLowerCase()===c.toLowerCase();})=== i;});}
       if(j.theme) { _campBrief.theme=j.theme; _ccLoadThemeData(_campBrief.theme); }
       if(j.publish_day) _campBrief.publish_day=j.publish_day;
       if(j.cta_type) _campBrief.cta_type=j.cta_type;
