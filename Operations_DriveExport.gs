@@ -38,15 +38,22 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
                     'August','September','October','November','December'];
     var monthStr = months[now.getMonth()] + ' ' + year;
 
+    Logger.log('[DriveExport] Step 1a: getFolderById ' + SHARED_DRIVE_FOLDER_ID);
     var root        = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
+    Logger.log('[DriveExport] Step 1b: getOrCreateFolder campsRoot');
     var campsRoot   = getOrCreateFolder(root, _CAMPAIGNS_ROOT_NAME);
+    Logger.log('[DriveExport] Step 1c: yearFolder');
     var yearFolder  = getOrCreateFolder(campsRoot, year);
+    Logger.log('[DriveExport] Step 1d: monthFolder');
     var monthFolder = getOrCreateFolder(yearFolder, monthStr);
 
     var safeName  = _deSafe(brief.name || brief.id || 'Campaign', 60);
     var folderName = (brief.id || 'EC') + ' — ' + safeName;
+    Logger.log('[DriveExport] Step 1e: campaign folder — ' + folderName);
     var folder     = getOrCreateFolder(monthFolder, folderName);
+    Logger.log('[DriveExport] Step 1f: setSharing on campaign folder');
     folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT);
+    Logger.log('[DriveExport] Step 1g: folder ready — ' + folder.getId());
 
     var folderId  = folder.getId();
     var folderUrl = folder.getUrl();
