@@ -4475,7 +4475,10 @@ function _renderDocsSidebar(){
   if(!nav) return;
   const row='display:flex;align-items:center;gap:7px;width:100%;text-align:left;font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 10px;border-radius:7px;border:none;cursor:pointer;box-sizing:border-box;white-space:nowrap;overflow:hidden';
   const plusBtn=(section,parentId)=>`<button onclick="event.stopPropagation();_openCreateFolderModal('${section}','${parentId}')" title="New folder" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 4px;flex-shrink:0">+</button>`;
-  let html='';
+  // DEBUG — show sub-folder keys from Drive cache
+  const _cacheKeys=Object.keys(_driveFolderCache||{});
+  const _subKeys=_cacheKeys.filter(k=>k.includes('/'));
+  let html=`<div style="font-size:8px;color:#888;padding:3px 10px;word-break:break-all">cache: ${_cacheKeys.length} folders, ${_subKeys.length} sub-folders${_subKeys.length?': '+_subKeys.join(', '):''}</div>`;
   for(let i=0;i<_DOCS_NAV.length;i++){
     const n=_DOCS_NAV[i];
     if(n.type==='sep'){ html+=`<div style="height:1px;background:var(--border);margin:5px 4px"></div>`; continue; }
