@@ -167,7 +167,12 @@ function saveCampaignDraft(body) {
             });
           });
 
-          if (!_chAssets.length) return;
+          if (!_chAssets.length) {
+            // Email channels have no posts — generate one campaign-level DL
+            var _isEmail = (_chData.utm_medium||'').toLowerCase() === 'email';
+            if (!_isEmail) return;
+            _chAssets.push({asset_name:'Email Campaign', descriptor:'email_campaign', asset_type:'email'});
+          }
 
           // Write directly to registry — bypasses generateUtmUrls conflict logic
           // which would cancel sibling-channel entries when force:true
