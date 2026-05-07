@@ -21853,7 +21853,26 @@ function _ccSaveDraft(){
       if(sv.lp) parts.push('LP');
       if(postsCount>0) parts.push(postsCount+' post'+(postsCount!==1?'s':''));
       _campDraftSaved=true;
-      if(d.utms&&d.utms.length) _campUtmUrls=d.utms;
+      if(d.utms&&d.utms.length){
+        _campUtmUrls=d.utms;
+        // Match each UTM to its post card by channel (utm_source) + position (post1/post2…)
+        d.utms.forEach(function(utm){
+          var descMatch=(utm.utm_content||'').match(/post(\d+)_/);
+          if(!descMatch) return; // skip LP UTM
+          var postIdx=parseInt(descMatch[1],10)-1; // 0-based within channel
+          var srcMatch=(utm.full_url||'').match(/[?&]utm_source=([^&]+)/);
+          var utmSrc=srcMatch?decodeURIComponent(srcMatch[1]).toLowerCase():'';
+          // Find posts for this channel in original order
+          var chPosts=_ccLastPosts.filter(function(p){
+            var ch=_ccCh(p.channel||_campBrief.channel||'');
+            return (ch.utm_source||'').toLowerCase()===utmSrc;
+          });
+          if(chPosts[postIdx]) chPosts[postIdx].url=utm.full_url;
+        });
+        // Re-render post cards so URL field shows full UTM link
+        var _soEl=document.getElementById('cc-ks-social-output');
+        if(_soEl&&_ccLastPosts.length) _ccRenderSocialPosts(_ccLastPosts,_soEl,_campBrief.channel);
+      }
       if(d.drive_url){
         b.drive_url=d.drive_url;
         _sharedDocsCache.push({
