@@ -4317,7 +4317,7 @@ function _renderSharedDocs(){
 
   // ── Filter docs (parent filter includes all subfolders) ──
   let docs=_sharedDocsCache.slice();
-  if(_sharedDocsFilter==='Linked Files') docs=docs.filter(d=>!d.driveFileId||d.driveFileId==='');
+  if(_sharedDocsFilter==='Linked Files') docs=docs.filter(d=>!d.folderUrl||d.folderUrl==='');
   else if(_sharedDocsFilter!=='All') docs=docs.filter(d=>_sharedDocTag(d)===_sharedDocsFilter||_sharedDocTag(d).startsWith(_sharedDocsFilter+'/'));
   if(q) docs=docs.filter(d=>(d.name||'').toLowerCase().includes(q)||_sharedDocTag(d).toLowerCase().includes(q));
 
@@ -4397,7 +4397,7 @@ function _renderDocsSidebar(){
     if(n.type==='label') return `<div style="font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--muted);padding:8px 10px 3px;text-transform:uppercase">${n.label}</div>`;
     if(n.type==='link') return `<a href="${n.url}" target="_blank" rel="noopener" style="${row};background:none;color:var(--muted);text-decoration:none">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span><span style="font-size:9px;opacity:0.4;flex-shrink:0">↗</span></a>`;
     const active=_sharedDocsFilter===n.cat;
-    const cnt=n.cat==='All'?_sharedDocsCache.length:n.cat==='Linked Files'?_sharedDocsCache.filter(d=>!d.driveFileId||d.driveFileId==='').length:_sharedDocsCache.filter(d=>_sharedDocTag(d)===n.cat).length;
+    const cnt=n.cat==='All'?_sharedDocsCache.length:n.cat==='Linked Files'?_sharedDocsCache.filter(d=>!d.folderUrl||d.folderUrl==='').length:_sharedDocsCache.filter(d=>_sharedDocTag(d)===n.cat).length;
     return `<button onclick="_setDocsFilter('${n.cat}')" style="${row};background:${active?'rgba(201,168,76,0.15)':'none'};color:${active?'var(--gold-light)':'var(--text)'}">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span>${cnt>0?`<span style="font-size:8px;color:${active?'var(--gold)':'var(--muted)'};flex-shrink:0">${cnt}</span>`:''}</button>`;
   }).join('');
   const bc=document.getElementById('docs-breadcrumb');
