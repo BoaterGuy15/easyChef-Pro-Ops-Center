@@ -325,6 +325,31 @@ function doGet(e) {
     }
     if(e.parameter.action === 'folders_read') return respond({ok:true, folders: _getFolderDefs()});
     if(e.parameter.action === 'custom_folders_read') return respond({ok:true, folders: _getCustomFolders()});
+    if(e.parameter.action === 'drive_all_folders_list') {
+      try {
+        var _allFolderMap = {};
+        Object.keys(TEAM_DOCS_CATEGORY_IDS).forEach(function(cat){ _allFolderMap[cat]=TEAM_DOCS_CATEGORY_IDS[cat]; });
+        Object.keys(VIDEOS_CATEGORY_IDS).forEach(function(cat){ _allFolderMap[cat]=VIDEOS_CATEGORY_IDS[cat]; });
+        _getCustomFolders().forEach(function(cf){ if(cf.driveId) _allFolderMap[cf.name]=cf.driveId; });
+        var _driveResults = {};
+        Object.keys(_allFolderMap).forEach(function(cat) {
+          try {
+            var _f = DriveApp.getFolderById(_allFolderMap[cat]);
+            var _files = []; var _it = _f.getFiles();
+            while(_it.hasNext()){
+              var _file=_it.next();
+              _files.push({id:'drive-'+_file.getId(),name:_file.getName(),url:_file.getUrl(),
+                previewUrl:'https://drive.google.com/file/d/'+_file.getId()+'/preview',
+                driveFileId:_file.getId(),mimeType:_file.getMimeType(),folderUrl:_f.getUrl(),
+                addedAt:_file.getDateCreated().toISOString(),addedBy:'',
+                category:cat,taskId:'',agendaId:'',shared:'true'});
+            }
+            _driveResults[cat]=_files;
+          } catch(fe){ _driveResults[cat]=[]; }
+        });
+        return respond({ok:true, results:_driveResults});
+      } catch(err){ return respond({ok:false, error:err.message}); }
+    }
     if(e.parameter.action === 'slack_archive_search') return respond({ok:true, messages: searchSlackArchive(e.parameter.query||'')});
     if(e.parameter.action === 'callouts_read') return respond({ok:true, callouts: getCallouts(e.parameter.user||'')});
     if(e.parameter.action === 'docs_read') return respond({ok:true, docs: getDocuments(e.parameter.taskId||'', e.parameter.agendaId||'')});
