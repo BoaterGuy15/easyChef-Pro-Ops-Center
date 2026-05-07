@@ -22852,6 +22852,7 @@ function _ccBuildEmailBtnLabel(){
 function _ccBuildSectionBButtons(){
   var chs=_campBrief.channels||[];
   var socialChs=chs.filter(function(c){var l=c.toLowerCase();return l!=='email'&&l!=='push notifications';});
+  var _seen={};socialChs=socialChs.filter(function(c){var k=c.toLowerCase();return _seen[k]?false:(_seen[k]=true);});
   var hasEmail=chs.some(function(c){return c.toLowerCase()==='email';});
   var hasPush=chs.some(function(c){return c.toLowerCase()==='push notifications';});
   var btnStyle='padding:8px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;margin:0';
