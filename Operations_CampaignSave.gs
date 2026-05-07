@@ -102,18 +102,15 @@ function saveCampaignDraft(body) {
       posts.forEach(function(post, i) {
         setSocialPost({
           id:          'post-' + now36 + '-' + i,
-          campaign_id: brief.id      || '',
-          icp_code:    brief.icp     || '',
-          channel:     brief.channel || '',
-          post_num:    post.post_num || (i + 1),
-          hook:        post.hook        || '',
-          body:        post.body        || '',
-          hashtags:    post.hashtags    || '',
-          image_brief: post.image_brief || '',
-          cta:         post.cta         || '',
-          url:         post.url         || '',
-          status:      'draft',
-          created_at:  ts
+          campaign_id: brief.id                         || '',
+          platform:    post.channel || brief.channel    || '',
+          hook:        post.hook                        || '',
+          body_copy:   post.body                        || '',
+          hashtags:    post.hashtags                    || '',
+          image_brief: post.image_brief                 || '',
+          cta:         post.cta                         || '',
+          utm_url:     post.url                         || '',
+          status:      'draft'
         });
       });
       saved.posts = posts.length;

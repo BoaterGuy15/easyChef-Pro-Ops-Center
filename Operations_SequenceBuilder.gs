@@ -303,6 +303,9 @@ function buildEmailCalendar(brief, copy) {
           body_cta:      e.body_cta       || '',
           send_day:      e.send_day,
           trigger_event: e.trigger_event  || '',
+          funnel_stage:  e.funnel_stage   || '',
+          body_theme:    e.theme          || '',
+          role:          wf ? (wf.role    || '') : '',
           status:        'draft'
         });
       }
@@ -324,6 +327,9 @@ function buildEmailCalendar(brief, copy) {
           body_cta:      e.body_cta       || '',
           send_day:      e.send_day,
           trigger_event: e.trigger_event  || '',
+          funnel_stage:  e.funnel_stage   || '',
+          body_theme:    e.theme          || '',
+          role:          wf ? (wf.role    || '') : '',
           status:        'draft'
         });
       }
@@ -451,6 +457,14 @@ function buildSocialCalendar(brief, copy) {
       if (p.scheduled_day === undefined) p.scheduled_day = sched.day   || 0;
       if (!p.theme)                      p.theme         = sched.theme || '';
 
+      var _sched = '';
+      if (brief.launchDate && p.scheduled_day !== undefined) {
+        try {
+          var _ld = new Date(brief.launchDate + 'T12:00:00');
+          _ld.setDate(_ld.getDate() + p.scheduled_day);
+          _sched = Utilities.formatDate(_ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+        } catch(de) { _sched = ''; }
+      }
       setSocialPost({
         id:             postId,
         campaign_id:    campaignId,
@@ -460,7 +474,7 @@ function buildSocialCalendar(brief, copy) {
         cta:            p.cta         || '',
         hashtags:       p.hashtags    || '',
         image_brief:    p.image_brief || '',
-        scheduled_date: '',
+        scheduled_date: _sched,
         status:         'draft'
       });
     });
