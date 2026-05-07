@@ -27269,9 +27269,10 @@ function _ccRenderProgressRail(){
     {n:6,lbl:'Calendar'}
   ];
   var calDone=!!(window._ccCalData&&(window._ccCalData.emails||[]).length>0);
+  var assetsReady=!!(_campLastLp||(_ccLastPosts&&_ccLastPosts.length>0));
   var stepsHtml=railSteps.map(function(s,i){
     var isCurrent=s.n<=5&&_ccWizardStep===s.n;
-    var isDone=s.n<=5?!!_ccWizardDone[s.n]:calDone;
+    var isDone=s.n<=5?(s.n===5?assetsReady||!!_ccWizardDone[5]:!!_ccWizardDone[s.n]):calDone;
     var canClick=s.n<=5?(isDone||isCurrent):isDone;
     var icon=isDone?'✓':isCurrent?'⟳':'○';
     var col=isDone?'#22c55e':isCurrent?_CC_RED:'var(--muted)';
