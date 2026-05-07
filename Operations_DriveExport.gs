@@ -52,7 +52,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     Logger.log('[DriveExport] Step 1e: campaign folder — ' + folderName);
     var folder     = getOrCreateFolder(monthFolder, folderName);
     Logger.log('[DriveExport] Step 1f: setSharing on campaign folder');
-    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT);
+    try { folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) { Logger.log('[DriveExport] setSharing skipped: ' + se.message); }
     Logger.log('[DriveExport] Step 1g: folder ready — ' + folder.getId());
 
     var folderId  = folder.getId();
@@ -207,7 +207,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       Logger.log('[DriveExport] Spreadsheet created: ' + calSS.getId());
       var calFile = DriveApp.getFileById(calSS.getId());
       calFile.moveTo(folder);
-      calFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT);
+      try { calFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) { Logger.log('[DriveExport] cal setSharing skipped: ' + se.message); }
       var calSh   = calSS.getActiveSheet();
       calSh.setName('Calendar');
       var calHdr  = ['Day','Date','Channel','Asset','Hook','UTM Link','Status','Notes','Assignee'];
@@ -300,8 +300,7 @@ function _newDoc(name, folder) {
   Logger.log('[DriveExport] Doc created: ' + doc.getId());
   Logger.log('[DriveExport] Moving doc to folder: ' + folder.getId());
   DriveApp.getFileById(doc.getId()).moveTo(folder);
-  Logger.log('[DriveExport] Setting sharing for doc: ' + name);
-  DriveApp.getFileById(doc.getId()).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT);
+  try { DriveApp.getFileById(doc.getId()).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) { Logger.log('[DriveExport] doc setSharing skipped: ' + se.message); }
   Logger.log('[DriveExport] Doc ready: ' + name);
   return doc;
 }
