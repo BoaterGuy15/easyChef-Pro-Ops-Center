@@ -16,6 +16,7 @@
  * Returns { ok: true, saved: { brief, copy, lp, posts } }
  */
 function saveCampaignDraft(body) {
+  Logger.log('[CampaignSave] function entered — brief.id: ' + ((body.brief||{}).id||'none') + ' approved: ' + ((body.brief||{}).approved) + ' ml_approved: ' + ((body.brief||{}).ml_approved));
   try {
     var brief = body.brief  || {};
     var copy  = body.copy   || {};
@@ -119,7 +120,7 @@ function saveCampaignDraft(body) {
     }
 
     // 5 — Auto-generate and activate UTMs when ML approved
-    Logger.log('[CampaignSave] ml_approved check — brief.ml_approved: ' + brief.ml_approved + '  brief.approved: ' + brief.approved + '  brief.id: ' + brief.id);
+    Logger.log('[CampaignSave] pre-UTM check — ml_approved: ' + brief.ml_approved + ' approved: ' + brief.approved + ' id: ' + brief.id);
     var utms = [];
     if ((brief.approved || brief.ml_approved) && brief.id) {
       var _utmAssets = [];
