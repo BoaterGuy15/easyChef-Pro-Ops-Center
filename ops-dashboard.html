@@ -4313,6 +4313,8 @@ function _getMergedDocs(){
 // Resolve a display tag for any doc — category, task name, agenda, or General
 function _sharedDocTag(d){
   if(d.category) return d.category;
+  // Auto-classify uncategorized video files into Videos/Other
+  if(!d.taskId&&!d.agendaId&&_docFileIcon(d.name||'')==='🎬') return 'Videos/Other';
   if(d.taskId){
     const t=(DASHBOARD_DATA.tasks||[]).find(x=>x.id===d.taskId);
     return t?t.name:d.taskId;
