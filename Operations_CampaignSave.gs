@@ -116,65 +116,101 @@ function saveCampaignDraft(body) {
       saved.posts = posts.length;
     }
 
-    // 5 — Auto-generate and activate UTMs when ML approved
+    // 5 — Auto-generate and activate UTMs when ML approved (one set per channel)
     Logger.log('[CampaignSave] pre-UTM check — ml_approved: ' + brief.ml_approved + ' approved: ' + brief.approved + ' id: ' + brief.id);
     var utms = [];
+    var _utmTotalGenerated = 0;
     if ((brief.approved || brief.ml_approved) && brief.id) {
-      var _utmAssets = [];
-      if (lp && (lp.hero_headline || lp.solve_section)) {
-        _utmAssets.push({asset_name:'Landing Page',descriptor:'lp',asset_type:'lp'});
-      }
-      posts.forEach(function(p, i) {
-        var _descs = ['post1_hook','post2_problem','post3_solve','post4_proof','post5_urgency'];
-        _utmAssets.push({
-          asset_name:  'Post '+(i+1)+' — '+(p.hook||'').substring(0,40),
-          descriptor:   _descs[i] || ('post'+(i+1)),
-          asset_type:  'post'
+      // Reuse any existing ACTIVE DL_IDs — never regenerate when already active
+      var _existingDls = getDlRegistry(brief.id);
+      var _activeDls   = _existingDls.filter(function(r){ return (r.status||'').toUpperCase()==='ACTIVE'; });
+      if (_activeDls.length > 0) {
+        utms = _activeDls.map(function(u) {
+          var fullUrl = (u.destination_url||'') +
+            '?utm_source='   + encodeURIComponent(u.utm_source||'') +
+            '&utm_medium='   + encodeURIComponent(u.utm_medium||'') +
+            '&utm_campaign=' + encodeURIComponent(u.utm_campaign||'') +
+            '&utm_content='  + encodeURIComponent(u.utm_content||'');
+          return { dl_id:u.dl_id, utm_content:u.utm_content, asset_name:u.notes||u.utm_content, full_url:fullUrl, status:'ACTIVE' };
         });
-      });
-      if (_utmAssets.length) {
-        // Return existing ACTIVE DL_IDs — never regenerate unless there are none
-        var _existingDls = getDlRegistry(brief.id);
-        var _activeDls   = _existingDls.filter(function(r){ return (r.status||'').toUpperCase()==='ACTIVE'; });
-        if (_activeDls.length > 0) {
-          utms = _activeDls.map(function(u) {
-            var fullUrl = (u.destination_url||'') +
-              '?utm_source='   + encodeURIComponent(u.utm_source||'') +
-              '&utm_medium='   + encodeURIComponent(u.utm_medium||'') +
-              '&utm_campaign=' + encodeURIComponent(u.utm_campaign||'') +
-              '&utm_content='  + encodeURIComponent(u.utm_content||'');
-            return { dl_id:u.dl_id, utm_content:u.utm_content, asset_name:u.notes||u.utm_content, full_url:fullUrl, status:'ACTIVE' };
-          });
-          Logger.log('[CampaignSave] reusing ' + utms.length + ' existing ACTIVE DL_IDs');
-        } else {
-          // No ACTIVE entries yet — generate fresh ones
-          var _utmCode = (brief.name||brief.id||'').toLowerCase()
-            .replace(/['\-]/g,'').replace(/[^a-z0-9]+/g,'_')
-            .replace(/^_+|_+$/g,'').substring(0,50);
-          var _utmResult = generateUtmUrls({
-            brief: {id:brief.id, name:brief.name, channel:brief.channel, slug:brief.slug},
-            assets: _utmAssets,
-            utm_campaign: _utmCode,
-            force: false
-          });
-          if (_utmResult.ok && _utmResult.urls && _utmResult.urls.length) {
-            _utmResult.urls.forEach(function(u) {
-              setDlRegistryEntry({dl_id:u.dl_id, status:'ACTIVE'});
-              u.status = 'ACTIVE';
-            });
-            utms = _utmResult.urls;
-            Logger.log('[CampaignSave] generated ' + utms.length + ' new ACTIVE DL_IDs');
+        Logger.log('[CampaignSave] reusing ' + utms.length + ' existing ACTIVE DL_IDs');
+      } else {
+        // No ACTIVE entries — generate one DL_ID per asset per channel
+        var _utmCode = (brief.name||brief.id||'').toLowerCase()
+          .replace(/['\-]/g,'').replace(/[^a-z0-9]+/g,'_')
+          .replace(/^_+|_+$/g,'').substring(0,50);
+        var _baseUrl = 'https://easychefpro.com/' + (brief.slug||'').replace(/^\//,'');
+        var _descs   = ['post1_hook','post2_problem','post3_solve','post4_proof','post5_urgency'];
+        var _channels = (Array.isArray(brief.channels) && brief.channels.length)
+          ? brief.channels : [brief.channel || 'Facebook'];
+        var _lpGenerated = false;
+
+        _channels.forEach(function(channelName) {
+          var _chData   = _getChannelData(channelName);
+          var _chAssets = [];
+
+          // LP once across all channels (tied to first channel processed)
+          if (!_lpGenerated && lp && (lp.hero_headline || lp.solve_section)) {
+            _chAssets.push({asset_name:'Landing Page', descriptor:'lp', asset_type:'lp'});
+            _lpGenerated = true;
           }
-        }
+
+          // Posts belonging to this channel
+          var _chPosts = posts.filter(function(p){
+            return (p.channel||brief.channel||'').toLowerCase() === channelName.toLowerCase();
+          });
+          _chPosts.forEach(function(p, i) {
+            _chAssets.push({
+              asset_name: 'Post '+(i+1)+' — '+(p.hook||'').substring(0,40),
+              descriptor:  _descs[i] || ('post'+(i+1)),
+              asset_type: 'post'
+            });
+          });
+
+          if (!_chAssets.length) return;
+
+          // Write directly to registry — bypasses generateUtmUrls conflict logic
+          // which would cancel sibling-channel entries when force:true
+          _chAssets.forEach(function(asset) {
+            var prefix     = asset.asset_type === 'lp' ? 'LP' : (_chData.dl_prefix || 'SOC');
+            var dlId       = _nextDlId(prefix);
+            var utmContent = dlId + '_' + (asset.descriptor || '');
+            var fullUrl    = _baseUrl +
+              '?utm_source='   + encodeURIComponent(_chData.utm_source) +
+              '&utm_medium='   + encodeURIComponent(_chData.utm_medium) +
+              '&utm_campaign=' + encodeURIComponent(_utmCode) +
+              '&utm_content='  + encodeURIComponent(utmContent);
+
+            setDlRegistryEntry({
+              dl_id:           dlId,
+              utm_content:     utmContent,
+              campaign_id:     brief.id,
+              channel:         channelName,
+              destination_url: _baseUrl,
+              utm_source:      _chData.utm_source,
+              utm_medium:      _chData.utm_medium,
+              utm_campaign:    _utmCode,
+              status:          'ACTIVE',
+              notes:           asset.asset_name || ''
+            });
+
+            utms.push({ dl_id:dlId, utm_content:utmContent, asset_name:asset.asset_name, full_url:fullUrl, status:'ACTIVE' });
+          });
+
+          Logger.log('[CampaignSave] ' + channelName + ': generated ' + _chAssets.length + ' DL_IDs');
+          _utmTotalGenerated += _chAssets.length;
+        });
+
+        Logger.log('[CampaignSave] total new ACTIVE DL_IDs: ' + _utmTotalGenerated);
       }
     }
 
     return { ok: true, saved: saved, utms: utms, debug: {
-      brief_id:     brief.id,
-      approved:     brief.approved,
-      ml_approved:  brief.ml_approved,
-      assets_built: _utmAssets ? _utmAssets.length : 0,
-      utm_result:   _utmResult || null
+      brief_id:          brief.id,
+      approved:          brief.approved,
+      ml_approved:       brief.ml_approved,
+      utm_total:         utms.length,
+      utm_new_generated: _utmTotalGenerated
     }};
 
   } catch (e) {
