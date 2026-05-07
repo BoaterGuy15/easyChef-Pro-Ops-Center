@@ -22331,7 +22331,7 @@ function _ccAutoFillBrief(campaign){
       _campBrief.icp      = campaign.icp_match||_CC_ICP_CODE_MAP[campaign.icp_code]||'';
       _campBrief.funnel   = campaign.blueprint||'';
       _campBrief.channel  = campaign.channel_recommendation||'';
-      if(Array.isArray(campaign.channels)&&campaign.channels.length){
+      if(!(_campBrief._lockedChannels&&_campBrief._lockedChannels.length)&&Array.isArray(campaign.channels)&&campaign.channels.length){
         _campBrief.channels=campaign.channels;
       } else if(_campBrief.channel){
         var _existing=_campBrief.channels||['Facebook','Email'];
