@@ -22,13 +22,22 @@ const TEAM_DOCS_CATEGORY_IDS = {
   'Screenshots':         '1nNBP7NmFl9W1FqGOLgsc7-NUssUjemlN',
   'Slack Archive':       '1hrbndh6a3XrxTvVsXkqzeKz3dq91BQDe'
 };
+const VIDEOS_FOLDER_ID = '1VYIT0JWoDaZ4mf151Dpmf2g8f-7p6gYe'; // Ops.DGL.dev/Videos
+const VIDEOS_CATEGORY_IDS = {
+  'Videos/Training': '1pdKPeBJqrRuEtJrRdIJ83VlBos-GHBkq',
+  'Videos/Product':  '16-o3w3RUL5B0QSxWgQG6XXArgnJyd3pM',
+  'Videos/Brand':    '1jIVRhTReRaU6T3MGUZ32k5rP-tV06LbA',
+  'Videos/Meetings': '1GCqzaBMK_yGPRN1FB8AvewFlZ7zJnxKq',
+  'Videos/Other':    '1pg0HE24Onqxot22MD9T9mQtiMEQ1dpcT'
+};
 
 function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName, category) {
   var subFolder;
   if (sourceType === 'shared' || (sourceType !== 'agenda' && sourceType !== 'profile' && sourceType !== 'task' && !sourceId)) {
-    // Docs tab upload — route to Team Documents / [category] /
-    var catId = category ? TEAM_DOCS_CATEGORY_IDS[category] : null;
-    subFolder = DriveApp.getFolderById(catId || TEAM_DOCS_FOLDER_ID);
+    // Docs tab upload — route to Videos or Team Documents by category
+    var catId = category ? (VIDEOS_CATEGORY_IDS[category] || TEAM_DOCS_CATEGORY_IDS[category]) : null;
+    var defaultId = (category && category.startsWith('Videos')) ? VIDEOS_FOLDER_ID : TEAM_DOCS_FOLDER_ID;
+    subFolder = DriveApp.getFolderById(catId || defaultId);
   } else if (sourceType === 'agenda') {
     const archiveFolder = DriveApp.getFolderById('1szyMEyxtoxJUCZiHXpw2Z1sCYcVKeg_v'); // Archive
     const cleanName = (sourceName||'').replace(/[\/\\:*?"<>|]/g,'').trim();
