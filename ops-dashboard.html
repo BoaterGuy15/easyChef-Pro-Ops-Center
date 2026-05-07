@@ -846,6 +846,7 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
   </div>
 </nav>
 <div id="lp-hub-bar" class="lp-hub-bar" style="display:none"></div>
+<div id="cc-progress-rail" style="display:none;position:sticky;top:56px;z-index:99;background:var(--surface);border-bottom:1px solid var(--border);overflow:hidden"></div>
 
 <!-- ══════════════════════════════════════════════
      DATA LAYER — swap this object for Google Sheets API fetch
@@ -1913,6 +1914,7 @@ function showPage(id){
   try{localStorage.setItem('dgl_active_tab',id);}catch(_){}
   try{history.replaceState(null,'','#'+id);}catch(_){}
   if(typeof _LP_HUB_SET!=='undefined'&&_LP_HUB_SET.has(id)){ _upsertLPHubBar(id); }else{ const _hb=document.getElementById('lp-hub-bar'); if(_hb) _hb.style.display='none'; }
+  {const _pr=document.getElementById('cc-progress-rail');if(_pr&&id!=='campaigns')_pr.style.display='none';}
   if(id==='raci') setTimeout(_raciStickyThTop,50);
   if(id==='roadmap'){ _debouncedBuildMilestones(); loadRoadmapFromSheets(); setTimeout(()=>{ _ganttSetZoom(localStorage.getItem('dgl_gantt_zoom')||'90d'); },80); }
   if(id==='actionplans') buildActionPlansPage();
@@ -23820,9 +23822,13 @@ function _ccRenderSocialPosts(posts,container,channel){
     var cpId   ='cc-custom-prompt-'+pNum;
     var aiBriefId='cc-ai-brief-panel-'+pNum;
 
+    var _platName=post.platform||post.channel||ch||'';
+    var _platIcons={'facebook':'👥','instagram':'📷','linkedin':'💼','tiktok':'🎵','twitter':'🐦','x':'🐦','pinterest':'📌','youtube':'▶️','email':'📧','push':'📲','sms':'💬'};
+    var _platIcon=_platIcons[_platName.toLowerCase()]||'📣';
+    var _platBadge=_platName?'<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);border-radius:10px;padding:1px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-right:8px">'+_platIcon+' '+safe(_platName)+'</span>':'';
     return '<div id="cc-post-card-s-'+pNum+'" style="padding:16px;border-bottom:1px solid var(--border)">'+
-      // Post number + funnel stage
-      '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:10px">POST '+safe(String(pNum))+(post.funnel_stage?' · <span style="text-transform:capitalize">'+safe(post.funnel_stage)+'</span>':'')+'</div>'+
+      // Platform badge + post number + funnel stage
+      '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:10px;display:flex;align-items:center;flex-wrap:wrap;gap:4px">'+_platBadge+'POST '+safe(String(pNum))+(post.funnel_stage?' · <span style="text-transform:capitalize">'+safe(post.funnel_stage)+'</span>':'')+'</div>'+
       // Hook — editable input
       '<div style="margin-bottom:12px">'+
         fieldLabel('Hook line (scroll-stopper)')+
@@ -27111,9 +27117,6 @@ function _campaignsRenderInner(root){
         '</div>'+
         '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
       '</div>'+
-      '<div id="cc-progress-rail" style="position:sticky;top:56px;z-index:90;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;overflow:hidden">'+
-        _ccRenderProgressRail()+
-      '</div>'+
       // ── Wizard step bar ────────────────────────────────────────────────────
       '<div id="cc-wizard-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:20px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">'+
         _ccRenderWizardBar()+
@@ -27166,6 +27169,8 @@ function _campaignsRenderInner(root){
       '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto">'+tabBar+'</div>'+
       '<div id="cc-panel"></div>'+
     '</div>';
+  var _pr=document.getElementById('cc-progress-rail');
+  if(_pr){_pr.style.display='block';_pr.innerHTML=_ccRenderProgressRail();}
   _campSwitchTab(_campActiveTab);
   // Init Step 1 theme picker on first render
   setTimeout(function(){
