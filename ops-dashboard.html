@@ -4073,11 +4073,10 @@ function _previewDoc(docId){
   const ext=(name.includes('.')?name.split('.').pop().toUpperCase():'');
   const url=doc.url||'';
   let src='',noPreview=false;
-  if(doc.previewUrl){ src=doc.previewUrl; }
-  else if(url.includes('docs.google.com/document')){ src=url.replace(/\/edit.*$/,'/preview'); }
+  if(url.includes('docs.google.com/document')){ src=url.replace(/\/edit.*$/,'/preview'); }
   else if(url.includes('docs.google.com/spreadsheets')){ src=url.replace(/\/edit.*$/,'/htmlview'); }
   else if(url.includes('docs.google.com/presentation')){ src=url.replace(/\/edit.*$/,'/preview'); }
-  else { noPreview=true; }
+  else { noPreview=true; } // Drive files, videos, images — blocked by CSP in iframe
   el.innerHTML=`<div style="padding:8px;background:rgba(0,0,0,0.2);border-radius:6px;margin-top:6px">
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">${name}${ext?' · '+ext:''}</div>
     ${noPreview
