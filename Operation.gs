@@ -368,6 +368,14 @@ function doGet(e) {
         _getCustomFolders().forEach(function(cf){
           if(cf.driveId) try { _scanFolderDeep(DriveApp.getFolderById(cf.driveId), cf.name, 3, _driveResults); } catch(fe){}
         });
+        // Backfill any missing intermediate path segments so sidebar can show nested folders
+        Object.keys(_driveResults).slice().forEach(function(key){
+          var parts = key.split('/');
+          for(var i = 2; i < parts.length; i++){
+            var prefix = parts.slice(0, i).join('/');
+            if(!_driveResults[prefix]) _driveResults[prefix] = [];
+          }
+        });
         return respond({ok:true, results:_driveResults});
       } catch(err){ return respond({ok:false, error:err.message}); }
     }

@@ -4475,10 +4475,7 @@ function _renderDocsSidebar(){
   if(!nav) return;
   const row='display:flex;align-items:center;gap:7px;width:100%;text-align:left;font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 10px;border-radius:7px;border:none;cursor:pointer;box-sizing:border-box;white-space:nowrap;overflow:hidden';
   const plusBtn=(section,parentId)=>`<button onclick="event.stopPropagation();_openCreateFolderModal('${section}','${parentId}')" title="New folder" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 4px;flex-shrink:0">+</button>`;
-  // DEBUG — show sub-folder keys from Drive cache
-  const _cacheKeys=Object.keys(_driveFolderCache||{});
-  const _subKeys=_cacheKeys.filter(k=>k.includes('/'));
-  let html=`<div style="font-size:8px;color:#888;padding:3px 10px;word-break:break-all">cache: ${_cacheKeys.length} folders, ${_subKeys.length} sub-folders${_subKeys.length?': '+_subKeys.join(', '):''}</div>`;
+  let html='';
   for(let i=0;i<_DOCS_NAV.length;i++){
     const n=_DOCS_NAV[i];
     if(n.type==='sep'){ html+=`<div style="height:1px;background:var(--border);margin:5px 4px"></div>`; continue; }
@@ -4498,13 +4495,17 @@ function _renderDocsSidebar(){
     // Count includes files in sub-categories
     const cnt=n.cat==='All'?_merged.length:n.cat==='Linked Files'?_sharedDocsCache.filter(d=>(!d.folderUrl||d.folderUrl==='')&&_docFileIcon(d.name||'')!=='🎬').length:_merged.filter(d=>_sharedDocTag(d)===n.cat||_sharedDocTag(d).startsWith(n.cat+'/')).length;
     html+=`<button onclick="_setDocsFilter('${n.cat}')" style="${row};background:${active?'rgba(201,168,76,0.15)':'none'};color:${active?'var(--gold-light)':'var(--text)'}">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span>${cnt>0?`<span style="font-size:8px;color:${active?'var(--gold)':'var(--muted)'};flex-shrink:0">${cnt}</span>`:''}</button>`;
-    // Discovered Drive sub-categories (one level below this item)
-    Object.keys(_driveFolderCache||{}).filter(k=>k.startsWith(n.cat+'/')&&!k.slice(n.cat.length+1).includes('/')).sort().forEach(subCat=>{
-      const subLabel=subCat.split('/').pop();
+    // Discovered Drive sub-categories (all depths below this item)
+    Object.keys(_driveFolderCache||{}).filter(k=>k.startsWith(n.cat+'/')).sort().forEach(subCat=>{
+      const relPath=subCat.slice(n.cat.length+1); // e.g. "Training Videos/DGL Ops Center"
+      const depth=relPath.split('/').length;       // 1=direct child, 2=grandchild, etc.
+      const subLabel=relPath.split('/').pop();     // last segment only
+      const indent=10+depth*12;                    // 22px / 34px / 46px
       const safeSub=subCat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const subActive=_sharedDocsFilter===subCat||_sharedDocsFilter.startsWith(subCat+'/');
       const subCnt=_merged.filter(d=>_sharedDocTag(d)===subCat||_sharedDocTag(d).startsWith(subCat+'/')).length;
-      html+=`<button onclick="_setDocsFilter('${safeSub}')" style="${row};padding-left:22px;background:${subActive?'rgba(201,168,76,0.12)':'none'};color:${subActive?'var(--gold-light)':'var(--muted)'}"><span style="font-size:9px;flex-shrink:0">↳</span>&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${subLabel}</span>${subCnt>0?`<span style="font-size:8px;color:${subActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${subCnt}</span>`:''}</button>`;
+      const arrows='↳'.repeat(depth);
+      html+=`<button onclick="_setDocsFilter('${safeSub}')" style="${row};padding-left:${indent}px;background:${subActive?'rgba(201,168,76,0.12)':'none'};color:${subActive?'var(--gold-light)':'var(--muted)'}"><span style="font-size:9px;flex-shrink:0">${arrows}</span>&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${subLabel}</span>${subCnt>0?`<span style="font-size:8px;color:${subActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${subCnt}</span>`:''}</button>`;
     });
     // Inject custom team-docs folders after static 'Other' item
     if(n.cat==='Other'){
