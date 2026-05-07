@@ -22750,6 +22750,7 @@ function _ccCopyFieldRow(label,fkey,val,multiline){
 
 function _ccRenderCopyOutput(copy,b){
   var safeStr=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  if(!copy.email_subject_a) copy.email_subject_a=copy.headline||copy.campaign_name||'';
   var proofVal=Array.isArray(copy.proof_bar)?copy.proof_bar.join(' · '):
     (typeof copy.proof_bar==='string'&&copy.proof_bar.trim()?copy.proof_bar:'');
   return '<div style="width:100%">'+
