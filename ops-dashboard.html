@@ -21774,6 +21774,7 @@ function _ccBriefSync(){
   _ccAutoSlug();
   _ccUpdateCompletionBar();
   _ccRefreshChannelLabel();
+  _ccUpdateProgressRail();
 }
 function _ccUpdateVolumeFields(){
   var chs=(_campBrief.channels||[]).map(function(c){return c.toLowerCase();});
@@ -26039,6 +26040,7 @@ function _ccBuildFullCalendar(){
 function _ccRenderCalendarResult(d,container){
   if(!container) return;
   container.style.display='block';
+  _ccUpdateProgressRail();
   var emails=d.emails||[];
   var posts=d.posts||[];
   var calendar=d.calendar||[];
@@ -26800,6 +26802,57 @@ function _ccApproveAllForCampaign(campaignId){
 }
 
 // ── Campaign Wizard helpers ──────────────────────────────────────────────────
+function _ccRenderProgressRail(){
+  var mf="font-family:'DM Mono',monospace;";
+  var b=_campBrief;
+  var railSteps=[
+    {n:1,lbl:'Theme'},
+    {n:2,lbl:'Landing Page'},
+    {n:3,lbl:'Kickstart'},
+    {n:4,lbl:'Brief'},
+    {n:5,lbl:'Assets'},
+    {n:6,lbl:'Calendar'}
+  ];
+  var stepsHtml=railSteps.map(function(s){
+    var calDone=!!(window._ccCalData&&(window._ccCalData.emails||[]).length>0);
+    var isCurrent=s.n<=5&&_ccWizardStep===s.n;
+    var isDone=s.n<=5?!!_ccWizardDone[s.n]:calDone;
+    var canClick=s.n<=5?(isDone||isCurrent):isDone;
+    var icon=isDone?'✓':isCurrent?'⟳':'○';
+    var col=isDone?'#22c55e':isCurrent?_CC_RED:'var(--muted)';
+    var oc=canClick?(s.n<=5?'onclick="_ccWizardGoTo('+s.n+')"':'onclick="_campSwitchTab(\'distribution\')"'):'';
+    return '<div '+oc+' style="display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:5px;cursor:'+(canClick?'pointer':'default')+';'+mf+'">'+
+      '<span style="font-size:11px;font-weight:700;color:'+col+';flex-shrink:0;width:14px;text-align:center">'+icon+'</span>'+
+      '<span style="font-size:11px;color:'+col+';font-weight:'+(isCurrent?'700':'400')+'">'+s.lbl+'</span>'+
+    '</div>';
+  }).join('');
+  var rows=[];
+  if(b.id)   rows.push(['ID',   b.id]);
+  if(b.name) rows.push(['Camp', (b.name||'').substring(0,16)]);
+  if(b.icp)  rows.push(['ICP',  (b.icp||'').replace(/_/g,' ').substring(0,14)]);
+  if(b.slug) rows.push(['LP',   '/'+b.slug]);
+  var pc=(_ccLastPosts||[]).length;
+  if(pc)     rows.push(['Posts',pc+' built']);
+  var uc=(_campUtmUrls||[]).filter(function(u){return (u.status||'').toUpperCase()==='ACTIVE';}).length;
+  if(uc)     rows.push(['UTMs', uc+' active']);
+  if(window._ccCalData&&(window._ccCalData.emails||[]).length){
+    rows.push(['Cal','✓ '+(window._ccCalData.emails.length)+' em + '+(window._ccCalData.posts||[]).length+' posts']);
+  }
+  var summHtml=rows.length?
+    '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">'+
+    rows.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:4px;padding:2px 10px;'+mf+'">'+
+        '<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0">'+r[0]+'</span>'+
+        '<span style="font-size:9px;color:var(--text);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:96px" title="'+r[1]+'">'+r[1]+'</span>'+
+      '</div>';
+    }).join('')+'</div>':'';
+  return '<div style="'+mf+'font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);padding:10px 10px 4px">Progress</div>'+
+    stepsHtml+summHtml;
+}
+function _ccUpdateProgressRail(){
+  var rail=document.getElementById('cc-progress-rail');
+  if(rail) rail.innerHTML=_ccRenderProgressRail();
+}
 function _ccRenderWizardBar(){
   var steps=[
     {n:1,lbl:'Theme'},{n:2,lbl:'LP'},{n:3,lbl:'Kickstart'},{n:4,lbl:'Brief'},
@@ -26839,6 +26892,7 @@ function _ccWizardAdvance(toStep,summary){
   _ccWizardStep=toStep;
   var bar=document.getElementById('cc-wizard-bar');
   if(bar) bar.innerHTML=_ccRenderWizardBar();
+  _ccUpdateProgressRail();
   // Expand target step
   var nextEl=document.getElementById('cc-step-'+toStep);
   var nextBody=document.getElementById('cc-step-'+toStep+'-body');
@@ -26978,6 +27032,7 @@ function _ccWizardGoTo(step){
   _ccWizardStep=step;
   var bar=document.getElementById('cc-wizard-bar');
   if(bar) bar.innerHTML=_ccRenderWizardBar();
+  _ccUpdateProgressRail();
   var el=document.getElementById('cc-step-'+step);
   if(el) setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'start'});},40);
 }
@@ -27004,6 +27059,7 @@ function _ccCancelEdit(){
   _ccWizardStep=returnStep;
   var bar=document.getElementById('cc-wizard-bar');
   if(bar) bar.innerHTML=_ccRenderWizardBar();
+  _ccUpdateProgressRail();
   var el=document.getElementById('cc-step-'+returnStep);
   if(el) setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'start'});},40);
 }
@@ -27057,6 +27113,11 @@ function _campaignsRenderInner(root){
         '</div>'+
         '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
       '</div>'+
+      '<div style="display:flex;gap:20px;align-items:flex-start">'+
+        '<div id="cc-progress-rail" style="width:164px;flex-shrink:0;position:sticky;top:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding-bottom:12px;overflow:hidden">'+
+          _ccRenderProgressRail()+
+        '</div>'+
+        '<div style="flex:1;min-width:0">'+
       // ── Wizard step bar ────────────────────────────────────────────────────
       '<div id="cc-wizard-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:20px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">'+
         _ccRenderWizardBar()+
@@ -27108,6 +27169,8 @@ function _campaignsRenderInner(root){
       '<div id="cc-flow-banner" style="margin-top:8px"></div>'+
       '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto">'+tabBar+'</div>'+
       '<div id="cc-panel"></div>'+
+        '</div>'+  // end main content column
+      '</div>'+    // end flex wrapper
     '</div>';
   _campSwitchTab(_campActiveTab);
   // Init Step 1 theme picker on first render
