@@ -134,8 +134,8 @@ function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId,
   var blob  = Utilities.newBlob(bytes, mimeType || 'application/octet-stream', filename);
   var file  = subfolder.createFile(blob);
 
-  // Share with anyone who has the link (view only)
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  // Share with anyone who has the link (view only) — skipped silently on Shared Drives
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(se) { Logger.log('[Docs] setSharing skipped: ' + se.message); }
 
   var fileId = file.getId();
   return {

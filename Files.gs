@@ -22,7 +22,7 @@ function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId,
   const subFolder = getOrCreateFolder(typeFolder, subFolderName || sourceId || 'misc');
   const blob = Utilities.newBlob(Utilities.base64Decode(base64data), mimeType, filename);
   const file = subFolder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(se) { Logger.log('[Files] setSharing skipped: ' + se.message); }
   
   return {
     id: file.getId(),
