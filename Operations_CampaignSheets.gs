@@ -117,7 +117,7 @@ var _CC_HDR = {
   ContentCalendar: [
     'id','campaign_id','day_number','scheduled_date','channel',
     'asset_type','asset_id','funnel_stage','pair_id',
-    'theme','publish_day','status','created_at'
+    'theme','publish_day','status','dl_id','utm_url','created_at'
   ],
   CampaignMetrics: [
     'id','campaign_id','week_number','report_date','channel',
@@ -1735,7 +1735,9 @@ function _calRowToObj(r) {
     theme:          String(r[9]  || ''),
     publish_day:    String(r[10] || ''),
     status:         String(r[11] || 'draft'),
-    created_at:     _ccFmtDate(r[12])
+    dl_id:          String(r[12] || ''),
+    utm_url:        String(r[13] || ''),
+    created_at:     _ccFmtDate(r[14])
   };
 }
 
@@ -1776,7 +1778,9 @@ function setContentCalendarEntry(item) {
     item.theme          !== undefined ? item.theme          : (ex ? ex[9]  : ''),
     item.publish_day    !== undefined ? item.publish_day    : (ex ? ex[10] : ''),
     item.status         !== undefined ? item.status         : (ex ? ex[11] : 'draft'),
-    ex ? ex[12] : now
+    item.dl_id          !== undefined ? item.dl_id          : (ex ? ex[12] : ''),
+    item.utm_url        !== undefined ? item.utm_url        : (ex ? ex[13] : ''),
+    ex ? ex[14] : now
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -1789,8 +1793,18 @@ function saveCalendarEntries(body) {
   try {
     var campaignId = body.campaign_id || '';
     var publishDay = body.publish_day || '';
-    var calendar   = body.calendar    || [];
+    var launchDate = body.launch_date || '';
+    var calendar   = body.calendar   || [];
     var saved = 0;
+
+    function _calDate(absDay) {
+      if (!launchDate || absDay === undefined) return '';
+      try {
+        var ld = new Date(launchDate + 'T12:00:00');
+        ld.setDate(ld.getDate() + absDay);
+        return Utilities.formatDate(ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      } catch(e) { return ''; }
+    }
 
     calendar.forEach(function(dayEntry) {
       var absDay = dayEntry.day || 0;
@@ -1800,7 +1814,7 @@ function saveCalendarEntries(body) {
           id:             campaignId + '-em-' + (e.seq_id || (absDay + '-' + saved)),
           campaign_id:    campaignId,
           day_number:     absDay,
-          scheduled_date: '',
+          scheduled_date: e.scheduled_date || _calDate(absDay),
           channel:        'Email',
           asset_type:     'email',
           asset_id:       e.seq_id || '',
@@ -1808,25 +1822,29 @@ function saveCalendarEntries(body) {
           pair_id:        '',
           theme:          e.sequence_code || '',
           publish_day:    publishDay,
-          status:         'draft'
+          status:         'draft',
+          dl_id:          '',
+          utm_url:        ''
         });
         saved++;
       });
 
       (dayEntry.posts || []).forEach(function(p) {
         setContentCalendarEntry({
-          id:             campaignId + '-post-' + (p.post_num || (absDay + '-' + saved)),
+          id:             campaignId + '-post-' + (p.id || p.post_num || (absDay + '-' + saved)),
           campaign_id:    campaignId,
           day_number:     absDay,
-          scheduled_date: '',
-          channel:        p.platform || '',
+          scheduled_date: p.scheduled_date || _calDate(absDay),
+          channel:        p.platform || p.channel || '',
           asset_type:     'social',
-          asset_id:       String(p.post_num || ''),
-          funnel_stage:   p.theme || '',
+          asset_id:       p.id || String(p.post_num || ''),
+          funnel_stage:   p.funnel_stage || p.theme || '',
           pair_id:        '',
-          theme:          p.hook || '',
+          theme:          p.theme || '',
           publish_day:    publishDay,
-          status:         'draft'
+          status:         'draft',
+          dl_id:          p.dl_id   || '',
+          utm_url:        p.utm_url || ''
         });
         saved++;
       });

@@ -115,31 +115,191 @@ function _sbGetSeqOffsets() {
 // ── buildFullSequence ─────────────────────────────────────────────────────────
 
 /**
- * Master entry point. Builds the email calendar and social calendar in sequence,
- * writes all rows to Sheets, and returns the merged day-by-day view.
+ * Master entry point. Builds the email + social calendar in sequence.
+ * If existingPosts are provided (from the Kickstart/Asset Builder tab) they are
+ * scheduled onto the theme timeline instead of regenerating via AI.
+ * If existingEmails are provided they are used as-is.
+ * After building, UTMs from DeepLinkRegistry are stamped onto every post.
  * Returns { ok:true, emails:[...], posts:[...], calendar:[...] }
  */
-function buildFullSequence(brief, copy) {
+function buildFullSequence(brief, copy, existingPosts, existingEmails) {
   try {
     if (!brief) return { ok: false, error: 'brief is required' };
 
-    var emailResult  = buildEmailCalendar(brief, copy);
-    if (!emailResult.ok) return { ok: false, error: 'Email calendar failed: ' + emailResult.error };
+    // ── Emails ──────────────────────────────────────────────────────────────
+    var emailResult;
+    if (Array.isArray(existingEmails) && existingEmails.length > 0) {
+      Logger.log('[buildFullSequence] using ' + existingEmails.length + ' existing emails');
+      emailResult = { ok: true, emails: existingEmails };
+    } else {
+      emailResult = buildEmailCalendar(brief, copy);
+      if (!emailResult.ok) return { ok: false, error: 'Email calendar failed: ' + emailResult.error };
+    }
 
-    var socialResult = buildSocialCalendar(brief, copy);
-    if (!socialResult.ok) return { ok: false, error: 'Social calendar failed: ' + socialResult.error };
+    // ── Posts ───────────────────────────────────────────────────────────────
+    var socialResult;
+    if (Array.isArray(existingPosts) && existingPosts.length > 0) {
+      Logger.log('[buildFullSequence] scheduling ' + existingPosts.length + ' existing posts onto theme timeline');
+      socialResult = _sbScheduleExistingPosts(brief, existingPosts);
+    } else {
+      socialResult = buildSocialCalendar(brief, copy);
+      if (!socialResult.ok) return { ok: false, error: 'Social calendar failed: ' + socialResult.error };
+    }
 
-    var calendar = _sbMergeCalendar(emailResult.emails || [], socialResult.posts || []);
+    // ── Stamp UTMs from DeepLinkRegistry onto every post ────────────────────
+    var posts = _sbAttachUtms(socialResult.posts || [], brief.id || '');
+
+    var calendar = _sbMergeCalendar(emailResult.emails || [], posts);
 
     return {
       ok:       true,
-      emails:   emailResult.emails  || [],
-      posts:    socialResult.posts  || [],
+      emails:   emailResult.emails || [],
+      posts:    posts,
       calendar: calendar
     };
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+/**
+ * Takes pre-built kickstart posts and assigns calendar day offsets from the
+ * theme schedule (same schedule buildSocialCalendar would use).
+ * Writes posts to SocialPosts sheet with correct scheduled dates.
+ * Returns { ok, posts, frequency } matching buildSocialCalendar's shape.
+ */
+function _sbScheduleExistingPosts(brief, existingPosts) {
+  try {
+    var postCount   = existingPosts.length;
+    var frequency   = brief.post_frequency || '3x_week';
+    var seqMode     = _sbNormalizeSeqMode(brief.email_sequences);
+    var activeSeqs  = _SB_SEQ_MAP[seqMode] || _SB_SEQ_MAP['seq1_seq2'];
+    var campaignId  = brief.id || '';
+    var activeWF    = _sbGetWireframe().filter(function(e) { return activeSeqs.indexOf(e.seq) !== -1; });
+    var themeSchedule = _sbBuildSocialSchedule(activeWF, postCount, _sbGetSeqOffsets());
+
+    // Group by channel, preserving per-channel order
+    var channels = [];
+    var byChannel = {};
+    existingPosts.forEach(function(p) {
+      var ch = p.channel || p.platform || brief.channel || '';
+      if (!byChannel[ch]) { byChannel[ch] = []; channels.push(ch); }
+      byChannel[ch].push(p);
+    });
+    channels = channels.filter(function(c, i, a) { return a.indexOf(c) === i; });
+
+    var allPosts = [];
+    var schedIdx = 0;
+
+    channels.forEach(function(channel) {
+      var chPosts = byChannel[channel];
+      var chSlug  = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      chPosts.forEach(function(p, i) {
+        var sched    = themeSchedule[schedIdx] || { day: schedIdx * 2, theme: '' };
+        var absDay   = sched.day;
+        var postId   = campaignId + '-' + chSlug + '-POST-' + String(i + 1).padStart(3, '0');
+
+        var scheduledDate = '';
+        if (brief.launchDate && absDay !== undefined) {
+          try {
+            var ld = new Date(brief.launchDate + 'T12:00:00');
+            ld.setDate(ld.getDate() + absDay);
+            scheduledDate = Utilities.formatDate(ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+          } catch(de) {}
+        }
+
+        var mapped = {
+          id:             postId,
+          campaign_id:    campaignId,
+          platform:       channel,
+          post_num:       i + 1,
+          scheduled_day:  absDay,
+          scheduled_date: scheduledDate,
+          theme:          sched.theme || p.theme || '',
+          funnel_stage:   p.funnel_stage || sched.theme || '',
+          hook:           p.hook         || '',
+          body_copy:      p.body         || p.body_copy || '',
+          cta:            p.cta          || '',
+          hashtags:       p.hashtags     || '',
+          image_brief:    p.image_brief  || ''
+        };
+
+        setSocialPost({
+          id:             postId,
+          campaign_id:    campaignId,
+          platform:       channel,
+          hook:           mapped.hook,
+          body_copy:      mapped.body_copy,
+          cta:            mapped.cta,
+          hashtags:       mapped.hashtags,
+          image_brief:    mapped.image_brief,
+          scheduled_date: scheduledDate,
+          status:         'draft'
+        });
+
+        allPosts.push(mapped);
+        schedIdx++;
+      });
+    });
+
+    return { ok: true, posts: allPosts, frequency: frequency };
+  } catch(e) {
+    Logger.log('[_sbScheduleExistingPosts] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Looks up DeepLinkRegistry for campaignId and stamps each post with its
+ * matching dl_id + utm_url, matching by channel (utm_source) then position.
+ * Non-destructive — posts without a match are returned unchanged.
+ */
+function _sbAttachUtms(posts, campaignId) {
+  if (!campaignId || !posts.length) return posts;
+  try {
+    var dlEntries = getDlRegistry(campaignId).filter(function(e) {
+      return (e.status || '').toUpperCase() === 'ACTIVE' && /post\d+/.test(e.utm_content || '');
+    });
+    if (!dlEntries.length) { Logger.log('[_sbAttachUtms] no ACTIVE post entries for ' + campaignId); return posts; }
+
+    // Group DL entries by utm_source
+    var dlBySource = {};
+    dlEntries.forEach(function(e) {
+      var src = (e.utm_source || '').toLowerCase();
+      if (!dlBySource[src]) dlBySource[src] = [];
+      dlBySource[src].push(e);
+    });
+
+    // Group posts by resolved utm_source for their channel
+    var postsBySource = {};
+    posts.forEach(function(p) {
+      var chData = _getChannelData(p.platform || p.channel || '');
+      var src    = (chData.utm_source || '').toLowerCase();
+      if (!postsBySource[src]) postsBySource[src] = [];
+      postsBySource[src].push(p);
+    });
+
+    // Match each post to its DL entry by position within channel
+    Object.keys(postsBySource).forEach(function(src) {
+      var chPosts = postsBySource[src];
+      var chDls   = dlBySource[src] || [];
+      chPosts.forEach(function(p, idx) {
+        if (chDls[idx]) {
+          p.dl_id   = chDls[idx].dl_id;
+          p.utm_url = (chDls[idx].destination_url || '') +
+            '?utm_source='   + encodeURIComponent(chDls[idx].utm_source   || '') +
+            '&utm_medium='   + encodeURIComponent(chDls[idx].utm_medium   || '') +
+            '&utm_campaign=' + encodeURIComponent(chDls[idx].utm_campaign || '') +
+            '&utm_content='  + encodeURIComponent(chDls[idx].utm_content  || '');
+          Logger.log('[_sbAttachUtms] post ' + (idx+1) + ' (' + (p.platform||p.channel) + ') → ' + p.dl_id);
+        }
+      });
+    });
+  } catch(e) {
+    Logger.log('[_sbAttachUtms] error: ' + e.message);
+  }
+  return posts;
 }
 
 
