@@ -21724,6 +21724,7 @@ function _ccRenderBrief(){
       '<div style="display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap">'+
         '<button id="cc-save-draft-btn" onclick="_ccSaveDraft()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;font-weight:400;cursor:pointer;font-family:\'DM Mono\',monospace">Save Draft</button>'+
         _ccBtn('Save &amp; Generate UTMs →','_ccSaveBrief(true)',true)+
+        '<button id="cc-drive-export-btn" onclick="_ccExportCampaignToDrive()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;font-weight:400;cursor:pointer;font-family:\'DM Mono\',monospace">📁 Export to Drive</button>'+
         '<button id="cc-gen-btn" onclick="_ccGenerateCampaign()" style="background:#000;border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;display:flex;align-items:center;gap:6px;margin-left:auto">✦ Generate Campaign Copy</button>'+
       '</div>'+
       '<div id="cc-save-status" style="margin-top:8px;font-size:11px;font-family:\'DM Mono\',monospace"></div>'+
@@ -21884,6 +21885,43 @@ function _ccSaveDraft(){
     .catch(function(e){
       if(btn){btn.disabled=false;btn.textContent='Save Draft';}
       if(statusEl) statusEl.innerHTML='<span style="color:'+_CC_RED+'">✗ Request failed: '+e.message+'</span>';
+    });
+}
+function _ccExportCampaignToDrive(){
+  if(!CONFIG.sheetsUrl) return;
+  var btn=document.getElementById('cc-drive-export-btn');
+  if(btn){btn.disabled=true;btn.textContent='Exporting…';}
+  var payload={
+    action:'export_to_drive',
+    brief:_campBrief,
+    copy:_campKickstartCopy||{},
+    posts:_ccLastPosts||[],
+    lp:_campLastLp||null,
+    emails:_ccLastEmails||[]
+  };
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
+      if(!d.ok){_showToast('Drive export failed: '+(d.error||'Unknown error'),3000);return;}
+      if(d.drive_url){
+        _campBrief.drive_url=d.drive_url;
+        _sharedDocsCache.push({
+          id:'camp-drive-'+(_campBrief.id||Date.now().toString(36)),
+          taskId:'campaigns',agendaId:'',
+          name:(_campBrief.name||'Campaign')+' — Drive Workspace',
+          url:d.drive_url,previewUrl:'',driveFileId:'',
+          mimeType:'application/vnd.google-apps.folder',
+          reviewNeeded:false,addedBy:'campaign-wizard',
+          addedAt:new Date().toISOString(),folderUrl:d.drive_url
+        });
+        if(typeof _renderSharedDocs==='function') _renderSharedDocs();
+        _showToast('<span style="font-size:12px">📁 Drive workspace ready — <a href="'+d.drive_url+'" target="_blank" style="color:#22c55e;text-decoration:underline">Open folder</a></span>',5000);
+      }
+    })
+    .catch(function(e){
+      if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
+      _showToast('Drive export failed: '+e.message,3000);
     });
 }
 
