@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 var _CAMPAIGNS_ROOT_NAME = 'easyChef Pro Campaigns';
+var _CAMPAIGNS_ROOT_ID   = '1OUu2k1Iv-6nk1APO3sF3qm217YV3sGJf'; // pinned folder ID
 
 /**
  * Main export function. Creates:
@@ -38,10 +39,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
                     'August','September','October','November','December'];
     var monthStr = months[now.getMonth()] + ' ' + year;
 
-    Logger.log('[DriveExport] Step 1a: getFolderById ' + SHARED_DRIVE_FOLDER_ID);
-    var root        = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
-    Logger.log('[DriveExport] Step 1b: getOrCreateFolder campsRoot');
-    var campsRoot   = getOrCreateFolder(root, _CAMPAIGNS_ROOT_NAME);
+    Logger.log('[DriveExport] Step 1a: campaigns root ' + _CAMPAIGNS_ROOT_ID);
+    var campsRoot   = DriveApp.getFolderById(_CAMPAIGNS_ROOT_ID);
     Logger.log('[DriveExport] Step 1c: yearFolder');
     var yearFolder  = getOrCreateFolder(campsRoot, year);
     Logger.log('[DriveExport] Step 1d: monthFolder');

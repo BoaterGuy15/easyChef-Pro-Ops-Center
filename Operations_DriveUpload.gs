@@ -24,7 +24,7 @@ function driveCreateUploadSession(body) {
 
     // Resolve destination folder in Shared Drive
     var root      = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
-    var bucketName = sourceType === 'task' ? 'Tasks' : sourceType === 'agenda' ? 'Agenda' : 'Team Documents';
+    var bucketName = sourceType === 'task' ? 'RACI Task Docs' : sourceType === 'agenda' ? 'Agenda' : 'Team Documents';
     var bucket    = _duGetOrCreate(root, bucketName);
     var label     = (sourceName || sourceId || 'Unknown')
       .replace(/[\/\\:*?"<>|]/g, '').trim().substring(0, 80) || (sourceId || 'misc');

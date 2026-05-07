@@ -11,19 +11,46 @@ function getOrCreateFolder(parentFolder, folderName) {
   return parentFolder.createFolder(folderName);
 }
 
-function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName) {
+// Known Team Documents subfolders (Drive IDs pinned for reliable routing)
+const TEAM_DOCS_FOLDER_ID = '1k8LS8p2NUSpda4QOdo-03M26vWdlUVus';
+const TEAM_DOCS_CATEGORY_IDS = {
+  'Meeting Transcripts': '13BpmsRdamqwHr29p48ypJ9trQDjJe5TA',
+  'Product Docs':        '1k21edP2f_ocaaGv6-F5z7kAEnat_ZQJx',
+  'Brand Assets':        '16S9rAuZ4fKpnFxm_e90C0s3JWXwbV0nj',
+  'Screenshots':         '1nNBP7NmFl9W1FqGOLgsc7-NUssUjemlN',
+  'Slack Archive':       '1hrbndh6a3XrxTvVsXkqzeKz3dq91BQDe'
+};
+
+function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName, category) {
   const root = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
-  const typeFolder = getOrCreateFolder(root, sourceType === 'agenda' ? 'Agenda' : sourceType === 'profile' ? 'Profiles' : 'RACI Task Docs');
-  
-  // Build clean folder name
-  const cleanName = (sourceName||'').replace(/[\/\\:*?"<>|]/g,'').trim();
-  const subFolderName = sourceType === 'profile' ? (cleanName || sourceId) : (cleanName ? (sourceId + ' — ' + cleanName) : sourceId);
-  
-  const subFolder = getOrCreateFolder(typeFolder, subFolderName || sourceId || 'misc');
+
+  var subFolder;
+  if (sourceType === 'shared' || (sourceType !== 'agenda' && sourceType !== 'profile' && sourceType !== 'task' && !sourceId)) {
+    // Docs tab upload — route to Team Documents / [category] /
+    var catId = category ? TEAM_DOCS_CATEGORY_IDS[category] : null;
+    var parent = catId ? DriveApp.getFolderById(catId) : DriveApp.getFolderById(TEAM_DOCS_FOLDER_ID);
+    subFolder = parent;
+  } else if (sourceType === 'agenda') {
+    const typeFolder = getOrCreateFolder(root, 'Agenda');
+    const cleanName = (sourceName||'').replace(/[\/\\:*?"<>|]/g,'').trim();
+    const subFolderName = cleanName ? (sourceId + ' — ' + cleanName) : sourceId;
+    subFolder = getOrCreateFolder(typeFolder, subFolderName || sourceId || 'misc');
+  } else if (sourceType === 'profile') {
+    const typeFolder = getOrCreateFolder(root, 'Profiles');
+    const cleanName = (sourceName||'').replace(/[\/\\:*?"<>|]/g,'').trim();
+    subFolder = getOrCreateFolder(typeFolder, cleanName || sourceId || 'misc');
+  } else {
+    // task (default)
+    const typeFolder = getOrCreateFolder(root, 'RACI Task Docs');
+    const cleanName = (sourceName||'').replace(/[\/\\:*?"<>|]/g,'').trim();
+    const subFolderName = cleanName ? (sourceId + ' — ' + cleanName) : sourceId;
+    subFolder = getOrCreateFolder(typeFolder, subFolderName || sourceId || 'misc');
+  }
+
   const blob = Utilities.newBlob(Utilities.base64Decode(base64data), mimeType, filename);
   const file = subFolder.createFile(blob);
   try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(se) { Logger.log('[Files] setSharing skipped: ' + se.message); }
-  
+
   return {
     id: file.getId(),
     url: file.getUrl(),
