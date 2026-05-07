@@ -159,7 +159,8 @@ function saveCampaignDraft(body) {
       brief_id:     brief.id,
       approved:     brief.approved,
       ml_approved:  brief.ml_approved,
-      assets_built: _utmAssets ? _utmAssets.length : 0
+      assets_built: _utmAssets ? _utmAssets.length : 0,
+      utm_result:   _utmResult || null
     }};
 
   } catch (e) {
