@@ -22295,7 +22295,8 @@ function _ccAutoFillBrief(campaign){
     _campBrief.funnel   = campaign.blueprint||_campBrief.funnel||'';
     _campBrief.channel  = campaign.channel_recommendation||_campBrief.channel||'';
     // Restore channels array: prefer stored array, else build from recommendation
-    if(Array.isArray(campaign.channels)&&campaign.channels.length){
+    // Skip server channels entirely if user has locked their own selection
+    if(!(_campBrief._lockedChannels&&_campBrief._lockedChannels.length)&&Array.isArray(campaign.channels)&&campaign.channels.length){
       var _cSeen={};_campBrief.channels=campaign.channels.filter(function(c){var k=(c||'').toLowerCase();return _cSeen[k]?false:(_cSeen[k]=true);});
     } else if(_campBrief.channel&&(_campBrief.channels||[]).indexOf(_campBrief.channel)<0){
       _campBrief.channels=(_campBrief.channel==='Email')?['Email']:([_campBrief.channel].concat(_campBrief.channels||[]).filter(function(c,i,a){return a.indexOf(c)===i;}));
