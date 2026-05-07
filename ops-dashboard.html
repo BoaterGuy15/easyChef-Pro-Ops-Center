@@ -4446,10 +4446,12 @@ function _clickFolder(cat){
   _sharedDocsFilter=cat;
   _renderSharedDocs();
 }
-function _showFolderCtxMenu(e,cat){
+let _ctxMenuDriveId=null;
+function _showFolderCtxMenu(e,cat,driveId){
   e.preventDefault();
   e.stopPropagation();
   _ctxMenuCat=cat;
+  _ctxMenuDriveId=driveId||null;
   let menu=document.getElementById('folder-ctx-menu');
   if(!menu){
     menu=document.createElement('div');
@@ -4471,6 +4473,7 @@ function _hideFolderCtxMenu(){
   const menu=document.getElementById('folder-ctx-menu');
   if(menu) menu.style.display='none';
   _ctxMenuCat=null;
+  _ctxMenuDriveId=null;
 }
 function _folderCtxRename(){
   const cat=_ctxMenuCat;
@@ -4479,7 +4482,7 @@ function _folderCtxRename(){
   const currentLabel=cat.split('/').pop();
   const newName=prompt('Rename "'+currentLabel+'" to:',currentLabel);
   if(!newName||newName===currentLabel) return;
-  const folderId=_driveFolderIdCache[cat];
+  const folderId=_ctxMenuDriveId||_driveFolderIdCache[cat];
   if(!folderId){alert('Folder ID not found — try clicking ↻ Drive first.');return;}
   fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_rename',folderId,newName})})
     .then(r=>r.json()).then(d=>{
@@ -4493,7 +4496,7 @@ function _folderCtxDelete(){
   if(!cat) return;
   const label=cat.split('/').pop();
   if(!confirm('Move "'+label+'" to Drive trash?\n\nFiles inside will also be trashed.')) return;
-  const folderId=_driveFolderIdCache[cat];
+  const folderId=_ctxMenuDriveId||_driveFolderIdCache[cat];
   if(!folderId){alert('Folder ID not found — try clicking ↻ Drive first.');return;}
   fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_delete',folderId})})
     .then(r=>r.json()).then(d=>{
@@ -4579,7 +4582,7 @@ function _renderDocsSidebar(){
         const safeF=f.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const cfActive=_sharedDocsFilter===f.name;
         const cfCnt=_merged.filter(d=>_sharedDocTag(d)===f.name).length;
-        html+=`<button onclick="_setDocsFilter('${safeF}')" style="${row};background:${cfActive?'rgba(201,168,76,0.15)':'none'};color:${cfActive?'var(--gold-light)':'var(--text)'}">📁&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${f.name}</span>${cfCnt>0?`<span style="font-size:8px;color:${cfActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${cfCnt}</span>`:''}</button>`;
+        html+=`<button onclick="_setDocsFilter('${safeF}')" oncontextmenu="_showFolderCtxMenu(event,'${safeF}','${f.driveId}')" style="${row};background:${cfActive?'rgba(201,168,76,0.15)':'none'};color:${cfActive?'var(--gold-light)':'var(--text)'}">📁&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${f.name}</span>${cfCnt>0?`<span style="font-size:8px;color:${cfActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${cfCnt}</span>`:''}</button>`;
       });
     }
     // Inject custom videos folders after static 'Videos/Other' item
@@ -4588,7 +4591,7 @@ function _renderDocsSidebar(){
         const safeF=f.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const cfActive=_sharedDocsFilter===f.name;
         const cfCnt=_merged.filter(d=>_sharedDocTag(d)===f.name).length;
-        html+=`<button onclick="_setDocsFilter('${safeF}')" style="${row};background:${cfActive?'rgba(201,168,76,0.15)':'none'};color:${cfActive?'var(--gold-light)':'var(--text)'}">📁&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${f.name}</span>${cfCnt>0?`<span style="font-size:8px;color:${cfActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${cfCnt}</span>`:''}</button>`;
+        html+=`<button onclick="_setDocsFilter('${safeF}')" oncontextmenu="_showFolderCtxMenu(event,'${safeF}','${f.driveId}')" style="${row};background:${cfActive?'rgba(201,168,76,0.15)':'none'};color:${cfActive?'var(--gold-light)':'var(--text)'}">📁&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${f.name}</span>${cfCnt>0?`<span style="font-size:8px;color:${cfActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${cfCnt}</span>`:''}</button>`;
       });
     }
   }
