@@ -21838,6 +21838,7 @@ function _ccSaveDraft(){
         return;
       }
       console.log('[CC] save result:',JSON.stringify(d.saved));
+      console.log('[CC] save debug:',JSON.stringify(d.debug));
       var sv=d.saved||{};
       var postsCount=typeof sv.posts==='number'?sv.posts:(_ccLastPosts||[]).length;
       var parts=[];

@@ -155,7 +155,12 @@ function saveCampaignDraft(body) {
       }
     }
 
-    return { ok: true, saved: saved, utms: utms };
+    return { ok: true, saved: saved, utms: utms, debug: {
+      brief_id:     brief.id,
+      approved:     brief.approved,
+      ml_approved:  brief.ml_approved,
+      assets_built: _utmAssets ? _utmAssets.length : 0
+    }};
 
   } catch (e) {
     return { ok: false, error: e.message };
