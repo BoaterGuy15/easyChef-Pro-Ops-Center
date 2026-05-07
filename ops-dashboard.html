@@ -25838,7 +25838,10 @@ function _ccRenderDistribution(){
     ?'<div style="padding:10px 16px;background:rgba(255,0,0,0.07);border:1px solid rgba(255,0,0,0.25);border-radius:8px;font-size:12px;color:'+_CC_RED+';margin-bottom:14px">⚠ No ACTIVE DL_IDs for this campaign. Promote at least one link in <button onclick="_campSwitchTab(\'registry\')" style="background:none;border:none;color:'+_CC_RED+';cursor:pointer;font-size:12px;padding:0;font-family:inherit;text-decoration:underline">Panel 3 — Deep Links</button> before distributing.</div>'
     :'';
 
-  var activeChannels=_ccChannels.filter(function(c){return c.status==='active';});
+  var _briefChNames=(_campBrief.channels||[]).map(function(c){return c.toLowerCase();});
+  var activeChannels=_ccChannels.filter(function(c){
+    return c.status==='active'&&_briefChNames.indexOf(c.name.toLowerCase())>=0;
+  });
 
   function dlsForChannel(ch){
     return allDLs.filter(function(d){
@@ -26034,8 +26037,9 @@ function _ccRenderCalendarResult(d,container){
   }).filter(Boolean).join('');
   window._ccCalData={emails:emails,posts:posts,id:(_campBrief.id||'ec')};
   var csvBtn=
-    '<div style="margin-top:12px">'+
-      '<button onclick="_ccDownloadCalendarCSV()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Download Calendar CSV</button>'+
+    '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'+
+      '<button onclick="_ccDownloadCalendarCSV()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↓ Calendar CSV</button>'+
+      '<button id="cc-export-drive-btn" onclick="_ccExportToDrive()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">📁 Export to Drive</button>'+
     '</div>';
   container.innerHTML=summaryHtml+accordionHtml+csvBtn;
 }
@@ -26043,6 +26047,43 @@ function _ccRenderCalendarResult(d,container){
 function _ccCalToggleWeek(idx){
   var el=document.getElementById('cc-cal-week-'+idx);
   if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
+function _ccExportToDrive(){
+  if(!CONFIG.sheetsUrl) return;
+  var btn=document.getElementById('cc-export-drive-btn');
+  if(btn){btn.disabled=true;btn.textContent='Exporting…';}
+  var payload={
+    action:'export_to_drive',
+    brief:_campBrief,
+    copy:_campKickstartCopy||{},
+    posts:_ccLastPosts||[],
+    lp:_campLastLp||null,
+    emails:_ccLastEmails||[]
+  };
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
+      if(!d.ok){_showToast('Drive export failed: '+(d.error||'Unknown error'),3000);return;}
+      if(d.drive_url){
+        _campBrief.drive_url=d.drive_url;
+        _sharedDocsCache.push({
+          id:'camp-drive-'+(_campBrief.id||Date.now().toString(36)),
+          taskId:'campaigns',agendaId:'',
+          name:(_campBrief.name||'Campaign')+' — Drive Workspace',
+          url:d.drive_url,previewUrl:'',driveFileId:'',
+          mimeType:'application/vnd.google-apps.folder',
+          reviewNeeded:false,addedBy:'campaign-wizard',
+          addedAt:new Date().toISOString(),folderUrl:d.drive_url
+        });
+        if(typeof _renderSharedDocs==='function') _renderSharedDocs();
+        window.open(d.drive_url,'_blank');
+      }
+    })
+    .catch(function(e){
+      if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
+      _showToast('Drive export failed: '+e.message,3000);
+    });
 }
 
 function _ccDownloadCalendarCSV(){
