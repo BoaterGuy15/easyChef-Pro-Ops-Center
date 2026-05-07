@@ -53,6 +53,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     var docUrls   = { folder: folderUrl };
 
     // ── 2. 00 — Campaign Brief ──────────────────────────────────────────────
+    Logger.log('[DriveExport] Section 2: Campaign Brief');
     try {
       var briefDoc  = _newDoc('00 — Campaign Brief', folder);
       var briefBody = briefDoc.getBody();
@@ -92,6 +93,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     } catch(e) { Logger.log('[DriveExport] brief doc error: ' + e.message); }
 
     // ── 3. 01 — Social Posts ────────────────────────────────────────────────
+    Logger.log('[DriveExport] Section 3: Social Posts (' + posts.length + ' posts)');
     try {
       if (posts.length > 0) {
         var postsDoc  = _newDoc('01 — Social Posts', folder);
@@ -119,6 +121,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     } catch(e) { Logger.log('[DriveExport] posts doc error: ' + e.message); }
 
     // ── 4. 02 — Email Sequences ─────────────────────────────────────────────
+    Logger.log('[DriveExport] Section 4: Email Sequences (' + emails.length + ' emails)');
     try {
       if (emails.length > 0) {
         var emailDoc  = _newDoc('02 — Email Sequences', folder);
@@ -157,6 +160,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     } catch(e) { Logger.log('[DriveExport] email doc error: ' + e.message); }
 
     // ── 5. 03 — LP Brief ────────────────────────────────────────────────────
+    Logger.log('[DriveExport] Section 5: LP Brief');
     try {
       if (lp && (lp.hero_headline || lp.slug || lp.solve_section)) {
         var lpDoc  = _newDoc('03 — LP Brief', folder);
@@ -191,7 +195,9 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
     // ── 6. 04 — Campaign Calendar ───────────────────────────────────────────
     try {
+      Logger.log('[DriveExport] Creating spreadsheet: 04 — Campaign Calendar — ' + safeName);
       var calSS   = SpreadsheetApp.create('04 — Campaign Calendar — ' + safeName);
+      Logger.log('[DriveExport] Spreadsheet created: ' + calSS.getId());
       var calFile = DriveApp.getFileById(calSS.getId());
       calFile.moveTo(folder);
       calFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT);
@@ -282,9 +288,14 @@ function _saveCampaignDriveUrl(briefId, driveUrl) {
 // ── Document helpers ──────────────────────────────────────────────────────────
 
 function _newDoc(name, folder) {
-  var doc  = DocumentApp.create(name);
+  Logger.log('[DriveExport] Creating doc: ' + name);
+  var doc = DocumentApp.create(name);
+  Logger.log('[DriveExport] Doc created: ' + doc.getId());
+  Logger.log('[DriveExport] Moving doc to folder: ' + folder.getId());
   DriveApp.getFileById(doc.getId()).moveTo(folder);
+  Logger.log('[DriveExport] Setting sharing for doc: ' + name);
   DriveApp.getFileById(doc.getId()).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT);
+  Logger.log('[DriveExport] Doc ready: ' + name);
   return doc;
 }
 
