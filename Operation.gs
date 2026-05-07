@@ -235,15 +235,16 @@ function _saveFolderDefs(folders) {
   }
 }
 
-// Recursively list all files in a folder up to maxDepth levels of subfolders
-function _scanFolderDeep(folder, cat, maxDepth) {
-  var results = [];
+// Recursively scan a folder into a shared results map {cat:[files]}.
+// Sub-folders get their own category key: parentCat/subFolderName.
+function _scanFolderDeep(folder, cat, maxDepth, map) {
+  if(!map[cat]) map[cat] = [];
   var folderUrl = folder.getUrl();
   try {
     var fileIt = folder.getFiles();
     while(fileIt.hasNext()) {
       var f = fileIt.next();
-      results.push({id:'drive-'+f.getId(), name:f.getName(), url:f.getUrl(),
+      map[cat].push({id:'drive-'+f.getId(), name:f.getName(), url:f.getUrl(),
         previewUrl:'https://drive.google.com/file/d/'+f.getId()+'/preview',
         driveFileId:f.getId(), mimeType:f.getMimeType(), folderUrl:folderUrl,
         addedAt:f.getDateCreated().toISOString(), addedBy:'',
@@ -252,11 +253,11 @@ function _scanFolderDeep(folder, cat, maxDepth) {
     if(maxDepth > 0) {
       var subIt = folder.getFolders();
       while(subIt.hasNext()) {
-        results = results.concat(_scanFolderDeep(subIt.next(), cat, maxDepth - 1));
+        var sub = subIt.next();
+        _scanFolderDeep(sub, cat+'/'+sub.getName(), maxDepth - 1, map);
       }
     }
   } catch(e) { Logger.log('_scanFolderDeep error '+cat+': '+e.message); }
-  return results;
 }
 
 function _getCustomFolders() {
@@ -351,21 +352,21 @@ function doGet(e) {
     if(e.parameter.action === 'custom_folders_read') return respond({ok:true, folders: _getCustomFolders()});
     if(e.parameter.action === 'drive_all_folders_list') {
       try {
-        var _allFolderMap = {};
-        // Category subfolders
-        Object.keys(TEAM_DOCS_CATEGORY_IDS).forEach(function(cat){ _allFolderMap[cat]=TEAM_DOCS_CATEGORY_IDS[cat]; });
-        Object.keys(VIDEOS_CATEGORY_IDS).forEach(function(cat){ _allFolderMap[cat]=VIDEOS_CATEGORY_IDS[cat]; });
-        // Root folders — catch files uploaded before category structure existed
-        _allFolderMap['Other'] = _allFolderMap['Other'] || TEAM_DOCS_FOLDER_ID;
-        _allFolderMap['Videos/Other'] = _allFolderMap['Videos/Other'] || VIDEOS_FOLDER_ID;
-        // Custom folders
-        _getCustomFolders().forEach(function(cf){ if(cf.driveId) _allFolderMap[cf.name]=cf.driveId; });
         var _driveResults = {};
-        Object.keys(_allFolderMap).forEach(function(cat) {
-          try {
-            var _f = DriveApp.getFolderById(_allFolderMap[cat]);
-            _driveResults[cat] = _scanFolderDeep(_f, cat, 3); // recurse 3 levels deep
-          } catch(fe){ _driveResults[cat]=[]; }
+        // Scan each Team Docs category subfolder 3 levels deep (sub-folders become sub-categories)
+        Object.keys(TEAM_DOCS_CATEGORY_IDS).forEach(function(cat){
+          try { _scanFolderDeep(DriveApp.getFolderById(TEAM_DOCS_CATEGORY_IDS[cat]), cat, 3, _driveResults); } catch(fe){}
+        });
+        // Scan each Videos category subfolder 3 levels deep
+        Object.keys(VIDEOS_CATEGORY_IDS).forEach(function(cat){
+          try { _scanFolderDeep(DriveApp.getFolderById(VIDEOS_CATEGORY_IDS[cat]), cat, 3, _driveResults); } catch(fe){}
+        });
+        // Scan root folders at depth 0 only — catches files uploaded before category structure
+        try { _scanFolderDeep(DriveApp.getFolderById(TEAM_DOCS_FOLDER_ID), 'Other', 0, _driveResults); } catch(fe){}
+        try { _scanFolderDeep(DriveApp.getFolderById(VIDEOS_FOLDER_ID), 'Videos/Other', 0, _driveResults); } catch(fe){}
+        // Scan custom folders 3 levels deep
+        _getCustomFolders().forEach(function(cf){
+          if(cf.driveId) try { _scanFolderDeep(DriveApp.getFolderById(cf.driveId), cf.name, 3, _driveResults); } catch(fe){}
         });
         return respond({ok:true, results:_driveResults});
       } catch(err){ return respond({ok:false, error:err.message}); }
