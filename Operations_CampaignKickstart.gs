@@ -67,9 +67,14 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
     urgency:            'urgency_trigger',
     hook:               'social_hook',
     value_proposition:  'lp_hero',
+    value_prop:         'lp_hero',
     primary_headline:   'headline',
     campaign_headline:  'headline',
-    proof_points:       'proof_bar'
+    proof_points:       'proof_bar',
+    lp_slug:            'slug',
+    agitate:            'agitate_block',
+    solve:              'solve_block',
+    key_message:        'subheadline'
   };
   Object.keys(renames).forEach(function(alias) {
     var target = renames[alias];
@@ -78,6 +83,9 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
     }
     delete c[alias];
   });
+
+  // headline — fall back to lp_hero or social_hook if model omitted it
+  if (!c.headline) c.headline = c.lp_hero || c.social_hook || '';
 
   // channels — default by ICP if missing or empty
   if (!Array.isArray(c.channels) || !c.channels.length) {
