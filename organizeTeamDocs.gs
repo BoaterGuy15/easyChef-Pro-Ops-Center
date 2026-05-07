@@ -3,7 +3,7 @@
 // Run renameAgendaToArchive() from the Apps Script editor, then delete this file.
 
 function renameAgendaToArchive() {
-  var ROOT_ID = '1Df-rn-YRUBL9AvkwruikxUZHr7nfu7gf';
+  var ROOT_ID = '1p-unAqDk2pwlz-zO2NLh8uHZkTzFM7_h';
   var root = DriveApp.getFolderById(ROOT_ID);
 
   // List all subfolders so we can see what's there
