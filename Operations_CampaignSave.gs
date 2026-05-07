@@ -119,6 +119,7 @@ function saveCampaignDraft(body) {
     }
 
     // 5 — Auto-generate and activate UTMs when ML approved
+    Logger.log('[CampaignSave] ml_approved check — brief.ml_approved: ' + brief.ml_approved + '  brief.approved: ' + brief.approved + '  brief.id: ' + brief.id);
     var utms = [];
     if ((brief.approved || brief.ml_approved) && brief.id) {
       var _utmAssets = [];
@@ -153,24 +154,7 @@ function saveCampaignDraft(body) {
       }
     }
 
-    // 6 — Auto-export to Drive when ML approved
-    var driveUrl  = '';
-    var driveDocs = {};
-    if ((brief.approved || brief.ml_approved) && brief.id) {
-      try {
-        var _driveResult = exportCampaignToDrive(brief, copy, posts, lp, body.emails || []);
-        if (_driveResult.ok) {
-          driveUrl  = _driveResult.folder_url  || '';
-          driveDocs = _driveResult.doc_urls    || {};
-        } else {
-          Logger.log('[CampaignSave] Drive export failed: ' + (_driveResult.error || 'unknown'));
-        }
-      } catch(e) {
-        Logger.log('[CampaignSave] Drive export exception: ' + e.message);
-      }
-    }
-
-    return { ok: true, saved: saved, utms: utms, drive_url: driveUrl, drive_docs: driveDocs };
+    return { ok: true, saved: saved, utms: utms };
 
   } catch (e) {
     return { ok: false, error: e.message };
