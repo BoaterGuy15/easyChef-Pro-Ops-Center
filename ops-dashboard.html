@@ -1699,7 +1699,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">easyChef Pro library</div>
       </div>
       <div id="docs-sidebar-nav" style="flex:1;overflow-y:auto;scrollbar-width:none;padding:0 8px 16px">
-        <style>#docs-sidebar-nav::-webkit-scrollbar{display:none}#docs-sidebar-nav button{transition:background 0.12s,color 0.12s}#docs-sidebar-nav button:hover{filter:brightness(1.15)}#docs-sidebar-nav button:focus{outline:none}#docs-sidebar-nav button::-moz-focus-inner{border:0}</style>
+        <style>#docs-sidebar-nav::-webkit-scrollbar{display:none}#docs-sidebar-nav button{-webkit-appearance:none;appearance:none;transition:background 0.1s}#docs-sidebar-nav button:hover{background:rgba(255,255,255,0.07)!important}#docs-sidebar-nav button:focus{outline:none;box-shadow:none}#docs-sidebar-nav button::-moz-focus-inner{border:0}</style>
       </div>
     </div>
 
@@ -4492,23 +4492,24 @@ function _folderCtxRename(){
 }
 function _folderCtxDelete(){
   const cat=_ctxMenuCat;
+  const folderId=_ctxMenuDriveId||_driveFolderIdCache[cat];
   _hideFolderCtxMenu();
   if(!cat) return;
   const label=cat.split('/').pop();
-  if(!confirm('Move "'+label+'" to Drive trash?\n\nFiles inside will also be trashed.')) return;
-  const folderId=_ctxMenuDriveId||_driveFolderIdCache[cat];
-  if(!folderId){alert('Folder ID not found — try clicking ↻ Drive first.');return;}
-  // Optimistically remove from local state immediately so sidebar updates at once
-  _customDriveFolders=_customDriveFolders.filter(f=>f.driveId!==folderId&&f.name!==cat);
+  if(!confirm('Delete "'+label+'"?\n\nThis will remove it from the sidebar and trash it in Drive.')) return;
+  // Remove from local state first — sidebar updates instantly regardless of server
+  _customDriveFolders=_customDriveFolders.filter(f=>f.name!==cat&&(f.driveId||'')!==(folderId||'__'));
   try{localStorage.setItem('dgl_custom_drive_folders',JSON.stringify(_customDriveFolders));}catch(_){}
   delete _driveFolderCache[cat];
   delete _driveFolderIdCache[cat];
+  _expandedFolders.delete(cat);
+  _sharedDocsFilter='All';
   _renderSharedDocs();
+  // Fire server delete in background — also removes from sheet
+  if(!folderId) return;
   fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_delete',folderId})})
-    .then(r=>r.json()).then(d=>{
-      if(d.ok) _loadDriveFilesBackground();
-      else alert('Delete failed: '+(d.error||'unknown error'));
-    }).catch(()=>alert('Delete request failed'));
+    .then(r=>r.json()).then(d=>{if(!d.ok) console.warn('Drive delete:',d.error);})
+    .catch(()=>{});
 }
 function _folderCtxAddSub(){
   const cat=_ctxMenuCat;
@@ -4554,7 +4555,7 @@ const _DOCS_NAV=[
 function _renderDocsSidebar(){
   const nav=document.getElementById('docs-sidebar-nav');
   if(!nav) return;
-  const row='display:flex;align-items:center;gap:7px;width:100%;text-align:left;font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 10px;border-radius:7px;border:none;cursor:pointer;box-sizing:border-box;white-space:nowrap;overflow:hidden';
+  const row='display:flex;align-items:center;gap:7px;width:100%;text-align:left;font-family:\'DM Mono\',monospace;font-size:10px;padding:6px 10px;border-radius:7px;border:none;cursor:pointer;box-sizing:border-box;white-space:nowrap;overflow:hidden;-webkit-appearance:none;appearance:none;';
   const plusBtn=(section,parentId)=>`<button onclick="event.stopPropagation();_openCreateFolderModal('${section}','${parentId}')" title="New folder" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 4px;flex-shrink:0">+</button>`;
   let html='';
   for(let i=0;i<_DOCS_NAV.length;i++){
