@@ -136,21 +136,38 @@ function saveCampaignDraft(body) {
         });
       });
       if (_utmAssets.length) {
-        var _utmCode = (brief.name||brief.id||'').toLowerCase()
-          .replace(/['\-]/g,'').replace(/[^a-z0-9]+/g,'_')
-          .replace(/^_+|_+$/g,'').substring(0,50);
-        var _utmResult = generateUtmUrls({
-          brief: {id:brief.id, name:brief.name, channel:brief.channel, slug:brief.slug},
-          assets: _utmAssets,
-          utm_campaign: _utmCode,
-          force: true
-        });
-        if (_utmResult.ok && _utmResult.urls && _utmResult.urls.length) {
-          _utmResult.urls.forEach(function(u) {
-            setDlRegistryEntry({dl_id:u.dl_id, status:'ACTIVE'});
-            u.status = 'ACTIVE';
+        // Return existing ACTIVE DL_IDs — never regenerate unless there are none
+        var _existingDls = getDlRegistry(brief.id);
+        var _activeDls   = _existingDls.filter(function(r){ return (r.status||'').toUpperCase()==='ACTIVE'; });
+        if (_activeDls.length > 0) {
+          utms = _activeDls.map(function(u) {
+            var fullUrl = (u.destination_url||'') +
+              '?utm_source='   + encodeURIComponent(u.utm_source||'') +
+              '&utm_medium='   + encodeURIComponent(u.utm_medium||'') +
+              '&utm_campaign=' + encodeURIComponent(u.utm_campaign||'') +
+              '&utm_content='  + encodeURIComponent(u.utm_content||'');
+            return { dl_id:u.dl_id, utm_content:u.utm_content, asset_name:u.notes||u.utm_content, full_url:fullUrl, status:'ACTIVE' };
           });
-          utms = _utmResult.urls;
+          Logger.log('[CampaignSave] reusing ' + utms.length + ' existing ACTIVE DL_IDs');
+        } else {
+          // No ACTIVE entries yet — generate fresh ones
+          var _utmCode = (brief.name||brief.id||'').toLowerCase()
+            .replace(/['\-]/g,'').replace(/[^a-z0-9]+/g,'_')
+            .replace(/^_+|_+$/g,'').substring(0,50);
+          var _utmResult = generateUtmUrls({
+            brief: {id:brief.id, name:brief.name, channel:brief.channel, slug:brief.slug},
+            assets: _utmAssets,
+            utm_campaign: _utmCode,
+            force: false
+          });
+          if (_utmResult.ok && _utmResult.urls && _utmResult.urls.length) {
+            _utmResult.urls.forEach(function(u) {
+              setDlRegistryEntry({dl_id:u.dl_id, status:'ACTIVE'});
+              u.status = 'ACTIVE';
+            });
+            utms = _utmResult.urls;
+            Logger.log('[CampaignSave] generated ' + utms.length + ' new ACTIVE DL_IDs');
+          }
         }
       }
     }
