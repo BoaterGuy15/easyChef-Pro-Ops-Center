@@ -585,7 +585,8 @@ function doPost(e) {
     }
     if(body.action === 'folder_delete') {
       try {
-        Drive.Files.update({trashed: true}, body.folderId, null, {supportsAllDrives:true});
+        try { DriveApp.getFolderById(body.folderId).setTrashed(true); }
+        catch(e1) { Drive.Files.update({trashed:true}, body.folderId, null, {supportsAllDrives:true}); }
         _removeCustomFolderById(body.folderId);
         return respond({ok:true});
       } catch(e) { return respond({ok:false, error:e.message}); }

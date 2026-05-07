@@ -1699,7 +1699,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px">easyChef Pro library</div>
       </div>
       <div id="docs-sidebar-nav" style="flex:1;overflow-y:auto;scrollbar-width:none;padding:0 8px 16px">
-        <style>#docs-sidebar-nav::-webkit-scrollbar{display:none}</style>
+        <style>#docs-sidebar-nav::-webkit-scrollbar{display:none}#docs-sidebar-nav button{transition:background 0.12s,color 0.12s}#docs-sidebar-nav button:hover{filter:brightness(1.15)}#docs-sidebar-nav button:focus{outline:none}#docs-sidebar-nav button::-moz-focus-inner{border:0}</style>
       </div>
     </div>
 
@@ -4498,6 +4498,12 @@ function _folderCtxDelete(){
   if(!confirm('Move "'+label+'" to Drive trash?\n\nFiles inside will also be trashed.')) return;
   const folderId=_ctxMenuDriveId||_driveFolderIdCache[cat];
   if(!folderId){alert('Folder ID not found — try clicking ↻ Drive first.');return;}
+  // Optimistically remove from local state immediately so sidebar updates at once
+  _customDriveFolders=_customDriveFolders.filter(f=>f.driveId!==folderId&&f.name!==cat);
+  try{localStorage.setItem('dgl_custom_drive_folders',JSON.stringify(_customDriveFolders));}catch(_){}
+  delete _driveFolderCache[cat];
+  delete _driveFolderIdCache[cat];
+  _renderSharedDocs();
   fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_delete',folderId})})
     .then(r=>r.json()).then(d=>{
       if(d.ok) _loadDriveFilesBackground();
