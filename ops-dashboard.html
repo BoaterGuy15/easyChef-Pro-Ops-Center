@@ -4287,8 +4287,10 @@ let _sharedDocsFilter='All';
 let _sharedFolderDefs=(()=>{try{return JSON.parse(localStorage.getItem('dgl_folder_defs')||'[]');}catch(_){return[];}})();
 let _customDriveFolders=(()=>{try{return JSON.parse(localStorage.getItem('dgl_custom_drive_folders')||'[]');}catch(_){return[];}})();
 let _driveFolderCache={};
+let _driveFolderIdCache={};
 let _driveFolderLoading=false;
 let _expandedFolders=new Set();
+let _ctxMenuCat=null;
 let _docsTreeExpanded=new Set();
 // Returns Sheets docs + Drive-only files merged and deduped by driveFileId.
 // When a Drive file matches a Sheets doc, backfills the category on the Sheets doc
@@ -4356,6 +4358,7 @@ function _loadDriveFilesBackground(){
       if(btn){btn.textContent='↻ Drive';btn.disabled=false;}
       if(data.ok&&data.results){
         _driveFolderCache=data.results;
+        if(data.folderIds) _driveFolderIdCache=data.folderIds;
       } else {
         console.warn('[DGL] drive_all_folders_list failed:',data.error||data);
       }
@@ -4443,6 +4446,61 @@ function _clickFolder(cat){
   _sharedDocsFilter=cat;
   _renderSharedDocs();
 }
+function _showFolderCtxMenu(e,cat){
+  e.preventDefault();
+  e.stopPropagation();
+  _ctxMenuCat=cat;
+  let menu=document.getElementById('folder-ctx-menu');
+  if(!menu){
+    menu=document.createElement('div');
+    menu.id='folder-ctx-menu';
+    menu.style.cssText='display:none;position:fixed;z-index:9999;background:#12122a;border:1px solid #333;border-radius:8px;padding:4px;min-width:150px;box-shadow:0 6px 24px rgba(0,0,0,0.6)';
+    const btnStyle='display:block;width:100%;text-align:left;background:none;border:none;color:#ccc;font-family:DM Mono,monospace;font-size:11px;padding:8px 12px;border-radius:5px;cursor:pointer';
+    menu.innerHTML=`<button id="fctx-rename" style="${btnStyle}" onmouseover="this.style.background='rgba(201,168,76,0.15)';this.style.color='#c9a84c'" onmouseout="this.style.background='none';this.style.color='#ccc'" onclick="_folderCtxRename()">✏️&nbsp; Rename</button><button id="fctx-delete" style="${btnStyle}" onmouseover="this.style.background='rgba(220,50,50,0.15)';this.style.color='#e06060'" onmouseout="this.style.background='none';this.style.color='#ccc'" onclick="_folderCtxDelete()">🗑️&nbsp; Delete</button>`;
+    document.body.appendChild(menu);
+    document.addEventListener('click',function(ev){if(!ev.target.closest('#folder-ctx-menu'))_hideFolderCtxMenu();});
+    document.addEventListener('keydown',function(ev){if(ev.key==='Escape')_hideFolderCtxMenu();});
+  }
+  menu.style.display='block';
+  const x=Math.min(e.clientX,window.innerWidth-160);
+  const y=Math.min(e.clientY,window.innerHeight-80);
+  menu.style.left=x+'px';
+  menu.style.top=y+'px';
+}
+function _hideFolderCtxMenu(){
+  const menu=document.getElementById('folder-ctx-menu');
+  if(menu) menu.style.display='none';
+  _ctxMenuCat=null;
+}
+function _folderCtxRename(){
+  const cat=_ctxMenuCat;
+  _hideFolderCtxMenu();
+  if(!cat) return;
+  const currentLabel=cat.split('/').pop();
+  const newName=prompt('Rename "'+currentLabel+'" to:',currentLabel);
+  if(!newName||newName===currentLabel) return;
+  const folderId=_driveFolderIdCache[cat];
+  if(!folderId){alert('Folder ID not found — try clicking ↻ Drive first.');return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_rename',folderId,newName})})
+    .then(r=>r.json()).then(d=>{
+      if(d.ok) _loadDriveFilesBackground();
+      else alert('Rename failed: '+(d.error||'unknown error'));
+    }).catch(()=>alert('Rename request failed'));
+}
+function _folderCtxDelete(){
+  const cat=_ctxMenuCat;
+  _hideFolderCtxMenu();
+  if(!cat) return;
+  const label=cat.split('/').pop();
+  if(!confirm('Move "'+label+'" to Drive trash?\n\nFiles inside will also be trashed.')) return;
+  const folderId=_driveFolderIdCache[cat];
+  if(!folderId){alert('Folder ID not found — try clicking ↻ Drive first.');return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_delete',folderId})})
+    .then(r=>r.json()).then(d=>{
+      if(d.ok) _loadDriveFilesBackground();
+      else alert('Delete failed: '+(d.error||'unknown error'));
+    }).catch(()=>alert('Delete request failed'));
+}
 // ── Static sidebar nav ────────────────────────────────────────
 const _DOCS_NAV=[
   {type:'item',label:'All Files',         cat:'All',                  icon:'🗂️'},
@@ -4499,7 +4557,8 @@ function _renderDocsSidebar(){
     const _isExpanded=_expandedFolders.has(n.cat);
     const _chevron=_hasSubCats?`<span style="font-size:9px;flex-shrink:0;opacity:0.5;transition:transform 0.15s">${_isExpanded?'▾':'▸'}</span>`:'';
     const _clickFn=_hasSubCats?`_clickFolder('${n.cat}')`:`_setDocsFilter('${n.cat}')`;
-    html+=`<button onclick="${_clickFn}" style="${row};background:${active?'rgba(201,168,76,0.15)':'none'};color:${active?'var(--gold-light)':'var(--text)'}">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span>${cnt>0?`<span style="font-size:8px;color:${active?'var(--gold)':'var(--muted)'};flex-shrink:0">${cnt}</span>`:''}${_chevron}</button>`;
+    const _safeCtx=n.cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    html+=`<button onclick="${_clickFn}" oncontextmenu="_showFolderCtxMenu(event,'${_safeCtx}')" style="${row};background:${active?'rgba(201,168,76,0.15)':'none'};color:${active?'var(--gold-light)':'var(--text)'}">${n.icon}&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${n.label}</span>${cnt>0?`<span style="font-size:8px;color:${active?'var(--gold)':'var(--muted)'};flex-shrink:0">${cnt}</span>`:''}${_chevron}</button>`;
     // Sub-categories — only show when expanded
     if(_hasSubCats&&_isExpanded){
       _subCatKeys.sort().forEach(subCat=>{
@@ -4511,7 +4570,7 @@ function _renderDocsSidebar(){
         const subActive=_sharedDocsFilter===subCat||_sharedDocsFilter.startsWith(subCat+'/');
         const subCnt=_merged.filter(d=>_sharedDocTag(d)===subCat||_sharedDocTag(d).startsWith(subCat+'/')).length;
         const arrows='↳'.repeat(depth);
-        html+=`<button onclick="_setDocsFilter('${safeSub}')" style="${row};padding-left:${indent}px;background:${subActive?'rgba(201,168,76,0.12)':'none'};color:${subActive?'var(--gold-light)':'var(--muted)'}"><span style="font-size:9px;flex-shrink:0">${arrows}</span>&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${subLabel}</span>${subCnt>0?`<span style="font-size:8px;color:${subActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${subCnt}</span>`:''}</button>`;
+        html+=`<button onclick="_setDocsFilter('${safeSub}')" oncontextmenu="_showFolderCtxMenu(event,'${safeSub}')" style="${row};padding-left:${indent}px;background:${subActive?'rgba(201,168,76,0.12)':'none'};color:${subActive?'var(--gold-light)':'var(--muted)'}"><span style="font-size:9px;flex-shrink:0">${arrows}</span>&nbsp;<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${subLabel}</span>${subCnt>0?`<span style="font-size:8px;color:${subActive?'var(--gold)':'var(--muted)'};flex-shrink:0">${subCnt}</span>`:''}</button>`;
       });
     }
     // Inject custom team-docs folders after static 'Other' item

@@ -237,8 +237,9 @@ function _saveFolderDefs(folders) {
 
 // Recursively scan a folder into a shared results map {cat:[files]}.
 // Sub-folders get their own category key: parentCat/subFolderName.
-function _scanFolderDeep(folder, cat, maxDepth, map) {
+function _scanFolderDeep(folder, cat, maxDepth, map, folderIds) {
   if(!map[cat]) map[cat] = [];
+  if(folderIds) folderIds[cat] = folder.getId();
   var folderUrl = folder.getUrl();
   try {
     var fileIt = folder.getFiles();
@@ -254,7 +255,7 @@ function _scanFolderDeep(folder, cat, maxDepth, map) {
       var subIt = folder.getFolders();
       while(subIt.hasNext()) {
         var sub = subIt.next();
-        _scanFolderDeep(sub, cat+'/'+sub.getName(), maxDepth - 1, map);
+        _scanFolderDeep(sub, cat+'/'+sub.getName(), maxDepth - 1, map, folderIds);
       }
     }
   } catch(e) { Logger.log('_scanFolderDeep error '+cat+': '+e.message); }
@@ -353,20 +354,21 @@ function doGet(e) {
     if(e.parameter.action === 'drive_all_folders_list') {
       try {
         var _driveResults = {};
+        var _folderIds = {};
         // Scan each Team Docs category subfolder 3 levels deep (sub-folders become sub-categories)
         Object.keys(TEAM_DOCS_CATEGORY_IDS).forEach(function(cat){
-          try { _scanFolderDeep(DriveApp.getFolderById(TEAM_DOCS_CATEGORY_IDS[cat]), cat, 3, _driveResults); } catch(fe){}
+          try { _scanFolderDeep(DriveApp.getFolderById(TEAM_DOCS_CATEGORY_IDS[cat]), cat, 3, _driveResults, _folderIds); } catch(fe){}
         });
         // Scan each Videos category subfolder 3 levels deep
         Object.keys(VIDEOS_CATEGORY_IDS).forEach(function(cat){
-          try { _scanFolderDeep(DriveApp.getFolderById(VIDEOS_CATEGORY_IDS[cat]), cat, 3, _driveResults); } catch(fe){}
+          try { _scanFolderDeep(DriveApp.getFolderById(VIDEOS_CATEGORY_IDS[cat]), cat, 3, _driveResults, _folderIds); } catch(fe){}
         });
         // Scan root folders at depth 0 only — catches files uploaded before category structure
-        try { _scanFolderDeep(DriveApp.getFolderById(TEAM_DOCS_FOLDER_ID), 'Other', 0, _driveResults); } catch(fe){}
-        try { _scanFolderDeep(DriveApp.getFolderById(VIDEOS_FOLDER_ID), 'Videos/Other', 0, _driveResults); } catch(fe){}
+        try { _scanFolderDeep(DriveApp.getFolderById(TEAM_DOCS_FOLDER_ID), 'Other', 0, _driveResults, _folderIds); } catch(fe){}
+        try { _scanFolderDeep(DriveApp.getFolderById(VIDEOS_FOLDER_ID), 'Videos/Other', 0, _driveResults, _folderIds); } catch(fe){}
         // Scan custom folders 3 levels deep
         _getCustomFolders().forEach(function(cf){
-          if(cf.driveId) try { _scanFolderDeep(DriveApp.getFolderById(cf.driveId), cf.name, 3, _driveResults); } catch(fe){}
+          if(cf.driveId) try { _scanFolderDeep(DriveApp.getFolderById(cf.driveId), cf.name, 3, _driveResults, _folderIds); } catch(fe){}
         });
         // Backfill any missing intermediate path segments so sidebar can show nested folders
         Object.keys(_driveResults).slice().forEach(function(key){
@@ -376,7 +378,7 @@ function doGet(e) {
             if(!_driveResults[prefix]) _driveResults[prefix] = [];
           }
         });
-        return respond({ok:true, results:_driveResults});
+        return respond({ok:true, results:_driveResults, folderIds:_folderIds});
       } catch(err){ return respond({ok:false, error:err.message}); }
     }
     if(e.parameter.action === 'slack_archive_search') return respond({ok:true, messages: searchSlackArchive(e.parameter.query||'')});
@@ -552,6 +554,19 @@ function doPost(e) {
         var cfDef={name:cfName,section:body.section||'',driveId:cfFolder.getId(),url:cfFolder.getUrl()};
         _saveCustomFolder(cfDef);
         return respond({ok:true, folder:cfDef});
+      } catch(e) { return respond({ok:false, error:e.message}); }
+    }
+    if(body.action === 'folder_rename') {
+      try {
+        var frFolder = DriveApp.getFolderById(body.folderId);
+        frFolder.setName(body.newName);
+        return respond({ok:true});
+      } catch(e) { return respond({ok:false, error:e.message}); }
+    }
+    if(body.action === 'folder_delete') {
+      try {
+        DriveApp.getFolderById(body.folderId).setTrashed(true);
+        return respond({ok:true});
       } catch(e) { return respond({ok:false, error:e.message}); }
     }
     if(body.action === 'budget_write') { setBudget(body.budget); return respond({ ok: true }); }
