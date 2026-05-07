@@ -25895,7 +25895,8 @@ function _ccRenderDistribution(){
     return allDLs.filter(function(d){
       var chField=_dlChannel(d);
       var id=_dlId(d);
-      return chField===ch.name||((!chField)&&id.indexOf(ch.dl_prefix+'-')===0);
+      var src=(d.utm_source||'').toLowerCase();
+      return chField===ch.name||src===(ch.utm_source||'').toLowerCase()||((!chField)&&id.indexOf(ch.dl_prefix+'-')===0);
     });
   }
 
