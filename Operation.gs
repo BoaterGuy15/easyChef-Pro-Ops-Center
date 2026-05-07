@@ -285,6 +285,26 @@ function _saveCustomFolder(folder) {
   sheet.appendRow([folder.name||'', folder.section||'', folder.driveId||'', folder.url||'']);
 }
 
+function _removeCustomFolderById(driveId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('CustomFolders');
+  if(!sheet || sheet.getLastRow() < 2) return;
+  const data = sheet.getDataRange().getValues();
+  for(var i = data.length - 1; i >= 1; i--) {
+    if(String(data[i][2]) === String(driveId)) sheet.deleteRow(i + 1);
+  }
+}
+
+function _patchCustomFolderName(driveId, newName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('CustomFolders');
+  if(!sheet || sheet.getLastRow() < 2) return;
+  const data = sheet.getDataRange().getValues();
+  for(var i = 1; i < data.length; i++) {
+    if(String(data[i][2]) === String(driveId)) sheet.getRange(i + 1, 1).setValue(newName);
+  }
+}
+
 function doGet(e) {
   try {
     if(e.parameter.code) return doGetSlackOAuth(e);
@@ -558,15 +578,26 @@ function doPost(e) {
     }
     if(body.action === 'folder_rename') {
       try {
-        var frFolder = DriveApp.getFolderById(body.folderId);
-        frFolder.setName(body.newName);
+        Drive.Files.update({name: body.newName}, body.folderId, null, {supportsAllDrives:true});
+        _patchCustomFolderName(body.folderId, body.newName);
         return respond({ok:true});
       } catch(e) { return respond({ok:false, error:e.message}); }
     }
     if(body.action === 'folder_delete') {
       try {
-        DriveApp.getFolderById(body.folderId).setTrashed(true);
+        Drive.Files.update({trashed: true}, body.folderId, null, {supportsAllDrives:true});
+        _removeCustomFolderById(body.folderId);
         return respond({ok:true});
+      } catch(e) { return respond({ok:false, error:e.message}); }
+    }
+    if(body.action === 'subfolder_create') {
+      try {
+        var sfName=(body.name||'').trim();
+        var sfParent=DriveApp.getFolderById(body.parentId);
+        var sfIt=sfParent.getFoldersByName(sfName);
+        var sfFolder=sfIt.hasNext()?sfIt.next():sfParent.createFolder(sfName);
+        try{sfFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);}catch(se){}
+        return respond({ok:true, folderId:sfFolder.getId()});
       } catch(e) { return respond({ok:false, error:e.message}); }
     }
     if(body.action === 'budget_write') { setBudget(body.budget); return respond({ ok: true }); }
