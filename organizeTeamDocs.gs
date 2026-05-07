@@ -1,36 +1,60 @@
-// ONE-TIME DIAGNOSTIC: List full subfolder tree under key Drive folders.
-// Run listDriveTree() and paste the log.
+// ONE-TIME: Fix Drive folder structure.
+// Run fixDriveFolderStructure() from the Apps Script editor, paste log, then cleanup commit.
 
-function listDriveTree() {
-  var roots = [
-    { label: 'Ops.DGL.dev (root)',          id: '1Df-rn-YRUBL9AvkwruikxUZHr7nfu7gf' },
-    { label: 'Team Documents',               id: '1aEpsK07UjYtiitntt56ezq6wxK3Blt7Z' },
-    { label: 'RACI-WorkFlow',                id: '1p-unAqDk2pwlz-zO2NLh8uHZkTzFM7_h' },
-    { label: 'easyChef Pro Campaigns',       id: '1OUu2k1Iv-6nk1APO3sF3qm217YV3sGJf' }
+function fixDriveFolderStructure() {
+  var CORRECT_TEAM_DOCS = '1aEpsK07UjYtiitntt56ezq6wxK3Blt7Z'; // Ops.DGL.dev/Team Documents
+  var OLD_TEAM_DOCS     = '1k8LS8p2NUSpda4QOdo-03M26vWdlUVus'; // wrongly inside Archive
+
+  var dest = DriveApp.getFolderById(CORRECT_TEAM_DOCS);
+  var src  = DriveApp.getFolderById(OLD_TEAM_DOCS);
+
+  // 1. Move all subfolders from old location to correct Team Documents
+  var subs = src.getFolders();
+  while (subs.hasNext()) {
+    var sub  = subs.next();
+    var name = sub.getName();
+    try {
+      sub.moveTo(dest);
+      Logger.log('[MOVED] "' + name + '" → Team Documents');
+    } catch(e) { Logger.log('[ERROR] Move "' + name + '": ' + e.message); }
+  }
+
+  // 2. Move any loose files too
+  var files = src.getFiles();
+  while (files.hasNext()) {
+    var f = files.next();
+    try {
+      f.moveTo(dest);
+      Logger.log('[MOVED FILE] ' + f.getName());
+    } catch(e) { Logger.log('[ERROR] Move file: ' + e.message); }
+  }
+
+  // 3. Trash the now-empty old Team Documents folder
+  try {
+    src.setTrashed(true);
+    Logger.log('[DELETED] Old Team Documents folder from Archive');
+  } catch(e) { Logger.log('[ERROR] Trash old folder: ' + e.message); }
+
+  // 4. Rename the stray nested "Team Documents" inside correct Team Documents → "Training Videos"
+  try {
+    DriveApp.getFolderById('1pn4XfPxA_vJEleq4MltI-dhZykanzDUc').setName('Training Videos');
+    Logger.log('[RENAMED] Nested Team Documents → Training Videos');
+  } catch(e) { Logger.log('[ERROR] Rename nested folder: ' + e.message); }
+
+  // 5. Clean up duplicate RACI Task Docs folders (keep first, trash second)
+  var dupes = [
+    { name: 'T-048', keep: '1pc3p6SRniHI3XierMJFrPyuVT_2kPej4', del: '1Z1-aP_JJCojXyYpr1Pj8R6glH346vQ-g' },
+    { name: 'T-005', keep: '1fu0m6RTCcP_jrzhX2M3mFRInF9VOnNps',  del: '1Cr4ubwySqUUtOhdLQAeyaxdW5Ast2GER'  },
+    { name: 'T-004', keep: '1rqEW6cfFsgwPbkS-ZA-qp6jlBPqgS8Rz',  del: '1JTafF8wjbwvPd4ZnJshV8gAH11mN2Njp'  },
+    { name: 'T-002', keep: '1eML0lMw1r6apy5eu6Deh5vtI7TsCJ3HF',   del: '1mOi6LJXWJNvRFGdC_quX03WXnSUSbYzK'  }
   ];
-
-  roots.forEach(function(r) {
-    Logger.log('');
-    Logger.log('══ ' + r.label + ' (' + r.id + ') ══');
-    var folder = DriveApp.getFolderById(r.id);
-    Logger.log('  Name: ' + folder.getName());
-    var subs = folder.getFolders();
-    if (!subs.hasNext()) { Logger.log('  (no subfolders)'); }
-    while (subs.hasNext()) {
-      var sub = subs.next();
-      Logger.log('  [FOLDER] ' + sub.getName() + ' — ' + sub.getId());
-      var subsubs = sub.getFolders();
-      while (subsubs.hasNext()) {
-        var ss = subsubs.next();
-        Logger.log('    [FOLDER] ' + ss.getName() + ' — ' + ss.getId());
-      }
-    }
-    var files = folder.getFiles();
-    var fc = 0;
-    while (files.hasNext()) { files.next(); fc++; }
-    if (fc > 0) Logger.log('  (' + fc + ' files at root level)');
+  dupes.forEach(function(d) {
+    try {
+      DriveApp.getFolderById(d.del).setTrashed(true);
+      Logger.log('[DELETED] Duplicate ' + d.name + ' (' + d.del + ')');
+    } catch(e) { Logger.log('[ERROR] Delete ' + d.name + ' duplicate: ' + e.message); }
   });
 
   Logger.log('');
-  Logger.log('listDriveTree complete.');
+  Logger.log('fixDriveFolderStructure complete.');
 }
