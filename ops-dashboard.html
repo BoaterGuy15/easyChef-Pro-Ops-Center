@@ -4452,77 +4452,115 @@ function _showFolderCtxMenu(e,cat,driveId){
   e.stopPropagation();
   _ctxMenuCat=cat;
   _ctxMenuDriveId=driveId||null;
-  let menu=document.getElementById('folder-ctx-menu');
-  if(!menu){
-    menu=document.createElement('div');
-    menu.id='folder-ctx-menu';
-    menu.style.cssText='display:none;position:fixed;z-index:9999;background:#12122a;border:1px solid #333;border-radius:8px;padding:4px;min-width:150px;box-shadow:0 6px 24px rgba(0,0,0,0.6)';
-    const btnStyle='display:block;width:100%;text-align:left;background:none;border:none;color:#ccc;font-family:DM Mono,monospace;font-size:11px;padding:8px 12px;border-radius:5px;cursor:pointer';
-    menu.innerHTML=`<button style="${btnStyle}" onmouseover="this.style.background='rgba(201,168,76,0.15)';this.style.color='#c9a84c'" onmouseout="this.style.background='none';this.style.color='#ccc'" onclick="_folderCtxRename()">✏️&nbsp; Rename</button><button style="${btnStyle}" onmouseover="this.style.background='rgba(100,180,100,0.15)';this.style.color='#88cc88'" onmouseout="this.style.background='none';this.style.color='#ccc'" onclick="_folderCtxAddSub()">📁&nbsp; Add Subfolder</button><div style="height:1px;background:#333;margin:3px 0"></div><button style="${btnStyle}" onmouseover="this.style.background='rgba(220,50,50,0.15)';this.style.color='#e06060'" onmouseout="this.style.background='none';this.style.color='#ccc'" onclick="_folderCtxDelete()">🗑️&nbsp; Delete</button>`;
-    document.body.appendChild(menu);
-    document.addEventListener('click',function(ev){if(!ev.target.closest('#folder-ctx-menu'))_hideFolderCtxMenu();});
-    document.addEventListener('keydown',function(ev){if(ev.key==='Escape')_hideFolderCtxMenu();});
-  }
-  menu.style.display='block';
-  const x=Math.min(e.clientX,window.innerWidth-160);
-  const y=Math.min(e.clientY,window.innerHeight-80);
+  // Rebuild menu fresh each time so listeners are current
+  const old=document.getElementById('folder-ctx-menu');
+  if(old) old.remove();
+  const menu=document.createElement('div');
+  menu.id='folder-ctx-menu';
+  menu.style.cssText='position:fixed;z-index:9999;background:#12122a;border:1px solid #2a2a4a;border-radius:10px;padding:5px;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,0.7)';
+  const mkBtn=(label,hoverColor)=>{
+    const b=document.createElement('button');
+    b.style.cssText='display:block;width:100%;text-align:left;background:none;border:none;color:#ccc;font-family:DM Mono,monospace;font-size:11px;padding:9px 13px;border-radius:6px;cursor:pointer;-webkit-appearance:none;appearance:none';
+    b.innerHTML=label;
+    b.addEventListener('mouseenter',()=>{b.style.background=hoverColor;b.style.color='#fff';});
+    b.addEventListener('mouseleave',()=>{b.style.background='none';b.style.color='#ccc';});
+    return b;
+  };
+  const label=cat.split('/').pop();
+  const title=document.createElement('div');
+  title.style.cssText='font-family:DM Mono,monospace;font-size:9px;color:#666;padding:5px 13px 3px;letter-spacing:1px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  title.textContent=label;
+  menu.appendChild(title);
+  const sep=()=>{const d=document.createElement('div');d.style.cssText='height:1px;background:#222;margin:3px 0';return d;};
+  const btnRename=mkBtn('✏️&nbsp;&nbsp;Rename','rgba(201,168,76,0.2)');
+  const btnSub=mkBtn('📁&nbsp;&nbsp;Add Subfolder','rgba(80,160,80,0.2)');
+  menu.appendChild(sep());
+  menu.appendChild(btnRename);
+  menu.appendChild(btnSub);
+  menu.appendChild(sep());
+  // Delete shows inline confirm inside menu
+  const btnDel=mkBtn('🗑️&nbsp;&nbsp;Delete','rgba(200,50,50,0.2)');
+  btnDel.style.color='#e08080';
+  menu.appendChild(btnDel);
+  document.body.appendChild(menu);
+  const x=Math.min(e.clientX,window.innerWidth-180);
+  const y=Math.min(e.clientY,window.innerHeight-160);
   menu.style.left=x+'px';
   menu.style.top=y+'px';
+  // Wire actions
+  btnRename.addEventListener('click',function(ev){
+    ev.stopPropagation();
+    const c=_ctxMenuCat, fid=_ctxMenuDriveId||_driveFolderIdCache[c];
+    _hideFolderCtxMenu();
+    if(!c) return;
+    const cur=c.split('/').pop();
+    const nv=prompt('Rename "'+cur+'" to:',cur);
+    if(!nv||nv===cur) return;
+    if(!fid){alert('Folder ID not found — click ↻ Drive first.');return;}
+    fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_rename',folderId:fid,newName:nv})})
+      .then(r=>r.json()).then(d=>{if(d.ok)_loadDriveFilesBackground();else alert('Rename failed: '+(d.error||'?'));})
+      .catch(()=>alert('Rename request failed'));
+  });
+  btnSub.addEventListener('click',function(ev){
+    ev.stopPropagation();
+    const c=_ctxMenuCat, pid=_ctxMenuDriveId||_driveFolderIdCache[c];
+    _hideFolderCtxMenu();
+    if(!c||!pid){alert('Folder ID not found — click ↻ Drive first.');return;}
+    const nm=(prompt('New subfolder name:')||'').trim();
+    if(!nm) return;
+    fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'subfolder_create',name:nm,parentId:pid})})
+      .then(r=>r.json()).then(d=>{if(d.ok){_expandedFolders.add(c);_loadDriveFilesBackground();}else alert('Failed: '+(d.error||'?'));})
+      .catch(()=>alert('Request failed'));
+  });
+  btnDel.addEventListener('click',function(ev){
+    ev.stopPropagation();
+    const c=_ctxMenuCat, fid=_ctxMenuDriveId||_driveFolderIdCache[c];
+    // Replace menu content with inline confirm
+    menu.innerHTML='';
+    menu.style.padding='12px 14px';
+    const msg=document.createElement('div');
+    msg.style.cssText='font-family:DM Mono,monospace;font-size:11px;color:#ccc;margin-bottom:12px;line-height:1.5';
+    msg.textContent='Delete "'+c.split('/').pop()+'"?';
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;gap:8px';
+    const yes=document.createElement('button');
+    yes.textContent='Delete';
+    yes.style.cssText='flex:1;padding:7px;border:none;border-radius:6px;background:#8b2020;color:#fff;font-family:DM Mono,monospace;font-size:11px;cursor:pointer';
+    const no=document.createElement('button');
+    no.textContent='Cancel';
+    no.style.cssText='flex:1;padding:7px;border:1px solid #333;border-radius:6px;background:none;color:#ccc;font-family:DM Mono,monospace;font-size:11px;cursor:pointer';
+    row.appendChild(yes);row.appendChild(no);
+    menu.appendChild(msg);menu.appendChild(row);
+    no.addEventListener('click',function(){_hideFolderCtxMenu();});
+    yes.addEventListener('click',function(){
+      _hideFolderCtxMenu();
+      _customDriveFolders=_customDriveFolders.filter(f=>f.name!==c&&(f.driveId||'')!==(fid||'__'));
+      try{localStorage.setItem('dgl_custom_drive_folders',JSON.stringify(_customDriveFolders));}catch(_){}
+      delete _driveFolderCache[c];delete _driveFolderIdCache[c];_expandedFolders.delete(c);
+      _sharedDocsFilter='All';_renderSharedDocs();
+      if(!fid) return;
+      fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_delete',folderId:fid})})
+        .then(r=>r.json()).then(d=>{if(d.ok)_loadDriveFilesBackground();else console.warn('Drive delete:',d.error);})
+        .catch(()=>{});
+    });
+  });
+  // Dismiss on outside click
+  setTimeout(()=>{
+    document.addEventListener('click',function _ctxDismiss(ev){
+      if(!document.getElementById('folder-ctx-menu')?.contains(ev.target)){
+        _hideFolderCtxMenu();
+        document.removeEventListener('click',_ctxDismiss);
+      }
+    });
+  },0);
+  document.addEventListener('keydown',function _ctxKey(ev){
+    if(ev.key==='Escape'){_hideFolderCtxMenu();document.removeEventListener('keydown',_ctxKey);}
+  });
 }
 function _hideFolderCtxMenu(){
   const menu=document.getElementById('folder-ctx-menu');
-  if(menu) menu.style.display='none';
-  _ctxMenuCat=null;
-  _ctxMenuDriveId=null;
-}
-function _folderCtxRename(){
-  const cat=_ctxMenuCat;
-  _hideFolderCtxMenu();
-  if(!cat) return;
-  const currentLabel=cat.split('/').pop();
-  const newName=prompt('Rename "'+currentLabel+'" to:',currentLabel);
-  if(!newName||newName===currentLabel) return;
-  const folderId=_ctxMenuDriveId||_driveFolderIdCache[cat];
-  if(!folderId){alert('Folder ID not found — try clicking ↻ Drive first.');return;}
-  fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_rename',folderId,newName})})
-    .then(r=>r.json()).then(d=>{
-      if(d.ok) _loadDriveFilesBackground();
-      else alert('Rename failed: '+(d.error||'unknown error'));
-    }).catch(()=>alert('Rename request failed'));
-}
-function _folderCtxDelete(){
-  const cat=_ctxMenuCat;
-  const folderId=_ctxMenuDriveId||_driveFolderIdCache[cat];
-  _hideFolderCtxMenu();
-  if(!cat) return;
-  const label=cat.split('/').pop();
-  if(!confirm('Delete "'+label+'"?\n\nThis will remove it from the sidebar and trash it in Drive.')) return;
-  // Remove from local state first — sidebar updates instantly regardless of server
-  _customDriveFolders=_customDriveFolders.filter(f=>f.name!==cat&&(f.driveId||'')!==(folderId||'__'));
-  try{localStorage.setItem('dgl_custom_drive_folders',JSON.stringify(_customDriveFolders));}catch(_){}
-  delete _driveFolderCache[cat];
-  delete _driveFolderIdCache[cat];
-  _expandedFolders.delete(cat);
-  _sharedDocsFilter='All';
-  _renderSharedDocs();
-  // Fire server delete in background — also removes from sheet
-  if(!folderId) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'folder_delete',folderId})})
-    .then(r=>r.json()).then(d=>{if(!d.ok) console.warn('Drive delete:',d.error);})
-    .catch(()=>{});
-}
-function _folderCtxAddSub(){
-  const cat=_ctxMenuCat;
-  const parentId=_ctxMenuDriveId||_driveFolderIdCache[cat];
-  _hideFolderCtxMenu();
-  if(!cat||!parentId){alert('Folder ID not found — try clicking ↻ Drive first.');return;}
-  const name=(prompt('New subfolder name:')||'').trim();
-  if(!name) return;
-  fetch(CONFIG.sheetsUrl,{method:'POST',body:JSON.stringify({action:'subfolder_create',name,parentId})})
-    .then(r=>r.json()).then(d=>{
-      if(d.ok){_expandedFolders.add(cat);_loadDriveFilesBackground();}
-      else alert('Create failed: '+(d.error||'unknown error'));
-    }).catch(()=>alert('Request failed'));
+  if(menu) menu.remove();
+  _ctxMenuCat=null;_ctxMenuDriveId=null;
 }
 // ── Static sidebar nav ────────────────────────────────────────
 const _DOCS_NAV=[
@@ -4832,29 +4870,6 @@ function _showDocsCtxMenu(e,docId){
     +(canDel?sep+`<button style="${iS};color:var(--red,#ef4444)" onmouseenter="this.style.background='rgba(239,68,68,0.1)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_deleteSharedDoc('${docId}')">🗑️&nbsp; Delete</button>`:'');
   const x=Math.min(e.clientX,window.innerWidth-200);
   const y=Math.min(e.clientY,window.innerHeight-200);
-  menu.style.left=x+'px';
-  menu.style.top=y+'px';
-  menu.style.display='block';
-  setTimeout(()=>{
-    document.addEventListener('click',_hideDocsCtxMenu,false);
-    document.addEventListener('keydown',_docsCtxEsc,true);
-  },10);
-}
-function _showFolderCtxMenu(e,folderName){
-  e.preventDefault();
-  e.stopPropagation();
-  const menu=_getDocsCtxMenu();
-  const isRoot=!folderName.includes('/');
-  const iS="display:block;width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:10px;padding:8px 16px;background:none;border:none;color:var(--text);cursor:pointer;white-space:nowrap;box-sizing:border-box";
-  const sep=`<div style="border-top:1px solid var(--border);margin:3px 0"></div>`;
-  const safeN=folderName.replace(/'/g,"\\'");
-  menu.innerHTML=
-    `<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_editSharedFolder('${safeN}')">✏️&nbsp; Rename folder</button>`
-    +(isRoot?`<button style="${iS}" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_addSharedFolder('${safeN}')">📁&nbsp; Add subfolder</button>`:'')
-    +sep
-    +`<button style="${iS};color:var(--red,#ef4444)" onmouseenter="this.style.background='rgba(239,68,68,0.1)'" onmouseleave="this.style.background=''" onclick="_hideDocsCtxMenu();_deleteSharedFolder('${safeN}')">🗑️&nbsp; Delete folder</button>`;
-  const x=Math.min(e.clientX,window.innerWidth-200);
-  const y=Math.min(e.clientY,window.innerHeight-160);
   menu.style.left=x+'px';
   menu.style.top=y+'px';
   menu.style.display='block';
