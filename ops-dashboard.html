@@ -26182,7 +26182,7 @@ function _ccActivateAllDraft(){
 
 // ── Panel 3: Deep Link Registry ─────────────────────────────────────────────
 function _ccRenderRegistry(){
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=deeplinks_read').then(function(r){return r.json();}).then(function(d){if(Array.isArray(d.entries)){_campDLCache=d.entries;_ccRedrawReg();}}).catch(function(){});
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'dl_registry_read',campaign_id:_campBrief.id})}).then(function(r){return r.json();}).then(function(d){if(d.ok&&Array.isArray(d.registry)){_campDLCache=d.registry;_ccRedrawReg();}}).catch(function(){});
   return '<div style="width:100%">'+_ccSecHdr('📎 Panel 3 — Deep Link Registry')+'<div id="cc-reg-wrap"><div style="color:var(--muted);font-size:12px;padding:20px">Loading…</div></div></div>';
 }
 function _ccRedrawReg(){
@@ -27642,8 +27642,8 @@ function _campSwitchTab(t){
   else if(t==='tracking') panel.innerHTML=_ccRenderTracking();
   else if(t==='distribution'){
     panel.innerHTML=_ccRenderDistribution();
-    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl+'?action=deeplinks_read').then(function(r){return r.json();}).then(function(d){
-      if(Array.isArray(d.entries)){_campDLCache=d.entries;if(_campActiveTab==='distribution'){var _p=_ccEl('cc-panel');if(_p)_p.innerHTML=_ccRenderDistribution();}}
+    if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'dl_registry_read',campaign_id:_campBrief.id})}).then(function(r){return r.json();}).then(function(d){
+      if(d.ok&&Array.isArray(d.registry)){_campDLCache=d.registry;if(_campActiveTab==='distribution'){var _p=_ccEl('cc-panel');if(_p)_p.innerHTML=_ccRenderDistribution();}}
     }).catch(function(){});
   }
   else if(t==='performance') panel.innerHTML=_ccRenderPerformance();
