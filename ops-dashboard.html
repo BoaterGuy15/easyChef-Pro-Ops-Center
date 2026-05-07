@@ -21648,7 +21648,8 @@ var _ccEditorState={};  // per-post editor state: {tab, prefix}
 var _ccDrawHistory={};  // per-post undo stacks for draw tool
 var _ccChFormMode=null; // null=none, '__new__'=add form, channel_name=editing that row
 var _ccBlueprintConfigs=[];
-var _CC_SEQ_NAMES={'SEQ-1':'SEQ-1 Welcome','SEQ-2':'SEQ-2 Nurture','SEQ-3':'SEQ-3 Urgency','SEQ-4':'SEQ-4 Launch Day'};
+var _CC_SEQ_NAMES={'SEQ-1':'SEQ-1 Welcome','SEQ-2':'SEQ-2 Nurture','SEQ-3':'SEQ-3 Urgency','SEQ-4':'SEQ-4 Launch Day','SEQ-5':'SEQ-5 Campaign'};
+var _CC_SEQ_MODE_MAP={'seq1_only':['SEQ-1'],'seq1_seq2':['SEQ-1','SEQ-2'],'seq1_seq2_seq3':['SEQ-1','SEQ-2','SEQ-3'],'full':['SEQ-1','SEQ-2','SEQ-3','SEQ-4'],'seq5_only':['SEQ-5']};
 
 // ── CC shared helpers ───────────────────────────────────────────────────────
 function _ccEl(id){return document.getElementById(id);}
@@ -22481,6 +22482,17 @@ function _ccOnBlueprintChange(){
   }
   // Auto-set Email Sequences count
   var seqList=(bp.sequences_included||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  if(seqList.length){
+    var _modeKey=Object.keys(_CC_SEQ_MODE_MAP).filter(function(k){
+      var v=_CC_SEQ_MODE_MAP[k];
+      return v.length===seqList.length&&seqList.every(function(s){return v.indexOf(s)!==-1;});
+    })[0]||null;
+    if(_modeKey){
+      _campBrief.email_sequences=_modeKey;
+      var _seqEl=document.getElementById('cc-email-seqs');
+      if(_seqEl) _seqEl.value=_modeKey;
+    }
+  }
   // Show summary
   if(summary){
     var seqStr=seqList.map(function(s){return _CC_SEQ_NAMES[s]||s;}).join(' → ');
@@ -23180,16 +23192,23 @@ var _CC_EMAIL_SEQ_DEFS=[
   {key:'SEQ-2',label:'SEQ-2 Nurture',    days:'Days 7–25', defaultCount:5},
   {key:'SEQ-3',label:'SEQ-3 Urgency',    days:'Days 28–40',defaultCount:3},
   {key:'SEQ-4',label:'SEQ-4 Launch Day', days:'Day 42',    defaultCount:2},
-  {key:'SEQ-5',label:'SEQ-5 Campaign',   days:'Days 2–9',  defaultCount:4}
+  {key:'SEQ-5',label:'SEQ-5 Campaign',   days:'Days 2–9',  defaultCount:2}
 ];
 var _ccEmailOpts=null; // {sequences:{SEQ-1:{label,days,enabled,count},...},variants:'AB'|'A'}
 
 function _ccInitEmailOpts(){
-  var numSeqs=parseInt(_campBrief.email_sequences)||2;
   var numVars=parseInt(_campBrief.email_variants)||2;
   _ccEmailOpts={sequences:{},variants:numVars>=2?'AB':'A'};
+  var mode=_campBrief.email_sequences||'seq1_seq2';
+  var enabledList=_CC_SEQ_MODE_MAP[mode]||null;
   _CC_EMAIL_SEQ_DEFS.forEach(function(def,i){
-    var enabled=def.key==='SEQ-5'?!!((_ccSelectedTheme&&_ccSelectedTheme.theme_name)):i<numSeqs;
+    var enabled;
+    if(enabledList){
+      enabled=enabledList.indexOf(def.key)!==-1;
+    } else {
+      var numSeqs=parseInt(mode)||2;
+      enabled=def.key==='SEQ-5'?!!((_ccSelectedTheme&&_ccSelectedTheme.theme_name)):i<numSeqs;
+    }
     _ccEmailOpts.sequences[def.key]={label:def.label,days:def.days,enabled:enabled,count:def.defaultCount};
   });
 }
@@ -26358,7 +26377,7 @@ function _ccCopyText(text){
 
 function _ccCalEmailCount(){
   var s=_campBrief.email_sequences||'seq1_seq2';
-  var map={'seq1_only':3,'seq1_seq2':8,'seq1_seq2_seq3':12,'full':13};
+  var map={'seq1_only':3,'seq1_seq2':8,'seq1_seq2_seq3':12,'full':13,'seq5_only':2};
   if(map[s]) return map[s];
   var n=parseInt(s,10);
   if(isNaN(n)) return 8;

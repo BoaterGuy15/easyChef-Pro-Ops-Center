@@ -11,7 +11,8 @@ var _SB_SEQ_MAP = {
   'seq1_only':      ['SEQ-1'],
   'seq1_seq2':      ['SEQ-1','SEQ-2'],
   'seq1_seq2_seq3': ['SEQ-1','SEQ-2','SEQ-3'],
-  'full':           ['SEQ-1','SEQ-2','SEQ-3','SEQ-4']
+  'full':           ['SEQ-1','SEQ-2','SEQ-3','SEQ-4'],
+  'seq5_only':      ['SEQ-5']
 };
 
 // ── Per-execution caches — loaded from FunnelStages sheet on first call ───────
@@ -84,7 +85,14 @@ function _sbGetWireframe() {
     // SEQ-4 — Launch Day (trigger: july_1_launch — July 1)
     { seq:'SEQ-4', num:1, global:13, day:0,
       role: role('hook',    'App is live — download now — celebrate with them, lead with the win'),
-      trigger:'july_1_launch',   theme:'launch',        stage:'hook'  }
+      trigger:'july_1_launch',   theme:'launch',        stage:'hook'  },
+    // SEQ-5 — Re-engagement Campaign (trigger: campaign-specific)
+    { seq:'SEQ-5', num:1, global:14, day:2,
+      role:'Re-engagement hook — remind them why they signed up, surface a specific win or new insight',
+      trigger:'campaign_trigger', theme:'reengagement',       stage:'hook' },
+    { seq:'SEQ-5', num:2, global:15, day:9,
+      role:'Re-engagement close — clear next step, specific offer or action, low pressure',
+      trigger:'campaign_trigger', theme:'reengagement_close', stage:'cta'  }
   ];
 
   return _sbWireframeCache;
@@ -107,7 +115,7 @@ function _sbGetSeqOffsets() {
       }
     }
   } catch(e) {}
-  _sbSeqOffsetsCache = { 'SEQ-1': 0, 'SEQ-2': 0, 'SEQ-3': ctaOffset, 'SEQ-4': ctaOffset + 14 };
+  _sbSeqOffsetsCache = { 'SEQ-1': 0, 'SEQ-2': 0, 'SEQ-3': ctaOffset, 'SEQ-4': ctaOffset + 14, 'SEQ-5': 0 };
   return _sbSeqOffsetsCache;
 }
 
