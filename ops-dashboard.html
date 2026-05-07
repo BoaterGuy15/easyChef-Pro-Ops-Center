@@ -4355,14 +4355,8 @@ function _loadDriveFilesBackground(){
       if(btn){btn.textContent='↻ Drive';btn.disabled=false;}
       if(data.ok&&data.results){
         _driveFolderCache=data.results;
-        const total=Object.values(data.results).reduce((s,a)=>s+(a.length||0),0);
-        const keys=Object.keys(data.results).sort();
-        const subKeys=keys.filter(k=>k.includes('/'));
-        console.log('[DGL] Drive sync complete:',total,'files,',keys.length,'folders. Keys:',keys.join(' | '));
-        if(btn) btn.title='Found '+keys.length+' folders:\n'+keys.join('\n');
       } else {
         console.warn('[DGL] drive_all_folders_list failed:',data.error||data);
-        if(btn) btn.title='Drive sync failed: '+(data.error||'unknown error');
       }
       _renderSharedDocs();
     }).catch(e=>{
@@ -4460,6 +4454,9 @@ const _DOCS_NAV=[
   {type:'item',label:'Brand',     cat:'Videos/Brand',    icon:'🎨'},
   {type:'item',label:'Meetings',  cat:'Videos/Meetings', icon:'🎙️'},
   {type:'item',label:'Other',     cat:'Videos/Other',    icon:'🎬'},
+  {type:'sep'},
+  {type:'label',label:'LINKED FILES'},
+  {type:'item',label:'Linked Files', cat:'Linked Files', icon:'🔗'},
 ];
 function _renderDocsSidebar(){
   const nav=document.getElementById('docs-sidebar-nav');
