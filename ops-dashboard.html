@@ -4289,12 +4289,24 @@ let _customDriveFolders=(()=>{try{return JSON.parse(localStorage.getItem('dgl_cu
 let _driveFolderCache={};
 let _driveFolderLoading=false;
 let _docsTreeExpanded=new Set();
-// Returns Sheets docs + Drive-only files merged and deduped by driveFileId
+// Returns Sheets docs + Drive-only files merged and deduped by driveFileId.
+// When a Drive file matches a Sheets doc, backfills the category on the Sheets doc
+// so folder filters work even for docs uploaded before the category system.
 function _getMergedDocs(){
-  const sheetIds=new Set(_sharedDocsCache.map(d=>d.driveFileId).filter(Boolean));
+  const sheetByDriveId={};
+  _sharedDocsCache.forEach(d=>{ if(d.driveFileId) sheetByDriveId[d.driveFileId]=d; });
   const driveOnly=[];
-  Object.values(_driveFolderCache||{}).forEach(arr=>{
-    if(Array.isArray(arr)) arr.forEach(d=>{ if(d.driveFileId&&!sheetIds.has(d.driveFileId)) driveOnly.push(d); });
+  Object.entries(_driveFolderCache||{}).forEach(([cat,arr])=>{
+    if(!Array.isArray(arr)) return;
+    arr.forEach(d=>{
+      if(!d.driveFileId) return;
+      const sheetDoc=sheetByDriveId[d.driveFileId];
+      if(sheetDoc){
+        if(!sheetDoc.category) sheetDoc.category=cat; // backfill missing category
+      } else {
+        driveOnly.push(d);
+      }
+    });
   });
   return [..._sharedDocsCache,...driveOnly];
 }
