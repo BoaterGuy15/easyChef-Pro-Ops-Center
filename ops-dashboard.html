@@ -22956,10 +22956,11 @@ function _ccBuildSocialWithOpts(){
       .then(function(r){return r.json();})
       .then(function(d){
         if(d.ok&&d.posts&&d.posts.length){
-          _allPosts=_allPosts.concat(d.posts);
+          var _tagged=d.posts.map(function(p){return Object.assign({},p,{channel:opt.name});});
+          _allPosts=_allPosts.concat(_tagged);
           _ccLastPosts=_allPosts;
           var out=document.getElementById('cc-ks-social-output');
-          if(out) _ccRenderSocialPosts(_allPosts,out,_campBrief.channel);
+          if(out) _ccRenderSocialPosts(_allPosts,out,opt.name);
           if(_statusEl){_statusEl.style.color='#22c55e';_statusEl.textContent='✓ '+opt.name+' — '+d.posts.length+' posts ready';}
         } else if(!d.ok){
           var out=document.getElementById('cc-ks-social-output');
