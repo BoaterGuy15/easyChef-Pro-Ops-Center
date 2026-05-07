@@ -571,7 +571,7 @@ function doPost(e) {
       try {
         const fname = body.docName||body.filename||'untitled';
         const fileInfo = uploadFileToDrive(fname, body.mimeType||'application/octet-stream', body.base64data, body.sourceType||'task', body.taskId||body.agendaId||'', body.sourceName||'');
-        addDocument({ id:'doc-'+Date.now(), taskId:body.taskId||'', agendaId:body.agendaId||'', name:fname, url:fileInfo.url, previewUrl:fileInfo.previewUrl, driveFileId:fileInfo.id, mimeType:body.mimeType||'', reviewNeeded:body.reviewNeeded||'false', addedBy:body.addedBy||'', addedAt:new Date().toISOString(), folderUrl:fileInfo.folderUrl||'' });
+        addDocument({ id:'doc-'+Date.now(), taskId:body.taskId||'', agendaId:body.agendaId||'', name:fname, url:fileInfo.url, previewUrl:fileInfo.previewUrl, driveFileId:fileInfo.id, mimeType:body.mimeType||'', reviewNeeded:body.reviewNeeded||'false', addedBy:body.addedBy||'', addedAt:new Date().toISOString(), folderUrl:fileInfo.folderUrl||'', category:body.category||'' });
         return respond({ ok:true, ...fileInfo, name:fname });
       } catch(err) { return respond({ ok:false, error:err.message }); }
     }

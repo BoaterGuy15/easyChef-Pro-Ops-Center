@@ -3,7 +3,7 @@
 
 const SHARED_DRIVE_FOLDER_ID = '1Df-rn-YRUBL9AvkwruikxUZHr7nfu7gf';
 const DOCS_SHEET = 'Documents';
-const DOCS_HEADERS = ['id','taskId','agendaId','name','url','previewUrl','driveFileId','mimeType','reviewNeeded','addedBy','addedAt','folderUrl'];
+const DOCS_HEADERS = ['id','taskId','agendaId','name','url','previewUrl','driveFileId','mimeType','reviewNeeded','addedBy','addedAt','folderUrl','category'];
 
 function getOrCreateFolder(parentFolder, folderName) {
   const existing = parentFolder.getFoldersByName(folderName);

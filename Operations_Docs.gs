@@ -176,7 +176,8 @@ function getDocs(taskId, agendaId) {
         folderUrl:    String(r[8]),
         reviewNeeded: r[9] === true || r[9] === 'true',
         addedBy:      String(r[10]),
-        addedAt:      String(r[11])
+        addedAt:      String(r[11]),
+        category:     String(r[12] || '')
       };
     });
 }
@@ -197,7 +198,8 @@ function _appendDocRow(doc) {
     doc.folderUrl    || '',
     doc.reviewNeeded || 'false',
     doc.addedBy      || '',
-    doc.addedAt      || new Date().toISOString()
+    doc.addedAt      || new Date().toISOString(),
+    doc.category     || ''
   ]]);
 }
 
