@@ -23329,6 +23329,7 @@ function _ccBuildSocialWithOpts(){
   function _buildNext(i){
     if(i>=active.length){
       allBtns.forEach(function(b){b.textContent=b.getAttribute('data-was-text')||b.textContent;b.disabled=false;});
+      if(_ccLastPosts&&_ccLastPosts.length>0){_ccWizardDone[5]=true;_ccUpdateProgressRail();}
       return;
     }
     var opt=active[i];
