@@ -22080,7 +22080,7 @@ function _ccSaveSettingSection(section, rows, statusId, cb) {
     .then(function(r){return r.json();})
     .then(function(d){
       _ccSettingsLoaded=false; _ccSettingsData=null;
-      _ccLoadSettings(function(){ if(cb) cb(); });
+      _ccLoadSettings(function(){ _ccRebuildSectionUI(section); _ccRebuildFormDropdowns(); if(cb) cb(); });
       if(el){el.textContent='✓ Saved';el.style.color='#22c55e';setTimeout(function(){el.textContent='';el.style.color='';},3000);}
     })
     .catch(function(){if(el){el.textContent='⚠️ Save failed';el.style.color='#ef4444';}});
@@ -22130,28 +22130,105 @@ function _ccStGetRows(sec) {
   return rows;
 }
 
-function _ccStAddRow(sec, key, label, extra) {
-  var list=document.getElementById('cc-st-list-'+sec); if(!list) return;
-  var div=document.createElement('div'); div.className='cc-st-row';
-  div.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:6px';
-  div.innerHTML=_ccStRowHtml(sec,key||'',label||'',extra||'',true);
-  list.appendChild(div);
-  var first=div.querySelector('input'); if(first) first.focus();
-}
-
-function _ccStRemoveRow(btn) {
-  var row=btn.parentElement; if(row) row.parentElement.removeChild(row);
-}
-
-function _ccStRowHtml(sec,key,label,extra,active){
+function _ccStItemRowHtml(sec,key,label,extra,active){
   var IS='background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 8px;font-size:11px;font-family:\'DM Mono\',monospace;box-sizing:border-box';
-  var keyRO=(sec==='APP_FEATURES'||sec==='JOURNEY_TYPES')?' style="'+IS+';flex:0 0 110px"':' style="'+IS+';flex:0 0 130px"';
   var hasExtra=(sec==='APP_FEATURES'||sec==='JOURNEY_TYPES');
-  return '<input type="checkbox" class="cc-st-active" '+(active?'checked':'')+'  title="Active" style="flex-shrink:0">'+
-    '<input type="text" class="cc-st-key" value="'+_esc(key)+'"'+keyRO+' placeholder="key">'+
+  return '<div class="cc-st-row" style="display:flex;align-items:center;gap:5px;padding:3px 0">'+
+    '<input type="checkbox" class="cc-st-active" '+(active?'checked':'')+' title="Active" style="flex-shrink:0">'+
+    '<span style="font-size:9px;font-weight:700;font-family:\'DM Mono\',monospace;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:3px 6px;border-radius:4px;flex-shrink:0;min-width:60px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esc(key)+'">'+_esc(key)+'</span>'+
+    '<input type="text" class="cc-st-key" value="'+_esc(key)+'" style="display:none">'+
     '<input type="text" class="cc-st-label" value="'+_esc(label)+'" style="'+IS+';flex:2" placeholder="label">'+
-    (hasExtra?'<input type="text" class="cc-st-extra" value="'+_esc(extra)+'" style="'+IS+';flex:1.5" placeholder="'+(sec==='APP_FEATURES'?'screen label':'default feature')+'">':'')+
-    '<button onclick="_ccStRemoveRow(this)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;flex-shrink:0">✕</button>';
+    (hasExtra?'<input type="text" class="cc-st-extra" value="'+_esc(extra)+'" style="'+IS+';flex:1" placeholder="'+(sec==='APP_FEATURES'?'screen label':'feature code')+'">':'')+
+    '<button onclick="_ccDeleteSetting(\''+sec+'\',\''+_esc(key)+'\',this)" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:3px 7px;border-radius:4px;font-size:10px;cursor:pointer;flex-shrink:0" title="Delete from sheet">✕</button>'+
+  '</div>';
+}
+
+function _ccStQaAutoKey(sec){
+  var lEl=document.getElementById('cc-st-qa-label-'+sec);
+  var kEl=document.getElementById('cc-st-qa-key-'+sec);
+  if(!lEl||!kEl)return;
+  kEl.value=(lEl.value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+
+function _ccAppendSetting(sec){
+  var lEl=document.getElementById('cc-st-qa-label-'+sec);
+  var kEl=document.getElementById('cc-st-qa-key-'+sec);
+  var xEl=document.getElementById('cc-st-qa-extra-'+sec);
+  var sEl=document.getElementById('cc-st-qa-status-'+sec);
+  var label=(lEl||{}).value||'';
+  var key  =(kEl||{}).value||'';
+  var extra=(xEl||{}).value||'';
+  if(!label.trim()){if(sEl){sEl.textContent='Label required';sEl.style.color='#ef4444';}return;}
+  if(!key.trim())key=label.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  if(sEl){sEl.textContent='Adding…';sEl.style.color='var(--muted)';}
+  if(!CONFIG.sheetsUrl){if(sEl){sEl.textContent='⚠️ No sheet URL';sEl.style.color='#ef4444';}return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'append_setting',section:sec,key:key,label:label,extra:extra})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        if(sEl){sEl.textContent='✓ Added to sheet';sEl.style.color='#22c55e';setTimeout(function(){if(sEl)sEl.textContent='';},3000);}
+        if(lEl)lEl.value=''; if(kEl)kEl.value=''; if(xEl)xEl.value='';
+        _ccSettingsLoaded=false;_ccSettingsData=null;
+        _ccLoadSettings(function(){_ccRebuildSectionUI(sec);_ccRebuildFormDropdowns();});
+      } else {
+        if(sEl){sEl.textContent='⚠️ Duplicate key or error';sEl.style.color='#ef4444';}
+      }
+    })
+    .catch(function(){if(sEl){sEl.textContent='⚠️ Error';sEl.style.color='#ef4444';}});
+}
+
+function _ccDeleteSetting(sec,key,btn){
+  if(!confirm('Delete "'+key+'" from '+sec+'?\n\nThis cannot be undone.'))return;
+  if(!CONFIG.sheetsUrl)return;
+  if(btn)btn.disabled=true;
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'delete_setting',section:sec,key:key})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        _ccSettingsLoaded=false;_ccSettingsData=null;
+        _ccLoadSettings(function(){_ccRebuildSectionUI(sec);_ccRebuildFormDropdowns();});
+      } else { if(btn)btn.disabled=false; }
+    })
+    .catch(function(){if(btn)btn.disabled=false;});
+}
+
+function _ccRebuildSectionUI(sec){
+  var MAP={THEME_CATEGORIES:'theme_categories',JOURNEY_TYPES:'journey_types',APP_FEATURES:'app_features',CAMPAIGN_ANGLES:'campaign_angles'};
+  var sk=MAP[sec]; if(!sk||!_ccSettingsData)return;
+  var all=_ccSettingsData[sk]||[];
+  var active=all.filter(function(r){return r.active!==false;});
+  var prev=document.getElementById('cc-st-preview-'+sec);
+  if(prev)prev.innerHTML=active.map(function(r){return '<option value="'+_esc(r.key)+'">'+_esc(r.label||r.key)+'</option>';}).join('')||'<option>— no active items —</option>';
+  var list=document.getElementById('cc-st-list-'+sec);
+  if(list)list.innerHTML=all.map(function(r){return _ccStItemRowHtml(sec,r.key,r.label,r.extra||'',r.active!==false);}).join('');
+}
+
+function _ccRebuildFormDropdowns(){
+  if(!_ccSettingsData)return;
+  var sel, cur;
+  sel=document.getElementById('cc-nt-category');
+  if(sel){cur=sel.value;sel.innerHTML='<option value="">— select category —</option>'+(_ccSettingsData.theme_categories||[]).filter(function(r){return r.active!==false;}).map(function(c){return '<option value="'+_esc(c.key)+'"'+(c.key===cur?' selected':'')+'>'+_esc(c.label||c.key)+'</option>';}).join('');}
+  sel=document.getElementById('cc-nt-journey-type');
+  if(sel){cur=sel.value;sel.innerHTML='<option value="">— select journey type —</option>'+(_ccSettingsData.journey_types||[]).filter(function(r){return r.active!==false;}).map(function(j){return '<option value="'+_esc(j.key)+'"'+(j.key===cur?' selected':'')+'>'+_esc(j.label||j.key)+'</option>';}).join('');}
+  sel=document.getElementById('cc-nt-feature');
+  if(sel){cur=sel.value;sel.innerHTML='<option value="">— select feature —</option>'+(_ccSettingsData.app_features||[]).filter(function(r){return r.active!==false;}).map(function(f){return '<option value="'+_esc(f.key)+'"'+(f.key===cur?' selected':'')+'>'+_esc(f.key)+' — '+_esc(f.label||f.key)+'</option>';}).join('');}
+  sel=document.getElementById('cc-nt-campaign-angle');
+  if(sel){cur=sel.value;sel.innerHTML='<option value="">— select angle —</option>'+(_ccSettingsData.campaign_angles||[]).filter(function(r){return r.active!==false;}).map(function(a){return '<option value="'+_esc(a.key)+'"'+(a.key===cur?' selected':'')+'>'+_esc(a.label||a.key)+'</option>';}).join('');}
+}
+
+function _ccNtJourneyChange(val){
+  _ccNewThemeDraft.journey_type=val;
+  if(!val||!_ccSettingsData)return;
+  var rows=_ccSettingsData.journey_types||[];
+  for(var i=0;i<rows.length;i++){
+    if(rows[i].key===val&&rows[i].extra){
+      var fs=document.getElementById('cc-nt-feature');
+      if(fs){fs.value=rows[i].extra;_ccNtFeatureChange(rows[i].extra);}
+      break;
+    }
+  }
 }
 
 function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
@@ -22160,64 +22237,73 @@ function _ccSettingsPanelHtml() {
   var IS='background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 8px;font-size:11px;font-family:\'DM Mono\',monospace;box-sizing:border-box';
   var BTN='border:none;padding:7px 16px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.05em;text-transform:uppercase';
   var TABST='padding:6px 14px;border-radius:5px 5px 0 0;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border:none;font-family:\'DM Mono\',monospace';
-  var sdata = _ccSettingsData || {theme_categories:[],journey_types:[],app_features:[],campaign_angles:[]};
+  var LBL9='font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px;font-family:\'DM Mono\',monospace';
+  var sdata=_ccSettingsData||{theme_categories:[],journey_types:[],app_features:[],campaign_angles:[]};
 
-  function rowsHtml(sec, items, extraPlaceholder) {
-    return items.map(function(r){
-      return '<div class="cc-st-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'+_ccStRowHtml(sec,r.key,r.label,r.extra||'',r.active!==false)+'</div>';
-    }).join('');
-  }
-
-  function panel(sec, title, desc, extraCol, items) {
-    var colHdr='<div style="display:flex;gap:6px;margin-bottom:6px;padding-left:22px">'+
-      '<div style="flex:0 0 '+(sec==='APP_FEATURES'||sec==='JOURNEY_TYPES'?110:130)+'px;font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase">Key</div>'+
-      '<div style="flex:2;font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase">Label</div>'+
-      (extraCol?'<div style="flex:1.5;font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase">'+extraCol+'</div>':'')+
-      '<div style="width:34px"></div>'+
-    '</div>';
+  function panel(sec,title,desc,hasExtra,extraPh,items){
+    var active=items.filter(function(r){return r.active!==false;});
+    var previewOpts=active.map(function(r){return '<option value="'+_esc(r.key)+'">'+_esc(r.label||r.key)+'</option>';}).join('');
+    var previewHtml=
+      '<div style="margin-bottom:14px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px">'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);text-transform:uppercase;margin-bottom:6px;font-family:\'DM Mono\',monospace">Preview — what Create Theme form shows</div>'+
+        '<select id="cc-st-preview-'+sec+'" style="'+IS+';width:100%;font-size:12px">'+
+          (previewOpts||'<option>— no active items —</option>')+
+        '</select>'+
+        '<div style="font-size:9px;color:var(--muted);margin-top:5px;font-family:\'DM Mono\',monospace">'+active.length+' active · '+(items.length-active.length)+' inactive</div>'+
+      '</div>';
+    var quickHtml=
+      '<div style="margin-bottom:14px;padding:12px;background:var(--bg);border:1px dashed var(--border);border-radius:6px">'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;font-family:\'DM Mono\',monospace">+ Quick Add to Sheet</div>'+
+        '<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">'+
+          '<div style="flex:2;min-width:120px"><label style="'+LBL9+'">Label</label>'+
+            '<input id="cc-st-qa-label-'+sec+'" type="text" placeholder="Display name" style="'+IS+';width:100%" oninput="_ccStQaAutoKey(\''+sec+'\')"></div>'+
+          '<div style="flex:1;min-width:90px"><label style="'+LBL9+'">Key (auto)</label>'+
+            '<input id="cc-st-qa-key-'+sec+'" type="text" placeholder="auto-slug" style="'+IS+';width:100%;color:var(--muted)"></div>'+
+          (hasExtra?'<div style="flex:1;min-width:90px"><label style="'+LBL9+'">'+_esc(extraPh)+'</label>'+
+            '<input id="cc-st-qa-extra-'+sec+'" type="text" placeholder="'+_esc(extraPh)+'" style="'+IS+';width:100%"></div>':'')+
+          '<div style="flex-shrink:0"><button onclick="_ccAppendSetting(\''+sec+'\')" style="'+BTN+';background:'+_CC_RED+';color:#fff;padding:8px 14px">Add to Sheet</button></div>'+
+        '</div>'+
+        '<div id="cc-st-qa-status-'+sec+'" style="font-size:10px;font-family:\'DM Mono\',monospace;min-height:16px;margin-top:5px"></div>'+
+      '</div>';
+    var listHtml=
+      '<div>'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;font-family:\'DM Mono\',monospace">All Items ('+items.length+')</div>'+
+        '<div id="cc-st-list-'+sec+'" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">'+
+          items.map(function(r){return _ccStItemRowHtml(sec,r.key,r.label,r.extra||'',r.active!==false);}).join('')+
+        '</div>'+
+        '<div style="margin-top:10px;display:flex;gap:8px;align-items:center">'+
+          '<button onclick="_ccSaveSettingSection(\''+sec+'\',_ccStGetRows(\''+sec+'\'),\'cc-st-status-'+sec+'\')" style="'+BTN+';background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px">Save Label Edits</button>'+
+          '<div id="cc-st-status-'+sec+'" style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
+        '</div>'+
+      '</div>';
     return '<div id="cc-st-panel-'+sec+'" style="'+(sec==='THEME_CATEGORIES'?'':'display:none')+'">'+
       '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:12px">'+desc+'</div>'+
-      colHdr+
-      '<div id="cc-st-list-'+sec+'">'+rowsHtml(sec,items)+'</div>'+
-      '<button onclick="_ccStAddRow(\''+sec+'\')" style="'+BTN+';background:transparent;border:1px dashed var(--border);color:var(--muted);width:100%;padding:7px;margin-top:4px">+ Add Row</button>'+
-      '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'+
-        '<button onclick="_ccSaveSettingSection(\''+sec+'\',_ccStGetRows(\''+sec+'\'),\'cc-st-status-'+sec+'\',null)" style="'+BTN+';background:'+_CC_RED+';color:#fff;padding:8px 20px">💾 Save '+title+'</button>'+
-        '<div id="cc-st-status-'+sec+'" style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
-      '</div>'+
-    '</div>';
+      previewHtml+quickHtml+listHtml+'</div>';
   }
 
   return (
     '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)_ccCloseSettings()">'+
-    '<div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid '+_CC_RED+';border-radius:10px;width:100%;max-width:740px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">'+
-
-    // Header
+    '<div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid '+_CC_RED+';border-radius:10px;width:100%;max-width:780px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">'+
       '<div>'+
         '<div style="font-size:13px;font-weight:700;color:var(--text);font-family:\'DM Mono\',monospace;letter-spacing:0.05em">⚙ CAMPAIGN CENTER SETTINGS</div>'+
-        '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:2px">All changes write to the CcSettings sheet tab · cached 5 min</div>'+
+        '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:2px">Preview shows exactly what the Create Theme form will display · changes write to CcSettings tab</div>'+
       '</div>'+
       '<button onclick="_ccCloseSettings()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:5px;font-size:13px;cursor:pointer">✕</button>'+
     '</div>'+
-
-    // Tabs
     '<div style="display:flex;gap:2px;padding:12px 20px 0;border-bottom:1px solid var(--border);flex-shrink:0">'+
       ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES'].map(function(s,i){
         var labels=['Categories','Journey Types','App Features','Angles'];
-        var active=i===0;
-        return '<button id="cc-st-tab-'+s+'" onclick="_ccStTab(\''+s+'\')" style="'+TABST+';background:'+(active?_CC_RED:'transparent')+';color:'+(active?'#fff':'var(--muted)')+(active?'':';border:1px solid var(--border);border-bottom:none')+'">'+labels[i]+'</button>';
+        var isFirst=i===0;
+        return '<button id="cc-st-tab-'+s+'" onclick="_ccStTab(\''+s+'\')" style="'+TABST+';background:'+(isFirst?_CC_RED:'transparent')+';color:'+(isFirst?'#fff':'var(--muted)')+(isFirst?'':';border:1px solid var(--border);border-bottom:none')+'">'+labels[i]+'</button>';
       }).join('')+
     '</div>'+
-
-    // Body
     '<div style="flex:1;overflow-y:auto;padding:20px">'+
-      panel('THEME_CATEGORIES','Categories','Category slugs stored in the ThemeLibrary <strong>category</strong> column. Key = slug value, Label = display name shown in form.',null,sdata.theme_categories)+
-      panel('JOURNEY_TYPES','Journey Types','Journey type presets. Key = display label, Label = slug, Extra = default App Feature auto-mapped on selection.','Default Feature',sdata.journey_types)+
-      panel('APP_FEATURES','App Features','Key = feature code used in AI prompts, Label = AI context description, Screen Label = value written to the <strong>app_screen_label</strong> column.','Screen Label',sdata.app_features)+
-      panel('CAMPAIGN_ANGLES','Angles','Campaign angle options. Key = stored value, Label = display name shown in form.',null,sdata.campaign_angles)+
+      panel('THEME_CATEGORIES','Categories','Category slugs stored in ThemeLibrary <strong>category</strong> column. Key = slug, Label = display name in form.',false,'',sdata.theme_categories)+
+      panel('JOURNEY_TYPES','Journey Types','Shown in Create Theme form. Key = identifier, Label = display name, Extra = App Feature code auto-selected when this journey type is picked.',true,'Feature Code',sdata.journey_types)+
+      panel('APP_FEATURES','App Features','Key = feature code (e.g. COOK), Label = AI context description, Extra = screen label written to the sheet.',true,'Screen Label',sdata.app_features)+
+      panel('CAMPAIGN_ANGLES','Angles','Campaign angle options. Key = stored value, Label = display name in form.',false,'',sdata.campaign_angles)+
     '</div>'+
-
-    // Footer
     '<div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0">'+
       '<button onclick="_ccCloseSettings()" style="'+BTN+';background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 20px">Close</button>'+
     '</div>'+
@@ -22240,12 +22326,17 @@ function _ccNtToStep(n) {
 
 function _ccNtFeatureChange(val) {
   _ccNewThemeDraft.app_feature=val;
-  var label=(_CC_APP_SCREEN_LABELS||{})[val]||'';
-  _ccNewThemeDraft.app_screen_label=label;
+  var screenLabel='';
+  if(_ccSettingsData){
+    var frows=_ccSettingsData.app_features||[];
+    for(var i=0;i<frows.length;i++){if(frows[i].key===val){screenLabel=frows[i].extra||'';break;}}
+  }
+  if(!screenLabel) screenLabel=(_CC_APP_SCREEN_LABELS||{})[val]||'';
+  _ccNewThemeDraft.app_screen_label=screenLabel;
   var fb=document.getElementById('cc-nt-screen-badge');
   if(fb){
-    if(val&&label){ fb.textContent='Screen: '+label; fb.style.display='block'; }
-    else { fb.textContent=''; fb.style.display='none'; }
+    if(val&&screenLabel){fb.textContent='Screen: '+screenLabel;fb.style.display='block';}
+    else{fb.textContent='';fb.style.display='none';}
   }
 }
 
@@ -22277,7 +22368,8 @@ function _ccNtStep1Next() {
   _ccNewThemeDraft.campaign_angle =(document.getElementById('cc-nt-campaign-angle') ||{}).value||'';
   _ccNewThemeDraft.urgency_trigger=(document.getElementById('cc-nt-urgency')        ||{}).value||'';
   _ccNewThemeDraft.app_feature    =feature;
-  _ccNewThemeDraft.app_screen_label=(_CC_APP_SCREEN_LABELS||{})[feature]||'';
+  _ccNewThemeDraft.journey_type     =(document.getElementById('cc-nt-journey-type')||{}).value||'';
+  _ccNewThemeDraft.app_screen_label =(function(){if(_ccSettingsData){var f=(_ccSettingsData.app_features||[]).filter(function(r){return r.key===feature;})[0];if(f)return f.extra||'';}return (_CC_APP_SCREEN_LABELS||{})[feature]||'';})();
   _ccNtToStep(2);
 }
 
@@ -22356,11 +22448,14 @@ function _ccNewThemeFormHtml() {
   var COL = 'flex:1;min-width:160px';
   var SEC = 'font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#000;background:'+_CC_BEIGE+';padding:7px 12px;border-radius:5px;margin:0 0 14px;border-left:3px solid '+_CC_RED;
   var daysOpts='<option value="">— any day —</option>'+['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(function(d){return '<option>'+d+'</option>';}).join('');
-  var catData=(_ccSettingsData&&_ccSettingsData.theme_categories)||_CC_THEME_CATEGORIES.map(function(k){return {key:k,label:k};});
-  var catOpts=catData.map(function(c){return '<option value="'+_esc(c.key)+'">'+_esc(c.label||c.key)+'</option>';}).join('');
-  var angData=(_ccSettingsData&&_ccSettingsData.campaign_angles)||_CC_CAMPAIGN_ANGLES.map(function(k){return {key:k,label:k};});
-  var angleOpts=angData.map(function(a){return '<option value="'+_esc(a.key)+'">'+_esc(a.label||a.key)+'</option>';}).join('');
-  var featureOpts=Object.keys(_CC_APP_FEATURE_LABELS).map(function(k){return '<option value="'+k+'">'+k+' — '+_CC_APP_FEATURE_LABELS[k]+'</option>';}).join('');
+  var catData  = _ccSettingsData ? (_ccSettingsData.theme_categories||[]).filter(function(r){return r.active!==false;}) : [];
+  var catOpts  = catData.map(function(c){return '<option value="'+_esc(c.key)+'">'+_esc(c.label||c.key)+'</option>';}).join('')||'<option value="">— open ⚙ Settings to add categories —</option>';
+  var jtData   = _ccSettingsData ? (_ccSettingsData.journey_types||[]).filter(function(r){return r.active!==false;}) : [];
+  var jtOpts   = jtData.map(function(j){return '<option value="'+_esc(j.key)+'">'+_esc(j.label||j.key)+'</option>';}).join('')||'<option value="">— open ⚙ Settings to add journey types —</option>';
+  var angData  = _ccSettingsData ? (_ccSettingsData.campaign_angles||[]).filter(function(r){return r.active!==false;}) : [];
+  var angleOpts= angData.map(function(a){return '<option value="'+_esc(a.key)+'">'+_esc(a.label||a.key)+'</option>';}).join('')||'<option value="">— open ⚙ Settings to add angles —</option>';
+  var featData = _ccSettingsData ? (_ccSettingsData.app_features||[]).filter(function(r){return r.active!==false;}) : [];
+  var featureOpts=featData.map(function(f){return '<option value="'+_esc(f.key)+'">'+_esc(f.key)+' — '+_esc(f.label||f.key)+'</option>';}).join('')||'<option value="">— open ⚙ Settings to add features —</option>';
 
   return (
     '<div style="margin-top:12px;padding:18px;background:var(--surface);border:1px solid '+_CC_RED+';border-radius:8px;border-top:3px solid '+_CC_RED+'">'+
@@ -22382,6 +22477,13 @@ function _ccNewThemeFormHtml() {
           '</select></div>'+
         '<div style="'+COL+'"><label style="'+LBL+'">Publish Day</label>'+
           '<select id="cc-nt-day" style="'+IS+'" onchange="_ccNewThemeDraft.publish_day=this.value">'+daysOpts+'</select></div>'+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        '<div style="'+COL+'"><label style="'+LBL+'">Journey Type <span style="font-size:9px;font-weight:400;color:var(--muted)">(auto-selects feature)</span></label>'+
+          '<select id="cc-nt-journey-type" style="'+IS+'" onchange="_ccNtJourneyChange(this.value)">'+
+            '<option value="">— select journey type —</option>'+jtOpts+
+          '</select></div>'+
+        '<div style="'+COL+'"></div>'+
       '</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
         '<div style="'+COL+'"><label style="'+LBL+'">Campaign Angle</label>'+
@@ -22465,7 +22567,7 @@ function _ccGenerateThemeDetails() {
   var icp     =_ccNewThemeDraft.icp_code       ||'';
   var day     =_ccNewThemeDraft.publish_day    ||'';
   var feature =_ccNewThemeDraft.app_feature    ||'';
-  var featLabel=(_CC_APP_SCREEN_LABELS||{})[feature]||'';
+  var featLabel=(function(){if(_ccSettingsData){var f=(_ccSettingsData.app_features||[]).filter(function(r){return r.key===feature;})[0];if(f)return f.extra||'';}return (_CC_APP_SCREEN_LABELS||{})[feature]||'';})();
   var entry   =(document.getElementById('cc-nt-emotional-entry')  ||{}).value||'';
   var payoff  =(document.getElementById('cc-nt-emotional-payoff') ||{}).value||'';
   var food    =(document.getElementById('cc-nt-food')             ||{}).value||'';
