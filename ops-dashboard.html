@@ -25980,7 +25980,7 @@ function _ccBuildUtmAssets(){
   // Add Email Campaign asset when email is a secondary channel and sequences are built
   var _hasEmailCh=(b.channels||[]).some(function(c){return c.toLowerCase()==='email';});
   if(_hasEmailCh&&!isEmail&&_ccLastEmails&&_ccLastEmails.length){
-    assets.push({asset_name:'Email Campaign — '+_ccLastEmails.length+' email'+(+_ccLastEmails.length!==1?'s':''),descriptor:'email_campaign',asset_type:'email'});
+    assets.push({asset_name:'Email Campaign — '+_ccLastEmails.length+' email'+(+_ccLastEmails.length!==1?'s':''),descriptor:'email_campaign',asset_type:'email',channel:'Email'});
   }
   return assets;
 }
@@ -26215,10 +26215,10 @@ function _ccRedrawReg(){
     var sc=d.status==='ACTIVE'?'#22c55e':d.status==='PAUSED'?'#eab308':_CC_RED;
     var nxt=d.status==='DRAFT'?'ACTIVE':d.status==='ACTIVE'?'PAUSED':'DRAFT';
     return '<div style="display:grid;grid-template-columns:150px 210px 1fr 110px 90px 90px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border)">'+
-      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:'+_CC_RED+'">'+d.dlId+'</span>'+
-      '<span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.content+'</span>'+
-      '<span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.destination+'</span>'+
-      '<span style="font-size:11px;color:var(--muted)">'+d.campaign+'</span>'+
+      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:'+_CC_RED+'">'+d.dl_id+'</span>'+
+      '<span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.utm_content+'</span>'+
+      '<span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.destination_url+'</span>'+
+      '<span style="font-size:11px;color:var(--muted)">'+d.campaign_id+'</span>'+
       '<span style="font-size:10px;padding:3px 8px;border-radius:100px;font-weight:700;color:'+sc+';background:'+sc+'18;border:1px solid '+sc+'44">'+d.status+'</span>'+
       '<button onclick="_ccToggleDL('+i+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 9px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">→'+nxt+'</button>'+
     '</div>';
@@ -26239,7 +26239,7 @@ function _ccToggleDL(i){
   var d=_campDLCache[i]; if(!d) return;
   var seq=['DRAFT','ACTIVE','PAUSED'];
   d.status=seq[(seq.indexOf(d.status)+1)%seq.length];
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deeplinks_status',dlId:d.dlId,status:d.status})}).catch(function(){});
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'deeplinks_status',dlId:d.dl_id,status:d.status})}).catch(function(){});
   _ccRedrawReg();
   var banner=_ccEl('cc-flow-banner'); if(banner) banner.innerHTML=_ccFlowBanner();
 }
