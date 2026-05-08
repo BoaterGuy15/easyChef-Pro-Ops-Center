@@ -19278,8 +19278,14 @@ function buildActionsGantt(){
       });
       myActions.forEach(a=>{
         const sd=_toIso(a.createdAt)||today;
-        const edRaw=_toIso(a.dueDate)||sd;
-        const ed=edRaw>sd?edRaw:sd;
+        // prefer action's own dueDate only if it's after the start date
+        const _aDue=_toIso(a.dueDate);
+        // fall back to linked task's ed if action dueDate is missing or not after sd
+        const _tid=a.taskId||a.linkedTaskId||'';
+        const _task=_tid?DASHBOARD_DATA.tasks.find(t=>t.id===_tid):null;
+        const _taskEd=_task?_toIso(_task.ed):'';
+        const edRaw=(_aDue&&_aDue>sd)?_aDue:(_taskEd&&_taskEd>sd?_taskEd:sd);
+        const ed=edRaw;
         const bid='a_'+(a.id||Math.random().toString(36).slice(2));
         bars.push({id:bid,sd,ed,label:a.title||a.type||'action',body:a.body||'',color:'#c9a84c',bg:'rgba(201,168,76,0.07)',type:'action',actionId:a.id||'',taskId:a.taskId||a.linkedTaskId||'',status:a.status||'',personKey:p.key});
       });
