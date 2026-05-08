@@ -25965,21 +25965,21 @@ function _ccSanitiseCampaignCode(name){
 }
 function _ccBuildUtmAssets(){
   var b=_campBrief;
-  var isEmail=b.channel==='Email';
-  var desc=['post1_hook','post2_problem','post3_solve','post4_proof','post5_urgency'];
+  // Locked 7-stage funnel arc — sequence resets independently per platform
+  var _stages7=['post1_hook','post2_problem','post3_agitate','post4_solve','post5_value','post6_proof','post7_cta'];
   var assets=[];
   if(_campLastLp) assets.push({asset_name:'Landing Page',descriptor:'lp',asset_type:'lp'});
-  (_ccLastPosts||[]).forEach(function(p,i){
-    var d=desc[i]||('post'+(i+1));
-    var postCh=p.platform||p.channel||b.channel;
-    var label=isEmail
-      ?('Email '+(i+1)+' — '+(p.subject||p.hook||'').substring(0,40))
-      :('Post '+(i+1)+' — '+(p.hook||'').substring(0,40));
-    assets.push({asset_name:label,descriptor:d,asset_type:isEmail?'email':'post',channel:postCh});
+  // 7 DL_IDs per social channel
+  var _chs=(b.channels&&b.channels.length)?b.channels:[b.channel||'Facebook'];
+  _chs.forEach(function(ch){
+    if((ch||'').toLowerCase()==='email') return;
+    _stages7.forEach(function(stage,si){
+      assets.push({asset_name:ch+' · Post '+(si+1)+' — '+stage,descriptor:stage,asset_type:'post',channel:ch});
+    });
   });
-  // Add Email Campaign asset when email is a secondary channel and sequences are built
+  // Email: one asset per active sequence
   var _hasEmailCh=(b.channels||[]).some(function(c){return c.toLowerCase()==='email';});
-  if(_hasEmailCh&&!isEmail&&_ccLastEmails&&_ccLastEmails.length){
+  if(_hasEmailCh&&_ccLastEmails&&_ccLastEmails.length){
     assets.push({asset_name:'Email Campaign — '+_ccLastEmails.length+' email'+(+_ccLastEmails.length!==1?'s':''),descriptor:'email_campaign',asset_type:'email',channel:'Email'});
   }
   return assets;

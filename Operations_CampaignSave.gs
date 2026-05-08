@@ -158,7 +158,7 @@ function saveCampaignDraft(body) {
           .replace(/['\-]/g,'').replace(/[^a-z0-9]+/g,'_')
           .replace(/^_+|_+$/g,'').substring(0,50);
         var _baseUrl = 'https://easychefpro.com/' + (brief.slug||'').replace(/^\//,'');
-        var _descs   = ['post1_hook','post2_problem','post3_solve','post4_proof','post5_urgency'];
+        var _stages7 = ['post1_hook','post2_problem','post3_agitate','post4_solve','post5_value','post6_proof','post7_cta'];
         var _channels = (Array.isArray(brief.channels) && brief.channels.length)
           ? brief.channels : [brief.channel || 'Facebook'];
         var _lpGenerated = false;
@@ -173,17 +173,17 @@ function saveCampaignDraft(body) {
             _lpGenerated = true;
           }
 
-          // Posts belonging to this channel
-          var _chPosts = posts.filter(function(p){
-            return (p.channel||p.platform||brief.channel||'').toLowerCase() === channelName.toLowerCase();
-          });
-          _chPosts.forEach(function(p, i) {
-            _chAssets.push({
-              asset_name: 'Post '+(i+1)+' — '+(p.hook||'').substring(0,40),
-              descriptor:  _descs[i] || ('post'+(i+1)),
-              asset_type: 'post'
+          // 7 DL_IDs per social channel — full funnel arc, stage sequence resets per platform
+          var _isEmailCh = (_chData.utm_medium||'').toLowerCase() === 'email';
+          if (!_isEmailCh) {
+            _stages7.forEach(function(stage, i) {
+              _chAssets.push({
+                asset_name: channelName + ' · Post ' + (i+1) + ' — ' + stage,
+                descriptor:  stage,
+                asset_type: 'post'
+              });
             });
-          });
+          }
 
           if (!_chAssets.length) {
             // Email channels have no posts — generate one DL per active sequence
