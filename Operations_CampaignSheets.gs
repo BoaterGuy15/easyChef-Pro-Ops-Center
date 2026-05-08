@@ -1649,6 +1649,114 @@ function saveSettings(section, rows) {
   return true;
 }
 
+// ── Append additional CcSettings rows (run once from Apps Script editor) ──────
+
+function _appendCcSettingsRows() {
+  var sheet = _getCCSheet(_CC_TAB.SETTINGS);
+  var last  = sheet.getLastRow();
+
+  // Build index of existing section+key pairs to prevent duplicates
+  var seen = {};
+  if (last >= 2) {
+    sheet.getRange(2, 1, last - 1, 2).getValues().forEach(function(r) {
+      var sec = String(r[0]).toUpperCase();
+      var key = String(r[1]);
+      if (!seen[sec]) seen[sec] = {};
+      seen[sec][key] = true;
+    });
+  }
+
+  var rows = [
+    // ── THEME_CATEGORIES ──────────────────────────────────────────────────────
+    ['THEME_CATEGORIES','date-night',       'Date Night',            '', true],
+    ['THEME_CATEGORIES','picnic',           'Picnic & Outdoor',      '', true],
+    ['THEME_CATEGORIES','special-occasion', 'Special Occasion',      '', true],
+    ['THEME_CATEGORIES','meal-prep',        'Meal Prep',             '', true],
+    ['THEME_CATEGORIES','family-gathering', 'Family Gathering',      '', true],
+    ['THEME_CATEGORIES','quick-wins',       'Quick Wins',            '', true],
+    ['THEME_CATEGORIES','budget-friendly',  'Budget Friendly',       '', true],
+    ['THEME_CATEGORIES','pre-launch',       'Pre-Launch',            '', true],
+    ['THEME_CATEGORIES','alpha-program',    'Alpha Program',         '', true],
+    ['THEME_CATEGORIES','beta-program',     'Beta Program',          '', true],
+    ['THEME_CATEGORIES','holiday',          'Holiday',               '', true],
+    ['THEME_CATEGORIES','game-day',         'Game Day',              '', true],
+    ['THEME_CATEGORIES','lunch-prep',       'Lunch Prep',            '', true],
+    ['THEME_CATEGORIES','breakfast-wins',   'Breakfast Wins',        '', true],
+    ['THEME_CATEGORIES','snack-attack',     'Snack Attack',          '', true],
+    ['THEME_CATEGORIES','leftovers',        'Leftovers',             '', true],
+    ['THEME_CATEGORIES','birthday',         'Birthday & Celebrations','',true],
+    ['THEME_CATEGORIES','summer',           'Summer Eats',           '', true],
+    ['THEME_CATEGORIES','winter',           'Winter Comfort',        '', true],
+    ['THEME_CATEGORIES','founders-journey', 'Founders Journey',      '', true],
+    // ── JOURNEY_TYPES ─────────────────────────────────────────────────────────
+    ['JOURNEY_TYPES','date-night',          'Date Night',            'COOK',    true],
+    ['JOURNEY_TYPES','picnic',              'Picnic Planning',       'PLAN',    true],
+    ['JOURNEY_TYPES','family-gathering',    'Family Gathering',      'COOK',    true],
+    ['JOURNEY_TYPES','meal-prep-sunday',    'Meal Prep Sunday',      'PLAN',    true],
+    ['JOURNEY_TYPES','quick-dinner',        'Quick Dinner Under 30', 'COOK',    true],
+    ['JOURNEY_TYPES','grocery-budget',      'Grocery Budget',        'TRACK',   true],
+    ['JOURNEY_TYPES','nutrition-goal',      'Nutrition Goal',        'OPTIMIZE',true],
+    ['JOURNEY_TYPES','pre-launch-waitlist', 'Pre-Launch Waitlist',   '',        true],
+    ['JOURNEY_TYPES','alpha-onboarding',    'Alpha Onboarding',      'TRACK',   true],
+    ['JOURNEY_TYPES','beta-testing',        'Beta Testing',          'COOK',    true],
+    ['JOURNEY_TYPES','holiday-prep',        'Holiday Prep',          'PLAN',    true],
+    ['JOURNEY_TYPES','game-night',          'Game Night',            'COOK',    true],
+    ['JOURNEY_TYPES','kids-lunchbox',       'Kids Lunchbox',         'PLAN',    true],
+    ['JOURNEY_TYPES','breakfast-prep',      'Breakfast Prep',        'PLAN',    true],
+    ['JOURNEY_TYPES','leftovers-rescue',    'Leftovers Rescue',      'COOK',    true],
+    ['JOURNEY_TYPES','birthday-dinner',     'Birthday Dinner',       'COOK',    true],
+    ['JOURNEY_TYPES','summer-grill',        'Summer Grilling',       'COOK',    true],
+    ['JOURNEY_TYPES','winter-comfort',      'Winter Comfort Food',   'COOK',    true],
+    ['JOURNEY_TYPES','founders-journey',    'Founders Journey',      '',        true],
+    ['JOURNEY_TYPES','pantry-cleanout',     'Pantry Clean Out',      'TRACK',   true],
+    // ── APP_FEATURES (sub-features only — 5 core already seeded) ─────────────
+    ['APP_FEATURES','receipt-scanning', 'Receipt Scanning (TRACK)',       'Pantry view',        true],
+    ['APP_FEATURES','expiry-alerts',    'Expiry Alerts (TRACK)',          'Pantry view',        true],
+    ['APP_FEATURES','pantry-inventory', 'Pantry Inventory (TRACK)',       'Pantry view',        true],
+    ['APP_FEATURES','waste-tracker',    'Waste Tracker (TRACK)',          'Pantry view',        true],
+    ['APP_FEATURES','weekly-meal-plan', 'Weekly Meal Plan (PLAN)',        'Meal Plan view',     true],
+    ['APP_FEATURES','recipe-suggestions','Recipe Suggestions (PLAN)',     'Meal Plan view',     true],
+    ['APP_FEATURES','nutrition-scoring','Nutrition Score View (OPTIMIZE)','Nutrition score view',true],
+    ['APP_FEATURES','meal-rating',      'Meal Rating (OPTIMIZE)',         'Nutrition score view',true],
+    ['APP_FEATURES','fda-grade-data',   'FDA Grade Data (OPTIMIZE)',      'Nutrition score view',true],
+    ['APP_FEATURES','step-by-step',     'Step by Step Cooking (COOK)',    'Recipe page',        true],
+    ['APP_FEATURES','30-min-recipes',   '30 Minute Recipes (COOK)',       'Recipe page',        true],
+    ['APP_FEATURES','walmart-cart',     'Walmart Cart (SHOP)',            'Shopping List view', true],
+    ['APP_FEATURES','smart-list',       'Smart List Generator (SHOP)',    'Shopping List view', true],
+    ['APP_FEATURES','restock-alerts',   'Restock Alerts (SHOP)',          'Shopping List view', true],
+    ['APP_FEATURES','budget-tracker',   'Budget Tracker (SHOP)',          'Shopping List view', true],
+    // ── CAMPAIGN_ANGLES (13 new — 7 already seeded) ──────────────────────────
+    ['CAMPAIGN_ANGLES','romance',        'Romance',               '', true],
+    ['CAMPAIGN_ANGLES','celebration',    'Celebration',           '', true],
+    ['CAMPAIGN_ANGLES','discovery',      'Discovery',             '', true],
+    ['CAMPAIGN_ANGLES','urgency',        'Urgency',               '', true],
+    ['CAMPAIGN_ANGLES','nostalgia',      'Nostalgia',             '', true],
+    ['CAMPAIGN_ANGLES','empowerment',    'Empowerment',           '', true],
+    ['CAMPAIGN_ANGLES','trust',          'Trust Building',        '', true],
+    ['CAMPAIGN_ANGLES','exclusivity',    'Exclusivity',           '', true],
+    ['CAMPAIGN_ANGLES','simplicity',     'Simplicity',            '', true],
+    ['CAMPAIGN_ANGLES','transformation', 'Transformation',        '', true],
+    ['CAMPAIGN_ANGLES','family',         'Family First',          '', true],
+    ['CAMPAIGN_ANGLES','pride',          'Pride & Accomplishment','', true],
+    ['CAMPAIGN_ANGLES','adventure',      'Culinary Adventure',    '', true]
+  ];
+
+  var added = 0;
+  rows.forEach(function(row) {
+    var sec = String(row[0]).toUpperCase();
+    var key = String(row[1]);
+    if (!seen[sec]) seen[sec] = {};
+    if (seen[sec][key]) return; // skip duplicate
+    sheet.appendRow(row);
+    seen[sec][key] = true;
+    added++;
+  });
+
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  Logger.log('_appendCcSettingsRows: added ' + added + ' rows (skipped existing)');
+  try { SpreadsheetApp.getUi().alert('Done — added ' + added + ' rows to CcSettings.'); } catch(e) {}
+}
+
 // ── Full end-to-end Campaign Center test ─────────────────────────────────────
 // Run from Apps Script editor: Run → _testCampaignCenterFull → View → Execution log
 
