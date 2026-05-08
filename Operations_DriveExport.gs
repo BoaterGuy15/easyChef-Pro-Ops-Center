@@ -4,8 +4,8 @@
 // Creates a Google Drive folder workspace for an approved campaign.
 // Five files per campaign:
 //   00 — Campaign Brief     (HTML file, browser-renderable)
-//   01 — Social Posts       (Google Doc, branded)
-//   02 — Email Sequences    (Google Doc, branded)
+//   01 — Social Posts       (HTML file, browser-renderable)
+//   02 — Email Sequences    (HTML file, browser-renderable)
 //   03 — LP Brief           (Google Doc, branded)
 //   04 — Campaign Calendar  (Google Sheet — same columns as CSV export)
 //
@@ -56,10 +56,11 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     var folderUrl = folder.getUrl();
     var docUrls   = { folder: folderUrl };
 
+    var _genDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM d, yyyy');
+
     // ── 2. 00 — Campaign Brief (HTML file) ─────────────────────────────────────
     Logger.log('[DriveExport] Section 2: Campaign Brief HTML');
     try {
-      var _genDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM d, yyyy');
       var _dlCount = (function() {
         var seen = {};
         posts.forEach(function(p)  { if (p.dl_id)  seen[p.dl_id]  = 1; });
@@ -74,85 +75,31 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       Logger.log('[DriveExport] brief html: ' + briefFile.getId());
     } catch(e) { Logger.log('[DriveExport] brief html error: ' + e.message); }
 
-    // ── 3. 01 — Social Posts ────────────────────────────────────────────────
-    Logger.log('[DriveExport] Section 3: Social Posts (' + posts.length + ')');
+    // ── 3. 01 — Social Posts (HTML file) ────────────────────────────────────
+    Logger.log('[DriveExport] Section 3: Social Posts HTML (' + posts.length + ')');
     try {
       if (posts.length > 0) {
-        var postsDoc  = _newDoc('01 — Social Posts', folder);
-        var postsBody = postsDoc.getBody();
-        postsBody.clear();
-        _docBrandHeader(postsBody, brief.name || '', brief.launchDate);
-        _dh1(postsBody, 'Social Posts');
-        posts.forEach(function(post, i) {
-          postsBody.appendParagraph('');
-          _dh2(postsBody, 'Post ' + (post.post_num || (i + 1)) + ' — ' + (post.platform || post.channel || '') + ' · ' + (post.theme || ''));
-          _dpair(postsBody, 'Channel',      post.channel      || post.platform || '');
-          _dpair(postsBody, 'Day',          String(post.scheduled_day !== undefined ? post.scheduled_day : (i + 1)));
-          _dpair(postsBody, 'Stage',        post.funnel_stage || post.theme || '');
-          if (post.dl_id)  _dpair(postsBody, 'DL ID',       post.dl_id);
-          if (post.utm_url)_dpair(postsBody, 'UTM Link',    post.utm_url);
-          _dpair(postsBody, 'Hook',         post.hook        || '');
-          _docBodyPara(postsBody, post.body_copy || post.body || '');
-          if (post.hashtags)    _dpair(postsBody, 'Hashtags',    post.hashtags);
-          if (post.cta)         _dpair(postsBody, 'CTA',         post.cta);
-          if (post.image_brief) _dpair(postsBody, 'Image Brief', post.image_brief);
-          _docDivider(postsBody);
-        });
-        _docBrandFooter(postsBody);
-        postsDoc.saveAndClose();
-        docUrls.posts = 'https://docs.google.com/document/d/' + postsDoc.getId() + '/view';
+        var postsHtml = _buildSocialPostsHtml(brief, posts, _genDate);
+        var postsFile = DriveApp.createFile('01 — Social Posts.html', postsHtml, MimeType.HTML);
+        postsFile.moveTo(folder);
+        try { postsFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
+        docUrls.posts = postsFile.getUrl();
+        Logger.log('[DriveExport] posts html: ' + postsFile.getId());
       }
-    } catch(e) { Logger.log('[DriveExport] posts doc error: ' + e.message); }
+    } catch(e) { Logger.log('[DriveExport] posts html error: ' + e.message); }
 
-    // ── 4. 02 — Email Sequences ─────────────────────────────────────────────
-    Logger.log('[DriveExport] Section 4: Email Sequences (' + emails.length + ')');
+    // ── 4. 02 — Email Sequences (HTML file) ─────────────────────────────────
+    Logger.log('[DriveExport] Section 4: Email Sequences HTML (' + emails.length + ')');
     try {
       if (emails.length > 0) {
-        var emailDoc  = _newDoc('02 — Email Sequences', folder);
-        var emailBody = emailDoc.getBody();
-        emailBody.clear();
-        _docBrandHeader(emailBody, brief.name || '', brief.launchDate);
-        _dh1(emailBody, 'Email Sequences');
-        var seqMap = {};
-        emails.forEach(function(e) {
-          var seq = (e.seq_id || '').replace(/-E\d+$/i, '') || e.sequence_code || 'OTHER';
-          if (!seqMap[seq]) seqMap[seq] = [];
-          seqMap[seq].push(e);
-        });
-        Object.keys(seqMap).sort().forEach(function(seq) {
-          emailBody.appendParagraph('');
-          _dh2(emailBody, seq);
-          seqMap[seq].forEach(function(email) {
-            emailBody.appendParagraph('');
-            var label = (email.seq_id || seq + '-E' + (email.email_number || '?')) + '  ·  Day ' + (email.send_day !== undefined ? email.send_day : '?');
-            var lp = emailBody.appendParagraph(label);
-            var _la = {};
-            _la[DocumentApp.Attribute.FONT_FAMILY]      = 'Arial';
-            _la[DocumentApp.Attribute.FONT_SIZE]        = 10;
-            _la[DocumentApp.Attribute.BOLD]             = true;
-            _la[DocumentApp.Attribute.FOREGROUND_COLOR] = _BRAND_DARK;
-            lp.setAttributes(_la);
-            var subA = email.subject_line_a || email.subject   || '';
-            var subB = email.subject_line_b || email.subject_b || '';
-            var preA = email.preview_text_a || email.preheader || '';
-            var preB = email.preview_text_b || '';
-            _dpair(emailBody, 'Subject A',    subA);
-            if (subB)  _dpair(emailBody, 'Subject B',    subB);
-            if (preA)  _dpair(emailBody, 'Preview A',    preA);
-            if (preB)  _dpair(emailBody, 'Preview B',    preB);
-            emailBody.appendParagraph('');
-            _docBodyPara(emailBody, email.body || '');
-            if (email.body_cta || email.cta_text) {
-              _dpair(emailBody, 'CTA', (email.body_cta || email.cta_text) + (email.cta_url ? ' → ' + email.cta_url : ''));
-            }
-            _docDivider(emailBody);
-          });
-        });
-        _docBrandFooter(emailBody);
-        emailDoc.saveAndClose();
-        docUrls.emails = 'https://docs.google.com/document/d/' + emailDoc.getId() + '/view';
+        var emailsHtml = _buildEmailSeqsHtml(brief, emails, _genDate);
+        var emailsFile = DriveApp.createFile('02 — Email Sequences.html', emailsHtml, MimeType.HTML);
+        emailsFile.moveTo(folder);
+        try { emailsFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
+        docUrls.emails = emailsFile.getUrl();
+        Logger.log('[DriveExport] emails html: ' + emailsFile.getId());
       }
-    } catch(e) { Logger.log('[DriveExport] email doc error: ' + e.message); }
+    } catch(e) { Logger.log('[DriveExport] emails html error: ' + e.message); }
 
     // ── 5. 03 — LP Brief ────────────────────────────────────────────────────
     Logger.log('[DriveExport] Section 5: LP Brief');
@@ -189,7 +136,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       }
     } catch(e) { Logger.log('[DriveExport] lp doc error: ' + e.message); }
 
-    // ── 6. 04 — Campaign Calendar (matches CSV export format) ───────────────
+    // ── 6. 04 — Campaign Calendar (branded spreadsheet) ────────────────────
     try {
       Logger.log('[DriveExport] Section 6: Campaign Calendar spreadsheet');
       var calSS   = SpreadsheetApp.create('04 — Campaign Calendar — ' + safeName);
@@ -198,10 +145,12 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       try { calFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
       var calSh = calSS.getActiveSheet();
       calSh.setName('Calendar');
+      calSh.setTabColor(_BRAND_RED);
 
       var _CAL_HDR  = ['Day','Scheduled Date/Time','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA URL','Image Brief','Hashtags','Status'];
       var _SEQ_OFF  = { 'SEQ-1':0, 'SEQ-2':0, 'SEQ-3':28, 'SEQ-4':42, 'SEQ-5':0 };
       var _launch   = brief.launchDate ? new Date(brief.launchDate + 'T12:00:00') : null;
+      var numCols   = _CAL_HDR.length;
 
       var _wkLbl = function(day) {
         if (day >= 48) return 'Launch Day';
@@ -216,7 +165,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         return (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear() + ' 08:00';
       };
 
-      var dataRows = [];
+      var calDataRows = [];
 
       // Email rows — A variant, then B variant if subject differs
       emails.forEach(function(e) {
@@ -228,58 +177,84 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         var preA     = e.preview_text_a || e.preheader || '';
         var preB     = e.preview_text_b || '';
         var cta      = e.body_cta       || e.cta_text  || '';
-        dataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (A)', 'Email', subA, preA, cta, '', '', e.status||'draft']);
-        if (subB) dataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (B)', 'Email', subB, preB, cta, '', '', e.status||'draft']);
+        calDataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (A)', 'Email', subA, preA, cta, '', '', e.status||'draft']);
+        if (subB) calDataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (B)', 'Email', subB, preB, cta, '', '', e.status||'draft']);
       });
 
       // Social post rows
       posts.forEach(function(p) {
         var pday = parseInt(p.scheduled_day) || 0;
-        dataRows.push([pday, _dtStr(pday), _wkLbl(pday), p.theme||'', 'Social', p.platform||p.channel||'', p.hook||'', p.body_copy||p.body||'', p.utm_url||'', p.image_brief||'', p.hashtags||'', p.status||'draft']);
+        calDataRows.push([pday, _dtStr(pday), _wkLbl(pday), p.theme||'', 'Social', p.platform||p.channel||'', p.hook||'', p.body_copy||p.body||'', p.utm_url||'', p.image_brief||'', p.hashtags||'', p.status||'draft']);
       });
 
-      // Sort by day
-      dataRows.sort(function(a, b) { return (parseInt(a[0])||0) - (parseInt(b[0])||0); });
+      // Sort by day ascending
+      calDataRows.sort(function(a, b) { return (parseInt(a[0])||0) - (parseInt(b[0])||0); });
 
-      var allRows = [_CAL_HDR].concat(dataRows);
-      var numRows = allRows.length;
-      var numCols = _CAL_HDR.length;
+      // ── Row 1: Campaign title (merged, red) ──
+      var titleRange = calSh.getRange(1, 1, 1, numCols);
+      titleRange.merge();
+      calSh.getRange(1, 1).setValue('easyChef Pro  ·  ' + (brief.name || safeName) + '  ·  ' + (brief.id || '') + '  ·  Launch ' + (brief.launchDate || ''));
+      titleRange.setBackground(_BRAND_RED);
+      titleRange.setFontColor(_BRAND_WHITE);
+      titleRange.setFontFamily('Arial');
+      titleRange.setFontSize(12);
+      titleRange.setFontWeight('bold');
+      titleRange.setVerticalAlignment('middle');
+      calSh.setRowHeight(1, 36);
 
-      if (numRows > 0) {
-        calSh.getRange(1, 1, numRows, numCols).setValues(allRows);
-      }
+      // ── Row 2: Meta info (merged, beige) ──
+      var metaRange = calSh.getRange(2, 1, 1, numCols);
+      metaRange.merge();
+      calSh.getRange(2, 1).setValue('ICP: ' + (brief.icp || '') + '   ·   Theme: ' + (brief.theme || '') + '   ·   ' + (brief.channels ? brief.channels.join(', ') : '') + '   ·   Generated ' + _genDate + '   ·   ' + calDataRows.length + ' items');
+      metaRange.setBackground(_BRAND_BEIGE);
+      metaRange.setFontColor(_BRAND_GREY);
+      metaRange.setFontFamily('Arial');
+      metaRange.setFontSize(9);
+      metaRange.setFontStyle('italic');
+      metaRange.setVerticalAlignment('middle');
+      calSh.setRowHeight(2, 22);
 
-      // Header row: red background, white bold Arial
-      var hdrRange = calSh.getRange(1, 1, 1, numCols);
+      // ── Row 3: Column headers (red) ──
+      var hdrRange = calSh.getRange(3, 1, 1, numCols);
+      hdrRange.setValues([_CAL_HDR]);
       hdrRange.setBackground(_BRAND_RED);
       hdrRange.setFontColor(_BRAND_WHITE);
       hdrRange.setFontWeight('bold');
       hdrRange.setFontFamily('Arial');
       hdrRange.setFontSize(10);
       hdrRange.setVerticalAlignment('middle');
-      calSh.setFrozenRows(1);
+      calSh.setRowHeight(3, 28);
+      calSh.setFrozenRows(3);
 
-      // Alternating data rows: white (#FFFFFF) and beige (#F6EFE8)
-      if (dataRows.length > 0) {
-        for (var ri = 0; ri < dataRows.length; ri++) {
-          var rowRange = calSh.getRange(ri + 2, 1, 1, numCols);
+      // ── Data rows (start at row 4) ──
+      var numDataRows = calDataRows.length;
+      if (numDataRows > 0) {
+        calSh.getRange(4, 1, numDataRows, numCols).setValues(calDataRows);
+        for (var ri = 0; ri < numDataRows; ri++) {
+          var rowRange = calSh.getRange(ri + 4, 1, 1, numCols);
           rowRange.setBackground(ri % 2 === 0 ? _BRAND_WHITE : _BRAND_BEIGE);
           rowRange.setFontFamily('Arial');
           rowRange.setFontSize(9);
           rowRange.setFontColor(_BRAND_BODY);
+          rowRange.setVerticalAlignment('top');
         }
+        // Bold the Day column (col 1)
+        calSh.getRange(4, 1, numDataRows, 1).setFontWeight('bold');
+        // Wrap text for Subject/Hook (7), Preview/Body (8), Image Brief (10)
+        [7, 8, 10].forEach(function(col) {
+          calSh.getRange(4, col, numDataRows, 1).setWrap(true);
+        });
       }
 
-      // Auto-resize all columns
+      // ── Column widths ──
       calSh.autoResizeColumns(1, numCols);
-      // Apply min widths for readability after auto-resize
-      var _minWidths = [40, 140, 160, 90, 120, 90, 240, 260, 240, 180, 110, 65];
+      var _minWidths = [40, 140, 160, 90, 130, 90, 260, 280, 260, 200, 120, 70];
       _minWidths.forEach(function(minW, ci) {
         if (calSh.getColumnWidth(ci + 1) < minW) calSh.setColumnWidth(ci + 1, minW);
       });
 
       docUrls.calendar = 'https://docs.google.com/spreadsheets/d/' + calSS.getId() + '/view';
-      Logger.log('[DriveExport] calendar: ' + numRows + ' rows (' + emails.length + ' emails / ' + posts.length + ' posts)');
+      Logger.log('[DriveExport] calendar: ' + calDataRows.length + ' rows (' + emails.length + ' emails / ' + posts.length + ' posts)');
     } catch(e) { Logger.log('[DriveExport] calendar error: ' + e.message); }
 
     // ── 7. Register in Docs tab ─────────────────────────────────────────────
@@ -462,6 +437,218 @@ function _docBodyPara(body, text) {
 function _deSafe(str, maxLen) {
   return String(str || '').replace(/[\/\\:*?"<>|]/g, '').trim().substring(0, maxLen || 80);
 }
+
+// ── HTML Social Posts builder ─────────────────────────────────────────────────
+function _buildSocialPostsHtml(brief, posts, genDate) {
+  posts = Array.isArray(posts) ? posts : [];
+  var _h = function(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  };
+
+  // Group by channel, preserving insertion order
+  var channelMap = {}, channelOrder = [];
+  posts.forEach(function(p) {
+    var ch = p.platform || p.channel || 'Other';
+    if (!channelMap[ch]) { channelMap[ch] = []; channelOrder.push(ch); }
+    channelMap[ch].push(p);
+  });
+
+  var cardsHtml = '';
+  channelOrder.forEach(function(ch) {
+    var chPosts = channelMap[ch];
+    cardsHtml += '<div class="channel-section">\n';
+    cardsHtml += '  <div class="channel-header">' + _h(ch.toUpperCase())
+              + ' <span class="ch-count">' + chPosts.length + ' post' + (chPosts.length !== 1 ? 's' : '') + '</span></div>\n';
+    chPosts.forEach(function(post, pi) {
+      var postNum    = post.post_num || (pi + 1);
+      var stageLabel = post.funnel_stage || post.theme || '';
+      var dayLabel   = post.scheduled_day !== undefined ? post.scheduled_day : '—';
+      cardsHtml += '  <div class="post-card">\n';
+      cardsHtml += '    <div class="post-card-header">Post ' + _h(postNum) + ' &nbsp;&middot;&nbsp; Day ' + _h(dayLabel) + ' &nbsp;&middot;&nbsp; ' + _h(stageLabel) + '</div>\n';
+      cardsHtml += '    <table><tbody>\n';
+      if (post.hook)                        cardsHtml += '      <tr><td class="td-label">Hook</td><td class="td-value td-copy">'        + _h(post.hook)                    + '</td></tr>\n';
+      if (post.body_copy || post.body)      cardsHtml += '      <tr><td class="td-label">Body</td><td class="td-value td-copy">'        + _h(post.body_copy || post.body)  + '</td></tr>\n';
+      if (post.hashtags)                    cardsHtml += '      <tr><td class="td-label">Hashtags</td><td class="td-value">'            + _h(post.hashtags)                + '</td></tr>\n';
+      if (post.cta)                         cardsHtml += '      <tr><td class="td-label">CTA</td><td class="td-value">'                 + _h(post.cta)                     + '</td></tr>\n';
+      if (post.image_brief)                 cardsHtml += '      <tr><td class="td-label">Image Brief</td><td class="td-value">'         + _h(post.image_brief)             + '</td></tr>\n';
+      if (post.utm_url)                     cardsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">'     + _h(post.utm_url)                 + '</td></tr>\n';
+      if (post.dl_id)                       cardsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">'              + _h(post.dl_id)                   + '</td></tr>\n';
+      var st = post.status || 'draft';
+      cardsHtml += '      <tr><td class="td-label">Status</td><td class="td-value"><span class="badge badge-' + _h(st) + '">' + _h(st.toUpperCase()) + '</span></td></tr>\n';
+      cardsHtml += '    </tbody></table>\n  </div>\n';
+    });
+    cardsHtml += '</div>\n';
+  });
+
+  var css = '<style>\n'
+  + '  * { margin:0; padding:0; box-sizing:border-box; }\n'
+  + '  :root { --red:#FF0000; --black:#000000; --beige:#F6EFE8; --white:#FFFFFF; --gray:#666666; --body:#333333; --border:#DDDDDD; }\n'
+  + '  body { font-family:\'Inter\',Arial,sans-serif; font-size:13px; color:var(--black); background:var(--white); padding:40px; max-width:900px; margin:0 auto; }\n'
+  + '  .header { padding-bottom:16px; border-bottom:3px solid var(--red); margin-bottom:24px; }\n'
+  + '  .logo { height:45px; width:auto; display:block; margin-bottom:16px; }\n'
+  + '  .doc-title { font-family:\'Proza Libre\',serif; font-size:28px; font-weight:700; color:var(--black); margin-bottom:4px; }\n'
+  + '  .doc-subtitle { font-family:\'Proza Libre\',serif; font-size:18px; font-weight:700; color:var(--red); margin-bottom:8px; }\n'
+  + '  .doc-meta { font-size:12px; color:var(--gray); }\n'
+  + '  .summary-bar { display:flex; gap:24px; background:var(--beige); border:1px solid var(--border); border-radius:4px; padding:12px 16px; margin-bottom:28px; }\n'
+  + '  .summary-item { font-size:12px; color:var(--gray); }\n'
+  + '  .summary-item strong { font-family:\'Proza Libre\',serif; font-size:20px; font-weight:700; color:var(--red); display:block; }\n'
+  + '  .channel-section { margin-bottom:28px; }\n'
+  + '  .channel-header { background:var(--black); color:var(--white); font-family:\'Inter\',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.08em; padding:10px 16px; border-radius:3px 3px 0 0; }\n'
+  + '  .ch-count { font-weight:400; opacity:0.65; }\n'
+  + '  .post-card { border:1px solid var(--border); border-top:none; }\n'
+  + '  .post-card:last-child { border-radius:0 0 3px 3px; }\n'
+  + '  .post-card-header { background:var(--red); color:var(--white); font-family:\'Inter\',sans-serif; font-size:11px; font-weight:600; padding:7px 12px; }\n'
+  + '  table { width:100%; border-collapse:collapse; }\n'
+  + '  tbody tr:nth-child(odd)  { background:var(--white); }\n'
+  + '  tbody tr:nth-child(even) { background:var(--beige); }\n'
+  + '  tbody td { font-size:12px; padding:8px 12px; border:1px solid var(--border); vertical-align:top; }\n'
+  + '  .td-label { font-weight:600; background:var(--beige)!important; width:18%; white-space:nowrap; color:var(--black); }\n'
+  + '  .td-value { color:var(--body); }\n'
+  + '  .td-copy  { font-style:italic; }\n'
+  + '  .td-url   { font-family:monospace; font-size:11px; word-break:break-all; }\n'
+  + '  .badge { display:inline-block; padding:2px 8px; border-radius:3px; font-size:10px; font-weight:600; letter-spacing:0.05em; }\n'
+  + '  .badge-draft    { background:var(--beige); color:var(--gray); border:1px solid var(--border); }\n'
+  + '  .badge-approved { background:#00A844; color:var(--white); }\n'
+  + '  .badge-live     { background:var(--red); color:var(--white); }\n'
+  + '  .footer { margin-top:40px; padding-top:12px; border-top:2px solid var(--red); font-size:11px; color:var(--gray); }\n'
+  + '  @media print { .channel-section { page-break-inside:avoid; } }\n'
+  + '</style>\n';
+
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+  + '<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1.0">\n'
+  + '<title>easyChef Pro — Social Posts</title>\n'
+  + '<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">\n'
+  + css + '</head>\n<body>\n\n'
+  + '<div class="header">\n'
+  + '  <img class="logo" src="https://ops.dgl.dev/assets/EasyChefProHorizontal.jpg" alt="easyChef Pro">\n'
+  + '  <div class="doc-title">Social Posts</div>\n'
+  + '  <div class="doc-subtitle">' + _h(brief.name) + '</div>\n'
+  + '  <div class="doc-meta">' + _h(brief.id) + ' &nbsp;&middot;&nbsp; ' + _h(brief.icp) + ' &nbsp;&middot;&nbsp; Launch ' + _h(brief.launchDate) + '</div>\n'
+  + '</div>\n\n'
+  + '<div class="summary-bar">\n'
+  + '  <div class="summary-item"><strong>' + posts.length + '</strong>Total Posts</div>\n'
+  + '  <div class="summary-item"><strong>' + channelOrder.length + '</strong>Channels</div>\n'
+  + '  <div class="summary-item"><strong>' + _h(brief.post_count || '—') + '</strong>Per Platform</div>\n'
+  + '  <div class="summary-item"><strong>' + _h(brief.post_frequency || '—') + '</strong>Frequency</div>\n'
+  + '</div>\n\n'
+  + cardsHtml
+  + '<div class="footer">easyChef Pro &nbsp;&middot;&nbsp; Digital Galactica Labs LLC &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; Generated '
+  + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
+  + '</body>\n</html>';
+}
+
+
+// ── HTML Email Sequences builder ──────────────────────────────────────────────
+function _buildEmailSeqsHtml(brief, emails, genDate) {
+  emails = Array.isArray(emails) ? emails : [];
+  var _h = function(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  };
+
+  // Group by sequence, sorted
+  var seqMap = {}, seqOrder = [];
+  emails.forEach(function(e) {
+    var seq = (e.seq_id || '').replace(/-E\d+$/i, '') || e.sequence_code || 'OTHER';
+    if (!seqMap[seq]) { seqMap[seq] = []; seqOrder.push(seq); }
+    seqMap[seq].push(e);
+  });
+  seqOrder.sort();
+
+  var seqsHtml = '';
+  seqOrder.forEach(function(seq) {
+    var seqEmails = seqMap[seq];
+    seqsHtml += '<div class="seq-section">\n';
+    seqsHtml += '  <div class="seq-header">' + _h(seq)
+             + ' <span class="seq-count">' + seqEmails.length + ' email' + (seqEmails.length !== 1 ? 's' : '') + '</span></div>\n';
+    seqEmails.forEach(function(email) {
+      var emailNum = email.email_number || (email.seq_id ? (parseInt((String(email.seq_id).match(/-E(\d+)$/i)||[])[1])||1) : 1);
+      var dayLabel = email.send_day !== undefined ? email.send_day : '—';
+      var subA     = email.subject_line_a || email.subject   || '';
+      var subB     = email.subject_line_b || email.subject_b || '';
+      var preA     = email.preview_text_a || email.preheader || '';
+      var preB     = email.preview_text_b || '';
+      var cta      = email.body_cta       || email.cta_text  || '';
+      var ctaUrl   = email.cta_url        || '';
+      seqsHtml += '  <div class="email-card">\n';
+      seqsHtml += '    <div class="email-card-header">' + _h(seq + '-E' + emailNum)
+               + ' &nbsp;&middot;&nbsp; Day ' + _h(dayLabel) + ' &nbsp;&middot;&nbsp; ' + _h(email.funnel_stage || '') + '</div>\n';
+      seqsHtml += '    <table><tbody>\n';
+      seqsHtml += '      <tr><td class="td-label">Subject A</td><td class="td-value td-copy"><span class="badge badge-a">A</span> ' + _h(subA) + '</td></tr>\n';
+      if (subB) seqsHtml += '      <tr><td class="td-label">Subject B</td><td class="td-value td-copy"><span class="badge badge-b">B</span> ' + _h(subB) + '</td></tr>\n';
+      if (preA) seqsHtml += '      <tr><td class="td-label">Preview A</td><td class="td-value td-copy">' + _h(preA) + '</td></tr>\n';
+      if (preB) seqsHtml += '      <tr><td class="td-label">Preview B</td><td class="td-value td-copy">' + _h(preB) + '</td></tr>\n';
+      if (email.body) seqsHtml += '      <tr><td class="td-label">Body</td><td class="td-value">' + _h(email.body) + '</td></tr>\n';
+      if (cta)  seqsHtml += '      <tr><td class="td-label">CTA</td><td class="td-value">' + _h(cta) + (ctaUrl ? ' <span class="td-url">&rarr; ' + _h(ctaUrl) + '</span>' : '') + '</td></tr>\n';
+      if (email.dl_id)  seqsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">' + _h(email.dl_id) + '</td></tr>\n';
+      if (email.utm_url) seqsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">' + _h(email.utm_url) + '</td></tr>\n';
+      var st = email.status || 'draft';
+      seqsHtml += '      <tr><td class="td-label">Status</td><td class="td-value"><span class="badge badge-' + _h(st) + '">' + _h(st.toUpperCase()) + '</span></td></tr>\n';
+      seqsHtml += '    </tbody></table>\n  </div>\n';
+    });
+    seqsHtml += '</div>\n';
+  });
+
+  var css = '<style>\n'
+  + '  * { margin:0; padding:0; box-sizing:border-box; }\n'
+  + '  :root { --red:#FF0000; --black:#000000; --beige:#F6EFE8; --white:#FFFFFF; --gray:#666666; --body:#333333; --border:#DDDDDD; }\n'
+  + '  body { font-family:\'Inter\',Arial,sans-serif; font-size:13px; color:var(--black); background:var(--white); padding:40px; max-width:900px; margin:0 auto; }\n'
+  + '  .header { padding-bottom:16px; border-bottom:3px solid var(--red); margin-bottom:24px; }\n'
+  + '  .logo { height:45px; width:auto; display:block; margin-bottom:16px; }\n'
+  + '  .doc-title { font-family:\'Proza Libre\',serif; font-size:28px; font-weight:700; color:var(--black); margin-bottom:4px; }\n'
+  + '  .doc-subtitle { font-family:\'Proza Libre\',serif; font-size:18px; font-weight:700; color:var(--red); margin-bottom:8px; }\n'
+  + '  .doc-meta { font-size:12px; color:var(--gray); }\n'
+  + '  .summary-bar { display:flex; gap:24px; background:var(--beige); border:1px solid var(--border); border-radius:4px; padding:12px 16px; margin-bottom:28px; }\n'
+  + '  .summary-item { font-size:12px; color:var(--gray); }\n'
+  + '  .summary-item strong { font-family:\'Proza Libre\',serif; font-size:20px; font-weight:700; color:var(--red); display:block; }\n'
+  + '  .seq-section { margin-bottom:28px; }\n'
+  + '  .seq-header { background:var(--black); color:var(--white); font-family:\'Inter\',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.08em; padding:10px 16px; border-radius:3px 3px 0 0; }\n'
+  + '  .seq-count { font-weight:400; opacity:0.65; }\n'
+  + '  .email-card { border:1px solid var(--border); border-top:none; }\n'
+  + '  .email-card:last-child { border-radius:0 0 3px 3px; }\n'
+  + '  .email-card-header { background:var(--red); color:var(--white); font-family:\'Inter\',sans-serif; font-size:11px; font-weight:600; padding:7px 12px; }\n'
+  + '  table { width:100%; border-collapse:collapse; }\n'
+  + '  tbody tr:nth-child(odd)  { background:var(--white); }\n'
+  + '  tbody tr:nth-child(even) { background:var(--beige); }\n'
+  + '  tbody td { font-size:12px; padding:8px 12px; border:1px solid var(--border); vertical-align:top; }\n'
+  + '  .td-label { font-weight:600; background:var(--beige)!important; width:18%; white-space:nowrap; color:var(--black); }\n'
+  + '  .td-value { color:var(--body); }\n'
+  + '  .td-copy  { font-style:italic; }\n'
+  + '  .td-url   { font-family:monospace; font-size:11px; word-break:break-all; color:var(--gray); }\n'
+  + '  .badge { display:inline-block; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:0.05em; }\n'
+  + '  .badge-a    { background:var(--red);   color:var(--white); }\n'
+  + '  .badge-b    { background:var(--black); color:var(--white); }\n'
+  + '  .badge-draft    { background:var(--beige); color:var(--gray); border:1px solid var(--border); }\n'
+  + '  .badge-approved { background:#00A844; color:var(--white); }\n'
+  + '  .badge-live     { background:var(--red); color:var(--white); }\n'
+  + '  .footer { margin-top:40px; padding-top:12px; border-top:2px solid var(--red); font-size:11px; color:var(--gray); }\n'
+  + '  @media print { .seq-section { page-break-inside:avoid; } }\n'
+  + '</style>\n';
+
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+  + '<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1.0">\n'
+  + '<title>easyChef Pro — Email Sequences</title>\n'
+  + '<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">\n'
+  + css + '</head>\n<body>\n\n'
+  + '<div class="header">\n'
+  + '  <img class="logo" src="https://ops.dgl.dev/assets/EasyChefProHorizontal.jpg" alt="easyChef Pro">\n'
+  + '  <div class="doc-title">Email Sequences</div>\n'
+  + '  <div class="doc-subtitle">' + _h(brief.name) + '</div>\n'
+  + '  <div class="doc-meta">' + _h(brief.id) + ' &nbsp;&middot;&nbsp; ' + _h(brief.icp) + ' &nbsp;&middot;&nbsp; Launch ' + _h(brief.launchDate) + '</div>\n'
+  + '</div>\n\n'
+  + '<div class="summary-bar">\n'
+  + '  <div class="summary-item"><strong>' + emails.length + '</strong>Total Emails</div>\n'
+  + '  <div class="summary-item"><strong>' + seqOrder.length + '</strong>Sequences</div>\n'
+  + '  <div class="summary-item"><strong>' + _h(brief.email_sequences || seqOrder.length) + '</strong>SEQ Count</div>\n'
+  + '  <div class="summary-item"><strong>A+B</strong>Variants / Email</div>\n'
+  + '</div>\n\n'
+  + seqsHtml
+  + '<div class="footer">easyChef Pro &nbsp;&middot;&nbsp; Digital Galactica Labs LLC &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; Generated '
+  + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
+  + '</body>\n</html>';
+}
+
 
 // ── HTML Campaign Brief builder ───────────────────────────────────────────────
 function _buildBriefHtml(brief, copy, dlCount, genDate) {
