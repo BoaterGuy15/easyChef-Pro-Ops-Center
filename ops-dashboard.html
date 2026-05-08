@@ -25967,10 +25967,11 @@ function _ccBuildUtmAssets(){
   if(_campLastLp) assets.push({asset_name:'Landing Page',descriptor:'lp',asset_type:'lp'});
   (_ccLastPosts||[]).forEach(function(p,i){
     var d=desc[i]||('post'+(i+1));
+    var postCh=p.platform||p.channel||b.channel;
     var label=isEmail
       ?('Email '+(i+1)+' — '+(p.subject||p.hook||'').substring(0,40))
       :('Post '+(i+1)+' — '+(p.hook||'').substring(0,40));
-    assets.push({asset_name:label,descriptor:d,asset_type:isEmail?'email':'post'});
+    assets.push({asset_name:label,descriptor:d,asset_type:isEmail?'email':'post',channel:postCh});
   });
   // Add Email Campaign asset when email is a secondary channel and sequences are built
   var _hasEmailCh=(b.channels||[]).some(function(c){return c.toLowerCase()==='email';});

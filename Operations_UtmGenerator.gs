@@ -1,27 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Operations_UtmGenerator.gs
-// Paste this file into your Apps Script project.
 //
-// ADD TO doPost in Operations.gs (inside the if/else chain):
-//   if (body.action === 'generate_utm_urls') return json(generateUtmUrls(body));
-//
+// ADD TO doPost in Operations.gs (before the task array fallback):
+//   if(body.action === 'generate_utm_urls') return respond(generateUtmUrls(body));
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Idempotent UTM URL generator.
- *
- * First call for a campaign_id  → generates DL_IDs, writes to DeepLinkRegistry
- * Subsequent calls without force → returns { ok:true, conflict:true, urls:[existing] }
- * Call with force:true           → cancels old entries, generates fresh DL_IDs
- *
- * body = {
- *   brief:        { id, name, channel, slug, goal },
- *   assets:       [{ asset_name, descriptor, asset_type }],
- *   utm_campaign: 'sanitised_campaign_code',
- *   force:        false
- * }
- *
- * Returns { ok:true, conflict:bool, urls:[{ asset_name, dl_id, utm_content, full_url, status }] }
+ * First call  → generates DL_IDs, writes to DeepLinkRegistry as DRAFT
+ * Without force → returns { ok:true, conflict:true, urls:[existing] }
+ * With force:true → cancels old entries, generates fresh DL_IDs
  */
 function generateUtmUrls(body) {
   try {
@@ -32,7 +20,7 @@ function generateUtmUrls(body) {
 
     if (!brief.id) return { ok: false, error: 'brief.id is required' };
 
-    // ── Check for existing entries ────────────────────────────────────────────
+    // ── Check for existing entries ──────────────────────────────────────────
     var existing = getDlRegistry(brief.id);
     if (existing && existing.length > 0 && !force) {
       return {
@@ -40,10 +28,10 @@ function generateUtmUrls(body) {
         conflict: true,
         urls: existing.map(function(e) {
           var fullUrl = (e.destination_url || '') +
-            '?utm_source='   + (e.utm_source   || '') +
-            '&utm_medium='   + (e.utm_medium   || '') +
-            '&utm_campaign=' + (e.utm_campaign  || '') +
-            '&utm_content='  + (e.utm_content  || '');
+            '?utm_source='   + encodeURIComponent(e.utm_source   || '') +
+            '&utm_medium='   + encodeURIComponent(e.utm_medium   || '') +
+            '&utm_campaign=' + encodeURIComponent(e.utm_campaign  || '') +
+            '&utm_content='  + encodeURIComponent(e.utm_content  || '');
           return {
             asset_name:  e.notes        || e.utm_content || e.dl_id,
             dl_id:       e.dl_id,
@@ -55,32 +43,35 @@ function generateUtmUrls(body) {
       };
     }
 
-    // ── Cancel old entries when regenerating ──────────────────────────────────
+    // ── Cancel old entries when regenerating ────────────────────────────────
     if (force && existing && existing.length > 0) {
       cancelDlEntriesByCampaign(brief.id);
     }
 
-    // ── Resolve channel data ──────────────────────────────────────────────────
-    var chData   = _getChannelData(brief.channel || 'Email');
-    var baseUrl  = 'https://easychefpro.com/' + (brief.slug || '').replace(/^\//, '');
-    var urls     = [];
+    // ── Resolve default channel data from Channels tab ──────────────────────
+    var defaultChData = _getChannelData(brief.channel || 'Facebook');
+    var baseUrl       = 'https://easychefpro.com/' + (brief.slug || '').replace(/^\//, '');
+    var urls          = [];
 
-    // ── Generate one DL_ID per asset ─────────────────────────────────────────
+    // ── Generate one DL_ID per asset ────────────────────────────────────────
     assets.forEach(function(asset) {
-      var prefix     = asset.asset_type === 'lp' ? 'LP' : chData.dl_prefix;
+      // Use per-asset channel for multi-channel campaigns
+      var assetCh    = asset.channel || brief.channel || '';
+      var chData     = assetCh ? _getChannelData(assetCh) : defaultChData;
+      var prefix     = asset.asset_type === 'lp' ? 'LP' : (chData.dl_prefix || defaultChData.dl_prefix);
       var dlId       = _nextDlId(prefix);
       var utmContent = dlId + '_' + (asset.descriptor || '');
       var fullUrl    = baseUrl +
-        '?utm_source='   + chData.utm_source +
-        '&utm_medium='   + chData.utm_medium +
-        '&utm_campaign=' + utmCampaign +
-        '&utm_content='  + utmContent;
+        '?utm_source='   + encodeURIComponent(chData.utm_source) +
+        '&utm_medium='   + encodeURIComponent(chData.utm_medium) +
+        '&utm_campaign=' + encodeURIComponent(utmCampaign) +
+        '&utm_content='  + encodeURIComponent(utmContent);
 
       setDlRegistryEntry({
         dl_id:           dlId,
         utm_content:     utmContent,
         campaign_id:     brief.id,
-        channel:         brief.channel || '',
+        channel:         assetCh,
         destination_url: baseUrl,
         utm_source:      chData.utm_source,
         utm_medium:      chData.utm_medium,
@@ -94,7 +85,8 @@ function generateUtmUrls(body) {
         dl_id:       dlId,
         utm_content: utmContent,
         full_url:    fullUrl,
-        status:      'DRAFT'
+        status:      'DRAFT',
+        channel:     assetCh
       });
     });
 
@@ -106,8 +98,8 @@ function generateUtmUrls(body) {
 }
 
 /**
- * Soft-cancels all DeepLinkRegistry entries for a campaign by setting
- * their status to 'CANCELLED'. Does not delete rows.
+ * Soft-cancels all DeepLinkRegistry entries for a campaign.
+ * Sets status to CANCELLED — does not delete rows.
  */
 function cancelDlEntriesByCampaign(campaignId) {
   if (!campaignId) return;
@@ -119,9 +111,8 @@ function cancelDlEntriesByCampaign(campaignId) {
 
 /**
  * Resolves utm_source, utm_medium, dl_prefix for a channel name.
- * Reads live from the Channels tab via getChannels(). If the sheet
- * read fails, the error propagates. If the channel is not found,
- * returns generic defaults.
+ * Reads live from the Channels tab via getChannels().
+ * Falls back to generic defaults if channel not found.
  */
 function _getChannelData(channelName) {
   var channels = getChannels();

@@ -175,7 +175,7 @@ function saveCampaignDraft(body) {
 
           // Posts belonging to this channel
           var _chPosts = posts.filter(function(p){
-            return (p.channel||brief.channel||'').toLowerCase() === channelName.toLowerCase();
+            return (p.channel||p.platform||brief.channel||'').toLowerCase() === channelName.toLowerCase();
           });
           _chPosts.forEach(function(p, i) {
             _chAssets.push({
