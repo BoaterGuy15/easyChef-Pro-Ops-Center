@@ -14454,9 +14454,32 @@ function _doSave(){
     .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
 }
 let _saveTasksDebounce=null;
+function _lpRefreshBarStatuses(){
+  if(!_lpCache.length) return;
+  const _isDone=s=>s==='Done'||s==='Complete';
+  const _isActive=s=>['Started','In Progress','Ready','In Review','Complete','Done'].includes(s);
+  let changed=false;
+  _lpCache.forEach(bar=>{
+    const tids=(Array.isArray(bar.taskIds)?bar.taskIds:String(bar.taskIds||'').split(',')).map(s=>String(s).trim()).filter(Boolean);
+    if(!tids.length) return;
+    const linked=tids.map(tid=>(DASHBOARD_DATA.tasks||[]).find(t=>t.id===tid)).filter(Boolean);
+    if(!linked.length) return;
+    const allDone=linked.every(t=>_isDone(t.status));
+    const anyActive=linked.some(t=>_isActive(t.status));
+    const newStatus=allDone?'Complete':anyActive?'In Progress':'Not Started';
+    if(newStatus!==(bar.status||'Not Started')){
+      bar.status=newStatus;
+      _lpSaveBar({...bar});
+      changed=true;
+    }
+  });
+  if(changed) buildLaunchPlan();
+}
+
 function _saveTasksNow(){
   if(!window._sheetsLoaded){ console.warn('[DGL] Blocked premature task save'); return; }
   if(!CONFIG.sheetsUrl) return;
+  _lpRefreshBarStatuses();
   console.log('[DGL] Saving '+DASHBOARD_DATA.tasks.length+' tasks to Sheets');
   clearTimeout(_saveTasksDebounce);
   clearTimeout(_sheetsDebounce);
