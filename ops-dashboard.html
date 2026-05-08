@@ -22030,31 +22030,202 @@ function _ccClearTheme() {
   _ccBriefSync();
 }
 
+// ── Campaign Center Settings System ─────────────────────────────────────────
+// All arrays below are populated from the CcSettings sheet at runtime.
+// Fallback defaults activate only when the sheet is unreachable.
+var _ccSettingsData   = null;
+var _ccSettingsLoaded = false;
+
+var _CC_THEME_CATEGORIES = ['weeknight-wins','weekend-wins','seasonal','health','savings','founder','program'];
+var _CC_CAMPAIGN_ANGLES  = ['speed','savings','waste','health','convenience','community','founder'];
+var _CC_APP_FEATURE_LABELS = {TRACK:'Pantry Intelligence',PLAN:'Meal Planning Engine',OPTIMIZE:'Nutrition Scoring',COOK:'Recipe Engine',SHOP:'Shopping List Generator'};
+var _CC_APP_SCREEN_LABELS  = {TRACK:'Pantry view',PLAN:'Meal Plan view',OPTIMIZE:'Nutrition score view',COOK:'Recipe page',SHOP:'Shopping List view'};
+
+function _ccApplySettings(data) {
+  if(!data) return;
+  _ccSettingsData = data;
+  if(data.theme_categories && data.theme_categories.length)
+    _CC_THEME_CATEGORIES = data.theme_categories.map(function(r){return r.key;});
+  if(data.campaign_angles && data.campaign_angles.length)
+    _CC_CAMPAIGN_ANGLES = data.campaign_angles.map(function(r){return r.key;});
+  if(data.app_features && data.app_features.length) {
+    _CC_APP_FEATURE_LABELS = {};
+    _CC_APP_SCREEN_LABELS  = {};
+    data.app_features.forEach(function(r){
+      _CC_APP_FEATURE_LABELS[r.key] = r.label;
+      _CC_APP_SCREEN_LABELS[r.key]  = r.extra;
+    });
+  }
+}
+
+function _ccLoadSettings(cb) {
+  if(_ccSettingsLoaded && _ccSettingsData) { if(cb) cb(); return; }
+  if(!CONFIG.sheetsUrl) { _ccSettingsLoaded=true; if(cb) cb(); return; }
+  fetch(CONFIG.sheetsUrl+'?action=get_settings')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      _ccApplySettings(d.settings||null);
+      _ccSettingsLoaded = true;
+      if(cb) cb();
+    })
+    .catch(function(){ _ccSettingsLoaded=true; if(cb) cb(); });
+}
+
+function _ccSaveSettingSection(section, rows, statusId, cb) {
+  var el=document.getElementById(statusId);
+  if(el) el.textContent='Saving…';
+  if(!CONFIG.sheetsUrl){if(el){el.textContent='⚠️ No sheet URL';el.style.color='#ef4444';} return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'save_settings',section:section,rows:rows})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      _ccSettingsLoaded=false; _ccSettingsData=null;
+      _ccLoadSettings(function(){ if(cb) cb(); });
+      if(el){el.textContent='✓ Saved';el.style.color='#22c55e';setTimeout(function(){el.textContent='';el.style.color='';},3000);}
+    })
+    .catch(function(){if(el){el.textContent='⚠️ Save failed';el.style.color='#ef4444';}});
+}
+
+// ── Settings Panel ───────────────────────────────────────────────────────────
+var _ccSettingsPanelOpen = false;
+var _ccStDrafts = {}; // {section: [{key,label,extra,active}]}
+
+function _ccOpenSettings() {
+  _ccSettingsPanelOpen = true;
+  var modal = document.getElementById('cc-settings-overlay');
+  if(!modal){ modal=document.createElement('div'); modal.id='cc-settings-overlay'; document.body.appendChild(modal); }
+  _ccLoadSettings(function(){
+    modal.innerHTML = _ccSettingsPanelHtml();
+    modal.style.display = 'flex';
+  });
+}
+
+function _ccCloseSettings() {
+  _ccSettingsPanelOpen = false;
+  var modal = document.getElementById('cc-settings-overlay');
+  if(modal) modal.style.display='none';
+}
+
+function _ccStTab(sec) {
+  ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES'].forEach(function(s){
+    var p=document.getElementById('cc-st-panel-'+s);
+    var b=document.getElementById('cc-st-tab-'+s);
+    if(p) p.style.display=(s===sec)?'block':'none';
+    if(b){ b.style.background=(s===sec)?_CC_RED:'transparent'; b.style.color=(s===sec)?'#fff':'var(--muted)'; }
+  });
+}
+
+function _ccStGetRows(sec) {
+  var list = document.getElementById('cc-st-list-'+sec);
+  if(!list) return [];
+  var rows = [];
+  Array.prototype.forEach.call(list.querySelectorAll('.cc-st-row'), function(row){
+    var key   = (row.querySelector('.cc-st-key')   ||{}).value||'';
+    var label = (row.querySelector('.cc-st-label') ||{}).value||'';
+    var extra = (row.querySelector('.cc-st-extra') ||{}).value||'';
+    var tog   = row.querySelector('.cc-st-active');
+    var active= tog ? tog.checked : true;
+    if(key) rows.push({key:key,label:label,extra:extra,active:active});
+  });
+  return rows;
+}
+
+function _ccStAddRow(sec, key, label, extra) {
+  var list=document.getElementById('cc-st-list-'+sec); if(!list) return;
+  var div=document.createElement('div'); div.className='cc-st-row';
+  div.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:6px';
+  div.innerHTML=_ccStRowHtml(sec,key||'',label||'',extra||'',true);
+  list.appendChild(div);
+  var first=div.querySelector('input'); if(first) first.focus();
+}
+
+function _ccStRemoveRow(btn) {
+  var row=btn.parentElement; if(row) row.parentElement.removeChild(row);
+}
+
+function _ccStRowHtml(sec,key,label,extra,active){
+  var IS='background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 8px;font-size:11px;font-family:\'DM Mono\',monospace;box-sizing:border-box';
+  var keyRO=(sec==='APP_FEATURES'||sec==='JOURNEY_TYPES')?' style="'+IS+';flex:0 0 110px"':' style="'+IS+';flex:0 0 130px"';
+  var hasExtra=(sec==='APP_FEATURES'||sec==='JOURNEY_TYPES');
+  return '<input type="checkbox" class="cc-st-active" '+(active?'checked':'')+'  title="Active" style="flex-shrink:0">'+
+    '<input type="text" class="cc-st-key" value="'+_esc(key)+'"'+keyRO+' placeholder="key">'+
+    '<input type="text" class="cc-st-label" value="'+_esc(label)+'" style="'+IS+';flex:2" placeholder="label">'+
+    (hasExtra?'<input type="text" class="cc-st-extra" value="'+_esc(extra)+'" style="'+IS+';flex:1.5" placeholder="'+(sec==='APP_FEATURES'?'screen label':'default feature')+'">':'')+
+    '<button onclick="_ccStRemoveRow(this)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;flex-shrink:0">✕</button>';
+}
+
+function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function _ccSettingsPanelHtml() {
+  var IS='background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 8px;font-size:11px;font-family:\'DM Mono\',monospace;box-sizing:border-box';
+  var BTN='border:none;padding:7px 16px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.05em;text-transform:uppercase';
+  var TABST='padding:6px 14px;border-radius:5px 5px 0 0;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border:none;font-family:\'DM Mono\',monospace';
+  var sdata = _ccSettingsData || {theme_categories:[],journey_types:[],app_features:[],campaign_angles:[]};
+
+  function rowsHtml(sec, items, extraPlaceholder) {
+    return items.map(function(r){
+      return '<div class="cc-st-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'+_ccStRowHtml(sec,r.key,r.label,r.extra||'',r.active!==false)+'</div>';
+    }).join('');
+  }
+
+  function panel(sec, title, desc, extraCol, items) {
+    var colHdr='<div style="display:flex;gap:6px;margin-bottom:6px;padding-left:22px">'+
+      '<div style="flex:0 0 '+(sec==='APP_FEATURES'||sec==='JOURNEY_TYPES'?110:130)+'px;font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase">Key</div>'+
+      '<div style="flex:2;font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase">Label</div>'+
+      (extraCol?'<div style="flex:1.5;font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase">'+extraCol+'</div>':'')+
+      '<div style="width:34px"></div>'+
+    '</div>';
+    return '<div id="cc-st-panel-'+sec+'" style="'+(sec==='THEME_CATEGORIES'?'':'display:none')+'">'+
+      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:12px">'+desc+'</div>'+
+      colHdr+
+      '<div id="cc-st-list-'+sec+'">'+rowsHtml(sec,items)+'</div>'+
+      '<button onclick="_ccStAddRow(\''+sec+'\')" style="'+BTN+';background:transparent;border:1px dashed var(--border);color:var(--muted);width:100%;padding:7px;margin-top:4px">+ Add Row</button>'+
+      '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'+
+        '<button onclick="_ccSaveSettingSection(\''+sec+'\',_ccStGetRows(\''+sec+'\'),\'cc-st-status-'+sec+'\',null)" style="'+BTN+';background:'+_CC_RED+';color:#fff;padding:8px 20px">💾 Save '+title+'</button>'+
+        '<div id="cc-st-status-'+sec+'" style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  return (
+    '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)_ccCloseSettings()">'+
+    '<div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid '+_CC_RED+';border-radius:10px;width:100%;max-width:740px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">'+
+
+    // Header
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">'+
+      '<div>'+
+        '<div style="font-size:13px;font-weight:700;color:var(--text);font-family:\'DM Mono\',monospace;letter-spacing:0.05em">⚙ CAMPAIGN CENTER SETTINGS</div>'+
+        '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:2px">All changes write to the CcSettings sheet tab · cached 5 min</div>'+
+      '</div>'+
+      '<button onclick="_ccCloseSettings()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:5px;font-size:13px;cursor:pointer">✕</button>'+
+    '</div>'+
+
+    // Tabs
+    '<div style="display:flex;gap:2px;padding:12px 20px 0;border-bottom:1px solid var(--border);flex-shrink:0">'+
+      ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES'].map(function(s,i){
+        var labels=['Categories','Journey Types','App Features','Angles'];
+        var active=i===0;
+        return '<button id="cc-st-tab-'+s+'" onclick="_ccStTab(\''+s+'\')" style="'+TABST+';background:'+(active?_CC_RED:'transparent')+';color:'+(active?'#fff':'var(--muted)')+(active?'':';border:1px solid var(--border);border-bottom:none')+'">'+labels[i]+'</button>';
+      }).join('')+
+    '</div>'+
+
+    // Body
+    '<div style="flex:1;overflow-y:auto;padding:20px">'+
+      panel('THEME_CATEGORIES','Categories','Category slugs stored in the ThemeLibrary <strong>category</strong> column. Key = slug value, Label = display name shown in form.',null,sdata.theme_categories)+
+      panel('JOURNEY_TYPES','Journey Types','Journey type presets. Key = display label, Label = slug, Extra = default App Feature auto-mapped on selection.','Default Feature',sdata.journey_types)+
+      panel('APP_FEATURES','App Features','Key = feature code used in AI prompts, Label = AI context description, Screen Label = value written to the <strong>app_screen_label</strong> column.','Screen Label',sdata.app_features)+
+      panel('CAMPAIGN_ANGLES','Angles','Campaign angle options. Key = stored value, Label = display name shown in form.',null,sdata.campaign_angles)+
+    '</div>'+
+
+    // Footer
+    '<div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0">'+
+      '<button onclick="_ccCloseSettings()" style="'+BTN+';background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 20px">Close</button>'+
+    '</div>'+
+    '</div></div>'
+  );
+}
+
 // ── Create New Theme ────────────────────────────────────────────────────────
-var _ccNewThemeVisible = false;
-var _ccIcpProfilesCache = null;
-var _ccApprovedClaimsCache = null;
-var _ccNewThemeDraft = {};
-
-var _CC_APP_FEATURE_LABELS = {
-  'TRACK':    'Pantry & Waste Screen',
-  'PLAN':     'Meal Planning Screen',
-  'OPTIMIZE': 'Savings Dashboard',
-  'COOK':     'Recipe & Cook Mode',
-  'SHOP':     'Shopping List Screen'
-};
-
-var _CC_APP_SCREEN_LABELS = {
-  'TRACK':    'Pantry view',
-  'PLAN':     'Meal Plan view',
-  'OPTIMIZE': 'Nutrition score view',
-  'COOK':     'Recipe page',
-  'SHOP':     'Shopping List view'
-};
-
-var _CC_THEME_CATEGORIES = [
-  'weeknight-wins','weekend-wins','seasonal','health','savings','founder','program'
-];
 
 function _ccNtToStep(n) {
   [1,2,3].forEach(function(i){
@@ -22113,10 +22284,13 @@ function _ccToggleNewTheme() {
   if(!wrap) return;
   if(_ccNewThemeVisible) {
     _ccNewThemeDraft = {};
-    wrap.innerHTML = _ccNewThemeFormHtml();
+    wrap.innerHTML = '<div style="padding:16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Loading settings…</div>';
     wrap.style.display = 'block';
     if(btn){ btn.textContent='✕ Cancel'; btn.style.color='var(--muted)'; }
-    _ccLoadIcpForThemeForm();
+    _ccLoadSettings(function(){
+      wrap.innerHTML = _ccNewThemeFormHtml();
+      _ccLoadIcpForThemeForm();
+    });
   } else {
     wrap.style.display = 'none';
     wrap.innerHTML = '';
@@ -22178,8 +22352,10 @@ function _ccNewThemeFormHtml() {
   var COL = 'flex:1;min-width:160px';
   var SEC = 'font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#000;background:'+_CC_BEIGE+';padding:7px 12px;border-radius:5px;margin:0 0 14px;border-left:3px solid '+_CC_RED;
   var daysOpts='<option value="">— any day —</option>'+['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(function(d){return '<option>'+d+'</option>';}).join('');
-  var catOpts=_CC_THEME_CATEGORIES.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
-  var angleOpts=['speed','savings','waste','health','convenience','community','founder'].map(function(a){return '<option value="'+a+'">'+a+'</option>';}).join('');
+  var catData=(_ccSettingsData&&_ccSettingsData.theme_categories)||_CC_THEME_CATEGORIES.map(function(k){return {key:k,label:k};});
+  var catOpts=catData.map(function(c){return '<option value="'+_esc(c.key)+'">'+_esc(c.label||c.key)+'</option>';}).join('');
+  var angData=(_ccSettingsData&&_ccSettingsData.campaign_angles)||_CC_CAMPAIGN_ANGLES.map(function(k){return {key:k,label:k};});
+  var angleOpts=angData.map(function(a){return '<option value="'+_esc(a.key)+'">'+_esc(a.label||a.key)+'</option>';}).join('');
   var featureOpts=Object.keys(_CC_APP_FEATURE_LABELS).map(function(k){return '<option value="'+k+'">'+k+' — '+_CC_APP_FEATURE_LABELS[k]+'</option>';}).join('');
 
   return (
@@ -28015,7 +28191,7 @@ function _ccRenderWizardBar(){
     {n:1,lbl:'Theme'},{n:2,lbl:'LP'},{n:3,lbl:'Kickstart'},{n:4,lbl:'Brief'},
     {n:5,lbl:'Assets'},{n:6,lbl:'Calendar'}
   ];
-  return steps.map(function(s,i){
+  var stepsHtml=steps.map(function(s,i){
     var done=!!_ccWizardDone[s.n];
     var active=_ccWizardStep===s.n;
     var bg=active?_CC_RED:done?'#16a34a':'transparent';
@@ -28032,6 +28208,8 @@ function _ccRenderWizardBar(){
         '<span class="cc-wiz-num" style="display:none">'+(done?'✓':'')+s.n+'</span>'+
       '</button>';
   }).join('');
+  return stepsHtml+
+    '<button onclick="_ccOpenSettings()" title="Campaign Center Settings" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:20px;font-size:12px;cursor:pointer;font-family:\'DM Mono\',monospace;flex-shrink:0">⚙</button>';
 }
 function _ccWizardAdvance(toStep,summary){
   // Collapse current step
@@ -28244,6 +28422,7 @@ function _campaignsRender(){
     _ccDataLoaded=true;
     root.innerHTML='<div style="padding:40px 32px;font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted)">Loading campaign data…</div>';
     setTimeout(function(){
+      _ccLoadSettings(); // pre-fetch settings so form dropdowns are ready
       _ccLoadChannels();
       _ccLoadBlueprintConfigs();
       _campaignsRenderInner(root);

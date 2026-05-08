@@ -27,7 +27,8 @@ var _CC_TAB = {
   METRICS:        'CampaignMetrics',
   SCHEDULED:      'ScheduledPosts',
   LP_INVENTORY:   'LPInventory',
-  THEME_LIBRARY:  'ThemeLibrary'
+  THEME_LIBRARY:  'ThemeLibrary',
+  SETTINGS:       'CcSettings'
 };
 
 var _CC_HDR = {
@@ -140,7 +141,8 @@ var _CC_HDR = {
     'image_mood_cta','active','notes',
     'app_feature','app_screen_label','feature_hook','feature_proof',
     'persona_rotation'
-  ]
+  ],
+  CcSettings: ['section','key','label','extra','active']
 };
 
 // ── Spreadsheet access ────────────────────────────────────────────────────────
@@ -238,6 +240,7 @@ function _setupCampaignSheets() {
   _seedLPInventory(ss.getSheetByName(_CC_TAB.LP_INVENTORY));
   _seedLandingPages(ss.getSheetByName(_CC_TAB.PAGES));
   _seedThemeLibrary(ss.getSheetByName(_CC_TAB.THEME_LIBRARY));
+  _seedCcSettings(ss.getSheetByName(_CC_TAB.SETTINGS));
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
@@ -1552,6 +1555,98 @@ function _testSheetWiring() {
   Logger.log('CampaignMetrics: '  + getCampaignMetrics().length  + ' rows');
   Logger.log('ScheduledPosts: '   + getScheduledPosts().length   + ' rows');
   Logger.log('LPInventory: '      + getLPInventory().length      + ' rows');
+}
+
+// ── CcSettings — Campaign Center configurable options ─────────────────────────
+
+function _seedCcSettings(sheet) {
+  if (!sheet) return;
+  var last = sheet.getLastRow();
+  if (last >= 2) {
+    var existing = sheet.getRange(2, 1, last - 1, 1).getValues().filter(function(r){ return r[0]; });
+    if (existing.length > 0) return; // already seeded — never overwrite
+  }
+  var rows = [
+    // THEME_CATEGORIES — key=slug stored in category column, label=display name
+    ['THEME_CATEGORIES','weeknight-wins','Weeknight Wins','',true],
+    ['THEME_CATEGORIES','weekend-wins','Weekend Wins','',true],
+    ['THEME_CATEGORIES','seasonal','Seasonal','',true],
+    ['THEME_CATEGORIES','health','Health','',true],
+    ['THEME_CATEGORIES','savings','Savings','',true],
+    ['THEME_CATEGORIES','founder','Founder','',true],
+    ['THEME_CATEGORIES','program','Program','',true],
+    // JOURNEY_TYPES — key=display label, label=slug, extra=default app feature
+    ['JOURNEY_TYPES','Weeknight Dinner','weeknight-dinner','COOK',true],
+    ['JOURNEY_TYPES','Weekend Occasion','weekend-occasion','PLAN',true],
+    ['JOURNEY_TYPES','Special Event','special-event','COOK',true],
+    ['JOURNEY_TYPES','Social Gathering','social-gathering','PLAN',true],
+    ['JOURNEY_TYPES','Health Goal','health-goal','OPTIMIZE',true],
+    ['JOURNEY_TYPES','Savings Goal','savings-goal','TRACK',true],
+    ['JOURNEY_TYPES','Grocery Run','grocery-run','SHOP',true],
+    ['JOURNEY_TYPES','App Program','app-program','',true],
+    // APP_FEATURES — key=code, label=AI context label, extra=screen label for sheet
+    ['APP_FEATURES','TRACK','Pantry Intelligence','Pantry view',true],
+    ['APP_FEATURES','PLAN','Meal Planning Engine','Meal Plan view',true],
+    ['APP_FEATURES','OPTIMIZE','Nutrition Scoring','Nutrition score view',true],
+    ['APP_FEATURES','COOK','Recipe Engine','Recipe page',true],
+    ['APP_FEATURES','SHOP','Shopping List Generator','Shopping List view',true],
+    // CAMPAIGN_ANGLES — key=slug, label=display name
+    ['CAMPAIGN_ANGLES','speed','Speed','',true],
+    ['CAMPAIGN_ANGLES','savings','Savings','',true],
+    ['CAMPAIGN_ANGLES','waste','Waste Reduction','',true],
+    ['CAMPAIGN_ANGLES','health','Health','',true],
+    ['CAMPAIGN_ANGLES','convenience','Convenience','',true],
+    ['CAMPAIGN_ANGLES','community','Community','',true],
+    ['CAMPAIGN_ANGLES','founder','Founder','',true]
+  ];
+  rows.forEach(function(row) { sheet.appendRow(row); });
+  Logger.log('CcSettings: seeded ' + rows.length + ' rows');
+}
+
+function getSettings() {
+  var cache   = CacheService.getScriptCache();
+  var cached  = cache.get('cc_settings_v1');
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+
+  var sheet = _getCCSheet(_CC_TAB.SETTINGS);
+  if (sheet.getLastRow() < 2) _seedCcSettings(sheet);
+
+  var result = { theme_categories:[], journey_types:[], app_features:[], campaign_angles:[] };
+  var last   = sheet.getLastRow();
+  if (last < 2) { cache.put('cc_settings_v1', JSON.stringify(result), 300); return result; }
+
+  sheet.getRange(2, 1, last - 1, 5).getValues().forEach(function(r) {
+    if (!r[0]) return;
+    var sec    = String(r[0]).toUpperCase();
+    var isActive = r[4] === true || String(r[4]).toLowerCase() === 'true';
+    if (!isActive) return;
+    var row = { key: String(r[1]||''), label: String(r[2]||''), extra: String(r[3]||'') };
+    if      (sec === 'THEME_CATEGORIES') result.theme_categories.push(row);
+    else if (sec === 'JOURNEY_TYPES')    result.journey_types.push(row);
+    else if (sec === 'APP_FEATURES')     result.app_features.push(row);
+    else if (sec === 'CAMPAIGN_ANGLES')  result.campaign_angles.push(row);
+  });
+
+  cache.put('cc_settings_v1', JSON.stringify(result), 300);
+  return result;
+}
+
+function saveSettings(section, rows) {
+  if (!section || !Array.isArray(rows)) return false;
+  var sheet    = _getCCSheet(_CC_TAB.SETTINGS);
+  var secUpper = section.toUpperCase();
+  var last     = sheet.getLastRow();
+  if (last >= 2) {
+    var allVals = sheet.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = allVals.length - 1; i >= 0; i--) {
+      if (String(allVals[i][0]).toUpperCase() === secUpper) sheet.deleteRow(i + 2);
+    }
+  }
+  rows.forEach(function(row) {
+    sheet.appendRow([secUpper, row.key||'', row.label||'', row.extra||'', row.active!==false]);
+  });
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  return true;
 }
 
 // ── Full end-to-end Campaign Center test ─────────────────────────────────────
