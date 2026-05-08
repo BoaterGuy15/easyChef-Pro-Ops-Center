@@ -1532,6 +1532,11 @@ function getMilestones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName('Milestones');
   if(!sh || sh.getLastRow() < 2) return [];
+  const MS_HDRS = ['id','title','date','type','status','description','color','taskIds','achievedDate'];
+  // Auto-fix header row if column 1 is not 'id'
+  if(String(sh.getRange(1,1).getValue()).trim() !== 'id') {
+    sh.getRange(1,1,1,MS_HDRS.length).setValues([MS_HDRS]);
+  }
   const data = sh.getDataRange().getValues();
   const headers = data[0].map(h => String(h).trim());
   return data.slice(1).map(row => {
