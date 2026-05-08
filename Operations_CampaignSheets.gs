@@ -2531,3 +2531,236 @@ function applyPreLaunchTimeline() {
 }
 
 // clasp auto-deploy verified — May 2026
+
+// ── ICP Library v2 seed — May 2026 ───────────────────────────────────────────
+// Adds 15 new ICP profiles. Skips any code already present in the sheet.
+// Run once from Apps Script editor: _seedIcpLibrary20
+
+function _seedIcpLibrary20() {
+  var sheet  = _getCCSheet(_CC_TAB.ICP);
+  var last   = sheet.getLastRow();
+  var today  = '2026-05-08';
+
+  // Build set of existing codes from column C (index 2)
+  var existing = {};
+  if (last >= 2) {
+    sheet.getRange(2, 3, last - 1, 1).getValues().forEach(function(r) {
+      if (r[0]) existing[String(r[0]).toLowerCase()] = true;
+    });
+  }
+
+  var icps = [
+    { id:'single_parent',       name:'Single Parent',           status:'Active',              validated:true,
+      demo:'Female · 28–45 · 1–3 kids · HHI $25–60K · single income · time and money maximally constrained · primary everything',
+      psycho:'No partner to share the load. Every decision is hers alone. Deeply practical. High loyalty once trust is earned.',
+      pain:'Sole provider of all meals with zero margin for error or waste.',
+      sec_pain:'One person doing the job of two. Dinner at 6 PM after work and school pickup. No plan and no backup.',
+      value:'Plan the whole week in minutes. Every grocery item gets used. $1,336/year back in a budget that needs every dollar.',
+      loss:'Every wasted item is a bill she cannot afford. Every takeout night is two weeks of lunches.',
+      channels:'Facebook mom groups · Nextdoor community trust · Email · Pinterest quick meals',
+      msg:'1. You should not have to do this alone. 2. 30 minutes. 3. $1,336 back. 4. Free to start.',
+      triggers:'$1,336/year · 30 minutes · Free · No credit card · Built by first responders',
+      notes:'High emotional resonance — fold into Super Mom funnel · separate copy angle available' },
+
+    { id:'empty_nester',        name:'Empty Nester',            status:'Pending Validation',  validated:false,
+      demo:'Female · 48–62 · kids left home · couple or alone · HHI $60–120K · cooking habits built for a full house',
+      psycho:'Still buys too much out of habit. Waste is high. Suddenly has time but not new habits. Interested in nutrition for herself now.',
+      pain:'Cooking for a full house was muscle memory. Cooking for one or two requires a complete relearn.',
+      sec_pain:'Buys family-sized everything. Half goes to waste. Recipes still written for 4–6 people. Cannot scale down.',
+      value:'Scales every recipe automatically. Meal plans for 1–2. Grocery list matches exactly what is needed.',
+      loss:'Every oversized purchase is money wasted now the kids are gone.',
+      channels:'Facebook · Pinterest · Email · Instagram secondary',
+      msg:'1. Your household changed — your kitchen has not kept up. 2. Scale any recipe. 3. Cook for yourself.',
+      triggers:'Recipe scaling · Nutrition scoring · No waste · Free to try',
+      notes:'Tertiary ICP — placeholder — do not build funnels until validated' },
+
+    { id:'newlywed',            name:'Newlywed Couple',         status:'Pending Validation',  validated:false,
+      demo:'Female or Male · 24–34 · newly married · no kids yet · dual income · HHI $60–100K · first shared kitchen',
+      psycho:'Excited about building a home together. Cooking is a shared project but creates friction without a plan.',
+      pain:'No shared food system means constant friction and waste even with a good grocery budget.',
+      sec_pain:'Two different food preferences. No shared system. Groceries bought independently. Food expires.',
+      value:'One shared pantry. One shared meal plan. Both preferences accounted for. Dinner without the nightly negotiation.',
+      loss:'$400/month on delivery before they even start a family.',
+      channels:'Instagram · Pinterest · TikTok · Email',
+      msg:'1. Build your kitchen together. 2. One app two preferences. 3. Stop the delivery habit early.',
+      triggers:'Shared meal plan · No waste · 30 minutes · Free to try',
+      notes:'Pre-family acquisition — valuable long-term — not primary pre-launch focus' },
+
+    { id:'busy_dad',            name:'Busy Dad',                status:'Pending Validation',  validated:false,
+      demo:'Male · 30–48 · married · 2+ kids · HHI $60–120K · wants to contribute to household food but does not know how',
+      psycho:'Knows his partner carries the food load. Wants to step up but cooking feels overwhelming without a clear system.',
+      pain:'Cannot help with dinner without a system that tells him exactly what to do.',
+      sec_pain:'Opens the fridge and sees ingredients with no plan. Defaults to ordering pizza because it is the only decision he can make alone.',
+      value:'Opens the app. Sees what is in the fridge. Gets a recipe. Dinner done before his partner gets home.',
+      loss:'Every pizza order is another night his partner does the whole load herself.',
+      channels:'Facebook · YouTube · Email · Reddit',
+      msg:'1. Be the dinner hero. 2. Open the app follow the steps. 3. 30 minutes. 4. She will notice.',
+      triggers:'Step by step · 30 minutes · Easy wins · Free to try',
+      notes:'Secondary persona within family ICP — different copy angle needed' },
+
+    { id:'large_family',        name:'Large Family',            status:'Pending Validation',  validated:false,
+      demo:'Female · 28–45 · 4+ kids · HHI $50–90K · bulk buyer · Costco and Walmart · feeding 6–8 people every night',
+      psycho:'Scale is her life. Everything is bigger and more expensive. Waste hits harder. Cannot afford ingredient experiments.',
+      pain:'Feeding 6 people every night with a real budget means zero tolerance for waste.',
+      sec_pain:'Grocery bill is enormous. Waste is enormous because bulk buying does not match meal plans.',
+      value:'Meal plan scaled for 6. Grocery list sized correctly. At 6 people $1,336 savings becomes $2,000+.',
+      loss:'At 6 people waste does not cost $1,336 — it costs double. Every unplanned dinner is $60 in delivery.',
+      channels:'Facebook family groups · Pinterest · Email · Nextdoor',
+      msg:'1. Scale everything. 2. Grocery list for exactly 6. 3. The number is bigger for you.',
+      triggers:'Scalable recipes · Bulk shopping · Free · $1,336+ savings',
+      notes:'High value ICP — waste savings scale with family size · fold into Super Mom funnel initially' },
+
+    { id:'walmart_shopper',     name:'Walmart Shopper Alpha',   status:'Active',              validated:true,
+      demo:'Female · 28–50 · 2+ kids · HHI $30–80K · primary Walmart shopper · pickup or in-store · Walmart Great Value and national brands',
+      psycho:'Practical and price-conscious. Loyal to Walmart. Skeptical of apps that do not understand her actual grocery brands.',
+      pain:'No app has ever understood what is actually in a Walmart shopper\'s fridge.',
+      sec_pain:'Recipe apps assume she shops at Whole Foods. Suggestions for ingredients she cannot find at Walmart.',
+      value:'800,000 Walmart products in the database. The app knows her exact brands. Shopping list goes to Walmart cart.',
+      loss:'Every app that does not know Walmart is another app she will delete in 3 days.',
+      channels:'Facebook · Nextdoor · Email · Walmart app community',
+      msg:'1. We know your Walmart. 2. 800,000 products. 3. Your brands. Your fridge. Your dinner.',
+      triggers:'800,000 products · Walmart cart integration · Free · Alpha access',
+      notes:'Alpha Wave 1 primary target — database is Walmart only · highest product-market fit for current build' },
+
+    { id:'fitness_mom',         name:'Fitness Mom',             status:'Pending Validation',  validated:false,
+      demo:'Female · 28–42 · 1–2 kids · HHI $60–110K · gym-goer · tracks macros · health-forward household',
+      psycho:'Food is health not just fuel. Reads every label. Frustrated that healthy cooking takes so much time.',
+      pain:'Healthy eating for a family requires hours of planning she cannot sustain.',
+      sec_pain:'Planning macro-balanced family meals takes hours. Kids do not eat the healthy food. Expensive ingredients expire.',
+      value:'Nutrition scoring on every meal. Macros calculated automatically. Healthy recipes from what is in the fridge.',
+      loss:'Every processed meal she falls back on is a health goal missed.',
+      channels:'Instagram · Pinterest health · Facebook fitness groups · Email',
+      msg:'1. 6 nutrition dimensions. 2. Registered dietitians. 3. Healthy dinner in 30 minutes.',
+      triggers:'6-dimension scoring · Registered dietitians · FDA-grade · 30 minutes',
+      notes:'Fold into Health Optimizer funnel — same channels different copy angle' },
+
+    { id:'millennial_couple',   name:'Millennial Couple',       status:'Pending Validation',  validated:false,
+      demo:'Female or Male · 28–38 · DINK or one young child · HHI $80–160K · urban · food delivery heavy users',
+      psycho:'Food is part of identity. Enjoy cooking when they have a plan. High delivery spend but aspirationally want to cook more.',
+      pain:'Great income great kitchen terrible food habits — and they know it.',
+      sec_pain:'$500/month on food delivery. Groceries sit unused. Cannot justify the waste but cannot stop the pattern.',
+      value:'Turns groceries already bought into restaurant-quality dinners. Kills the delivery habit. Saves $500+/month.',
+      loss:'At $500/month delivery spend they are burning $6,000/year on habits they want to break.',
+      channels:'Instagram · TikTok · Email · Pinterest · YouTube',
+      msg:'1. You have everything to cook. 2. 30 minutes better than DoorDash. 3. Your fridge. Your recipes.',
+      triggers:'30 minutes · No DoorDash · Recipe quality · Free to try',
+      notes:'High lifetime value — not primary pre-launch focus — Q3 2026' },
+
+    { id:'meal_prep_enthusiast',name:'Meal Prep Enthusiast',    status:'Pending Validation',  validated:false,
+      demo:'Female or Male · 25–40 · health-forward · Sunday prep ritual · 1–3 person household · HHI $50–100K',
+      psycho:'Control through preparation. Sunday prep is a ritual. Frustrated when the plan falls apart mid-week.',
+      pain:'Sunday prep ritual undermined by waste and poor ingredient planning.',
+      sec_pain:'Spends 3 hours Sunday prepping only to throw out 30% by Wednesday.',
+      value:'Meal plan built from what is already in the pantry. Nothing expires mid-week.',
+      loss:'Every failed prep week is 3 hours of Sunday wasted.',
+      channels:'Instagram · Pinterest · YouTube · Email · Reddit meal prep communities',
+      msg:'1. Your Sunday prep should not fail by Wednesday. 2. Plan from your pantry. 3. Zero waste week.',
+      triggers:'Pantry-first planning · 69.5% less waste · Free',
+      notes:'Strong theme fit — No Waste Week · Meal Prep Sunday' },
+
+    { id:'food_waste_fighter',  name:'Food Waste Fighter',      status:'Pending Validation',  validated:false,
+      demo:'Female or Male · 28–45 · environmentally motivated · composting household · 1–4 person household · HHI $50–100K',
+      psycho:'Waste is moral for them not just financial. Every expired item is a guilt event. Has tried everything.',
+      pain:'Food waste is both financially and morally painful — and every solution has failed.',
+      sec_pain:'Despite best intentions throws away $1,336/year. Environmental and financial waste is personal.',
+      value:'69.5% reduction in food waste. Expiry alerts fire before food goes bad. The loop finally closes.',
+      loss:'Every wasted item is an environmental failure and a financial one.',
+      channels:'Instagram eco · Pinterest · Email · Reddit sustainability',
+      msg:'1. 69.5% less food waste. 2. The pantry finally gets tracked. 3. Nothing expires without a plan.',
+      triggers:'69.5% waste reduction · Expiry alerts · Pantry tracking · Free',
+      notes:'Strong claim fit — 69.5% waste reduction is the primary hook' },
+
+    { id:'date_night_planner',  name:'Date Night Planner',      status:'Pending Validation',  validated:false,
+      demo:'Female or Male · 28–45 · partnered · 0–2 kids · wants to cook special meals at home · HHI $60–120K',
+      psycho:'Restaurants feel impersonal. Wants intimacy of cooking together but lacks confidence to pull it off.',
+      pain:'Date night cooking fails at the planning stage not the cooking stage.',
+      sec_pain:'Great intentions for date night dinner at home. Opens fridge at 7 PM panics orders delivery.',
+      value:'Date Night theme turns what is in the fridge into a restaurant-quality meal in 45 minutes.',
+      loss:'Every failed date night at home is a restaurant bill anyway plus the disappointment.',
+      channels:'Instagram · Pinterest romance · Email · Facebook couples groups',
+      msg:'1. Cook for the person you love from what you already have. 2. 45 minutes. 3. Better than a reservation.',
+      triggers:'Date Night theme · 45 minutes · Step-by-step · Free to try',
+      notes:'Strong theme fit — Date Night · Special Occasion campaigns' },
+
+    { id:'grandparent_cook',    name:'Grandparent Cook',        status:'Pending Validation',  validated:false,
+      demo:'Female · 55–72 · grandchildren visit regularly · cooking is love language · fixed or comfortable income · Walmart shopper',
+      psycho:'Cooking for grandchildren is highest priority. Wants real food not frozen meals. Responds to warmth not tech.',
+      pain:'Cooking for grandchildren with different ages means constant guesswork and waste.',
+      sec_pain:'Grandchildren have different preferences. Recipes too complex for mixed ages at the same table.',
+      value:'Recipes built for mixed ages. Pantry tracking so nothing expires between visits. Simple step-by-step.',
+      loss:'Every visit with a failed dinner is a memory she cannot get back.',
+      channels:'Facebook · Email · Nextdoor · Word of mouth',
+      msg:'1. Cook for the people you love. 2. From what you already have. 3. Simple. 4. Real food.',
+      triggers:'Step by step · Family recipes · No waste · Free to try',
+      notes:'Tertiary ICP — high loyalty once converted · Walmart shopper overlap' },
+
+    { id:'beta_tester',         name:'Beta Tester',             status:'Active',              validated:true,
+      demo:'Female · 28–45 · Walmart shopper · fresh recruit · not an alpha user · June 29 invite · 2+ kids',
+      psycho:'Fresh eyes on the product. Has not seen the alpha build. Responds to the idea the app was shaped before she got access.',
+      pain:'The original Super Mom pain — unresolved because she only just joined.',
+      sec_pain:'Same as Super Mom — 6:30 PM wall food waste no plan. Has not yet experienced the fix.',
+      value:'Gets an app already shaped by real families. Tested. Fixed. Ready. Still gets founding price.',
+      loss:'If she waits for public launch she pays $19.99 and loses the founding price window.',
+      channels:'Beta invite campaign · Email · Social · Referral from alpha users',
+      msg:'1. Real families shaped this before you got here. 2. Founding price still available. 3. July 1 deadline.',
+      triggers:'Fixed and tested · Founding price · July 1 deadline · Fresh experience',
+      notes:'Active from June 29 — fresh recruits only — NOT alpha users' },
+
+    { id:'pre_launch_visitor',  name:'Pre-Launch Visitor',      status:'Active',              validated:true,
+      demo:'Female · 28–45 · found the coming soon page organically · Super Mom profile · not yet on waitlist',
+      psycho:'Curious. Discovered easyChef Pro before launch. Discovery feels exclusive if handled correctly.',
+      pain:'Found something promising but has not committed. One moment of friction and she is gone.',
+      sec_pain:'Does not know the solution yet. The 6:30 PM wall is real but has not connected it to easyChef Pro.',
+      value:'Free to join. Early access July 1. Founding price if she is in the first 5,000.',
+      loss:'If she leaves now she finds it again at $19.99 when founding price is gone.',
+      channels:'Organic search · Social discovery · Coming Soon page · Referral',
+      msg:'1. You found this early. 2. Free to join. 3. Founding price ends at 5,000 families.',
+      triggers:'Coming soon energy · Founding price scarcity · Free · July 1 date',
+      notes:'Entry point ICP — coming soon page audience — convert to waitlist immediately' },
+
+    { id:'founder_family',      name:'Founding Family',         status:'Active',              validated:true,
+      demo:'Any ICP · has joined the waitlist · in the first 5,000 families · founding member pricing locked',
+      psycho:'Identity now tied to easyChef Pro. Was there first. Proud of founding member status. High lifetime value.',
+      pain:'Anticipation and slight anxiety — did I make the right call joining early?',
+      sec_pain:'Waiting for July 1. Wants reassurance the app is coming and the founding price is real.',
+      value:'$7.99/month forever. 60% off for life. First access July 1. Part of the family that built this.',
+      loss:'If the app disappoints she loses trust and the founding price is not worth it.',
+      channels:'Klaviyo SEQ-3 Urgency · SEQ-4 Launch Day · Email · Social',
+      msg:'1. You are in. 2. July 1 is coming. 3. Your price is locked. 4. Here is what you helped build.',
+      triggers:'SEQ-4 Launch Day · $7.99 confirmation · App download link · Founding family identity',
+      notes:'Waitlist conversion state — high priority retention — every SEQ-3 and SEQ-4 targets this ICP' }
+  ];
+
+  var added = 0;
+  var skipped = 0;
+  icps.forEach(function(p) {
+    if (existing[p.id]) { skipped++; return; }
+    sheet.appendRow([
+      p.id,           // id
+      p.name,         // name
+      p.id,           // code (same as id)
+      p.status,       // status
+      p.demo,         // demographics
+      p.psycho,       // psychographics
+      p.pain,         // primary_pain
+      p.sec_pain,     // secondary_pain
+      p.value,        // value_trigger
+      p.loss,         // loss_aversion
+      p.channels,     // channel_affinity
+      p.msg,          // message_hierarchy
+      p.triggers,     // conversion_triggers
+      '',             // utm_campaign_codes (blank)
+      '',             // lp_variants (blank)
+      p.validated,    // validated
+      p.notes,        // validation_notes
+      today,          // created_at
+      today           // updated_at
+    ]);
+    existing[p.id] = true;
+    added++;
+  });
+
+  Logger.log('_seedIcpLibrary20: added=' + added + ' skipped=' + skipped);
+  try { SpreadsheetApp.getUi().alert('ICP seed done — added: ' + added + ' · skipped (already exist): ' + skipped); } catch(e) {}
+  return { added: added, skipped: skipped };
+}
