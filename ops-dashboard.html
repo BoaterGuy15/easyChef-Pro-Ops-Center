@@ -26530,10 +26530,10 @@ function _ccRenderCalendarResult(d,container){
   var _ldate=(function(){var s=_campBrief.launchDate||'';if(!s)return null;var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);})();
   var dayToDate=function(n){if(!_ldate)return '';var d=new Date(_ldate);d.setDate(d.getDate()+n);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
   var weekGroups=[
-    {label:'Week 1 — Awareness',  min:0,  max:6},
-    {label:'Weeks 2–3 — Nurture', min:7,  max:20},
-    {label:'Weeks 4–6 — Urgency', min:21, max:41},
-    {label:'Launch Day',          min:42, max:9999}
+    {label:'Week 1 — 7-Day Social Arc'+(_ldate?' · '+dayToDate(0)+'–'+dayToDate(6):''),      min:0,  max:6},
+    {label:'Weeks 2–3 — Email Nurture'+(_ldate?' · '+dayToDate(7)+'–'+dayToDate(24):''),     min:7,  max:24},
+    {label:'Weeks 4–6 — Launch Countdown'+(_ldate?' · '+dayToDate(25)+'–'+dayToDate(48):''), min:25, max:47},
+    {label:'Launch Day',                                                                        min:48, max:9999}
   ];
   var summaryHtml=
     '<div style="padding:10px 14px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.25);border-radius:8px;font-size:12px;font-weight:600;color:#22c55e;margin-bottom:14px">'+
@@ -26544,7 +26544,24 @@ function _ccRenderCalendarResult(d,container){
     if(!wkDays.length) return '';
     var totalItems=wkDays.reduce(function(s,c){return s+c.emails.length+c.posts.length;},0);
     var dayHtml=wkDays.map(function(c){
-      var items='';
+      var _isWk1=c.day<=6;
+      var _dayNum=c.day+1;
+      var _dayDate=dayToDate(c.day);
+      var _postChs=[];
+      (c.posts||[]).forEach(function(p){var ch=p.platform||p.channel||'';if(ch&&_postChs.indexOf(ch)===-1)_postChs.push(ch);});
+      var _dayTheme=(c.posts&&c.posts.length&&c.posts[0].theme)||'';
+      var _dayNotes=[];
+      (c.posts||[]).forEach(function(p){if((p.platform||'').toLowerCase()==='youtube')_dayNotes.push('YouTube drops');});
+      (c.emails||[]).forEach(function(e){if(e.seq_id)_dayNotes.push(safe(e.seq_id)+' fires');});
+      var _hdrMain=_isWk1
+        ?'Day '+_dayNum+(_dayDate?' '+_dayDate:'')+': '+(_postChs.length?'All channels':'')+(_dayTheme?' · '+_dayTheme:'')
+        :(_dayDate?_dayDate+': ':'')+(_postChs.length?_postChs.join(', ')+(_dayTheme?' · '+_dayTheme:''):(_dayTheme||''));
+      var _dayHdr=
+        '<div style="padding:5px 14px;border-top:1px solid rgba(0,0,0,0.07);background:rgba(0,0,0,0.025);font-size:10px;font-weight:600;color:var(--text);font-family:\'DM Mono\',monospace">'+
+          safe(_hdrMain)+
+          (_dayNotes.length?' <span style="font-weight:400;color:#22c55e;font-size:9px">+ '+_dayNotes.join(' + ')+'</span>':'')+
+        '</div>';
+      var items=_dayHdr;
       (c.emails||[]).forEach(function(e){
         var _seqCode=e.sequence_code||(e.seq_id?String(e.seq_id).replace(/-E\d+$/i,''):'EMAIL');
         var _emailNum=e.email_number||(e.seq_id?parseInt((String(e.seq_id).match(/-E(\d+)$/i)||[])[1])||1:1);
@@ -26647,10 +26664,10 @@ function _ccDownloadCalendarCSV(){
   var posts=d.posts||[];
   var seqOff={'SEQ-1':0,'SEQ-2':0,'SEQ-3':28,'SEQ-4':42};
   var wkLbl=function(day){
-    if(day>=42) return 'Launch Day';
-    if(day>=21) return 'Weeks 4-6 Urgency';
-    if(day>=7)  return 'Weeks 2-3 Nurture';
-    return 'Week 1 Awareness';
+    if(day>=48) return 'Launch Day';
+    if(day>=25) return 'Weeks 4-6 Launch Countdown';
+    if(day>=7)  return 'Weeks 2-3 Email Nurture';
+    return 'Week 1 Social Arc';
   };
   var q=function(s){return '"'+String(s||'').replace(/"/g,'""')+'"';};
   var _csvLdate=(function(){var s=(_campBrief||{}).launchDate||'';if(!s)return null;var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);})();
