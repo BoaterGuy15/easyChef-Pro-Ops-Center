@@ -6178,7 +6178,7 @@ function _renderGanttMilestoneLines(opts){
   hdrLinesOverlay.id=pfx+'-ms-lines-hdr';
   hdrLinesOverlay.style.cssText=`position:absolute;top:0;left:0;width:${totalTrackW}px;height:52px;pointer-events:none;z-index:4;overflow:visible`;
 
-  console.log('[DGL] Rendering milestone lines:',items.length);
+  //console.log('[DGL] Rendering milestone lines:',items.length);
   items.forEach(m=>{
     const off=_ganttDayOff(m.date);
     if(off>=_GANTT_DAYS){ console.warn('[DGL] Milestone out of range:',m.title,m.date); return; }
@@ -6186,7 +6186,7 @@ function _renderGanttMilestoneLines(opts){
     const isDone=m.status==='Complete'||m.status==='Done';
     const color=isDone?'#22c55e':_resolveColor(m.color);
     const marker=isDone?'✓':'◆';
-    console.log('[DGL] Milestone:',m.title,'day:',off.toFixed(1),'x:',x+'px');
+    //console.log('[DGL] Milestone:',m.title,'day:',off.toFixed(1),'x:',x+'px');
 
     const line=document.createElement('div');
     line.style.cssText=`position:absolute;left:${x}px;top:0;width:2px;height:100%;border-left:2px solid ${color};opacity:0.5;pointer-events:auto;cursor:default`;
@@ -9629,7 +9629,7 @@ function _buildMilestonesHtml(canEditControls){
   return html;
 }
 function buildMilestones(){
-  console.log('[DGL] buildMilestones called');
+  //console.log('[DGL] buildMilestones called');
   const commandEl=document.getElementById('milestone-list');
   const roadmapEl=document.getElementById('roadmap-milestone-list');
   const lpEl=document.getElementById('lp-milestone-list');
