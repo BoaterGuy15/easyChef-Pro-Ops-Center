@@ -21600,7 +21600,7 @@ var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
 var _ccLogoPosState={}; // per-post logo position: 'none'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','Email'],goal:'',slug:'',launchDate:'',approved:false,ml_approved:false,status:'draft',post_count:7,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'],goal:'',slug:'',launchDate:'',approved:false,ml_approved:false,status:'draft',post_count:7,post_frequency:'daily',email_sequences:4,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -21984,8 +21984,8 @@ function _ccRenderBrief(){
           var _sec='grid-column:1/-1;display:none;margin-bottom:14px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.02)';
           var _ig='<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">';
           var _fhdr='<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">';
-          var _fo=[['daily','Daily'],['every_2_days','Every 2 days'],['3x_week','3\xd7 per week'],['2x_week','2\xd7 per week'],['weekly','Weekly'],['as_needed','As needed']];
-          var _fs=_fo.map(function(o){return '<option value="'+o[0]+'"'+((b.post_frequency||'every_2_days')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('');
+          var _fo=[['daily','Daily · 7-day arc'],['every_2_days','Every 2 days'],['3x_week','3\xd7 per week'],['2x_week','2\xd7 per week'],['weekly','Weekly'],['as_needed','As needed']];
+          var _fs=_fo.map(function(o){return '<option value="'+o[0]+'"'+((b.post_frequency||'daily')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('');
           return '<div id="cc-volume-social" style="'+_sec+'">'+
             _fhdr+'Content Volume — Social</div>'+
             _ig+
@@ -21996,7 +21996,7 @@ function _ccRenderBrief(){
           '<div id="cc-volume-email" style="'+_sec+'">'+
             _fhdr+'Content Volume — Email</div>'+
             _ig+
-              '<div>'+_lbl('Email Sequences')+'<input type="number" id="cc-email-sequences" min="1" max="10" value="'+(b.email_sequences||2)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
+              '<div>'+_lbl('Email Sequences')+'<input type="number" id="cc-email-sequences" min="1" max="10" value="'+(b.email_sequences||4)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
               '<div>'+_lbl('Variants per Email')+'<input type="number" id="cc-email-variants" min="1" max="5" value="'+(b.email_variants||2)+'" style="'+_ns+'" oninput="_ccBriefSync()"></div>'+
             '</div>'+
           '</div>';
@@ -22092,7 +22092,7 @@ function _ccBriefSync(){
   })();
   _el=_ccEl('cc-funnel');  if(_el&&_el.value)    b.funnel=_el.value;
   // channels array managed by _ccChannelToggle; derive primary social channel for backward compat
-  if(!b.channels||!b.channels.length) b.channels=['Facebook','Email'];
+  if(!b.channels||!b.channels.length) b.channels=['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'];
   b.channel=(b.channels.filter(function(c){return c.toLowerCase()!=='email'&&c.toLowerCase()!=='push notifications';})[0])||b.channels[0]||'';
   _el=_ccEl('cc-goal');     if(_el&&_el.value)    b.goal=_el.value;
   _el=_ccEl('cc-cta-type'); if(_el&&_el.value)    b.cta_type=_el.value;
@@ -22387,13 +22387,18 @@ function _ccPopulateChannelCards(channels){
     'content':'article brief','affiliate':'brief · partner link',
     'referral':'drip email'
   };
-  var savedChs=_campBrief.channels||['Facebook','Instagram','Email'];
+  // Per-name note overrides for channels with non-standard post counts
+  var _noteNameOverride={
+    'tiktok':'1 spotlight video · feature demo',
+    'youtube':'1 explainer · Day 7'
+  };
+  var savedChs=_campBrief.channels||['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'];
   var activeChannels=channels.filter(function(c){return c.status==='active';});
   grid.innerHTML=activeChannels.map(function(ch){
     var nameLow=(ch.name||'').toLowerCase();
     var medium=(ch.utm_medium||'').toLowerCase();
     var dim=ch.image_specs||_dimFallback[nameLow]||'—';
-    var note=ch.post_format||_noteFallback[medium]||'copy only';
+    var note=ch.post_format||_noteNameOverride[nameLow]||_noteFallback[medium]||'copy only';
     var on=savedChs.indexOf(ch.name)>=0;
     return _ccChannelCardHtml(ch.name,dim,note,on);
   }).join('');
@@ -22775,16 +22780,16 @@ function _ccAutoFillBrief(campaign){
           _ccRefreshChannelLabel();
           // Set volume defaults on _campBrief
           _campBrief.post_count      = _campBrief.post_count      || 7;
-          _campBrief.post_frequency  = _campBrief.post_frequency  || 'every_2_days';
-          _campBrief.email_sequences = _campBrief.email_sequences || 'seq1_seq2';
-          _campBrief.email_variants  = _campBrief.email_variants  || 'both';
+          _campBrief.post_frequency  = _campBrief.post_frequency  || 'daily';
+          _campBrief.email_sequences = _campBrief.email_sequences || 4;
+          _campBrief.email_variants  = _campBrief.email_variants  || 2;
           // Reflect defaults into DOM so user sees them immediately
           var pcEl=document.getElementById('cc-post-count');
           if(pcEl&&!pcEl.value) pcEl.value=7;
           var pfEl=document.getElementById('cc-post-frequency');
-          if(pfEl&&!pfEl.value) pfEl.value='every_2_days';
+          if(pfEl&&!pfEl.value) pfEl.value='daily';
           var esEl=document.getElementById('cc-email-sequences');
-          if(esEl&&!esEl.value) esEl.value='seq1_seq2';
+          if(esEl&&!esEl.value) esEl.value=4;
           var evEl=document.getElementById('cc-email-variants');
           if(evEl&&!evEl.value) evEl.value='both';
           _ccUpdateVolumeFields();
@@ -25971,27 +25976,43 @@ function _ccSanitiseCampaignCode(name){
 }
 function _ccBuildUtmAssets(){
   var b=_campBrief;
-  // Locked 7-stage funnel arc — sequence resets independently per platform
   var _stages7=['post1_hook','post2_problem','post3_agitate','post4_solve','post5_value','post6_proof','post7_cta'];
   var assets=[];
   if(_campLastLp) assets.push({asset_name:'Landing Page',descriptor:'lp',asset_type:'lp'});
-  // 7 DL_IDs per social channel
   var _chs=(b.channels&&b.channels.length)?b.channels:[b.channel||'Facebook'];
   _chs.forEach(function(ch){
     var _chObj=(_ccChannels||[]).filter(function(c){return c.name===ch;})[0]||{};
     var _chMedium=(_chObj.utm_medium||'').toLowerCase();
-    var _isSocial=_chMedium==='social'||_chMedium==='community';
-    if(!_isSocial) return;
-    _stages7.forEach(function(stage,si){
-      assets.push({asset_name:ch+' · Post '+(si+1)+' — '+stage,descriptor:stage,asset_type:'post',channel:ch});
-    });
+    var _chLow=(ch||'').toLowerCase();
+    if(_chLow==='tiktok'){
+      // TikTok: 1 feature spotlight video per campaign
+      var _feat=_ccGetTikTokFeature(b);
+      assets.push({asset_name:'TikTok · Feature Spotlight — '+_feat.toUpperCase(),descriptor:_feat+'_spotlight',asset_type:'video',channel:ch});
+    } else if(_chLow==='youtube'){
+      // YouTube: 1 explainer video — releases Day 7
+      assets.push({asset_name:'YouTube · Explainer — Day 7',descriptor:'explainer_day7',asset_type:'video',channel:ch});
+    } else {
+      var _isSocial=_chMedium==='social'||_chMedium==='community';
+      if(!_isSocial) return;
+      _stages7.forEach(function(stage,si){
+        assets.push({asset_name:ch+' · Post '+(si+1)+' — '+stage,descriptor:stage,asset_type:'post',channel:ch});
+      });
+    }
   });
-  // Email: one asset per active sequence
-  var _hasEmailCh=(b.channels||[]).some(function(c){return c.toLowerCase()==='email';});
-  if(_hasEmailCh&&_ccLastEmails&&_ccLastEmails.length){
+  // Email: one asset per active sequence (uses _ccLastEmails count as label)
+  var _emailCh=(_chs||[]).find(function(c){return(c||'').toLowerCase()==='email';});
+  if(_emailCh&&_ccLastEmails&&_ccLastEmails.length){
     assets.push({asset_name:'Email Campaign — '+_ccLastEmails.length+' email'+(+_ccLastEmails.length!==1?'s':''),descriptor:'email_campaign',asset_type:'email',channel:'Email'});
   }
   return assets;
+}
+function _ccGetTikTokFeature(brief){
+  var t=((brief.name||'')+' '+(brief.theme||'')).toLowerCase();
+  if(/taco|game.?night|30.?min|doordash/.test(t))                        return 'cook';
+  if(/meal.?prep|grocery.?challenge|back.?to.?school|sunday.?reset/.test(t)) return 'plan';
+  if(/waste|leftover|fridge.?clear|1336|receipt/.test(t))                return 'track';
+  if(/macro|clean.?plate|6.?dimension/.test(t))                          return 'optimize';
+  return 'cook';
 }
 function _ccRenderUTM(){
   var b=_campBrief;

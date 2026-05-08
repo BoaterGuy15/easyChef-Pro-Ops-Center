@@ -154,9 +154,6 @@ function saveCampaignDraft(body) {
         });
       } else {
         // No ACTIVE entries — generate one DL_ID per asset per channel
-        var _utmCode = (brief.name||brief.id||'').toLowerCase()
-          .replace(/['\-]/g,'').replace(/[^a-z0-9]+/g,'_')
-          .replace(/^_+|_+$/g,'').substring(0,50);
         var _baseUrl = 'https://easychefpro.com/' + (brief.slug||'').replace(/^\//,'');
         var _stages7 = ['post1_hook','post2_problem','post3_agitate','post4_solve','post5_value','post6_proof','post7_cta'];
         var _channels = (Array.isArray(brief.channels) && brief.channels.length)
@@ -164,8 +161,11 @@ function saveCampaignDraft(body) {
         var _lpGenerated = false;
 
         _channels.forEach(function(channelName) {
-          var _chData   = _getChannelData(channelName);
-          var _chAssets = [];
+          var _chData    = _getChannelData(channelName);
+          var _chAssets  = [];
+          var _chMedium  = (_chData.utm_medium||'').toLowerCase();
+          var _chNameLow = channelName.toLowerCase();
+          var _isEmailCh = _chMedium === 'email';
 
           // LP once across all channels (tied to first channel processed)
           if (!_lpGenerated && lp && (lp.hero_headline || lp.solve_section)) {
@@ -173,14 +173,23 @@ function saveCampaignDraft(body) {
             _lpGenerated = true;
           }
 
-          // Gate on utm_medium so only true social/community channels get the 7-post arc.
-          // Email → sequences. Video/affiliate/organic/direct → skipped (no posts).
-          var _chMedium    = (_chData.utm_medium||'').toLowerCase();
-          var _isSocialCh  = _chMedium === 'social';
-          var _isCommunity = _chMedium === 'community'; // Reddit — same arc, community rules differ
-          var _isEmailCh   = _chMedium === 'email';
-
-          if (_isSocialCh || _isCommunity) {
+          if (_chNameLow === 'tiktok') {
+            // TikTok: 1 feature spotlight video per campaign
+            var _tkFeat = _getTikTokFeature(brief);
+            _chAssets.push({
+              asset_name: 'TikTok · Feature Spotlight — ' + _tkFeat.toUpperCase(),
+              descriptor:  _tkFeat + '_spotlight',
+              asset_type: 'video'
+            });
+          } else if (_chNameLow === 'youtube') {
+            // YouTube: 1 explainer video — releases Day 7
+            _chAssets.push({
+              asset_name: 'YouTube · Explainer — Day 7',
+              descriptor:  'explainer_day7',
+              asset_type: 'video'
+            });
+          } else if (_chMedium === 'social' || _chMedium === 'community') {
+            // Social/community: 7-post arc (Reddit gets community=true flag via utm_medium)
             _stages7.forEach(function(stage, i) {
               _chAssets.push({
                 asset_name: channelName + ' · Post ' + (i+1) + ' — ' + stage,
@@ -188,11 +197,8 @@ function saveCampaignDraft(body) {
                 asset_type: 'post'
               });
             });
-          }
-
-          if (!_chAssets.length) {
-            // Email: generate one DL per active sequence.
-            // Non-social, non-email (video, affiliate, organic, direct): skip.
+          } else if (!_chAssets.length) {
+            // Email: 1 DL per active sequence. Other (video handled above, affiliate/organic/direct): skip.
             if (!_isEmailCh) return;
             var _emailSeqs = _getActiveEmailSeqs(brief.email_sequence_mode || brief.email_sequences);
             _emailSeqs.forEach(function(seq) {
@@ -209,7 +215,8 @@ function saveCampaignDraft(body) {
             var prefix          = asset.asset_type === 'lp' ? 'LP' : (_chData.dl_prefix || 'SOC');
             var dlId            = _nextDlId(prefix);
             var utmContent      = dlId + '_' + (asset.descriptor || '');
-            var _assetUtmCode   = asset.utm_campaign_override || _utmCode;
+            // Controlled vocab: per-channel utm_campaign lookup; email seqs use their own code
+            var _assetUtmCode   = asset.utm_campaign_override || _buildUtmCampaignCode(brief, channelName);
             var fullUrl         = _baseUrl +
               '?utm_source='   + encodeURIComponent(_chData.utm_source) +
               '&utm_medium='   + encodeURIComponent(_chData.utm_medium) +
@@ -267,9 +274,57 @@ function _getActiveEmailSeqs(raw) {
   };
   if (map[raw]) return map[raw];
   var n = parseInt(raw, 10);
-  if (isNaN(n)) return map['seq1_seq2'];
+  if (isNaN(n)) return map['full'];  // default: all 4 sequences = 4 DL_IDs
   if (n <= 1) return map['seq1_only'];
   if (n <= 2) return map['seq1_seq2'];
   if (n <= 3) return map['seq1_seq2_seq3'];
   return map['full'];
+}
+
+/**
+ * Controlled vocabulary utm_campaign lookup.
+ * ICP + channel → approved code. Never auto-generated from campaign name.
+ */
+function _buildUtmCampaignCode(brief, channelName) {
+  var ch    = (channelName || '').toLowerCase();
+  var icp   = (brief.icp  || '').toLowerCase();
+  var angle = (brief.campaign_angle || '').toLowerCase();
+  var theme = ((brief.name || '') + ' ' + (brief.theme || '')).toLowerCase();
+
+  // Email sequences use per-sequence codes (set via utm_campaign_override in calling loop)
+  if (ch === 'email') return 'seq1_welcome';
+
+  var _pfxMap = {
+    facebook:'fb', instagram:'ig', tiktok:'tk', pinterest:'pin',
+    nextdoor:'nd', youtube:'yt', x:'x', reddit:'rd', vimeo:'vm'
+  };
+  var prefix = _pfxMap[ch] || ch.substring(0, 3);
+
+  // Angle/theme overrides
+  if (ch === 'tiktok'    && angle === 'waste')                                    return 'tk_waste';
+  if (ch === 'pinterest' && angle === 'savings')                                  return 'pin_savings';
+  if (ch === 'pinterest' && (angle === 'speed' || theme.indexOf('meal') >= 0))    return 'pin_meal_plan';
+  if (ch === 'instagram' && (angle === 'health' || icp === 'health_optimizer'))   return 'ig_health';
+  if (ch === 'facebook'  && icp === 'budget_family')                              return 'fb_budget_family';
+  if (ch === 'facebook'  && icp === 'professional')                               return 'fb_professional';
+
+  // ICP-based default: [channel_prefix]_[icp_code]
+  var _icpMap = {
+    super_mom:'super_mom', budget_family:'budget_family', professional:'professional',
+    health_optimizer:'health', alpha_recruit:'alpha'
+  };
+  return prefix + '_' + (_icpMap[icp] || icp || 'pre_launch');
+}
+
+/**
+ * Maps campaign theme/name to a TikTok feature for spotlight video DL_ID.
+ * Feature categories: cook · plan · track · optimize
+ */
+function _getTikTokFeature(brief) {
+  var t = ((brief.name || '') + ' ' + (brief.theme || '')).toLowerCase();
+  if (/taco|game.?night|30.?min|doordash/.test(t))               return 'cook';
+  if (/meal.?prep|grocery.?challenge|back.?to.?school|sunday.?reset/.test(t)) return 'plan';
+  if (/waste|leftover|fridge.?clear|1336|receipt/.test(t))       return 'track';
+  if (/macro|clean.?plate|6.?dimension/.test(t))                 return 'optimize';
+  return 'cook'; // default to COOK feature
 }

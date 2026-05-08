@@ -47,8 +47,8 @@ function _sbGetWireframe() {
     { seq:'SEQ-1', num:1, global:1,  day:0,
       role: role('hook',    'You\'re In — confirm signup, deliver the promise, make them glad they joined — NO CTA, no links, pure welcome energy'),
       trigger:'waitlist_signup', theme:'welcome',     stage:'hook'     },
-    { seq:'SEQ-1', num:2, global:2,  day:2,
-      role: role('problem', 'Problem + story — name the exact 6:30 PM fridge-stare pain, tell a one-sentence founder story, agitate before solving — no hard CTA'),
+    { seq:'SEQ-1', num:2, global:2,  day:3,
+      role: role('problem', 'Problem + story — name the exact 6:30 PM fridge-stare pain, tell a one-sentence founder story, agitate the cost — CTA to LP with registered DL_ID required'),
       trigger:'waitlist_signup', theme:'problem',     stage:'problem'  },
     { seq:'SEQ-1', num:3, global:3,  day:7,
       role: role('solve',   'Value + CTA to LP — one approved stat, one sentence of social proof, clear CTA linking to the landing page — founding price framing'),
@@ -413,7 +413,14 @@ function buildEmailCalendar(brief, copy) {
       wireframeDesc + '\n\n' +
       '=== COUNT REQUIREMENT — NON-NEGOTIABLE ===\n' +
       'You MUST return exactly ' + wireframe.length + ' JSON objects — one for every wireframe entry listed above.\n' +
-      'Do not combine entries. Do not skip any email. Do not merge SEQ-1-E1, E2, and E3 into one object.\n' +
+      (function() {
+        var counts = {};
+        wireframe.forEach(function(e) { counts[e.seq] = (counts[e.seq] || 0) + 1; });
+        return 'Per-sequence breakdown (check before returning):\n' +
+          Object.keys(counts).map(function(s) { return '  ' + s + ': ' + counts[s] + ' email' + (counts[s]!==1?'s':''); }).join('\n') + '\n';
+      })() +
+      'SEQ-1 MUST produce ' + wireframe.filter(function(e){return e.seq==='SEQ-1';}).length + ' separate objects (E1, E2, E3). Never merge them.\n' +
+      'Do not combine entries. Do not skip any email.\n' +
       'Returning fewer than ' + wireframe.length + ' objects means the task failed.\n\n' +
       '=== PER-EMAIL SPECIAL RULES ===\n' +
       'SEQ-1-E1: body_cta MUST be an empty string "". NO CTA. NO link. NO call-to-action of any kind. It is a confirmation-only welcome email — the nurture has not started yet. Writing any CTA in SEQ-1-E1 violates the sequence design.\n\n' +

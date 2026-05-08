@@ -93,7 +93,7 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
     if (icp === 'alpha_recruit') {
       c.channels = ['instagram', 'tiktok', 'email'];
     } else {
-      c.channels = ['instagram', 'facebook', 'email'];
+      c.channels = ['facebook', 'instagram', 'tiktok', 'pinterest', 'nextdoor', 'youtube', 'email'];
     }
   }
 
@@ -145,10 +145,20 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
       : '';
   }
 
-  // utm_campaign_code — generate from icp_code + campaign_name
-  if (!c.utm_campaign_code && c.campaign_name) {
-    c.utm_campaign_code = (c.icp_code || 'ec') + '_' +
-      String(c.campaign_name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').slice(0, 28);
+  // utm_campaign_code — controlled vocab lookup: [channel_prefix]_[icp] or angle override
+  if (!c.utm_campaign_code) {
+    var _kvCh   = ((c.channel_recommendation || (Array.isArray(c.channels) && c.channels[0]) || 'facebook')).toLowerCase();
+    var _kvIcp  = (c.icp_code || '').toLowerCase();
+    var _kvAng  = (c.campaign_angle || '').toLowerCase();
+    var _kvPfx  = {facebook:'fb',instagram:'ig',tiktok:'tk',pinterest:'pin',nextdoor:'nd',youtube:'yt',x:'x',reddit:'rd',vimeo:'vm'}[_kvCh] || _kvCh.substring(0,3);
+    var _kvIcpMap = {super_mom:'super_mom',budget_family:'budget_family',professional:'professional',health_optimizer:'health',alpha_recruit:'alpha'};
+    var _kvIcpCode = _kvIcpMap[_kvIcp] || (_kvIcp || 'pre_launch');
+    // Angle-based overrides
+    if (_kvCh === 'tiktok'    && _kvAng === 'waste')   c.utm_campaign_code = 'tk_waste';
+    else if (_kvCh === 'pinterest' && _kvAng === 'savings') c.utm_campaign_code = 'pin_savings';
+    else if (_kvCh === 'pinterest' && (_kvAng === 'speed' || ((c.theme||'').toLowerCase().indexOf('meal') >= 0))) c.utm_campaign_code = 'pin_meal_plan';
+    else if (_kvCh === 'instagram' && _kvAng === 'health') c.utm_campaign_code = 'ig_health';
+    else c.utm_campaign_code = _kvPfx + '_' + _kvIcpCode;
   }
 
   // publish_day — infer from theme name if missing
@@ -168,7 +178,8 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
 
   // numeric defaults
   if (!c.post_count)      c.post_count      = 7;
-  if (!c.email_sequences) c.email_sequences = 2;
+  if (!c.post_frequency)  c.post_frequency  = 'daily';
+  if (!c.email_sequences) c.email_sequences = 4;
   if (!c.email_variants)  c.email_variants  = 2;
 
   // campaign_angle — LP locked always wins; theme-based default if no LP
@@ -350,7 +361,7 @@ function campaignKickstart(prompt) {
     '  "blueprint": "A-Waitlist",\n' +
     '  "campaign_name": "Taco Tuesday — Week 1",\n' +
     '  "channel_recommendation": "Facebook",\n' +
-    '  "channels": ["facebook","instagram"],\n' +
+    '  "channels": ["facebook","instagram","tiktok","pinterest","nextdoor","youtube","email"],\n' +
     '  "slug": "lp/waitlist-a",\n' +
     '  "headline": "Your taco ingredients are already in the fridge",\n' +
     '  "subheadline": "easyChef Pro tells you exactly what to make — tonight",\n' +
@@ -371,7 +382,8 @@ function campaignKickstart(prompt) {
     '  "publish_day": "Tuesday",\n' +
     '  "campaign_angle": "savings",\n' +
     '  "post_count": 7,\n' +
-    '  "email_sequences": 2,\n' +
+    '  "post_frequency": "daily",\n' +
+    '  "email_sequences": 4,\n' +
     '  "email_variants": 2,\n' +
     '  "urgency_trigger": "Free during beta — app launches July 1"\n' +
     '}';
@@ -434,8 +446,10 @@ function campaignKickstart(prompt) {
         campaign.cta_type         = 'waitlist';
         campaign.cta_primary      = 'Join the waitlist free — early access July 1';
         campaign.conversion_goal  = 'waitlist_signup_completed';
-        campaign.email_sequences  = 2;
-        Logger.log('[PHASE GUARD] overridden to A-Waitlist');
+        campaign.email_sequences  = 4;
+        campaign.post_count       = 7;
+        campaign.post_frequency   = campaign.post_frequency || 'daily';
+        Logger.log('[PHASE GUARD] overridden to A-Waitlist · 4 seqs · daily');
       }
       return { ok: true, campaign: campaign };
     }
@@ -451,6 +465,30 @@ function campaignKickstart(prompt) {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+/**
+ * Returns the canonical defaults for a new campaign (EC-2026-030+).
+ * Blueprint A-Waitlist · 7-channel standard · daily posting · 4 email sequences.
+ * Called by the UI on new campaign creation and by the Phase Guard.
+ */
+function getCampaignDefaults() {
+  return {
+    blueprint:            'A-Waitlist',
+    cta_type:             'waitlist',
+    channels:             ['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'],
+    post_count:           7,
+    post_frequency:       'daily',
+    campaign_duration_days: 7,
+    total_dl_ids:         30,
+    email_sequences:      4,
+    email_variants:       2,
+    icp_default:          'super_mom',
+    phase:                'pre_launch',
+    dl_structure: {
+      FB: 7, IG: 7, PIN: 7, ND: 7, TK: 1, YT: 1, EM: 4
+    }
+  };
 }
 
 // ── Diagnostic ────────────────────────────────────────────────────────────────
