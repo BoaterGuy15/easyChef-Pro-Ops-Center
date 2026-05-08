@@ -93,7 +93,7 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
     if (icp === 'alpha_recruit') {
       c.channels = ['instagram', 'tiktok', 'email'];
     } else {
-      c.channels = ['facebook', 'instagram', 'tiktok', 'pinterest', 'nextdoor', 'youtube', 'email'];
+      c.channels = ['facebook', 'instagram', 'tiktok', 'pinterest', 'nextdoor', 'youtube', 'email', 'x'];
     }
   }
 
@@ -103,6 +103,11 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
   // email subjects — use distinct fallbacks so they differ from headline
   if (!c.email_subject_a) c.email_subject_a = c.headline    || '';
   if (!c.email_subject_b) c.email_subject_b = c.social_hook || c.subheadline || '';
+  // Guard: A and B must never be the same string — force canonical angle split
+  if (c.email_subject_a && c.email_subject_a === c.email_subject_b) {
+    c.email_subject_a = '$1,336 back in your grocery budget this year';
+    c.email_subject_b = 'It is 6:30 PM and nobody knows what is for dinner';
+  }
 
   // lp_hero — fall back to headline
   if (!c.lp_hero) c.lp_hero = c.headline || '';
@@ -168,6 +173,9 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
     else if (th.indexOf('monday') > -1) c.publish_day = 'Monday';
     else c.publish_day = '';
   }
+
+  // founding_offer — must never be null
+  if (!c.founding_offer) c.founding_offer = '$7.99/month · 60% off forever · first 5,000 families';
 
   // urgency_trigger — A-Waitlist default (post-launch blueprints keep their own value)
   if (!c.urgency_trigger) {
@@ -260,6 +268,7 @@ function campaignKickstart(prompt) {
   }
 
   // ── Theme feature context — look up ThemeLibrary if THEME detected in prompt ─
+  var themeData   = null;
   var themeContext = '';
   try {
     var themeMatch = String(prompt).match(/THEME:\s*([^\n]+)/i);
@@ -269,6 +278,7 @@ function campaignKickstart(prompt) {
       for (var ti = 0; ti < allThemes.length; ti++) {
         var tm = allThemes[ti];
         if ((tm.theme_name || '').toLowerCase().indexOf(themeQuery) > -1 || themeQuery.indexOf((tm.theme_name || '').toLowerCase()) > -1) {
+          themeData = tm;
           themeContext =
             '\nTHEME LOOKUP — ' + tm.theme_name + ':\n' +
             (tm.app_feature      ? 'App feature: ' + tm.app_feature + '\n' : '') +
@@ -278,7 +288,8 @@ function campaignKickstart(prompt) {
             (tm.emotional_entry  ? 'Entry emotion: ' + tm.emotional_entry + '\n' : '') +
             (tm.emotional_payoff ? 'Payoff emotion: ' + tm.emotional_payoff + '\n' : '') +
             (tm.agitate_angle    ? 'Agitate angle (use this specific cost in agitate_block): ' + tm.agitate_angle + '\n' : '') +
-            (tm.urgency_trigger  ? 'Urgency trigger for this theme: ' + tm.urgency_trigger + '\n' : '');
+            (tm.urgency_trigger  ? 'Urgency trigger for this theme: ' + tm.urgency_trigger + '\n' : '') +
+            (tm.campaign_angle   ? 'campaign_angle for this theme: ' + tm.campaign_angle + '\n' : '');
           break;
         }
       }
@@ -361,7 +372,7 @@ function campaignKickstart(prompt) {
     '  "blueprint": "A-Waitlist",\n' +
     '  "campaign_name": "Taco Tuesday — Week 1",\n' +
     '  "channel_recommendation": "Facebook",\n' +
-    '  "channels": ["facebook","instagram","tiktok","pinterest","nextdoor","youtube","email"],\n' +
+    '  "channels": ["facebook","instagram","tiktok","pinterest","nextdoor","youtube","email","x"],\n' +
     '  "slug": "lp/waitlist-a",\n' +
     '  "headline": "Your taco ingredients are already in the fridge",\n' +
     '  "subheadline": "easyChef Pro tells you exactly what to make — tonight",\n' +
@@ -380,7 +391,7 @@ function campaignKickstart(prompt) {
     '  "founding_offer": "Lock in $7.99/month founding price — 60% off forever",\n' +
     '  "theme": "Taco Tuesday",\n' +
     '  "publish_day": "Tuesday",\n' +
-    '  "campaign_angle": "savings",\n' +
+    '  "campaign_angle": "speed",\n' +
     '  "post_count": 7,\n' +
     '  "post_frequency": "daily",\n' +
     '  "email_sequences": 4,\n' +
@@ -428,6 +439,10 @@ function campaignKickstart(prompt) {
       if (lb > -1) jsonStr = jsonStr.slice(0, lb + 1);
       campaign = JSON.parse(jsonStr);
       campaign = _normalizeKsFields(campaign, sheetData, _lpLocked);
+      // Theme is source of truth for campaign_angle — overrides whatever model returned
+      if (themeData && themeData.campaign_angle && campaign) {
+        campaign.campaign_angle = (themeData.campaign_angle || '').toLowerCase();
+      }
       // Path A override — LP selection locks the waitlist urgency message
       if (_lpLocked && campaign) {
         campaign.urgency_trigger = 'Free during beta — app launches July 1';
@@ -476,7 +491,7 @@ function getCampaignDefaults() {
   return {
     blueprint:            'A-Waitlist',
     cta_type:             'waitlist',
-    channels:             ['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'],
+    channels:             ['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email','X'],
     post_count:           7,
     post_frequency:       'daily',
     campaign_duration_days: 7,
