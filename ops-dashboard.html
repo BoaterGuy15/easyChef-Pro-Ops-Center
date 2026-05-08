@@ -5703,7 +5703,7 @@ function buildRaciTable(){
       <td>${statusSelect(t)}</td>
       <td>${ownerSelect(t)}</td>
       ${_atmDefault.map(m=>raciCell(t[m.raciKey]||'',t.id,m.raciKey)).join('')}${customMembers.map(cm=>raciCell(t[cm.raciKey]||'',t.id,cm.raciKey)).join('')}
-      <td style="white-space:nowrap;padding:3px 4px"><button class="raci-no-expand" onclick="_showLPBarPicker('${t.id}',this)" title="${_lpLinked?'Linked: '+_lpLinked.name+' ('+(_lpLinked.sd||'').slice(5)+' – '+(_lpLinked.ed||'').slice(5)+')\\nClick to change':'Link this task to a Launch Plan bar'}" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ${_lpBtnColor};background:${_lpLinked?'rgba(201,168,76,0.1)':'transparent'};color:${_lpBtnColor};cursor:pointer;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${_lpBtnLabel}</button></td>
+      <td style="white-space:nowrap;padding:3px 4px"><button class="raci-no-expand" onclick="event.stopPropagation();event.preventDefault();_showLPBarPicker('${t.id}',this)" title="${_lpLinked?'Linked: '+_lpLinked.name+' ('+(_lpLinked.sd||'').slice(5)+' – '+(_lpLinked.ed||'').slice(5)+')\\nClick to change':'Link this task to a Launch Plan bar'}" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ${_lpBtnColor};background:${_lpLinked?'rgba(201,168,76,0.1)':'transparent'};color:${_lpBtnColor};cursor:pointer;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${_lpBtnLabel}</button></td>
       ${taskProgress(t)}
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()" oninput="_onIcsFlagInput('${t.id}',this)">${t.flag||''}</div></td>
     `;
@@ -18093,6 +18093,7 @@ function _lpLinkTaskToBar(taskId,newBarId){
 }
 function _showLPBarPicker(taskId,anchor){
   document.querySelectorAll('.lp-bar-picker').forEach(p=>p.remove());
+  if(!_lpCache.length&&typeof loadLaunchPlan==='function') loadLaunchPlan();
   const bars=_lpCache.length?_lpCache:_LP_DEFAULTS;
   const currentBar=_lpFindBarForTask(taskId);
   const pick=document.createElement('div');
