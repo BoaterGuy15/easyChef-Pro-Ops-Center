@@ -225,13 +225,16 @@ function buildFullSequence(brief, copy, existingPosts, existingEmails) {
  */
 function _sbScheduleExistingPosts(brief, existingPosts) {
   try {
-    var postCount   = existingPosts.length;
-    var frequency   = brief.post_frequency || '3x_week';
+    var frequency   = brief.post_frequency || 'daily';
     var seqMode     = _sbNormalizeSeqMode(brief.email_sequence_mode || brief.email_sequences);
     var activeSeqs  = _SB_SEQ_MAP[seqMode] || _SB_SEQ_MAP['seq1_seq2'];
     var campaignId  = brief.id || '';
     var activeWF    = _sbGetWireframe().filter(function(e) { return activeSeqs.indexOf(e.seq) !== -1; });
-    var themeSchedule = _sbBuildSocialSchedule(activeWF, postCount, _sbGetSeqOffsets());
+    // Build theme-only schedule sized to brief.post_count, not total post count across all channels.
+    // Day assignment uses per-channel index directly so all platforms sync to the same day.
+    var maxPerCh      = parseInt(brief.post_count) || 7;
+    var themeSchedule = _sbBuildSocialSchedule(activeWF, maxPerCh, _sbGetSeqOffsets());
+    var arcThemes     = ['hook','problem','agitate','solve','value','proof','cta'];
 
     // Group by channel, preserving per-channel order
     var channels = [];
@@ -244,16 +247,16 @@ function _sbScheduleExistingPosts(brief, existingPosts) {
     channels = channels.filter(function(c, i, a) { return a.indexOf(c) === i; });
 
     var allPosts = [];
-    var schedIdx = 0;
 
     channels.forEach(function(channel) {
       var chPosts = byChannel[channel];
       var chSlug  = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
 
       chPosts.forEach(function(p, i) {
-        var sched    = themeSchedule[schedIdx] || { day: schedIdx * 2, theme: '' };
-        var absDay   = sched.day;
-        var postId   = campaignId + '-' + chSlug + '-POST-' + String(i + 1).padStart(3, '0');
+        // Respect pre-set scheduled_day (TikTok=3, YouTube=6); arc posts get sequential days 0-6
+        var absDay    = (p.scheduled_day !== undefined) ? p.scheduled_day : i;
+        var postTheme = p.theme || (themeSchedule[i] && themeSchedule[i].theme) || arcThemes[i] || '';
+        var postId    = campaignId + '-' + chSlug + '-POST-' + String(i + 1).padStart(3, '0');
 
         var scheduledDate = '';
         if (brief.launchDate && absDay !== undefined) {
@@ -271,8 +274,8 @@ function _sbScheduleExistingPosts(brief, existingPosts) {
           post_num:       i + 1,
           scheduled_day:  absDay,
           scheduled_date: scheduledDate,
-          theme:          sched.theme || p.theme || '',
-          funnel_stage:   p.funnel_stage || sched.theme || '',
+          theme:          postTheme,
+          funnel_stage:   p.funnel_stage || postTheme || '',
           hook:           p.hook         || '',
           body_copy:      p.body         || p.body_copy || '',
           cta:            p.cta          || '',
@@ -294,7 +297,6 @@ function _sbScheduleExistingPosts(brief, existingPosts) {
         });
 
         allPosts.push(mapped);
-        schedIdx++;
       });
     });
 
@@ -746,6 +748,7 @@ function buildSocialCalendar(brief, copy) {
       var chPosts    = JSON.parse(jsonStr);
       var chSlug     = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+      var _arcThemes=['hook','problem','agitate','solve','value','proof','cta'];
       chPosts.forEach(function(p, i) {
         var sched  = themeSchedule[i] || {};
         var postId = campaignId + '-' + chSlug + '-POST-' + String(i + 1).padStart(3, '0');
@@ -753,8 +756,9 @@ function buildSocialCalendar(brief, copy) {
         p.id          = postId;
         p.campaign_id = campaignId;
         p.platform    = channel;
-        if (p.scheduled_day === undefined) p.scheduled_day = sched.day   || 0;
-        if (!p.theme)                      p.theme         = sched.theme || '';
+        // Sequential daily arc: post i → day i so all platforms sync to the same stage on the same day
+        if (p.scheduled_day === undefined) p.scheduled_day = i;
+        if (!p.theme)                      p.theme         = sched.theme || _arcThemes[i] || '';
 
         var _sched = '';
         if (brief.launchDate && p.scheduled_day !== undefined) {
