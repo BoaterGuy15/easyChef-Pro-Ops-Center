@@ -1600,10 +1600,11 @@ function _seedCcSettings(sheet) {
     ['CAMPAIGN_ANGLES','founder','Founder','',true]
   ];
   rows.forEach(function(row) { sheet.appendRow(row); });
+  CacheService.getScriptCache().remove('cc_settings_v1');
   Logger.log('CcSettings: seeded ' + rows.length + ' rows');
 }
 
-function getSettings() {
+function getCcSettings() {
   var cache   = CacheService.getScriptCache();
   var cached  = cache.get('cc_settings_v1');
   if (cached) { try { return JSON.parse(cached); } catch(e) {} }
@@ -1645,6 +1646,38 @@ function saveSettings(section, rows) {
   rows.forEach(function(row) {
     sheet.appendRow([secUpper, row.key||'', row.label||'', row.extra||'', row.active!==false]);
   });
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  return true;
+}
+
+function appendSettingRow(section, key, label, extra) {
+  if (!section || !key) return false;
+  var sheet    = _getCCSheet(_CC_TAB.SETTINGS);
+  var secUpper = section.toUpperCase();
+  var last     = sheet.getLastRow();
+  if (last >= 2) {
+    var vals = sheet.getRange(2, 1, last - 1, 2).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]).toUpperCase() === secUpper && String(vals[i][1]) === key) return false;
+    }
+  }
+  sheet.appendRow([secUpper, key, label || '', extra || '', true]);
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  return true;
+}
+
+function deleteSettingRow(section, key) {
+  if (!section || !key) return false;
+  var sheet    = _getCCSheet(_CC_TAB.SETTINGS);
+  var secUpper = section.toUpperCase();
+  var last     = sheet.getLastRow();
+  if (last < 2) return false;
+  var vals = sheet.getRange(2, 1, last - 1, 2).getValues();
+  for (var i = vals.length - 1; i >= 0; i--) {
+    if (String(vals[i][0]).toUpperCase() === secUpper && String(vals[i][1]) === key) {
+      sheet.deleteRow(i + 2);
+    }
+  }
   CacheService.getScriptCache().remove('cc_settings_v1');
   return true;
 }
@@ -1755,6 +1788,29 @@ function _appendCcSettingsRows() {
   CacheService.getScriptCache().remove('cc_settings_v1');
   Logger.log('_appendCcSettingsRows: added ' + added + ' rows (skipped existing)');
   try { SpreadsheetApp.getUi().alert('Done — added ' + added + ' rows to CcSettings.'); } catch(e) {}
+}
+
+// ── Debug + cache-clear — run from Apps Script editor to verify CcSettings ────
+
+function _debugCcSettings() {
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  Logger.log('Cache cleared.');
+
+  var sheet = _getCCSheet(_CC_TAB.SETTINGS);
+  var last  = sheet.getLastRow();
+  Logger.log('CcSettings sheet: lastRow=' + last);
+
+  if (last < 1) { Logger.log('Sheet is completely empty.'); return; }
+  var rows = sheet.getRange(1, 1, Math.min(last, 11), 5).getValues();
+  rows.forEach(function(r, i) {
+    Logger.log('Row ' + (i + 1) + ': section=[' + r[0] + '] key=[' + r[1] + '] label=[' + r[2] + '] extra=[' + r[3] + '] active=[' + r[4] + '] (typeof=' + typeof r[4] + ')');
+  });
+
+  var result = getCcSettings();
+  Logger.log('getCcSettings() → theme_categories:' + result.theme_categories.length +
+             ' journey_types:'  + result.journey_types.length  +
+             ' app_features:'   + result.app_features.length   +
+             ' campaign_angles:'+ result.campaign_angles.length);
 }
 
 // ── Full end-to-end Campaign Center test ─────────────────────────────────────

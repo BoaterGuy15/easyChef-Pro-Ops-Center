@@ -377,7 +377,7 @@ function doGet(e) {
     if(e.parameter.action === 'folders_read') return respond({ok:true, folders: _getFolderDefs()});
     if(e.parameter.action === 'icp_profiles_read') return respond({ok:true, icpProfiles: getIcpProfiles()});
     if(e.parameter.action === 'approved_claims_read') return respond({ok:true, claims: getApprovedClaims()});
-    if(e.parameter.action === 'get_settings') return respond({ok:true, settings:getSettings()});
+    if(e.parameter.action === 'get_settings') return respond({ok:true, settings:getCcSettings()});
     if(e.parameter.action === 'folder_list') {
       var _fid=e.parameter.folderId||'';
       if(!_fid) return respond({ok:false,error:'folderId required'});
@@ -731,8 +731,10 @@ function doPost(e) {
     if(body.action === 'approved_claims_read')   return respond({ ok:true, claims: getApprovedClaims() });
 
     // ── Campaign Center Settings ──────────────────────────────────────────────────
-    if(body.action === 'get_settings')  return respond({ ok:true, settings: getSettings() });
-    if(body.action === 'save_settings') return respond({ ok:true, saved: saveSettings(body.section, Array.isArray(body.rows)?body.rows:JSON.parse(body.rows||'[]')) });
+    if(body.action === 'get_settings')   return respond({ ok:true, settings: getCcSettings() });
+    if(body.action === 'save_settings')  return respond({ ok:true, saved: saveSettings(body.section, Array.isArray(body.rows)?body.rows:JSON.parse(body.rows||'[]')) });
+    if(body.action === 'append_setting') return respond({ ok:true, appended: appendSettingRow(body.section, body.key, body.label||'', body.extra||'') });
+    if(body.action === 'delete_setting') return respond({ ok:true, deleted: deleteSettingRow(body.section, body.key) });
 
     // ── Campaign Briefs ───────────────────────────────────────────────────────────
     if(body.action === 'campaign_brief_read')    return respond({ ok:true, briefs: getCampaignBriefs(body.id||'') });
