@@ -75,7 +75,7 @@ var _CC_HDR = {
   FunnelStages: [
     'id','stage_name','stage_order','social_day','email_day','seq_offset_days',
     'post_template','email_theme','social_theme','pair_id_prefix',
-    'loss_aversion_note','created_at','notes'
+    'loss_aversion_note','created_at','notes','start_date'
   ],
   SocialPosts: [
     'id','campaign_id','platform','hook','body_copy','cta','hashtags',
@@ -107,7 +107,8 @@ var _CC_HDR = {
   BlueprintConfig: [
     'id','blueprint_code','blueprint_name','sequences_included',
     'email_count','social_post_count','cta_type_default',
-    'phase','active','description'
+    'phase','active','description',
+    'pre_launch_date','launch_date','alpha_start','beta_start'
   ],
   PushNotifications: [
     'id','campaign_id','push_number','title','body','deep_link_url',
@@ -378,13 +379,13 @@ function _seedFunnelStages(sheet) {
   var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
   var now = _ccNow();
   [
-    ['fs-001','hook',    1, 0,  1,  0,  'Stop the scroll — make her feel seen in under 2 seconds. Mirror her exact moment.',                                                                          'Hook — subject line stops the scroll',         'Mirror her moment — emotional recognition', 'pair-1-hook',    'Every day she waits costs $3.66',               now,''],
-    ['fs-002','problem', 2, 2,  3,  0,  'Name the pain so precisely she thinks you wrote it about her specifically.',                                                                                  'Problem — name her pain precisely',            'Name the 6:30 PM moment exactly',           'pair-2-problem', 'The problem costs $1,336 a year',               now,''],
-    ['fs-003','agitate', 3, 5,  6,  0,  'Make the problem vivid, concrete, personal. Cost it out. $1,336/year — that is $111/month — that is $25/week going in the bin.',                             'Agitate — cost the problem out',               'Cost it out — specific dollar amount',      'pair-3-agitate', 'She cannot unsee this number',                  now,''],
-    ['fs-004','solve',   4, 9,  10, 0,  'Introduce easyChef Pro as the inevitable obvious answer. One sentence. No feature list.',                                                                     'Solve — introduce easyChef Pro as the answer', 'Introduce easyChef Pro — one sentence',     'pair-4-solve',   'The answer exists — she just needs to find it', now,''],
-    ['fs-005','value',   5, 13, 14, 0,  'Translate features into outcomes she actually wants. Feelings and results, not specs. 30 minutes. What you already have.',                                    'Value — outcomes not features',                'Show the outcomes — 30 minutes, real food', 'pair-5-value',   'Every night without it costs her time and money',now,''],
-    ['fs-006','proof',   6, 24, 25, 0,  'One specific honest proof point. Validated across 10,000 household profiles. Built by first responders. Then the offer.',                                     'Proof — one honest stat, then the offer',       'One proof point — then founding price',     'pair-6-proof',   'Social proof closes the last objection',        now,''],
-    ['fs-007','cta',     7, 0,  1,  28, 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                                                       'CTA — one action, loss aversion, urgency',     'Founding price — last chance angle',        'pair-7-cta',     'Founding price ends at 5,000 families',         now,'']
+    ['fs-001','hook',    1, 0,  1,  0,  'Stop the scroll — make her feel seen in under 2 seconds. Mirror her exact moment.',                                                                          'Hook — subject line stops the scroll',         'Mirror her moment — emotional recognition', 'pair-1-hook',    'Every day she waits costs $3.66',               now,'','2026-05-27'],
+    ['fs-002','problem', 2, 2,  3,  0,  'Name the pain so precisely she thinks you wrote it about her specifically.',                                                                                  'Problem — name her pain precisely',            'Name the 6:30 PM moment exactly',           'pair-2-problem', 'The problem costs $1,336 a year',               now,'','2026-05-29'],
+    ['fs-003','agitate', 3, 5,  6,  0,  'Make the problem vivid, concrete, personal. Cost it out. $1,336/year — that is $111/month — that is $25/week going in the bin.',                             'Agitate — cost the problem out',               'Cost it out — specific dollar amount',      'pair-3-agitate', 'She cannot unsee this number',                  now,'','2026-06-01'],
+    ['fs-004','solve',   4, 9,  10, 0,  'Introduce easyChef Pro as the inevitable obvious answer. One sentence. No feature list.',                                                                     'Solve — introduce easyChef Pro as the answer', 'Introduce easyChef Pro — one sentence',     'pair-4-solve',   'The answer exists — she just needs to find it', now,'','2026-06-05'],
+    ['fs-005','value',   5, 13, 14, 0,  'Translate features into outcomes she actually wants. Feelings and results, not specs. 30 minutes. What you already have.',                                    'Value — outcomes not features',                'Show the outcomes — 30 minutes, real food', 'pair-5-value',   'Every night without it costs her time and money',now,'','2026-06-09'],
+    ['fs-006','proof',   6, 24, 25, 0,  'One specific honest proof point. Validated across 10,000 household profiles. Built by first responders. Then the offer.',                                     'Proof — one honest stat, then the offer',       'One proof point — then founding price',     'pair-6-proof',   'Social proof closes the last objection',        now,'','2026-06-20'],
+    ['fs-007','cta',     7, 0,  1,  28, 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                                                       'CTA — one action, loss aversion, urgency',     'Founding price — last chance angle',        'pair-7-cta',     'Founding price ends at 5,000 families',         now,'','2026-06-24']
   ].forEach(function(row) {
     if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
   });
@@ -394,7 +395,7 @@ function _seedBlueprintConfig(sheet) {
   if (!sheet) return;
   var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
   [
-    ['bp-001','A-Waitlist',        'Waitlist Growth',        'SEQ-1,SEQ-2,SEQ-3,SEQ-4', 13, 7, 'waitlist', 'pre-launch',   'true', 'Pre-launch waitlist acquisition — drives to LP, captures email, nurtures to app download on July 1'],
+    ['bp-001','A-Waitlist',        'Waitlist Growth',        'SEQ-1,SEQ-2,SEQ-3,SEQ-4', 13, 7, 'waitlist', 'pre-launch',   'true', 'Pre-launch waitlist acquisition — drives to LP, captures email, nurtures to app download on July 1', '2026-05-27','2026-07-01','2026-06-08','2026-06-29'],
     ['bp-002','B-App Download',    'App Download',           'SEQ-4',                    1,  7, 'download', 'post-launch',  'false','Post-launch app download — drives directly to App Store'],
     ['bp-003','C-Referral',        'Referral Acquisition',   'SEQ-1',                    3,  5, 'referral', 'post-signup',  'true', 'Referral loop — share mechanic, Branch.io deep links'],
     ['bp-004','D-Re-engagement',   'Re-engagement',          'SEQ-2',                    3,  5, 'download', 'post-install', 'false','Lapsed user re-engagement — push + email'],
@@ -1393,7 +1394,8 @@ function _fsRowToObj(r) {
     pair_id_prefix:   r[9]  || '',
     loss_aversion_note: r[10] || '',
     created_at:       _ccFmtDate(r[11]),
-    notes:            r[12] || ''
+    notes:            r[12] || '',
+    start_date:       r[13] || ''
   };
 }
 
@@ -1466,7 +1468,11 @@ function _bpRowToObj(r) {
     cta_type_default: String(r[6]),
     phase:            String(r[7]),
     active:           r[8] === true || String(r[8]).toLowerCase() === 'true',
-    description:      String(r[9])
+    description:      String(r[9]),
+    pre_launch_date:  String(r[10]||''),
+    launch_date:      String(r[11]||''),
+    alpha_start:      String(r[12]||''),
+    beta_start:       String(r[13]||'')
   };
 }
 
@@ -2138,6 +2144,94 @@ function _registerLpInInventory(slug, campaignId, item) {
       sheet.getRange(existingRow, 21, 1, 1).setValue(now); // last_updated
     }
   }
+}
+
+// ── Pre-launch timeline applicator ────────────────────────────────────────────
+// Run applyPreLaunchTimeline() once from Apps Script editor to write all
+// confirmed May 27 pre-launch dates to the live Campaign Center sheet.
+
+function applyPreLaunchTimeline() {
+  var now = _ccNow();
+  Logger.log('[Timeline] Starting pre-launch timeline update...');
+
+  // ── 1. BlueprintConfig — add date columns + update A-Waitlist row ───────────
+  var bpSheet = _getCCSheet(_CC_TAB.BLUEPRINTS);
+  var bpHdr   = _CC_HDR.BlueprintConfig;
+  // Expand header row to 14 columns
+  var bpHdrRng = bpSheet.getRange(1, 1, 1, bpHdr.length);
+  bpHdrRng.setValues([bpHdr]);
+  bpHdrRng.setBackground('#0b0d10');
+  bpHdrRng.setFontColor('#c9a84c');
+  bpHdrRng.setFontFamily('Courier New');
+  bpHdrRng.setFontWeight('bold');
+  SpreadsheetApp.flush();
+  // Upsert A-Waitlist row
+  _ccUpsert(bpSheet, bpHdr, 'bp-001', [
+    'bp-001','A-Waitlist','Waitlist Growth','SEQ-1,SEQ-2,SEQ-3,SEQ-4',
+    '13','7','waitlist','pre-launch','true',
+    'Pre-launch waitlist acquisition — drives to LP, captures email, nurtures to app download on July 1',
+    '2026-05-27','2026-07-01','2026-06-08','2026-06-29'
+  ]);
+  Logger.log('[Timeline] BlueprintConfig updated');
+
+  // ── 2. FunnelStages — add start_date column + update all rows ───────────────
+  var fsSheet = _getCCSheet(_CC_TAB.FUNNEL_STAGES);
+  var fsHdr   = _CC_HDR.FunnelStages;
+  var fsHdrRng = fsSheet.getRange(1, 1, 1, fsHdr.length);
+  fsHdrRng.setValues([fsHdr]);
+  fsHdrRng.setBackground('#0b0d10');
+  fsHdrRng.setFontColor('#c9a84c');
+  fsHdrRng.setFontFamily('Courier New');
+  fsHdrRng.setFontWeight('bold');
+  SpreadsheetApp.flush();
+  var fsRows = [
+    ['fs-001','hook',    '1','0', '1', '0',  'Stop the scroll — make her feel seen in under 2 seconds. Mirror her exact moment.',                                         'Hook — subject line stops the scroll',          'Mirror her moment — emotional recognition',  'pair-1-hook',    'Every day she waits costs $3.66',                now,'','2026-05-27'],
+    ['fs-002','problem', '2','2', '3', '0',  'Name the pain so precisely she thinks you wrote it about her specifically.',                                                 'Problem — name her pain precisely',             'Name the 6:30 PM moment exactly',            'pair-2-problem', 'The problem costs $1,336 a year',                now,'','2026-05-29'],
+    ['fs-003','agitate', '3','5', '6', '0',  'Make the problem vivid, concrete, personal. Cost it out. $1,336/year — that is $111/month — that is $25/week going in the bin.','Agitate — cost the problem out',            'Cost it out — specific dollar amount',       'pair-3-agitate', 'She cannot unsee this number',                   now,'','2026-06-01'],
+    ['fs-004','solve',   '4','9', '10','0',  'Introduce easyChef Pro as the inevitable obvious answer. One sentence. No feature list.',                                    'Solve — introduce easyChef Pro as the answer',  'Introduce easyChef Pro — one sentence',      'pair-4-solve',   'The answer exists — she just needs to find it',  now,'','2026-06-05'],
+    ['fs-005','value',   '5','13','14','0',  'Translate features into outcomes she actually wants. Feelings and results, not specs. 30 minutes. What you already have.',   'Value — outcomes not features',                 'Show the outcomes — 30 minutes, real food',  'pair-5-value',   'Every night without it costs her time and money',now,'','2026-06-09'],
+    ['fs-006','proof',   '6','24','25','0',  'One specific honest proof point. Validated across 10,000 household profiles. Built by first responders. Then the offer.',    'Proof — one honest stat, then the offer',       'One proof point — then founding price',      'pair-6-proof',   'Social proof closes the last objection',         now,'','2026-06-20'],
+    ['fs-007','cta',     '7','0', '1', '28', 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                      'CTA — one action, loss aversion, urgency',      'Founding price — last chance angle',         'pair-7-cta',     'Founding price ends at 5,000 families',          now,'','2026-06-24']
+  ];
+  fsRows.forEach(function(row) { _ccUpsert(fsSheet, fsHdr, row[0], row); });
+  Logger.log('[Timeline] FunnelStages updated (7 rows)');
+
+  // ── 3. CampaignBriefs — update EC-2026-001 launch_date to pre-launch date ───
+  setCampaignBrief({ id: 'EC-2026-001', launch_date: '2026-05-27' });
+  Logger.log('[Timeline] CampaignBriefs EC-2026-001 launch_date → 2026-05-27');
+
+  // ── 4. ContentCalendar — add/update milestone rows ──────────────────────────
+  var milestones = [
+    { id:'cc-ms-001', day:0,  date:'2026-05-27', stage:'PRE-LAUNCH LIVE',       theme:'Waitlist opens · SEQ-1 fires · EC-2026-001 launches' },
+    { id:'cc-ms-002', day:0,  date:'2026-05-27', stage:'ALPHA INVITES',          theme:'Personal outreach begins from Taylor' },
+    { id:'cc-ms-003', day:1,  date:'2026-05-28', stage:'QUESTIONNAIRE OPEN',     theme:'Alpha questionnaire live' },
+    { id:'cc-ms-004', day:7,  date:'2026-06-03', stage:'QUESTIONNAIRE CLOSES',   theme:'Taylor reviews responses' },
+    { id:'cc-ms-005', day:12, date:'2026-06-08', stage:'ALPHA APP ACCESS',        theme:'Alpha group gets the app' },
+    { id:'cc-ms-006', day:26, date:'2026-06-22', stage:'ALPHA FEEDBACK',          theme:'Feedback email fires' },
+    { id:'cc-ms-007', day:33, date:'2026-06-29', stage:'BETA INVITES',            theme:'Beta campaign launches' },
+    { id:'cc-ms-008', day:35, date:'2026-07-01', stage:'PUBLIC LAUNCH',           theme:'App goes live · SEQ-4 fires · Alpha → advanced features · Beta continues' }
+  ];
+  milestones.forEach(function(m) {
+    setContentCalendarEntry({
+      id:             m.id,
+      campaign_id:    'EC-2026-001',
+      day_number:     String(m.day),
+      scheduled_date: m.date,
+      channel:        'MILESTONE',
+      asset_type:     'milestone',
+      asset_id:       '',
+      funnel_stage:   m.stage,
+      pair_id:        '',
+      theme:          m.theme,
+      publish_day:    '',
+      status:         'scheduled',
+      dl_id:          '',
+      utm_url:        ''
+    });
+  });
+  Logger.log('[Timeline] ContentCalendar — 8 milestone rows written');
+
+  Logger.log('[Timeline] DONE — pre-launch timeline applied. Verify in Campaign Center sheet.');
 }
 
 // clasp auto-deploy verified — May 2026

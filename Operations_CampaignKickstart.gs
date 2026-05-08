@@ -489,17 +489,21 @@ function campaignKickstart(prompt) {
  */
 function getCampaignDefaults() {
   return {
-    blueprint:            'A-Waitlist',
-    cta_type:             'waitlist',
-    channels:             ['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email','X'],
-    post_count:           7,
-    post_frequency:       'daily',
+    blueprint:              'A-Waitlist',
+    cta_type:               'waitlist',
+    channels:               ['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email','X'],
+    post_count:             7,
+    post_frequency:         'daily',
     campaign_duration_days: 7,
-    total_dl_ids:         30,
-    email_sequences:      4,
-    email_variants:       2,
-    icp_default:          'super_mom',
-    phase:                'pre_launch',
+    total_dl_ids:           30,
+    email_sequences:        4,
+    email_variants:         2,
+    icp_default:            'super_mom',
+    phase:                  'pre_launch',
+    pre_launch_date:        '2026-05-27',
+    launch_date:            '2026-07-01',
+    alpha_start:            '2026-06-08',
+    beta_start:             '2026-06-29',
     dl_structure: {
       FB: 7, IG: 7, PIN: 7, ND: 7, TK: 1, YT: 1, EM: 4
     }
