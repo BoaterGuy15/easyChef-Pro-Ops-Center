@@ -173,9 +173,14 @@ function saveCampaignDraft(body) {
             _lpGenerated = true;
           }
 
-          // 7 DL_IDs per social channel — full funnel arc, stage sequence resets per platform
-          var _isEmailCh = (_chData.utm_medium||'').toLowerCase() === 'email';
-          if (!_isEmailCh) {
+          // Gate on utm_medium so only true social/community channels get the 7-post arc.
+          // Email → sequences. Video/affiliate/organic/direct → skipped (no posts).
+          var _chMedium    = (_chData.utm_medium||'').toLowerCase();
+          var _isSocialCh  = _chMedium === 'social';
+          var _isCommunity = _chMedium === 'community'; // Reddit — same arc, community rules differ
+          var _isEmailCh   = _chMedium === 'email';
+
+          if (_isSocialCh || _isCommunity) {
             _stages7.forEach(function(stage, i) {
               _chAssets.push({
                 asset_name: channelName + ' · Post ' + (i+1) + ' — ' + stage,
@@ -186,9 +191,9 @@ function saveCampaignDraft(body) {
           }
 
           if (!_chAssets.length) {
-            // Email channels have no posts — generate one DL per active sequence
-            var _isEmail = (_chData.utm_medium||'').toLowerCase() === 'email';
-            if (!_isEmail) return;
+            // Email: generate one DL per active sequence.
+            // Non-social, non-email (video, affiliate, organic, direct): skip.
+            if (!_isEmailCh) return;
             var _emailSeqs = _getActiveEmailSeqs(brief.email_sequence_mode || brief.email_sequences);
             _emailSeqs.forEach(function(seq) {
               _chAssets.push({asset_name:seq[0]+' — '+seq[1], descriptor:seq[1], asset_type:'email', utm_campaign_override:seq[1]});

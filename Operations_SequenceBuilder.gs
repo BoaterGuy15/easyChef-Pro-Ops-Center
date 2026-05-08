@@ -45,13 +45,13 @@ function _sbGetWireframe() {
   _sbWireframeCache = [
     // SEQ-1 — Welcome (trigger: waitlist_signup)
     { seq:'SEQ-1', num:1, global:1,  day:0,
-      role: role('hook',    'Hook — You are in — deliver the promise, make them glad they joined'),
+      role: role('hook',    'You\'re In — confirm signup, deliver the promise, make them glad they joined — NO CTA, no links, pure welcome energy'),
       trigger:'waitlist_signup', theme:'welcome',     stage:'hook'     },
     { seq:'SEQ-1', num:2, global:2,  day:2,
-      role: role('problem', 'Problem deepener — name the exact 6:30 PM pain, agitate before solving'),
+      role: role('problem', 'Problem + story — name the exact 6:30 PM fridge-stare pain, tell a one-sentence founder story, agitate before solving — no hard CTA'),
       trigger:'waitlist_signup', theme:'problem',     stage:'problem'  },
-    { seq:'SEQ-1', num:3, global:3,  day:5,
-      role: role('solve',   'Social proof + founding price — one story, one stat, founding urgency'),
+    { seq:'SEQ-1', num:3, global:3,  day:7,
+      role: role('solve',   'Value + CTA to LP — one approved stat, one sentence of social proof, clear CTA linking to the landing page — founding price framing'),
       trigger:'waitlist_signup', theme:'proof_intro', stage:'solve'    },
     // SEQ-2 — Nurture (trigger: seq1_complete)
     { seq:'SEQ-2', num:1, global:4,  day:7,
@@ -389,9 +389,11 @@ function buildEmailCalendar(brief, copy) {
       _AB_ARCH +
       _AB_VOICE +
       '=== APPROVED CLAIMS ===\n' + claimsCtx +
-      '=== NUMBERS POLICY — STRICTLY ENFORCED ===\n' +
+      '=== NUMBERS POLICY — HARD BLOCK ===\n' +
       'ONLY use statistics and figures that appear verbatim in the APPROVED CLAIMS section above.\n' +
-      'NEVER invent, estimate, or extrapolate any number — no user counts, dollar amounts, or percentages that are not in APPROVED CLAIMS.\n' +
+      'Permitted figures: $1,336/year · 69.5% less food waste · 30 minutes fridge to table · 800,000 products · 10,000 recipe pages at launch.\n' +
+      'NO OTHERS. Do not use any dollar amount, percentage, or count not in that list.\n' +
+      'TESTIMONIALS ARE BANNED: Never write "One mom told us...", "A customer said...", "Users report...", or any fabricated testimonial, attribution, or invented quote. No invented names. No invented figures. This is a non-negotiable hard block — any invented testimonial or unapproved statistic invalidates the entire output.\n' +
       'If no approved stat fits, write without a statistic rather than inventing one.\n\n' +
       '=== TARGET ICP ===\n' + icpCtx + '\n' +
       '=== CAMPAIGN ===\n' +
@@ -409,6 +411,12 @@ function buildEmailCalendar(brief, copy) {
       'Every email focuses on its assigned stage. Do not try to hit all 7 in every email.\n\n' +
       '=== EMAIL WIREFRAME — ' + wireframe.length + ' EMAILS ===\n' +
       wireframeDesc + '\n\n' +
+      '=== COUNT REQUIREMENT — NON-NEGOTIABLE ===\n' +
+      'You MUST return exactly ' + wireframe.length + ' JSON objects — one for every wireframe entry listed above.\n' +
+      'Do not combine entries. Do not skip any email. Do not merge SEQ-1-E1, E2, and E3 into one object.\n' +
+      'Returning fewer than ' + wireframe.length + ' objects means the task failed.\n\n' +
+      '=== PER-EMAIL SPECIAL RULES ===\n' +
+      'SEQ-1-E1: body_cta MUST be an empty string "". NO CTA. NO link. NO call-to-action of any kind. It is a confirmation-only welcome email — the nurture has not started yet. Writing any CTA in SEQ-1-E1 violates the sequence design.\n\n' +
       '=== OUTPUT FORMAT ===\n' +
       'Return ONLY a valid JSON array. No markdown. No explanation before or after.\n' +
       '[\n' +
@@ -436,7 +444,8 @@ function buildEmailCalendar(brief, copy) {
       '  }\n' +
       ']';
 
-    var maxTokens = Math.min(8000, Math.max(2000, wireframe.length * 700));
+    // 1100 tokens per email; floor at 4500 so seq1_only (3 emails) has room for all 3
+    var maxTokens = Math.min(8192, Math.max(4500, wireframe.length * 1100));
 
     var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

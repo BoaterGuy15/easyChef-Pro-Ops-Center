@@ -25972,7 +25972,10 @@ function _ccBuildUtmAssets(){
   // 7 DL_IDs per social channel
   var _chs=(b.channels&&b.channels.length)?b.channels:[b.channel||'Facebook'];
   _chs.forEach(function(ch){
-    if((ch||'').toLowerCase()==='email') return;
+    var _chObj=(_ccChannels||[]).filter(function(c){return c.name===ch;})[0]||{};
+    var _chMedium=(_chObj.utm_medium||'').toLowerCase();
+    var _isSocial=_chMedium==='social'||_chMedium==='community';
+    if(!_isSocial) return;
     _stages7.forEach(function(stage,si){
       assets.push({asset_name:ch+' · Post '+(si+1)+' — '+stage,descriptor:stage,asset_type:'post',channel:ch});
     });

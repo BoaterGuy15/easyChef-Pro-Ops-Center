@@ -311,20 +311,49 @@ function _seedChannels(sheet) {
   var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return String(r[0]).toLowerCase(); });
   [
     ['Email',    'email',    'email',     'klaviyo',   'EM', 'active','','200',  '',     'false','0','0','',                                                                                              '600x200px',  '3:1',   'Link in email body',                               'Plain text body — no hashtags',                                                    'email'],
-    ['Facebook', 'fb',       'social',    'facebook',  'SOC','active','','400',  '63206','false','0','0','',                                                                                              '1200x630px', '1.91:1','Paste URL directly in post',                       'Link works in post — no hashtags needed',                                          'post'],
-    ['Instagram','ig',       'social',    'instagram', 'SOC','active','','125',  '2200', 'true', '5','15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',   '1080x1080px','1:1',   'Add URL to bio before posting — update bio DL_ID', 'No clickable link in post — use link in bio · hashtags at end of caption',         'post'],
-    ['TikTok',   'tiktok',   'social',    'tiktok',    'SOC','active','','150',  '2200', 'true', '3','5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                  '1080x1920px','9:16',  'Add URL to bio before posting',                    'Video script — hook must land in first 3 seconds · link in bio only',              'video_script'],
-    ['Pinterest','pin',      'social',    'pinterest', 'SOC','active','','500',  '500',  'true', '5','8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',  '1000x1500px','2:3',   'URL goes in destination link field',               'Keyword-rich description — link goes directly to LP · vertical image performs best','pin'],
-    ['Nextdoor', 'nextdoor', 'social',    'nextdoor',  'SOC','active','','300',  '',     'false','0','0','',                                                                                              'Optional — community photo','','Paste URL in post',                              'Neighbour tone — no hashtags, no corporate language · authentic personal voice only','post'],
+    ['Facebook', 'fb',       'social',    'facebook',  'FB', 'active','','400',  '63206','false','0','0','',                                                                                              '1200x630px', '1.91:1','Paste URL directly in post',                       'Link works in post — no hashtags needed',                                          'post'],
+    ['Instagram','ig',       'social',    'instagram', 'IG', 'active','','125',  '2200', 'true', '5','15','#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',   '1080x1080px','1:1',   'Add URL to bio before posting — update bio DL_ID', 'No clickable link in post — use link in bio · hashtags at end of caption',         'post'],
+    ['TikTok',   'tiktok',   'social',    'tiktok',    'TK', 'active','','150',  '2200', 'true', '3','5', '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',                                  '1080x1920px','9:16',  'Add URL to bio before posting',                    'Video script — hook must land in first 3 seconds · link in bio only',              'video_script'],
+    ['Pinterest','pin',      'social',    'pinterest', 'PT', 'active','','500',  '500',  'true', '5','8', '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep',  '1000x1500px','2:3',   'URL goes in destination link field',               'Keyword-rich description — link goes directly to LP · vertical image performs best','pin'],
+    ['Nextdoor', 'nextdoor', 'social',    'nextdoor',  'ND', 'active','','300',  '',     'false','0','0','',                                                                                              'Optional — community photo','','Paste URL in post',                              'Neighbour tone — no hashtags, no corporate language · authentic personal voice only','post'],
     ['Organic',  'organic',  'content',   'blog',      'ORG','active','','',     '',     'false','0','0','',                                                                                              '1200x630px', '1.91:1','Link in article body and CTA button',              'Blog post — SEO optimised · internal links to LP',                                 'article'],
     ['Affiliate','aff',      'affiliate', 'affiliate', 'AFF','active','','',     '',     'false','0','0','',                                                                                              '',           '',      'URL in affiliate brief',                           'Partner content — follows affiliate brand guidelines',                              'brief'],
     ['Direct',   'direct',   'referral',  'convertkit','DIR','active','','',     '',     'false','0','0','',                                                                                              '',           '',      'URL in email body',                                'Personal outreach — founder voice · one to one',                                   'email'],
-    ['YouTube',  'yt',       'video',     'youtube',   'SOC','active','','',     '',     'false','0','0','',                                                                                              '1920x1080px','16:9',  'Link in description — pin comment with link',       'Video content — hook in first 30 seconds · description SEO optimised',             'video_script'],
-    ['X',        'x',        'social',    'x',         'SOC','active','','280',  '280',  'false','0','0','',                                                                                              '1200x675px', '16:9',  'Paste URL directly in post',                       'Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply','post'],
-    ['Reddit',   'reddit',   'community', 'reddit',    'SOC','active','','',     '',     'false','0','0','',                                                                                              '',           '',      'Link in post or comment',                          'Community tone — no promotional language · value first · r/easyChefPro and u/easyChef_Pro','post']
+    ['YouTube',  'yt',       'video',     'youtube',   'YT', 'active','','',     '',     'false','0','0','',                                                                                              '1920x1080px','16:9',  'Link in description — pin comment with link',       'Video content — hook in first 30 seconds · description SEO optimised',             'video_script'],
+    ['X',        'x',        'social',    'x',         'X',  'active','','280',  '280',  'false','0','0','',                                                                                              '1200x675px', '16:9',  'Paste URL directly in post',                       'Max 280 chars — no hashtags needed for organic · link reduces reach so add in reply','post'],
+    ['Reddit',   'reddit',   'community', 'reddit',    'RD', 'active','','',     '',     'false','0','0','',                                                                                              '',           '',      'Link in post or comment',                          'Community tone — no promotional language · value first · r/easyChefPro and u/easyChef_Pro','post']
   ].forEach(function(row) {
     if (existing.indexOf(row[0].toLowerCase()) === -1) sheet.appendRow(row);
   });
+}
+
+/**
+ * One-time fix: updates dl_prefix column in the live Channels Sheet to correct values.
+ * Run once from the Apps Script editor: fixChannelDlPrefixes()
+ */
+function fixChannelDlPrefixes() {
+  var fixes = {
+    'facebook':'FB','instagram':'IG','tiktok':'TK','pinterest':'PT',
+    'nextdoor':'ND','youtube':'YT','x':'X','reddit':'RD','vimeo':'VM',
+    'email':'EM','organic':'ORG','affiliate':'AFF','direct':'DIR'
+  };
+  var sheet   = _getCCSheet(_CC_TAB.CHANNELS);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { Logger.log('[fixChannelDlPrefixes] no data rows'); return { ok: false }; }
+  var pfxCol = _CC_HDR.Channels.indexOf('dl_prefix') + 1; // 1-based column
+  var range  = sheet.getRange(2, 1, lastRow - 1, _CC_HDR.Channels.length);
+  var rows   = range.getValues();
+  var updated = 0;
+  rows.forEach(function(row, i) {
+    var name = String(row[0]).toLowerCase();
+    if (fixes[name] !== undefined && row[pfxCol - 1] !== fixes[name]) {
+      rows[i][pfxCol - 1] = fixes[name];
+      updated++;
+    }
+  });
+  range.setValues(rows);
+  Logger.log('[fixChannelDlPrefixes] updated ' + updated + ' channel dl_prefix values');
+  return { ok: true, updated: updated };
 }
 
 function _seedCampaignTypes(sheet) {
