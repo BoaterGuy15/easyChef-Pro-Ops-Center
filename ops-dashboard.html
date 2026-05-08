@@ -23730,11 +23730,13 @@ function _ccRenderEmailSequence(sequence,container){
     return;
   }
   var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-  var seqGroups={'SEQ-1':[],'SEQ-2':[],'SEQ-5':[],'other':[]};
+  var seqGroups={'SEQ-1':[],'SEQ-2':[],'SEQ-3':[],'SEQ-4':[],'SEQ-5':[],'other':[]};
   sequence.forEach(function(e){
     var id=String(e.seq_id||'');
-    if(id.indexOf('SEQ-1')===0) seqGroups['SEQ-1'].push(e);
+    if(id.indexOf('SEQ-1')===0)      seqGroups['SEQ-1'].push(e);
     else if(id.indexOf('SEQ-2')===0) seqGroups['SEQ-2'].push(e);
+    else if(id.indexOf('SEQ-3')===0) seqGroups['SEQ-3'].push(e);
+    else if(id.indexOf('SEQ-4')===0) seqGroups['SEQ-4'].push(e);
     else if(id.indexOf('SEQ-5')===0) seqGroups['SEQ-5'].push(e);
     else seqGroups['other'].push(e);
   });
@@ -23773,6 +23775,8 @@ function _ccRenderEmailSequence(sequence,container){
     '<div style="border-top:1px solid var(--border)">'+
     renderGroup('SEQ-1 — Welcome Sequence (Days 0–5)',seqGroups['SEQ-1'])+
     renderGroup('SEQ-2 — Nurture Sequence (Days 7–25)',seqGroups['SEQ-2'])+
+    renderGroup('SEQ-3 — Urgency (Days 28–40)',seqGroups['SEQ-3'])+
+    renderGroup('SEQ-4 — Launch Day (Day 42)',seqGroups['SEQ-4'])+
     renderGroup(_seq5RenderLabel,seqGroups['SEQ-5'])+
     renderGroup('Additional Emails',seqGroups['other'])+
     actionBar+
