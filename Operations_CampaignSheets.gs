@@ -561,6 +561,43 @@ function getThemeLibrary(icp_code) {
   return rows.filter(function(t) { return !t.icp_code || String(t.icp_code).toLowerCase() === code; });
 }
 
+function setThemeLibraryRow(item) {
+  if (!item || !item.theme_name) return null;
+  var sheet   = _getCCSheet(_CC_TAB.THEME_LIBRARY);
+  var headers = _CC_HDR.ThemeLibrary;
+  var id   = item.id || ('tl-' + Date.now().toString(36));
+  var slug = item.theme_slug || item.theme_name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  var row = [
+    id,
+    item.icp_code          || '',
+    item.theme_name        || '',
+    slug,
+    item.category          || '',
+    item.emotional_entry   || '',
+    item.emotional_payoff  || '',
+    item.hook_angle        || '',
+    item.problem_angle     || '',
+    item.agitate_angle     || '',
+    item.food_type         || '',
+    item.publish_day       || '',
+    item.post_count        || 7,
+    item.blueprint_code    || 'A-Waitlist',
+    item.campaign_angle    || '',
+    item.urgency_trigger   || '',
+    item.image_mood_hook   || '',
+    item.image_mood_cta    || '',
+    item.active !== undefined ? item.active : true,
+    item.notes             || '',
+    item.app_feature       || '',
+    item.app_screen_label  || '',
+    item.feature_hook      || '',
+    item.feature_proof     || '',
+    item.persona_rotation  || ''
+  ];
+  _ccUpsert(sheet, headers, id, row);
+  return id;
+}
+
 function _deduplicateSeededTabs() {
   var tabs = [
     { name: 'CampaignTypes',  idCol: 0 },

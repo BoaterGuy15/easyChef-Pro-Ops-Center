@@ -22030,6 +22030,248 @@ function _ccClearTheme() {
   _ccBriefSync();
 }
 
+// ── Create New Theme ────────────────────────────────────────────────────────
+var _ccNewThemeVisible = false;
+var _ccIcpProfilesCache = null;
+var _ccNewThemeDraft = {};
+
+var _CC_APP_FEATURE_LABELS = {
+  'TRACK':    'Pantry & Waste Screen',
+  'PLAN':     'Meal Planning Screen',
+  'OPTIMIZE': 'Savings Dashboard',
+  'COOK':     'Recipe & Cook Mode'
+};
+var _CC_THEME_CATEGORIES = ['weeknight-wins','weekend-prep','health','savings','waste','speed','proof','seasonal'];
+
+function _ccToggleNewTheme() {
+  _ccNewThemeVisible = !_ccNewThemeVisible;
+  var wrap = document.getElementById('cc-new-theme-form-wrap');
+  var btn  = document.getElementById('cc-new-theme-toggle-btn');
+  if(!wrap) return;
+  if(_ccNewThemeVisible) {
+    _ccNewThemeDraft = {};
+    wrap.innerHTML = _ccNewThemeFormHtml();
+    wrap.style.display = 'block';
+    if(btn){ btn.textContent='✕ Cancel'; btn.style.color='var(--muted)'; }
+    _ccLoadIcpForThemeForm();
+  } else {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    if(btn){ btn.textContent='+ Create New Theme'; btn.style.color=_CC_RED; }
+  }
+}
+
+function _ccLoadIcpForThemeForm() {
+  if(_ccIcpProfilesCache){ _ccPopulateIcpDropdown(_ccIcpProfilesCache); return; }
+  if(!CONFIG.sheetsUrl) return;
+  fetch(CONFIG.sheetsUrl+'?action=icp_profiles_read')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.icpProfiles){ _ccIcpProfilesCache=d.icpProfiles; _ccPopulateIcpDropdown(d.icpProfiles); }
+    }).catch(function(){});
+}
+
+function _ccPopulateIcpDropdown(profiles) {
+  var sel = document.getElementById('cc-nt-icp');
+  if(!sel || !profiles) return;
+  var cur = (_campBrief.icp||'').toLowerCase().replace(/\s+/g,'_');
+  sel.innerHTML = '<option value="">— select ICP —</option>' +
+    profiles.map(function(p){
+      var code = (p.code||p.id||'').toLowerCase().replace(/\s+/g,'_');
+      return '<option value="'+code+'"'+(code===cur?' selected':'')+'>'+( p.name||code)+'</option>';
+    }).join('');
+}
+
+function _ccNtField(id, label, draftKey, rows) {
+  var IS = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 10px;font-size:11px;font-family:\'DM Mono\',monospace;box-sizing:border-box;resize:vertical;min-height:'+(rows*22)+'px';
+  var LBL = 'font-size:10px;font-weight:700;letter-spacing:0.05em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px;font-family:\'DM Mono\',monospace';
+  return '<div style="flex:1;min-width:180px">'+
+    '<label style="'+LBL+'">'+label+'</label>'+
+    '<textarea id="'+id+'" rows="'+rows+'" style="'+IS+'" oninput="_ccNewThemeDraft.'+draftKey+'=this.value"></textarea>'+
+  '</div>';
+}
+
+function _ccNewThemeFormHtml() {
+  var IS  = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:12px;font-family:\'DM Mono\',monospace;box-sizing:border-box';
+  var LBL = 'font-size:10px;font-weight:700;letter-spacing:0.05em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px;font-family:\'DM Mono\',monospace';
+  var COL = 'flex:1;min-width:160px';
+  var SEC = 'font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#000;background:'+_CC_BEIGE+';padding:7px 12px;border-radius:5px;margin:14px 0 10px;border-left:3px solid '+_CC_RED;
+  var daysOpts = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(function(d){return '<option>'+d+'</option>';}).join('');
+  var featureOpts = Object.keys(_CC_APP_FEATURE_LABELS).map(function(k){return '<option value="'+k+'">'+k+' — '+_CC_APP_FEATURE_LABELS[k]+'</option>';}).join('');
+  var catOpts = _CC_THEME_CATEGORIES.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+  var angleOpts = ['speed','savings','waste','health','convenience','proof'].map(function(a){return '<option>'+a+'</option>';}).join('');
+
+  return '<div style="margin-top:12px;padding:18px;background:var(--surface);border:1px solid '+_CC_RED+';border-radius:8px;border-top:3px solid '+_CC_RED+'">'+
+    '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:14px;font-family:\'DM Mono\',monospace;letter-spacing:0.05em">NEW THEME</div>'+
+
+    '<div style="'+SEC+'">① REQUIRED FIELDS</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+      '<div style="'+COL+'"><label style="'+LBL+'">Theme Name</label>'+
+        '<input id="cc-nt-name" type="text" placeholder="e.g. Leftovers Saturday" style="'+IS+'" oninput="_ccNewThemeDraft.theme_name=this.value"></div>'+
+      '<div style="'+COL+'"><label style="'+LBL+'">ICP</label>'+
+        '<select id="cc-nt-icp" style="'+IS+'" onchange="_ccNewThemeDraft.icp_code=this.value"><option value="">Loading…</option></select></div>'+
+    '</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+      '<div style="'+COL+'"><label style="'+LBL+'">Publish Day</label>'+
+        '<select id="cc-nt-day" style="'+IS+'" onchange="_ccNewThemeDraft.publish_day=this.value"><option value="">— select —</option>'+daysOpts+'</select></div>'+
+      '<div style="'+COL+'"><label style="'+LBL+'">App Feature</label>'+
+        '<select id="cc-nt-feature" style="'+IS+'" onchange="_ccNewThemeDraft.app_feature=this.value;_ccNewThemeDraft.app_screen_label=_CC_APP_FEATURE_LABELS[this.value]||\'\'"><option value="">— select —</option>'+featureOpts+'</select></div>'+
+    '</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px">'+
+      '<div style="'+COL+'"><label style="'+LBL+'">Food Type <span style="font-size:9px;font-weight:400">(appears Post 4+)</span></label>'+
+        '<input id="cc-nt-food" type="text" placeholder="e.g. leftover chicken stir-fry" style="'+IS+'" oninput="_ccNewThemeDraft.food_type=this.value"></div>'+
+      '<div style="'+COL+'"><label style="'+LBL+'">Category</label>'+
+        '<select id="cc-nt-cat" style="'+IS+'" onchange="_ccNewThemeDraft.category=this.value"><option value="">— select —</option>'+catOpts+'</select></div>'+
+    '</div>'+
+
+    '<div style="'+SEC+'">② AI-GENERATED FIELDS</div>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">'+
+      '<button onclick="_ccGenerateThemeDetails()" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">⚡ Generate Theme Details</button>'+
+      '<div id="cc-nt-gen-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
+    '</div>'+
+
+    '<div id="cc-nt-ai-fields" style="display:none">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        _ccNtField('cc-nt-emotional-entry','Emotional Entry','emotional_entry',2)+
+        _ccNtField('cc-nt-emotional-payoff','Emotional Payoff','emotional_payoff',2)+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        _ccNtField('cc-nt-hook-angle','Hook Angle (Post 1)','hook_angle',2)+
+        _ccNtField('cc-nt-problem-angle','Problem Angle (Post 2)','problem_angle',2)+
+        _ccNtField('cc-nt-agitate-angle','Agitate Angle (Post 3)','agitate_angle',2)+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        _ccNtField('cc-nt-image-hook','Image Mood — Hook (Post 1)','image_mood_hook',2)+
+        _ccNtField('cc-nt-image-cta','Image Mood — CTA (Post 7)','image_mood_cta',2)+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        _ccNtField('cc-nt-feature-hook','Feature Hook','feature_hook',2)+
+        _ccNtField('cc-nt-feature-proof','Feature Proof (Approved Claim)','feature_proof',2)+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px">'+
+        '<div style="flex:1;min-width:140px"><label style="'+LBL+'">Campaign Angle</label>'+
+          '<select id="cc-nt-campaign-angle" style="'+IS+'" onchange="_ccNewThemeDraft.campaign_angle=this.value"><option value="">— select —</option>'+angleOpts+'</select></div>'+
+        _ccNtField('cc-nt-urgency','Urgency Trigger','urgency_trigger',2)+
+      '</div>'+
+    '</div>'+
+
+    '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+      '<button onclick="_ccSaveNewTheme()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">💾 Save Theme</button>'+
+      '<button onclick="_ccToggleNewTheme()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:9px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Cancel</button>'+
+      '<div id="cc-nt-save-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
+    '</div>'+
+  '</div>';
+}
+
+function _ccGenerateThemeDetails() {
+  var name    = (document.getElementById('cc-nt-name')    ||{}).value||'';
+  var icp     = (document.getElementById('cc-nt-icp')     ||{}).value||'';
+  var day     = (document.getElementById('cc-nt-day')     ||{}).value||'';
+  var feature = (document.getElementById('cc-nt-feature') ||{}).value||'';
+  var food    = (document.getElementById('cc-nt-food')    ||{}).value||'';
+  var cat     = (document.getElementById('cc-nt-cat')     ||{}).value||'';
+  if(!name||!icp||!feature||!food){ _showToast('Fill Theme Name, ICP, App Feature, and Food Type first', 2500); return; }
+  var statusEl = document.getElementById('cc-nt-gen-status');
+  if(statusEl){ statusEl.textContent='⏳ Generating…'; statusEl.style.color='var(--muted)'; }
+  var exThemes = (_ccThemeLib[icp]||Object.values(_ccThemeLib)[0]||[]).slice(0,2).map(function(t){
+    return 'Theme: '+t.theme_name+'\nEmotional Entry: '+t.emotional_entry+'\nHook: '+t.hook_angle+'\nFeature Hook: '+(t.feature_hook||'')+'\nFeature Proof: '+(t.feature_proof||'');
+  }).join('\n\n');
+  var icpP = (_ccIcpProfilesCache||[]).find(function(p){ return (p.code||p.id||'').toLowerCase().replace(/\s+/g,'_')===icp; })||{};
+  var prompt =
+    'You are a campaign strategist for easyChef Pro, a meal planning and grocery waste app.\n\n'+
+    'Create theme campaign details for:\n'+
+    'Theme Name: '+name+'\n'+
+    'ICP: '+icp+'\n'+
+    'Publish Day: '+(day||'flexible')+'\n'+
+    'App Feature: '+feature+' ('+((_CC_APP_FEATURE_LABELS||{})[feature]||'')+') \n'+
+    'Food Type: '+food+'\n'+
+    'Category: '+(cat||'general')+'\n\n'+
+    'ICP Context:\n'+JSON.stringify({name:icpP.name||icp,primary_pain:icpP.primary_pain||'',value_trigger:icpP.value_trigger||'',loss_aversion:icpP.loss_aversion||''},null,2)+'\n\n'+
+    (exThemes?'Existing theme examples for tone:\n'+exThemes+'\n\n':'')+
+    'Return ONLY a valid JSON object with exactly these fields:\n'+
+    '{\n'+
+    '  "emotional_entry": "what she feels before she finds a solution",\n'+
+    '  "emotional_payoff": "what she feels at the CTA moment after seeing the solution",\n'+
+    '  "hook_angle": "Post 1 hook direction — one punchy sentence",\n'+
+    '  "problem_angle": "Post 2 problem direction — one sentence",\n'+
+    '  "agitate_angle": "Post 3 agitate direction — one sentence",\n'+
+    '  "image_mood_hook": "visual tone for Post 1 — 1 sentence describing scene/mood",\n'+
+    '  "image_mood_cta": "visual tone for Post 7 CTA — 1 sentence",\n'+
+    '  "feature_hook": "one-line intro for the '+feature+' feature",\n'+
+    '  "feature_proof": "an approved stat or claim that pairs with '+feature+'",\n'+
+    '  "campaign_angle": "one of: speed | savings | waste | health | convenience | proof",\n'+
+    '  "urgency_trigger": "what creates urgency — founding price / launch date / limited spots"\n'+
+    '}\nReturn raw JSON only. No markdown fences.';
+  if(!CONFIG.sheetsUrl){ if(statusEl){statusEl.textContent='⚠️ No Sheets URL';} return; }
+  fetch(CONFIG.sheetsUrl, {method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic_chat',prompt:prompt,maxTokens:900})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var raw=(d.result||d.text||'').trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/i,'').trim();
+      var ai=JSON.parse(raw);
+      _ccNewThemeDraft=Object.assign(_ccNewThemeDraft,ai);
+      var F={'cc-nt-emotional-entry':'emotional_entry','cc-nt-emotional-payoff':'emotional_payoff','cc-nt-hook-angle':'hook_angle','cc-nt-problem-angle':'problem_angle','cc-nt-agitate-angle':'agitate_angle','cc-nt-image-hook':'image_mood_hook','cc-nt-image-cta':'image_mood_cta','cc-nt-feature-hook':'feature_hook','cc-nt-feature-proof':'feature_proof','cc-nt-urgency':'urgency_trigger'};
+      Object.keys(F).forEach(function(id){var el=document.getElementById(id);if(el)el.value=ai[F[id]]||'';});
+      if(ai.campaign_angle){var s=document.getElementById('cc-nt-campaign-angle');if(s)s.value=ai.campaign_angle;}
+      var aif=document.getElementById('cc-nt-ai-fields'); if(aif) aif.style.display='block';
+      if(statusEl){statusEl.textContent='✓ Generated';statusEl.style.color='#22c55e';setTimeout(function(){statusEl.textContent='';statusEl.style.color='';},3000);}
+    })
+    .catch(function(){
+      var aif=document.getElementById('cc-nt-ai-fields'); if(aif) aif.style.display='block';
+      if(statusEl){statusEl.textContent='⚠️ Generation failed — fill fields manually';statusEl.style.color='#ef4444';}
+    });
+}
+
+function _ccSaveNewTheme() {
+  var g=function(id){return (document.getElementById(id)||{}).value||'';};
+  var name    = g('cc-nt-name').trim();
+  var icp     = g('cc-nt-icp');
+  var day     = g('cc-nt-day');
+  var feature = g('cc-nt-feature');
+  var food    = g('cc-nt-food').trim();
+  var cat     = g('cc-nt-cat');
+  var statusEl = document.getElementById('cc-nt-save-status');
+  if(!name)   { _showToast('Theme name required',2000); return; }
+  if(!icp)    { _showToast('ICP required',2000); return; }
+  if(!feature){ _showToast('App feature required',2000); return; }
+  if(!food)   { _showToast('Food type required',2000); return; }
+  var allCached=[];
+  Object.values(_ccThemeLib).forEach(function(arr){allCached=allCached.concat(arr);});
+  if(allCached.find(function(t){return (t.theme_name||'').toLowerCase()===name.toLowerCase();})){
+    _showToast('"'+name+'" already exists',2500); return;
+  }
+  var slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  var id   = 'tl-'+Date.now().toString(36);
+  var newTheme = {
+    id:id, icp_code:icp, theme_name:name, theme_slug:slug, category:cat,
+    emotional_entry:g('cc-nt-emotional-entry'), emotional_payoff:g('cc-nt-emotional-payoff'),
+    hook_angle:g('cc-nt-hook-angle'), problem_angle:g('cc-nt-problem-angle'), agitate_angle:g('cc-nt-agitate-angle'),
+    food_type:food, publish_day:day, post_count:7, blueprint_code:'A-Waitlist',
+    campaign_angle:g('cc-nt-campaign-angle'), urgency_trigger:g('cc-nt-urgency'),
+    image_mood_hook:g('cc-nt-image-hook'), image_mood_cta:g('cc-nt-image-cta'),
+    active:true, notes:'', app_feature:feature,
+    app_screen_label:(_CC_APP_FEATURE_LABELS||{})[feature]||'',
+    feature_hook:g('cc-nt-feature-hook'), feature_proof:g('cc-nt-feature-proof'), persona_rotation:''
+  };
+  if(statusEl) statusEl.textContent='💾 Saving…';
+  var _afterSave=function(){
+    var code=icp.toLowerCase().replace(/\s+/g,'_');
+    if(!_ccThemeLib[code]) _ccThemeLib[code]=[];
+    _ccThemeLib[code].push(newTheme);
+    _ccToggleNewTheme();
+    var s1p=document.getElementById('cc-step1-theme-picker');
+    if(s1p) s1p.innerHTML=_ccRenderThemeCards(_ccThemeLib[code],name);
+    var bp=document.getElementById('cc-theme-picker');
+    if(bp)  bp.innerHTML=_ccRenderThemeCards(_ccThemeLib[code],name);
+    _ccSelectTheme(name,day,newTheme.campaign_angle,newTheme.urgency_trigger,newTheme);
+    var nx=document.getElementById('cc-step1-theme-next'); if(nx) nx.style.display='block';
+    _showToast('✓ Theme created — '+name,2500);
+  };
+  if(!CONFIG.sheetsUrl){ _afterSave(); return; }
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'theme_library_write',theme:newTheme})})
+    .then(function(){_afterSave();})
+    .catch(function(){if(statusEl){statusEl.textContent='⚠️ Sheet save failed — theme active locally';statusEl.style.color='#ef4444';}_afterSave();});
+}
+
 // Fetch a single ThemeLibrary row by name from the Sheet (used when kickstart auto-fills theme)
 function _ccLoadThemeData(themeName, cb) {
   var _cb = typeof cb === 'function' ? cb : function(){};
@@ -27677,6 +27919,10 @@ function _ccWizardAdvance(toStep,summary){
         '<div id="cc-step1-theme-picker">'+
           '<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Loading themes…</div>'+
         '</div>'+
+        '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">'+
+          '<button id="cc-new-theme-toggle-btn" onclick="_ccToggleNewTheme()" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">+ Create New Theme</button>'+
+        '</div>'+
+        '<div id="cc-new-theme-form-wrap" style="display:none"></div>'+
         '<div id="cc-step1-theme-next" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:'+(_campBrief.theme?'block':'none')+'">'+
           '<button onclick="_ccWizardAdvance(2,\'✓ Theme: \'+(_campBrief.theme||\'\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
         '</div>'+
@@ -27894,6 +28140,10 @@ function _campaignsRenderInner(root){
         '<div id="cc-step-1-summ" '+summBar+'></div>'+
         '<div id="cc-step-1-body" style="padding:20px">'+
           '<div id="cc-step1-theme-picker"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Loading themes…</div></div>'+
+          '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">'+
+            '<button id="cc-new-theme-toggle-btn" onclick="_ccToggleNewTheme()" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">+ Create New Theme</button>'+
+          '</div>'+
+          '<div id="cc-new-theme-form-wrap" style="display:none"></div>'+
           '<div id="cc-step1-theme-next" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:none">'+
             '<button onclick="_ccWizardAdvance(2,\'✓ Theme: \'+(_campBrief.theme||\'\'))" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Select Landing Page</button>'+
           '</div>'+

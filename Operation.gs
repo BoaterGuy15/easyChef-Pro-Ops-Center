@@ -375,6 +375,8 @@ function doGet(e) {
       catch(err) { return respond({ ok: false, error: err.message }); }
     }
     if(e.parameter.action === 'folders_read') return respond({ok:true, folders: _getFolderDefs()});
+    if(e.parameter.action === 'icp_profiles_read') return respond({ok:true, icpProfiles: getIcpProfiles()});
+    if(e.parameter.action === 'approved_claims_read') return respond({ok:true, claims: getApprovedClaims()});
     if(e.parameter.action === 'folder_list') {
       var _fid=e.parameter.folderId||'';
       if(!_fid) return respond({ok:false,error:'folderId required'});
@@ -823,6 +825,10 @@ function doPost(e) {
 
     
 
+    if(body.action === 'theme_library_write') {
+      var _tlId = setThemeLibraryRow(body.theme || body);
+      return respond({ok:true, id: _tlId});
+    }
     if(body.action === 'tasks_append') {
       var _newTasks = Array.isArray(body.tasks) ? body.tasks : [];
       if(!_newTasks.length) return respond({ok:false,error:'No tasks provided'});
