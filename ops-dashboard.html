@@ -21617,18 +21617,18 @@ var _CC_GOALS=['waitlist_signup_completed','app_install','subscription_started',
 var _CC_CAMPAIGN_VALID=['ec-2026-001','ec-2026-005','yt_super_mom','yt_waste','yt_origin','x_super_mom','x_waste','reddit_community','reddit_easychef'];
 var _ccChannels=[
   {name:'Email',     slug_code:'email',    utm_medium:'email',     utm_source:'klaviyo',   dl_prefix:'EM', status:'active'},
-  {name:'Facebook',  slug_code:'fb',       utm_medium:'social',    utm_source:'facebook',  dl_prefix:'SOC',status:'active'},
-  {name:'Instagram', slug_code:'ig',       utm_medium:'social',    utm_source:'instagram', dl_prefix:'SOC',status:'active'},
-  {name:'TikTok',    slug_code:'tiktok',   utm_medium:'social',    utm_source:'tiktok',    dl_prefix:'SOC',status:'active'},
-  {name:'Pinterest', slug_code:'pin',      utm_medium:'social',    utm_source:'pinterest', dl_prefix:'SOC',status:'active'},
-  {name:'Nextdoor',  slug_code:'nextdoor', utm_medium:'social',    utm_source:'nextdoor',  dl_prefix:'SOC',status:'active'},
+  {name:'Facebook',  slug_code:'fb',       utm_medium:'social',    utm_source:'facebook',  dl_prefix:'FB', status:'active'},
+  {name:'Instagram', slug_code:'ig',       utm_medium:'social',    utm_source:'instagram', dl_prefix:'IG', status:'active'},
+  {name:'TikTok',    slug_code:'tiktok',   utm_medium:'social',    utm_source:'tiktok',    dl_prefix:'TK', status:'active'},
+  {name:'Pinterest', slug_code:'pin',      utm_medium:'social',    utm_source:'pinterest', dl_prefix:'PT', status:'active'},
+  {name:'Nextdoor',  slug_code:'nextdoor', utm_medium:'social',    utm_source:'nextdoor',  dl_prefix:'ND', status:'active'},
+  {name:'YouTube',   slug_code:'yt',       utm_medium:'video',     utm_source:'youtube',   dl_prefix:'YT', status:'active'},
+  {name:'X',         slug_code:'x',        utm_medium:'social',    utm_source:'x',         dl_prefix:'X',  status:'active'},
+  {name:'Reddit',    slug_code:'reddit',   utm_medium:'community', utm_source:'reddit',    dl_prefix:'RD', status:'active'},
+  {name:'Vimeo',     slug_code:'vimeo',    utm_medium:'video',     utm_source:'vimeo',     dl_prefix:'VM', status:'active'},
   {name:'Organic',   slug_code:'organic',  utm_medium:'content',   utm_source:'blog',      dl_prefix:'ORG',status:'active'},
   {name:'Affiliate', slug_code:'aff',      utm_medium:'affiliate', utm_source:'affiliate', dl_prefix:'AFF',status:'active'},
-  {name:'Direct',    slug_code:'direct',   utm_medium:'referral',  utm_source:'convertkit',dl_prefix:'DIR',status:'active'},
-  {name:'YouTube',   slug_code:'yt',       utm_medium:'video',     utm_source:'youtube',   dl_prefix:'SOC',status:'active'},
-  {name:'X',         slug_code:'x',        utm_medium:'social',    utm_source:'x',         dl_prefix:'SOC',status:'active'},
-  {name:'Reddit',    slug_code:'reddit',   utm_medium:'community', utm_source:'reddit',    dl_prefix:'SOC',status:'active'},
-  {name:'Vimeo',     slug_code:'vimeo',    utm_medium:'video',     utm_source:'vimeo',     dl_prefix:'SOC',status:'active'}
+  {name:'Direct',    slug_code:'direct',   utm_medium:'referral',  utm_source:'convertkit',dl_prefix:'DIR',status:'active'}
 ];
 var _ccChannelsLoaded=false;
 var _ccDataLoaded=false;
@@ -22374,22 +22374,28 @@ function _ccPopulateChannelSelect(channels){
 function _ccPopulateChannelCards(channels){
   var grid=document.getElementById('cc-channel-grid');
   if(!grid) return;
-  var CARD_CHANNELS=[
-    {name:'Facebook',           dim:'1200×630px',  note:'7 posts · image gen'},
-    {name:'Instagram',          dim:'1080×1080px', note:'7 posts · image gen'},
-    {name:'TikTok',             dim:'1080×1920px', note:'7 scripts · thumb gen'},
-    {name:'Pinterest',          dim:'1000×1500px', note:'5 pins · image gen'},
-    {name:'Nextdoor',           dim:'1200×630px',  note:'3 posts · no image'},
-    {name:'Email',              dim:'600px wide',  note:'SEQ-1+2 · 8 emails'},
-    {name:'Push Notifications', dim:'—',           note:'3 notifs · copy only'}
-  ];
-  var active=channels.filter(function(c){return c.status==='active';}).map(function(c){return c.name.toLowerCase();});
+  // Fallback dim/note by channel name and utm_medium when Sheet fields are absent
+  var _dimFallback={
+    'facebook':'1200×630px','instagram':'1080×1080px','tiktok':'1080×1920px',
+    'pinterest':'1000×1500px','nextdoor':'1200×630px','youtube':'1280×720px',
+    'x':'1200×675px','reddit':'1200×628px','vimeo':'1280×720px',
+    'email':'600px wide'
+  };
+  var _noteFallback={
+    'social':'7 posts · image gen','community':'7 posts · community rules',
+    'email':'sequences · Klaviyo','video':'video script · thumb gen',
+    'content':'article brief','affiliate':'brief · partner link',
+    'referral':'drip email'
+  };
   var savedChs=_campBrief.channels||['Facebook','Instagram','Email'];
-  grid.innerHTML=CARD_CHANNELS.map(function(ch){
-    var inSheet=active.length===0||active.indexOf(ch.name.toLowerCase())>=0;
-    if(!inSheet) return '';
+  var activeChannels=channels.filter(function(c){return c.status==='active';});
+  grid.innerHTML=activeChannels.map(function(ch){
+    var nameLow=(ch.name||'').toLowerCase();
+    var medium=(ch.utm_medium||'').toLowerCase();
+    var dim=ch.image_specs||_dimFallback[nameLow]||'—';
+    var note=ch.post_format||_noteFallback[medium]||'copy only';
     var on=savedChs.indexOf(ch.name)>=0;
-    return _ccChannelCardHtml(ch.name,ch.dim,ch.note,on);
+    return _ccChannelCardHtml(ch.name,dim,note,on);
   }).join('');
 }
 
