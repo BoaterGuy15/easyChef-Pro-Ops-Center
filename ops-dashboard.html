@@ -1343,6 +1343,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <button class="gantt-ctrl-btn" id="lp-zoom-1yr" onclick="_lpSetZoom('1yr')">1YR</button>
       <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
       <button class="gantt-ctrl-btn" onclick="_lpUndo()" title="Undo last move/resize (Ctrl+Z)">↩</button>
+      <button class="gantt-ctrl-btn" onclick="_lpSyncAll()" title="Force-save all bars to Google Sheets" style="color:var(--green);font-weight:600">↑ Sync</button>
     </div>
     <div style="display:flex">
       <div style="width:160px;min-width:160px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:flex-end;padding:4px 8px">
@@ -16901,10 +16902,29 @@ function loadLaunchPlan(){
       console.log('[DGL] loadLaunchPlan: loaded',rows.length,'rows from Sheets; ids=',(rows.slice(0,3).map(r=>r.id).join(',')));
     } else {
       _lpCache=_LP_DEFAULTS.map(x=>({...x}));
-      console.log('[DGL] loadLaunchPlan: Sheets returned 0 rows — using defaults');
+      console.log('[DGL] loadLaunchPlan: Sheets returned 0 rows — seeding defaults to Sheets...');
+      if(CONFIG.sheetsUrl) _lpSyncAll(true);
     }
     buildLaunchPlan();
-  }).catch(()=>{ _lpCache=_LP_DEFAULTS.map(x=>({...x})); buildLaunchPlan(); });
+  }).catch(()=>{ _lpCache=_LP_DEFAULTS.map(x=>({...x})); buildLaunchPlan(); if(CONFIG.sheetsUrl) _lpSyncAll(true); });
+}
+
+function _lpSyncAll(silent){
+  if(!CONFIG.sheetsUrl) return;
+  const items=[..._lpCache];
+  if(!items.length) return;
+  function _nd(v){if(!v)return '';const s=String(v);return(s.includes('GMT')||s.includes('T00:00'))?new Date(v).toISOString().slice(0,10):s;}
+  function _nids(v){return Array.isArray(v)?v.filter(Boolean).join(','):String(v||'');}
+  let done=0, failed=0;
+  items.forEach(item=>{
+    const payload={...item,sd:_nd(item.sd),ed:_nd(item.ed),taskIds:_nids(item.taskIds)};
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'launchplan_write',item:payload})})
+      .then(r=>r.json())
+      .then(()=>{ done++; if(!silent&&done+failed===items.length) _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✓ Synced '+done+' bars to Sheets</div>',2500); })
+      .catch(()=>{ failed++; if(!silent&&done+failed===items.length) _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#dc2626">⚠ Sync failed: '+failed+' error(s)</div>',3000); });
+  });
+  if(!silent) _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--muted)">Syncing '+items.length+' bars to Sheets…</div>',1500);
 }
 
 function _lpSaveBar(item){
@@ -16929,7 +16949,13 @@ function _lpSaveBar(item){
   function _normTaskIds(v){if(Array.isArray(v))return v.filter(Boolean).join(',');return String(v||'');}
   const payload={...resolvedItem,sd:_normDate(resolvedItem.sd),ed:_normDate(resolvedItem.ed),taskIds:_normTaskIds(resolvedItem.taskIds)};
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
-    body:JSON.stringify({action:'launchplan_write',item:payload})}).catch(()=>{});
+    body:JSON.stringify({action:'launchplan_write',item:payload})})
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.ok){ _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Saved — '+(resolvedItem.name||resolvedItem.id)+' → Sheets</div>',1800); }
+      else { console.error('[DGL] _lpSaveBar FAILED:',d.error||d); _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#dc2626">⚠ Bar save failed: '+(d.error||'unknown error')+'</div>',4000); }
+    })
+    .catch(e=>{ console.error('[DGL] _lpSaveBar network error:',e); _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#dc2626">⚠ Bar save network error — check Apps Script</div>',4000); });
   const _resolvedTaskIds=Array.isArray(resolvedItem.taskIds)?resolvedItem.taskIds:String(resolvedItem.taskIds||'').split(',').map(s=>s.trim()).filter(Boolean);
   _resolvedTaskIds.filter(tid=>!_prevTaskIds.includes(tid)).forEach(tid=>_autoLink('workstream',resolvedItem.id,'task',tid));
 }
@@ -17648,7 +17674,6 @@ function buildLaunchPlan(){
 
   _initLPDrag();
   requestAnimationFrame(()=>_renderGanttMilestoneLines({canvasId:'lp-gantt-canvas',hdrCanvasId:'lp-gantt-hdr-canvas',prefix:'lp-gantt'}));
-  _debouncedBuildMilestones();
 }
 
 function _initLPHover(){
@@ -18946,7 +18971,6 @@ function _showLPMoveConfirm(lpId,oldSd,oldEd,newSd,newEd,name){
     window._lpPendingConfirmId=null;
     wrap.remove();
     buildLaunchPlan();
-    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Saved — '+(name||lpId)+' → '+newSd+'</div>',1800);
   };
 
   const undoBtn=document.createElement('button');
