@@ -319,9 +319,11 @@ function _getChannelRules(channelName) {
 }
 
 // Per-channel post count defaults
+// Pinterest stays at 5 (visual platform, fewer longer-form pins).
+// All other social channels — including Nextdoor — run the full 7-post arc.
 function _getChannelPostCount(channelName, briefCount) {
   var ch = (channelName || '').toLowerCase();
-  var defaults = { pinterest: 5, nextdoor: 3 };
+  var defaults = { pinterest: 5 };
   return defaults[ch] || (briefCount || 7);
 }
 
@@ -629,16 +631,37 @@ function buildSocialPosts(brief, copy) {
 function buildMultiChannelPosts(brief, copy) {
   if (!brief) return { ok: false, error: 'brief is required' };
   var channels = Array.isArray(brief.channels) && brief.channels.length ? brief.channels : [brief.channel || 'Facebook'];
+  // TikTok and YouTube get static single-asset entries — not the 7-post AI arc
   var socialChannels = channels.filter(function(ch) {
     var lc = (ch || '').toLowerCase();
-    return lc && lc !== 'email' && lc !== 'push notifications';
+    return lc && lc !== 'email' && lc !== 'push notifications' && lc !== 'tiktok' && lc !== 'youtube';
   });
-  if (!socialChannels.length) return { ok: true, posts: [], stagger_schedule: [] };
 
   var allPosts = [];
   var errors   = [];
   var sheetChannels;
   try { sheetChannels = getChannels(); } catch(e) { sheetChannels = []; }
+
+  // Static TikTok spotlight (Day 4) and YouTube explainer (Day 7)
+  var _hasTikTok = channels.some(function(c){return(c||'').toLowerCase()==='tiktok';});
+  var _hasYT     = channels.some(function(c){return(c||'').toLowerCase()==='youtube';});
+  if (_hasTikTok) {
+    var _tkFt = _getTikTokFeature(brief);
+    allPosts.push({ channel:'TikTok', post_num:1, scheduled_day:3, theme:'solve', funnel_stage:'solve',
+      hook:_tkFt.toUpperCase()+' spotlight — hook in 3 seconds',
+      body:'Feature demo: '+_tkFt+' · one approved claim · CTA link in bio',
+      cta:'Link in bio', hashtags:'', image_brief:'60-sec '+_tkFt+' spotlight screen recording',
+      campaign_id:brief.id||'' });
+  }
+  if (_hasYT) {
+    allPosts.push({ channel:'YouTube', post_num:1, scheduled_day:6, theme:'cta', funnel_stage:'cta',
+      hook:'easyChef Pro — 60-second explainer',
+      body:'Full 7-step arc compressed to 60 seconds — publishes Day 7 same day as all CTA posts',
+      cta:'Join the waitlist — link in description', hashtags:'', image_brief:'60-sec explainer thumbnail — app on phone',
+      campaign_id:brief.id||'' });
+  }
+
+  if (!socialChannels.length && !allPosts.length) return { ok: true, posts: [], stagger_schedule: [] };
 
   for (var ci = 0; ci < socialChannels.length; ci++) {
     var ch = socialChannels[ci];

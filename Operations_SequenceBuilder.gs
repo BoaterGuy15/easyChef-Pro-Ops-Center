@@ -170,8 +170,32 @@ function buildFullSequence(brief, copy, existingPosts, existingEmails) {
     // ── Posts ───────────────────────────────────────────────────────────────
     var socialResult;
     if (Array.isArray(existingPosts) && existingPosts.length > 0) {
-      Logger.log('[buildFullSequence] scheduling ' + existingPosts.length + ' existing posts onto theme timeline');
-      socialResult = _sbScheduleExistingPosts(brief, existingPosts);
+      // Always strip TikTok/YouTube from existingPosts and replace with static single-asset entries.
+      // This prevents stale 7-post AI generations from overriding the 1-asset spec.
+      var _arcPosts = existingPosts.filter(function(p) {
+        var ch = ((p.channel || p.platform || '')).toLowerCase();
+        return ch !== 'tiktok' && ch !== 'youtube';
+      });
+      var _briefChs = Array.isArray(brief.channels) ? brief.channels : [brief.channel || ''];
+      var _hasTK = _briefChs.some(function(c){return(c||'').toLowerCase()==='tiktok';});
+      var _hasYT = _briefChs.some(function(c){return(c||'').toLowerCase()==='youtube';});
+      if (_hasTK) {
+        var _feat = _getTikTokFeature(brief);
+        _arcPosts.push({ id:(brief.id||'')+'-tiktok-POST-001', campaign_id:brief.id||'', platform:'TikTok',
+          post_num:1, scheduled_day:3, theme:'solve', funnel_stage:'solve',
+          hook:_feat.toUpperCase()+' spotlight — hook in 3 seconds',
+          body_copy:'Feature demo: '+_feat+' · one approved claim · CTA link in bio',
+          cta:'Link in bio', hashtags:'', image_brief:'60-sec '+_feat+' spotlight screen recording' });
+      }
+      if (_hasYT) {
+        _arcPosts.push({ id:(brief.id||'')+'-youtube-POST-001', campaign_id:brief.id||'', platform:'YouTube',
+          post_num:1, scheduled_day:6, theme:'cta', funnel_stage:'cta',
+          hook:'easyChef Pro — 60-second explainer',
+          body_copy:'Full 7-step arc compressed to 60 seconds — publishes Day 7',
+          cta:'Join the waitlist — link in description', hashtags:'', image_brief:'60-sec explainer thumbnail' });
+      }
+      Logger.log('[buildFullSequence] existingPosts: ' + existingPosts.length + ' → ' + _arcPosts.length + ' after TK/YT static replacement');
+      socialResult = _sbScheduleExistingPosts(brief, _arcPosts);
     } else {
       socialResult = buildSocialCalendar(brief, copy);
       if (!socialResult.ok) return { ok: false, error: 'Social calendar failed: ' + socialResult.error };
