@@ -17894,7 +17894,8 @@ function _buildActionCard(a){
 function _renderGanttTaskActionsTab(container,taskId){
   const t=(DASHBOARD_DATA.tasks||[]).find(x=>x.id===taskId)||{};
   const wsRow=_wsCache.find(w=>w.name===t.cat)||_wsCache.find(w=>w.id===t.cat)||null;
-  const workstreamId=wsRow?wsRow.id:(t.cat||'');
+  const _lpLink2=_lpFindBarForTask?_lpFindBarForTask(taskId):null;
+  const workstreamId=wsRow?wsRow.id:(t.cat||(_lpLink2?_lpLink2.id:''));
   const addWrap=document.createElement('div');
   addWrap.style.cssText="padding:8px 14px 9px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px";
   const addBtn=document.createElement('button');addBtn.textContent='➕ Add Action';
@@ -18253,7 +18254,7 @@ function _createActionFromStep(stepTitle,taskId,wsItem,assignedKey,dueDate){
   if(document.getElementById('page-actions')?.classList.contains('active')) buildActionsGantt();
   if(!CONFIG.sheetsUrl){_showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Action added — '+assignedName+'</div>',2000);return;}
   const wsaPayload={action:'workstream_action_write',item:{id,workstreamId,type:'Task',title:stepTitle,body:'',assignedTo:assignedKey,dueDate:dueDate||'',status:'Open',completedAt:'',completedBy:'',linkedTaskId:taskId||'',createdBy:CONFIG.currentUser||'',createdAt:now}};
-  const actPayload={action:'action_write',id,taskId:taskId||'',agendaId:'',workstreamId,type:'task',title:stepTitle,body:'',status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
+  const actPayload={action:'action_write',id,taskId:taskId||'',agendaId:'',workstreamId,type:'task',title:stepTitle,body:'',assignedTo:assignedKey,dueDate:dueDate||'',status:'open',createdBy:CONFIG.currentUser||'',createdAt:now};
   _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted)">⏳ Saving action…</div>',1500);
   Promise.all([
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(wsaPayload)}).then(r=>r.json()),
@@ -19265,7 +19266,8 @@ function buildActionsGantt(){
     let html='';
 
     _TEAM.forEach(p=>{
-      const raciTasks=DASHBOARD_DATA.tasks.filter(t=>{const v=t[p.key]||'';return v==='R'||v==='A/R'||v==='R/A';});
+      const _pKeyLow=p.key.toLowerCase();
+      const raciTasks=DASHBOARD_DATA.tasks.filter(t=>{const v=t[_pKeyLow]||t[p.key]||'';return v==='R'||v==='A/R'||v==='R/A';});
       const myActions=allActs.filter(a=>{const key=((a.assignedTo||'').trim()||(a.createdBy||'').trim()).toLowerCase();return key===p.key.toLowerCase();});
 
       const bars=[];
@@ -19277,8 +19279,8 @@ function buildActionsGantt(){
       });
       myActions.forEach(a=>{
         const sd=_toIso(a.createdAt)||today;
-        const edRaw=_toIso(a.dueDate)||_toIso(a.updatedAt)||sd;
-        const ed=edRaw>sd?edRaw:_addD(sd,3);
+        const edRaw=_toIso(a.dueDate)||sd;
+        const ed=edRaw>sd?edRaw:sd;
         const bid='a_'+(a.id||Math.random().toString(36).slice(2));
         bars.push({id:bid,sd,ed,label:a.title||a.type||'action',body:a.body||'',color:'#c9a84c',bg:'rgba(201,168,76,0.07)',type:'action',actionId:a.id||'',taskId:a.taskId||a.linkedTaskId||'',status:a.status||'',personKey:p.key});
       });
@@ -19288,8 +19290,7 @@ function buildActionsGantt(){
       const rowH=Math.max(44,(maxLane+1)*28+8);
       let bHtml='';
       for(let d=0;d<_GANTT_DAYS;d+=7) bHtml+=`<div class="gantt-col-bg" style="left:${d*_acGanttDayPx}px;height:${rowH}px"></div>`;
-      (DASHBOARD_DATA.meta.milestoneItems||[]).forEach(ms=>{const mo=_ganttDayOff(ms.date||'');if(mo>=0&&mo<_GANTT_DAYS)bHtml+=`<div class="gantt-ms-line" style="left:${mo*_acGanttDayPx}px;height:${rowH}px;background:rgba(201,168,76,0.2)"></div>`;});
-      // today line rendered as single canvas overlay below
+      // milestone lines rendered as canvas overlay after innerHTML is set — not per-row
 
       bars.forEach(bar=>{
         const sdOff=_ganttDayOff(bar.sd),edOff=_ganttDayOff(bar.ed);
@@ -19319,6 +19320,8 @@ function buildActionsGantt(){
 
     canvas.innerHTML=html;
     canvas.style.width=(totalTrackW+_GANTT_LABEL_W)+'px';
+    // milestone overlay — single pass over full canvas, same as Task Tracker / Workstreams
+    requestAnimationFrame(()=>_renderGanttMilestoneLines({canvasId:'ac-gantt-canvas',hdrCanvasId:'ac-gantt-hdr-canvas',prefix:'ac-gantt',dayPx:_acGanttDayPx}));
     // single canvas-level today line (consistent with roadmap/LP gantt)
     if(todayOff>=0&&todayOff<_GANTT_DAYS){
       const _tl=document.createElement('div');
@@ -19436,6 +19439,7 @@ function _initACDrag(){
     const barMeta=_acBarMap.get(barId);
     if(!barMeta||barMeta.type!=='action') return;
     const mode=handle?(handle.classList.contains('gantt-handle-left')?'left':'right'):'move';
+    if(mode==='left') return; // createdAt is immutable — only dueDate (right/move) can change
     const origSd=barMeta.sd,origEd=barMeta.ed;
     const origL=parseFloat(bar.style.left)||0,origW=parseFloat(bar.style.width)||_bW(origSd,origEd);
     bar.setPointerCapture(e.pointerId);
@@ -19462,9 +19466,8 @@ function _initACDrag(){
       const finalDelta=Math.round((ev.clientX-e.clientX)/_acGanttDayPx);
       if(!didDrag||finalDelta===0){_acBarClick(barId);return;}
       let newSd=origSd,newEd=origEd;
-      if(mode==='move'){newSd=_addD2(origSd,finalDelta);newEd=_addD2(origEd,finalDelta);}
+      if(mode==='move'){newEd=_addD2(origEd,finalDelta);}
       else if(mode==='right'){newEd=_addD2(origEd,finalDelta);if(newEd<=origSd)newEd=_addD2(origSd,1);}
-      else{newSd=_addD2(origSd,finalDelta);if(newSd>=origEd)newSd=_addD2(origEd,-1);}
       barMeta.sd=newSd;barMeta.ed=newEd;
       buildActionsGantt();
       _showACMoveConfirm(barId,origSd,origEd,newSd,newEd,barMeta.label||'');
@@ -21234,7 +21237,8 @@ function _taskActSave(taskId){
   var priority=priorityEl?priorityEl.value:'Medium';
   var t=(DASHBOARD_DATA.tasks||[]).find(function(x){return x.id===taskId;})||{};
   var wsRow=(_wsCache||[]).find(function(w){return w.name===t.cat||w.id===t.cat;})||null;
-  var workstreamId=wsRow?wsRow.id:(t.cat||'');
+  var _lpLink=_lpFindBarForTask?_lpFindBarForTask(taskId):null;
+  var workstreamId=wsRow?wsRow.id:(t.cat||(_lpLink?_lpLink.id:''));
   var id='act-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
   var now=new Date().toISOString();
   var user=window._DGL_USER||'system';

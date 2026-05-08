@@ -34,7 +34,7 @@ var ACTIONS_SHEET = 'Actions';
 var ACTIONS_HEADERS = [
   'id', 'taskId', 'agendaId', 'workstreamId',
   'type', 'title', 'body', 'status',
-  'createdBy', 'createdAt', 'updatedAt', 'assignedTo'
+  'createdBy', 'createdAt', 'updatedAt', 'assignedTo', 'dueDate'
 ];
 
 var ACTIONS_VALID_TYPES = [
@@ -109,7 +109,8 @@ function _actionsRowToObj(r) {
     createdBy:    r[8],
     createdAt:    r[9],
     updatedAt:    r[10],
-    assignedTo:   r[11] || ''
+    assignedTo:   r[11] || '',
+    dueDate:      r[12] || ''
   };
 }
 
@@ -172,7 +173,8 @@ function addAction(item) {
     item.createdBy    || '',
     item.createdAt    || now,
     now,
-    item.assignedTo   || ''
+    item.assignedTo   || '',
+    item.dueDate      || ''
   ]]);
 }
 
@@ -207,7 +209,8 @@ function updateAction(id, fields) {
         ex[8],                                                        // createdBy — immutable
         ex[9],                                                        // createdAt — immutable
         now,
-        fields.assignedTo   !== undefined ? fields.assignedTo   : (ex[11] || '')
+        fields.assignedTo   !== undefined ? fields.assignedTo   : (ex[11] || ''),
+        fields.dueDate      !== undefined ? fields.dueDate      : (ex[12] || '')
       ]]);
       return;
     }
