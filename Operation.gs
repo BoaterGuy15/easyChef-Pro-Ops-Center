@@ -307,6 +307,11 @@ function _patchCustomFolderName(driveId, newName) {
 
 function doGet(e) {
   try {
+    if(e.parameter.action === 'version') return respond({ok:true, v:'2026-05-08-folder'});
+    if(e.parameter.action === 'drive_file_read') {
+      try { var _rf=DriveApp.getFileById(e.parameter.fileId||''); return respond({ok:true,name:_rf.getName(),text:_rf.getBlob().getDataAsString()}); }
+      catch(err){ return respond({ok:false,error:err.message}); }
+    }
     if(e.parameter.code) return doGetSlackOAuth(e);
     if(e.parameter.action === 'anthropic') return callAnthropic({ prompt: e.parameter.prompt||'', system: e.parameter.system||'' });
     if(e.parameter.action === 'budget_read') return respond({ ok: true, history: getBudgetHistory() });
@@ -370,6 +375,16 @@ function doGet(e) {
       catch(err) { return respond({ ok: false, error: err.message }); }
     }
     if(e.parameter.action === 'folders_read') return respond({ok:true, folders: _getFolderDefs()});
+    if(e.parameter.action === 'folder_list') {
+      var _fid=e.parameter.folderId||'';
+      if(!_fid) return respond({ok:false,error:'folderId required'});
+      var _fl=DriveApp.getFolderById(_fid);
+      var _items=[];
+      var _subs=_fl.getFolders(); while(_subs.hasNext()){var _s=_subs.next();_items.push({type:'folder',id:_s.getId(),name:_s.getName()});}
+      var _files=_fl.getFiles(); while(_files.hasNext()){var _f=_files.next();_items.push({type:'file',id:_f.getId(),name:_f.getName(),mimeType:_f.getMimeType()});}
+      _items.sort(function(a,b){return a.name<b.name?-1:1;});
+      return respond({ok:true,folderName:_fl.getName(),items:_items});
+    }
     if(e.parameter.action === 'custom_folders_read') return respond({ok:true, folders: _getCustomFolders()});
     if(e.parameter.action === 'drive_all_folders_list') {
       try {
@@ -807,6 +822,16 @@ function doPost(e) {
     if(body.action === 'klaviyo_get_lists')      return respond(klaviyoGetLists());
 
     
+
+    if(body.action === 'tasks_append') {
+      var _newTasks = Array.isArray(body.tasks) ? body.tasks : [];
+      if(!_newTasks.length) return respond({ok:false,error:'No tasks provided'});
+      var _existing = getTasks();
+      var _existingIds = _existing.map(function(t){return t.id;});
+      _newTasks.forEach(function(t){ if(t.id && _existingIds.indexOf(t.id)===-1){ _existing.push(t); } });
+      setTasks(_existing);
+      return respond({ok:true, written:_existing.length});
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');
