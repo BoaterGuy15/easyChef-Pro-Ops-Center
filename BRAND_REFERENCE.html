@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>easyChef Pro — Brand Reference 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --red:   #FF0000;
+    --black: #000000;
+    --beige: #F6EFE8;
+    --white: #FFFFFF;
+    --gray:  #666666;
+    --border: #DDDDDD;
+  }
+  body { font-family: 'Inter', Arial, sans-serif; font-size: 13px; color: var(--black); background: var(--white); padding: 40px; max-width: 960px; margin: 0 auto; }
+  .header { padding-bottom: 16px; border-bottom: 3px solid var(--red); margin-bottom: 32px; }
+  .logo { height: 45px; width: auto; display: block; margin-bottom: 16px; }
+  .doc-title { font-family: 'Proza Libre', serif; font-size: 28px; font-weight: 700; color: var(--black); margin-bottom: 4px; }
+  .doc-subtitle { font-family: 'Proza Libre', serif; font-size: 16px; font-weight: 500; color: var(--red); margin-bottom: 8px; }
+  .doc-meta { font-size: 12px; color: var(--gray); }
+  .section { margin-bottom: 40px; }
+  .section-label { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; color: var(--red); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  thead tr { background: var(--red); }
+  thead th { font-size: 11px; font-weight: 600; color: var(--white); text-align: left; padding: 8px 12px; border: 1px solid var(--red); }
+  tbody tr:nth-child(odd) { background: var(--white); }
+  tbody tr:nth-child(even) { background: var(--beige); }
+  tbody td { font-size: 12px; color: var(--black); padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+  .td-label { font-weight: 600; background: var(--beige) !important; width: 25%; white-space: nowrap; border-right: 1px solid var(--border); }
+  .swatch-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .swatch { display: flex; flex-direction: column; gap: 6px; width: 140px; }
+  .swatch-block { height: 60px; border-radius: 2px; border: 1px solid var(--border); }
+  .swatch-name { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--black); }
+  .swatch-hex { font-family: 'Courier New', monospace; font-size: 11px; color: var(--gray); }
+  .swatch-use { font-size: 11px; color: var(--gray); font-style: italic; }
+  .type-sample { margin-bottom: 16px; padding: 16px; border: 1px solid var(--border); background: var(--white); }
+  .type-label { font-size: 10px; font-weight: 600; color: var(--red); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+  .rule-row { display: flex; gap: 24px; }
+  .rule-col { flex: 1; }
+  .rule-col h4 { font-size: 11px; font-weight: 600; margin-bottom: 6px; }
+  .rule-col.do h4 { color: #2E7D32; }
+  .rule-col.dont h4 { color: var(--red); }
+  .rule-col ul { list-style: none; padding: 0; }
+  .rule-col ul li { font-size: 12px; padding: 3px 0; padding-left: 14px; position: relative; color: #333; }
+  .rule-col.do ul li::before { content: "✓"; position: absolute; left: 0; color: #2E7D32; font-weight: 700; }
+  .rule-col.dont ul li::before { content: "✗"; position: absolute; left: 0; color: var(--red); font-weight: 700; }
+  .voice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+  .voice-card { padding: 12px; background: var(--beige); border: 1px solid var(--border); border-radius: 2px; }
+  .voice-card h4 { font-family: 'Proza Libre', serif; font-size: 13px; font-weight: 700; color: var(--red); margin-bottom: 4px; }
+  .voice-card p { font-size: 12px; color: #444; line-height: 1.5; }
+  .claim-badge { display: inline-block; background: var(--red); color: var(--white); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 2px; font-family: 'Courier New', monospace; }
+  .pending-badge { display: inline-block; background: #FFF3CD; color: #856404; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 2px; }
+  .blocked-badge { display: inline-block; background: #F8D7DA; color: #721C24; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 2px; }
+  .footer { margin-top: 48px; padding-top: 12px; border-top: 2px solid var(--red); font-size: 11px; color: var(--gray); }
+  code { font-family: 'Courier New', monospace; font-size: 11px; background: var(--beige); padding: 2px 6px; border-radius: 2px; }
+  .never-box { background: #FFF3CD; border-left: 4px solid var(--red); padding: 12px 16px; margin-bottom: 8px; font-size: 12px; line-height: 1.6; }
+  .always-box { background: #E8F5E9; border-left: 4px solid #2E7D32; padding: 12px 16px; margin-bottom: 8px; font-size: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <img class="logo" src="https://ops.dgl.dev/assets/EasyChefProHorizontal.jpg" alt="easyChef Pro">
+  <div class="doc-title">Brand Reference</div>
+  <div class="doc-subtitle">Complete brand guidelines for all AI agents and developers</div>
+  <div class="doc-meta">Version 2026 · Digital Galactica Labs LLC · Authoritative — all creative assets must comply</div>
+</div>
+
+<!-- 01 COLOURS -->
+<div class="section">
+  <div class="section-label">01 — Colour Palette</div>
+
+  <div class="swatch-row">
+    <div class="swatch">
+      <div class="swatch-block" style="background:#FF0000;"></div>
+      <div class="swatch-name">Brand Red</div>
+      <div class="swatch-hex">#FF0000 · RGB 255 0 0</div>
+      <div class="swatch-use">Primary actions · CTA buttons · accents · logo</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-block" style="background:#F6EFE8; border:1px solid #ddd;"></div>
+      <div class="swatch-name">Beige</div>
+      <div class="swatch-hex">#F6EFE8 · RGB 246 239 232</div>
+      <div class="swatch-use">Section backgrounds · warmth · proof bars · alt rows</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-block" style="background:#000000;"></div>
+      <div class="swatch-name">Black</div>
+      <div class="swatch-hex">#000000 · RGB 0 0 0</div>
+      <div class="swatch-use">Headlines · primary body text</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-block" style="background:#FFFFFF; border:1px solid #ddd;"></div>
+      <div class="swatch-name">White</div>
+      <div class="swatch-hex">#FFFFFF · RGB 255 255 255</div>
+      <div class="swatch-use">Page backgrounds · negative space</div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Colour</th><th>HEX</th><th>RGB</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Brand Red</strong></td><td><code>#FF0000</code></td><td>255 0 0</td><td>Primary actions, CTA buttons, accents, icon, logo</td></tr>
+      <tr><td><strong>Beige</strong></td><td><code>#F6EFE8</code></td><td>246 239 232</td><td>Section backgrounds, warmth, proof bars, alternating table rows</td></tr>
+      <tr><td><strong>Black</strong></td><td><code>#000000</code></td><td>0 0 0</td><td>Headlines, primary body text</td></tr>
+      <tr><td><strong>White</strong></td><td><code>#FFFFFF</code></td><td>255 255 255</td><td>Page backgrounds, negative space</td></tr>
+      <tr><td>Teal (secondary)</td><td><code>#1DA1A0</code></td><td>29 161 160</td><td>Illustrations and brand expressions ONLY — never UI</td></tr>
+      <tr><td>Yellow (secondary)</td><td><code>#F5C800</code></td><td>245 200 0</td><td>Illustrations and brand expressions ONLY — never UI</td></tr>
+      <tr><td>Green (secondary)</td><td><code>#00A844</code></td><td>0 168 68</td><td>Illustrations and brand expressions ONLY — never UI</td></tr>
+      <tr><td>Dark Navy (secondary)</td><td><code>#1A1A2E</code></td><td>26 26 46</td><td>Illustration line work ONLY — never UI, never backgrounds</td></tr>
+    </tbody>
+  </table>
+
+  <div class="never-box">
+    <strong>NEVER USE:</strong> Blue · Navy · Teal · Purple · Any gradient — in UI, emails, ads, social posts, or landing pages.
+    Secondary colours (teal, yellow, green, navy) are for illustrations ONLY. Always lead with Brand Red #FF0000.
+  </div>
+</div>
+
+<!-- 02 TYPOGRAPHY -->
+<div class="section">
+  <div class="section-label">02 — Typography</div>
+
+  <table style="margin-bottom:16px;">
+    <thead><tr><th>Role</th><th>Font</th><th>Weight</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Primary</strong></td><td>Proza Libre</td><td>Regular · Medium · Bold</td><td>Feature titles · headlines · subheadings · intro paragraphs · pullout text</td></tr>
+      <tr><td><strong>Alternative</strong></td><td>Inter</td><td>Regular</td><td>Body copy · UI text · navigation · captions · table content</td></tr>
+    </tbody>
+  </table>
+
+  <table style="margin-bottom:16px;">
+    <thead><tr><th>Element</th><th>Font</th><th>Weight</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Page headline (H1)</td><td>Proza Libre</td><td>Bold</td><td>Large — feels like a statement, not a sentence</td></tr>
+      <tr><td>Section headlines (H2/H3)</td><td>Proza Libre</td><td>Medium</td><td>Noticeably smaller than H1</td></tr>
+      <tr><td>Body copy</td><td>Inter</td><td>Regular</td><td>Conversational, easy to scan</td></tr>
+      <tr><td>CTA button text</td><td>Inter</td><td>Regular</td><td>Short, action-led</td></tr>
+      <tr><td>Navigation</td><td>Inter</td><td>Regular</td><td>Minimal, supporting role</td></tr>
+      <tr><td>Captions</td><td>Inter</td><td>Regular</td><td>Smallest element</td></tr>
+    </tbody>
+  </table>
+
+  <div class="type-sample">
+    <div class="type-label">Proza Libre Bold — Headlines</div>
+    <div style="font-family:'Proza Libre',serif; font-size:32px; font-weight:700; color:#000;">Your kitchen, in command.</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-label">Proza Libre Medium — Subheadings</div>
+    <div style="font-family:'Proza Libre',serif; font-size:20px; font-weight:500; color:#000;">Turn your fridge into 30-minute dinners.</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-label">Inter Regular — Body copy</div>
+    <div style="font-family:'Inter',sans-serif; font-size:14px; color:#333; line-height:1.6;">easyChef Pro is the only food app you need. TRACK → PLAN → OPTIMIZE → COOK. One loop. Your kitchen in command.</div>
+  </div>
+
+  <div class="never-box">
+    <strong>NEVER USE:</strong> Arial (fallback only) · Roboto · System fonts · Comic Sans · Any condensed or display font not listed above.
+    Google Fonts import: <code>https://fonts.googleapis.com/css2?family=Proza+Libre:wght@400;500;700&family=Inter:wght@400;500;600</code>
+  </div>
+</div>
+
+<!-- 03 LOGO -->
+<div class="section">
+  <div class="section-label">03 — Logo</div>
+
+  <div style="padding:24px; background:#fff; border:1px solid var(--border); margin-bottom:12px; text-align:center;">
+    <img src="https://ops.dgl.dev/assets/EasyChefProHorizontal.jpg" alt="easyChef Pro" style="height:55px; width:auto;">
+  </div>
+
+  <table style="margin-bottom:16px;">
+    <thead><tr><th>Rule</th><th>Specification</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Preferred format</strong></td><td>Horizontal lockup — always use horizontal</td></tr>
+      <tr><td><strong>File</strong></td><td>EasyChefProHorizontal.jpg · SVG preferred for digital</td></tr>
+      <tr><td><strong>Minimum size</strong></td><td>50px height (digital) · 20mm (print)</td></tr>
+      <tr><td><strong>Dimensions</strong></td><td>1568 × 336px · aspect ratio 4.67:1</td></tr>
+      <tr><td><strong>Clear space</strong></td><td>Equal to symbol height on all sides</td></tr>
+      <tr><td><strong>Approved backgrounds</strong></td><td>White #FFFFFF or Beige #F6EFE8 only</td></tr>
+      <tr><td><strong>On dark/red backgrounds</strong></td><td>Use white version of the logo</td></tr>
+      <tr><td><strong>Space-limited</strong></td><td>Red symbol alone (no logotype)</td></tr>
+      <tr><td><strong>Hosted at</strong></td><td>https://ops.dgl.dev/assets/EasyChefProHorizontal.jpg</td></tr>
+    </tbody>
+  </table>
+
+  <div class="rule-row">
+    <div class="rule-col do">
+      <h4>✓ DO</h4>
+      <ul>
+        <li>Use on white or beige backgrounds</li>
+        <li>Maintain minimum 50px height</li>
+        <li>Keep clear space equal to symbol height</li>
+        <li>Use horizontal lockup as default</li>
+        <li>Use red symbol alone when space-limited</li>
+      </ul>
+    </div>
+    <div class="rule-col dont">
+      <h4>✗ NEVER</h4>
+      <ul>
+        <li>Place on busy photographic backgrounds</li>
+        <li>Stretch, skew, or distort the logo</li>
+        <li>Change colours of logo or symbol</li>
+        <li>Add drop shadows, outlines, or effects</li>
+        <li>Use below minimum size</li>
+        <li>Recreate or retype the logotype</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 04 BRAND VOICE -->
+<div class="section">
+  <div class="section-label">04 — Brand Voice</div>
+
+  <div style="font-family:'Proza Libre',serif; font-size:18px; font-weight:700; color:var(--red); margin-bottom:16px;">
+    "Passionate and professional, but above all warm and eccentric."
+  </div>
+
+  <div class="voice-grid">
+    <div class="voice-card"><h4>Informative</h4><p>Chatty, illuminating, always teaching something useful</p></div>
+    <div class="voice-card"><h4>Conversational</h4><p>Speaks like a person, not a company</p></div>
+    <div class="voice-card"><h4>Caring</h4><p>Loving, sympathetic, never condescending</p></div>
+    <div class="voice-card"><h4>Modern</h4><p>Contemporary, stylish, forward-looking</p></div>
+    <div class="voice-card"><h4>Passionate</h4><p>At the heart of everything we say</p></div>
+    <div class="voice-card"><h4>Friendly</h4><p>Approachable, relatable, likeable</p></div>
+  </div>
+
+  <div class="never-box">
+    <strong>NEVER WRITE:</strong> optimize · seamless · leverage · ecosystem · AI-powered (as primary claim) · pain points (customer-facing) · "the app" · any shame language · "Sarah from Denver" · invented testimonials · invented statistics
+  </div>
+
+  <div class="always-box">
+    <strong>ALWAYS SAY:</strong> easyChef Pro (full name every time) · "Your kitchen, in command." · "Less waste. Less stress. More dinner." · "The invisible leak" · "Dinner stops being a daily crisis." · "Built by first responders" · "The loop closes." · "One app. One loop."
+  </div>
+
+  <div style="margin-top:12px; padding:12px; background:var(--beige); border:1px solid var(--border);">
+    <strong style="font-size:12px;">The Three Tests — run every line through these:</strong>
+    <ol style="margin-top:8px; padding-left:20px; font-size:12px; line-height:2;">
+      <li>Would she text this to a friend? If not — rewrite it.</li>
+      <li>Does it sound like a pitch deck? If yes — start over.</li>
+      <li>Does it feel like a lecture? If yes — cut it.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- 05 APPROVED CLAIMS -->
+<div class="section">
+  <div class="section-label">05 — Approved Claims (Locked)</div>
+
+  <table style="margin-bottom:16px;">
+    <thead><tr><th>Claim</th><th>Exact Approved Wording</th><th>Never Say</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Annual savings</strong></td>
+        <td><span class="claim-badge">$1,336/year</span></td>
+        <td><span class="blocked-badge">$1,500 ✗</span></td>
+      </tr>
+      <tr>
+        <td><strong>Food waste reduction</strong></td>
+        <td><span class="claim-badge">69.5% less food waste</span></td>
+        <td><span class="blocked-badge">70% ✗</span></td>
+      </tr>
+      <tr>
+        <td><strong>Fridge to table</strong></td>
+        <td><span class="claim-badge">30 minutes</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>Technologies</strong></td>
+        <td><span class="claim-badge">9 patent-pending technologies</span></td>
+        <td><span class="blocked-badge">9 patents ✗</span></td>
+      </tr>
+      <tr>
+        <td><strong>Product database</strong></td>
+        <td><span class="claim-badge">800,000 products</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>Recipe pages</strong></td>
+        <td><span class="claim-badge">10,000 recipe pages at launch</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>Dietitians</strong></td>
+        <td><span class="claim-badge">registered dietitians</span></td>
+        <td><span class="blocked-badge">dietitians (without "registered") ✗</span></td>
+      </tr>
+      <tr>
+        <td><strong>Profiles validated</strong></td>
+        <td><span class="claim-badge">Validated across 10,000 household profiles</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>Founding discount</strong></td>
+        <td><span class="claim-badge">60% off</span></td>
+        <td><span class="blocked-badge">50% off ✗</span></td>
+      </tr>
+      <tr>
+        <td><strong>Origin</strong></td>
+        <td><span class="claim-badge">Built by first responders</span> or <span class="claim-badge">Built by firefighters and paramedics</span></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-bottom:12px;">
+    <strong style="font-size:12px; color:var(--gray);">PENDING — DO NOT USE:</strong>
+    <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+      <span class="pending-badge">$10/month saves $111/month (11:1 ROI) — PENDING</span>
+      <span class="pending-badge">Health goals % — PENDING</span>
+      <span class="pending-badge">"Clinical" or "clinical trials" — LEGAL REVIEW</span>
+    </div>
+  </div>
+</div>
+
+<!-- 06 PRICING -->
+<div class="section">
+  <div class="section-label">06 — Pricing (Locked May 2026)</div>
+
+  <table>
+    <thead><tr><th>Tier</th><th>Price</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Free</strong></td><td>$0</td><td>No credit card · core features only</td></tr>
+      <tr><td><strong>Founding Member</strong></td><td>$7.99/month</td><td>60% off $19.99 · locked forever · first 5,000 families</td></tr>
+      <tr><td><strong>Standard</strong></td><td>$19.99/month</td><td>Post-launch subscribers</td></tr>
+      <tr><td><strong>Annual</strong></td><td>$191.88/year ($15.99/mo)</td><td>~20% saving vs monthly</td></tr>
+      <tr><td><strong>Money-back</strong></td><td>60 days</td><td>Paid product only</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 07 APP FEATURES -->
+<div class="section">
+  <div class="section-label">07 — The 4 App Features</div>
+
+  <table>
+    <thead><tr><th>Feature</th><th>What it does</th><th>App screen</th><th>Themes</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>TRACK</strong><br><small>Pantry Intelligence</small></td>
+        <td>Scans receipts · tracks everything · knows what is about to expire</td>
+        <td>Pantry view</td>
+        <td>No Waste Week · Friday Leftovers · Fridge Clear Friday · The $1,336 Leak · Receipt Reckoning</td>
+      </tr>
+      <tr>
+        <td><strong>PLAN</strong><br><small>Meal Planning Engine</small></td>
+        <td>Sees what is in the pantry and builds a meal plan from what is already there</td>
+        <td>Meal Plan view</td>
+        <td>Meal Prep Sunday · Lunchbox Monday · Sunday Reset · $400 Grocery Challenge · Back to School · Holiday Prep</td>
+      </tr>
+      <tr>
+        <td><strong>OPTIMIZE</strong><br><small>Nutrition Scoring</small></td>
+        <td>Scores every meal across 6 nutrition dimensions using FDA-grade data</td>
+        <td>Nutrition score view</td>
+        <td>Macro Monday · Clean Plate Club · 6-Dimension Tuesday</td>
+      </tr>
+      <tr>
+        <td><strong>COOK</strong><br><small>Recipe Engine</small></td>
+        <td>Turns what is in the fridge into a step-by-step recipe in 30 minutes</td>
+        <td>Recipe page</td>
+        <td>Taco Tuesday · Game Night · 30-Minute Challenge · No DoorDash Week · Date Night In</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="always-box" style="margin-top:12px;">
+    <strong>Category positioning (locked):</strong> easyChef Pro is the only food app you need.
+    Not a feature claim — a category claim. TRACK → PLAN → OPTIMIZE → COOK.
+    Every competitor owns one step of the loop. easyChef Pro owns the entire loop.
+    Never position as "a better [single feature]". Always position as the only complete system.
+  </div>
+</div>
+
+<!-- 08 MASTER STORY -->
+<div class="section">
+  <div class="section-label">08 — The Master Story (Locked)</div>
+
+  <div style="font-family:'Proza Libre',serif; font-size:20px; font-weight:700; color:var(--black); line-height:1.6; padding:20px; background:var(--beige); border-left:4px solid var(--red); margin-bottom:16px;">
+    Your kitchen is broken.<br>
+    Not because of you.<br>
+    Because no tool ever closed the loop.<br>
+    easyChef Pro closes the loop.<br>
+    <span style="color:var(--red);">Your kitchen. In command.</span>
+  </div>
+
+  <p style="font-size:12px; color:var(--gray); font-style:italic;">Every campaign, every theme, every post, every email, every landing page tells this story. The theme changes the door. The story is always the same.</p>
+</div>
+
+<!-- 09 UTM VOCABULARY -->
+<div class="section">
+  <div class="section-label">09 — UTM Controlled Vocabulary (Locked)</div>
+
+  <table style="margin-bottom:12px;">
+    <thead><tr><th>Parameter</th><th>Approved Values</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>utm_medium</strong></td>
+        <td><code>email</code> · <code>social</code> · <code>paid_social</code> · <code>content</code> · <code>affiliate</code> · <code>referral</code> · <code>video</code> · <code>podcast</code> · <code>qr</code> · <code>direct</code></td>
+      </tr>
+      <tr>
+        <td><strong>utm_source</strong></td>
+        <td><code>klaviyo</code> · <code>convertkit</code> · <code>facebook</code> · <code>instagram</code> · <code>tiktok</code> · <code>pinterest</code> · <code>nextdoor</code> · <code>youtube</code> · <code>blog</code> · <code>x</code> · <code>[affiliate_id]</code></td>
+      </tr>
+      <tr>
+        <td><strong>utm_campaign</strong></td>
+        <td><code>ec-2026-001</code> (campaign ID format) · <code>seq1_welcome</code> · <code>seq2_nurture</code> · <code>seq3_urgency</code> · <code>seq4_launch_day</code></td>
+      </tr>
+      <tr>
+        <td><strong>utm_content format</strong></td>
+        <td><code>DL-[PREFIX]-[NNNN]_[stage_descriptor]</code> — DL_ID is ALWAYS first. Example: <code>DL-FB-0004_post1_hook</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table>
+    <thead><tr><th>Channel</th><th>DL Prefix</th><th>utm_source</th><th>utm_medium</th></tr></thead>
+    <tbody>
+      <tr><td>Facebook</td><td><code>DL-FB-</code></td><td><code>facebook</code></td><td><code>social</code></td></tr>
+      <tr><td>Instagram</td><td><code>DL-IG-</code></td><td><code>instagram</code></td><td><code>social</code></td></tr>
+      <tr><td>TikTok</td><td><code>DL-TK-</code></td><td><code>tiktok</code></td><td><code>social</code></td></tr>
+      <tr><td>Pinterest</td><td><code>DL-PT-</code></td><td><code>pinterest</code></td><td><code>social</code></td></tr>
+      <tr><td>Nextdoor</td><td><code>DL-ND-</code></td><td><code>nextdoor</code></td><td><code>social</code></td></tr>
+      <tr><td>YouTube</td><td><code>DL-YT-</code></td><td><code>youtube</code></td><td><code>video</code></td></tr>
+      <tr><td>X</td><td><code>DL-X-</code></td><td><code>x</code></td><td><code>social</code></td></tr>
+      <tr><td>Email</td><td><code>DL-EM-</code></td><td><code>klaviyo</code></td><td><code>email</code></td></tr>
+      <tr><td>Affiliate</td><td><code>DL-AFF-</code></td><td><code>[affiliate_id]</code></td><td><code>affiliate</code></td></tr>
+      <tr><td>Organic/Blog</td><td><code>DL-ORG-</code></td><td><code>blog</code></td><td><code>content</code></td></tr>
+      <tr><td>Direct</td><td><code>DL-DIR-</code></td><td><code>convertkit</code></td><td><code>referral</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 10 DOCUMENT FORMAT RULES -->
+<div class="section">
+  <div class="section-label">10 — Document &amp; Export Format Rules</div>
+
+  <table>
+    <thead><tr><th>Rule</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Primary colour</strong></td><td>#FF0000 — headers, dividers, accents</td></tr>
+      <tr><td><strong>Table header rows</strong></td><td>Background #FF0000 · White text · Inter Bold</td></tr>
+      <tr><td><strong>Alternating table rows</strong></td><td>White (#FFFFFF) and Beige (#F6EFE8)</td></tr>
+      <tr><td><strong>Label columns</strong></td><td>Beige (#F6EFE8) · Bold · Inter</td></tr>
+      <tr><td><strong>Body text</strong></td><td>Inter Regular · #000000</td></tr>
+      <tr><td><strong>Headlines</strong></td><td>Proza Libre Bold · #000000</td></tr>
+      <tr><td><strong>Red accents</strong></td><td>Proza Libre Bold · #FF0000</td></tr>
+      <tr><td><strong>Section labels</strong></td><td>Inter · 11px · #FF0000 · uppercase · letter-spacing 0.08em</td></tr>
+      <tr><td><strong>Footer</strong></td><td>Red divider · "easyChef Pro · Digital Galactica Labs LLC · Confidential · Generated [date] · ops.dgl.dev"</td></tr>
+      <tr><td><strong>Logo placement</strong></td><td>Top left · 45px height · on white background · clear space maintained</td></tr>
+      <tr><td><strong>Never blue</strong></td><td>No blue or navy anywhere in any output doc, email, or UI</td></tr>
+      <tr><td><strong>Never Zapier</strong></td><td>Always Make.com for automation references</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 11 PHOTOGRAPHY -->
+<div class="section">
+  <div class="section-label">11 — Photography Style (for Image Briefs)</div>
+
+  <div class="rule-row">
+    <div class="rule-col do">
+      <h4>✓ DO USE</h4>
+      <ul>
+        <li>Overhead / flat-lay food photography</li>
+        <li>Natural, warm lighting with soft shadows</li>
+        <li>Fresh, real ingredients — not stock imagery</li>
+        <li>Intimate pantry and kitchen scenes</li>
+        <li>Authentic, unposed lifestyle moments</li>
+        <li>Warm cream / neutral backgrounds</li>
+        <li>Real family dinner table moments</li>
+      </ul>
+    </div>
+    <div class="rule-col dont">
+      <h4>✗ NEVER USE</h4>
+      <ul>
+        <li>Heavily processed or over-filtered images</li>
+        <li>Harsh direct flash or cold clinical lighting</li>
+        <li>Generic stock photos of phones or apps</li>
+        <li>Cluttered, chaotic kitchen scenes</li>
+        <li>Dark or low-contrast photography</li>
+        <li>Corporate, posed, or formal imagery</li>
+        <li>Blue tones anywhere</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <strong style="font-size:12px;">Phone rule in social post images (NON-NEGOTIABLE):</strong>
+    <table style="margin-top:8px;">
+      <thead><tr><th>Post</th><th>Stage</th><th>Phone Rule</th></tr></thead>
+      <tbody>
+        <tr><td>Post 1</td><td>Hook</td><td>NO phone in hands</td></tr>
+        <tr><td>Post 2</td><td>Problem</td><td>NO phone in hands</td></tr>
+        <tr><td>Post 3</td><td>Agitate</td><td>NO phone in hands</td></tr>
+        <tr><td>Post 4</td><td>Solve</td><td>PHONE APPEARS for first time — easyChef Pro app visible</td></tr>
+        <tr><td>Post 5</td><td>Value</td><td>Phone visible</td></tr>
+        <tr><td>Post 6</td><td>Proof</td><td>Phone visible</td></tr>
+        <tr><td>Post 7</td><td>CTA</td><td>Phone in hand — waitlist screen</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  easyChef Pro &nbsp;·&nbsp; Brand Reference 2026 &nbsp;·&nbsp; Digital Galactica Labs LLC &nbsp;·&nbsp; Confidential &nbsp;·&nbsp;
+  All creative assets must comply &nbsp;·&nbsp; easychefpro.com &nbsp;·&nbsp; © 2026 Digital Galactica Labs LLC
+</div>
+
+</body>
+</html>

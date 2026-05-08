@@ -15,11 +15,11 @@
 var _CAMPAIGNS_ROOT_NAME = 'easyChef Pro Campaigns';
 var _CAMPAIGNS_ROOT_ID   = '1OUu2k1Iv-6nk1APO3sF3qm217YV3sGJf';
 
-var _BRAND_RED   = '#C00000';
+var _BRAND_RED   = '#FF0000';
 var _BRAND_WHITE = '#FFFFFF';
 var _BRAND_BEIGE = '#F6EFE8';
-var _BRAND_DARK  = '#1A1A1A';
-var _BRAND_GREY  = '#888888';
+var _BRAND_DARK  = '#000000';
+var _BRAND_GREY  = '#666666';
 var _BRAND_BODY  = '#333333';
 
 /**
