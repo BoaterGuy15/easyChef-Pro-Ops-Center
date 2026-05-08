@@ -22041,7 +22041,56 @@ var _CC_APP_FEATURE_LABELS = {
   'OPTIMIZE': 'Savings Dashboard',
   'COOK':     'Recipe & Cook Mode'
 };
-var _CC_THEME_CATEGORIES = ['weeknight-wins','weekend-prep','health','savings','waste','speed','proof','seasonal'];
+var _CC_JOURNEY_TYPES = [
+  'Weeknight Dinner','Weekend Occasion','Special Event',
+  'Social Gathering','Health Goal','Savings Goal','App Program'
+];
+
+var _CC_JOURNEY_FEATURE_MAP = {
+  'Weeknight Dinner':'COOK','Weekend Occasion':'PLAN','Special Event':'COOK',
+  'Social Gathering':'PLAN','Health Goal':'OPTIMIZE','Savings Goal':'TRACK','App Program':''
+};
+
+function _ccNtToStep(n) {
+  [1,2,3].forEach(function(i){
+    var el=document.getElementById('cc-nt-step-'+i);
+    if(el) el.style.display=(i===n)?'block':'none';
+  });
+}
+
+function _ccNtJourneyTypeChange(val) {
+  _ccNewThemeDraft.journey_type=val;
+  var feat=_CC_JOURNEY_FEATURE_MAP[val]||'';
+  _ccNewThemeDraft.app_feature=feat;
+  _ccNewThemeDraft.app_screen_label=(_CC_APP_FEATURE_LABELS||{})[feat]||'';
+  var fr=document.getElementById('cc-nt-app-program-feature');
+  if(fr) fr.style.display=(val==='App Program')?'block':'none';
+  var fb=document.getElementById('cc-nt-feature-badge');
+  if(fb){
+    if(feat&&val!=='App Program'){
+      fb.textContent='→ App Feature: '+feat+' — '+((_CC_APP_FEATURE_LABELS||{})[feat]||'');
+      fb.style.display='block';
+    } else { fb.textContent=''; fb.style.display='none'; }
+  }
+}
+
+function _ccNtStep1Next() {
+  var name   =(document.getElementById('cc-nt-name')   ||{}).value||'';
+  var journey=(document.getElementById('cc-nt-journey')||{}).value||'';
+  var icp    =(document.getElementById('cc-nt-icp')    ||{}).value||'';
+  if(!name.trim()){ _showToast('Theme name is required',2000); return; }
+  if(!journey)    { _showToast('Journey type is required',2000); return; }
+  if(!icp)        { _showToast('ICP is required',2000); return; }
+  _ccNewThemeDraft.theme_name  =name.trim();
+  _ccNewThemeDraft.journey_type=journey;
+  _ccNewThemeDraft.icp_code    =icp;
+  _ccNewThemeDraft.publish_day =(document.getElementById('cc-nt-day')||{}).value||'';
+  if(!_ccNewThemeDraft.app_feature){
+    _ccNewThemeDraft.app_feature=_CC_JOURNEY_FEATURE_MAP[journey]||'';
+    _ccNewThemeDraft.app_screen_label=(_CC_APP_FEATURE_LABELS||{})[_ccNewThemeDraft.app_feature]||'';
+  }
+  _ccNtToStep(2);
+}
 
 function _ccToggleNewTheme() {
   _ccNewThemeVisible = !_ccNewThemeVisible;
@@ -22095,54 +22144,82 @@ function _ccNewThemeFormHtml() {
   var IS  = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:12px;font-family:\'DM Mono\',monospace;box-sizing:border-box';
   var LBL = 'font-size:10px;font-weight:700;letter-spacing:0.05em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px;font-family:\'DM Mono\',monospace';
   var COL = 'flex:1;min-width:160px';
-  var SEC = 'font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#000;background:'+_CC_BEIGE+';padding:7px 12px;border-radius:5px;margin:14px 0 10px;border-left:3px solid '+_CC_RED;
-  var daysOpts = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(function(d){return '<option>'+d+'</option>';}).join('');
-  var featureOpts = Object.keys(_CC_APP_FEATURE_LABELS).map(function(k){return '<option value="'+k+'">'+k+' — '+_CC_APP_FEATURE_LABELS[k]+'</option>';}).join('');
-  var catOpts = _CC_THEME_CATEGORIES.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
-  var angleOpts = ['speed','savings','waste','health','convenience','proof'].map(function(a){return '<option>'+a+'</option>';}).join('');
+  var SEC = 'font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#000;background:'+_CC_BEIGE+';padding:7px 12px;border-radius:5px;margin:0 0 14px;border-left:3px solid '+_CC_RED;
+  var daysOpts='<option value="">— any day —</option>'+['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(function(d){return '<option>'+d+'</option>';}).join('');
+  var journeyOpts=_CC_JOURNEY_TYPES.map(function(j){return '<option value="'+j+'">'+j+'</option>';}).join('');
+  var featureOpts=Object.keys(_CC_APP_FEATURE_LABELS).map(function(k){return '<option value="'+k+'">'+k+' — '+_CC_APP_FEATURE_LABELS[k]+'</option>';}).join('');
+  var angleOpts=['speed','savings','waste','health','romance','community','founder'].map(function(a){return '<option>'+a+'</option>';}).join('');
 
-  return '<div style="margin-top:12px;padding:18px;background:var(--surface);border:1px solid '+_CC_RED+';border-radius:8px;border-top:3px solid '+_CC_RED+'">'+
-    '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:14px;font-family:\'DM Mono\',monospace;letter-spacing:0.05em">NEW THEME</div>'+
+  return (
+    '<div style="margin-top:12px;padding:18px;background:var(--surface);border:1px solid '+_CC_RED+';border-radius:8px;border-top:3px solid '+_CC_RED+'">'+
+    '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;font-family:\'DM Mono\',monospace;letter-spacing:0.05em">CREATE THEME — A USER JOURNEY MOMENT</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:16px;font-family:\'DM Mono\',monospace">A theme is a life occasion. The user is IN a moment — easyChef Pro shows up and solves it.</div>'+
 
-    '<div style="'+SEC+'">① REQUIRED FIELDS</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
-      '<div style="'+COL+'"><label style="'+LBL+'">Theme Name</label>'+
-        '<input id="cc-nt-name" type="text" placeholder="e.g. Leftovers Saturday" style="'+IS+'" oninput="_ccNewThemeDraft.theme_name=this.value"></div>'+
-      '<div style="'+COL+'"><label style="'+LBL+'">ICP</label>'+
-        '<select id="cc-nt-icp" style="'+IS+'" onchange="_ccNewThemeDraft.icp_code=this.value"><option value="">Loading…</option></select></div>'+
-    '</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
-      '<div style="'+COL+'"><label style="'+LBL+'">Publish Day</label>'+
-        '<select id="cc-nt-day" style="'+IS+'" onchange="_ccNewThemeDraft.publish_day=this.value"><option value="">— select —</option>'+daysOpts+'</select></div>'+
-      '<div style="'+COL+'"><label style="'+LBL+'">App Feature</label>'+
-        '<select id="cc-nt-feature" style="'+IS+'" onchange="_ccNewThemeDraft.app_feature=this.value;_ccNewThemeDraft.app_screen_label=_CC_APP_FEATURE_LABELS[this.value]||\'\'"><option value="">— select —</option>'+featureOpts+'</select></div>'+
-    '</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px">'+
-      '<div style="'+COL+'"><label style="'+LBL+'">Food Type <span style="font-size:9px;font-weight:400">(appears Post 4+)</span></label>'+
-        '<input id="cc-nt-food" type="text" placeholder="e.g. leftover chicken stir-fry" style="'+IS+'" oninput="_ccNewThemeDraft.food_type=this.value"></div>'+
-      '<div style="'+COL+'"><label style="'+LBL+'">Category</label>'+
-        '<select id="cc-nt-cat" style="'+IS+'" onchange="_ccNewThemeDraft.category=this.value"><option value="">— select —</option>'+catOpts+'</select></div>'+
-    '</div>'+
-
-    '<div style="'+SEC+'">② AI-GENERATED FIELDS</div>'+
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">'+
-      '<button onclick="_ccGenerateThemeDetails()" style="background:'+_CC_RED+';border:none;color:#fff;padding:8px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">⚡ Generate Theme Details</button>'+
-      '<div id="cc-nt-gen-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
-    '</div>'+
-
-    '<div id="cc-nt-ai-fields" style="display:none">'+
+    '<div id="cc-nt-step-1">'+
+      '<div style="'+SEC+'">① THE MOMENT</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
-        _ccNtField('cc-nt-emotional-entry','Emotional Entry','emotional_entry',2)+
-        _ccNtField('cc-nt-emotional-payoff','Emotional Payoff','emotional_payoff',2)+
+        '<div style="'+COL+'"><label style="'+LBL+'">Theme Name <span style="color:'+_CC_RED+'">*</span></label>'+
+          '<input id="cc-nt-name" type="text" placeholder="e.g. Date Night" style="'+IS+'" oninput="_ccNewThemeDraft.theme_name=this.value"></div>'+
+        '<div style="'+COL+'"><label style="'+LBL+'">Journey Type <span style="color:'+_CC_RED+'">*</span></label>'+
+          '<select id="cc-nt-journey" style="'+IS+'" onchange="_ccNtJourneyTypeChange(this.value)">'+
+            '<option value="">— select moment type —</option>'+journeyOpts+
+          '</select></div>'+
       '</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
-        _ccNtField('cc-nt-hook-angle','Hook Angle (Post 1)','hook_angle',2)+
-        _ccNtField('cc-nt-problem-angle','Problem Angle (Post 2)','problem_angle',2)+
-        _ccNtField('cc-nt-agitate-angle','Agitate Angle (Post 3)','agitate_angle',2)+
+        '<div style="'+COL+'"><label style="'+LBL+'">Who is in this moment <span style="color:'+_CC_RED+'">*</span></label>'+
+          '<select id="cc-nt-icp" style="'+IS+'" onchange="_ccNewThemeDraft.icp_code=this.value"><option value="">Loading…</option></select></div>'+
+        '<div style="'+COL+'"><label style="'+LBL+'">When does this resonate most</label>'+
+          '<select id="cc-nt-day" style="'+IS+'" onchange="_ccNewThemeDraft.publish_day=this.value">'+daysOpts+'</select></div>'+
+      '</div>'+
+      '<div id="cc-nt-feature-badge" style="display:none;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:6px 10px;background:var(--bg);border-radius:5px;margin-bottom:10px;border:1px solid var(--border)"></div>'+
+      '<div id="cc-nt-app-program-feature" style="display:none;margin-bottom:10px">'+
+        '<label style="'+LBL+'">App Feature <span style="font-size:9px;font-weight:400">(App Program — set manually)</span></label>'+
+        '<select style="'+IS+'" onchange="_ccNewThemeDraft.app_feature=this.value;_ccNewThemeDraft.app_screen_label=_CC_APP_FEATURE_LABELS[this.value]||\'\'">'+
+          '<option value="">— select —</option>'+featureOpts+
+        '</select>'+
+      '</div>'+
+      '<div style="margin-top:16px">'+
+        '<button onclick="_ccNtStep1Next()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Next: Set the Journey →</button>'+
+      '</div>'+
+    '</div>'+
+
+    '<div id="cc-nt-step-2" style="display:none">'+
+      '<div style="'+SEC+'">② THE JOURNEY</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;font-family:\'DM Mono\',monospace">Describe the emotional arc. Fill what you know — AI fills the rest.</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        _ccNtField('cc-nt-emotional-entry','How she feels at the START of this moment','emotional_entry',3)+
+        _ccNtField('cc-nt-emotional-payoff','How she feels at the END','emotional_payoff',3)+
       '</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
-        _ccNtField('cc-nt-image-hook','Image Mood — Hook (Post 1)','image_mood_hook',2)+
-        _ccNtField('cc-nt-image-cta','Image Mood — CTA (Post 7)','image_mood_cta',2)+
+        _ccNtField('cc-nt-the-problem','What goes wrong without easyChef Pro','the_problem',3)+
+        _ccNtField('cc-nt-the-solve','What easyChef Pro does for this moment','the_solve',3)+
+      '</div>'+
+      '<div style="margin-top:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<button onclick="_ccNtToStep(1)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:9px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">← Back</button>'+
+        '<button onclick="_ccGenerateThemeDetails()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">⚡ Generate Campaign Details</button>'+
+        '<div id="cc-nt-gen-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div id="cc-nt-step-3" style="display:none">'+
+      '<div style="'+SEC+'">③ CAMPAIGN DETAILS — AI GENERATED</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;font-family:\'DM Mono\',monospace">Review and edit before saving. All fields are editable.</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        _ccNtField('cc-nt-hook-angle','Hook Angle — Post 1','hook_angle',2)+
+        _ccNtField('cc-nt-problem-angle','Problem Angle — Post 2','problem_angle',2)+
+        _ccNtField('cc-nt-agitate-angle','Agitate Angle — Post 3','agitate_angle',2)+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        '<div style="'+COL+'"><label style="'+LBL+'">App Feature <span style="font-size:9px;font-weight:400">(auto-mapped)</span></label>'+
+          '<select id="cc-nt-feature-s3" style="'+IS+'" onchange="_ccNewThemeDraft.app_feature=this.value;_ccNewThemeDraft.app_screen_label=_CC_APP_FEATURE_LABELS[this.value]||\'\'">'+
+            '<option value="">— select —</option>'+featureOpts+
+          '</select></div>'+
+        '<div style="'+COL+'"><label style="'+LBL+'">Food Type <span style="font-size:9px;font-weight:400">(appears Post 4+)</span></label>'+
+          '<input id="cc-nt-food" type="text" placeholder="e.g. taco ingredients" style="'+IS+'" oninput="_ccNewThemeDraft.food_type=this.value"></div>'+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
+        _ccNtField('cc-nt-image-hook','Image Mood — Post 1 Hook','image_mood_hook',2)+
+        _ccNtField('cc-nt-image-cta','Image Mood — Post 7 CTA','image_mood_cta',2)+
       '</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">'+
         _ccNtField('cc-nt-feature-hook','Feature Hook','feature_hook',2)+
@@ -22153,104 +22230,130 @@ function _ccNewThemeFormHtml() {
           '<select id="cc-nt-campaign-angle" style="'+IS+'" onchange="_ccNewThemeDraft.campaign_angle=this.value"><option value="">— select —</option>'+angleOpts+'</select></div>'+
         _ccNtField('cc-nt-urgency','Urgency Trigger','urgency_trigger',2)+
       '</div>'+
+      '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+        '<button onclick="_ccNtToStep(2)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:9px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">← Back</button>'+
+        '<button onclick="_ccSaveNewTheme()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">💾 Save Theme</button>'+
+        '<button onclick="_ccToggleNewTheme()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:9px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Cancel</button>'+
+        '<div id="cc-nt-save-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
+      '</div>'+
     '</div>'+
-
-    '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-      '<button onclick="_ccSaveNewTheme()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">💾 Save Theme</button>'+
-      '<button onclick="_ccToggleNewTheme()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:9px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Cancel</button>'+
-      '<div id="cc-nt-save-status" style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace"></div>'+
-    '</div>'+
-  '</div>';
+  '</div>'
+  );
 }
 
 function _ccGenerateThemeDetails() {
-  var name    = (document.getElementById('cc-nt-name')    ||{}).value||'';
-  var icp     = (document.getElementById('cc-nt-icp')     ||{}).value||'';
-  var day     = (document.getElementById('cc-nt-day')     ||{}).value||'';
-  var feature = (document.getElementById('cc-nt-feature') ||{}).value||'';
-  var food    = (document.getElementById('cc-nt-food')    ||{}).value||'';
-  var cat     = (document.getElementById('cc-nt-cat')     ||{}).value||'';
-  if(!name||!icp||!feature||!food){ _showToast('Fill Theme Name, ICP, App Feature, and Food Type first', 2500); return; }
-  var statusEl = document.getElementById('cc-nt-gen-status');
-  if(statusEl){ statusEl.textContent='⏳ Generating…'; statusEl.style.color='var(--muted)'; }
-  var exThemes = (_ccThemeLib[icp]||Object.values(_ccThemeLib)[0]||[]).slice(0,2).map(function(t){
-    return 'Theme: '+t.theme_name+'\nEmotional Entry: '+t.emotional_entry+'\nHook: '+t.hook_angle+'\nFeature Hook: '+(t.feature_hook||'')+'\nFeature Proof: '+(t.feature_proof||'');
-  }).join('\n\n');
-  var icpP = (_ccIcpProfilesCache||[]).find(function(p){ return (p.code||p.id||'').toLowerCase().replace(/\s+/g,'_')===icp; })||{};
-  var prompt =
-    'You are a campaign strategist for easyChef Pro, a meal planning and grocery waste app.\n\n'+
-    'Create theme campaign details for:\n'+
+  var name   =_ccNewThemeDraft.theme_name   ||(document.getElementById('cc-nt-name')   ||{}).value||'';
+  var journey=_ccNewThemeDraft.journey_type ||'';
+  var icp    =_ccNewThemeDraft.icp_code     ||'';
+  var day    =_ccNewThemeDraft.publish_day  ||'';
+  var entry  =(document.getElementById('cc-nt-emotional-entry')  ||{}).value||'';
+  var payoff =(document.getElementById('cc-nt-emotional-payoff') ||{}).value||'';
+  var problem=(document.getElementById('cc-nt-the-problem')      ||{}).value||'';
+  var solve  =(document.getElementById('cc-nt-the-solve')        ||{}).value||'';
+  _ccNewThemeDraft.emotional_entry =entry;
+  _ccNewThemeDraft.emotional_payoff=payoff;
+  _ccNewThemeDraft.the_problem     =problem;
+  _ccNewThemeDraft.the_solve       =solve;
+  var statusEl=document.getElementById('cc-nt-gen-status');
+  if(statusEl){statusEl.textContent='⏳ Generating…';statusEl.style.color='var(--muted)';}
+  var feat=_CC_JOURNEY_FEATURE_MAP[journey]||_ccNewThemeDraft.app_feature||'';
+  var featLabel=(_CC_APP_FEATURE_LABELS||{})[feat]||'';
+  var icpP=(_ccIcpProfilesCache||[]).find(function(p){return (p.code||p.id||'').toLowerCase().replace(/\s+/g,'_')===icp;})||{};
+  var systemPrompt=
+    'You are creating a theme for an easyChef Pro campaign. '+
+    'A theme is a user journey moment — a life occasion where '+
+    'easyChef Pro shows up and solves a real problem. '+
+    'The emotional_entry is the pain at the start of the moment. '+
+    'The emotional_payoff is the feeling at the end. '+
+    'Every theme tells the master story: '+
+    'Your kitchen is broken. Not because of you. '+
+    'easyChef Pro closes the loop. Your kitchen. In command.';
+  var userPrompt=
+    'Create the campaign details for this user journey theme:\n\n'+
     'Theme Name: '+name+'\n'+
-    'ICP: '+icp+'\n'+
-    'Publish Day: '+(day||'flexible')+'\n'+
-    'App Feature: '+feature+' ('+((_CC_APP_FEATURE_LABELS||{})[feature]||'')+') \n'+
-    'Food Type: '+food+'\n'+
-    'Category: '+(cat||'general')+'\n\n'+
-    'ICP Context:\n'+JSON.stringify({name:icpP.name||icp,primary_pain:icpP.primary_pain||'',value_trigger:icpP.value_trigger||'',loss_aversion:icpP.loss_aversion||''},null,2)+'\n\n'+
-    (exThemes?'Existing theme examples for tone:\n'+exThemes+'\n\n':'')+
+    'Journey Type: '+journey+'\n'+
+    'ICP: '+icp+(icpP.name?' ('+icpP.name+')':'')+'\n'+
+    (day?'Publish Day: '+day+'\n':'')+
+    'App Feature: '+(feat?feat+' — '+featLabel:'to be determined')+'\n\n'+
+    'Journey Context:\n'+
+    (entry  ?'Emotional Entry: '+entry+'\n':'')+
+    (payoff ?'Emotional Payoff: '+payoff+'\n':'')+
+    (problem?'The Problem: '+problem+'\n':'')+
+    (solve  ?'The Solve: '+solve+'\n':'')+
+    '\nICP Pain Context:\n'+JSON.stringify({primary_pain:icpP.primary_pain||'',value_trigger:icpP.value_trigger||'',loss_aversion:icpP.loss_aversion||''},null,2)+'\n\n'+
+    'Approved stats (exact wording only): $1,336/year savings | 69.5% less food waste | 30 minutes fridge to table\n\n'+
     'Return ONLY a valid JSON object with exactly these fields:\n'+
     '{\n'+
-    '  "emotional_entry": "what she feels before she finds a solution",\n'+
-    '  "emotional_payoff": "what she feels at the CTA moment after seeing the solution",\n'+
-    '  "hook_angle": "Post 1 hook direction — one punchy sentence",\n'+
-    '  "problem_angle": "Post 2 problem direction — one sentence",\n'+
-    '  "agitate_angle": "Post 3 agitate direction — one sentence",\n'+
-    '  "image_mood_hook": "visual tone for Post 1 — 1 sentence describing scene/mood",\n'+
-    '  "image_mood_cta": "visual tone for Post 7 CTA — 1 sentence",\n'+
-    '  "feature_hook": "one-line intro for the '+feature+' feature",\n'+
-    '  "feature_proof": "an approved stat or claim that pairs with '+feature+'",\n'+
-    '  "campaign_angle": "one of: speed | savings | waste | health | convenience | proof",\n'+
-    '  "urgency_trigger": "what creates urgency — founding price / launch date / limited spots"\n'+
+    '  "hook_angle": "Post 1 direction — the entry moment as a hook, one punchy sentence",\n'+
+    '  "problem_angle": "Post 2 direction — the specific failure without easyChef Pro",\n'+
+    '  "agitate_angle": "Post 3 direction — exact cost of inaction, name the dollar figure or consequence",\n'+
+    '  "food_type": "the food that appears in this moment (specific, not generic)",\n'+
+    '  "image_mood_hook": "Post 1 visual — she IS the problem. One sentence: scene and mood.",\n'+
+    '  "image_mood_cta": "Post 7 visual — she HAS the payoff. One sentence: scene and mood.",\n'+
+    '  "feature_hook": "one sentence connecting the '+(feat||'app feature')+' to this specific moment",\n'+
+    '  "feature_proof": "one approved stat or claim that pairs with this moment",\n'+
+    '  "campaign_angle": "one of: speed | savings | waste | health | romance | community | founder",\n'+
+    '  "urgency_trigger": "what makes her act now — founding price / launch date / limited spots"\n'+
     '}\nReturn raw JSON only. No markdown fences.';
-  if(!CONFIG.sheetsUrl){ if(statusEl){statusEl.textContent='⚠️ No Sheets URL';} return; }
-  fetch(CONFIG.sheetsUrl, {method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic_chat',prompt:prompt,maxTokens:900})})
+  if(!CONFIG.sheetsUrl){if(statusEl){statusEl.textContent='⚠️ No Sheets URL';}return;}
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'anthropic_chat',prompt:userPrompt,system:systemPrompt,maxTokens:900})})
     .then(function(r){return r.json();})
     .then(function(d){
       var raw=(d.result||d.text||'').trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/i,'').trim();
       var ai=JSON.parse(raw);
       _ccNewThemeDraft=Object.assign(_ccNewThemeDraft,ai);
-      var F={'cc-nt-emotional-entry':'emotional_entry','cc-nt-emotional-payoff':'emotional_payoff','cc-nt-hook-angle':'hook_angle','cc-nt-problem-angle':'problem_angle','cc-nt-agitate-angle':'agitate_angle','cc-nt-image-hook':'image_mood_hook','cc-nt-image-cta':'image_mood_cta','cc-nt-feature-hook':'feature_hook','cc-nt-feature-proof':'feature_proof','cc-nt-urgency':'urgency_trigger'};
+      if(feat&&journey!=='App Program'){_ccNewThemeDraft.app_feature=feat;_ccNewThemeDraft.app_screen_label=(_CC_APP_FEATURE_LABELS||{})[feat]||'';}
+      _ccNtToStep(3);
+      var F={'cc-nt-hook-angle':'hook_angle','cc-nt-problem-angle':'problem_angle','cc-nt-agitate-angle':'agitate_angle','cc-nt-food':'food_type','cc-nt-image-hook':'image_mood_hook','cc-nt-image-cta':'image_mood_cta','cc-nt-feature-hook':'feature_hook','cc-nt-feature-proof':'feature_proof','cc-nt-urgency':'urgency_trigger'};
       Object.keys(F).forEach(function(id){var el=document.getElementById(id);if(el)el.value=ai[F[id]]||'';});
       if(ai.campaign_angle){var s=document.getElementById('cc-nt-campaign-angle');if(s)s.value=ai.campaign_angle;}
-      var aif=document.getElementById('cc-nt-ai-fields'); if(aif) aif.style.display='block';
+      var fs3=document.getElementById('cc-nt-feature-s3');if(fs3&&_ccNewThemeDraft.app_feature)fs3.value=_ccNewThemeDraft.app_feature;
       if(statusEl){statusEl.textContent='✓ Generated';statusEl.style.color='#22c55e';setTimeout(function(){statusEl.textContent='';statusEl.style.color='';},3000);}
     })
     .catch(function(){
-      var aif=document.getElementById('cc-nt-ai-fields'); if(aif) aif.style.display='block';
+      _ccNtToStep(3);
       if(statusEl){statusEl.textContent='⚠️ Generation failed — fill fields manually';statusEl.style.color='#ef4444';}
     });
 }
 
 function _ccSaveNewTheme() {
   var g=function(id){return (document.getElementById(id)||{}).value||'';};
-  var name    = g('cc-nt-name').trim();
-  var icp     = g('cc-nt-icp');
-  var day     = g('cc-nt-day');
-  var feature = g('cc-nt-feature');
-  var food    = g('cc-nt-food').trim();
-  var cat     = g('cc-nt-cat');
-  var statusEl = document.getElementById('cc-nt-save-status');
-  if(!name)   { _showToast('Theme name required',2000); return; }
-  if(!icp)    { _showToast('ICP required',2000); return; }
-  if(!feature){ _showToast('App feature required',2000); return; }
-  if(!food)   { _showToast('Food type required',2000); return; }
+  var name   =_ccNewThemeDraft.theme_name   ||g('cc-nt-name').trim();
+  var icp    =_ccNewThemeDraft.icp_code     ||g('cc-nt-icp');
+  var journey=_ccNewThemeDraft.journey_type ||'';
+  var day    =_ccNewThemeDraft.publish_day  ||g('cc-nt-day');
+  var feature=_ccNewThemeDraft.app_feature  ||g('cc-nt-feature-s3');
+  var statusEl=document.getElementById('cc-nt-save-status');
+  if(!name)   {_showToast('Theme name required',2000);return;}
+  if(!icp)    {_showToast('ICP required',2000);return;}
+  if(!journey){_showToast('Journey type required',2000);return;}
   var allCached=[];
   Object.values(_ccThemeLib).forEach(function(arr){allCached=allCached.concat(arr);});
   if(allCached.find(function(t){return (t.theme_name||'').toLowerCase()===name.toLowerCase();})){
-    _showToast('"'+name+'" already exists',2500); return;
+    _showToast('"'+name+'" already exists',2500);return;
   }
-  var slug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-  var id   = 'tl-'+Date.now().toString(36);
-  var newTheme = {
-    id:id, icp_code:icp, theme_name:name, theme_slug:slug, category:cat,
-    emotional_entry:g('cc-nt-emotional-entry'), emotional_payoff:g('cc-nt-emotional-payoff'),
-    hook_angle:g('cc-nt-hook-angle'), problem_angle:g('cc-nt-problem-angle'), agitate_angle:g('cc-nt-agitate-angle'),
-    food_type:food, publish_day:day, post_count:7, blueprint_code:'A-Waitlist',
-    campaign_angle:g('cc-nt-campaign-angle'), urgency_trigger:g('cc-nt-urgency'),
-    image_mood_hook:g('cc-nt-image-hook'), image_mood_cta:g('cc-nt-image-cta'),
-    active:true, notes:'', app_feature:feature,
+  var slug=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  var id='tl-'+Date.now().toString(36);
+  var newTheme={
+    id:id,icp_code:icp,theme_name:name,theme_slug:slug,
+    category:journey,
+    emotional_entry: _ccNewThemeDraft.emotional_entry ||g('cc-nt-emotional-entry'),
+    emotional_payoff:_ccNewThemeDraft.emotional_payoff||g('cc-nt-emotional-payoff'),
+    hook_angle:      _ccNewThemeDraft.hook_angle      ||g('cc-nt-hook-angle'),
+    problem_angle:   _ccNewThemeDraft.problem_angle   ||g('cc-nt-problem-angle'),
+    agitate_angle:   _ccNewThemeDraft.agitate_angle   ||g('cc-nt-agitate-angle'),
+    food_type:       _ccNewThemeDraft.food_type       ||g('cc-nt-food'),
+    publish_day:day,post_count:7,blueprint_code:'A-Waitlist',
+    campaign_angle:  _ccNewThemeDraft.campaign_angle  ||g('cc-nt-campaign-angle'),
+    urgency_trigger: _ccNewThemeDraft.urgency_trigger ||g('cc-nt-urgency'),
+    image_mood_hook: _ccNewThemeDraft.image_mood_hook ||g('cc-nt-image-hook'),
+    image_mood_cta:  _ccNewThemeDraft.image_mood_cta  ||g('cc-nt-image-cta'),
+    active:true,notes:'',
+    app_feature:feature,
     app_screen_label:(_CC_APP_FEATURE_LABELS||{})[feature]||'',
-    feature_hook:g('cc-nt-feature-hook'), feature_proof:g('cc-nt-feature-proof'), persona_rotation:''
+    feature_hook:  _ccNewThemeDraft.feature_hook  ||g('cc-nt-feature-hook'),
+    feature_proof: _ccNewThemeDraft.feature_proof ||g('cc-nt-feature-proof'),
+    persona_rotation:''
   };
   if(statusEl) statusEl.textContent='💾 Saving…';
   var _afterSave=function(){
@@ -22263,10 +22366,10 @@ function _ccSaveNewTheme() {
     var bp=document.getElementById('cc-theme-picker');
     if(bp)  bp.innerHTML=_ccRenderThemeCards(_ccThemeLib[code],name);
     _ccSelectTheme(name,day,newTheme.campaign_angle,newTheme.urgency_trigger,newTheme);
-    var nx=document.getElementById('cc-step1-theme-next'); if(nx) nx.style.display='block';
-    _showToast('✓ Theme created — '+name,2500);
+    var nx=document.getElementById('cc-step1-theme-next');if(nx) nx.style.display='block';
+    _showToast('✓ Theme created — '+name+' · '+journey+' · '+icp,3000);
   };
-  if(!CONFIG.sheetsUrl){ _afterSave(); return; }
+  if(!CONFIG.sheetsUrl){_afterSave();return;}
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'theme_library_write',theme:newTheme})})
     .then(function(){_afterSave();})
     .catch(function(){if(statusEl){statusEl.textContent='⚠️ Sheet save failed — theme active locally';statusEl.style.color='#ef4444';}_afterSave();});

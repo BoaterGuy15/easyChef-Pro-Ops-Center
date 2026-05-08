@@ -709,6 +709,7 @@ function doPost(e) {
     if(body.action === 'docs_delete') { deleteDocument(body.id); return respond({ ok:true }); }
     if(body.action === 'ops_context_read') return respond(opsContextRead(body.docIds));
     if(body.action === 'ops_chat') return respond(opsChat(body.prompt, body.history, body.context));
+    if(body.action === 'anthropic_chat') return respond({ok:true, result:callAnthropicModel(body.prompt||'', body.system||'', body.model||'claude-haiku-4-5-20251001', parseInt(body.maxTokens||'900'))});
 
     // ── Channels ──────────────────────────────────────────────────────────────────
     if(body.action === 'channels_read')          return respond({ ok:true, channels: getChannels() });
