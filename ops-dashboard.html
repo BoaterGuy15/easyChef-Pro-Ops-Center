@@ -1279,7 +1279,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <thead><tr>
         <th style="width:28px;padding:4px 2px"></th><th>ID</th><th>Task</th><th>Category</th><th>Pri</th><th>Status</th><th>Owner</th>
         <th class="raci-person-col" data-member="Taylor" title="Taylor — R=Responsible A=Accountable C=Consulted I=Informed">Tay</th><th class="raci-person-col" data-member="Steve" title="Steve — R=Responsible A=Accountable C=Consulted I=Informed">Stv</th><th class="raci-person-col" data-member="Adam" title="Adam — R=Responsible A=Accountable C=Consulted I=Informed">Adm</th><th class="raci-person-col" data-member="Mary" title="Mary — R=Responsible A=Accountable C=Consulted I=Informed">Mry</th><th class="raci-person-col" data-member="JR" title="JR — R=Responsible A=Accountable C=Consulted I=Informed">JR</th><th class="raci-person-col" data-member="Hammad" title="Hammad — R=Responsible A=Accountable C=Consulted I=Informed">Hmd</th><th class="raci-person-col" data-member="Searah" title="Searah — R=Responsible A=Accountable C=Consulted I=Informed">Sea</th><th class="raci-person-col" data-member="Sadee" title="Sadee — R=Responsible A=Accountable C=Consulted I=Informed">Sde</th>
-        <th>Timeline</th><th>ICS Flags / Notes</th>
+        <th style="min-width:90px">LP Bar</th><th>Timeline</th><th>ICS Flags / Notes</th>
       </tr></thead>
       <tbody id="raci-body"></tbody>
     </table>
@@ -5690,6 +5690,9 @@ function buildRaciTable(){
     const _icRaciKey2=_getIncidentCommander()?.raciKey||'Taylor';
     const _tVal=t[_icRaciKey2]||'';
     const _taylorViol=_tVal!==''&&_tVal!=='-'&&_tVal!=='A'&&_tVal!=='A/R';
+    const _lpLinked=_lpFindBarForTask(t.id);
+    const _lpBtnLabel=_lpLinked?(_lpLinked.workstream.split(' ')[0].slice(0,8)+' · '+_lpLinked.name.slice(0,12)+(_lpLinked.name.length>12?'…':'')):' + Link LP';
+    const _lpBtnColor=_lpLinked?'var(--gold)':'var(--muted)';
     const _raciWarnBadge=(_taylorViol||_rCount>1)?('<span title="ICS violation: '+(_taylorViol?_icRaciKey2+'='+_tVal+' (Founder/CEO must be A or A/R)':'')+(_taylorViol&&_rCount>1?' · ':'')+(_rCount>1?_rCount+' R values (need exactly 1)':'')+'" style="font-size:9px;color:var(--red);margin-left:4px;cursor:help;vertical-align:middle">⚠️</span>'):'';
     tr.innerHTML = `
       <td style="padding:4px 2px;text-align:center;width:28px"><span class="raci-no-expand" style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span>${(()=>{const _d=_docsCache['task_'+t.id]||[];const _u=_d.some(x=>x.driveFileId&&x.driveFileId!=='');const _l=_d.some(x=>!x.driveFileId||x.driveFileId==='');return (_u?'<span style="font-size:10px;opacity:0.7;pointer-events:none">📎</span>':'')+(_l?'<span style="font-size:10px;opacity:0.7;pointer-events:none">🔗</span>':'');})()}</td>
@@ -5700,6 +5703,7 @@ function buildRaciTable(){
       <td>${statusSelect(t)}</td>
       <td>${ownerSelect(t)}</td>
       ${_atmDefault.map(m=>raciCell(t[m.raciKey]||'',t.id,m.raciKey)).join('')}${customMembers.map(cm=>raciCell(t[cm.raciKey]||'',t.id,cm.raciKey)).join('')}
+      <td style="white-space:nowrap;padding:3px 4px"><button class="raci-no-expand" onclick="_showLPBarPicker('${t.id}',this)" title="${_lpLinked?'Linked: '+_lpLinked.name+' ('+(_lpLinked.sd||'').slice(5)+' – '+(_lpLinked.ed||'').slice(5)+')\\nClick to change':'Link this task to a Launch Plan bar'}" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ${_lpBtnColor};background:${_lpLinked?'rgba(201,168,76,0.1)':'transparent'};color:${_lpBtnColor};cursor:pointer;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${_lpBtnLabel}</button></td>
       ${taskProgress(t)}
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()" oninput="_onIcsFlagInput('${t.id}',this)">${t.flag||''}</div></td>
     `;
@@ -18054,6 +18058,101 @@ function _parseLPTaskIds(item){
   if(Array.isArray(v)) return v.filter(Boolean);
   if(typeof v==='string'&&v.trim()) return v.split(',').map(s=>s.trim()).filter(Boolean);
   return [];
+}
+function _lpFindBarForTask(taskId){
+  return (_lpCache.length?_lpCache:_LP_DEFAULTS).find(b=>_parseLPTaskIds(b).includes(String(taskId)))||null;
+}
+function _lpEnforceTaskDates(task,bar){
+  const barSd=String(bar.sd||'').slice(0,10),barEd=String(bar.ed||'').slice(0,10);
+  if(!barSd||!barEd) return;
+  let sd=task.sd||'',ed=task.ed||'',changed=false;
+  if(!sd||sd<barSd){sd=barSd;changed=true;}
+  if(!ed||ed>barEd){ed=barEd;changed=true;}
+  if(sd>ed){sd=barSd;ed=barEd;changed=true;}
+  if(changed){
+    task.sd=sd;task.ed=ed;
+    _saveTasksNow();
+    _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--gold)">📅 '+task.id+' dates snapped → '+bar.name+' ('+sd+' – '+ed+')</div>',3500);
+  }
+}
+function _lpLinkTaskToBar(taskId,newBarId){
+  const oldBar=_lpFindBarForTask(taskId);
+  if(oldBar&&(!newBarId||oldBar.id!==newBarId)){
+    const ids=_parseLPTaskIds(oldBar).filter(id=>id!==String(taskId));
+    _lpSaveBar({...oldBar,taskIds:ids});
+  }
+  if(!newBarId){buildRaciTable();buildLaunchPlan();return;}
+  const bar=(_lpCache.length?_lpCache:_LP_DEFAULTS).find(b=>b.id===newBarId);
+  if(!bar) return;
+  const ids=_parseLPTaskIds(bar);
+  if(!ids.includes(String(taskId))){ids.push(String(taskId));_lpSaveBar({...bar,taskIds:ids});}
+  const task=DASHBOARD_DATA.tasks.find(t=>t.id===taskId);
+  if(task) _lpEnforceTaskDates(task,bar);
+  buildRaciTable();
+  buildLaunchPlan();
+}
+function _showLPBarPicker(taskId,anchor){
+  document.querySelectorAll('.lp-bar-picker').forEach(p=>p.remove());
+  const bars=_lpCache.length?_lpCache:_LP_DEFAULTS;
+  const currentBar=_lpFindBarForTask(taskId);
+  const pick=document.createElement('div');
+  pick.className='lp-bar-picker';
+  pick.style.cssText="position:fixed;z-index:99999;background:var(--card);border:1px solid var(--gold);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,0.6);min-width:260px;max-width:320px;max-height:320px;overflow:hidden;font-family:'DM Mono',monospace;font-size:10px;display:flex;flex-direction:column";
+  const rect=anchor.getBoundingClientRect();
+  pick.style.left=Math.min(rect.left,window.innerWidth-330)+'px';
+  pick.style.top=Math.min(rect.bottom+4,window.innerHeight-340)+'px';
+  const hdr=document.createElement('div');
+  hdr.style.cssText="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--gold);font-size:9px;letter-spacing:1.5px;font-weight:700;flex-shrink:0";
+  hdr.textContent='LINK TO LAUNCH PLAN BAR — '+taskId;
+  pick.appendChild(hdr);
+  const srch=document.createElement('input');
+  srch.placeholder='Search bars…';
+  srch.style.cssText="width:100%;box-sizing:border-box;background:var(--surface);border:none;border-bottom:1px solid var(--border);padding:7px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;flex-shrink:0";
+  pick.appendChild(srch);
+  const list=document.createElement('div');
+  list.style.cssText="overflow-y:auto;flex:1";
+  function _render(filter){
+    list.innerHTML='';
+    if(currentBar){
+      const ul=document.createElement('div');
+      ul.style.cssText="padding:7px 12px;cursor:pointer;color:var(--muted);border-bottom:1px solid var(--border);font-size:9px";
+      ul.textContent='✕  Remove link';
+      ul.onmouseover=()=>ul.style.background='rgba(239,68,68,0.12)';
+      ul.onmouseout=()=>ul.style.background='';
+      ul.onclick=()=>{pick.remove();_lpLinkTaskToBar(taskId,null);};
+      list.appendChild(ul);
+    }
+    const wsList=_LP_WORKSTREAMS.length?_LP_WORKSTREAMS:[...new Set(bars.map(b=>b.workstream))];
+    wsList.forEach(wsName=>{
+      const wsBars=bars.filter(b=>b.workstream===wsName&&(!filter||b.name.toLowerCase().includes(filter)||wsName.toLowerCase().includes(filter)));
+      if(!wsBars.length) return;
+      const grp=document.createElement('div');
+      grp.style.cssText="padding:5px 12px 3px;color:var(--muted);font-size:8px;letter-spacing:1px;text-transform:uppercase;background:rgba(0,0,0,0.25)";
+      grp.textContent=wsName;
+      list.appendChild(grp);
+      wsBars.forEach(b=>{
+        const isCur=currentBar&&currentBar.id===b.id;
+        const row=document.createElement('div');
+        row.style.cssText="padding:6px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:"+(isCur?'rgba(201,168,76,0.12)':'');
+        row.onmouseover=()=>row.style.background=isCur?'rgba(201,168,76,0.22)':'rgba(201,168,76,0.08)';
+        row.onmouseout=()=>row.style.background=isCur?'rgba(201,168,76,0.12)':'';
+        const nm=document.createElement('span');nm.style.color=isCur?'var(--gold)':'var(--text)';nm.textContent=(isCur?'✓ ':'')+b.name;
+        const dt=document.createElement('span');dt.style.cssText="color:var(--muted);font-size:9px;white-space:nowrap;margin-left:8px;flex-shrink:0";
+        dt.textContent=(b.sd||'').slice(5)+' – '+(b.ed||'').slice(5);
+        row.appendChild(nm);row.appendChild(dt);
+        row.onclick=()=>{pick.remove();_lpLinkTaskToBar(taskId,b.id);};
+        list.appendChild(row);
+      });
+    });
+    if(!list.children.length){const e=document.createElement('div');e.style.cssText="padding:12px;color:var(--muted);text-align:center";e.textContent='No bars found';list.appendChild(e);}
+  }
+  _render('');
+  srch.oninput=()=>_render(srch.value.toLowerCase().trim());
+  pick.appendChild(list);
+  document.body.appendChild(pick);
+  srch.focus();
+  const _close=e=>{if(!pick.contains(e.target)&&e.target!==anchor){pick.remove();document.removeEventListener('mousedown',_close,true);}};
+  setTimeout(()=>document.addEventListener('mousedown',_close,true),0);
 }
 function _renderLPAgendaTab(container,item){
   const linkedTaskIds=_parseLPTaskIds(item);
