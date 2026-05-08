@@ -596,9 +596,57 @@ function buildSocialCalendar(brief, copy) {
     var maxTokens = Math.min(8000, Math.max(2000, postCount * 600));
     var allPosts  = [];
 
-    // One API call per channel — each channel gets its own platform-tuned posts
-    for (var ci = 0; ci < channels.length; ci++) {
-      var channel      = channels[ci];
+    // Separate special-asset channels (TikTok spotlight, YouTube explainer)
+    // from regular social channels that get the 7-post AI arc.
+    var arcChannels   = [];
+    var videoChannels = [];
+    channels.forEach(function(ch) {
+      var cl = ch.toLowerCase();
+      if (cl === 'tiktok' || cl === 'youtube') videoChannels.push(ch);
+      else if (cl !== 'email')                 arcChannels.push(ch);
+    });
+
+    // Static single-asset entries for TikTok and YouTube
+    videoChannels.forEach(function(channel) {
+      var chLow  = channel.toLowerCase();
+      var chSlug = chLow.replace(/[^a-z0-9]/g, '');
+      var postId = campaignId + '-' + chSlug + '-POST-001';
+      var p;
+      if (chLow === 'tiktok') {
+        var feat = _getTikTokFeature(brief);
+        p = { id:postId, campaign_id:campaignId, platform:channel, post_num:1, scheduled_day:3,
+              theme:'solve', funnel_stage:'solve',
+              hook:feat.toUpperCase()+' feature spotlight — hook in 3 seconds',
+              body_copy:'Feature demo: '+feat+' · one approved claim · CTA link in bio',
+              cta:'Link in bio', hashtags:'', image_brief:'60-sec feature spotlight screen recording — '+feat };
+      } else if (chLow === 'youtube') {
+        p = { id:postId, campaign_id:campaignId, platform:channel, post_num:1, scheduled_day:6,
+              theme:'cta', funnel_stage:'cta',
+              hook:'easyChef Pro — 60-second explainer',
+              body_copy:'Full 7-step arc compressed to 60 seconds — publishes Day 7 same day as all CTA posts',
+              cta:'Join the waitlist — link in description', hashtags:'', image_brief:'60-sec explainer video thumbnail — app on phone' };
+      }
+      if (p) {
+        var _sched = '';
+        if (brief.launchDate) {
+          try {
+            var _ld = new Date(brief.launchDate + 'T12:00:00');
+            _ld.setDate(_ld.getDate() + p.scheduled_day);
+            _sched = Utilities.formatDate(_ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+          } catch(de) { _sched = ''; }
+        }
+        setSocialPost({ id:p.id, campaign_id:campaignId, platform:channel,
+          hook:p.hook, body_copy:p.body_copy, cta:p.cta,
+          hashtags:p.hashtags, image_brief:p.image_brief,
+          scheduled_date:_sched, status:'draft' });
+        allPosts.push(p);
+        Logger.log('[buildSocialCalendar] ' + channel + ': static single-asset (day ' + p.scheduled_day + ')');
+      }
+    });
+
+    // One API call per regular social channel — 7-post arc
+    for (var ci = 0; ci < arcChannels.length; ci++) {
+      var channel      = arcChannels[ci];
       var platformNote = _getPlatformNote(channel);
 
       var systemPrompt =
