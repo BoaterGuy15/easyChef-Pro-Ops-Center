@@ -17775,6 +17775,12 @@ function _showLPBarCtxMenu(cx,cy,lpId){
   _sep();
   _row('✏️','Edit Bar',()=>_showLPEditBarForm(lpId));
   _sep();
+  const _curStatus=item.status||'Not Started';
+  [['⬜','Not Started'],['🔵','In Progress'],['🟡','Started'],['✅','Complete'],['🔴','Blocked'],['⏸️','On Hold']].forEach(([icon,s])=>{
+    if(s===_curStatus) return;
+    _row(icon,s,()=>{ _lpSaveBar({...item,status:s}); buildLaunchPlan(); });
+  });
+  _sep();
   _row('🗑️','Delete Bar',()=>{if(confirm('Delete "'+item.name+'"?'))_lpDeleteBar(lpId);},'var(--red)');
   document.body.appendChild(mnu);
   setTimeout(()=>{document.addEventListener('click',_closeLPBarCtxMenu,false);document.addEventListener('keydown',_lpBarCtxEsc,true);},0);
@@ -18566,13 +18572,16 @@ function _showLPEditBarForm(lpId){
   const nameInput=document.createElement('input');nameInput.type='text';nameInput.value=item.name||'';nameInput.style.cssText=inputCss;_field('NAME',nameInput);
   const sdInput=document.createElement('input');sdInput.type='date';sdInput.value=item.sd||'';sdInput.style.cssText=inputCss;_field('START DATE',sdInput);
   const edInput=document.createElement('input');edInput.type='date';edInput.value=item.ed||'';edInput.style.cssText=inputCss;_field('END DATE',edInput);
+  const statusSel=document.createElement('select');statusSel.style.cssText=inputCss;
+  ['Not Started','In Progress','Started','Complete','Blocked','On Hold'].forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;if(s===(item.status||'Not Started'))o.selected=true;statusSel.appendChild(o);});
+  _field('STATUS',statusSel);
   const btns=document.createElement('div');btns.style.cssText='display:flex;gap:8px;margin-top:14px;justify-content:flex-end';
   const cancelBtn=document.createElement('button');cancelBtn.textContent='Cancel';cancelBtn.style.cssText="background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;cursor:pointer";cancelBtn.onclick=()=>wrap.remove();
   const saveBtn=document.createElement('button');saveBtn.textContent='✅ Save';saveBtn.style.cssText="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:'DM Mono',monospace;font-size:10px;padding:5px 14px;cursor:pointer";
   saveBtn.onclick=()=>{
     const name=nameInput.value.trim();if(!name)return;
     const cc=_LP_WS_COLORS[wsSelect.value]||{color:item.color||'#94a3b8'};
-    _lpSaveBar({...item,workstream:wsSelect.value,name,sd:sdInput.value,ed:edInput.value,color:cc.color});
+    _lpSaveBar({...item,workstream:wsSelect.value,name,sd:sdInput.value,ed:edInput.value,color:cc.color,status:statusSel.value});
     wrap.remove();buildLaunchPlan();
     _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--green)">✅ Updated — '+name+'</div>',1800);
   };
