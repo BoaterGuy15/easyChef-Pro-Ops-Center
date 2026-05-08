@@ -489,13 +489,27 @@ function handleVeraAction(body) {
     var target = (body.target||'').toLowerCase();
 
     if(target === 'sheet') {
+      var tabName = body.tab || 'Tasks';
+      // Milestone writes must go through setMilestonesItem to preserve schema + upsert logic
+      if(tabName === 'Milestones') {
+        if(body.mode === 'append' || body.mode === 'upsert') {
+          var msRow = body.row || [];
+          var msHdrs = ['id','title','date','type','status','description','color','taskIds','achievedDate'];
+          var msItem = {};
+          msHdrs.forEach(function(h,i){ msItem[h] = msRow[i] !== undefined ? String(msRow[i]) : ''; });
+          if(!msItem.id) msItem.id = 'ms-' + Date.now();
+          setMilestonesItem(msItem);
+          return respond({ok:true, mode:'milestone-upsert', id:msItem.id});
+        }
+        return respond({ok:false, error:'Milestones sheet is write-protected via exec_write. Use action=roadmap_write instead.'});
+      }
       var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var sh = ss.getSheetByName(body.tab||'Tasks');
-      if(!sh) return respond({ok:false, error:'Sheet not found: ' + body.tab});
+      var sh = ss.getSheetByName(tabName);
+      if(!sh) return respond({ok:false, error:'Sheet not found: ' + tabName});
 
       if(body.mode === 'append') {
         sh.appendRow(body.row||[]);
-        return respond({ok:true, mode:'append', tab:body.tab});
+        return respond({ok:true, mode:'append', tab:tabName});
       }
 
       if(body.mode === 'update') {

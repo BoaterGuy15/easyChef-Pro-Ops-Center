@@ -14507,8 +14507,7 @@ function loadRoadmapFromSheets(){
 }
 function _saveMilestoneToSheets(item){
   if(!CONFIG.sheetsUrl) return;
-  console.log('[DGL] Saving milestone to Sheets:', item.title||item.label);
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+  const _msPayload={
     action:'roadmap_write',
     id:item.id||('ms-'+(item.title||item.label)),
     title:item.title||item.label||'',
@@ -14519,7 +14518,12 @@ function _saveMilestoneToSheets(item){
     color:item.color||'',
     taskIds:item.taskIds||'',
     achievedDate:item.achievedDate||''
-  })}).catch(()=>{});
+  };
+  console.log('[DGL] Saving milestone to Sheets:', _msPayload.title, _msPayload.id);
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_msPayload)})
+    .then(r=>r.json())
+    .then(d=>{ if(d.ok) console.log('[DGL] Milestone saved OK:', _msPayload.title); else console.error('[DGL] Milestone save FAILED:', d.error, d); })
+    .catch(e=>console.error('[DGL] Milestone save network error:', e.message));
 }
 function _deleteMilestoneFromSheets(id){
   if(!CONFIG.sheetsUrl||!id) return;

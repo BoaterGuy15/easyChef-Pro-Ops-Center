@@ -1581,6 +1581,7 @@ function setMilestonesItem(item) {
     const firstCell = String(sh.getRange(1,1).getValue()).trim();
     if(firstCell !== 'id') {
       sh.getRange(1,1,1,MS_HDRS.length).setValues([MS_HDRS]);
+      SpreadsheetApp.flush();
     }
   }
 
