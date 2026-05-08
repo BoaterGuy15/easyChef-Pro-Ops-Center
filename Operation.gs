@@ -1561,35 +1561,41 @@ function testSetTasks() {
 
 function setMilestonesItem(item) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const Milestones_HEADERS = ['id','title','date','type','status','description','color','taskIds'];
+  const MS_HDRS = ['id','title','date','type','status','description','color','taskIds','achievedDate'];
   let sh = ss.getSheetByName('Milestones');
   if(!sh) {
     sh = ss.insertSheet('Milestones');
-    sh.getRange(1,1,1,Milestones_HEADERS.length).setValues([Milestones_HEADERS]);
-    const h = sh.getRange(1,1,1,Milestones_HEADERS.length);
-    h.setBackground('#1a1a2e'); h.setFontColor('#c9a84c');
-    h.setFontWeight('bold'); h.setFontFamily('Courier New');
+    const hRow = sh.getRange(1,1,1,MS_HDRS.length);
+    hRow.setValues([MS_HDRS]);
+    hRow.setBackground('#1a1a2e'); hRow.setFontColor('#c9a84c');
+    hRow.setFontWeight('bold'); hRow.setFontFamily('Courier New');
     sh.setFrozenRows(1);
+  } else {
+    // Auto-fix header row if column 1 is blank or wrong
+    const firstCell = String(sh.getRange(1,1).getValue()).trim();
+    if(firstCell !== 'id') {
+      sh.getRange(1,1,1,MS_HDRS.length).setValues([MS_HDRS]);
+    }
   }
+
   // Clean date to YYYY-MM-DD
   let cleanDate = item.date||'';
   if(cleanDate && cleanDate.includes('GMT')) {
     cleanDate = new Date(cleanDate).toISOString().slice(0,10);
   }
   item.date = cleanDate;
-  
+
   const lastRow = sh.getLastRow();
   if(lastRow > 1) {
     const ids = sh.getRange(2,1,lastRow-1,1).getValues().map(r=>String(r[0]).trim());
     const idx = ids.indexOf(String(item.id));
     if(idx >= 0) {
-      sh.getRange(idx+2,1,1,MILESTONES_HEADERS.length).setValues([MILESTONES_HEADERS.map(h=>item[h]||'')]);
+      sh.getRange(idx+2,1,1,MS_HDRS.length).setValues([MS_HDRS.map(h=>item[h]||'')]);
       return;
     }
   }
-  sh.appendRow(Milestones_HEADERS.map(h=>item[h]||''));
+  sh.appendRow(MS_HDRS.map(h=>item[h]||''));
 }
-undefined
 
 function deleteMilestones(id) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
