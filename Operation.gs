@@ -1536,6 +1536,7 @@ function getMilestones() {
   // Auto-fix header row if column 1 is not 'id'
   if(String(sh.getRange(1,1).getValue()).trim() !== 'id') {
     sh.getRange(1,1,1,MS_HDRS.length).setValues([MS_HDRS]);
+    SpreadsheetApp.flush();
   }
   const data = sh.getDataRange().getValues();
   const headers = data[0].map(h => String(h).trim());
