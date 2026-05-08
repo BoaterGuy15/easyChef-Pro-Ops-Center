@@ -19266,8 +19266,7 @@ function buildActionsGantt(){
     let html='';
 
     _TEAM.forEach(p=>{
-      const _pKeyLow=p.key.toLowerCase();
-      const raciTasks=DASHBOARD_DATA.tasks.filter(t=>{const v=t[_pKeyLow]||t[p.key]||'';return v==='R'||v==='A/R'||v==='R/A';});
+      const raciTasks=DASHBOARD_DATA.tasks.filter(t=>{const v=t[p.key]||'';return v==='R'||v==='A'||v==='A/R'||v==='R/A';});
       const myActions=allActs.filter(a=>{const key=((a.assignedTo||'').trim()||(a.createdBy||'').trim()).toLowerCase();return key===p.key.toLowerCase();});
 
       const bars=[];
