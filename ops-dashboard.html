@@ -16934,6 +16934,8 @@ function loadLaunchPlan(){
 
 function _lpSyncAll(silent){
   if(!CONFIG.sheetsUrl) return;
+  // Refresh statuses from linked tasks before syncing
+  if(typeof _lpRefreshBarStatuses==='function') _lpRefreshBarStatuses();
   const items=[..._lpCache];
   if(!items.length) return;
   function _nd(v){if(!v)return '';const s=String(v);return(s.includes('GMT')||s.includes('T00:00'))?new Date(v).toISOString().slice(0,10):s;}
