@@ -1528,23 +1528,96 @@ function callAnthropicModel(prompt, system, model, maxTokens) {
   return json.content && json.content[0] ? json.content[0].text : '';
 }
 
+// ── Milestone Drive backup ──────────────────────────────────────
+var _MS_BACKUP_NAME = 'dgl_milestones_backup.json';
+
+function _saveMilestonesBackup(items) {
+  try {
+    var folder = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
+    var existing = folder.getFilesByName(_MS_BACKUP_NAME);
+    var json = JSON.stringify(items);
+    if(existing.hasNext()) {
+      existing.next().setContent(json);
+    } else {
+      folder.createFile(_MS_BACKUP_NAME, json, MimeType.PLAIN_TEXT);
+    }
+  } catch(e) { Logger.log('[Milestones] backup write error: ' + e.message); }
+}
+
+function _loadMilestonesBackup() {
+  try {
+    var folder = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
+    var files = folder.getFilesByName(_MS_BACKUP_NAME);
+    if(!files.hasNext()) return [];
+    var raw = files.next().getBlob().getDataAsString();
+    var arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter(function(r){ return r.id; }) : [];
+  } catch(e) { Logger.log('[Milestones] backup read error: ' + e.message); return []; }
+}
+
+function _writeMilestonesToSheet(sh, items) {
+  const MS_HDRS = ['id','title','date','type','status','description','color','taskIds','achievedDate'];
+  if(sh.getLastRow() > 1) sh.getRange(2,1,sh.getLastRow()-1,MS_HDRS.length).clearContent();
+  if(!items.length) return;
+  sh.getRange(2,1,items.length,MS_HDRS.length).setValues(items.map(function(m){
+    return MS_HDRS.map(function(h){ return m[h]||''; });
+  }));
+}
+
 function getMilestones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sh = ss.getSheetByName('Milestones');
-  if(!sh || sh.getLastRow() < 2) return [];
   const MS_HDRS = ['id','title','date','type','status','description','color','taskIds','achievedDate'];
+  let sh = ss.getSheetByName('Milestones');
+
+  // ── Restore from Drive backup if sheet is missing or corrupted ──
+  const backup = _loadMilestonesBackup();
+  if(!sh) {
+    if(!backup.length) return [];
+    sh = ss.insertSheet('Milestones');
+    const hRow = sh.getRange(1,1,1,MS_HDRS.length);
+    hRow.setValues([MS_HDRS]);
+    hRow.setBackground('#1a1a2e'); hRow.setFontColor('#c9a84c');
+    hRow.setFontWeight('bold'); hRow.setFontFamily('Courier New');
+    sh.setFrozenRows(1);
+    _writeMilestonesToSheet(sh, backup);
+    SpreadsheetApp.flush();
+  }
+
   // Auto-fix header row if column 1 is not 'id'
   if(String(sh.getRange(1,1).getValue()).trim() !== 'id') {
     sh.getRange(1,1,1,MS_HDRS.length).setValues([MS_HDRS]);
     SpreadsheetApp.flush();
   }
+
   const data = sh.getDataRange().getValues();
   const headers = data[0].map(h => String(h).trim());
-  return data.slice(1).map(row => {
+  let sheetItems = data.slice(1).map(row => {
     const obj = {};
     headers.forEach((h,i) => obj[h] = row[i]==null?'':String(row[i]));
     return obj;
   }).filter(r => r.id && r.id !== '');
+
+  // Sheet was wiped — restore from backup and return backup data
+  if(!sheetItems.length && backup.length) {
+    Logger.log('[Milestones] Sheet empty/wiped — restoring ' + backup.length + ' items from Drive backup');
+    _writeMilestonesToSheet(sh, backup);
+    SpreadsheetApp.flush();
+    return backup;
+  }
+
+  // Merge: backup may have items the sheet lost
+  if(backup.length > sheetItems.length) {
+    const sheetIds = new Set(sheetItems.map(function(m){ return m.id; }));
+    const missing = backup.filter(function(m){ return !sheetIds.has(m.id); });
+    if(missing.length) {
+      Logger.log('[Milestones] Restoring ' + missing.length + ' missing items from backup');
+      missing.forEach(function(m){ sheetItems.push(m); });
+      _writeMilestonesToSheet(sh, sheetItems);
+      SpreadsheetApp.flush();
+    }
+  }
+
+  return sheetItems;
 }
 
 function checkFields() {
@@ -1598,10 +1671,12 @@ function setMilestonesItem(item) {
     const idx = ids.indexOf(String(item.id));
     if(idx >= 0) {
       sh.getRange(idx+2,1,1,MS_HDRS.length).setValues([MS_HDRS.map(h=>item[h]||'')]);
+      _saveMilestonesBackup(getMilestones());
       return;
     }
   }
   sh.appendRow(MS_HDRS.map(h=>item[h]||''));
+  _saveMilestonesBackup(getMilestones());
 }
 
 function deleteMilestones(id) {
@@ -1610,7 +1685,7 @@ function deleteMilestones(id) {
   if(!sh || sh.getLastRow() < 2) return;
   const ids = sh.getRange(2,1,sh.getLastRow()-1,1).getValues().map(r=>String(r[0]).trim());
   const idx = ids.indexOf(String(id));
-  if(idx >= 0) sh.deleteRow(idx+2);
+  if(idx >= 0) { sh.deleteRow(idx+2); _saveMilestonesBackup(getMilestones()); }
 }
 
 function addCompletion(item) {

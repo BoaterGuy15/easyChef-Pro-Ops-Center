@@ -329,7 +329,19 @@ function writeDriveFile(folderId, filename, content, userKey) {
 // Call this from Operations.gs doPost
 // ═══════════════════════════════════════════════════════════════
 
+// Toggle VERA sheet-write access.
+// Run enableVeraSheetWrites() to re-enable, disableVeraSheetWrites() to block.
+function disableVeraSheetWrites() {
+  PropertiesService.getScriptProperties().setProperty('VERA_SHEET_WRITES_DISABLED', 'true');
+  Logger.log('[VERA] Sheet writes DISABLED');
+}
+function enableVeraSheetWrites() {
+  PropertiesService.getScriptProperties().deleteProperty('VERA_SHEET_WRITES_DISABLED');
+  Logger.log('[VERA] Sheet writes ENABLED');
+}
+
 function handleVeraAction(body) {
+  var _veraWritesDisabled = PropertiesService.getScriptProperties().getProperty('VERA_SHEET_WRITES_DISABLED') === 'true';
 
   // ── VERA CHAT (Taylor → Vera RAG) ──────────────────────────
   if(body.action === 'vera_chat') {
@@ -482,6 +494,9 @@ function handleVeraAction(body) {
 
   // ── EXEC WRITE ────────────────────────────────────────────
   if(body.action === 'exec_write') {
+    if(_veraWritesDisabled) {
+      return respond({ok:false, error:'VERA sheet writes are currently disabled. Run enableVeraSheetWrites() in Apps Script to re-enable.'});
+    }
     var user = (body.user||'').toLowerCase();
     if(user !== 'taylor' && user !== 'steve') {
       return respond({ok:false, error:'Unauthorized'});
