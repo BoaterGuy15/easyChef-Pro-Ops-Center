@@ -26340,6 +26340,10 @@ function _ccRenderDistribution(){
     var base='https://easychefpro.com/'+(b.slug||'').replace(/^\//,'');
     var code=(b.id||'').toLowerCase();
 
+    // Derive DL prefix from actual DL_ID (e.g. DL-FB-0003 → FB) rather than
+    // ch.dl_prefix which still reads 'SOC' from the Channels sheet.
+    var _chPfxMatch=(_dlId(chDLs[0]||{})||'').match(/^DL-([A-Z]+)-/);
+    var chPfx=_chPfxMatch?_chPfxMatch[1]:(ch.dl_prefix||'SOC');
     var dlRows='';
     if(chActive.length){
       dlRows=chActive.map(function(d){
@@ -26358,10 +26362,14 @@ function _ccRenderDistribution(){
           ['Seq','Name / Window','DL_ID','UTM URL','Status'].map(function(c){
             return '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#000">'+c+'</span>';
           }).join('')+'</div>';
-        var emailRows=_EMAIL_SEQS.map(function(s){
-          var dl=chActive[0];
+        var _seqUtmCodes={'SEQ-1':'seq1_welcome','SEQ-2':'seq2_nurture','SEQ-3':'seq3_urgency','SEQ-4':'seq4_launch_day','SEQ-5':'seq5_reengagement'};
+        var emailRows=_EMAIL_SEQS.map(function(s,si){
+          // Bug 1: match DL by seq utm code in utm_content; fall back to position index
+          var seqCode=_seqUtmCodes[s.id]||s.id.toLowerCase().replace(/[^a-z0-9]/g,'_');
+          var dl=chActive.filter(function(d){return (_dlContent(d)||'').toLowerCase().indexOf(seqCode)>=0;})[0]||chActive[si];
           var sc2=s.status==='not_written'?_CC_RED:'#22c55e';
-          var url2=dl?(base+'?utm_source='+ch.utm_source+'&utm_medium='+ch.utm_medium+'&utm_campaign='+code+'&utm_content='+_dlContent(dl)):'—';
+          // Bug 2: use per-sequence utm_campaign code, not the campaign ID
+          var url2=dl?(base+'?utm_source='+ch.utm_source+'&utm_medium='+ch.utm_medium+'&utm_campaign='+seqCode+'&utm_content='+_dlContent(dl)):'—';
           return '<div style="display:grid;grid-template-columns:60px 150px 120px 1fr 100px;gap:8px;align-items:center;padding:8px 14px;border-top:1px solid var(--border)">'+
             '<span style="font-family:\'Courier New\',monospace;font-size:10px;color:'+_CC_RED+'">'+s.id+'</span>'+
             '<span style="font-size:11px;color:var(--text)">'+s.name+'<span style="color:var(--muted)"> · '+s.window+'</span></span>'+
@@ -26384,7 +26392,7 @@ function _ccRenderDistribution(){
       '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:'+_CC_BEIGE+';flex-wrap:wrap">'+
         '<span style="font-size:12px;font-weight:700;color:#000;font-family:\'Courier New\',monospace">'+ch.name.toUpperCase()+'</span>'+
         '<span style="font-size:10px;padding:1px 7px;border-radius:4px;background:#fff;color:#000;border:1px solid rgba(0,0,0,0.12)">'+ch.utm_medium+' / '+ch.utm_source+'</span>'+
-        '<span style="font-size:10px;font-family:\'Courier New\',monospace;color:'+_CC_RED+';background:rgba(255,0,0,0.06);padding:1px 7px;border-radius:4px;border:1px solid rgba(255,0,0,0.2)">'+ch.dl_prefix+'</span>'+
+        '<span style="font-size:10px;font-family:\'Courier New\',monospace;color:'+_CC_RED+';background:rgba(255,0,0,0.06);padding:1px 7px;border-radius:4px;border:1px solid rgba(255,0,0,0.2)">'+chPfx+'</span>'+
         '<span style="margin-left:auto">'+badge+'</span>'+
       '</div>'+
       dlRows+

@@ -186,22 +186,29 @@ function saveCampaignDraft(body) {
           });
 
           if (!_chAssets.length) {
-            // Email channels have no posts — generate one campaign-level DL
+            // Email channels have no posts — generate one DL per active sequence
             var _isEmail = (_chData.utm_medium||'').toLowerCase() === 'email';
             if (!_isEmail) return;
-            _chAssets.push({asset_name:'Email Campaign', descriptor:'email_campaign', asset_type:'email'});
+            var _emailSeqs = _getActiveEmailSeqs(brief.email_sequence_mode || brief.email_sequences);
+            _emailSeqs.forEach(function(seq) {
+              _chAssets.push({asset_name:seq[0]+' — '+seq[1], descriptor:seq[1], asset_type:'email', utm_campaign_override:seq[1]});
+            });
+            if (!_chAssets.length) {
+              _chAssets.push({asset_name:'Email Campaign', descriptor:'email_campaign', asset_type:'email'});
+            }
           }
 
           // Write directly to registry — bypasses generateUtmUrls conflict logic
           // which would cancel sibling-channel entries when force:true
           _chAssets.forEach(function(asset) {
-            var prefix     = asset.asset_type === 'lp' ? 'LP' : (_chData.dl_prefix || 'SOC');
-            var dlId       = _nextDlId(prefix);
-            var utmContent = dlId + '_' + (asset.descriptor || '');
-            var fullUrl    = _baseUrl +
+            var prefix          = asset.asset_type === 'lp' ? 'LP' : (_chData.dl_prefix || 'SOC');
+            var dlId            = _nextDlId(prefix);
+            var utmContent      = dlId + '_' + (asset.descriptor || '');
+            var _assetUtmCode   = asset.utm_campaign_override || _utmCode;
+            var fullUrl         = _baseUrl +
               '?utm_source='   + encodeURIComponent(_chData.utm_source) +
               '&utm_medium='   + encodeURIComponent(_chData.utm_medium) +
-              '&utm_campaign=' + encodeURIComponent(_utmCode) +
+              '&utm_campaign=' + encodeURIComponent(_assetUtmCode) +
               '&utm_content='  + encodeURIComponent(utmContent);
 
             setDlRegistryEntry({
@@ -212,7 +219,7 @@ function saveCampaignDraft(body) {
               destination_url: _baseUrl,
               utm_source:      _chData.utm_source,
               utm_medium:      _chData.utm_medium,
-              utm_campaign:    _utmCode,
+              utm_campaign:    _assetUtmCode,
               status:          'ACTIVE',
               notes:           asset.asset_name || ''
             });
@@ -239,4 +246,25 @@ function saveCampaignDraft(body) {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+/**
+ * Returns [[seqLabel, utm_campaign_code], ...] for the active sequence mode.
+ * Used to generate one DL per email sequence instead of one per campaign.
+ */
+function _getActiveEmailSeqs(raw) {
+  var map = {
+    'seq1_only':      [['SEQ-1','seq1_welcome']],
+    'seq1_seq2':      [['SEQ-1','seq1_welcome'],['SEQ-2','seq2_nurture']],
+    'seq1_seq2_seq3': [['SEQ-1','seq1_welcome'],['SEQ-2','seq2_nurture'],['SEQ-3','seq3_urgency']],
+    'full':           [['SEQ-1','seq1_welcome'],['SEQ-2','seq2_nurture'],['SEQ-3','seq3_urgency'],['SEQ-4','seq4_launch_day']],
+    'seq5_only':      [['SEQ-5','seq5_reengagement']]
+  };
+  if (map[raw]) return map[raw];
+  var n = parseInt(raw, 10);
+  if (isNaN(n)) return map['seq1_seq2'];
+  if (n <= 1) return map['seq1_only'];
+  if (n <= 2) return map['seq1_seq2'];
+  if (n <= 3) return map['seq1_seq2_seq3'];
+  return map['full'];
 }
