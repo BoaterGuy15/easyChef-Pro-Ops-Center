@@ -1279,7 +1279,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <thead><tr>
         <th style="width:28px;padding:4px 2px"></th><th>ID</th><th>Task</th><th>Category</th><th>Pri</th><th>Status</th><th>Owner</th>
         <th class="raci-person-col" data-member="Taylor" title="Taylor — R=Responsible A=Accountable C=Consulted I=Informed">Tay</th><th class="raci-person-col" data-member="Steve" title="Steve — R=Responsible A=Accountable C=Consulted I=Informed">Stv</th><th class="raci-person-col" data-member="Adam" title="Adam — R=Responsible A=Accountable C=Consulted I=Informed">Adm</th><th class="raci-person-col" data-member="Mary" title="Mary — R=Responsible A=Accountable C=Consulted I=Informed">Mry</th><th class="raci-person-col" data-member="JR" title="JR — R=Responsible A=Accountable C=Consulted I=Informed">JR</th><th class="raci-person-col" data-member="Hammad" title="Hammad — R=Responsible A=Accountable C=Consulted I=Informed">Hmd</th><th class="raci-person-col" data-member="Searah" title="Searah — R=Responsible A=Accountable C=Consulted I=Informed">Sea</th><th class="raci-person-col" data-member="Sadee" title="Sadee — R=Responsible A=Accountable C=Consulted I=Informed">Sde</th>
-        <th style="min-width:90px">LP Bar</th><th>Timeline</th><th>ICS Flags / Notes</th>
+        <th>Timeline</th><th>ICS Flags / Notes</th>
       </tr></thead>
       <tbody id="raci-body"></tbody>
     </table>
@@ -5690,9 +5690,6 @@ function buildRaciTable(){
     const _icRaciKey2=_getIncidentCommander()?.raciKey||'Taylor';
     const _tVal=t[_icRaciKey2]||'';
     const _taylorViol=_tVal!==''&&_tVal!=='-'&&_tVal!=='A'&&_tVal!=='A/R';
-    const _lpLinked=_lpFindBarForTask(t.id);
-    const _lpBtnLabel=_lpLinked?(_lpLinked.workstream.split(' ')[0].slice(0,8)+' · '+_lpLinked.name.slice(0,12)+(_lpLinked.name.length>12?'…':'')):' + Link LP';
-    const _lpBtnColor=_lpLinked?'var(--gold)':'var(--muted)';
     const _raciWarnBadge=(_taylorViol||_rCount>1)?('<span title="ICS violation: '+(_taylorViol?_icRaciKey2+'='+_tVal+' (Founder/CEO must be A or A/R)':'')+(_taylorViol&&_rCount>1?' · ':'')+(_rCount>1?_rCount+' R values (need exactly 1)':'')+'" style="font-size:9px;color:var(--red);margin-left:4px;cursor:help;vertical-align:middle">⚠️</span>'):'';
     tr.innerHTML = `
       <td style="padding:4px 2px;text-align:center;width:28px"><span class="raci-no-expand" style="cursor:pointer;font-size:12px;opacity:0.35;user-select:none;display:inline-block" onclick="showTaskModal('${t.id}')" title="Edit task">✏️</span>${(()=>{const _d=_docsCache['task_'+t.id]||[];const _u=_d.some(x=>x.driveFileId&&x.driveFileId!=='');const _l=_d.some(x=>!x.driveFileId||x.driveFileId==='');return (_u?'<span style="font-size:10px;opacity:0.7;pointer-events:none">📎</span>':'')+(_l?'<span style="font-size:10px;opacity:0.7;pointer-events:none">🔗</span>':'');})()}</td>
@@ -5703,7 +5700,6 @@ function buildRaciTable(){
       <td>${statusSelect(t)}</td>
       <td>${ownerSelect(t)}</td>
       ${_atmDefault.map(m=>raciCell(t[m.raciKey]||'',t.id,m.raciKey)).join('')}${customMembers.map(cm=>raciCell(t[cm.raciKey]||'',t.id,cm.raciKey)).join('')}
-      <td style="white-space:nowrap;padding:3px 4px"><button class="raci-no-expand" onclick="event.stopPropagation();event.preventDefault();_showLPBarPicker('${t.id}',this)" title="${_lpLinked?'Linked: '+_lpLinked.name+' ('+(_lpLinked.sd||'').slice(5)+' – '+(_lpLinked.ed||'').slice(5)+')\\nClick to change':'Link this task to a Launch Plan bar'}" style="font-family:'DM Mono',monospace;font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ${_lpBtnColor};background:${_lpLinked?'rgba(201,168,76,0.1)':'transparent'};color:${_lpBtnColor};cursor:pointer;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${_lpBtnLabel}</button></td>
       ${taskProgress(t)}
       <td class="flag-cell"><div class="flag-edit" contenteditable="true" data-placeholder="Add note..." style="color:${t.flagColor||flagColor(t.flag)}" onfocus="showFlagToolbar(this,'${t.id}')" onblur="setTaskFlag('${t.id}',this);hideFlagToolbarSoon()" oninput="_onIcsFlagInput('${t.id}',this)">${t.flag||''}</div></td>
     `;
@@ -16986,7 +16982,12 @@ function _lpSaveBar(item){
     })
     .catch(e=>{ console.error('[DGL] _lpSaveBar network error:',e); _showToast('<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#dc2626">⚠ Bar save network error — check Apps Script</div>',4000); });
   const _resolvedTaskIds=Array.isArray(resolvedItem.taskIds)?resolvedItem.taskIds:String(resolvedItem.taskIds||'').split(',').map(s=>s.trim()).filter(Boolean);
-  _resolvedTaskIds.filter(tid=>!_prevTaskIds.includes(tid)).forEach(tid=>_autoLink('workstream',resolvedItem.id,'task',tid));
+  const _newlyLinked=_resolvedTaskIds.filter(tid=>!_prevTaskIds.includes(tid));
+  _newlyLinked.forEach(tid=>{
+    _autoLink('workstream',resolvedItem.id,'task',tid);
+    const _t=DASHBOARD_DATA.tasks.find(t=>t.id===tid);
+    if(_t&&typeof _lpEnforceTaskDates==='function') _lpEnforceTaskDates(_t,resolvedItem);
+  });
 }
 
 function _lpSetZoom(z){
