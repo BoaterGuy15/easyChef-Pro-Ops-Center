@@ -2386,6 +2386,11 @@ function setTaskStatus(id,val,el){
   task.status=val;
   const _p=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
   task.lastStatusChange=_p.getFullYear()+'-'+String(_p.getMonth()+1).padStart(2,'0')+'-'+String(_p.getDate()).padStart(2,'0');
+  // direct targeted save — bypasses _sheetsLoadSuccess guard so status always persists
+  if(CONFIG.sheetsUrl){
+    const _payload=DASHBOARD_DATA.tasks.map(function(t){var r=Object.assign({},t);delete r.actionPlan;return r;});
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_payload)}).catch(function(){});
+  }
   saveToLocal();
   _logStatusChange(id,_oldStatus,val,'Manual change by '+(window._DGL_USER||'system'));
   setTimeout(function(){ _runStatusAIWorkflow(id,val,_oldStatus); },800);
@@ -13979,6 +13984,11 @@ function masterRefresh(){
   buildAgenda();
   buildAgendaPage();
   if(typeof updateAdPhaseAmounts==='function') updateAdPhaseAmounts();
+  // keep LP + Actions Gantt in sync with any task/status change
+  if(typeof _lpRefreshBarStatuses==='function') _lpRefreshBarStatuses();
+  if(typeof buildLaunchPlan==='function') buildLaunchPlan();
+  if(typeof buildActionsGantt==='function') buildActionsGantt();
+  if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
   saveToLocal();
   updateLiveDot();
   updateBellDot();
