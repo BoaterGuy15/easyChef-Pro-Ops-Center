@@ -97,9 +97,12 @@ function _normalizeKsFields(c, sheetData, lpLockedStr) {
     }
   }
 
-  // email subjects — fall back to headline / subheadline
+  // subheadline — fall back to agitate_block or problem_block
+  if (!c.subheadline) c.subheadline = c.agitate_block || c.problem_block || '';
+
+  // email subjects — use distinct fallbacks so they differ from headline
   if (!c.email_subject_a) c.email_subject_a = c.headline    || '';
-  if (!c.email_subject_b) c.email_subject_b = c.subheadline || '';
+  if (!c.email_subject_b) c.email_subject_b = c.social_hook || c.subheadline || '';
 
   // lp_hero — fall back to headline
   if (!c.lp_hero) c.lp_hero = c.headline || '';
@@ -324,6 +327,7 @@ function campaignKickstart(prompt) {
 
     (themeContext ? themeContext + '\n' : '') +
 
+    'COPY UNIQUENESS — REQUIRED: headline, subheadline, email_subject_a, email_subject_b, lp_hero, and social_hook must each contain DIFFERENT text. Never repeat the same sentence in more than one field.\n\n' +
     'KEY NAMES — LOCKED. These are the only valid key names. Do not rename any of them:\n' +
     'icp_match, icp_code, blueprint, campaign_name, channel_recommendation, channels,\n' +
     'slug, headline, subheadline, email_subject_a, email_subject_b, lp_hero,\n' +
@@ -382,7 +386,7 @@ function campaignKickstart(prompt) {
       },
       payload: JSON.stringify({
         model:      'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
+        max_tokens: 1400,
         system:     systemPrompt,
         messages: [{
           role:    'user',
