@@ -86,7 +86,7 @@ function _setupDocsSheet() {
   for (var i = 1; i <= DOCS_HEADERS.length; i++) {
     sheet.setColumnWidth(i, 160);
   }
-  SpreadsheetApp.getUi().alert('Documents sheet is ready.');
+  Logger.log('Documents sheet is ready.');
   return sheet;
 }
 
