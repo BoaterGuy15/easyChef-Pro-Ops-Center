@@ -2764,3 +2764,119 @@ function _seedIcpLibrary20() {
   try { SpreadsheetApp.getUi().alert('ICP seed done — added: ' + added + ' · skipped (already exist): ' + skipped); } catch(e) {}
   return { added: added, skipped: skipped };
 }
+
+// ── Update 4 sparse existing ICP rows — May 2026 ─────────────────────────────
+// Finds budget_family, health_optimizer, professional, alpha_recruit by column C
+// and writes full profile data in place. Does not create rows or touch super_mom.
+// Run once from Apps Script editor: _updateIcpSparseRows4
+
+function _updateIcpSparseRows4() {
+  var sheet = _getCCSheet(_CC_TAB.ICP);
+  var last  = sheet.getLastRow();
+  var today = '2026-05-08';
+
+  if (last < 2) { Logger.log('ICPProfiles sheet has no data rows.'); return; }
+
+  // col indices (1-based): id=1,name=2,code=3,status=4,demographics=5,
+  // psychographics=6,primary_pain=7,secondary_pain=8,value_trigger=9,
+  // loss_aversion=10,channel_affinity=11,message_hierarchy=12,
+  // conversion_triggers=13,utm_campaign_codes=14,lp_variants=15,
+  // validated=16,validation_notes=17,created_at=18,updated_at=19
+
+  var updates = {
+    budget_family: {
+      name:       'Budget Family',
+      status:     'Pending Validation',
+      validated:  false,
+      demo:       'Female or Male · 28–45 · 2+ kids · HHI $30–65K · one or dual low income · suburban or rural · price-sensitive',
+      psycho:     'Every grocery trip is a math problem. Feels genuine stress when food is wasted. Practical and proud of stretching a dollar.',
+      primary:    '$400/month grocery budget feels impossible to manage. Every wasted item is money her family needed.',
+      secondary:  '$400/month grocery bill where half goes to waste. Buys on sale without a plan. Fridge full but dinner still costs $30 in delivery.',
+      value:      'Saves $111/month on food waste. Makes the $400 budget actually feed the family all month.',
+      loss:       'Every expired item is a bill not paid. Every DoorDash order is a week of lunches gone.',
+      channels:   'Facebook savings groups · Pinterest budget meals · Email dollar-savings subject lines · Nextdoor deals',
+      messaging:  '1. Dollar amount first always. 2. No gimmicks. 3. Simple proof. 4. Free trial removes risk. 5. Walmart integration.',
+      triggers:   '$1,336/year · 800,000 Walmart products · Free to start · No credit card',
+      notes:      'Secondary ICP — validate with beta data before building dedicated funnels'
+    },
+    health_optimizer: {
+      name:       'Health Optimizer',
+      status:     'Pending Validation',
+      validated:  false,
+      demo:       'Female · 28–45 · 1–2 kids or no kids · HHI $60–120K · tracks macros · gym-goer · health-conscious',
+      psycho:     'Food is fuel. Reads nutrition labels. Frustrated no app connects pantry to nutritional outcomes. Wants data not vague advice.',
+      primary:    'No tool connects pantry to meal plan to nutrition score. Tracks everything manually for hours every week.',
+      secondary:  'Meal planning app does not know her pantry. Nutrition app does not help plan meals. Five apps none close the loop.',
+      value:      '6-dimension nutrition scoring. FDA-grade data. Registered dietitians validated every recipe. One app closes the loop.',
+      loss:       'Every untracked meal is a week of effort lost. Every nutrition app that ignores her fridge is another failed subscription.',
+      channels:   'Instagram health · Pinterest nutrition · Email nutrition subject lines · Facebook professional groups',
+      messaging:  '1. 6 nutrition dimensions. 2. FDA-grade data. 3. Registered dietitians. 4. The loop closes.',
+      triggers:   '6-dimension scoring · Registered dietitians · FDA-grade · 10,000 recipe pages',
+      notes:      'Q3 2026 — not validated — do not build funnels until beta data confirms'
+    },
+    professional: {
+      name:       'Working Professional',
+      status:     'Pending Validation',
+      validated:  false,
+      demo:       'Male or Female · 28–40 · single or couple · no kids or 1 young child · HHI $70–150K · urban · food delivery power user',
+      psycho:     'Cooking feels like a project. Time is the scarcest resource. Would cook more without the mental overhead.',
+      primary:    'Food delivery is $400/month and growing. The fridge is full. The plan is missing.',
+      secondary:  'Spends $400/month on delivery. Has groceries that expire while ordering DoorDash. Knows it is irrational but cannot fix it at 8 PM.',
+      value:      '30 minutes fridge to table. No recipe hunting. The app does the thinking after a long day.',
+      loss:       '$400/month on delivery he knows is wrong. Every grocery receipt with expired items is wasted time.',
+      channels:   'LinkedIn future · Instagram · Email · Facebook professional groups · TikTok discovery',
+      messaging:  '1. 30 minutes. 2. No DoorDash. 3. Fridge to table. 4. The app thinks for you.',
+      triggers:   '30 minutes · No DoorDash · $400/month savings · Free to try',
+      notes:      'Q3 2026 — secondary ICP — needs dedicated LP and copy angle'
+    },
+    alpha_recruit: {
+      name:       'Alpha Recruit',
+      status:     'Active',
+      validated:  true,
+      demo:       'Female · 28–45 · Walmart shopper · 2+ kids · suburban · selected from waitlist · high engagement signal',
+      psycho:     'Wants to be first. Proud of being chosen. Will provide honest feedback if experience earns it.',
+      primary:    'Waiting for an app to launch while continuing to waste food and money every week.',
+      secondary:  'Has joined the waitlist but app not live yet. Ready to try. Wants to feel like an insider.',
+      value:      'Early access before anyone else. Shapes the app for 5,000 families. $7.99/month forever.',
+      loss:       'If founding price ends at 5,000 families and she is not in that group she pays $19.99 forever.',
+      channels:   'ConvertKit personal outreach · Email · Direct from Founder',
+      messaging:  '1. You were chosen. 2. Help us build this. 3. $7.99/month forever for founding families.',
+      triggers:   'Personal invite · Founding family · $7.99 locked · First access',
+      notes:      'Active — direct personal outreach only · Founder personal inbox · DL-DIR format'
+    }
+  };
+
+  // Read all codes from column C to find row indices
+  var codes = sheet.getRange(2, 3, last - 1, 1).getValues(); // col C
+  var updated = 0;
+
+  codes.forEach(function(r, i) {
+    var code = String(r[0]).toLowerCase().trim();
+    var u    = updates[code];
+    if (!u) return;
+
+    var rowNum = i + 2; // 1-based, offset by header
+    // Write columns 2–13, 16–17, 19 (leave 1=id, 3=code, 14=utm, 15=lp, 18=created_at unchanged)
+    sheet.getRange(rowNum, 2,  1, 1).setValue(u.name);
+    sheet.getRange(rowNum, 4,  1, 1).setValue(u.status);
+    sheet.getRange(rowNum, 5,  1, 1).setValue(u.demo);
+    sheet.getRange(rowNum, 6,  1, 1).setValue(u.psycho);
+    sheet.getRange(rowNum, 7,  1, 1).setValue(u.primary);
+    sheet.getRange(rowNum, 8,  1, 1).setValue(u.secondary);
+    sheet.getRange(rowNum, 9,  1, 1).setValue(u.value);
+    sheet.getRange(rowNum, 10, 1, 1).setValue(u.loss);
+    sheet.getRange(rowNum, 11, 1, 1).setValue(u.channels);
+    sheet.getRange(rowNum, 12, 1, 1).setValue(u.messaging);
+    sheet.getRange(rowNum, 13, 1, 1).setValue(u.triggers);
+    sheet.getRange(rowNum, 16, 1, 1).setValue(u.validated);
+    sheet.getRange(rowNum, 17, 1, 1).setValue(u.notes);
+    sheet.getRange(rowNum, 19, 1, 1).setValue(today);
+
+    Logger.log('Updated row ' + rowNum + ': ' + code);
+    updated++;
+  });
+
+  Logger.log('_updateIcpSparseRows4: updated=' + updated + ' of 4 targets');
+  try { SpreadsheetApp.getUi().alert('ICP update done — ' + updated + ' rows updated.'); } catch(e) {}
+  return { updated: updated };
+}
