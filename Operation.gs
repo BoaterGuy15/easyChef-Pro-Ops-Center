@@ -806,6 +806,8 @@ function doPost(e) {
       return respond({ok:true,id:_lpId,campaign_id:_lp.campaign_id||'',slug:_lp.slug||''});
     }
 
+    if(body.action === 'create_lp_inventory') return respond(createLpInventoryEntry(body));
+
     // ── Push Notifications sheet ──────────────────────────────────────────────────
     if(body.action === 'push_notifications_read')  return respond({ ok:true, notifications: getPushNotifications(body.campaign_id||'') });
     if(body.action === 'push_notification_write')  { setPushNotification(body.notification); return respond({ ok:true }); }

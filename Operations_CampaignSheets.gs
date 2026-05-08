@@ -2387,6 +2387,50 @@ function setLPInventoryEntry(item) {
   _ccUpsert(sheet, headers, item.id, row);
 }
 
+// ── Create LP from wizard — writes LPInventory + DeepLinkRegistry atomically ──
+// Called by the Build New LP form in Step 2 of the Campaign Center wizard.
+function createLpInventoryEntry(p) {
+  if (!p || !p.slug) return { ok:false, error:'slug required' };
+
+  var dlId  = _nextDlId('LP');
+  var lpId  = 'lp-' + Date.now().toString(36);
+  var now   = _ccNow();
+  var full  = 'https://easychefpro.com/' + p.slug;
+
+  setLPInventoryEntry({
+    id:             lpId,
+    slug:           p.slug,
+    full_url:       full,
+    campaign_type:  p.purpose        || 'Waitlist',
+    blueprint_code: '',
+    icp_codes:      p.icp            || '',
+    campaign_angle: p.angle          || '',
+    lp_variant:     (p.variant||'A').toUpperCase(),
+    headline:       p.headline       || '',
+    cta_primary:    '',
+    proof_bar:      '',
+    status:         'PENDING_DEV',
+    dev_built:      false,
+    notes:          'theme:' + (p.theme||'') + ' · dl:' + dlId + (p.campaign_id ? ' · campaign:' + p.campaign_id : '')
+  });
+
+  setDlRegistryEntry({
+    dl_id:           dlId,
+    utm_content:     'lp_' + String(p.slug).replace(/\//g,'_'),
+    campaign_id:     p.campaign_id   || '',
+    channel:         'lp',
+    destination_url: full,
+    utm_source:      'direct',
+    utm_medium:      'landing_page',
+    utm_campaign:    p.icp           || '',
+    status:          'DRAFT',
+    notes:           'auto-created · Build New LP wizard · theme:' + (p.theme||'')
+  });
+
+  Logger.log('createLpInventoryEntry: slug=' + p.slug + ' dl_id=' + dlId);
+  return { ok:true, slug:p.slug, dl_id:dlId, lp_id:lpId };
+}
+
 // Called automatically from setLandingPage — keeps LPInventory in sync.
 function _registerLpInInventory(slug, campaignId, item) {
   if (!slug) return;

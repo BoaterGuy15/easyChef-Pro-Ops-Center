@@ -24471,23 +24471,22 @@ function _ccKsLpSearch(icp, sortAngle){
   fetch(url)
     .then(function(r){return r.json();})
     .then(function(d){
+      var mf='font-family:\'DM Mono\',monospace;';
+      var _buildBtn='<button onclick="_ccShowBuildLpForm()" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'letter-spacing:0.04em">+ Build New LP</button>';
       if(!d.ok||!d.pages||!d.pages.length){
         res.innerHTML=
-          '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">No existing landing pages found for '+icp+'. Build a new one.</div>'+
-          '<button onclick="_ccKsBuildLp()" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">Build New LP for '+icp+'</button>';
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;'+mf+'">No existing landing pages found for <strong style="color:var(--text)">'+icp+'</strong>. Create a new one from the selected theme.</div>'+
+          _buildBtn;
         return;
       }
       var safe=function(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-      var mf='font-family:\'DM Mono\',monospace;';
       var defaultProof=['$1,336/year','69.5% less food waste','30 min fridge to table'];
       var pages=d.pages.slice();
       var _ct=(_campBrief.theme||'').toLowerCase();
       pages.sort(function(a,b){
-        // Layer 1: theme match first
         var aT=(_ct&&(a.theme||'').toLowerCase()===_ct)?0:1;
         var bT=(_ct&&(b.theme||'').toLowerCase()===_ct)?0:1;
         if(aT!==bT) return aT-bT;
-        // Layer 2: angle match
         if(sortAngle){
           var _sa=sortAngle.toLowerCase();
           var aA=(a.slug||'').indexOf('-b')>-1?'emotion':'savings';
@@ -24499,8 +24498,9 @@ function _ccKsLpSearch(icp, sortAngle){
       var cards=pages.map(function(p){
         var slug=safe(p.slug||'');
         var headline=safe(p.hero_headline||slug);
-        var status=(p.status||'Draft');
-        var statusColor=status==='Live'?'#22c55e':status==='Active'?'#3b82f6':'var(--muted)';
+        var rawStatus=(p.status||'Draft').toUpperCase().replace(/[\s_]+/g,'_');
+        var statusLabel=rawStatus==='PENDING_DEV'?'PENDING DEV':rawStatus==='LIVE'?'LIVE':rawStatus==='DRAFT'?'DRAFT':safe(p.status||'Draft');
+        var statusColor=rawStatus==='LIVE'?'#22c55e':rawStatus==='PENDING_DEV'?'#f59e0b':'var(--muted)';
         var variant=(p.ab_test_variant&&p.ab_test_variant!=='none')?p.ab_test_variant.toUpperCase():(slug.indexOf('-b')>-1?'B':'A');
         var angle=slug.indexOf('-b')>-1?'emotion':'savings';
         var bp=p.blueprint_code||'';
@@ -24530,13 +24530,14 @@ function _ccKsLpSearch(icp, sortAngle){
             defaultProof.map(function(pr){return '<span style="font-size:9px;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:10px;'+mf+'">'+pr+'</span>';}).join('')+
           '</div>'+
           '<div style="display:flex;align-items:center;gap:10px">'+
-            '<span style="font-size:10px;font-weight:700;color:'+statusColor+';border:1px solid '+statusColor+';padding:2px 8px;border-radius:10px;'+mf+'">'+safe(status)+'</span>'+
+            '<span style="font-size:10px;font-weight:700;color:'+statusColor+';border:1px solid '+statusColor+';padding:2px 8px;border-radius:10px;'+mf+'">'+statusLabel+'</span>'+
             '<div style="flex:1"></div>'+
             '<button onclick="_ccKsSelectLp(\''+safeSlug+'\',\''+safeCid+'\',\''+safeHl+'\')" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">Use This LP</button>'+
           '</div>'+
         '</div>';
       }).join('');
-      res.innerHTML='<div>'+cards+'</div>';
+      res.innerHTML='<div>'+cards+'</div>'+
+        '<div style="padding-top:10px;border-top:1px solid var(--border);margin-top:4px">'+_buildBtn+'</div>';
     })
     .catch(function(e){
       if(res) res.innerHTML='<div style="font-size:11px;color:var(--muted)">LP search unavailable: '+e.message+'</div>';
@@ -24586,6 +24587,136 @@ function _ccSaveLpDraft(){
     console.error('[CC] LP save error:',e.message);
   });
 }
+// ── Build New LP form ────────────────────────────────────────────────────────
+var _ccBuildLpCtx = {}; // icp, themeSlug stored here for slug preview updates
+
+function _ccShowBuildLpForm() {
+  var out = document.getElementById('cc-ks-lp-output');
+  if(!out) return;
+  var mf  = 'font-family:\'DM Mono\',monospace;';
+  var IS  = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:12px;'+mf+'box-sizing:border-box';
+  var RO  = IS+';opacity:0.65;cursor:default';
+  var LBL = 'font-size:10px;font-weight:700;letter-spacing:0.05em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px;'+mf;
+  var t   = _ccSelectedTheme || {};
+  var icp       = t.icp_code       || _campBrief.icp            || '';
+  var themeSlug = t.theme_slug     || (t.theme_name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || '';
+  var angle     = t.campaign_angle || _campBrief.campaign_angle || '';
+  var feature   = t.app_feature   || '';
+  var headline  = (_campLastLp && _campLastLp.hero_headline) || '';
+  _ccBuildLpCtx = { icp:icp, themeSlug:themeSlug };
+  var slugPreview = 'lp/'+icp+'/'+themeSlug+'/a';
+  out.innerHTML =
+    '<div style="margin-top:14px;padding:18px;background:var(--surface);border:1px solid var(--border);border-radius:8px;border-top:3px solid '+_CC_RED+'">'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">'+
+      '<div style="font-size:12px;font-weight:700;color:var(--text);'+mf+'letter-spacing:0.06em">BUILD NEW LP</div>'+
+      '<div style="flex:1"></div>'+
+      '<button onclick="_ccHideBuildLpForm()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">✕ Cancel</button>'+
+    '</div>'+
+    // Read-only theme context
+    '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase;'+mf+'">FROM THEME — read only</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;padding:12px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">'+
+      '<div><label style="'+LBL+'">Theme</label><input type="text" value="'+_esc(t.theme_name||'— no theme selected')+'" readonly tabindex="-1" style="'+RO+'"></div>'+
+      '<div><label style="'+LBL+'">ICP</label><input type="text" value="'+_esc(icp||'—')+'" readonly tabindex="-1" style="'+RO+'"></div>'+
+      '<div><label style="'+LBL+'">App Feature</label><input type="text" value="'+_esc(feature||'—')+'" readonly tabindex="-1" style="'+RO+'"></div>'+
+      '<div><label style="'+LBL+'">Campaign Angle</label><input type="text" value="'+_esc(angle||'—')+'" readonly tabindex="-1" style="'+RO+'"></div>'+
+    '</div>'+
+    // User inputs
+    '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase;'+mf+'">YOU FILL</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
+      '<div><label style="'+LBL+'">LP Variant</label>'+
+        '<select id="cc-blp-variant" style="'+IS+'" onchange="_ccBuildLpUpdateSlug()">'+
+          '<option value="a">A — Money Hook</option>'+
+          '<option value="b">B — Simplicity</option>'+
+          '<option value="c">C — Founder</option>'+
+          '<option value="d">D — Alpha</option>'+
+          '<option value="e">E — Beta</option>'+
+          '<option value="custom">Custom</option>'+
+        '</select></div>'+
+      '<div><label style="'+LBL+'">LP Purpose</label>'+
+        '<select id="cc-blp-purpose" style="'+IS+'">'+
+          '<option value="Waitlist">Waitlist</option>'+
+          '<option value="Alpha">Alpha</option>'+
+          '<option value="Beta">Beta</option>'+
+          '<option value="Launch Day">Launch Day</option>'+
+          '<option value="Affiliate">Affiliate</option>'+
+          '<option value="Custom">Custom</option>'+
+        '</select></div>'+
+    '</div>'+
+    '<div style="margin-bottom:16px"><label style="'+LBL+'">Headline <span style="font-size:9px;font-weight:400">(pre-filled from kickstart if run)</span></label>'+
+      '<input id="cc-blp-headline" type="text" value="'+_esc(headline)+'" placeholder="e.g. Stop wasting $1,336 a year on food you never eat" style="'+IS+'">'+
+    '</div>'+
+    // Auto-generated preview
+    '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase;'+mf+'">AUTO-GENERATED</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;padding:12px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">'+
+      '<div><label style="'+LBL+'">LP Slug</label>'+
+        '<input id="cc-blp-slug-preview" type="text" value="'+_esc(slugPreview)+'" readonly tabindex="-1" style="'+RO+'font-size:11px;color:#f59e0b"></div>'+
+      '<div><label style="'+LBL+'">DL ID</label>'+
+        '<input type="text" value="DL-LP-???? (assigned on save)" readonly tabindex="-1" style="'+RO+'font-size:11px"></div>'+
+    '</div>'+
+    '<div style="display:flex;align-items:center;gap:12px">'+
+      '<button onclick="_ccSaveBuildLp()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">💾 Create LP</button>'+
+      '<div id="cc-blp-status" style="font-size:11px;color:var(--muted);'+mf+'"></div>'+
+    '</div>'+
+    '</div>';
+}
+
+function _ccBuildLpUpdateSlug() {
+  var variant = (document.getElementById('cc-blp-variant')||{}).value || 'a';
+  var preview = document.getElementById('cc-blp-slug-preview');
+  if(preview) preview.value = 'lp/'+(_ccBuildLpCtx.icp||'')+'/'+(_ccBuildLpCtx.themeSlug||'')+'/'+variant;
+}
+
+function _ccHideBuildLpForm() {
+  var out = document.getElementById('cc-ks-lp-output');
+  if(out) out.innerHTML = '';
+  var res = document.getElementById('cc-ks-lp-results');
+  if(res) res.style.display = '';
+}
+
+function _ccSaveBuildLp() {
+  var variant  = ((document.getElementById('cc-blp-variant')||{}).value  || 'a');
+  var purpose  = ((document.getElementById('cc-blp-purpose')||{}).value  || 'Waitlist');
+  var headline = ((document.getElementById('cc-blp-headline')||{}).value || '');
+  var slug     = ((document.getElementById('cc-blp-slug-preview')||{}).value || '').trim();
+  var statusEl = document.getElementById('cc-blp-status');
+  if(!slug){ if(statusEl){statusEl.textContent='⚠️ Slug required';statusEl.style.color='#ef4444';} return; }
+  if(!CONFIG.sheetsUrl){ if(statusEl){statusEl.textContent='⚠️ No sheet URL';statusEl.style.color='#ef4444';} return; }
+  if(statusEl){statusEl.textContent='Creating…';statusEl.style.color='var(--muted)';}
+  var btn=document.querySelector('#cc-ks-lp-output button[onclick="_ccSaveBuildLp()"]');
+  if(btn){btn.disabled=true;btn.textContent='Creating…';}
+  var t = _ccSelectedTheme || {};
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+    action:      'create_lp_inventory',
+    slug:        slug,
+    icp:         t.icp_code       || _campBrief.icp            || '',
+    theme:       t.theme_name     || '',
+    variant:     variant.toUpperCase(),
+    purpose:     purpose,
+    headline:    headline,
+    angle:       t.campaign_angle || _campBrief.campaign_angle || '',
+    campaign_id: _campBrief.id   || ''
+  })})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(!d.ok){
+      if(statusEl){statusEl.textContent='⚠️ '+(d.error||'Save failed');statusEl.style.color='#ef4444';}
+      if(btn){btn.disabled=false;btn.textContent='💾 Create LP';}
+      return;
+    }
+    // Show confirmation banner, then auto-select
+    var out=document.getElementById('cc-ks-lp-output');
+    if(out) out.innerHTML=
+      '<div style="padding:10px 14px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.25);border-radius:6px;font-size:11px;color:#22c55e;font-family:\'DM Mono\',monospace;margin-top:14px">'+
+        '✓ LP created — pending dev build &nbsp;·&nbsp; slug: /'+_esc(d.slug)+' &nbsp;·&nbsp; DL: '+_esc(d.dl_id)+
+      '</div>';
+    setTimeout(function(){ _ccKsSelectLp(d.slug, d.lp_id||'', headline); }, 400);
+  })
+  .catch(function(e){
+    if(statusEl){statusEl.textContent='⚠️ '+e.message;statusEl.style.color='#ef4444';}
+    if(btn){btn.disabled=false;btn.textContent='💾 Create LP';}
+  });
+}
+
 // User picks an existing LP — sets the brief slug
 function _ccKsSelectLp(slug,campaignId,headline){
   _campBrief.slug=slug;
