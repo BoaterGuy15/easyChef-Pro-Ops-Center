@@ -22041,8 +22041,87 @@ var _CC_CAMPAIGN_ANGLES  = ['speed','savings','waste','health','convenience','co
 var _CC_APP_FEATURE_LABELS = {TRACK:'Pantry Intelligence',PLAN:'Meal Planning Engine',OPTIMIZE:'Nutrition Scoring',COOK:'Recipe Engine',SHOP:'Shopping List Generator'};
 var _CC_APP_SCREEN_LABELS  = {TRACK:'Pantry view',PLAN:'Meal Plan view',OPTIMIZE:'Nutrition score view',COOK:'Recipe page',SHOP:'Shopping List view'};
 
+// Static fallback — mirrors _seedCcSettings + _appendCcSettingsRows in GAS.
+// Only used when the sheet fetch fails or returns empty.
+var _CC_SETTINGS_FALLBACK = {
+  theme_categories: [
+    {key:'weeknight-wins',label:'Weeknight Wins',extra:''},{key:'weekend-wins',label:'Weekend Wins',extra:''},
+    {key:'seasonal',label:'Seasonal',extra:''},{key:'health',label:'Health & Nutrition',extra:''},
+    {key:'savings',label:'Savings & Budget',extra:''},{key:'founder',label:'Founder Story',extra:''},
+    {key:'program',label:'Program Promo',extra:''},{key:'date-night',label:'Date Night',extra:''},
+    {key:'picnic',label:'Picnic & Outdoor',extra:''},{key:'special-occasion',label:'Special Occasion',extra:''},
+    {key:'meal-prep',label:'Meal Prep',extra:''},{key:'family-gathering',label:'Family Gathering',extra:''},
+    {key:'quick-wins',label:'Quick Wins',extra:''},{key:'budget-friendly',label:'Budget Friendly',extra:''},
+    {key:'pre-launch',label:'Pre-Launch',extra:''},{key:'alpha-program',label:'Alpha Program',extra:''},
+    {key:'beta-program',label:'Beta Program',extra:''},{key:'holiday',label:'Holiday',extra:''},
+    {key:'game-day',label:'Game Day',extra:''},{key:'lunch-prep',label:'Lunch Prep',extra:''},
+    {key:'breakfast-wins',label:'Breakfast Wins',extra:''},{key:'snack-attack',label:'Snack Attack',extra:''},
+    {key:'leftovers',label:'Leftovers',extra:''},{key:'birthday',label:'Birthday & Celebrations',extra:''},
+    {key:'summer',label:'Summer Eats',extra:''},{key:'winter',label:'Winter Comfort',extra:''},
+    {key:'founders-journey',label:'Founders Journey',extra:''}
+  ],
+  journey_types: [
+    {key:'awareness',label:'Awareness',extra:'awareness_screen'},{key:'consideration',label:'Consideration',extra:'consideration_screen'},
+    {key:'conversion',label:'Conversion',extra:'conversion_screen'},{key:'retention',label:'Retention',extra:'retention_screen'},
+    {key:'advocacy',label:'Advocacy',extra:'advocacy_screen'},{key:'date-night',label:'Date Night',extra:'COOK'},
+    {key:'picnic',label:'Picnic Planning',extra:'PLAN'},{key:'family-gathering',label:'Family Gathering',extra:'COOK'},
+    {key:'meal-prep-sunday',label:'Meal Prep Sunday',extra:'PLAN'},{key:'quick-dinner',label:'Quick Dinner Under 30',extra:'COOK'},
+    {key:'grocery-budget',label:'Grocery Budget',extra:'TRACK'},{key:'nutrition-goal',label:'Nutrition Goal',extra:'OPTIMIZE'},
+    {key:'pre-launch-waitlist',label:'Pre-Launch Waitlist',extra:''},{key:'alpha-onboarding',label:'Alpha Onboarding',extra:'TRACK'},
+    {key:'beta-testing',label:'Beta Testing',extra:'COOK'},{key:'holiday-prep',label:'Holiday Prep',extra:'PLAN'},
+    {key:'game-night',label:'Game Night',extra:'COOK'},{key:'kids-lunchbox',label:'Kids Lunchbox',extra:'PLAN'},
+    {key:'breakfast-prep',label:'Breakfast Prep',extra:'PLAN'},{key:'leftovers-rescue',label:'Leftovers Rescue',extra:'COOK'},
+    {key:'birthday-dinner',label:'Birthday Dinner',extra:'COOK'},{key:'summer-grill',label:'Summer Grilling',extra:'COOK'},
+    {key:'winter-comfort',label:'Winter Comfort Food',extra:'COOK'},{key:'founders-journey',label:'Founders Journey',extra:''},
+    {key:'pantry-cleanout',label:'Pantry Clean Out',extra:'TRACK'}
+  ],
+  app_features: [
+    {key:'TRACK',label:'Pantry Intelligence',extra:'Pantry view'},{key:'PLAN',label:'Meal Planning Engine',extra:'Meal Plan view'},
+    {key:'OPTIMIZE',label:'Nutrition Scoring',extra:'Nutrition score view'},{key:'COOK',label:'Recipe Engine',extra:'Recipe page'},
+    {key:'SHOP',label:'Shopping List Generator',extra:'Shopping List view'},
+    {key:'receipt-scanning',label:'Receipt Scanning (TRACK)',extra:'Pantry view'},
+    {key:'expiry-alerts',label:'Expiry Alerts (TRACK)',extra:'Pantry view'},
+    {key:'pantry-inventory',label:'Pantry Inventory (TRACK)',extra:'Pantry view'},
+    {key:'waste-tracker',label:'Waste Tracker (TRACK)',extra:'Pantry view'},
+    {key:'weekly-meal-plan',label:'Weekly Meal Plan (PLAN)',extra:'Meal Plan view'},
+    {key:'recipe-suggestions',label:'Recipe Suggestions (PLAN)',extra:'Meal Plan view'},
+    {key:'nutrition-scoring',label:'Nutrition Score View (OPTIMIZE)',extra:'Nutrition score view'},
+    {key:'meal-rating',label:'Meal Rating (OPTIMIZE)',extra:'Nutrition score view'},
+    {key:'fda-grade-data',label:'FDA Grade Data (OPTIMIZE)',extra:'Nutrition score view'},
+    {key:'step-by-step',label:'Step by Step Cooking (COOK)',extra:'Recipe page'},
+    {key:'30-min-recipes',label:'30 Minute Recipes (COOK)',extra:'Recipe page'},
+    {key:'walmart-cart',label:'Walmart Cart (SHOP)',extra:'Shopping List view'},
+    {key:'smart-list',label:'Smart List Generator (SHOP)',extra:'Shopping List view'},
+    {key:'restock-alerts',label:'Restock Alerts (SHOP)',extra:'Shopping List view'},
+    {key:'budget-tracker',label:'Budget Tracker (SHOP)',extra:'Shopping List view'}
+  ],
+  campaign_angles: [
+    {key:'speed',label:'Speed & Simplicity',extra:''},{key:'savings',label:'Savings',extra:''},
+    {key:'waste',label:'Reduce Waste',extra:''},{key:'health',label:'Health',extra:''},
+    {key:'convenience',label:'Convenience',extra:''},{key:'community',label:'Community',extra:''},
+    {key:'founder',label:'Founder',extra:''},{key:'romance',label:'Romance',extra:''},
+    {key:'celebration',label:'Celebration',extra:''},{key:'discovery',label:'Discovery',extra:''},
+    {key:'urgency',label:'Urgency',extra:''},{key:'nostalgia',label:'Nostalgia',extra:''},
+    {key:'empowerment',label:'Empowerment',extra:''},{key:'trust',label:'Trust Building',extra:''},
+    {key:'exclusivity',label:'Exclusivity',extra:''},{key:'simplicity',label:'Simplicity',extra:''},
+    {key:'transformation',label:'Transformation',extra:''},{key:'family',label:'Family First',extra:''},
+    {key:'pride',label:'Pride & Accomplishment',extra:''},{key:'adventure',label:'Culinary Adventure',extra:''}
+  ]
+};
+
+function _ccHasSettingsContent(data) {
+  return data && (
+    (data.theme_categories||[]).length > 0 ||
+    (data.journey_types||[]).length    > 0 ||
+    (data.app_features||[]).length     > 0 ||
+    (data.campaign_angles||[]).length  > 0
+  );
+}
+
 function _ccApplySettings(data) {
   if(!data) return;
+  // If sheet returned empty arrays for all sections, fall back to static seed data
+  if(!_ccHasSettingsContent(data)) data = _CC_SETTINGS_FALLBACK;
   _ccSettingsData = data;
   if(data.theme_categories && data.theme_categories.length)
     _CC_THEME_CATEGORIES = data.theme_categories.map(function(r){return r.key;});
@@ -22059,8 +22138,14 @@ function _ccApplySettings(data) {
 }
 
 function _ccLoadSettings(cb) {
-  if(_ccSettingsLoaded && _ccSettingsData) { if(cb) cb(); return; }
-  if(!CONFIG.sheetsUrl) { _ccSettingsLoaded=true; if(cb) cb(); return; }
+  // Only use cache if it has actual content — empty-but-truthy data is not a valid cache hit
+  if(_ccSettingsLoaded && _ccHasSettingsContent(_ccSettingsData)) { if(cb) cb(); return; }
+  if(!CONFIG.sheetsUrl) {
+    _ccSettingsLoaded=true;
+    _ccApplySettings(_CC_SETTINGS_FALLBACK);
+    if(cb) cb();
+    return;
+  }
   fetch(CONFIG.sheetsUrl+'?action=get_settings')
     .then(function(r){return r.json();})
     .then(function(d){
@@ -22068,7 +22153,11 @@ function _ccLoadSettings(cb) {
       _ccSettingsLoaded = true;
       if(cb) cb();
     })
-    .catch(function(){ _ccSettingsLoaded=true; if(cb) cb(); });
+    .catch(function(){
+      _ccApplySettings(_CC_SETTINGS_FALLBACK);
+      _ccSettingsLoaded = true;
+      if(cb) cb();
+    });
 }
 
 function _ccSaveSettingSection(section, rows, statusId, cb) {
@@ -22380,6 +22469,9 @@ function _ccToggleNewTheme() {
   if(!wrap) return;
   if(_ccNewThemeVisible) {
     _ccNewThemeDraft = {};
+    // Always force a fresh settings fetch so dropdowns reflect live sheet data
+    _ccSettingsLoaded = false;
+    _ccSettingsData   = null;
     wrap.innerHTML = '<div style="padding:16px;font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Loading settings…</div>';
     wrap.style.display = 'block';
     if(btn){ btn.textContent='✕ Cancel'; btn.style.color='var(--muted)'; }
