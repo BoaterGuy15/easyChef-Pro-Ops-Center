@@ -19,7 +19,8 @@ var _AB_ARCH =
   'Every email, every social post, every ad drives to the campaign landing page URL.\n' +
   'Each asset carries its own DL_ID in the UTM so attribution is tracked per asset, not per page.\n' +
   'PRODUCT NAME: Always write "easyChef Pro". Never "the app", "this app", or "a meal planning app".\n' +
-  'CTA RULE: Every CTA drives to the landing page. Never link to the main website or App Store (pre-launch).\n\n';
+  'CTA RULE: Every CTA drives to the landing page. Never link to the main website or App Store (pre-launch).\n' +
+  'PRODUCT FEATURES — 5 features in one complete loop: TRACK (Pantry & Waste Screen) → PLAN (Meal Planning Screen) → OPTIMIZE (Savings Dashboard) → COOK (Recipe & Cook Mode) → SHOP (Shopping List Screen). Never write "4 features". Never omit SHOP from any complete product description.\n\n';
 
 var _AB_VOICE =
   'Brand voice: Warm, direct, empathetic. Never shame-based. No jargon.\n' +
