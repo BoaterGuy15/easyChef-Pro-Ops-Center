@@ -6,7 +6,7 @@
 //   00 — Campaign Brief     (HTML file, browser-renderable)
 //   01 — Social Posts       (HTML file, browser-renderable)
 //   02 — Email Sequences    (HTML file, browser-renderable)
-//   03 — LP Brief           (Google Doc, branded)
+//   03 — LP Reference       (HTML file, browser-renderable)
 //   04 — Campaign Calendar  (Google Sheet — same columns as CSV export)
 //
 // Called via action='export_to_drive' in doPost.
@@ -101,40 +101,16 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       }
     } catch(e) { Logger.log('[DriveExport] emails html error: ' + e.message); }
 
-    // ── 5. 03 — LP Brief ────────────────────────────────────────────────────
-    Logger.log('[DriveExport] Section 5: LP Brief');
+    // ── 5. 03 — LP Reference (HTML file) ────────────────────────────────────
+    Logger.log('[DriveExport] Section 5: LP Reference HTML');
     try {
-      if (lp && (lp.hero_headline || lp.slug || lp.solve_section)) {
-        var lpDoc  = _newDoc('03 — LP Brief', folder);
-        var lpBody = lpDoc.getBody();
-        lpBody.clear();
-        _docBrandHeader(lpBody, brief.name || '', brief.launchDate);
-        _dh1(lpBody, 'Landing Page Brief');
-        _dpair(lpBody, 'URL',   'https://easychefpro.com/' + (lp.slug || brief.slug || ''));
-        _dpair(lpBody, 'Slug',  lp.slug            || brief.slug || '');
-        _dpair(lpBody, 'ICP',   lp.icp             || brief.icp  || '');
-        _dpair(lpBody, 'Theme', lp.theme           || brief.theme|| '');
-        lpBody.appendParagraph('');
-        _dh2(lpBody, 'Hero');
-        _dpair(lpBody, 'Headline',    lp.hero_headline    || '');
-        _dpair(lpBody, 'Subheadline', lp.hero_subheadline || '');
-        _dpair(lpBody, 'CTA',         lp.cta_primary || lp.hero_cta || '');
-        lpBody.appendParagraph('');
-        _dh2(lpBody, 'Sections');
-        if (lp.problem_section)  _dpair(lpBody, 'Problem',     lp.problem_section);
-        if (lp.agitate_section)  _dpair(lpBody, 'Agitate',     lp.agitate_section);
-        if (lp.solve_section)    _dpair(lpBody, 'Solve',       lp.solve_section);
-        if (lp.social_proof)     _dpair(lpBody, 'Social Proof',lp.social_proof);
-        if (lp.proof_items) {
-          _dpair(lpBody, 'Proof Bar', Array.isArray(lp.proof_items) ? lp.proof_items.join('  ·  ') : lp.proof_items);
-        }
-        lpBody.appendParagraph('');
-        _docBodyPara(lpBody, 'Handoff Note: Verify slug is live in Webflow before activating UTMs.');
-        _docBrandFooter(lpBody);
-        lpDoc.saveAndClose();
-        docUrls.lp = 'https://docs.google.com/document/d/' + lpDoc.getId() + '/view';
-      }
-    } catch(e) { Logger.log('[DriveExport] lp doc error: ' + e.message); }
+      var lpRefHtml = _buildLpReferenceHtml(brief, copy, lp, posts, emails, _genDate);
+      var lpRefFile = DriveApp.createFile('03 — LP Reference.html', lpRefHtml, MimeType.HTML);
+      lpRefFile.moveTo(folder);
+      try { lpRefFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
+      docUrls.lp = lpRefFile.getUrl();
+      Logger.log('[DriveExport] lp reference html: ' + lpRefFile.getId());
+    } catch(e) { Logger.log('[DriveExport] lp reference html error: ' + e.message); }
 
     // ── 6. 04 — Campaign Calendar (branded spreadsheet) ────────────────────
     try {
@@ -437,6 +413,165 @@ function _docBodyPara(body, text) {
 function _deSafe(str, maxLen) {
   return String(str || '').replace(/[\/\\:*?"<>|]/g, '').trim().substring(0, maxLen || 80);
 }
+
+// ── HTML LP Reference builder ─────────────────────────────────────────────────
+function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
+  lp   = lp   || {};
+  copy = copy || {};
+  var _h = function(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  };
+
+  var slug     = lp.slug || brief.slug || 'waitlist-a';
+  var lpUrl    = 'easychefpro.com/lp/' + slug;
+  var canonUrl = 'https://easychefpro.com/lp/' + slug;
+  var icp      = lp.icp  || brief.icp  || '';
+
+  // Collect all active DL IDs across posts + emails
+  var dlIdMap = {};
+  (Array.isArray(posts)  ? posts  : []).forEach(function(p) { if (p.dl_id) dlIdMap[p.dl_id] = 1; });
+  (Array.isArray(emails) ? emails : []).forEach(function(e) { if (e.dl_id) dlIdMap[e.dl_id] = 1; });
+  var dlIds = Object.keys(dlIdMap).sort().join(' · ') || '—';
+
+  // Proof bar — use lp.proof_items or approved-claims default
+  var proofBar = Array.isArray(lp.proof_items)
+    ? lp.proof_items.join(' · ')
+    : (lp.proof_items || '$1,336/year savings · 69.5% less food waste · 30 min fridge to table');
+
+  var ctaCopy = (lp.cta_primary || copy.cta_primary || '') +
+                (lp.cta_url ? '  →  ' + lp.cta_url : ('  →  ' + canonUrl));
+
+  // 7-step arc rows
+  var steps = [
+    ['1', 'HOOK',    'Hero headline',       lp.hero_headline   || copy.headline    || ''],
+    ['2', 'PROBLEM', 'Problem block',       lp.problem_section || ''],
+    ['3', 'AGITATE', 'Agitate block',       lp.agitate_section || ''],
+    ['4', 'SOLVE',   'Solve block',         lp.solve_section   || ''],
+    ['5', 'VALUE',   'Value statement',     lp.social_proof    || copy.subheadline || ''],
+    ['6', 'PROOF',   'Proof bar (3 stats)', proofBar],
+    ['7', 'CTA',     'Primary CTA + URL',   ctaCopy]
+  ];
+  var stepsRows = '';
+  steps.forEach(function(s) {
+    stepsRows += '  <tr>'
+      + '<td class="td-step td-center">' + _h(s[0]) + '</td>'
+      + '<td class="td-step td-center">' + _h(s[1]) + '</td>'
+      + '<td class="td-dim">'           + _h(s[2]) + '</td>'
+      + '<td>'                          + _h(s[3]) + '</td>'
+      + '</tr>\n';
+  });
+
+  // SEO meta
+  var metaTitle = lp.meta_title       || '';
+  var metaDesc  = lp.meta_description || '';
+  var ogTitle   = lp.og_title         || metaTitle;
+  var ogDesc    = lp.og_description   || metaDesc;
+  var mtLen     = metaTitle ? ' <span class="char-count">(' + metaTitle.length + ' chars)</span>' : '';
+  var mdLen     = metaDesc  ? ' <span class="char-count">(' + metaDesc.length  + ' chars)</span>' : '';
+
+  var blueprint = _h(brief.funnel || 'Blueprint A-Waitlist');
+  var variant   = _h(lp.variant   || 'A &mdash; Money Funnel');
+
+  var css = '<style>\n'
+  + '  * { margin:0; padding:0; box-sizing:border-box; }\n'
+  + '  :root { --red:#FF0000; --black:#000000; --beige:#F6EFE8; --white:#FFFFFF; --gray:#666666; --body:#333333; --border:#DDDDDD; --warn-bg:#FFF8E1; --warn-border:#F5A623; }\n'
+  + '  body { font-family:\'Inter\',Arial,sans-serif; font-size:13px; color:var(--black); background:var(--white); padding:40px; max-width:920px; margin:0 auto; }\n'
+  + '  .header { padding-bottom:16px; border-bottom:3px solid var(--red); margin-bottom:24px; }\n'
+  + '  .logo { height:45px; width:auto; display:block; margin-bottom:16px; }\n'
+  + '  .doc-title { font-family:\'Proza Libre\',serif; font-size:28px; font-weight:700; color:var(--black); margin-bottom:4px; }\n'
+  + '  .doc-subtitle { font-family:\'Proza Libre\',serif; font-size:18px; font-weight:700; color:var(--red); margin-bottom:8px; }\n'
+  + '  .doc-meta { font-size:12px; color:var(--gray); }\n'
+  + '  .warning-banner { display:flex; align-items:flex-start; gap:12px; background:var(--warn-bg); border:2px solid var(--warn-border); border-radius:4px; padding:14px 18px; margin-bottom:28px; font-size:13px; line-height:1.5; color:#7D4A00; }\n'
+  + '  .warn-icon { font-size:20px; flex-shrink:0; line-height:1.2; }\n'
+  + '  .sec-header { background:var(--black); color:var(--white); font-family:\'Inter\',sans-serif; font-size:11px; font-weight:600; letter-spacing:0.08em; padding:9px 14px; border-radius:3px 3px 0 0; margin-top:28px; }\n'
+  + '  table { width:100%; border-collapse:collapse; margin-bottom:0; border-radius:0 0 3px 3px; overflow:hidden; }\n'
+  + '  thead tr { background:var(--red); }\n'
+  + '  thead th { font-size:11px; font-weight:600; color:var(--white); text-align:left; padding:8px 12px; border:1px solid var(--red); }\n'
+  + '  tbody tr:nth-child(odd)  { background:var(--white); }\n'
+  + '  tbody tr:nth-child(even) { background:var(--beige); }\n'
+  + '  tbody td { font-size:12px; padding:8px 12px; border:1px solid var(--border); vertical-align:top; color:var(--body); }\n'
+  + '  .td-label  { font-weight:600; background:var(--beige)!important; white-space:nowrap; color:var(--black); width:26%; }\n'
+  + '  .td-step   { font-weight:700; color:var(--red); background:var(--beige)!important; }\n'
+  + '  .td-center { text-align:center; width:7%; }\n'
+  + '  .td-dim    { color:var(--gray); font-size:11px; width:22%; }\n'
+  + '  .char-count { color:var(--gray); font-size:11px; }\n'
+  + '  .badge-blocker { display:inline-block; background:#CC0000; color:var(--white); padding:2px 8px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:0.05em; }\n'
+  + '  .footer { margin-top:40px; padding-top:12px; border-top:2px solid var(--red); font-size:11px; color:var(--gray); }\n'
+  + '  @media print { body { padding:20px; } .sec-header { page-break-before:auto; } }\n'
+  + '</style>\n';
+
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+  + '<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1.0">\n'
+  + '<title>easyChef Pro — LP Reference</title>\n'
+  + '<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">\n'
+  + css + '</head>\n<body>\n\n'
+
+  // ── HEADER ──
+  + '<div class="header">\n'
+  + '  <img class="logo" src="https://ops.dgl.dev/assets/EasyChefProHorizontal.jpg" alt="easyChef Pro">\n'
+  + '  <div class="doc-title">LP Reference</div>\n'
+  + '  <div class="doc-subtitle">' + _h(slug) + ' &nbsp;&middot;&nbsp; Variant ' + variant + '</div>\n'
+  + '  <div class="doc-meta">' + _h(brief.id) + ' &nbsp;&middot;&nbsp; ' + _h(lpUrl) + ' &nbsp;&middot;&nbsp; ' + blueprint + '</div>\n'
+  + '</div>\n\n'
+
+  // ── WARNING BANNER ──
+  + '<div class="warning-banner">'
+  + '<span class="warn-icon">&#9888;</span>'
+  + '<span>Thank-you page <strong>/thank-you</strong> is NOT BUILT &mdash; this is the #1 hard blocker for Convert.com Primary Goal and A/B test tracking.</span>'
+  + '</div>\n\n'
+
+  // ── 01 PAGE DETAILS ──
+  + '<div class="sec-header">01 &mdash; PAGE DETAILS</div>\n'
+  + '<table><tbody>\n'
+  + '  <tr><td class="td-label">URL</td><td>' + _h(lpUrl) + '</td></tr>\n'
+  + '  <tr><td class="td-label">Variant</td><td>Variant ' + variant + '</td></tr>\n'
+  + '  <tr><td class="td-label">ICP</td><td>' + _h(icp) + '</td></tr>\n'
+  + '  <tr><td class="td-label">Conversion Goal</td><td>waitlist_signup_completed</td></tr>\n'
+  + '  <tr><td class="td-label">Thank-you URL</td><td>/thank-you &nbsp;<span class="badge-blocker">NOT BUILT &mdash; HARD BLOCKER</span></td></tr>\n'
+  + '  <tr><td class="td-label">Script Install Order</td><td>Convert.com <strong>FIRST</strong> &nbsp;&middot;&nbsp; Clarity <strong>SECOND</strong> &nbsp;&middot;&nbsp; GA4 <strong>THIRD</strong></td></tr>\n'
+  + '</tbody></table>\n\n'
+
+  // ── 02 7-STEP COPY STRUCTURE ──
+  + '<div class="sec-header">02 &mdash; 7-STEP COPY STRUCTURE</div>\n'
+  + '<table>\n'
+  + '  <thead><tr><th style="width:6%">Step</th><th style="width:12%">Name</th><th style="width:22%">Job</th><th>Copy</th></tr></thead>\n'
+  + '  <tbody>\n' + stepsRows + '  </tbody>\n</table>\n\n'
+
+  // ── 03 IMAGE SPECS ──
+  + '<div class="sec-header">03 &mdash; IMAGE SPECS</div>\n'
+  + '<table><tbody>\n'
+  + '  <tr><td class="td-label">Hero Image Brief</td><td>' + _h(lp.image_brief || brief.image_brief || '') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Dimensions</td><td>1200 &times; 630px</td></tr>\n'
+  + '  <tr><td class="td-label">Format</td><td>JPG</td></tr>\n'
+  + '</tbody></table>\n\n'
+
+  // ── 04 SEO META ──
+  + '<div class="sec-header">04 &mdash; SEO META</div>\n'
+  + '<table><tbody>\n'
+  + '  <tr><td class="td-label">Meta Title <span class="char-count">(60 max)</span></td><td>'   + _h(metaTitle) + mtLen + '</td></tr>\n'
+  + '  <tr><td class="td-label">Meta Description <span class="char-count">(155 max)</span></td><td>' + _h(metaDesc)  + mdLen + '</td></tr>\n'
+  + '  <tr><td class="td-label">OG Title</td><td>'       + _h(ogTitle)   + '</td></tr>\n'
+  + '  <tr><td class="td-label">OG Description</td><td>' + _h(ogDesc)    + '</td></tr>\n'
+  + '  <tr><td class="td-label">Canonical URL</td><td>'  + _h(canonUrl)  + '</td></tr>\n'
+  + '</tbody></table>\n\n'
+
+  // ── 05 TRACKING ──
+  + '<div class="sec-header">05 &mdash; TRACKING</div>\n'
+  + '<table><tbody>\n'
+  + '  <tr><td class="td-label">GA4 Measurement ID</td><td>G-Q4DYEEXFKV</td></tr>\n'
+  + '  <tr><td class="td-label">Convert.com Account</td><td>10019256</td></tr>\n'
+  + '  <tr><td class="td-label">Microsoft Clarity ID</td><td>wjxhprug80</td></tr>\n'
+  + '  <tr><td class="td-label">Conversion Event</td><td>waitlist_signup_completed</td></tr>\n'
+  + '  <tr><td class="td-label">Active DL_IDs</td><td>' + _h(dlIds) + '</td></tr>\n'
+  + '</tbody></table>\n\n'
+
+  // ── FOOTER ──
+  + '<div class="footer">easyChef Pro &nbsp;&middot;&nbsp; Digital Galactica Labs LLC &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; Generated '
+  + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
+  + '</body>\n</html>';
+}
+
 
 // ── HTML Social Posts builder ─────────────────────────────────────────────────
 function _buildSocialPostsHtml(brief, posts, genDate) {
