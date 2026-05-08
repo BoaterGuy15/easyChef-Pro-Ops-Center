@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Tech Stack
 
 - Single HTML file: `ops-dashboard.html` — vanilla JavaScript, inline CSS, no frameworks, no build step, no npm
-- Public marketing site root: `index.html` (formerly `landing.html`) — the coming soon / waitlist page served at easychefpro.com
+- Public marketing site root: `index.html` — the coming soon / waitlist page served at easychefpro.com
 - Supporting source data (read-only reference, not loaded by the app):
   - `EasyChefPro_RACI.xlsx` — RACI tracker
   - `easyChef-Pro-Launch-Roadmap.xlsx` — 10-week roadmap
