@@ -21103,8 +21103,8 @@ function _showActionEditPanel(actId){
     if(typeof _debouncedBuildMilestones==='function') _debouncedBuildMilestones();
     if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(Object.assign({action:'action_update',id:actId},updates))}).catch(function(){});
     statusLine.textContent='✓ Saved';
-    setTimeout(function(){statusLine.textContent='';},2000);
-    if(overrideStatus==='complete') setTimeout(function(){panel.remove();},800);
+    if(typeof buildActionsGantt==='function') buildActionsGantt();
+    setTimeout(function(){panel.remove();},700);
   }
 
   saveBtn.onclick=function(){_doSave();};
