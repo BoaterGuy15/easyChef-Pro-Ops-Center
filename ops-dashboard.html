@@ -23978,7 +23978,7 @@ function _ccRunFullCampaign(campaignId){
     // ── Step 1: Load brief ──────────────────────────────────────────────────
     .then(function(){
       step('Loading ' + campaignId + ' brief from Campaign Center sheet…');
-      return _get('action=campaign_brief_read&id='+encodeURIComponent(campaignId));
+      return _post('campaign_brief_read',{id:campaignId});
     })
     .then(function(r){
       if(!r.briefs) throw new Error('Brief not found — run the wizard first to create ' + campaignId);

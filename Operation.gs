@@ -511,6 +511,7 @@ function doGet(e) {
       catch(e) { return respond({ok:true, criteria:null}); }
     }
     if(e.parameter.action === 'campaign_types_read')   return respond({ok:true, types:      getCampaignTypes()});
+    if(e.parameter.action === 'campaign_brief_read')   return respond({ok:true, briefs:     getCampaignBriefs(e.parameter.id||'')});
     if(e.parameter.action === 'funnel_stages_read')    return respond({ok:true, stages:     getFunnelStages()});
     if(e.parameter.action === 'blueprint_configs_read') {
       var _bps = getBlueprintConfigs();
