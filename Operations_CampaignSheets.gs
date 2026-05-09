@@ -49,7 +49,8 @@ var _CC_HDR = {
     'created_by','created_at','updated_at','notes',
     'post_count','post_frequency','email_sequences','email_variants',
     'theme','publish_day','channels',
-    'ab_test','ab_tool','ab_split','lp_slug_a','lp_slug_b','ab_experiment_id'
+    'ab_test','ab_tool','ab_split','lp_slug_a','lp_slug_b','ab_experiment_id',
+    'campaign_angle','urgency_trigger'
   ],
   GeneratedCopy: [
     'id','campaign_id','icp_code','channel','headline','subheadline',
@@ -795,7 +796,9 @@ function _briefRowToObj(r) {
     ab_split:        String(r[24] || '50/50'),
     lp_slug_a:       String(r[25] || ''),
     lp_slug_b:       String(r[26] || ''),
-    ab_experiment_id: String(r[27] || '')
+    ab_experiment_id: String(r[27] || ''),
+    campaign_angle:   String(r[28] || ''),
+    urgency_trigger:  String(r[29] || '')
   };
 }
 
@@ -854,9 +857,36 @@ function setCampaignBrief(item) {
     item.ab_split         !== undefined ? item.ab_split                 : (ex ? ex[24] : '50/50'),
     item.lp_slug_a        !== undefined ? item.lp_slug_a               : (ex ? ex[25] : ''),
     item.lp_slug_b        !== undefined ? item.lp_slug_b               : (ex ? ex[26] : ''),
-    item.ab_experiment_id !== undefined ? item.ab_experiment_id        : (ex ? ex[27] : '')
+    item.ab_experiment_id !== undefined ? item.ab_experiment_id        : (ex ? ex[27] : ''),
+    item.campaign_angle   !== undefined ? item.campaign_angle          : (ex ? ex[28] : ''),
+    item.urgency_trigger  !== undefined ? item.urgency_trigger         : (ex ? ex[29] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
+}
+
+/**
+ * ROOT CAUSE 2 — One-time fix: appends any _CC_HDR.CampaignBriefs columns that are
+ * missing from the actual Sheet header row (row 1).
+ * Safe to run multiple times — it only adds columns that are not already present.
+ * Run once from the Apps Script editor: select ensureCampaignBriefColumns → Run.
+ */
+function ensureCampaignBriefColumns() {
+  var sheet    = _getCCSheet(_CC_TAB.BRIEFS);
+  var headers  = _CC_HDR.CampaignBriefs;
+  var lastCol  = sheet.getLastColumn();
+  var existing = lastCol > 0
+    ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(v) { return String(v || '').trim(); })
+    : [];
+  var missing = headers.filter(function(h) { return existing.indexOf(h) === -1; });
+  if (!missing.length) {
+    Logger.log('[ensureCampaignBriefColumns] All ' + headers.length + ' columns present — no changes needed');
+    Logger.log('[ensureCampaignBriefColumns] Current headers: ' + existing.join(', '));
+    return { ok: true, added: 0 };
+  }
+  var startCol = lastCol + 1;
+  missing.forEach(function(h, i) { sheet.getRange(1, startCol + i).setValue(h); });
+  Logger.log('[ensureCampaignBriefColumns] Added ' + missing.length + ' columns starting at col ' + startCol + ': ' + missing.join(', '));
+  return { ok: true, added: missing.length, columns: missing };
 }
 
 // ── GeneratedCopy ─────────────────────────────────────────────────────────────

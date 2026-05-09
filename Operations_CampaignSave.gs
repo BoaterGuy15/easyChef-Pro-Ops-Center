@@ -316,7 +316,10 @@ function _fcNormalizeBrief(rawBrief) {
     ab_split:        rawBrief.ab_split || '50/50',
     lp_slug_a:       rawBrief.lp_slug_a || '',
     lp_slug_b:       rawBrief.lp_slug_b || '',
-    ab_experiment_id: rawBrief.ab_experiment_id || ''
+    ab_experiment_id: rawBrief.ab_experiment_id || '',
+    campaign_angle:  rawBrief.campaign_angle  || (function() { try { return JSON.parse(rawBrief.notes || '').campaign_angle  || ''; } catch(e) { return ''; } })(),
+    urgency_trigger: rawBrief.urgency_trigger || (function() { try { return JSON.parse(rawBrief.notes || '').urgency_trigger || ''; } catch(e) { return ''; } })(),
+    founding_offer:  rawBrief.founding_offer  || (function() { try { return JSON.parse(rawBrief.notes || '').founding_offer  || ''; } catch(e) { return ''; } })()
   };
 }
 

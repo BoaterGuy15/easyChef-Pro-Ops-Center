@@ -296,14 +296,13 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         Logger.log('[CalendarXlsx] A/B Variant B LP URL from brief.lp_slug_b=' + brief.lp_slug_b + ': ' + _lpUrlB);
       }
 
-      // Email UTM source + medium — read from Channels tab
+      // Read all channels once — used for Email UTM and social hashtags (FIX 2)
+      var _channelMap = {}; // key: channel name lowercase → channel obj (has hashtag_suggestions)
       var _emailUtmSource = '', _emailUtmMedium = '';
       try {
         var _allChannels = getChannels();
-        var _emailCh = null;
-        _allChannels.forEach(function(ch) {
-          if ((ch.name || '').toLowerCase() === 'email' || (ch.slug_code || '').toLowerCase() === 'email') _emailCh = ch;
-        });
+        _allChannels.forEach(function(ch) { _channelMap[(ch.name || '').toLowerCase()] = ch; });
+        var _emailCh = _channelMap['email'] || null;
         if (_emailCh) {
           _emailUtmSource = _emailCh.utm_source || '';
           _emailUtmMedium = _emailCh.utm_medium || '';
@@ -311,6 +310,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         } else {
           Logger.log('[CalendarXlsx] WARNING: Email channel not found in Channels tab — utm_source/medium will be blank');
         }
+        Logger.log('[CalendarXlsx] Channels loaded: ' + _allChannels.length + ' — hashtags available for: ' + Object.keys(_channelMap).join(', '));
       } catch(ce) { Logger.log('[CalendarXlsx] WARNING: Channels tab read error: ' + ce.message); }
 
       // Email DL map {seqCode → dlEntry} — read from DeepLinkRegistry tab, keyed by SEQ-N in notes
@@ -1338,6 +1338,21 @@ function _buildBriefHtml(brief, copy, dlEntries, genDate) {
     return String(v == null ? '' : v)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   };
+  // FIX 5: ICP profile for summary rows (primary_pain, value_trigger, channel_affinity)
+  var _icpProfile = null;
+  try { _icpProfile = getIcpProfile(brief.icp_code || brief.icp || ''); } catch(ie) {}
+  // FIX 2: All approved=TRUE claims from ApprovedClaims tab (replaces hardcoded 6)
+  var _approvedClaims = [];
+  try { _approvedClaims = getApprovedClaims(); } catch(ce) {}
+  // ROOT CAUSE 1: campaign_angle / urgency_trigger / founding_offer may be stored
+  // as JSON inside the notes column instead of top-level brief columns.
+  // Read top-level first; fall back to notes JSON; fall back to ''.
+  var _notesJson = {};
+  try { if (brief.notes) _notesJson = JSON.parse(brief.notes); } catch(ne) {}
+  var _campaignAngle    = brief.campaign_angle   || _notesJson.campaign_angle   || '';
+  var _urgencyTrigger   = brief.urgency_trigger  || _notesJson.urgency_trigger  || '';
+  var _foundingOffer    = brief.founding_offer   || _notesJson.founding_offer   || '';
+  var _campaignDuration = brief.campaign_duration_days || String(_notesJson.campaign_duration || '') || '';
   var dlCount = Array.isArray(dlEntries) ? dlEntries.length : (parseInt(dlEntries) || 0);
   var _pfxMap = {};
   if (Array.isArray(dlEntries)) {
@@ -1401,18 +1416,32 @@ function _buildBriefHtml(brief, copy, dlEntries, genDate) {
   + '<table><tbody>\n'
   + '  <tr><td class="td-label">Campaign ID</td><td class="td-value">' + _h(brief.id) + '</td></tr>\n'
   + '  <tr><td class="td-label">Campaign Name</td><td class="td-value">' + _h(brief.name) + '</td></tr>\n'
-  + '  <tr><td class="td-label">ICP</td><td class="td-value">' + _h(brief.icp) + '</td></tr>\n'
+  + '  <tr><td class="td-label">ICP</td><td class="td-value">' + _h(brief.icp_code || brief.icp) + '</td></tr>\n'
+  + (function() {
+      if (!_icpProfile) return '';
+      var _pain  = String(_icpProfile.primary_pain || '');
+      var _dotIdx = _pain.indexOf('.');
+      var _painSentence = _dotIdx > 0 ? _pain.substring(0, _dotIdx + 1) : _pain;
+      var _chAff = String(_icpProfile.channel_affinity || '');
+      var _chFirst = _chAff ? _chAff.split(/[,|;]/)[0].trim() : '';
+      return ''
+        + '  <tr><td class="td-label">ICP Entry Moment</td><td class="td-value">' + _h(_painSentence) + '</td></tr>\n'
+        + '  <tr><td class="td-label">ICP Value Trigger</td><td class="td-value">' + _h(_icpProfile.value_trigger || '') + '</td></tr>\n'
+        + '  <tr><td class="td-label">ICP Primary Channel</td><td class="td-value">' + _h(_chFirst) + '</td></tr>\n';
+    })()
   + '  <tr><td class="td-label">Theme</td><td class="td-value">' + _h(brief.theme) + '</td></tr>\n'
   + '  <tr><td class="td-label">Funnel Blueprint</td><td class="td-value">' + _h(brief.funnel) + '</td></tr>\n'
   + '  <tr><td class="td-label">Channels</td><td class="td-value">' + _h(chs) + '</td></tr>\n'
   + '  <tr><td class="td-label">Goal</td><td class="td-value">' + _h(brief.goal) + '</td></tr>\n'
   + '  <tr><td class="td-label">Landing Page</td><td class="td-value">' + _h(brief.slug) + '</td></tr>\n'
   + '  <tr><td class="td-label">Launch Date</td><td class="td-value">' + _h(brief.launchDate) + '</td></tr>\n'
-  + '  <tr><td class="td-label">Campaign Angle</td><td class="td-value">' + _h(brief.campaign_angle || brief.angle || '') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Campaign Angle</td><td class="td-value">' + (_campaignAngle ? _h(_campaignAngle) : '<span style="color:#FF0000;font-weight:600">NOT SET</span>') + '</td></tr>\n'
   + '  <tr><td class="td-label">Post Count</td><td class="td-value">' + _h(brief.post_count) + ' per platform &middot; ' + _h(brief.post_frequency) + '</td></tr>\n'
   + '  <tr><td class="td-label">Email Sequences</td><td class="td-value">SEQ-1 through SEQ-' + seqN + ' &middot; ' + seqN + ' DL_IDs</td></tr>\n'
   + '  <tr><td class="td-label">Email Variants</td><td class="td-value">A + B per email (A/B subject line test)</td></tr>\n'
-  + '  <tr><td class="td-label">Urgency Trigger</td><td class="td-value">' + _h(brief.urgency_trigger || brief.urgency || '') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Urgency Trigger</td><td class="td-value">' + (_urgencyTrigger ? _h(_urgencyTrigger) : '<span style="color:#FF0000;font-weight:600">NOT SET</span>') + '</td></tr>\n'
+  + (_foundingOffer ? '  <tr><td class="td-label">Founding Offer</td><td class="td-value">' + _h(_foundingOffer) + '</td></tr>\n' : '')
+  + (_campaignDuration ? '  <tr><td class="td-label">Campaign Duration</td><td class="td-value">' + _h(_campaignDuration) + ' days</td></tr>\n' : '')
   + (function() {
       var _approved = brief.ml_approved === true || brief.ml_approved === 'true' || brief.ml_approved === 1 || brief.ml_approved === '1';
       return '  <tr><td class="td-label">Status</td><td class="td-value">'
@@ -1432,17 +1461,17 @@ function _buildBriefHtml(brief, copy, dlEntries, genDate) {
   + '  <tr><td class="td-label">Social Hook</td><td class="td-value td-copy">' + _h(copy.social_hook) + '</td></tr>\n'
   + '  <tr><td class="td-label">Share Mechanic</td><td class="td-value td-copy">' + _h(copy.share_mechanic) + '</td></tr>\n'
   + '</tbody></table>\n\n'
-  // 03 APPROVED CLAIMS
+  // 03 APPROVED CLAIMS — dynamic from ApprovedClaims tab (FIX 2)
   + '<div class="section-label">03 &mdash; Approved Claims in Use</div>\n'
   + '<table>\n'
-  + '  <thead><tr><th>Claim</th><th>Approved Wording</th><th>Use In</th></tr></thead>\n'
+  + '  <thead><tr><th>Claim Type</th><th>Approved Wording</th><th>Notes</th></tr></thead>\n'
   + '  <tbody>\n'
-  + '    <tr><td>Annual savings</td><td>$1,336/year</td><td>All channels</td></tr>\n'
-  + '    <tr><td>Fridge to table</td><td>30 minutes</td><td>All channels</td></tr>\n'
-  + '    <tr><td>Recipe pages</td><td>10,000 recipe pages at launch</td><td>Proof stage</td></tr>\n'
-  + '    <tr><td>Product database</td><td>800,000 products</td><td>Proof stage</td></tr>\n'
-  + '    <tr><td>Founding price</td><td>$7.99/month &middot; 60% off forever</td><td>CTA stage</td></tr>\n'
-  + '    <tr><td>Food waste</td><td>69.5% less food waste</td><td>Agitate / Value</td></tr>\n'
+  + (_approvedClaims.length
+      ? _approvedClaims.map(function(c) {
+          return '    <tr><td>' + _h(c.claim_type) + '</td><td>' + _h(c.exact_wording) + '</td><td>' + _h(c.notes || '') + '</td></tr>\n';
+        }).join('')
+      : '    <tr><td colspan="3" style="color:#666;font-style:italic">No approved claims found — check ApprovedClaims tab</td></tr>\n'
+    )
   + '  </tbody>\n'
   + '</table>\n\n'
   // 04 UTM CONFIGURATION
@@ -1454,7 +1483,21 @@ function _buildBriefHtml(brief, copy, dlEntries, genDate) {
   + '  <tr><td class="td-label">utm_medium (video)</td><td class="td-value">video</td></tr>\n'
   + '  <tr><td class="td-label">utm_content format</td><td class="td-value">DL-[PREFIX]-[NNNN]_[stage_descriptor]</td></tr>\n'
   + '  <tr><td class="td-label">DL_ID count</td><td class="td-value">' + _h(dlCount) + ' ACTIVE &middot; ' + _h(_pfxSummary) + '</td></tr>\n'
-  + '  <tr><td class="td-label">utm_campaign values</td><td class="td-value">' + _h(_utmCampaignStr) + '</td></tr>\n'
+  + '</tbody></table>\n\n'
+  // 05 A/B TEST CONFIGURATION (FIX 4)
+  + '<div class="section-label">05 &mdash; A/B Test Configuration</div>\n'
+  + '<table><tbody>\n'
+  + (function() {
+      var _ab = brief.ab_test === true || brief.ab_test === 'true' || brief.ab_test === 1;
+      if (!_ab) return '  <tr><td class="td-label">Status</td><td class="td-value" style="color:#666;font-style:italic">Not configured</td></tr>\n';
+      return ''
+        + '  <tr><td class="td-label">A/B Test</td><td class="td-value"><span style="color:#00A844;font-weight:600">ACTIVE</span></td></tr>\n'
+        + '  <tr><td class="td-label">Tool</td><td class="td-value">' + _h(brief.ab_tool || 'Convert.com') + '</td></tr>\n'
+        + '  <tr><td class="td-label">Experiment ID</td><td class="td-value">' + _h(brief.ab_experiment_id || '') + '</td></tr>\n'
+        + '  <tr><td class="td-label">Split</td><td class="td-value">' + _h(brief.ab_split || '50/50') + '</td></tr>\n'
+        + '  <tr><td class="td-label">LP Variant A</td><td class="td-value">' + _h(brief.lp_slug_a || '') + '</td></tr>\n'
+        + '  <tr><td class="td-label">LP Variant B</td><td class="td-value">' + _h(brief.lp_slug_b || '') + '</td></tr>\n';
+    })()
   + '</tbody></table>\n\n'
   // FOOTER
   + '<div class="footer">\n'
