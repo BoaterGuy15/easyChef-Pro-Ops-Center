@@ -160,14 +160,23 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       calSh.setName('Calendar');
       calSh.setTabColor(_BRAND_RED);
 
-      var _CAL_HDR  = ['Day','Date','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA Text','UTM URL','DL ID','Image Brief','Hashtags','Status'];
-      var _SEQ_OFF  = { 'SEQ-1':0, 'SEQ-2':0, 'SEQ-3':28, 'SEQ-4':42, 'SEQ-5':0 };
-      var _launch   = brief.launchDate ? new Date(brief.launchDate + 'T12:00:00') : null;
-      var numCols   = _CAL_HDR.length;
+      // FIX 3: renamed column; FIX 6: two new columns
+      var _CAL_HDR = ['Day','Date','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA Text','UTM URL','DL ID','Design Brief — Figma','Hashtags','Status','Owner','Send Time'];
+
+      // FIX 4: absolute day schedule per sequence — overrides send_day
+      var _EMAIL_DAYS = {
+        'SEQ-1': [0, 3, 7],
+        'SEQ-2': [7, 10, 14, 18, 25],
+        'SEQ-3': [22, 25, 28, 31],
+        'SEQ-4': [35]
+      };
+
+      var _launch  = brief.launchDate ? new Date(brief.launchDate + 'T12:00:00') : null;
+      var numCols  = _CAL_HDR.length;
 
       var _wkLbl = function(day) {
-        if (day >= 48) return 'Launch Day';
-        if (day >= 25) return 'Weeks 4–6 Launch Countdown';
+        if (day >= 35) return 'Launch Day';
+        if (day >= 22) return 'Weeks 4–6 Launch Countdown';
         if (day >= 7)  return 'Weeks 2–3 Email Nurture';
         return 'Week 1 Social Arc';
       };
@@ -175,30 +184,84 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         if (!_launch) return '';
         var d = new Date(_launch);
         d.setDate(d.getDate() + day);
-        // Use ISO format so Sheets cannot auto-parse it as a date serial
         return Utilities.formatDate(d, Session.getScriptTimeZone(), 'MMM d, yyyy');
       };
+      // Return just the first sentence of a brief for a single-line calendar cell
+      var _oneLiner = function(text) {
+        if (!text) return '';
+        var ends = [text.indexOf('.'), text.indexOf('!'), text.indexOf('?')].filter(function(i) { return i > 0; });
+        if (!ends.length) return text.substring(0, 120);
+        return text.substring(0, Math.min.apply(null, ends) + 1);
+      };
+      // Channels that never receive hashtags
+      var _NO_TAG = { 'facebook':1, 'nextdoor':1, 'youtube':1 };
 
       var calDataRows = [];
 
-      // Email rows — A variant, then B variant if subject differs
+      // ── Email rows — variant A, absolute schedule ─────────────────────────
       emails.forEach(function(e) {
         var seqCode  = e.sequence_code || (e.seq_id ? String(e.seq_id).replace(/-E\d+$/i,'') : 'EMAIL');
         var emailNum = e.email_number  || (e.seq_id ? (parseInt((String(e.seq_id).match(/-E(\d+)$/i)||[])[1])||1) : 1);
-        var day      = (parseInt(e.send_day)||0) + (_SEQ_OFF[seqCode]||0);
-        var subA     = e.subject_line_a || e.subject   || '';
-        var subB     = e.subject_line_b || '';
-        var preA     = e.preview_text_a || e.preheader || '';
-        var preB     = e.preview_text_b || '';
-        var cta      = e.body_cta       || e.cta_text  || '';
-        calDataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (A)', 'Email', subA, preA, cta, e.utm_url||'', e.dl_id||'', '', '', e.status||'draft']);
-        if (subB) calDataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (B)', 'Email', subB, preB, cta, e.utm_url||'', e.dl_id||'', '', '', e.status||'draft']);
+
+        // FIX 4: use schedule map, fall back to send_day
+        var _seqDays = _EMAIL_DAYS[seqCode];
+        var day = (_seqDays && _seqDays[emailNum - 1] !== undefined)
+          ? _seqDays[emailNum - 1]
+          : (parseInt(e.send_day) || 0);
+
+        // FIX 1: pull all content fields from EmailSequences tab
+        var subA = e.subject_line_a || e.subject   || '';
+        var preA = e.preview_text   || e.preview_text_a || e.preheader || '';
+        if (preA.length > 100) preA = preA.substring(0, 100);
+        var cta  = e.body_cta       || e.cta_text  || '';
+
+        calDataRows.push([
+          day, _dtStr(day), _wkLbl(day), e.funnel_stage || '',
+          seqCode + '-E' + emailNum, 'Email',
+          subA, preA, cta,
+          e.utm_url || '', e.dl_id || '',
+          '',   // Design Brief — blank for email rows
+          '',   // Hashtags — blank for emails
+          e.status || 'draft',
+          'Klaviyo',          // FIX 6: Owner
+          '9:00 AM local'     // FIX 6: Send Time
+        ]);
       });
 
-      // Social post rows
+      // ── Social post rows ──────────────────────────────────────────────────
+      var _chIdx = {};
       posts.forEach(function(p) {
-        var pday = parseInt(p.scheduled_day) || 0;
-        calDataRows.push([pday, _dtStr(pday), _wkLbl(pday), p.theme||'', 'Social', p.platform||p.channel||'', p.hook||'', p.body_copy||p.body||'', p.cta||'', p.utm_url||'', p.dl_id||'', '', p.hashtags||'', p.status||'draft']);
+        var chKey = (p.platform || p.channel || 'other').toLowerCase();
+        _chIdx[chKey] = (_chIdx[chKey] || 0) + 1;
+
+        // FIX 5: use scheduled_day if non-zero; else fall back to position within channel
+        var pday = (p.scheduled_day !== undefined && p.scheduled_day !== null &&
+                    p.scheduled_day !== '' && parseInt(p.scheduled_day) !== 0)
+          ? parseInt(p.scheduled_day)
+          : _chIdx[chKey];
+
+        // FIX 2: hashtags — comma-separated plain text; blank for Facebook/Nextdoor/YouTube
+        var _rawTags = (_briefs.postBriefs[p.id] && _briefs.postBriefs[p.id].hashtags)
+          || p.hashtags || '';
+        var _hashtags = _NO_TAG[chKey] ? '' : _rawTags;
+
+        // FIX 3: design brief — one sentence; fallback label when not generated
+        var _briefFull = (_briefs.postBriefs[p.id] && _briefs.postBriefs[p.id].design_brief) || '';
+        var _designBrief = _briefFull ? _oneLiner(_briefFull) : 'Design brief pending';
+
+        // FIX 6: Owner and Send Time
+        var _owner    = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
+        var _sendTime = (chKey === 'tiktok' || chKey === 'youtube') ? 'Drop day — no time' : '9:00 AM local';
+
+        calDataRows.push([
+          pday, _dtStr(pday), _wkLbl(pday), p.theme || '',
+          'Social', p.platform || p.channel || '',
+          p.hook || '', p.body_copy || p.body || '', p.cta || '',
+          p.utm_url || '', p.dl_id || '',
+          _designBrief, _hashtags,
+          p.status || 'draft',
+          _owner, _sendTime
+        ]);
       });
 
       // Sort by day ascending
@@ -256,7 +319,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         }
         // Bold the Day column (col 1)
         calSh.getRange(4, 1, numDataRows, 1).setFontWeight('bold');
-        // Wrap text for Subject/Hook (7), Preview/Body (8), UTM URL (10), Image Brief (12)
+        // Wrap text for Subject/Hook (7), Preview/Body (8), UTM URL (10), Design Brief (12)
         [7, 8, 10, 12].forEach(function(col) {
           calSh.getRange(4, col, numDataRows, 1).setWrap(true);
         });
@@ -264,7 +327,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
       // ── Column widths ──
       calSh.autoResizeColumns(1, numCols);
-      var _minWidths = [40, 120, 150, 90, 120, 90, 240, 260, 140, 260, 90, 160, 110, 70];
+      // 16 columns: Day · Date · Week · FunnelStage · Type · Platform · Subject · Preview · CTA · UTM · DL · DesignBrief · Hashtags · Status · Owner · SendTime
+      var _minWidths = [40, 120, 150, 90, 120, 90, 240, 260, 140, 260, 90, 200, 130, 70, 90, 120];
       _minWidths.forEach(function(minW, ci) {
         if (calSh.getColumnWidth(ci + 1) < minW) calSh.setColumnWidth(ci + 1, minW);
       });
