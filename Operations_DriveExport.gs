@@ -266,57 +266,52 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         return 'Week 1 Social Arc';
       };
 
-      // Email rows — two rows per email: Variant A (subject_line_a) + Variant B (subject_line_b)
+      // Email rows — pair A and B variants (sheet has one row per variant, id ends in -A or -B)
+      // Group by base ID (strip -A/-B suffix), then emit one Row A + one Row B per pair
       try {
+        var _emailGroups = {};
+        var _emailOrder  = [];
         emails.forEach(function(e) {
-          var seqCode  = e.sequence_code || (e.seq_id ? String(e.seq_id).replace(/-E\d+$/i,'') : 'EMAIL');
-          var emailNum = e.email_number  || (e.seq_id ? (parseInt((String(e.seq_id).match(/-E(\d+)$/i)||[])[1])||1) : 1);
+          var baseId = String(e.id || '').replace(/[-_][AB]$/i, '') ||
+                       (e.sequence_code + '-E' + (e.email_number || 1));
+          if (!_emailGroups[baseId]) { _emailGroups[baseId] = { a: null, b: null }; _emailOrder.push(baseId); }
+          if (/[-_]B$/i.test(String(e.id || ''))) _emailGroups[baseId].b = e;
+          else                                     _emailGroups[baseId].a = e;
+        });
+        _emailOrder.forEach(function(baseId) {
+          var pair    = _emailGroups[baseId];
+          var eRef    = pair.a || pair.b;
+          if (!eRef) return;
+          var seqCode  = eRef.sequence_code || 'EMAIL';
+          var emailNum = parseInt(eRef.email_number) || 1;
           var _seqDays = _EMAIL_DAYS[seqCode];
           var day = (_seqDays && _seqDays[emailNum - 1] !== undefined)
-            ? _seqDays[emailNum - 1]
-            : (parseInt(e.send_day) || 0);
-          // subject_line is the canonical field name from _seqRowToObj; try A/B variants too
-          var subA   = String(e.subject_line_a || e.subject_a || e.subject_line || e.subject || '');
-          var subB   = String(e.subject_line_b || e.subject_b || '');
-          var preA   = String(e.preview_text || e.preview_text_a || e.preheader || e.preview || '');
+            ? _seqDays[emailNum - 1] : (parseInt(eRef.send_day) || 0);
+          var subA = String((pair.a && pair.a.subject_line) || (pair.a && pair.a.subject) || '');
+          var subB = String((pair.b && pair.b.subject_line) || (pair.b && pair.b.subject) || '');
+          var preA = String(eRef.preview_text || eRef.preheader || eRef.preview || '');
           if (preA.length > 100) preA = preA.substring(0, 100);
           var _isFirst = (emailNum === 1 && seqCode === 'SEQ-1');
-          var cta    = String(e.body_cta || e.cta_text || e.cta || (_isFirst ? 'Claim your founding spot' : ''));
-          // dl_id: sheet field → in-memory enrichment from fcExportCampaignToDrive → synthetic fallback
-          var dlId   = String(e.dl_id || e.dlId || e.deeplink_id || _synthEmailDl[seqCode] || '');
-          var utmUrl = String(e.utm_url || e.utmUrl || e.utm_link || '');
+          var cta  = String(eRef.body_cta || eRef.cta_text || eRef.cta || (_isFirst ? 'Claim your founding spot' : ''));
+          // dl_id: sheet field → enrichment → synthetic per-sequence (SEQ-1→DL-EM-0001 etc.)
+          var dlId = String(eRef.dl_id || eRef.dlId || eRef.deeplink_id || _synthEmailDl[seqCode] || '');
+          var utmUrl = String(eRef.utm_url || eRef.utmUrl || eRef.utm_link || '');
           if (!utmUrl && dlId) {
             utmUrl = 'https://easychefpro.com/lp/waitlist-a' +
               '?utm_source=klaviyo&utm_medium=email' +
               '&utm_campaign=' + encodeURIComponent(brief.id || '') +
               '&utm_content=' + encodeURIComponent(dlId + '_' + seqCode + '_cta');
           }
-          var stage  = String(e.funnel_stage || '');
-          // Design brief: look up by email id (canonical key from _generateDesignBriefs)
-          var _eb    = _emailBriefs[e.id] || _emailBriefs[e.seq_id] || {};
+          var stage = String(eRef.funnel_stage || '');
+          var _eb   = _emailBriefs[(pair.a || {}).id] || _emailBriefs[eRef.id] || {};
           var designBrief = _eb.design_brief ? _oneLiner(String(_eb.design_brief)) : '';
-          var rowBase = [
-            day, _dtStr(day), _wkLbl(day), stage,
-            seqCode + '-E' + emailNum, 'Email',
-            '', preA, cta,
-            utmUrl, dlId,
-            '', 'Subject line · Klaviyo split', // Variant filled per-row; Test fixed
-            designBrief, '',                    // Design Brief, Hashtags (no hashtags for email)
-            String(e.status || 'draft'),
-            'Klaviyo', '6:30 AM local'
-          ];
-          // Row A
-          var rowA = rowBase.slice();
-          rowA[6]  = subA;  // Subject / Hook
-          rowA[11] = 'A';   // Variant
-          calDataRows.push(rowA);
-          // Row B
-          var rowB = rowBase.slice();
-          rowB[6]  = subB || 'None';  // Variant B subject (or "None" if blank)
-          rowB[11] = 'B';             // Variant
-          calDataRows.push(rowB);
+          var shared = [day, _dtStr(day), _wkLbl(day), stage, seqCode + '-E' + emailNum, 'Email',
+            '', preA, cta, utmUrl, dlId, '', 'Subject line · Klaviyo split',
+            designBrief, '', String(eRef.status || 'draft'), 'Klaviyo', '6:30 AM local'];
+          var rowA = shared.slice(); rowA[6] = subA;        rowA[11] = 'A'; calDataRows.push(rowA);
+          var rowB = shared.slice(); rowB[6] = subB||'None'; rowB[11] = 'B'; calDataRows.push(rowB);
         });
-        Logger.log('[CalendarXlsx] email rows: ' + (emails.length * 2) + ' (A+B pairs)');
+        Logger.log('[CalendarXlsx] email rows: ' + (_emailOrder.length * 2) + ' (' + _emailOrder.length + ' pairs)');
       } catch(ee) { Logger.log('[CalendarXlsx] email rows error: ' + ee.message); }
 
       // Social post rows
@@ -1370,7 +1365,7 @@ function _buildBriefHtml(brief, copy, dlEntries, genDate) {
 // ── Test: log what each email XLSX row would contain — no Drive writes, no API calls ──
 // To use: open Apps Script editor → select testEmailCalendarRow → Run → view Execution log
 function testEmailCalendarRow() {
-  var campaignId = 'EC-2026-004'; // ← CHANGE to your campaign ID
+  var campaignId = 'EC-2026-001'; // ← CHANGE to your campaign ID
 
   Logger.log('=== testEmailCalendarRow: ' + campaignId + ' ===');
 
@@ -1421,27 +1416,50 @@ function testEmailCalendarRow() {
   var _synth = { 'SEQ-1':'DL-EM-0001','SEQ-2':'DL-EM-0002','SEQ-3':'DL-EM-0003','SEQ-4':'DL-EM-0004' };
   var _EDAYS = { 'SEQ-1':[0,3,7],'SEQ-2':[7,10,14,18,25],'SEQ-3':[22,25,28,31],'SEQ-4':[35] };
 
-  // Simulate what each column would contain — log first 6 emails
-  Logger.log('=== XLSX column preview (first ' + Math.min(emails.length,6) + ' emails) ===');
-  emails.slice(0,6).forEach(function(e, i) {
-    var seqCode  = e.sequence_code || 'EMAIL';
-    var emailNum = parseInt(e.email_number) || 1;
-    var days     = _EDAYS[seqCode];
-    var day      = (days && days[emailNum-1] !== undefined) ? days[emailNum-1] : (parseInt(e.send_day)||0);
-    var subA     = String(e.subject_line_a || e.subject_a || e.subject_line || e.subject || '(BLANK — no subject_line field)');
-    var subB     = String(e.subject_line_b || e.subject_b || '');
-    var preA     = String(e.preview_text || e.preheader || e.preview || '(BLANK)').substring(0,80);
-    var cta      = String(e.body_cta || e.cta_text || e.cta || ((emailNum===1&&seqCode==='SEQ-1')?'Claim your founding spot':'(BLANK)'));
-    var dlId     = String(e.dl_id || e.dlId || _synth[seqCode] || '(BLANK)');
-    var utmUrl   = String(e.utm_url || e.utmUrl || '');
-    if (!utmUrl && dlId && dlId !== '(BLANK)') utmUrl = 'https://easychefpro.com/lp/...?utm_campaign=' + campaignId + '&utm_content=' + dlId + '_' + seqCode + '_cta';
-    Logger.log('[' + (i+1) + '] ' + seqCode + '-E' + emailNum + ' (Day ' + day + ')');
-    Logger.log('     Subject/Hook A : ' + subA);
-    Logger.log('     Subject/Hook B : ' + (subB || 'None'));
-    Logger.log('     Preview/Body   : ' + preA);
-    Logger.log('     CTA Text       : ' + cta);
-    Logger.log('     DL ID          : ' + dlId);
-    Logger.log('     UTM URL        : ' + utmUrl.substring(0,100));
+  // Pair A and B variants — same logic as the XLSX builder
+  var _emailGroups = {}, _emailOrder = [];
+  emails.forEach(function(e) {
+    var baseId = String(e.id || '').replace(/[-_][AB]$/i, '') || (e.sequence_code + '-E' + (e.email_number||1));
+    if (!_emailGroups[baseId]) { _emailGroups[baseId] = {a:null,b:null}; _emailOrder.push(baseId); }
+    if (/[-_]B$/i.test(String(e.id||''))) _emailGroups[baseId].b = e;
+    else                                   _emailGroups[baseId].a = e;
   });
-  Logger.log('=== Done ===');
+  Logger.log('Unique email pairs: ' + _emailOrder.length + ' (expected: ' + (emails.length/2) + ')');
+
+  // Show first pair from each sequence
+  var _seenSeqs = {}, _shown = 0;
+  Logger.log('=== XLSX column preview — first pair per sequence ===');
+  _emailOrder.forEach(function(baseId) {
+    var pair = _emailGroups[baseId];
+    var eRef = pair.a || pair.b;
+    if (!eRef) return;
+    var seqCode  = eRef.sequence_code || 'EMAIL';
+    if (_seenSeqs[seqCode]) return; // one pair per sequence for the preview
+    _seenSeqs[seqCode] = true;
+    _shown++;
+    var emailNum = parseInt(eRef.email_number) || 1;
+    var days     = _EDAYS[seqCode];
+    var day      = (days && days[emailNum-1] !== undefined) ? days[emailNum-1] : (parseInt(eRef.send_day)||0);
+    var subA     = String((pair.a && pair.a.subject_line) || '(BLANK)');
+    var subB     = String((pair.b && pair.b.subject_line) || 'None');
+    var preA     = String(eRef.preview_text || eRef.preheader || '(BLANK)').substring(0,80);
+    var _isFirst = (emailNum===1 && seqCode==='SEQ-1');
+    var cta      = String(eRef.body_cta || eRef.cta || (_isFirst?'Claim your founding spot':'(BLANK)'));
+    var dlId     = String(eRef.dl_id || _synth[seqCode] || '(BLANK)');
+    var utmUrl   = String(eRef.utm_url || '');
+    if (!utmUrl && dlId && dlId !== '(BLANK)') {
+      utmUrl = 'https://easychefpro.com/lp/waitlist-a' +
+        '?utm_source=klaviyo&utm_medium=email' +
+        '&utm_campaign=' + campaignId +
+        '&utm_content=' + dlId + '_' + seqCode + '_cta';
+    }
+    Logger.log('[' + seqCode + '-E' + emailNum + ' Day ' + day + ']');
+    Logger.log('  Subject/Hook A : ' + subA);
+    Logger.log('  Subject/Hook B : ' + subB);
+    Logger.log('  Preview/Body   : ' + preA);
+    Logger.log('  CTA Text       : ' + cta);
+    Logger.log('  DL ID          : ' + dlId);
+    Logger.log('  UTM URL        : ' + utmUrl);
+  });
+  Logger.log('=== Done — ' + _shown + ' sequences shown ===');
 }
