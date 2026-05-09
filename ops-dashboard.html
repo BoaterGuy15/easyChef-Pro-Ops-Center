@@ -25574,6 +25574,53 @@ function _ccUploadOwnImage(postNum,prefix,input){
   fr.readAsDataURL(file);
 }
 
+function _ccIsVideoChannel(name){
+  var l=(name||'').toLowerCase();
+  return l==='youtube'||l==='tiktok';
+}
+
+function _ccRenderVideoCard(post,i,pNum){
+  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var mf="font-family:'DM Mono',monospace;";
+  var ts=_CC_TA_STYLE;
+  var platName=post.platform||post.channel||'';
+  var isYT=platName.toLowerCase()==='youtube';
+  var isTK=platName.toLowerCase()==='tiktok';
+  var platIcon=isYT?'▶':'♪';
+  var platColor=isYT?'#ef4444':'#c9a84c';
+  var scriptText=safe(post.script||post.body_copy||'');
+  var dayLabel=post.scheduled_day!==undefined?'Day '+post.scheduled_day:'';
+  var featBadge=(isTK&&post.feature)?
+    '<span style="display:inline-flex;align-items:center;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);color:var(--gold);border-radius:10px;padding:1px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;'+mf+'">FEATURE: '+safe(post.feature)+' — '+safe(post.feature_label||post.feature)+'</span>':
+    '';
+  var scriptLabel=isYT?'Script (60-sec explainer — 7 stages)':'Script (10-sec feature spotlight — 3 stages)';
+  var scriptRows=isYT?12:6;
+
+  return '<div id="cc-post-card-s-'+pNum+'" style="padding:16px;border-bottom:1px solid var(--border)">'+
+    // Header: platform badge + feature badge + day + DL_ID
+    '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px">'+
+      '<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.35);color:'+platColor+';border-radius:10px;padding:1px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;'+mf+'">'+platIcon+' '+safe(platName)+'</span>'+
+      featBadge+
+      (dayLabel?'<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);'+mf+'">'+dayLabel+'</span>':'')+
+      (post.dl_id?'<span style="font-size:9px;'+mf+';color:var(--muted)">'+safe(post.dl_id)+'</span>':'')+
+    '</div>'+
+    (post.utm_url?'<div style="font-size:10px;'+mf+';color:var(--muted);margin-bottom:8px;word-break:break-all">'+safe(post.utm_url)+'</div>':'')+
+    // Script textarea
+    '<div style="margin-bottom:12px">'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px;'+mf+'">'+scriptLabel+'</div>'+
+      '<textarea id="ks-post-'+i+'-body" rows="'+scriptRows+'" style="'+ts+'">'+scriptText+'</textarea>'+
+    '</div>'+
+    // CTA row
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;'+mf+'">'+safe(post.cta||'')+'</div>'+
+    // Action buttons
+    '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">'+
+      '<button onclick="_ccSavePostEdits('+i+',\'s\')" style="background:#22c55e;border:none;color:#fff;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">Save Changes</button>'+
+      '<button onclick="_ccRegenVideoScript('+i+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">↺ Regenerate Script</button>'+
+      '<span id="ks-post-'+i+'-save-status" style="font-size:10px;color:#22c55e;display:none">✓ Saved</span>'+
+    '</div>'+
+  '</div>';
+}
+
 function _ccRenderSocialPosts(posts,container,channel){
   var _ft=(_campBrief.themeData&&_campBrief.themeData.food_type)||_campBrief.theme_food||'';
   if(_ft) posts.forEach(function(p){if(!p.food_type)p.food_type=_ft;});
@@ -25610,10 +25657,14 @@ function _ccRenderSocialPosts(posts,container,channel){
   };
 
   var rows=posts.map(function(post,i){
+    var pNum   = post.post_num||i+1;
+    // Route video channels to dedicated card renderer (no image panel)
+    var _platName=post.platform||post.channel||ch||'';
+    if(_ccIsVideoChannel(_platName)) return _ccRenderVideoCard(post,i,pNum);
+
     var bodyText=String(post.body||'');
     var hashText=pc.hashtags?(String(post.hashtags||'')||fallbackHash):'';
     var imgText=String(post.image_brief||'')||pc.imgFallback;
-    var pNum   = post.post_num||i+1;
     var bodyId ='ks-post-'+i+'-body';
     var cntId  ='ks-post-'+i+'-cnt';
     var hashId ='ks-post-'+i+'-hash';
@@ -25622,7 +25673,6 @@ function _ccRenderSocialPosts(posts,container,channel){
     var cpId   ='cc-custom-prompt-'+pNum;
     var aiBriefId='cc-ai-brief-panel-'+pNum;
 
-    var _platName=post.platform||post.channel||ch||'';
     var _platIcons={'facebook':'👥','instagram':'📷','linkedin':'💼','tiktok':'🎵','twitter':'🐦','x':'🐦','pinterest':'📌','youtube':'▶️','email':'📧','push':'📲','sms':'💬'};
     var _platIcon=_platIcons[_platName.toLowerCase()]||'📣';
     var _platBadge=_platName?'<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);border-radius:10px;padding:1px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-right:8px">'+_platIcon+' '+safe(_platName)+'</span>':'';
@@ -25729,6 +25779,45 @@ function _ccRegenSinglePost(idx){
       }
     })
     .catch(function(e){if(card){card.style.opacity='1';card.style.pointerEvents='';}});
+}
+
+function _ccRegenVideoScript(idx){
+  var post=_ccLastPosts[idx];
+  if(!post) return;
+  var ta=document.getElementById('ks-post-'+idx+'-body');
+  if(!ta) return;
+  var platName=(post.platform||post.channel||'').toLowerCase();
+  var pNum=post.post_num||idx+1;
+  var card=document.getElementById('cc-post-card-s-'+pNum);
+  if(card){card.style.opacity='0.6';card.style.pointerEvents='none';}
+  if(!CONFIG.sheetsUrl){
+    if(card){card.style.opacity='1';card.style.pointerEvents='';}
+    _showToast('<div style="color:var(--muted)">No backend URL configured.</div>',2000);
+    return;
+  }
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+    action:'regen_video_script',
+    platform:platName,
+    feature:post.feature||'',
+    feature_label:post.feature_label||'',
+    brief:_campBrief,
+    copy:_campKickstartCopy
+  })})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(card){card.style.opacity='1';card.style.pointerEvents='';}
+    if(d.ok&&d.script){
+      ta.value=d.script;
+      post.body_copy=d.script;post.script=d.script;
+      _showToast('<div style="color:#22c55e">✓ Script regenerated.</div>',2000);
+    } else {
+      _showToast('<div style="color:var(--muted)">Regen failed — '+(d.error||'no script returned')+'</div>',2500);
+    }
+  })
+  .catch(function(e){
+    if(card){card.style.opacity='1';card.style.pointerEvents='';}
+    _showToast('<div style="color:var(--muted)">Regen error: '+e.message+'</div>',2500);
+  });
 }
 
 // ── Feature 2: AI Brief toggle + Test prompt ────────────────────────────────
@@ -26086,8 +26175,8 @@ function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
       '</div></div>';
   }
 
-  // Generate All Images button (for channels with image gen)
-  var imgChannels=order.filter(function(ch){var l=ch.toLowerCase();return l!=='nextdoor';});
+  // Generate All Images button — exclude Nextdoor and video channels
+  var imgChannels=order.filter(function(ch){var l=ch.toLowerCase();return l!=='nextdoor'&&!_ccIsVideoChannel(ch);});
   if(imgChannels.length>0){
     html+='<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'+
       '<button id="cc-gen-all-btn" onclick="_ccQueueAllImages(this,'+posts.length+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">🎨 Generate All Images ('+posts.length+' posts)</button>'+
@@ -26109,14 +26198,20 @@ function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
     '</div>';
     byChannel[ch].forEach(function(post,i){
       var idx=(post.post_num||i+1);
-      var pKey=ch+'_'+idx;
-      html+='<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
-        '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:8px">'+safe(ch)+' · Post '+idx+' · <span style="text-transform:capitalize">'+safe(post.funnel_stage||'')+'</span></div>'+
-        '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">'+safe(post.hook||'')+'</div>'+
-        '<textarea rows="3" style="'+taStyle+';margin-bottom:6px" oninput="this.closest(\'[data-pkey]\').querySelector(\'.mc-body-val\').textContent=this.value" data-field="body">'+safe(post.body||'')+'</textarea>'+
-        (post.hashtags?'<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:6px">'+safe(post.hashtags)+'</div>':'')+
-        _ccRenderImagePanel(idx,'m',post)+
-      '</div>';
+      // Find the global index in _ccLastPosts for Save/Regen to work
+      var globalIdx=_ccLastPosts?_ccLastPosts.indexOf(post):i;
+      if(globalIdx<0) globalIdx=i;
+      if(_ccIsVideoChannel(ch)){
+        html+=_ccRenderVideoCard(post,globalIdx,idx);
+      } else {
+        html+='<div style="padding:14px 16px;border-bottom:1px solid var(--border)">'+
+          '<div style="font-size:10px;font-weight:700;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:8px">'+safe(ch)+' · Post '+idx+' · <span style="text-transform:capitalize">'+safe(post.funnel_stage||'')+'</span></div>'+
+          '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">'+safe(post.hook||'')+'</div>'+
+          '<textarea rows="3" style="'+taStyle+';margin-bottom:6px" oninput="this.closest(\'[data-pkey]\').querySelector(\'.mc-body-val\').textContent=this.value" data-field="body">'+safe(post.body||'')+'</textarea>'+
+          (post.hashtags?'<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:6px">'+safe(post.hashtags)+'</div>':'')+
+          _ccRenderImagePanel(idx,'m',post)+
+        '</div>';
+      }
     });
   });
 

@@ -180,19 +180,27 @@ function buildFullSequence(brief, copy, existingPosts, existingEmails) {
       var _hasTK = _briefChs.some(function(c){return(c||'').toLowerCase()==='tiktok';});
       var _hasYT = _briefChs.some(function(c){return(c||'').toLowerCase()==='youtube';});
       if (_hasTK) {
-        var _feat = _getTikTokFeature(brief);
-        _arcPosts.push({ id:(brief.id||'')+'-tiktok-POST-001', campaign_id:brief.id||'', platform:'TikTok',
-          post_num:1, scheduled_day:3, theme:'solve', funnel_stage:'solve',
-          hook:_feat.toUpperCase()+' spotlight — hook in 3 seconds',
-          body_copy:'Feature demo: '+_feat+' · one approved claim · CTA link in bio',
-          cta:'Link in bio', hashtags:'', image_brief:'60-sec '+_feat+' spotlight screen recording' });
+        var _tkFts  = _getTikTokFeatureList(brief);
+        var _tkDays = [3, 10, 17, 24];
+        _tkFts.forEach(function(ft, fi) {
+          var _tday   = _tkDays[fi] !== undefined ? _tkDays[fi] : (3 + fi * 7);
+          var _tscript = _buildTikTokScriptTemplate(ft.code, ft.label, brief);
+          _arcPosts.push({ id:(brief.id||'')+'-tiktok-POST-'+String(fi+1).padStart(3,'0'),
+            campaign_id:brief.id||'', platform:'TikTok',
+            post_num:fi+1, scheduled_day:_tday, theme:'solve', funnel_stage:'solve',
+            feature:ft.code, feature_label:ft.label,
+            hook:ft.code+' — '+ft.label,
+            body_copy:_tscript, script:_tscript,
+            cta:'Link in bio', hashtags:'', image_brief:'' });
+        });
       }
       if (_hasYT) {
+        var _ytScript = _buildYouTubeScriptTemplate(brief);
         _arcPosts.push({ id:(brief.id||'')+'-youtube-POST-001', campaign_id:brief.id||'', platform:'YouTube',
           post_num:1, scheduled_day:6, theme:'cta', funnel_stage:'cta',
           hook:'easyChef Pro — 60-second explainer',
-          body_copy:'Full 7-step arc compressed to 60 seconds — publishes Day 7',
-          cta:'Join the waitlist — link in description', hashtags:'', image_brief:'60-sec explainer thumbnail' });
+          body_copy:_ytScript, script:_ytScript,
+          cta:'Join the waitlist — link in description', hashtags:'', image_brief:'' });
       }
       Logger.log('[buildFullSequence] existingPosts: ' + existingPosts.length + ' → ' + _arcPosts.length + ' after TK/YT static replacement');
       socialResult = _sbScheduleExistingPosts(brief, _arcPosts);
@@ -286,6 +294,9 @@ function _sbScheduleExistingPosts(brief, existingPosts) {
           funnel_stage:   p.funnel_stage || postTheme || '',
           hook:           p.hook         || '',
           body_copy:      p.body         || p.body_copy || '',
+          script:         p.script       || '',
+          feature:        p.feature      || '',
+          feature_label:  p.feature_label|| '',
           cta:            p.cta          || '',
           hashtags:       p.hashtags     || '',
           image_brief:    p.image_brief  || ''
@@ -640,41 +651,45 @@ function buildSocialCalendar(brief, copy) {
       else if (cl !== 'email')                 arcChannels.push(ch);
     });
 
-    // Static single-asset entries for TikTok and YouTube
+    // Video script entries — TikTok (4 spotlights) and YouTube (1 explainer)
+    var _tkFeatures = _getTikTokFeatureList(brief);
+    var _tkDays     = [3, 10, 17, 24]; // four spotlights across the 35-day arc
     videoChannels.forEach(function(channel) {
-      var chLow  = channel.toLowerCase();
-      var chSlug = chLow.replace(/[^a-z0-9]/g, '');
-      var postId = campaignId + '-' + chSlug + '-POST-001';
-      var p;
+      var chLow = channel.toLowerCase();
       if (chLow === 'tiktok') {
-        var feat = _getTikTokFeature(brief);
-        p = { id:postId, campaign_id:campaignId, platform:channel, post_num:1, scheduled_day:3,
-              theme:'solve', funnel_stage:'solve',
-              hook:feat.toUpperCase()+' feature spotlight — hook in 3 seconds',
-              body_copy:'Feature demo: '+feat+' · one approved claim · CTA link in bio',
-              cta:'Link in bio', hashtags:'', image_brief:'60-sec feature spotlight screen recording — '+feat };
+        _tkFeatures.forEach(function(ft, fi) {
+          var day    = _tkDays[fi] || (3 + fi * 7);
+          var postId = campaignId + '-tiktok-POST-' + String(fi + 1).padStart(3, '0');
+          var script = _buildTikTokScriptTemplate(ft.code, ft.label, brief);
+          var _sched = _sbOffsetDate(brief, day);
+          var p = { id:postId, campaign_id:campaignId, platform:'TikTok',
+                    post_num:fi + 1, scheduled_day:day, scheduled_date:_sched,
+                    theme:'solve', funnel_stage:'solve',
+                    feature: ft.code, feature_label: ft.label,
+                    hook: ft.code + ' — ' + ft.label,
+                    body_copy: script, script: script,
+                    cta:'Link in bio', hashtags:'', image_brief:'' };
+          setSocialPost({ id:postId, campaign_id:campaignId, platform:'TikTok',
+            hook:p.hook, body_copy:script, cta:p.cta,
+            hashtags:'', image_brief:'', scheduled_date:_sched, status:'draft' });
+          allPosts.push(p);
+        });
+        Logger.log('[buildSocialCalendar] TikTok: 4 feature spotlights seeded (Days 3/10/17/24)');
       } else if (chLow === 'youtube') {
-        p = { id:postId, campaign_id:campaignId, platform:channel, post_num:1, scheduled_day:6,
-              theme:'cta', funnel_stage:'cta',
-              hook:'easyChef Pro — 60-second explainer',
-              body_copy:'Full 7-step arc compressed to 60 seconds — publishes Day 7 same day as all CTA posts',
-              cta:'Join the waitlist — link in description', hashtags:'', image_brief:'60-sec explainer video thumbnail — app on phone' };
-      }
-      if (p) {
-        var _sched = '';
-        if (brief.launchDate) {
-          try {
-            var _ld = new Date(brief.launchDate + 'T12:00:00');
-            _ld.setDate(_ld.getDate() + p.scheduled_day);
-            _sched = Utilities.formatDate(_ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-          } catch(de) { _sched = ''; }
-        }
-        setSocialPost({ id:p.id, campaign_id:campaignId, platform:channel,
-          hook:p.hook, body_copy:p.body_copy, cta:p.cta,
-          hashtags:p.hashtags, image_brief:p.image_brief,
-          scheduled_date:_sched, status:'draft' });
-        allPosts.push(p);
-        Logger.log('[buildSocialCalendar] ' + channel + ': static single-asset (day ' + p.scheduled_day + ')');
+        var ytScript = _buildYouTubeScriptTemplate(brief);
+        var ytSched  = _sbOffsetDate(brief, 6);
+        var ytId     = campaignId + '-youtube-POST-001';
+        var ytPost   = { id:ytId, campaign_id:campaignId, platform:'YouTube',
+                         post_num:1, scheduled_day:6, scheduled_date:ytSched,
+                         theme:'cta', funnel_stage:'cta',
+                         hook:'easyChef Pro — 60-second explainer',
+                         body_copy:ytScript, script:ytScript,
+                         cta:'Join the waitlist — link in description', hashtags:'', image_brief:'' };
+        setSocialPost({ id:ytId, campaign_id:campaignId, platform:'YouTube',
+          hook:ytPost.hook, body_copy:ytScript, cta:ytPost.cta,
+          hashtags:'', image_brief:'', scheduled_date:ytSched, status:'draft' });
+        allPosts.push(ytPost);
+        Logger.log('[buildSocialCalendar] YouTube: explainer script seeded (Day 6)');
       }
     });
 
@@ -862,23 +877,29 @@ function _sbBuildArc2Posts(brief, arc1Posts) {
     });
   });
 
-  // TikTok Arc 2 urgency spotlight — Day 26 (Jun 22)
+  // TikTok Arc 2 urgency spotlight — Day 24 (urgency angle)
   var briefChs = Array.isArray(brief.channels) ? brief.channels : [];
   if (briefChs.some(function(c){return(c||'').toLowerCase()==='tiktok';})) {
-    var tkId   = campaignId + '-tiktok-ARC2-001';
-    var tkDate = _arc2Date(25);
+    var tkId     = campaignId + '-tiktok-ARC2-001';
+    var tkDate   = _arc2Date(24);
+    var tkScript = _buildTikTokScriptTemplate('TRACK', 'Founding Price Closing', brief)
+      .replace('HOOK (0–3 sec): "You\'re throwing away $1,336 a year. Let\'s stop that."',
+               'HOOK (0–3 sec): "Founding price $7.99/month closes July 1. This is your last chance."')
+      .replace('DEMO (3–8 sec): Screen recording: receipt scan → waste score updates → $1,336/year savings counter',
+               'DEMO (3–8 sec): Screen recording: founding price countdown → 5,000 family cap → spots filling');
     var tkPost = {
       id:tkId, campaign_id:campaignId, platform:'TikTok',
-      post_num:2, scheduled_day:25, scheduled_date:tkDate,
+      post_num:2, scheduled_day:24, scheduled_date:tkDate,
       theme:'urgency', funnel_stage:'cta',
-      hook:'Founding price closes July 1 — last chance TikTok spotlight',
-      body_copy:'Scarcity spotlight · $7.99/month founding price · July 1 deadline · 5,000 family cap',
+      feature:'TRACK', feature_label:'Founding Price Closing',
+      hook:'Founding price closes July 1 — last chance',
+      body_copy:tkScript, script:tkScript,
       cta:'Link in bio — claim your founding spot',
-      hashtags:'', image_brief:'Arc 2 TikTok · urgency · founding price ending · countdown'
+      hashtags:'', image_brief:''
     };
     setSocialPost({ id:tkId, campaign_id:campaignId, platform:'TikTok',
-      hook:tkPost.hook, body_copy:tkPost.body_copy, cta:tkPost.cta,
-      hashtags:'', image_brief:tkPost.image_brief, scheduled_date:tkDate, status:'draft' });
+      hook:tkPost.hook, body_copy:tkScript, cta:tkPost.cta,
+      hashtags:'', image_brief:'', scheduled_date:tkDate, status:'draft' });
     arc2Posts.push(tkPost);
   }
 
@@ -965,6 +986,82 @@ function _sbBuildSocialSchedule(wireframe, postCount, seqOffsets) {
     result.push({ day: day, theme: item.theme, role: item.role, seq: item.seq });
   }
   return result;
+}
+
+
+// ── Video script helpers (TikTok / YouTube) ───────────────────────────────────
+
+function _sbOffsetDate(brief, day) {
+  var base = brief.launchDate || brief.pre_launch_date || '';
+  if (!base) return '';
+  try {
+    var d = new Date(base + 'T12:00:00');
+    d.setDate(d.getDate() + day);
+    return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  } catch(e) { return ''; }
+}
+
+/**
+ * Returns 4 TikTok feature objects for the 4 spotlight cards (Days 3/10/17/24).
+ * Primary feature is derived from brief theme; remaining 3 cycle through others.
+ */
+function _getTikTokFeatureList(brief) {
+  var ALL = [
+    { code:'PLAN',     label:'Weekly Meal Planning'    },
+    { code:'COOK',     label:'30-Minute Dinner Mode'   },
+    { code:'TRACK',    label:'Waste & Savings Tracker' },
+    { code:'OPTIMIZE', label:'Smart Grocery List'      }
+  ];
+  var primary = (_getTikTokFeature(brief) || 'cook').toUpperCase();
+  var primaryFeat = ALL.find(function(f){ return f.code === primary; }) || ALL[1];
+  var rest = ALL.filter(function(f){ return f.code !== primaryFeat.code; });
+  return [primaryFeat, rest[0], rest[1], rest[2]];
+}
+
+function _buildTikTokScriptTemplate(code, label, brief) {
+  var hooks = {
+    PLAN:     'What if dinner was already planned?',
+    COOK:     'Dinner in 30 minutes — with what\'s in your fridge.',
+    TRACK:    'You\'re throwing away $1,336 a year. Let\'s stop that.',
+    OPTIMIZE: 'One grocery list. Zero overlap. Zero waste.'
+  };
+  var demos = {
+    PLAN:     'Screen recording: tap Meal Plan → week auto-fills with 5 dinners → one tap to confirm',
+    COOK:     'Screen recording: scan fridge → recipe generated → 30-minute timer starts',
+    TRACK:    'Screen recording: receipt scan → waste score updates → $1,336/year savings counter',
+    OPTIMIZE: 'Screen recording: smart grocery list → sorted by aisle → zero duplicates'
+  };
+  return [
+    'FEATURE: ' + code + ' — ' + label,
+    'HOOK (0–3 sec): "' + (hooks[code] || 'Your kitchen just got smarter.') + '"',
+    'DEMO (3–8 sec): ' + (demos[code] || 'Screen recording: easyChef Pro — fast, clean, zero friction'),
+    'CTA (8–10 sec): "Link in bio — join free." [text overlay: easychefpro.com]'
+  ].join('\n');
+}
+
+function _buildYouTubeScriptTemplate(brief) {
+  return [
+    'HOOK (0–5 sec):',
+    '  "Every night at 6:30, millions of families open the fridge and see nothing. Tonight, that changes."',
+    '',
+    'AGITATE (5–15 sec):',
+    '  "You spend $200 a week on groceries. 69.5% ends up in the trash. That\'s $1,336 a year — gone."',
+    '',
+    'PROBLEM (15–25 sec):',
+    '  "The problem isn\'t you. It\'s that no tool connects your fridge to your week. Until now."',
+    '',
+    'SOLVE (25–35 sec):',
+    '  "easyChef Pro sees what\'s in your fridge, knows your week, and builds the meal plan — in 30 seconds."',
+    '',
+    'VALUE (35–45 sec):',
+    '  "Dinner in 30 minutes. One grocery list. Zero waste. Founding price: $7.99/month — locks forever."',
+    '',
+    'PROOF (45–55 sec):',
+    '  "Built by first responders who know what time-starved really means. Your kitchen. In command."',
+    '',
+    'CTA (55–60 sec):',
+    '  "Join the waitlist — link in the description. 5,000 founding spots. Claim yours now." [text overlay: easychefpro.com]'
+  ].join('\n');
 }
 
 
