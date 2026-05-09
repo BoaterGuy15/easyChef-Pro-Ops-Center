@@ -407,10 +407,11 @@ function fcExportCampaignToDrive(campaignId) {
         if (!entry) return;
         (_expEmailsBySeq[seq] || []).forEach(function(email) {
           if (email.dl_id) return; // already written by fcGenerateUtmAndSave
+          var _lpBase = entry.destination_url || _buildLpUrl(lp ? (lp.slug || '') : (brief.slug || '')) || '';
           email.dl_id   = entry.dl_id;
-          email.utm_url = (entry.destination_url || 'https://easychefpro.com/lp/waitlist-a') +
-            '?utm_source=klaviyo' +
-            '&utm_medium=email' +
+          email.utm_url = _lpBase +
+            '?utm_source=' + encodeURIComponent(entry.utm_source || '') +
+            '&utm_medium=' + encodeURIComponent(entry.utm_medium || '') +
             '&utm_campaign=' + encodeURIComponent(brief.id || '') +
             '&utm_content=' + encodeURIComponent((entry.dl_id || '') + '_' + (email.seq_id || seq) + '_cta');
         });

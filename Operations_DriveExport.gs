@@ -248,11 +248,56 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       var _postBriefs  = (_briefs && _briefs.postBriefs)  ? _briefs.postBriefs  : {};
       var _emailBriefs = (_briefs && _briefs.emailBriefs) ? _briefs.emailBriefs : {};
 
-      // Synthetic email DL-IDs: used when EmailSequences sheet has no dl_id column
-      var _synthEmailDl = {
-        'SEQ-1': 'DL-EM-0001', 'SEQ-2': 'DL-EM-0002',
-        'SEQ-3': 'DL-EM-0003', 'SEQ-4': 'DL-EM-0004'
-      };
+      // ── Dynamic reads — all values from Campaign Center Sheet ─────────────────
+
+      // LP URL — read from lp object (loaded from LPInventory tab by fcExportCampaignToDrive)
+      var _lpUrl = '';
+      if (lp && lp.slug) {
+        _lpUrl = _buildLpUrl(lp.slug);
+        Logger.log('[CalendarXlsx] LP URL from LPInventory.slug=' + lp.slug + ': ' + _lpUrl);
+      } else if (brief && brief.slug) {
+        _lpUrl = _buildLpUrl(brief.slug);
+        Logger.log('[CalendarXlsx] LP URL from CampaignBriefs.slug=' + brief.slug + ': ' + _lpUrl);
+      } else {
+        Logger.log('[CalendarXlsx] WARNING: No LP slug on lp or brief — UTM destination URL will be blank');
+      }
+
+      // Email UTM source + medium — read from Channels tab
+      var _emailUtmSource = '', _emailUtmMedium = '';
+      try {
+        var _allChannels = getChannels();
+        var _emailCh = null;
+        _allChannels.forEach(function(ch) {
+          if ((ch.name || '').toLowerCase() === 'email' || (ch.slug_code || '').toLowerCase() === 'email') _emailCh = ch;
+        });
+        if (_emailCh) {
+          _emailUtmSource = _emailCh.utm_source || '';
+          _emailUtmMedium = _emailCh.utm_medium || '';
+          Logger.log('[CalendarXlsx] Email UTM from Channels tab: utm_source=' + _emailUtmSource + ' utm_medium=' + _emailUtmMedium);
+        } else {
+          Logger.log('[CalendarXlsx] WARNING: Email channel not found in Channels tab — utm_source/medium will be blank');
+        }
+      } catch(ce) { Logger.log('[CalendarXlsx] WARNING: Channels tab read error: ' + ce.message); }
+
+      // Email DL map {seqCode → dlEntry} — read from DeepLinkRegistry tab, keyed by SEQ-N in notes
+      var _emailDlMap = {};
+      try {
+        var _regDls = getDlRegistry(brief.id || '');
+        var _emDls  = _regDls.filter(function(u) { return /^DL-EM/i.test(u.dl_id || ''); });
+        if (_emDls.length === 0) {
+          Logger.log('[CalendarXlsx] WARNING: No DL-EM entries in DeepLinkRegistry for ' + brief.id + ' — run fcGenerateUtmAndSave first; DL ID and UTM will be blank');
+        } else {
+          _emDls.forEach(function(dl) {
+            var _seqMatch = String(dl.notes || dl.utm_content || '').match(/SEQ-\d+/i);
+            if (_seqMatch) _emailDlMap[_seqMatch[0].toUpperCase()] = dl;
+          });
+          // Positional fallback if notes-based matching yielded nothing
+          if (!Object.keys(_emailDlMap).length) {
+            ['SEQ-1','SEQ-2','SEQ-3','SEQ-4'].forEach(function(seq, i) { if (_emDls[i]) _emailDlMap[seq] = _emDls[i]; });
+          }
+          Logger.log('[CalendarXlsx] Email DL map from DeepLinkRegistry: ' + JSON.stringify(Object.keys(_emailDlMap)));
+        }
+      } catch(de) { Logger.log('[CalendarXlsx] WARNING: DeepLinkRegistry read error: ' + de.message); }
 
       var calDataRows = [];
 
@@ -293,12 +338,16 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           if (preA.length > 100) preA = preA.substring(0, 100);
           var _isFirst = (emailNum === 1 && seqCode === 'SEQ-1');
           var cta  = String(eRef.body_cta || eRef.cta_text || eRef.cta || (_isFirst ? 'Claim your founding spot' : ''));
-          // dl_id: sheet field → enrichment → synthetic per-sequence (SEQ-1→DL-EM-0001 etc.)
-          var dlId = String(eRef.dl_id || eRef.dlId || eRef.deeplink_id || _synthEmailDl[seqCode] || '');
-          var utmUrl = String(eRef.utm_url || eRef.utmUrl || eRef.utm_link || '');
-          if (!utmUrl && dlId) {
-            utmUrl = 'https://easychefpro.com/lp/waitlist-a' +
-              '?utm_source=klaviyo&utm_medium=email' +
+          // dl_id: email object (written by fcGenerateUtmAndSave) → DL registry map → blank + warning
+          var _dlEntry = _emailDlMap[seqCode] || null;
+          var dlId = String(eRef.dl_id || eRef.dlId || (_dlEntry ? _dlEntry.dl_id : '') || '');
+          if (!dlId) Logger.log('[CalendarXlsx] WARNING: No DL ID for ' + seqCode + ' — run fcGenerateUtmAndSave first');
+          // UTM URL: email object → build from sheet values → blank if LP URL or UTM source missing
+          var utmUrl = String(eRef.utm_url || eRef.utmUrl || '');
+          if (!utmUrl && dlId && _lpUrl && _emailUtmSource) {
+            utmUrl = _lpUrl +
+              '?utm_source=' + encodeURIComponent(_emailUtmSource) +
+              '&utm_medium=' + encodeURIComponent(_emailUtmMedium) +
               '&utm_campaign=' + encodeURIComponent(brief.id || '') +
               '&utm_content=' + encodeURIComponent(dlId + '_' + seqCode + '_cta');
           }
@@ -1375,45 +1424,56 @@ function testEmailCalendarRow() {
 
   // Show every field name on the first email object so we know what the schema returns
   Logger.log('Fields on email object: ' + JSON.stringify(Object.keys(emails[0])));
-  Logger.log('First email raw values:');
-  Logger.log('  id          = ' + emails[0].id);
-  Logger.log('  subject_line= ' + emails[0].subject_line);
-  Logger.log('  preview_text= ' + (emails[0].preview_text || '').substring(0,80));
-  Logger.log('  body_cta    = ' + emails[0].body_cta);
-  Logger.log('  dl_id       = ' + emails[0].dl_id);
-  Logger.log('  utm_url     = ' + emails[0].utm_url);
-  Logger.log('  funnel_stage= ' + emails[0].funnel_stage);
+  Logger.log('subject_line   read from EmailSequences: ' + emails[0].subject_line);
+  Logger.log('preview_text   read from EmailSequences: ' + (emails[0].preview_text || '(blank)').substring(0,80));
+  Logger.log('body_cta       read from EmailSequences: ' + (emails[0].body_cta || '(blank)'));
+  Logger.log('funnel_stage   read from EmailSequences: ' + (emails[0].funnel_stage || '(blank)'));
+  Logger.log('dl_id          read from EmailSequences: ' + (emails[0].dl_id !== undefined ? emails[0].dl_id || '(blank)' : '(field not in schema)'));
   Logger.log('---');
 
-  // Check DL registry for email entries
+  // LP URL — from brief slug (CampaignBriefs tab)
+  var _brief = null;
+  try { _brief = getCampaignBriefs(campaignId); } catch(e) {}
+  var _briefSlug = (_brief && _brief.slug) || '';
+  var _lpUrl = _briefSlug ? _buildLpUrl(_briefSlug) : '';
+  if (_lpUrl) Logger.log('LP URL         read from CampaignBriefs.slug=' + _briefSlug + ': ' + _lpUrl);
+  else        Logger.log('LP URL         WARNING: No slug on CampaignBriefs — LP URL will be blank');
+
+  // Email UTM source + medium — from Channels tab
+  var _emailUtmSource = '', _emailUtmMedium = '';
+  try {
+    var _allCh = getChannels();
+    var _eCh   = null;
+    _allCh.forEach(function(ch) {
+      if ((ch.name||'').toLowerCase() === 'email' || (ch.slug_code||'').toLowerCase() === 'email') _eCh = ch;
+    });
+    if (_eCh) {
+      _emailUtmSource = _eCh.utm_source || '';
+      _emailUtmMedium = _eCh.utm_medium || '';
+      Logger.log('utm_source     read from Channels tab (email row): ' + _emailUtmSource);
+      Logger.log('utm_medium     read from Channels tab (email row): ' + _emailUtmMedium);
+    } else {
+      Logger.log('utm_source     WARNING: Email row not found in Channels tab');
+    }
+  } catch(e) { Logger.log('Channels tab   ERROR: ' + e.message); }
+
+  // DL map — from DeepLinkRegistry tab
+  var _emailDlMap = {};
   try {
     var allDls  = getDlRegistry(campaignId);
-    var emailDls = allDls.filter(function(u) {
-      return /^DL-EM/i.test(u.dl_id || '') || (u.channel || '').toLowerCase() === 'email';
+    var emailDls = allDls.filter(function(u) { return /^DL-EM/i.test(u.dl_id || ''); });
+    Logger.log('DL-EM entries  read from DeepLinkRegistry: ' + emailDls.length + (emailDls.length===0 ? ' — run fcGenerateUtmAndSave first' : ''));
+    emailDls.forEach(function(dl, i) {
+      Logger.log('  [' + i + '] dl_id=' + dl.dl_id + '  notes=' + (dl.notes||'') + '  utm_content=' + (dl.utm_content||''));
+      var _m = String(dl.notes || dl.utm_content || '').match(/SEQ-\d+/i);
+      if (_m) _emailDlMap[_m[0].toUpperCase()] = dl;
     });
-    Logger.log('Email DLs in DeepLinkRegistry: ' + emailDls.length);
-    emailDls.forEach(function(d, i) {
-      Logger.log('  [' + i + '] dl_id=' + d.dl_id + '  channel=' + d.channel + '  utm_campaign=' + d.utm_campaign);
-    });
-    // Enrich email objects positionally (same as fcExportCampaignToDrive)
-    var _seqOrder = ['SEQ-1','SEQ-2','SEQ-3','SEQ-4'];
-    var _bySeq = {};
-    emails.forEach(function(em) { var s=em.sequence_code||''; if(!_bySeq[s])_bySeq[s]=[]; _bySeq[s].push(em); });
-    _seqOrder.forEach(function(seq, idx) {
-      var entry = emailDls[idx] || null;
-      if (!entry) return;
-      (_bySeq[seq]||[]).forEach(function(em) {
-        if (em.dl_id) return;
-        em.dl_id   = entry.dl_id;
-        em.utm_url = (entry.destination_url || 'https://easychefpro.com/lp/waitlist-a') +
-          '?utm_source=klaviyo&utm_medium=email&utm_campaign=' + encodeURIComponent(campaignId) +
-          '&utm_content=' + encodeURIComponent((entry.dl_id||'') + '_' + seq + '_cta');
-      });
-    });
-  } catch(e) { Logger.log('DL registry error: ' + e.message); }
+    if (emailDls.length > 0 && !Object.keys(_emailDlMap).length) {
+      ['SEQ-1','SEQ-2','SEQ-3','SEQ-4'].forEach(function(seq, i) { if (emailDls[i]) _emailDlMap[seq] = emailDls[i]; });
+      Logger.log('DL map         positional fallback (notes had no SEQ-N match): ' + JSON.stringify(Object.keys(_emailDlMap)));
+    }
+  } catch(e) { Logger.log('DeepLinkRegistry ERROR: ' + e.message); }
 
-  // Synthetic fallback DL IDs (what the calendar uses when registry is empty)
-  var _synth = { 'SEQ-1':'DL-EM-0001','SEQ-2':'DL-EM-0002','SEQ-3':'DL-EM-0003','SEQ-4':'DL-EM-0004' };
   var _EDAYS = { 'SEQ-1':[0,3,7],'SEQ-2':[7,10,14,18,25],'SEQ-3':[22,25,28,31],'SEQ-4':[35] };
 
   // Pair A and B variants — same logic as the XLSX builder
@@ -1445,21 +1505,24 @@ function testEmailCalendarRow() {
     var preA     = String(eRef.preview_text || eRef.preheader || '(BLANK)').substring(0,80);
     var _isFirst = (emailNum===1 && seqCode==='SEQ-1');
     var cta      = String(eRef.body_cta || eRef.cta || (_isFirst?'Claim your founding spot':'(BLANK)'));
-    var dlId     = String(eRef.dl_id || _synth[seqCode] || '(BLANK)');
+    var _dlEntry = _emailDlMap[seqCode] || null;
+    var dlId     = String(eRef.dl_id || (_dlEntry ? _dlEntry.dl_id : '') || '');
+    var dlSrc    = eRef.dl_id ? 'EmailSequences tab' : (_dlEntry ? 'DeepLinkRegistry tab' : 'BLANK — run fcGenerateUtmAndSave');
     var utmUrl   = String(eRef.utm_url || '');
-    if (!utmUrl && dlId && dlId !== '(BLANK)') {
-      utmUrl = 'https://easychefpro.com/lp/waitlist-a' +
-        '?utm_source=klaviyo&utm_medium=email' +
-        '&utm_campaign=' + campaignId +
-        '&utm_content=' + dlId + '_' + seqCode + '_cta';
+    if (!utmUrl && dlId && _lpUrl && _emailUtmSource) {
+      utmUrl = _lpUrl +
+        '?utm_source=' + encodeURIComponent(_emailUtmSource) +
+        '&utm_medium=' + encodeURIComponent(_emailUtmMedium) +
+        '&utm_campaign=' + encodeURIComponent(campaignId) +
+        '&utm_content=' + encodeURIComponent(dlId + '_' + seqCode + '_cta');
     }
     Logger.log('[' + seqCode + '-E' + emailNum + ' Day ' + day + ']');
-    Logger.log('  Subject/Hook A : ' + subA);
-    Logger.log('  Subject/Hook B : ' + subB);
-    Logger.log('  Preview/Body   : ' + preA);
-    Logger.log('  CTA Text       : ' + cta);
-    Logger.log('  DL ID          : ' + dlId);
-    Logger.log('  UTM URL        : ' + utmUrl);
+    Logger.log('  Subject/Hook A  read from EmailSequences: ' + subA);
+    Logger.log('  Subject/Hook B  read from EmailSequences: ' + subB);
+    Logger.log('  Preview/Body    read from EmailSequences: ' + preA);
+    Logger.log('  CTA Text        read from EmailSequences: ' + cta);
+    Logger.log('  DL ID           read from ' + dlSrc + ': ' + (dlId || '(blank)'));
+    Logger.log('  UTM URL         built from LP slug + Channels tab: ' + (utmUrl || '(blank — DL ID or LP slug missing)'));
   });
   Logger.log('=== Done — ' + _shown + ' sequences shown ===');
 }
