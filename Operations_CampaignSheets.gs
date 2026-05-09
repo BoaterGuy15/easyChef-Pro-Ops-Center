@@ -239,7 +239,6 @@ function _setupCampaignSheets() {
   });
   _seedLPInventory(ss.getSheetByName(_CC_TAB.LP_INVENTORY));
   _seedLandingPages(ss.getSheetByName(_CC_TAB.PAGES));
-  _seedThemeLibrary(ss.getSheetByName(_CC_TAB.THEME_LIBRARY));
   _seedCcSettings(ss.getSheetByName(_CC_TAB.SETTINGS));
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
@@ -487,72 +486,6 @@ function seedLpData() {
   Logger.log('seedLpData: LandingPages sheet seeded');
 }
 
-function _seedThemeLibrary(sheet) {
-  if (!sheet) return;
-  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
-  [
-    ['sm-001','super_mom','Taco Tuesday','taco-tuesday','weeknight-wins',
-     'It is 6:30 PM and she has no taco plan despite buying all the ingredients',
-     'Taco Tuesday nailed without the panic or the DoorDash',
-     'What if Taco Tuesday was faster than takeout?',
-     'You bought the ingredients but never planned what to make',
-     '$25 in DoorDash when tacos were already in the fridge',
-     'Tacos — crispy shells, seasoned ground beef, salsa, lime, cheese',
-     'Tuesday',7,'A-Waitlist','speed',
-     'Free during beta — app launches July 1',
-     'Tired mom staring at fridge at 6:30 PM — ground beef and tortillas visible inside — she does not know she already has everything for Taco Tuesday',
-     'Mom on the couch after Taco Tuesday — kids happy — plates cleared — she is already thinking about next Tuesday',
-     'true','Primary Taco Tuesday theme — highest resonance',
-     'COOK','Recipe page',
-     'Tell us what is in your fridge. Get Taco Tuesday in 30 minutes.',
-     '10,000 recipe pages at launch · 800,000 products in database',
-     '1: Last-Minute Dinner Fixer (6:30 PM panic — she has tacos in the fridge and does not know it) | 2: Takeout Trap (orders DoorDash instead of using the $8 of ingredients already there) | 3: Fridge Full (has everything for Taco Tuesday but no plan and no idea what to make) | 4: Routine Builder (wants Taco Tuesday on autopilot every week without thinking) | 5: Budget-Conscious Shopper ($30 DoorDash receipt next to $8 of unused taco ingredients is the wake-up call)'],
-    ['sm-002','super_mom','Meal Prep Sunday','meal-prep-sunday','weekend-wins',
-     'Sunday anxiety about the week ahead',
-     'Monday morning with a full plan and a clean fridge',
-     'The Sunday reset that actually works',
-     'You start every week intending to meal prep and end up not',
-     'By Wednesday you are back to ordering because Sunday slipped away again',
-     'Meal prep containers — grains, proteins, vegetables portioned out',
-     'Sunday',7,'A-Waitlist','speed','',
-     'Mom looking at empty containers Sunday afternoon, overwhelmed',
-     'Mom smiling at a fridge full of organised prep containers Monday morning',
-     'true','',
-     'PLAN','Meal Plan view',
-     'One Sunday. Five dinners. All from what you already have.',
-     'Validated across 10,000 household profiles'],
-    ['sm-003','super_mom','Back to School','back-to-school','seasonal',
-     'First week of school chaos — dinner at 5 PM with no plan',
-     'School nights handled without the 5 PM spiral',
-     'School is back. Your evenings are not ready.',
-     'Summer was easy. School nights are a different level of chaos.',
-     'Three activities, two kids, one hour to get dinner on the table',
-     'Quick family dinner — pasta, protein, something kids will eat',
-     'Monday',7,'A-Waitlist','speed','',
-     'Mom rushing, kids in uniforms, kitchen behind her at 5 PM',
-     'Family at the table, homework done, dinner served, mom exhales',
-     'true','',
-     'PLAN','Meal Plan view',
-     'Tell easyChef Pro what is in your fridge. School nights handled.',
-     '30 minutes fridge to table · Validated across 10,000 household profiles'],
-    ['sm-004','super_mom','Game Night','game-night','weekend-wins',
-     'Feeding a crowd from the fridge with no plan',
-     'Game night snacks and dinner handled in 45 minutes',
-     '8 people are coming over. Your fridge is full. Now what?',
-     'Game night used to mean panic ordering pizza for everyone',
-     '$80 on delivery when you had everything to make something better',
-     'Finger foods and shareable dishes — nachos, sliders, dips',
-     'Friday',7,'A-Waitlist','savings','',
-     'Mom looking stressed at a full fridge before guests arrive',
-     'Full table of food, friends around it, mom relaxed and in her element',
-     'true','',
-     'COOK','Recipe page',
-     'Tell us what is in your fridge. Feed the crowd in 45 minutes.',
-     '10,000 recipe pages at launch · 800,000 products in database']
-  ].forEach(function(row) {
-    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
-  });
-}
 
 function _tlRowToObj(r) {
   return {
