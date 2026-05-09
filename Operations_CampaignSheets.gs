@@ -97,7 +97,10 @@ var _CC_HDR = {
     'campaign_angle','lp_variant','headline','cta_primary','proof_bar',
     'status','dev_built','convert_installed','clarity_installed','ga4_installed',
     'campaigns_using','total_signups','conversion_rate',
-    'created_at','last_updated','notes'
+    'created_at','last_updated','notes',
+    'urgency_type','urgency_line','urgency_placement',
+    'exclusivity_angle','exclusivity_line',
+    'meta_title','meta_description','og_title','og_description','canonical_url','focus_keyword'
   ],
   Channels: [
     'name','slug_code','utm_medium','utm_source','dl_prefix','status','notes',
@@ -1595,6 +1598,18 @@ function _seedCcSettings(sheet) {
     ['CAMPAIGN_ANGLES','convenience','Convenience','',true],
     ['CAMPAIGN_ANGLES','community','Community','',true],
     ['CAMPAIGN_ANGLES','founder','Founder','',true],
+    // URGENCY_TYPES — key=slug, label=display, extra=auto-suggest urgency line
+    ['URGENCY_TYPES','founding-price','Founding price closing','First 5,000 families lock in $7.99/month forever. The rest pay $19.99.',true],
+    ['URGENCY_TYPES','spots-running-out','Spots running out','[X] of 5,000 founding spots remaining.',true],
+    ['URGENCY_TYPES','launch-countdown','Launch countdown','[X] days until launch.',true],
+    ['URGENCY_TYPES','beta-limited','Beta access limited','Beta access closes when spots fill.',true],
+    ['URGENCY_TYPES','custom','Custom','',true],
+    // EXCLUSIVITY_ANGLES — key=slug, label=display, extra=auto-fill exclusivity line
+    ['EXCLUSIVITY_ANGLES','founding-family','Founding family','You are not just joining an app. You are founding the kitchen of the future.',true],
+    ['EXCLUSIVITY_ANGLES','alpha-founder','Alpha founder','You were chosen. Help us build this.',true],
+    ['EXCLUSIVITY_ANGLES','beta-tester','Beta tester','Real families shaped this before you got here.',true],
+    ['EXCLUSIVITY_ANGLES','early-access','Early access','You found this before the world did.',true],
+    ['EXCLUSIVITY_ANGLES','personal-invite','Personal invite','This invitation is for you personally.',true],
     // BRAND_PLUG — tagline + origin (read-only display), 8 selectable proof claims
     ['BRAND_PLUG','tagline',  'Your kitchen. In command.',                          '',true],
     ['BRAND_PLUG','origin',   'Built by first responders.',                         '',true],
@@ -1640,6 +1655,50 @@ function addBrandPlugSettings() {
   Logger.log('BRAND_PLUG: added ' + rows.length + ' rows.');
 }
 
+// Run once from GAS editor to add URGENCY_TYPES + EXCLUSIVITY_ANGLES to an existing CcSettings sheet.
+function addUrgencyExclusivitySettings() {
+  var sheet  = _getCCSheet(_CC_TAB.SETTINGS);
+  var last   = sheet.getLastRow();
+  var existing = last >= 2 ? sheet.getRange(2, 1, last - 1, 1).getValues().map(function(r){ return String(r[0]).toUpperCase(); }) : [];
+  var rows = [];
+  if (existing.indexOf('URGENCY_TYPES') < 0) {
+    rows = rows.concat([
+      ['URGENCY_TYPES','founding-price','Founding price closing','First 5,000 families lock in $7.99/month forever. The rest pay $19.99.',true],
+      ['URGENCY_TYPES','spots-running-out','Spots running out','[X] of 5,000 founding spots remaining.',true],
+      ['URGENCY_TYPES','launch-countdown','Launch countdown','[X] days until launch.',true],
+      ['URGENCY_TYPES','beta-limited','Beta access limited','Beta access closes when spots fill.',true],
+      ['URGENCY_TYPES','custom','Custom','',true]
+    ]);
+  }
+  if (existing.indexOf('EXCLUSIVITY_ANGLES') < 0) {
+    rows = rows.concat([
+      ['EXCLUSIVITY_ANGLES','founding-family','Founding family','You are not just joining an app. You are founding the kitchen of the future.',true],
+      ['EXCLUSIVITY_ANGLES','alpha-founder','Alpha founder','You were chosen. Help us build this.',true],
+      ['EXCLUSIVITY_ANGLES','beta-tester','Beta tester','Real families shaped this before you got here.',true],
+      ['EXCLUSIVITY_ANGLES','early-access','Early access','You found this before the world did.',true],
+      ['EXCLUSIVITY_ANGLES','personal-invite','Personal invite','This invitation is for you personally.',true]
+    ]);
+  }
+  if (rows.length === 0) { Logger.log('URGENCY_TYPES and EXCLUSIVITY_ANGLES already exist — skipping.'); return; }
+  rows.forEach(function(row) { sheet.appendRow(row); });
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  Logger.log('addUrgencyExclusivitySettings: added ' + rows.length + ' rows.');
+}
+
+// Look up a single LPInventory record by slug — used by LP Builder to reload SEO data.
+function getLPInventoryBySlug(slug) {
+  if (!slug) return null;
+  var sheet = _getCCSheet(_CC_TAB.LP_INVENTORY);
+  var last  = sheet.getLastRow();
+  if (last < 2) return null;
+  var hLen = _CC_HDR.LPInventory.length;
+  var rows = sheet.getRange(2, 1, last - 1, hLen).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][1]).trim() === String(slug).trim()) return _lpInvRowToObj(rows[i]);
+  }
+  return null;
+}
+
 function getCcSettings() {
   var cache   = CacheService.getScriptCache();
   var cached  = cache.get('cc_settings_v1');
@@ -1648,7 +1707,7 @@ function getCcSettings() {
   var sheet = _getCCSheet(_CC_TAB.SETTINGS);
   if (sheet.getLastRow() < 2) _seedCcSettings(sheet);
 
-  var result = { theme_categories:[], journey_types:[], app_features:[], campaign_angles:[], brand_plug:[] };
+  var result = { theme_categories:[], journey_types:[], app_features:[], campaign_angles:[], brand_plug:[], urgency_types:[], exclusivity_angles:[] };
   var last   = sheet.getLastRow();
   if (last < 2) { cache.put('cc_settings_v1', JSON.stringify(result), 300); return result; }
 
@@ -1663,6 +1722,8 @@ function getCcSettings() {
     else if (sec === 'APP_FEATURES')     result.app_features.push(row);
     else if (sec === 'CAMPAIGN_ANGLES')  result.campaign_angles.push(row);
     else if (sec === 'BRAND_PLUG')       result.brand_plug.push(row);
+    else if (sec === 'URGENCY_TYPES')    result.urgency_types.push(row);
+    else if (sec === 'EXCLUSIVITY_ANGLES') result.exclusivity_angles.push(row);
   });
 
   cache.put('cc_settings_v1', JSON.stringify(result), 300);
@@ -2369,7 +2430,18 @@ function _lpInvRowToObj(r) {
     conversion_rate:      String(r[18] || ''),
     created_at:           _ccFmtDate(r[19]),
     last_updated:         _ccFmtDate(r[20]),
-    notes:                String(r[21] || '')
+    notes:                String(r[21] || ''),
+    urgency_type:         String(r[22] || ''),
+    urgency_line:         String(r[23] || ''),
+    urgency_placement:    String(r[24] || ''),
+    exclusivity_angle:    String(r[25] || ''),
+    exclusivity_line:     String(r[26] || ''),
+    meta_title:           String(r[27] || ''),
+    meta_description:     String(r[28] || ''),
+    og_title:             String(r[29] || ''),
+    og_description:       String(r[30] || ''),
+    canonical_url:        String(r[31] || ''),
+    focus_keyword:        String(r[32] || '')
   };
 }
 
@@ -2419,7 +2491,18 @@ function setLPInventoryEntry(item) {
     item.conversion_rate    !== undefined ? item.conversion_rate    : (ex ? ex[18] : ''),
     ex ? ex[19] : now,
     now,
-    item.notes              !== undefined ? item.notes              : (ex ? ex[21] : '')
+    item.notes              !== undefined ? item.notes              : (ex ? ex[21] : ''),
+    item.urgency_type       !== undefined ? item.urgency_type       : (ex ? ex[22] : ''),
+    item.urgency_line       !== undefined ? item.urgency_line       : (ex ? ex[23] : ''),
+    item.urgency_placement  !== undefined ? item.urgency_placement  : (ex ? ex[24] : ''),
+    item.exclusivity_angle  !== undefined ? item.exclusivity_angle  : (ex ? ex[25] : ''),
+    item.exclusivity_line   !== undefined ? item.exclusivity_line   : (ex ? ex[26] : ''),
+    item.meta_title         !== undefined ? item.meta_title         : (ex ? ex[27] : ''),
+    item.meta_description   !== undefined ? item.meta_description   : (ex ? ex[28] : ''),
+    item.og_title           !== undefined ? item.og_title           : (ex ? ex[29] : ''),
+    item.og_description     !== undefined ? item.og_description     : (ex ? ex[30] : ''),
+    item.canonical_url      !== undefined ? item.canonical_url      : (ex ? ex[31] : ''),
+    item.focus_keyword      !== undefined ? item.focus_keyword      : (ex ? ex[32] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -2435,20 +2518,31 @@ function createLpInventoryEntry(p) {
   var full  = 'https://easychefpro.com/' + p.slug;
 
   setLPInventoryEntry({
-    id:             lpId,
-    slug:           p.slug,
-    full_url:       full,
-    campaign_type:  p.purpose        || 'Waitlist',
-    blueprint_code: '',
-    icp_codes:      p.icp            || '',
-    campaign_angle: p.angle          || '',
-    lp_variant:     (p.variant||'A').toUpperCase(),
-    headline:       p.headline       || '',
-    cta_primary:    '',
-    proof_bar:      '',
-    status:         'PENDING_DEV',
-    dev_built:      false,
-    notes:          'theme:' + (p.theme||'') + ' · dl:' + dlId + (p.campaign_id ? ' · campaign:' + p.campaign_id : '')
+    id:                  lpId,
+    slug:                p.slug,
+    full_url:            full,
+    campaign_type:       p.purpose             || 'Waitlist',
+    blueprint_code:      '',
+    icp_codes:           p.icp                 || '',
+    campaign_angle:      p.angle               || '',
+    lp_variant:          (p.variant||'A').toUpperCase(),
+    headline:            p.headline            || '',
+    cta_primary:         '',
+    proof_bar:           '',
+    status:              'PENDING_DEV',
+    dev_built:           false,
+    notes:               'theme:' + (p.theme||'') + ' · dl:' + dlId + (p.campaign_id ? ' · campaign:' + p.campaign_id : ''),
+    urgency_type:        p.urgency_type        || '',
+    urgency_line:        p.urgency_line        || '',
+    urgency_placement:   p.urgency_placement   || '',
+    exclusivity_angle:   p.exclusivity_angle   || '',
+    exclusivity_line:    p.exclusivity_line    || '',
+    meta_title:          p.meta_title          || '',
+    meta_description:    p.meta_description    || '',
+    og_title:            p.og_title            || '',
+    og_description:      p.og_description      || '',
+    canonical_url:       p.canonical_url       || full,
+    focus_keyword:       p.focus_keyword       || ''
   });
 
   setDlRegistryEntry({

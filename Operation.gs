@@ -527,6 +527,11 @@ function doGet(e) {
       Logger.log('lp_inventory_read: ' + _inv.length + ' rows returned (status=' + _status + ')');
       return respond({ok:true, inventory: _inv});
     }
+    if(e.parameter.action === 'lp_inventory_slug_read') {
+      var _lpiSlug = e.parameter.slug || '';
+      var _lpiRow  = getLPInventoryBySlug(_lpiSlug);
+      return respond({ok:true, lp: _lpiRow});
+    }
     return respond({ ok: true, tasks: getTasks() });
   } catch(err) {
     return respond({ ok: false, error: err.message });

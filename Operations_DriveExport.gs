@@ -546,18 +546,34 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   + '  <tr><td class="td-label">Format</td><td>JPG</td></tr>\n'
   + '</tbody></table>\n\n'
 
-  // ── 04 SEO META ──
-  + '<div class="sec-header">04 &mdash; SEO META</div>\n'
+  // ── 05 URGENCY ──
+  + '<div class="sec-header">05 &mdash; URGENCY</div>\n'
+  + '<table><tbody>\n'
+  + '  <tr><td class="td-label">Urgency Type</td><td>' + _h(lp.urgency_type || '—') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Urgency Line</td><td style="font-weight:600">' + _h(lp.urgency_line || '—') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Placement</td><td>' + _h(lp.urgency_placement || 'below-hero') + '</td></tr>\n'
+  + '</tbody></table>\n\n'
+
+  // ── 06 EXCLUSIVITY ──
+  + '<div class="sec-header">06 &mdash; EXCLUSIVITY</div>\n'
+  + '<table><tbody>\n'
+  + '  <tr><td class="td-label">Exclusivity Angle</td><td>' + _h(lp.exclusivity_angle || '—') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Exclusivity Line</td><td style="font-weight:600">' + _h(lp.exclusivity_line || '—') + '</td></tr>\n'
+  + '</tbody></table>\n\n'
+
+  // ── 07 SEO PACKAGE ──
+  + '<div class="sec-header">07 &mdash; SEO PACKAGE</div>\n'
   + '<table><tbody>\n'
   + '  <tr><td class="td-label">Meta Title <span class="char-count">(60 max)</span></td><td>'   + _h(metaTitle) + mtLen + '</td></tr>\n'
   + '  <tr><td class="td-label">Meta Description <span class="char-count">(155 max)</span></td><td>' + _h(metaDesc)  + mdLen + '</td></tr>\n'
   + '  <tr><td class="td-label">OG Title</td><td>'       + _h(ogTitle)   + '</td></tr>\n'
   + '  <tr><td class="td-label">OG Description</td><td>' + _h(ogDesc)    + '</td></tr>\n'
-  + '  <tr><td class="td-label">Canonical URL</td><td>'  + _h(canonUrl)  + '</td></tr>\n'
+  + '  <tr><td class="td-label">Canonical URL</td><td>'  + _h(lp.canonical_url || canonUrl) + '</td></tr>\n'
+  + '  <tr><td class="td-label">Focus Keyword</td><td>'  + _h(lp.focus_keyword || '—') + '</td></tr>\n'
   + '</tbody></table>\n\n'
 
-  // ── 05 TRACKING ──
-  + '<div class="sec-header">05 &mdash; TRACKING</div>\n'
+  // ── 08 TRACKING ──
+  + '<div class="sec-header">08 &mdash; TRACKING</div>\n'
   + '<table><tbody>\n'
   + '  <tr><td class="td-label">GA4 Measurement ID</td><td>G-Q4DYEEXFKV</td></tr>\n'
   + '  <tr><td class="td-label">Convert.com Account</td><td>10019256</td></tr>\n'
@@ -573,7 +589,7 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
       var _bpTagline = (_bpRows.find(function(r){ return r.key === 'tagline'; }) || {}).label || 'Your kitchen. In command.';
       var _bpOrigin  = (_bpRows.find(function(r){ return r.key === 'origin';  }) || {}).label || 'Built by first responders.';
       var _proofClaim = _h(lp.proof_claim || brief.proof_claim || '$1,336/year saved');
-      return '<div class="sec-header">07 &mdash; BRAND PLUG (above CTA &mdash; always, never optional)</div>\n'
+      return '<div class="sec-header">09 &mdash; BRAND PLUG (above CTA &mdash; always, never optional)</div>\n'
         + '<table><tbody>\n'
         + '  <tr><td class="td-label">Line 1 &mdash; Tagline</td><td style="font-weight:600">' + _h(_bpTagline) + '</td></tr>\n'
         + '  <tr><td class="td-label">Line 2 &mdash; Origin</td><td style="font-weight:600">' + _h(_bpOrigin) + '</td></tr>\n'

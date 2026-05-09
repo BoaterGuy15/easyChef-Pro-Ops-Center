@@ -22143,6 +22143,20 @@ var _CC_SETTINGS_FALLBACK = {
     {key:'proof_006', label:'Validated across 10,000 household profiles',               extra:''},
     {key:'proof_007', label:'Built for working families. Tested by first responders.',  extra:''},
     {key:'proof_008', label:'Zero shortcuts. Zero guesswork. All home.',                extra:''}
+  ],
+  urgency_types: [
+    {key:'founding-price',   label:'Founding price closing', extra:'First 5,000 families lock in $7.99/month forever. The rest pay $19.99.'},
+    {key:'spots-running-out',label:'Spots running out',      extra:'[X] of 5,000 founding spots remaining.'},
+    {key:'launch-countdown', label:'Launch countdown',       extra:'[X] days until launch.'},
+    {key:'beta-limited',     label:'Beta access limited',    extra:'Beta access closes when spots fill.'},
+    {key:'custom',           label:'Custom',                 extra:''}
+  ],
+  exclusivity_angles: [
+    {key:'founding-family', label:'Founding family', extra:'You are not just joining an app. You are founding the kitchen of the future.'},
+    {key:'alpha-founder',   label:'Alpha founder',   extra:'You were chosen. Help us build this.'},
+    {key:'beta-tester',     label:'Beta tester',     extra:'Real families shaped this before you got here.'},
+    {key:'early-access',    label:'Early access',    extra:'You found this before the world did.'},
+    {key:'personal-invite', label:'Personal invite', extra:'This invitation is for you personally.'}
   ]
 };
 
@@ -22233,7 +22247,7 @@ function _ccCloseSettings() {
 }
 
 function _ccStTab(sec) {
-  ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES','BRAND_PLUG'].forEach(function(s){
+  ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES','BRAND_PLUG','URGENCY_TYPES','EXCLUSIVITY_ANGLES'].forEach(function(s){
     var p=document.getElementById('cc-st-panel-'+s);
     var b=document.getElementById('cc-st-tab-'+s);
     if(p) p.style.display=(s===sec)?'block':'none';
@@ -22321,7 +22335,7 @@ function _ccDeleteSetting(sec,key,btn){
 }
 
 function _ccRebuildSectionUI(sec){
-  var MAP={THEME_CATEGORIES:'theme_categories',JOURNEY_TYPES:'journey_types',APP_FEATURES:'app_features',CAMPAIGN_ANGLES:'campaign_angles',BRAND_PLUG:'brand_plug'};
+  var MAP={THEME_CATEGORIES:'theme_categories',JOURNEY_TYPES:'journey_types',APP_FEATURES:'app_features',CAMPAIGN_ANGLES:'campaign_angles',BRAND_PLUG:'brand_plug',URGENCY_TYPES:'urgency_types',EXCLUSIVITY_ANGLES:'exclusivity_angles'};
   var sk=MAP[sec]; if(!sk||!_ccSettingsData)return;
   var all=_ccSettingsData[sk]||[];
   var active=all.filter(function(r){return r.active!==false;});
@@ -22364,7 +22378,7 @@ function _ccSettingsPanelHtml() {
   var BTN='border:none;padding:7px 16px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.05em;text-transform:uppercase';
   var TABST='padding:6px 14px;border-radius:5px 5px 0 0;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border:none;font-family:\'DM Mono\',monospace';
   var LBL9='font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px;font-family:\'DM Mono\',monospace';
-  var sdata=_ccSettingsData||{theme_categories:[],journey_types:[],app_features:[],campaign_angles:[],brand_plug:[]};
+  var sdata=_ccSettingsData||{theme_categories:[],journey_types:[],app_features:[],campaign_angles:[],brand_plug:[],urgency_types:[],exclusivity_angles:[]};
 
   function panel(sec,title,desc,hasExtra,extraPh,items){
     var active=items.filter(function(r){return r.active!==false;});
@@ -22418,8 +22432,8 @@ function _ccSettingsPanelHtml() {
       '<button onclick="_ccCloseSettings()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:5px;font-size:13px;cursor:pointer">✕</button>'+
     '</div>'+
     '<div style="display:flex;gap:2px;padding:12px 20px 0;border-bottom:1px solid var(--border);flex-shrink:0">'+
-      ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES','BRAND_PLUG'].map(function(s,i){
-        var labels=['Categories','Journey Types','App Features','Angles','Brand Plug'];
+      ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES','BRAND_PLUG','URGENCY_TYPES','EXCLUSIVITY_ANGLES'].map(function(s,i){
+        var labels=['Categories','Journey Types','App Features','Angles','Brand Plug','Urgency','Exclusivity'];
         var isFirst=i===0;
         return '<button id="cc-st-tab-'+s+'" onclick="_ccStTab(\''+s+'\')" style="'+TABST+';background:'+(isFirst?_CC_RED:'transparent')+';color:'+(isFirst?'#fff':'var(--muted)')+(isFirst?'':';border:1px solid var(--border);border-bottom:none')+'">'+labels[i]+'</button>';
       }).join('')+
@@ -22430,6 +22444,8 @@ function _ccSettingsPanelHtml() {
       panel('APP_FEATURES','App Features','Key = feature code (e.g. COOK), Label = AI context description, Extra = screen label written to the sheet.',true,'Screen Label',sdata.app_features)+
       panel('CAMPAIGN_ANGLES','Angles','Campaign angle options. Key = stored value, Label = display name in form.',false,'',sdata.campaign_angles)+
       panel('BRAND_PLUG','Brand Plug','Brand plug appears above every CTA button — never optional. Key = tagline | origin | proof_001 … proof_008. Tagline and origin are read-only in the LP Builder; proof claims populate the dropdown.',false,'',sdata.brand_plug||[])+
+      panel('URGENCY_TYPES','Urgency Types','Urgency types shown in LP Builder. Key = slug, Label = display name, Extra = auto-suggest text that fills the urgency line when this type is selected.',true,'Auto-suggest Line',sdata.urgency_types||[])+
+      panel('EXCLUSIVITY_ANGLES','Exclusivity Angles','Exclusivity angles shown in LP Builder. Key = slug, Label = display name, Extra = auto-fill text that populates the exclusivity line.',true,'Auto-fill Line',sdata.exclusivity_angles||[])+
     '</div>'+
     '<div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0">'+
       '<button onclick="_ccCloseSettings()" style="'+BTN+';background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 20px">Close</button>'+
@@ -24709,6 +24725,65 @@ function _ccShowBuildLpForm() {
           '</div>'+
         '</div>';
     })()+
+    // ── URGENCY ──────────────────────────────────────────────────────────────
+    (function(){
+      var _ut = (_ccSettingsData && _ccSettingsData.urgency_types) ? _ccSettingsData.urgency_types : _CC_SETTINGS_FALLBACK.urgency_types;
+      var _utOpts = _ut.filter(function(r){return r.active!==false;})
+        .map(function(r){return '<option value="'+_esc(r.key)+'" data-suggest="'+_esc(r.extra||'')+'">'+_esc(r.label||r.key)+'</option>';}).join('');
+      return '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:#f59e0b;margin-bottom:6px;text-transform:uppercase;'+mf+'">URGENCY</div>'+
+        '<div style="padding:12px;background:var(--bg);border-radius:6px;border:1px solid rgba(245,158,11,0.3);margin-bottom:16px">'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+            '<div><label style="'+LBL+'">Urgency Type</label>'+
+              '<select id="cc-blp-urgency-type" style="'+IS+'" onchange="_ccBlpUrgencyChange()">'+
+                '<option value="">— none —</option>'+_utOpts+
+              '</select></div>'+
+            '<div><label style="'+LBL+'">Placement</label>'+
+              '<select id="cc-blp-urgency-placement" style="'+IS+'">'+
+                '<option value="below-hero">Below hero CTA</option>'+
+                '<option value="above-final">Above final CTA</option>'+
+                '<option value="both">Both</option>'+
+              '</select></div>'+
+          '</div>'+
+          '<div><label style="'+LBL+'">Urgency Line <span style="font-size:9px;font-weight:400;text-transform:none">(auto-suggests · edit freely)</span></label>'+
+            '<input id="cc-blp-urgency-line" type="text" placeholder="Auto-fills when type is selected…" style="'+IS+'"></div>'+
+        '</div>';
+    })()+
+    // ── EXCLUSIVITY ──────────────────────────────────────────────────────────
+    (function(){
+      var _ea = (_ccSettingsData && _ccSettingsData.exclusivity_angles) ? _ccSettingsData.exclusivity_angles : _CC_SETTINGS_FALLBACK.exclusivity_angles;
+      var _eaOpts = _ea.filter(function(r){return r.active!==false;})
+        .map(function(r){return '<option value="'+_esc(r.key)+'" data-fill="'+_esc(r.extra||'')+'">'+_esc(r.label||r.key)+'</option>';}).join('');
+      return '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;'+mf+'">EXCLUSIVITY</div>'+
+        '<div style="padding:12px;background:var(--bg);border-radius:6px;border:1px solid rgba(167,139,250,0.3);margin-bottom:16px">'+
+          '<div style="margin-bottom:8px"><label style="'+LBL+'">Exclusivity Angle</label>'+
+            '<select id="cc-blp-excl-angle" style="'+IS+'" onchange="_ccBlpExclusivityChange()">'+
+              '<option value="">— none —</option>'+_eaOpts+
+            '</select></div>'+
+          '<div><label style="'+LBL+'">Exclusivity Line <span style="font-size:9px;font-weight:400;text-transform:none">(auto-fills · edit freely)</span></label>'+
+            '<input id="cc-blp-excl-line" type="text" placeholder="Auto-fills when angle is selected…" style="'+IS+'"></div>'+
+        '</div>';
+    })()+
+    // ── SEO PACKAGE ──────────────────────────────────────────────────────────
+    '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:#34d399;margin-bottom:6px;text-transform:uppercase;'+mf+'">SEO PACKAGE</div>'+
+    '<div style="padding:12px;background:var(--bg);border-radius:6px;border:1px solid rgba(52,211,153,0.3);margin-bottom:16px">'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+        '<div><label style="'+LBL+'">Meta Title <span id="cc-blp-mt-ct" style="font-weight:400;color:var(--muted)">0/60</span></label>'+
+          '<input id="cc-blp-meta-title" type="text" maxlength="60" placeholder="[headline] · easyChef Pro" style="'+IS+'" oninput="_ccBlpSeoCount(\'cc-blp-meta-title\',\'cc-blp-mt-ct\',60)"></div>'+
+        '<div><label style="'+LBL+'">Focus Keyword</label>'+
+          '<input id="cc-blp-focus-kw" type="text" placeholder="e.g. meal planning app" style="'+IS+'"></div>'+
+      '</div>'+
+      '<div style="margin-bottom:8px"><label style="'+LBL+'">Meta Description <span id="cc-blp-md-ct" style="font-weight:400;color:var(--muted)">0/155</span></label>'+
+        '<input id="cc-blp-meta-desc" type="text" maxlength="155" placeholder="[subheadline] · [proof claim] · Free to join." style="'+IS+'" oninput="_ccBlpSeoCount(\'cc-blp-meta-desc\',\'cc-blp-md-ct\',155)"></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+        '<div><label style="'+LBL+'">OG Title</label>'+
+          '<input id="cc-blp-og-title" type="text" placeholder="Auto-mirrors meta title if blank" style="'+IS+'"></div>'+
+        '<div><label style="'+LBL+'">OG Description</label>'+
+          '<input id="cc-blp-og-desc" type="text" placeholder="Auto-mirrors meta description if blank" style="'+IS+'"></div>'+
+      '</div>'+
+      '<div style="margin-bottom:8px"><label style="'+LBL+'">Canonical URL <span style="font-size:9px;font-weight:400;text-transform:none">(auto-builds from slug)</span></label>'+
+        '<input id="cc-blp-canonical" type="text" readonly tabindex="-1" style="'+RO+'font-size:11px;color:#f59e0b" value="https://easychefpro.com/'+_esc(slugPreview)+'"></div>'+
+      '<button onclick="_ccBlpGenerateSeo()" style="background:transparent;border:1px solid rgba(52,211,153,0.5);color:#34d399;padding:6px 14px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;'+mf+'letter-spacing:0.04em">⚡ Auto-Generate SEO from Brief</button>'+
+    '</div>'+
     // Auto-generated preview
     '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase;'+mf+'">AUTO-GENERATED</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;padding:12px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">'+
@@ -24726,8 +24801,59 @@ function _ccShowBuildLpForm() {
 
 function _ccBuildLpUpdateSlug() {
   var variant = (document.getElementById('cc-blp-variant')||{}).value || 'a';
+  var slug = 'lp/'+(_ccBuildLpCtx.icp||'')+'/'+(_ccBuildLpCtx.themeSlug||'')+'/'+variant;
   var preview = document.getElementById('cc-blp-slug-preview');
-  if(preview) preview.value = 'lp/'+(_ccBuildLpCtx.icp||'')+'/'+(_ccBuildLpCtx.themeSlug||'')+'/'+variant;
+  if(preview) preview.value = slug;
+  var can = document.getElementById('cc-blp-canonical');
+  if(can) can.value = 'https://easychefpro.com/'+slug;
+}
+
+function _ccBlpUrgencyChange() {
+  var sel = document.getElementById('cc-blp-urgency-type');
+  if(!sel) return;
+  var opt = sel.options[sel.selectedIndex];
+  var suggest = (opt && opt.getAttribute('data-suggest')) || '';
+  var lineEl = document.getElementById('cc-blp-urgency-line');
+  if(lineEl && suggest) lineEl.value = suggest;
+}
+
+function _ccBlpExclusivityChange() {
+  var sel = document.getElementById('cc-blp-excl-angle');
+  if(!sel) return;
+  var opt = sel.options[sel.selectedIndex];
+  var fill = (opt && opt.getAttribute('data-fill')) || '';
+  var lineEl = document.getElementById('cc-blp-excl-line');
+  if(lineEl && fill) lineEl.value = fill;
+}
+
+function _ccBlpSeoCount(inputId, ctId, max) {
+  var el = document.getElementById(inputId);
+  var ct = document.getElementById(ctId);
+  if(!el || !ct) return;
+  var len = el.value.length;
+  ct.textContent = len+'/'+max;
+  ct.style.color = len > max ? '#ef4444' : len > max*0.9 ? '#f59e0b' : 'var(--muted)';
+}
+
+function _ccBlpGenerateSeo() {
+  var headline = ((document.getElementById('cc-blp-headline')||{}).value||'').trim();
+  var subheadline = (_campLastLp && _campLastLp.hero_subheadline) || '';
+  var proofClaim  = ((document.getElementById('cc-blp-proof-claim')||{}).value||'').trim();
+  var slug = ((document.getElementById('cc-blp-slug-preview')||{}).value||'').trim();
+  var metaTitle = (headline ? headline+' · easyChef Pro' : 'easyChef Pro — Smart Kitchen App').substring(0, 60);
+  var metaDescParts = [subheadline, proofClaim, 'Free to join.'].filter(Boolean);
+  var metaDesc = metaDescParts.join(' · ').substring(0, 155);
+  var canonical = 'https://easychefpro.com/'+(slug||'lp/waitlist');
+  var mt = document.getElementById('cc-blp-meta-title');
+  var md = document.getElementById('cc-blp-meta-desc');
+  var ot = document.getElementById('cc-blp-og-title');
+  var od = document.getElementById('cc-blp-og-desc');
+  var cn = document.getElementById('cc-blp-canonical');
+  if(mt){ mt.value=metaTitle;  _ccBlpSeoCount('cc-blp-meta-title','cc-blp-mt-ct',60); }
+  if(md){ md.value=metaDesc;   _ccBlpSeoCount('cc-blp-meta-desc','cc-blp-md-ct',155); }
+  if(ot && !ot.value) ot.value = metaTitle;
+  if(od && !od.value) od.value = metaDesc;
+  if(cn) cn.value = canonical;
 }
 
 function _ccHideBuildLpForm() {
@@ -24750,18 +24876,40 @@ function _ccSaveBuildLp() {
   if(statusEl){statusEl.textContent='Creating…';statusEl.style.color='var(--muted)';}
   var btn=document.querySelector('#cc-ks-lp-output button[onclick="_ccSaveBuildLp()"]');
   if(btn){btn.disabled=true;btn.textContent='Creating…';}
+  var urgencyType      = ((document.getElementById('cc-blp-urgency-type')||{}).value     || '');
+  var urgencyLine      = ((document.getElementById('cc-blp-urgency-line')||{}).value     || '');
+  var urgencyPlacement = ((document.getElementById('cc-blp-urgency-placement')||{}).value|| 'below-hero');
+  var exclAngle        = ((document.getElementById('cc-blp-excl-angle')||{}).value       || '');
+  var exclLine         = ((document.getElementById('cc-blp-excl-line')||{}).value        || '');
+  var metaTitle        = ((document.getElementById('cc-blp-meta-title')||{}).value       || '');
+  var metaDesc         = ((document.getElementById('cc-blp-meta-desc')||{}).value        || '');
+  var ogTitle          = ((document.getElementById('cc-blp-og-title')||{}).value         || '') || metaTitle;
+  var ogDesc           = ((document.getElementById('cc-blp-og-desc')||{}).value          || '') || metaDesc;
+  var canonical        = ((document.getElementById('cc-blp-canonical')||{}).value        || 'https://easychefpro.com/'+slug);
+  var focusKw          = ((document.getElementById('cc-blp-focus-kw')||{}).value         || '');
   var t = _ccSelectedTheme || {};
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-    action:      'create_lp_inventory',
-    slug:        slug,
-    icp:         t.icp_code       || _campBrief.icp            || '',
-    theme:       t.theme_name     || '',
-    variant:     variant.toUpperCase(),
-    purpose:     purpose,
-    headline:    headline,
-    angle:       t.campaign_angle || _campBrief.campaign_angle || '',
-    proof_claim: proofClaim,
-    campaign_id: _campBrief.id   || ''
+    action:              'create_lp_inventory',
+    slug:                slug,
+    icp:                 t.icp_code       || _campBrief.icp            || '',
+    theme:               t.theme_name     || '',
+    variant:             variant.toUpperCase(),
+    purpose:             purpose,
+    headline:            headline,
+    angle:               t.campaign_angle || _campBrief.campaign_angle || '',
+    proof_claim:         proofClaim,
+    campaign_id:         _campBrief.id   || '',
+    urgency_type:        urgencyType,
+    urgency_line:        urgencyLine,
+    urgency_placement:   urgencyPlacement,
+    exclusivity_angle:   exclAngle,
+    exclusivity_line:    exclLine,
+    meta_title:          metaTitle,
+    meta_description:    metaDesc,
+    og_title:            ogTitle,
+    og_description:      ogDesc,
+    canonical_url:       canonical,
+    focus_keyword:       focusKw
   })})
   .then(function(r){return r.json();})
   .then(function(d){
