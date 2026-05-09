@@ -298,19 +298,21 @@ function fcGenerateUtmAndSave(campaignId) {
 
     // 4. Ensure DL-EM entries exist in DeepLinkRegistry (one per sequence), then build emailDlMap
     Logger.log('[UTM-EMAIL] emails to process: ' + emails.length);
-    var _seqDefs = [
-      { seq: 'SEQ-1', code: 'seq1_welcome'    },
-      { seq: 'SEQ-2', code: 'seq2_nurture'    },
-      { seq: 'SEQ-3', code: 'seq3_urgency'    },
-      { seq: 'SEQ-4', code: 'seq4_launch_day' }
-    ];
-    var _lpBaseEmail = _buildLpUrl(brief.slug || brief.lp_slug_a || 'waitlist-a');
-    var _emUtmSrc = 'klaviyo'; var _emUtmMed = 'email';
+    // Sequences read from brief setting — same source as _getActiveEmailSeqs, no hardcoding
+    var _rawSeqs = _getActiveEmailSeqs(brief.email_sequence_mode || brief.email_sequences);
+    var _seqDefs = _rawSeqs.map(function(s) { return { seq: s[0], code: s[1] }; });
+    Logger.log('[UTM-EMAIL] active sequences from brief: ' + _seqDefs.map(function(s){return s.seq;}).join(', '));
+    // LP URL from brief slug only — no hardcoded fallback
+    var _lpBaseEmail = brief.slug ? _buildLpUrl(brief.slug) : '';
+    if (!_lpBaseEmail) Logger.log('[UTM-EMAIL] WARNING: No LP slug on brief — email UTM destination will be blank');
+    // UTM source + medium from Channels tab — no hardcoded fallback
+    var _emUtmSrc = ''; var _emUtmMed = '';
     try {
       var _emChData = _getChannelData('Email');
-      _emUtmSrc = _emChData.utm_source || 'klaviyo';
-      _emUtmMed = _emChData.utm_medium || 'email';
-    } catch(ece) {}
+      _emUtmSrc = _emChData.utm_source || '';
+      _emUtmMed = _emChData.utm_medium || '';
+      Logger.log('[UTM-EMAIL] Email channel from Channels tab: utm_source=' + _emUtmSrc + ' utm_medium=' + _emUtmMed);
+    } catch(ece) { Logger.log('[UTM-EMAIL] WARNING: Could not read Email channel data: ' + ece.message); }
 
     // Read existing DL-EM entries keyed by SEQ-N
     var _existEmDls  = getDlRegistry(brief.id || '').filter(function(u) { return /^DL-EM/i.test(u.dl_id || ''); });
