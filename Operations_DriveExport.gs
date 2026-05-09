@@ -88,7 +88,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     var _apiKey = '';
     try { _apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY') || ''; } catch(ke) {}
     var _briefs = { postBriefs: {}, emailBriefs: {}, lpBrief: {} };
-    if (_apiKey && posts.length > 0) {
+    if (_apiKey && (posts.length > 0 || emails.length > 0)) {
       try { _briefs = _generateDesignBriefs(brief, posts, emails, lp, _apiKey); }
       catch(be) { Logger.log('[DriveExport] design briefs error (non-fatal): ' + be.message); }
     }
@@ -244,8 +244,15 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         'tiktok':    '7:00 PM local (drop day)',
         'youtube':   '12:00 PM local (drop day)'
       };
-      var _NO_TAG     = { 'facebook':1, 'nextdoor':1, 'youtube':1 };
-      var _postBriefs = (_briefs && _briefs.postBriefs) ? _briefs.postBriefs : {};
+      var _NO_TAG      = { 'facebook':1, 'nextdoor':1, 'youtube':1 };
+      var _postBriefs  = (_briefs && _briefs.postBriefs)  ? _briefs.postBriefs  : {};
+      var _emailBriefs = (_briefs && _briefs.emailBriefs) ? _briefs.emailBriefs : {};
+
+      // Synthetic email DL-IDs: used when EmailSequences sheet has no dl_id column
+      var _synthEmailDl = {
+        'SEQ-1': 'DL-EM-0001', 'SEQ-2': 'DL-EM-0002',
+        'SEQ-3': 'DL-EM-0003', 'SEQ-4': 'DL-EM-0004'
+      };
 
       var calDataRows = [];
 
@@ -268,22 +275,33 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           var day = (_seqDays && _seqDays[emailNum - 1] !== undefined)
             ? _seqDays[emailNum - 1]
             : (parseInt(e.send_day) || 0);
-          var subA   = String(e.subject_line_a || e.subject_a || e.subject || '');
+          // subject_line is the canonical field name from _seqRowToObj; try A/B variants too
+          var subA   = String(e.subject_line_a || e.subject_a || e.subject_line || e.subject || '');
           var subB   = String(e.subject_line_b || e.subject_b || '');
           var preA   = String(e.preview_text || e.preview_text_a || e.preheader || e.preview || '');
           if (preA.length > 100) preA = preA.substring(0, 100);
           var _isFirst = (emailNum === 1 && seqCode === 'SEQ-1');
           var cta    = String(e.body_cta || e.cta_text || e.cta || (_isFirst ? 'Claim your founding spot' : ''));
-          var utmUrl = String(e.utm_url  || e.utmUrl   || e.utm_link || '');
-          var dlId   = String(e.dl_id    || e.dlId     || e.deeplink_id || '');
+          // dl_id: sheet field → in-memory enrichment from fcExportCampaignToDrive → synthetic fallback
+          var dlId   = String(e.dl_id || e.dlId || e.deeplink_id || _synthEmailDl[seqCode] || '');
+          var utmUrl = String(e.utm_url || e.utmUrl || e.utm_link || '');
+          if (!utmUrl && dlId) {
+            utmUrl = 'https://easychefpro.com/lp/waitlist-a' +
+              '?utm_source=klaviyo&utm_medium=email' +
+              '&utm_campaign=' + encodeURIComponent(brief.id || '') +
+              '&utm_content=' + encodeURIComponent(dlId + '_' + seqCode + '_cta');
+          }
           var stage  = String(e.funnel_stage || '');
+          // Design brief: look up by email id (canonical key from _generateDesignBriefs)
+          var _eb    = _emailBriefs[e.id] || _emailBriefs[e.seq_id] || {};
+          var designBrief = _eb.design_brief ? _oneLiner(String(_eb.design_brief)) : '';
           var rowBase = [
             day, _dtStr(day), _wkLbl(day), stage,
             seqCode + '-E' + emailNum, 'Email',
             '', preA, cta,
             utmUrl, dlId,
-            '', 'Subject line · Klaviyo split', // Variant filled per-row, Test fixed
-            '', '',                              // Design Brief, Hashtags
+            '', 'Subject line · Klaviyo split', // Variant filled per-row; Test fixed
+            designBrief, '',                    // Design Brief, Hashtags (no hashtags for email)
             String(e.status || 'draft'),
             'Klaviyo', '6:30 AM local'
           ];
@@ -1347,4 +1365,83 @@ function _buildBriefHtml(brief, copy, dlEntries, genDate) {
   + '  Generated ' + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC\n'
   + '</div>\n\n'
   + '</body>\n</html>';
+}
+
+// ── Test: log what each email XLSX row would contain — no Drive writes, no API calls ──
+// To use: open Apps Script editor → select testEmailCalendarRow → Run → view Execution log
+function testEmailCalendarRow() {
+  var campaignId = 'EC-2026-004'; // ← CHANGE to your campaign ID
+
+  Logger.log('=== testEmailCalendarRow: ' + campaignId + ' ===');
+
+  var emails = getEmailSequences(campaignId);
+  Logger.log('Emails in sheet: ' + emails.length);
+  if (!emails.length) { Logger.log('No emails found — check EmailSequences tab, campaign_id column'); return; }
+
+  // Show every field name on the first email object so we know what the schema returns
+  Logger.log('Fields on email object: ' + JSON.stringify(Object.keys(emails[0])));
+  Logger.log('First email raw values:');
+  Logger.log('  id          = ' + emails[0].id);
+  Logger.log('  subject_line= ' + emails[0].subject_line);
+  Logger.log('  preview_text= ' + (emails[0].preview_text || '').substring(0,80));
+  Logger.log('  body_cta    = ' + emails[0].body_cta);
+  Logger.log('  dl_id       = ' + emails[0].dl_id);
+  Logger.log('  utm_url     = ' + emails[0].utm_url);
+  Logger.log('  funnel_stage= ' + emails[0].funnel_stage);
+  Logger.log('---');
+
+  // Check DL registry for email entries
+  try {
+    var allDls  = getDlRegistry(campaignId);
+    var emailDls = allDls.filter(function(u) {
+      return /^DL-EM/i.test(u.dl_id || '') || (u.channel || '').toLowerCase() === 'email';
+    });
+    Logger.log('Email DLs in DeepLinkRegistry: ' + emailDls.length);
+    emailDls.forEach(function(d, i) {
+      Logger.log('  [' + i + '] dl_id=' + d.dl_id + '  channel=' + d.channel + '  utm_campaign=' + d.utm_campaign);
+    });
+    // Enrich email objects positionally (same as fcExportCampaignToDrive)
+    var _seqOrder = ['SEQ-1','SEQ-2','SEQ-3','SEQ-4'];
+    var _bySeq = {};
+    emails.forEach(function(em) { var s=em.sequence_code||''; if(!_bySeq[s])_bySeq[s]=[]; _bySeq[s].push(em); });
+    _seqOrder.forEach(function(seq, idx) {
+      var entry = emailDls[idx] || null;
+      if (!entry) return;
+      (_bySeq[seq]||[]).forEach(function(em) {
+        if (em.dl_id) return;
+        em.dl_id   = entry.dl_id;
+        em.utm_url = (entry.destination_url || 'https://easychefpro.com/lp/waitlist-a') +
+          '?utm_source=klaviyo&utm_medium=email&utm_campaign=' + encodeURIComponent(campaignId) +
+          '&utm_content=' + encodeURIComponent((entry.dl_id||'') + '_' + seq + '_cta');
+      });
+    });
+  } catch(e) { Logger.log('DL registry error: ' + e.message); }
+
+  // Synthetic fallback DL IDs (what the calendar uses when registry is empty)
+  var _synth = { 'SEQ-1':'DL-EM-0001','SEQ-2':'DL-EM-0002','SEQ-3':'DL-EM-0003','SEQ-4':'DL-EM-0004' };
+  var _EDAYS = { 'SEQ-1':[0,3,7],'SEQ-2':[7,10,14,18,25],'SEQ-3':[22,25,28,31],'SEQ-4':[35] };
+
+  // Simulate what each column would contain — log first 6 emails
+  Logger.log('=== XLSX column preview (first ' + Math.min(emails.length,6) + ' emails) ===');
+  emails.slice(0,6).forEach(function(e, i) {
+    var seqCode  = e.sequence_code || 'EMAIL';
+    var emailNum = parseInt(e.email_number) || 1;
+    var days     = _EDAYS[seqCode];
+    var day      = (days && days[emailNum-1] !== undefined) ? days[emailNum-1] : (parseInt(e.send_day)||0);
+    var subA     = String(e.subject_line_a || e.subject_a || e.subject_line || e.subject || '(BLANK — no subject_line field)');
+    var subB     = String(e.subject_line_b || e.subject_b || '');
+    var preA     = String(e.preview_text || e.preheader || e.preview || '(BLANK)').substring(0,80);
+    var cta      = String(e.body_cta || e.cta_text || e.cta || ((emailNum===1&&seqCode==='SEQ-1')?'Claim your founding spot':'(BLANK)'));
+    var dlId     = String(e.dl_id || e.dlId || _synth[seqCode] || '(BLANK)');
+    var utmUrl   = String(e.utm_url || e.utmUrl || '');
+    if (!utmUrl && dlId && dlId !== '(BLANK)') utmUrl = 'https://easychefpro.com/lp/...?utm_campaign=' + campaignId + '&utm_content=' + dlId + '_' + seqCode + '_cta';
+    Logger.log('[' + (i+1) + '] ' + seqCode + '-E' + emailNum + ' (Day ' + day + ')');
+    Logger.log('     Subject/Hook A : ' + subA);
+    Logger.log('     Subject/Hook B : ' + (subB || 'None'));
+    Logger.log('     Preview/Body   : ' + preA);
+    Logger.log('     CTA Text       : ' + cta);
+    Logger.log('     DL ID          : ' + dlId);
+    Logger.log('     UTM URL        : ' + utmUrl.substring(0,100));
+  });
+  Logger.log('=== Done ===');
 }
