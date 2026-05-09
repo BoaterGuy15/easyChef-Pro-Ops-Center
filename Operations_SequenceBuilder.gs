@@ -1009,7 +1009,7 @@ function _getTikTokFeatureList(brief) {
   return [
     { code:'TRACK',    label:'Waste & Savings Tracker' },
     { code:'PLAN',     label:'Weekly Meal Planning'    },
-    { code:'OPTIMIZE', label:'Smart Grocery List'      },
+    { code:'OPTIMIZE', label:'Nutrition Scoring'        },
     { code:'COOK',     label:'30-Minute Dinner Mode'   },
     { code:'SHOP',     label:'In-App Grocery Shop'     }
   ];
@@ -1020,21 +1020,24 @@ function _buildTikTokScriptTemplate(code, label, brief) {
     PLAN:     'What if dinner was already planned?',
     COOK:     'Dinner in 30 minutes — with what\'s in your fridge.',
     TRACK:    'You\'re throwing away $1,336 a year. Let\'s stop that.',
-    OPTIMIZE: 'One grocery list. Zero overlap. Zero waste.',
+    OPTIMIZE: 'Every meal scored across 6 dimensions. Watch.',
     SHOP:     'Groceries ordered without leaving the app. Watch.'
   };
   var demos = {
     PLAN:     'Screen recording: tap Meal Plan → week auto-fills with 5 dinners → one tap to confirm',
     COOK:     'Screen recording: scan fridge → recipe generated → 30-minute timer starts',
     TRACK:    'Screen recording: receipt scan → waste score updates → $1,336/year savings counter',
-    OPTIMIZE: 'Screen recording: smart grocery list → sorted by aisle → zero duplicates',
+    OPTIMIZE: 'Screen recording: nutrition score view — meal plan with scores visible across 6 dimensions',
     SHOP:     'Screen recording: tap Shop → grocery list auto-fills cart → checkout in under 60 seconds'
+  };
+  var ctas = {
+    OPTIMIZE: 'Founding families get this free · link in bio [text overlay: easychefpro.com]'
   };
   return [
     'FEATURE: ' + code + ' — ' + label,
     'HOOK (0–3 sec): "' + (hooks[code] || 'Your kitchen just got smarter.') + '"',
     'DEMO (3–8 sec): ' + (demos[code] || 'Screen recording: easyChef Pro — fast, clean, zero friction'),
-    'CTA (8–10 sec): "Link in bio — join free." [text overlay: easychefpro.com]'
+    'CTA (8–10 sec): ' + (ctas[code] || '"Link in bio — join free." [text overlay: easychefpro.com]')
   ].join('\n');
 }
 
