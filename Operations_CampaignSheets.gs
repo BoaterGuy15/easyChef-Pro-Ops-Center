@@ -48,7 +48,8 @@ var _CC_HDR = {
     'launch_date','status','ml_approved','ml_approved_date',
     'created_by','created_at','updated_at','notes',
     'post_count','post_frequency','email_sequences','email_variants',
-    'theme','publish_day','channels'
+    'theme','publish_day','channels',
+    'ab_test','ab_tool','ab_split','lp_slug_a','lp_slug_b','ab_experiment_id'
   ],
   GeneratedCopy: [
     'id','campaign_id','icp_code','channel','headline','subheadline',
@@ -788,7 +789,13 @@ function _briefRowToObj(r) {
     email_variants:  String(r[18] || 'both'),
     theme:           String(r[19] || ''),
     publish_day:     String(r[20] || ''),
-    channels:        (function(){try{return JSON.parse(r[21]||'[]');}catch(e){return [];}}())
+    channels:        (function(){try{return JSON.parse(r[21]||'[]');}catch(e){return [];}}()),
+    ab_test:         r[22] === true || String(r[22] || '').toLowerCase() === 'true',
+    ab_tool:         String(r[23] || ''),
+    ab_split:        String(r[24] || '50/50'),
+    lp_slug_a:       String(r[25] || ''),
+    lp_slug_b:       String(r[26] || ''),
+    ab_experiment_id: String(r[27] || '')
   };
 }
 
@@ -841,7 +848,13 @@ function setCampaignBrief(item) {
     item.email_variants   !== undefined ? item.email_variants          : (ex ? ex[18] : 'both'),
     item.theme            !== undefined ? item.theme                   : (ex ? ex[19] : ''),
     item.publish_day      !== undefined ? item.publish_day             : (ex ? ex[20] : ''),
-    item.channels         !== undefined ? JSON.stringify(item.channels) : (ex ? ex[21] : '[]')
+    item.channels         !== undefined ? JSON.stringify(item.channels) : (ex ? ex[21] : '[]'),
+    item.ab_test          !== undefined ? (item.ab_test ? true : false) : (ex ? ex[22] : false),
+    item.ab_tool          !== undefined ? item.ab_tool                  : (ex ? ex[23] : ''),
+    item.ab_split         !== undefined ? item.ab_split                 : (ex ? ex[24] : '50/50'),
+    item.lp_slug_a        !== undefined ? item.lp_slug_a               : (ex ? ex[25] : ''),
+    item.lp_slug_b        !== undefined ? item.lp_slug_b               : (ex ? ex[26] : ''),
+    item.ab_experiment_id !== undefined ? item.ab_experiment_id        : (ex ? ex[27] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }

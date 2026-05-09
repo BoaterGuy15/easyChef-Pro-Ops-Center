@@ -141,12 +141,41 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     // ── 5. 03 — LP Reference (HTML file) ────────────────────────────────────
     Logger.log('[DriveExport] Section 5: LP Reference HTML');
     try {
-      var lpRefHtml = _buildLpReferenceHtml(brief, copy, lp, posts, emails, _genDate, _briefs.lpBrief);
-      var lpRefFile = DriveApp.createFile('03 — LP Reference.html', lpRefHtml, MimeType.HTML);
-      lpRefFile.moveTo(folder);
-      try { lpRefFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
-      docUrls.lp = lpRefFile.getUrl();
-      Logger.log('[DriveExport] lp reference html: ' + lpRefFile.getId());
+      if (brief.ab_test && brief.lp_slug_a && brief.lp_slug_b) {
+        // A/B test — generate 03a (Variant A) and 03b (Variant B)
+        var _lpA = getLPInventoryBySlug(brief.lp_slug_a) || { slug: brief.lp_slug_a };
+        var _lpB = getLPInventoryBySlug(brief.lp_slug_b) || { slug: brief.lp_slug_b };
+        // Read A/B DL entries from registry
+        var _abDls = getDlRegistry(brief.id || '');
+        var _dlA   = null; var _dlB = null;
+        _abDls.forEach(function(u) {
+          if (/DL-LP.*-A$/i.test(u.dl_id || '')) _dlA = u;
+          if (/DL-LP.*-B$/i.test(u.dl_id || '')) _dlB = u;
+        });
+        var _abBriefA = { ab_variant: 'A', ab_experiment_id: brief.ab_experiment_id || '10019672',
+          ab_split: brief.ab_split || '50/50', ab_tool: brief.ab_tool || 'Convert.com',
+          dl_id: _dlA ? _dlA.dl_id : '', utm_url: _dlA ? _dlA.full_url || _buildLpUrl(brief.lp_slug_a) : _buildLpUrl(brief.lp_slug_a) };
+        var _abBriefB = { ab_variant: 'B', ab_experiment_id: brief.ab_experiment_id || '10019672',
+          ab_split: brief.ab_split || '50/50', ab_tool: brief.ab_tool || 'Convert.com',
+          dl_id: _dlB ? _dlB.dl_id : '', utm_url: _dlB ? _dlB.full_url || _buildLpUrl(brief.lp_slug_b) : _buildLpUrl(brief.lp_slug_b) };
+        var lpRefHtmlA = _buildLpReferenceHtml(brief, copy, _lpA, posts, emails, _genDate, _abBriefA);
+        var lpRefHtmlB = _buildLpReferenceHtml(brief, copy, _lpB, posts, emails, _genDate, _abBriefB);
+        var lpRefFileA = DriveApp.createFile('03a — LP Reference Variant A.html', lpRefHtmlA, MimeType.HTML);
+        var lpRefFileB = DriveApp.createFile('03b — LP Reference Variant B.html', lpRefHtmlB, MimeType.HTML);
+        lpRefFileA.moveTo(folder); lpRefFileB.moveTo(folder);
+        try { lpRefFileA.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
+        try { lpRefFileB.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
+        docUrls.lp = lpRefFileA.getUrl();
+        docUrls.lp_b = lpRefFileB.getUrl();
+        Logger.log('[DriveExport] A/B LP reference html: A=' + lpRefFileA.getId() + ' B=' + lpRefFileB.getId());
+      } else {
+        var lpRefHtml = _buildLpReferenceHtml(brief, copy, lp, posts, emails, _genDate, _briefs.lpBrief);
+        var lpRefFile = DriveApp.createFile('03 — LP Reference.html', lpRefHtml, MimeType.HTML);
+        lpRefFile.moveTo(folder);
+        try { lpRefFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
+        docUrls.lp = lpRefFile.getUrl();
+        Logger.log('[DriveExport] lp reference html: ' + lpRefFile.getId());
+      }
     } catch(e) { Logger.log('[DriveExport] lp reference html error: ' + e.message); }
 
     // ── 6. 04 — Campaign Calendar (branded spreadsheet) ────────────────────
@@ -252,6 +281,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
       // LP URL — read from lp object (loaded from LPInventory tab by fcExportCampaignToDrive)
       var _lpUrl = '';
+      var _lpUrlB = '';
       if (lp && lp.slug) {
         _lpUrl = _buildLpUrl(lp.slug);
         Logger.log('[CalendarXlsx] LP URL from LPInventory.slug=' + lp.slug + ': ' + _lpUrl);
@@ -260,6 +290,10 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         Logger.log('[CalendarXlsx] LP URL from CampaignBriefs.slug=' + brief.slug + ': ' + _lpUrl);
       } else {
         Logger.log('[CalendarXlsx] WARNING: No LP slug on lp or brief — UTM destination URL will be blank');
+      }
+      if (brief.ab_test && brief.lp_slug_b) {
+        _lpUrlB = _buildLpUrl(brief.lp_slug_b);
+        Logger.log('[CalendarXlsx] A/B Variant B LP URL from brief.lp_slug_b=' + brief.lp_slug_b + ': ' + _lpUrlB);
       }
 
       // Email UTM source + medium — read from Channels tab
@@ -386,12 +420,31 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           var _designBrief   = _briefFull ? _oneLiner(_briefFull) : 'Design brief pending';
           var _owner         = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
           var _sendTime      = _SEND_TIMES[chKey] || '9:00 AM local';
+          // A/B: when ab_test active, build Variant B UTM URL for the Variant column
+          var _abVariantCell = '';
+          if (brief.ab_test && _lpUrlB) {
+            var _abDlB = null;
+            try {
+              getDlRegistry(brief.id || '').forEach(function(u) {
+                if (/DL-LP.*-B$/i.test(u.dl_id || '')) _abDlB = u;
+              });
+            } catch(ade) {}
+            var _abUtmB = _lpUrlB;
+            if (_abDlB) {
+              _abUtmB = _lpUrlB +
+                '?utm_source='   + encodeURIComponent(_abDlB.utm_source || '') +
+                '&utm_medium='   + encodeURIComponent(_abDlB.utm_medium || '') +
+                '&utm_campaign=' + encodeURIComponent(brief.id || '') +
+                '&utm_content='  + encodeURIComponent((_abDlB.dl_id || '') + '_social_cta');
+            }
+            _abVariantCell = 'Variant B: ' + _abUtmB;
+          }
           calDataRows.push([
             pday, _dtStr(pday), _wkLblSocial(pday), _stage,
             'Social', String(p.platform || p.channel || ''),
             String(p.hook || ''), String(p.body_copy || p.body || ''), String(p.cta || ''),
             String(p.utm_url || ''), String(p.dl_id || ''),
-            '', '',                        // Variant, Test — blank for social posts
+            _abVariantCell, '',            // Variant (A/B UTM), Test — blank for non-AB
             _designBrief, _hashtags,
             String(p.status || 'draft'),
             _owner, _sendTime

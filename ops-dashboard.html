@@ -21859,7 +21859,7 @@ var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
 var _ccLogoPosState={}; // per-post logo position: 'none'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'],goal:'',slug:'',launchDate:'',approved:false,ml_approved:false,status:'draft',post_count:7,post_frequency:'daily',email_sequences:4,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:''};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'],goal:'',slug:'',launchDate:'',approved:false,ml_approved:false,status:'draft',post_count:7,post_frequency:'daily',email_sequences:4,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:'',ab_test:false,ab_tool:'convert.com',ab_split:'50/50',lp_slug_a:'',lp_slug_b:'',ab_experiment_id:'10019672'};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -23136,6 +23136,34 @@ function _ccRenderBrief(){
           '</div>';
         })()+
       '</div>'+
+      '<div style="margin-top:18px;padding:14px 16px;border:1px solid var(--border);border-radius:8px">'+
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:10px">A/B Testing</div>'+
+        '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="cc-ab-test"'+(b.ab_test?' checked':'')+' onchange="_ccBriefSync()" style="width:15px;height:15px;accent-color:'+_CC_RED+'"><span style="font-size:13px;color:var(--text)">Run this campaign as an A/B test — generates two LP deep links and two LP Reference HTML files</span></label>'+
+        (function(){
+          var _ns='width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+          var _lbl=function(t){return '<label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">'+t+'</label>';};
+          return '<div id="cc-ab-fields" style="display:'+(b.ab_test?'block':'none')+'">'+
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">'+
+              '<div style="margin-bottom:14px">'+_lbl('Variant A LP Slug')+
+                '<input type="text" id="cc-ab-slug-a" value="'+(b.lp_slug_a||b.slug||'')+'" style="'+_ns+'" oninput="_campBrief.lp_slug_a=this.value;_campBrief.slug=this.value" placeholder="lp/waitlist-a">'+
+              '</div>'+
+              '<div style="margin-bottom:14px">'+_lbl('Variant B LP Slug')+
+                '<input type="text" id="cc-ab-slug-b" value="'+(b.lp_slug_b||'')+'" style="'+_ns+'" oninput="_campBrief.lp_slug_b=this.value" placeholder="lp/waitlist-b">'+
+              '</div>'+
+              '<div style="margin-bottom:14px">'+_lbl('Convert.com Experiment ID')+
+                '<input type="text" id="cc-ab-experiment" value="'+(b.ab_experiment_id||'10019672')+'" style="'+_ns+'" oninput="_ccBriefSync()">'+
+                '<div style="font-size:10px;color:var(--muted);margin-top:2px">Account: 10019256 &nbsp;·&nbsp; Tool: Convert.com</div>'+
+              '</div>'+
+              '<div style="margin-bottom:14px">'+_lbl('Traffic Split')+
+                '<input type="text" id="cc-ab-split" value="'+(b.ab_split||'50/50')+'" style="'+_ns+'" oninput="_ccBriefSync()" placeholder="50/50">'+
+              '</div>'+
+              '<div style="margin-bottom:14px;grid-column:1/-1">'+_lbl('Winner Criteria')+
+                '<input type="text" id="cc-ab-winner" value="'+(b.ab_winner_criteria||'Highest waitlist signup rate — 95% confidence')+'" style="'+_ns+'" oninput="_ccBriefSync()">'+
+              '</div>'+
+            '</div>'+
+          '</div>';
+        })()+
+      '</div>'+
       '<div style="margin-top:18px;padding:14px 16px;border:1px solid rgba(255,0,0,0.25);border-radius:8px;background:rgba(255,0,0,0.04)">'+
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:'+_CC_RED+';margin-bottom:10px">Review &amp; Approval</div>'+
         _ccField('','cc-approved','checkbox',b.approved,'','Marketing Lead has reviewed and approved this campaign — nothing activates without this')+
@@ -23188,6 +23216,12 @@ function _ccBriefSync(){
   _el=_ccEl('cc-publish-day');    if(_el)            b.publish_day=_el.value;
   _el=_ccEl('cc-campaign-angle'); if(_el&&_el.value) b.campaign_angle=_el.value;
   _el=_ccEl('cc-urgency-trigger');if(_el)            b.urgency_trigger=_el.value;
+  _el=_ccEl('cc-ab-test');      if(_el) b.ab_test=_el.checked;
+  _el=_ccEl('cc-ab-experiment');if(_el&&_el.value)  b.ab_experiment_id=_el.value;
+  _el=_ccEl('cc-ab-split');     if(_el&&_el.value)  b.ab_split=_el.value;
+  _el=_ccEl('cc-ab-winner');    if(_el&&_el.value)  b.ab_winner_criteria=_el.value;
+  // toggle A/B fields visibility in brief settings panel
+  (function(){var f=document.getElementById('cc-ab-fields');if(f)f.style.display=b.ab_test?'block':'none';})();
   var banner=_ccEl('cc-flow-banner');
   if(banner) banner.innerHTML=_ccFlowBanner();
   _ccAutoSlug();
@@ -24714,9 +24748,10 @@ function _ccChoosePath(path){
   }
 }
 
-// Fetch existing LPs for the given ICP and populate cc-ks-lp-results
-function _ccKsLpSearch(icp, sortAngle){
-  var res=document.getElementById('cc-ks-lp-results');
+// Fetch existing LPs for the given ICP and populate cc-ks-lp-results (or cc-ks-lp-results-b for B variant)
+function _ccKsLpSearch(icp, sortAngle, variant){
+  variant=variant||'A';
+  var res=document.getElementById(variant==='B'?'cc-ks-lp-results-b':'cc-ks-lp-results');
   if(!res) return;
   if(!CONFIG.sheetsUrl){
     res.innerHTML='<div style="font-size:11px;color:var(--muted)">CONFIG.sheetsUrl not set — LP search unavailable.</div>';
@@ -24727,10 +24762,11 @@ function _ccKsLpSearch(icp, sortAngle){
     .then(function(r){return r.json();})
     .then(function(d){
       var mf='font-family:\'DM Mono\',monospace;';
-      var _buildBtn='<button onclick="_ccShowBuildLpForm()" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'letter-spacing:0.04em">+ Build New LP</button>';
+      var _tgtVariant=variant; // capture outer variant param for closures
+      var _buildBtn=_tgtVariant==='B'?'':('<button onclick="_ccShowBuildLpForm()" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'letter-spacing:0.04em">+ Build New LP</button>');
       if(!d.ok||!d.pages||!d.pages.length){
         res.innerHTML=
-          '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;'+mf+'">No existing landing pages found for <strong style="color:var(--text)">'+icp+'</strong>. Create a new one from the selected theme.</div>'+
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;'+mf+'">No existing landing pages found for <strong style="color:var(--text)">'+icp+'</strong>.'+(variant==='A'?' Create a new one from the selected theme.':'')+'</div>'+
           _buildBtn;
         return;
       }
@@ -24756,7 +24792,7 @@ function _ccKsLpSearch(icp, sortAngle){
         var rawStatus=(p.status||'Draft').toUpperCase().replace(/[\s_]+/g,'_');
         var statusLabel=rawStatus==='PENDING_DEV'?'PENDING DEV':rawStatus==='LIVE'?'LIVE':rawStatus==='DRAFT'?'DRAFT':safe(p.status||'Draft');
         var statusColor=rawStatus==='LIVE'?'#22c55e':rawStatus==='PENDING_DEV'?'#f59e0b':'var(--muted)';
-        var variant=(p.ab_test_variant&&p.ab_test_variant!=='none')?p.ab_test_variant.toUpperCase():(slug.indexOf('-b')>-1?'B':'A');
+        var _lpVariant=(p.ab_test_variant&&p.ab_test_variant!=='none')?p.ab_test_variant.toUpperCase():(slug.indexOf('-b')>-1?'B':'A');
         var angle=slug.indexOf('-b')>-1?'emotion':'savings';
         var bp=p.blueprint_code||'';
         var cta=bp.toLowerCase().indexOf('waitlist')>-1?'Join the waitlist free — early access July 1':bp.toLowerCase().indexOf('founding')>-1?'Lock in $7.99/month founding price — 60% off forever':'Join the waitlist free — early access July 1';
@@ -24769,7 +24805,7 @@ function _ccKsLpSearch(icp, sortAngle){
           '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">'+
             '<span style="font-size:11px;font-weight:700;color:var(--text);'+mf+'">'+slug+'</span>'+
             '<a href="https://easychefpro.com/'+slug+'" target="_blank" rel="noopener" style="font-size:9px;color:var(--muted);text-decoration:underline;font-family:\'DM Mono\',monospace">↗ View live page</a>'+
-            '<span style="font-size:9px;font-weight:700;background:'+_CC_RED+';color:#fff;padding:2px 7px;border-radius:3px">'+variant+'</span>'+
+            '<span style="font-size:9px;font-weight:700;background:'+_CC_RED+';color:#fff;padding:2px 7px;border-radius:3px">'+_lpVariant+'</span>'+
             '<span style="font-size:9px;font-weight:700;background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:0.05em">'+angle+'</span>'+
             theme+
           '</div>'+
@@ -24787,12 +24823,12 @@ function _ccKsLpSearch(icp, sortAngle){
           '<div style="display:flex;align-items:center;gap:10px">'+
             '<span style="font-size:10px;font-weight:700;color:'+statusColor+';border:1px solid '+statusColor+';padding:2px 8px;border-radius:10px;'+mf+'">'+statusLabel+'</span>'+
             '<div style="flex:1"></div>'+
-            '<button onclick="_ccKsSelectLp(\''+safeSlug+'\',\''+safeCid+'\',\''+safeHl+'\')" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">Use This LP</button>'+
+            '<button onclick="_ccKsSelectLp(\''+safeSlug+'\',\''+safeCid+'\',\''+safeHl+'\',\''+_tgtVariant+'\')" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:5px;font-size:10px;cursor:pointer;'+mf+'">Use This LP</button>'+
           '</div>'+
         '</div>';
       }).join('');
       res.innerHTML='<div>'+cards+'</div>'+
-        '<div style="padding-top:10px;border-top:1px solid var(--border);margin-top:4px">'+_buildBtn+'</div>';
+        (_buildBtn?'<div style="padding-top:10px;border-top:1px solid var(--border);margin-top:4px">'+_buildBtn+'</div>':'');
     })
     .catch(function(e){
       if(res) res.innerHTML='<div style="font-size:11px;color:var(--muted)">LP search unavailable: '+e.message+'</div>';
@@ -24808,7 +24844,42 @@ function _ccUpdateLpFooter(slug){
 }
 function _ccLpAdvance(){
   var slug=_campBrief.slug||'';
-  _ccWizardAdvance(3,slug?'✓ LP: easychefpro.com/'+slug+' · angle: '+(_campBrief.campaign_angle||'savings'):'✓ LP confirmed');
+  var _abSuffix=_campBrief.ab_test&&_campBrief.lp_slug_b?' · A/B test — Variant A + B':' · angle: '+(_campBrief.campaign_angle||'savings');
+  _ccWizardAdvance(3,slug?'✓ LP: easychefpro.com/'+slug+_abSuffix:'✓ LP confirmed');
+}
+function _ccCheckLpNextBtn(){
+  var btn=document.getElementById('cc-lp-next-btn');
+  if(!btn) return;
+  var ready=!!((_campBrief.lp_slug_a||_campBrief.slug)&&(!_campBrief.ab_test||_campBrief.lp_slug_b));
+  btn.disabled=!ready;
+  btn.style.background=ready?_CC_RED:'var(--border)';
+  btn.style.color=ready?'#fff':'var(--muted)';
+  btn.style.cursor=ready?'pointer':'default';
+  btn.style.opacity=ready?'1':'0.5';
+}
+function _ccToggleAbTest(){
+  var tog=document.getElementById('cc-ab-toggle');
+  _campBrief.ab_test=tog?tog.checked:false;
+  if(_campBrief.ab_test){
+    _campBrief.ab_tool='convert.com';
+    _campBrief.ab_split='50/50';
+    _campBrief.ab_experiment_id='10019672';
+  }
+  var bSection=document.getElementById('cc-ab-b-section');
+  var abInfo=document.getElementById('cc-ab-info');
+  var intro=document.getElementById('cc-step2-intro');
+  if(bSection) bSection.style.display=_campBrief.ab_test?'block':'none';
+  if(abInfo) abInfo.style.display=_campBrief.ab_test?'block':'none';
+  if(intro) intro.innerHTML=_campBrief.ab_test?
+    '<strong style="color:var(--text)">Variant A</strong> — select the primary landing page:':
+    (_campBrief.campaign_angle?
+      'Showing LPs for angle: <strong style="color:var(--text)">'+_campBrief.campaign_angle+'</strong> — confirm or build new.':
+      'Select a landing page for this campaign.');
+  if(_campBrief.ab_test){
+    var bRes=document.getElementById('cc-ks-lp-results-b');
+    if(bRes&&!_campBrief.lp_slug_b) _ccKsLpSearch(_campBrief.icp||'',_campBrief.campaign_angle||'savings','B');
+  }
+  _ccCheckLpNextBtn();
 }
 function _ccRegenLp(){
   _campLastLp=null;
@@ -25125,9 +25196,28 @@ function _ccSaveBuildLp() {
   });
 }
 
-// User picks an existing LP — sets the brief slug
-function _ccKsSelectLp(slug,campaignId,headline){
+// User picks an existing LP — sets the brief slug (variant='A' default, 'B' for challenger)
+function _ccKsSelectLp(slug,campaignId,headline,variant){
+  variant=variant||'A';
+  var _sd=slug.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  var _eicp=(_campBrief.icp||'').replace(/'/g,"\\'");
+  if(variant==='B'){
+    _campBrief.lp_slug_b=slug;
+    var _bRes=document.getElementById('cc-ks-lp-results-b');
+    if(_bRes){
+      _bRes.innerHTML=
+        '<div style="padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:6px;font-size:11px;color:#22c55e;font-family:\'DM Mono\',monospace">'+
+          '✓ Variant B locked: <a href="https://easychefpro.com/'+_sd+'" target="_blank" rel="noopener" style="color:#22c55e;text-decoration:underline;font-family:\'DM Mono\',monospace">easychefpro.com/'+_sd+'</a>'+
+          ' &nbsp;<span onclick="_ccKsLpSearch(\''+_eicp+'\',\'\',\'B\')" style="cursor:pointer;color:var(--muted);font-size:10px;text-decoration:underline">Edit</span>'+
+        '</div>';
+    }
+    _showToast('<div style="color:#22c55e;font-size:12px">Variant B LP selected: /'+slug+'</div>',2500);
+    _ccCheckLpNextBtn();
+    return;
+  }
+  // Variant A (default) — sets primary brief slug
   _campBrief.slug=slug;
+  _campBrief.lp_slug_a=slug;
   _campBrief._lpReused=true;
   _campBrief._lpReusedFrom=campaignId||'';
   // Lock angle and variant from the LP slug — drives all downstream copy
@@ -25143,17 +25233,16 @@ function _ccKsSelectLp(slug,campaignId,headline){
   // Mark selection in the LP results panel
   var res=document.getElementById('cc-ks-lp-results');
   if(res){
-    var _sd=slug.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    var _eicp=(_campBrief.icp||'').replace(/'/g,"\\'");
     res.innerHTML=
       '<div style="padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:6px;font-size:11px;color:#22c55e;font-family:\'DM Mono\',monospace;margin-bottom:12px">'+
-        '✓ LP locked: <a href="https://easychefpro.com/'+_sd+'" target="_blank" rel="noopener" style="color:#22c55e;text-decoration:underline;font-family:\'DM Mono\',monospace">easychefpro.com/'+_sd+'</a>'+
-        ' &nbsp;<span onclick="_ccKsLpSearch(\''+_eicp+'\')" style="cursor:pointer;color:var(--muted);font-size:10px;text-decoration:underline">Edit</span>'+
+        '✓ '+(_campBrief.ab_test?'Variant A locked:':'LP locked:')+' <a href="https://easychefpro.com/'+_sd+'" target="_blank" rel="noopener" style="color:#22c55e;text-decoration:underline;font-family:\'DM Mono\',monospace">easychefpro.com/'+_sd+'</a>'+
+        ' &nbsp;<span onclick="_ccKsLpSearch(\''+_eicp+'\',\'\',\'A\')" style="cursor:pointer;color:var(--muted);font-size:10px;text-decoration:underline">Edit</span>'+
       '</div>'+
-      '<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Campaign Kickstart</button>';
+      (!_campBrief.ab_test?'<button onclick="_ccLpAdvance()" style="background:'+_CC_RED+';border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">→ Next: Campaign Kickstart</button>':'');
   }
   _showToast('<div style="color:#22c55e;font-size:12px">Landing page selected: /'+slug+'</div>',2500);
   _ccUpdateLpFooter(slug);
+  _ccCheckLpNextBtn();
 }
 
 // Build a new LP via Claude — populates cc-ks-lp-output
@@ -29065,22 +29154,41 @@ function _ccWizardAdvance(toStep,summary){
   // Step 2 = LP auto-suggest (lazy render)
   if(toStep===2&&nextBody){
     var _mf2='font-family:\'DM Mono\',monospace;';
+    var _abOn=_campBrief.ab_test||false;
+    var _introTxt=_abOn?
+      '<strong style="color:var(--text)">Variant A</strong> — select the primary landing page:':
+      (_campBrief.campaign_angle?
+        'Showing LPs for angle: <strong style="color:var(--text)">'+_campBrief.campaign_angle+'</strong> — confirm or build new.':
+        'Select a landing page for this campaign.');
+    var _aLocked=_campBrief.lp_slug_a||'';
     nextBody.innerHTML=
       '<div style="padding:18px 20px">'+
-        '<div style="font-size:11px;color:var(--muted);'+_mf2+'margin-bottom:12px">'+
-          (_campBrief.campaign_angle?
-            'Showing LPs for angle: <strong style="color:var(--text)">'+_campBrief.campaign_angle+'</strong> — confirm or build new.':
-            'Select a landing page for this campaign.')+
+        '<div style="margin-bottom:14px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:10px">'+
+          '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;'+_mf2+'color:var(--text)">'+
+            '<input type="checkbox" id="cc-ab-toggle" '+(_abOn?'checked':'')+' onchange="_ccToggleAbTest()" style="width:15px;height:15px;cursor:pointer;accent-color:'+_CC_RED+'">'+
+            'Run as A/B test'+
+          '</label>'+
+          '<span style="font-size:10px;color:var(--muted);'+_mf2+'">— test two landing pages with Convert.com</span>'+
         '</div>'+
+        '<div style="font-size:11px;color:var(--muted);'+_mf2+'margin-bottom:8px" id="cc-step2-intro">'+_introTxt+'</div>'+
         '<div id="cc-ks-lp-results"><div style="font-size:11px;color:var(--muted);'+_mf2+'">Searching…</div></div>'+
         '<div id="cc-ks-lp-output"></div>'+
+        '<div id="cc-ab-b-section" style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);display:'+(_abOn?'block':'none')+'">'+
+          '<div style="font-size:11px;color:var(--muted);'+_mf2+'margin-bottom:8px"><strong style="color:var(--text)">Variant B</strong> — select the challenger landing page:</div>'+
+          '<div id="cc-ks-lp-results-b"><div style="font-size:11px;color:var(--muted);'+_mf2+'">'+(_abOn?'Searching…':'')+'</div></div>'+
+        '</div>'+
+        '<div id="cc-ab-info" style="margin-top:12px;padding:9px 14px;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.25);border-radius:7px;font-size:10px;'+_mf2+'color:var(--muted);display:'+(_abOn?'block':'none')+'">'+
+          'Test tool: <strong style="color:var(--text)">Convert.com</strong> &nbsp;·&nbsp; Account <strong style="color:var(--text)">10019256</strong> &nbsp;·&nbsp; Experiment: <strong style="color:var(--text)">10019672</strong> (auto-assigned) &nbsp;·&nbsp; Split: <strong style="color:var(--text)">50/50</strong>'+
+        '</div>'+
         '<div id="cc-step1-footer" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
-          '<span style="font-size:11px;color:var(--muted);'+_mf2+'">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">none selected</strong></span>'+
+          '<span style="font-size:11px;color:var(--muted);'+_mf2+'">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">'+(_aLocked?'easychefpro.com/'+_aLocked:'none selected')+'</strong></span>'+
           '<div style="flex:1;min-width:8px"></div>'+
           '<button id="cc-lp-next-btn" onclick="_ccLpAdvance()" disabled style="background:var(--border);border:none;color:var(--muted);padding:7px 20px;border-radius:6px;font-size:11px;font-weight:700;cursor:default;'+_mf2+'opacity:0.5">→ Next: Kickstart</button>'+
         '</div>'+
       '</div>';
-    _ccKsLpSearch(_campBrief.icp||'', _campBrief.campaign_angle||'savings');
+    _ccKsLpSearch(_campBrief.icp||'', _campBrief.campaign_angle||'savings','A');
+    if(_abOn) _ccKsLpSearch(_campBrief.icp||'', _campBrief.campaign_angle||'savings','B');
+    setTimeout(_ccCheckLpNextBtn,200);
   }
   // Step 3 = Kickstart (lazy render)
   if(toStep===3&&nextBody){

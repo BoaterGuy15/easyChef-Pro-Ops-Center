@@ -356,7 +356,67 @@ function fcGenerateUtmAndSave(campaignId) {
     }
     Logger.log('[fcUTMSave] EmailSequences dl_id+utm_url writes: ' + emailWriteCount);
 
-    // 6. Confirm LP DL_ID is ACTIVE in DeepLinkRegistry
+    // 6. A/B Test — generate DL-LP-XXXX-A and DL-LP-XXXX-B when ab_test is on
+    if (brief.ab_test && brief.lp_slug_a && brief.lp_slug_b) {
+      var _abExisting = utms.filter(function(u) { return /^DL-LP.*-[AB]$/i.test(u.dl_id || ''); });
+      if (!_abExisting.length) {
+        Logger.log('[fcUTMSave] A/B: generating DL-LP-XXXX-A and DL-LP-XXXX-B for ' + brief.id);
+        var _abSheet   = _getCCSheet(_CC_TAB.DL);
+        var _abHeaders = _CC_HDR.DeepLinkRegistry;
+        var _abLastRow = _abSheet.getLastRow();
+        var _abMaxLP   = 0;
+        if (_abLastRow >= 2) {
+          _abSheet.getRange(2, 1, _abLastRow - 1, 1).getValues().forEach(function(r) {
+            var m = String(r[0]).match(/^DL-LP-(\d+)/i);
+            if (m) { var n = parseInt(m[1], 10); if (n > _abMaxLP) _abMaxLP = n; }
+          });
+        }
+        var _abNow   = _ccNow();
+        var _abRows  = [];
+        var _abUTMs  = [];
+        var _abLpCh  = null;
+        try {
+          var _abAllCh = getChannels();
+          _abAllCh.forEach(function(ch) {
+            if ((ch.name || '').toLowerCase() === 'direct' || (ch.slug_code || '').toLowerCase() === 'direct') _abLpCh = ch;
+          });
+          if (!_abLpCh) _abLpCh = { utm_source: 'direct', utm_medium: 'referral' };
+        } catch(ce) { _abLpCh = { utm_source: 'direct', utm_medium: 'referral' }; }
+        [
+          { variant: 'A', slug: brief.lp_slug_a },
+          { variant: 'B', slug: brief.lp_slug_b }
+        ].forEach(function(vt) {
+          _abMaxLP++;
+          var _dlId    = 'DL-LP-' + String(_abMaxLP).padStart(4, '0') + '-' + vt.variant;
+          var _baseUrl = _buildLpUrl(vt.slug);
+          var _utmC    = _dlId + '_lp_variant_' + vt.variant.toLowerCase();
+          var _fullUrl = _baseUrl +
+            '?utm_source='   + encodeURIComponent(_abLpCh.utm_source || 'direct') +
+            '&utm_medium='   + encodeURIComponent(_abLpCh.utm_medium || 'referral') +
+            '&utm_campaign=' + encodeURIComponent(brief.id || '') +
+            '&utm_content='  + encodeURIComponent(_utmC);
+          _abRows.push([_dlId, _utmC, brief.id, 'LP-' + vt.variant, _baseUrl,
+            _abLpCh.utm_source || 'direct', _abLpCh.utm_medium || 'referral',
+            brief.id, 'ACTIVE', _abNow, _abNow, 'fcGenerateUtmAndSave',
+            'LP Variant ' + vt.variant + ' — ab_experiment_id=' + (brief.ab_experiment_id || '10019672')]);
+          _abUTMs.push({ dl_id: _dlId, utm_content: _utmC, channel: 'LP-' + vt.variant,
+            destination_url: _baseUrl, utm_source: _abLpCh.utm_source,
+            utm_medium: _abLpCh.utm_medium, full_url: _fullUrl, status: 'ACTIVE' });
+        });
+        if (_abRows.length) {
+          var _abAppendAt = _abSheet.getLastRow() + 1;
+          var _abRange    = _abSheet.getRange(_abAppendAt, 1, _abRows.length, _abHeaders.length);
+          _abRange.setNumberFormat('@');
+          _abRange.setValues(_abRows);
+          _abUTMs.forEach(function(u) { utms.push(u); });
+          Logger.log('[fcUTMSave] A/B LP DLs registered: ' + _abRows.map(function(r){return r[0];}).join(', '));
+        }
+      } else {
+        Logger.log('[fcUTMSave] A/B LP DLs already exist: ' + _abExisting.map(function(u){return u.dl_id;}).join(', '));
+      }
+    }
+
+    // 7. Confirm LP DL_ID is ACTIVE in DeepLinkRegistry
     var lpDlId = '';
     utms.forEach(function(u) { if (/^DL-LP/i.test(u.dl_id || '')) lpDlId = u.dl_id; });
     Logger.log('[fcUTMSave] Done — ' + utms.length + ' DL_IDs · LP: ' + lpDlId + ' · social writes: ' + dlWriteCount + ' · email writes: ' + emailWriteCount);

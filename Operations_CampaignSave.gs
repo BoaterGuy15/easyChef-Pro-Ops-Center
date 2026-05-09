@@ -44,7 +44,13 @@ function saveCampaignDraft(body) {
         post_frequency:  brief.post_frequency            || 'every_2_days',
         email_sequences: parseInt(brief.email_sequences) || 4,
         email_variants:  parseInt(brief.email_variants)  || 2,
-        channels:        Array.isArray(brief.channels) ? brief.channels : []
+        channels:        Array.isArray(brief.channels) ? brief.channels : [],
+        ab_test:          brief.ab_test || false,
+        ab_tool:          brief.ab_tool || '',
+        ab_split:         brief.ab_split || '50/50',
+        lp_slug_a:        brief.lp_slug_a || '',
+        lp_slug_b:        brief.lp_slug_b || '',
+        ab_experiment_id: brief.ab_experiment_id || ''
       });
       saved.brief = true;
     }
@@ -304,7 +310,13 @@ function _fcNormalizeBrief(rawBrief) {
     email_sequences:       rawBrief.email_sequences  || 'full',
     email_sequence_mode:   rawBrief.email_sequences  || 'full',
     email_variants:        rawBrief.email_variants   || 'both',
-    campaign_duration_days: 35
+    campaign_duration_days: 35,
+    ab_test:         rawBrief.ab_test || false,
+    ab_tool:         rawBrief.ab_tool || '',
+    ab_split:        rawBrief.ab_split || '50/50',
+    lp_slug_a:       rawBrief.lp_slug_a || '',
+    lp_slug_b:       rawBrief.lp_slug_b || '',
+    ab_experiment_id: rawBrief.ab_experiment_id || ''
   };
 }
 
