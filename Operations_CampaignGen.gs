@@ -296,45 +296,59 @@ function fcGenerateUtmAndSave(campaignId) {
     }
     Logger.log('[fcUTMSave] SocialPosts dl_id+utm_url writes: ' + dlWriteCount);
 
-    // 4. Build emailDlMap {emailId → {dl_id, utm_url}} for batch write
-    var _seqToCode = {
-      'SEQ-1': 'seq1_welcome', 'SEQ-2': 'seq2_nurture',
-      'SEQ-3': 'seq3_urgency', 'SEQ-4': 'seq4_launch_day'
-    };
+    // 4. Build emailDlMap {emailId|seqId → {dl_id, utm_url}} for batch write
+    Logger.log('[UTM-EMAIL] emails to process: ' + emails.length);
+    emails.forEach(function(email) {
+      Logger.log('[UTM-EMAIL] id: ' + email.id + ' seq_id: ' + email.seq_id +
+        ' sequence_code: ' + email.sequence_code + ' dl_id: ' + email.dl_id + ' utm_url: ' + email.utm_url);
+    });
     var emailDls = utms.filter(function(u) {
       return /^DL-EM/i.test(u.dl_id || '') ||
              (u.channel || '').toLowerCase() === 'email';
     });
-    var emailDlMap = {};
+    Logger.log('[UTM-EMAIL] emailDls in registry: ' + emailDls.length);
+    // Positional assignment: SEQ-1→emailDls[0], SEQ-2→emailDls[1], etc.
+    var _seqOrder = ['SEQ-1', 'SEQ-2', 'SEQ-3', 'SEQ-4'];
+    var _emailsBySeq = {};
     emails.forEach(function(email) {
-      var code  = _seqToCode[email.sequence_code || ''] || '';
-      var entry = null;
-      for (var di = 0; di < emailDls.length; di++) {
-        if ((emailDls[di].utm_campaign || '') === code) { entry = emailDls[di]; break; }
-      }
-      if (!entry || !email.id) return;
-      var fullUrl = (entry.destination_url || '') +
-        '?utm_source='   + encodeURIComponent(entry.utm_source   || '') +
-        '&utm_medium='   + encodeURIComponent(entry.utm_medium   || '') +
-        '&utm_campaign=' + encodeURIComponent(entry.utm_campaign || '') +
-        '&utm_content='  + encodeURIComponent(entry.utm_content  || '');
-      emailDlMap[String(email.id)] = { dl_id: entry.dl_id, utm_url: fullUrl };
+      var seq = email.sequence_code || '';
+      if (!_emailsBySeq[seq]) _emailsBySeq[seq] = [];
+      _emailsBySeq[seq].push(email);
     });
+    var emailDlMap = {};
+    _seqOrder.forEach(function(seq, idx) {
+      var entry = emailDls[idx] || null;
+      if (!entry) return;
+      (_emailsBySeq[seq] || []).forEach(function(email) {
+        var mapKey = String(email.id || email.seq_id || '');
+        if (!mapKey) return;
+        var fullUrl = (entry.destination_url || 'https://easychefpro.com/lp/waitlist-a') +
+          '?utm_source=klaviyo' +
+          '&utm_medium=email' +
+          '&utm_campaign=' + encodeURIComponent(brief.id || '') +
+          '&utm_content=' + encodeURIComponent((entry.dl_id || '') + '_' + (email.seq_id || seq) + '_cta');
+        emailDlMap[mapKey] = { dl_id: entry.dl_id, utm_url: fullUrl };
+      });
+    });
+    Logger.log('[UTM-EMAIL] emailDlMap keys built: ' + Object.keys(emailDlMap).length);
 
     // 5. BATCH write dl_id + utm_url to EmailSequences — one read, memory update, one write
-    var emailSheet   = _getCCSheet(_CC_TAB.EMAIL);
-    var emailData    = emailSheet.getDataRange().getValues();
-    var emailHeaders = emailData[0].map(function(h) { return String(h).trim(); });
-    var eIdCol  = emailHeaders.indexOf('id');
-    var eDlCol  = emailHeaders.indexOf('dl_id');
-    var eUrlCol = emailHeaders.indexOf('utm_url');
+    var emailSheet    = _getCCSheet(_CC_TAB.EMAIL);
+    var emailData     = emailSheet.getDataRange().getValues();
+    var emailHeaders  = emailData[0].map(function(h) { return String(h).trim(); });
+    var eIdCol        = emailHeaders.indexOf('id');
+    var eSeqIdCol     = emailHeaders.indexOf('seq_id');
+    var eDlCol        = emailHeaders.indexOf('dl_id');
+    var eUrlCol       = emailHeaders.indexOf('utm_url');
     var emailWriteCount = 0;
-    if (eIdCol >= 0 && (eDlCol >= 0 || eUrlCol >= 0)) {
+    if (eDlCol >= 0 || eUrlCol >= 0) {
       for (var ei = 1; ei < emailData.length; ei++) {
-        var eid = String(emailData[ei][eIdCol] || '');
-        if (emailDlMap[eid]) {
-          if (eDlCol  >= 0) emailData[ei][eDlCol]  = emailDlMap[eid].dl_id;
-          if (eUrlCol >= 0) emailData[ei][eUrlCol] = emailDlMap[eid].utm_url;
+        var eid  = eIdCol    >= 0 ? String(emailData[ei][eIdCol]    || '') : '';
+        var esid = eSeqIdCol >= 0 ? String(emailData[ei][eSeqIdCol] || '') : '';
+        var _em  = emailDlMap[eid] || emailDlMap[esid] || null;
+        if (_em) {
+          if (eDlCol  >= 0) emailData[ei][eDlCol]  = _em.dl_id;
+          if (eUrlCol >= 0) emailData[ei][eUrlCol] = _em.utm_url;
           emailWriteCount++;
         }
       }
@@ -370,30 +384,36 @@ function fcExportCampaignToDrive(campaignId) {
 
     // Enrich email objects with DL_IDs from DeepLinkRegistry.
     // EmailSequences tab may not have dl_id column — DeepLinkRegistry is authoritative.
-    var _seqToCode = {
-      'SEQ-1': 'seq1_welcome', 'SEQ-2': 'seq2_nurture',
-      'SEQ-3': 'seq3_urgency', 'SEQ-4': 'seq4_launch_day'
-    };
     try {
       var allDls   = getDlRegistry(campaignId);
       var emailDls = allDls.filter(function(u) {
         return /^DL-EM/i.test(u.dl_id || '') ||
                (u.channel || '').toLowerCase() === 'email';
       });
+      Logger.log('[EXPORT-EMAIL] emailDls in registry: ' + emailDls.length);
+      Logger.log('[EXPORT-EMAIL] first email fields: ' + JSON.stringify(Object.keys(emails[0] || {})));
+      Logger.log('[EXPORT-EMAIL] first email dl_id: ' + (emails[0] || {}).dl_id);
+      Logger.log('[EXPORT-EMAIL] first email utm_url: ' + (emails[0] || {}).utm_url);
+      // Positional assignment: SEQ-1→emailDls[0], SEQ-2→emailDls[1], etc.
+      var _expSeqOrder = ['SEQ-1', 'SEQ-2', 'SEQ-3', 'SEQ-4'];
+      var _expEmailsBySeq = {};
       emails.forEach(function(email) {
-        if (email.dl_id) return; // already written by fcGenerateUtmAndSave
-        var code  = _seqToCode[email.sequence_code || ''] || '';
-        var entry = null;
-        for (var di = 0; di < emailDls.length; di++) {
-          if ((emailDls[di].utm_campaign || '') === code) { entry = emailDls[di]; break; }
-        }
+        var seq = email.sequence_code || '';
+        if (!_expEmailsBySeq[seq]) _expEmailsBySeq[seq] = [];
+        _expEmailsBySeq[seq].push(email);
+      });
+      _expSeqOrder.forEach(function(seq, idx) {
+        var entry = emailDls[idx] || null;
         if (!entry) return;
-        email.dl_id   = entry.dl_id;
-        email.utm_url = (entry.destination_url || '') +
-          '?utm_source='   + encodeURIComponent(entry.utm_source   || '') +
-          '&utm_medium='   + encodeURIComponent(entry.utm_medium   || '') +
-          '&utm_campaign=' + encodeURIComponent(entry.utm_campaign || '') +
-          '&utm_content='  + encodeURIComponent(entry.utm_content  || '');
+        (_expEmailsBySeq[seq] || []).forEach(function(email) {
+          if (email.dl_id) return; // already written by fcGenerateUtmAndSave
+          email.dl_id   = entry.dl_id;
+          email.utm_url = (entry.destination_url || 'https://easychefpro.com/lp/waitlist-a') +
+            '?utm_source=klaviyo' +
+            '&utm_medium=email' +
+            '&utm_campaign=' + encodeURIComponent(brief.id || '') +
+            '&utm_content=' + encodeURIComponent((entry.dl_id || '') + '_' + (email.seq_id || seq) + '_cta');
+        });
       });
       Logger.log('[fcDriveExport] Email DL enrichment: ' + emailDls.length + ' entries from registry');
     } catch(dlErr) {

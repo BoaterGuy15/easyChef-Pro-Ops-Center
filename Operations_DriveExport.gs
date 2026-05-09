@@ -441,11 +441,12 @@ function _generateDesignBriefs(brief, posts, emails, lp, apiKey) {
   if (emails.length > 0) {
     try {
       var emailSys = getMasterSystemPrompt('email_brief', ctx);
+      Logger.log('[BRIEF-EMAIL] first email id: ' + ((emails[0] || {}).id || '') + ' seq_id: ' + ((emails[0] || {}).seq_id || ''));
       var emailMsg = 'CAMPAIGN: ' + JSON.stringify({
         id: brief.id, name: brief.name, theme: brief.theme, icp: brief.icp
       }) + '\n\nEMAILS:\n' + JSON.stringify(emails.map(function(e) {
         return {
-          id: e.id || e.seq_id || '',
+          id: e.seq_id || e.id || '',   // prefer seq_id as stable lookup key
           seq_id: e.seq_id || '',
           email_number: e.email_number || 1,
           funnel_stage: e.funnel_stage || '',
@@ -458,9 +459,11 @@ function _generateDesignBriefs(brief, posts, emails, lp, apiKey) {
       if (emailMatch) {
         var emailJson = JSON.parse(emailMatch[0]);
         (emailJson.emails || []).forEach(function(eb) {
-          if (eb.id) result.emailBriefs[eb.id] = { design_brief: eb.design_brief || '' };
+          var _bKey = eb.id || eb.seq_id || '';
+          if (_bKey) result.emailBriefs[_bKey] = { design_brief: eb.design_brief || '' };
         });
       }
+      Logger.log('[BRIEF-EMAIL] brief keys: ' + JSON.stringify(Object.keys(result.emailBriefs)));
       Logger.log('[DesignBriefs] emails: ' + Object.keys(result.emailBriefs).length + ' briefs');
     } catch(e) { Logger.log('[DesignBriefs] emails error: ' + e.message); }
   }
@@ -1117,7 +1120,7 @@ function _buildEmailSeqsHtml(brief, emails, genDate, emailBriefs) {
         + (email.utm_url ? _h(email.utm_url) : '<span class="td-pending">—</span>') + '</td></tr>\n';
       var st = email.status || 'draft';
       seqsHtml += '      <tr><td class="td-label">Status</td><td class="td-value"><span class="badge badge-' + _h(st) + '">' + _h(st.toUpperCase()) + '</span></td></tr>\n';
-      var _eb = emailBriefs[email.id || email.seq_id] || {};
+      var _eb = emailBriefs[email.seq_id || email.id] || {};
       if (_eb.design_brief) seqsHtml += '      <tr><td class="td-label td-brief-label">DESIGN BRIEF → FIGMA</td><td class="td-brief td-value">' + _h(_eb.design_brief) + '</td></tr>\n';
       seqsHtml += '    </tbody></table>\n  </div>\n';
     });
