@@ -249,8 +249,7 @@ function fcGenerateUtmAndSave(campaignId) {
     var utms = saveResult.utms || [];
     Logger.log('[fcUTMSave] DL entries generated: ' + utms.length);
 
-    // 2. Write dl_id + utm_url back to SocialPosts tab rows
-    // Group social UTMs by platform (exclude LP and Email prefixes)
+    // 2. Build dlMap {postId → {dl_id, utm_url}} by matching UTMs to posts by platform order
     var _utmByPlatform = {};
     utms.forEach(function(u) {
       if (/^DL-LP/i.test(u.dl_id || '') || /^DL-EM/i.test(u.dl_id || '')) return;
@@ -264,20 +263,39 @@ function fcGenerateUtmAndSave(campaignId) {
       if (!_postsByPlatform[pl]) _postsByPlatform[pl] = [];
       _postsByPlatform[pl].push(p);
     });
-    var dlWriteCount = 0;
+    var dlMap = {};
     Object.keys(_postsByPlatform).forEach(function(platform) {
       var pArr = _postsByPlatform[platform];
       var uArr = _utmByPlatform[platform] || [];
       pArr.forEach(function(post, i) {
         var u = uArr[i] || uArr[uArr.length - 1] || null;
         if (!u || !post.id) return;
-        setSocialPost({ id: post.id, dl_id: u.dl_id, utm_url: u.full_url });
-        dlWriteCount++;
+        dlMap[String(post.id)] = { dl_id: u.dl_id, utm_url: u.full_url };
       });
     });
+
+    // 3. BATCH write dl_id + utm_url to SocialPosts — one read, memory update, one write
+    var postsSheet   = _getCCSheet(_CC_TAB.SOCIAL);
+    var postsData    = postsSheet.getDataRange().getValues();
+    var postsHeaders = postsData[0].map(function(h) { return String(h).trim(); });
+    var pIdCol  = postsHeaders.indexOf('id');
+    var pDlCol  = postsHeaders.indexOf('dl_id');
+    var pUrlCol = postsHeaders.indexOf('utm_url');
+    var dlWriteCount = 0;
+    if (pIdCol >= 0 && (pDlCol >= 0 || pUrlCol >= 0)) {
+      for (var pi = 1; pi < postsData.length; pi++) {
+        var pid = String(postsData[pi][pIdCol] || '');
+        if (dlMap[pid]) {
+          if (pDlCol  >= 0) postsData[pi][pDlCol]  = dlMap[pid].dl_id;
+          if (pUrlCol >= 0) postsData[pi][pUrlCol] = dlMap[pid].utm_url;
+          dlWriteCount++;
+        }
+      }
+      postsSheet.getRange(1, 1, postsData.length, postsHeaders.length).setValues(postsData);
+    }
     Logger.log('[fcUTMSave] SocialPosts dl_id+utm_url writes: ' + dlWriteCount);
 
-    // 3. Write dl_id + utm_url to EmailSequences rows (if columns exist in sheet)
+    // 4. Build emailDlMap {emailId → {dl_id, utm_url}} for batch write
     var _seqToCode = {
       'SEQ-1': 'seq1_welcome', 'SEQ-2': 'seq2_nurture',
       'SEQ-3': 'seq3_urgency', 'SEQ-4': 'seq4_launch_day'
@@ -286,6 +304,7 @@ function fcGenerateUtmAndSave(campaignId) {
       return /^DL-EM/i.test(u.dl_id || '') ||
              (u.channel || '').toLowerCase() === 'email';
     });
+    var emailDlMap = {};
     emails.forEach(function(email) {
       var code  = _seqToCode[email.sequence_code || ''] || '';
       var entry = null;
@@ -298,41 +317,39 @@ function fcGenerateUtmAndSave(campaignId) {
         '&utm_medium='   + encodeURIComponent(entry.utm_medium   || '') +
         '&utm_campaign=' + encodeURIComponent(entry.utm_campaign || '') +
         '&utm_content='  + encodeURIComponent(entry.utm_content  || '');
-      _writeEmailDlId(email.id, entry.dl_id, fullUrl);
+      emailDlMap[String(email.id)] = { dl_id: entry.dl_id, utm_url: fullUrl };
     });
 
-    // 4. Confirm LP DL_ID is ACTIVE in DeepLinkRegistry
+    // 5. BATCH write dl_id + utm_url to EmailSequences — one read, memory update, one write
+    var emailSheet   = _getCCSheet(_CC_TAB.EMAIL);
+    var emailData    = emailSheet.getDataRange().getValues();
+    var emailHeaders = emailData[0].map(function(h) { return String(h).trim(); });
+    var eIdCol  = emailHeaders.indexOf('id');
+    var eDlCol  = emailHeaders.indexOf('dl_id');
+    var eUrlCol = emailHeaders.indexOf('utm_url');
+    var emailWriteCount = 0;
+    if (eIdCol >= 0 && (eDlCol >= 0 || eUrlCol >= 0)) {
+      for (var ei = 1; ei < emailData.length; ei++) {
+        var eid = String(emailData[ei][eIdCol] || '');
+        if (emailDlMap[eid]) {
+          if (eDlCol  >= 0) emailData[ei][eDlCol]  = emailDlMap[eid].dl_id;
+          if (eUrlCol >= 0) emailData[ei][eUrlCol] = emailDlMap[eid].utm_url;
+          emailWriteCount++;
+        }
+      }
+      emailSheet.getRange(1, 1, emailData.length, emailHeaders.length).setValues(emailData);
+    }
+    Logger.log('[fcUTMSave] EmailSequences dl_id+utm_url writes: ' + emailWriteCount);
+
+    // 6. Confirm LP DL_ID is ACTIVE in DeepLinkRegistry
     var lpDlId = '';
     utms.forEach(function(u) { if (/^DL-LP/i.test(u.dl_id || '')) lpDlId = u.dl_id; });
-    Logger.log('[fcUTMSave] Done — ' + utms.length + ' DL_IDs · LP: ' + lpDlId + ' · social writes: ' + dlWriteCount);
+    Logger.log('[fcUTMSave] Done — ' + utms.length + ' DL_IDs · LP: ' + lpDlId + ' · social writes: ' + dlWriteCount + ' · email writes: ' + emailWriteCount);
 
     return { ok: true, dl_count: utms.length, posts: posts.length, emails: emails.length, lp_dl_id: lpDlId };
   } catch(e) {
     Logger.log('[fcUTMSave] ERROR: ' + e.message);
     return { ok: false, error: e.message };
-  }
-}
-
-// Write dl_id + utm_url directly to an EmailSequences row if those columns exist.
-// Safe no-op when the sheet has not yet had those columns added.
-function _writeEmailDlId(emailId, dlId, utmUrl) {
-  try {
-    var sheet   = _getCCSheet(_CC_TAB.EMAIL);
-    var data    = sheet.getDataRange().getValues();
-    if (data.length < 1) return;
-    var headers = data[0].map(function(h) { return String(h).trim(); });
-    var dlCol   = headers.indexOf('dl_id');
-    var urlCol  = headers.indexOf('utm_url');
-    if (dlCol < 0 && urlCol < 0) return;
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === String(emailId)) {
-        if (dlCol  >= 0) sheet.getRange(i + 1, dlCol  + 1).setValue(dlId);
-        if (urlCol >= 0) sheet.getRange(i + 1, urlCol + 1).setValue(utmUrl);
-        return;
-      }
-    }
-  } catch(e) {
-    Logger.log('[writeEmailDlId] ' + emailId + ': ' + e.message);
   }
 }
 
