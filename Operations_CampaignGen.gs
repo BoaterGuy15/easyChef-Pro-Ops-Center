@@ -233,7 +233,13 @@ function campaignGen(brief) {
 
 // ── Pipeline step: UTM + DL generation — writes DL_IDs to all Sheet tabs ─────
 
+function testFcGenerateUtmAndSave() {
+  var result = fcGenerateUtmAndSave('EC-2026-001');
+  Logger.log('[testFcUTMSave] result: ' + JSON.stringify(result));
+}
+
 function fcGenerateUtmAndSave(campaignId) {
+  if (!campaignId) return { ok: false, error: 'campaignId required — run testFcGenerateUtmAndSave() from the editor' };
   try {
     var ctx = _fcLoad(campaignId);
     if (!ctx) return { ok: false, error: 'Brief not found: ' + campaignId };
