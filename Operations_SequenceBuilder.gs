@@ -397,147 +397,146 @@ function buildEmailCalendar(brief, copy) {
       return activeSeqs.indexOf(e.seq) !== -1;
     });
 
-    var icpCtx    = _getIcpContext(brief.icp || '');
-    var claimsCtx = _getClaimsContext();
-    var lpUrl     = _buildLpUrl(brief.slug || 'waitlist');
-
-    var wireframeDesc = wireframe.map(function(e) {
-      return e.seq + '-E' + e.num +
-        ' | Global #' + e.global +
-        ' | Day ' + e.day + ' after "' + e.trigger + '"' +
-        ' | Stage: ' + e.stage +
-        ' | Theme: ' + e.theme +
-        ' | Role: ' + e.role;
-    }).join('\n');
+    var lpUrl      = _buildLpUrl(brief.slug || 'waitlist');
+    var campaignId = brief.id || '';
+    var emails     = [];
 
     var variantInstr = '';
     if (varMode === 'variant_a') {
       variantInstr =
-        'VARIANTS: Generate Variant A only (money angle — $1,336/year savings, loss aversion, financial framing).\n' +
-        'Leave subject_line_b and preview_text_b as empty strings.';
+        'VARIANTS: Generate Variant A subject line only (money angle — $1,336/year savings, loss aversion, financial framing).\n' +
+        'Leave subject_b as empty string.';
     } else if (varMode === 'variant_b') {
       variantInstr =
-        'VARIANTS: Generate Variant B only (simplicity angle — 6:30 PM fridge panic, emotional relief, time framing).\n' +
-        'Leave subject_line_a and preview_text_a as empty strings.';
+        'VARIANTS: Generate Variant B subject line only (simplicity angle — 6:30 PM fridge panic, emotional relief, time framing).\n' +
+        'Leave subject_a as empty string.';
     } else {
       variantInstr =
-        'VARIANTS: Generate both A and B for every email.\n' +
-        'Variant A = Money angle: $1,336/year savings, loss aversion framing, financial specificity.\n' +
-        'Variant B = Simplicity angle: 6:30 PM fridge panic, emotional relief, time-saving framing.\n' +
-        'Same body structure for both — only subject_line and preview_text differ.';
+        'VARIANTS: Generate both A and B subject lines.\n' +
+        'subject_a = Money angle: $1,336/year savings, loss aversion framing, financial specificity.\n' +
+        'subject_b = Simplicity angle: 6:30 PM fridge panic, emotional relief, time-saving framing.\n' +
+        'One preview_text serves both variants — write it to bridge both angles.';
     }
 
-    var _emailStoryCtx = _buildBriefStoryCtx(brief);
+    var proofBarStr = (copy && Array.isArray(copy.proof_bar))
+      ? copy.proof_bar.join(' · ')
+      : (copy && copy.proof_bar || '');
 
-    var systemPrompt =
-      getMasterSystemPrompt('email', _emailStoryCtx) +
-      '=== EMAIL SEQUENCE RULES ===\n' +
-      'From name: Taylor at easyChef Pro\n' +
-      'TESTIMONIALS ARE BANNED: Never write "One mom told us...", "A customer said...", or any fabricated testimonial. No invented names, no invented quotes.\n' +
-      'NUMBERS POLICY: ONLY use figures from the approved claims list. No other dollar amounts, percentages, or counts.\n' +
-      'BODY LENGTH: Each email body section should be 2-4 sentences minimum. Total email should be 250+ words across all body sections combined.\n' +
-      'BODY PS: Every email must end with a P.S. line — one sentence that adds urgency or reinforces the founding offer.\n\n' +
-      '=== CAMPAIGN ===\n' +
-      'Name: '                  + (brief.name || '')                      + '\n' +
-      'Landing page: '          + lpUrl                                    + '\n' +
-      'Kickstart headline: '    + (copy && copy.headline    || '')         + '\n' +
-      'Kickstart subheadline: ' + (copy && copy.subheadline || '')         + '\n' +
-      'Kickstart CTA: '         + (copy && copy.cta_primary || '')         + '\n' +
-      'Proof bar: '             + (copy && Array.isArray(copy.proof_bar)
-        ? copy.proof_bar.join(' · ')
-        : (copy && copy.proof_bar || ''))                                   + '\n\n' +
-      '=== ' + variantInstr + ' ===\n\n' +
-      '=== 7-STEP FRAMEWORK — ONE STAGE PER EMAIL ===\n' +
-      'Each email focuses on its assigned stage only. Do not try to hit all 7 in every email.\n' +
-      'subject_line_a: Money/savings angle — 8-12 words, specific dollar amount or stat when it fits the stage\n' +
-      'subject_line_b: Emotion/time angle — 8-12 words, names the feeling or the exact moment\n' +
-      'preview_text_a and preview_text_b: 85-100 chars, extends the subject line, creates curiosity\n\n' +
-      '=== EMAIL WIREFRAME — ' + wireframe.length + ' EMAILS ===\n' +
-      wireframeDesc + '\n\n' +
-      '=== COUNT REQUIREMENT — NON-NEGOTIABLE ===\n' +
-      'You MUST return exactly ' + wireframe.length + ' JSON objects — one for every wireframe entry listed above.\n' +
-      (function() {
-        var counts = {};
-        wireframe.forEach(function(e) { counts[e.seq] = (counts[e.seq] || 0) + 1; });
-        return 'Per-sequence breakdown (check before returning):\n' +
-          Object.keys(counts).map(function(s) { return '  ' + s + ': ' + counts[s] + ' email' + (counts[s]!==1?'s':''); }).join('\n') + '\n';
-      })() +
-      'SEQ-1 MUST produce ' + wireframe.filter(function(e){return e.seq==='SEQ-1';}).length + ' separate objects (E1, E2, E3). Never merge them.\n' +
-      'Do not combine entries. Do not skip any email.\n' +
-      'Returning fewer than ' + wireframe.length + ' objects means the task failed.\n\n' +
-      '=== PER-EMAIL SPECIAL RULES ===\n' +
-      'SEQ-1-E1: body_cta MUST be an empty string "". NO CTA. NO link. NO call-to-action of any kind. It is a confirmation-only welcome email — the nurture has not started yet. Writing any CTA in SEQ-1-E1 violates the sequence design.\n\n' +
-      '=== OUTPUT FORMAT ===\n' +
-      'Return ONLY a valid JSON array. No markdown. No explanation before or after.\n' +
-      '[\n' +
-      '  {\n' +
-      '    "seq_id": "SEQ-1-E1",\n' +
-      '    "sequence_code": "SEQ-1",\n' +
-      '    "email_number": 1,\n' +
-      '    "global_number": 1,\n' +
-      '    "subject_line_a": "Under 50 chars — money angle — no emoji",\n' +
-      '    "subject_line_b": "Under 50 chars — simplicity angle — no emoji",\n' +
-      '    "preview_text_a": "Under 90 chars — extends subject A",\n' +
-      '    "preview_text_b": "Under 90 chars — extends subject B",\n' +
-      '    "from_name": "Taylor at easyChef Pro",\n' +
-      '    "body_hook": "2-3 sentences — hooks the reader, specific to ICP pain and this email\'s stage",\n' +
-      '    "body_problem": "2-3 sentences naming the exact pain — specific moment, not generic",\n' +
-      '    "body_agitate": "2-3 sentences deepening the pain — name the cost, make it real",\n' +
-      '    "body_solve": "2 sentences — easyChef Pro as the obvious answer",\n' +
-      '    "body_value": "2-3 sentences — specific outcomes, approved claims only, peace-forward",\n' +
-      '    "body_proof": "1-2 sentences — one approved stat exact wording, no invented testimonials",\n' +
-      '    "body_cta": "CTA line with full URL — outcome-framed, under 10 words",\n' +
-      '    "body_ps": "P.S. — one sentence urgency or founding offer reinforcement",\n' +
-      '    "send_day": 0,\n' +
-      '    "trigger_event": "waitlist_signup",\n' +
-      '    "theme": "welcome",\n' +
-      '    "funnel_stage": "hook",\n' +
-      '    "status": "draft"\n' +
-      '  }\n' +
-      ']';
+    for (var wi = 0; wi < wireframe.length; wi++) {
+      var wf        = wireframe[wi];
+      var isWelcome = (wf.seq === 'SEQ-1' && wf.num === 1);
 
-    // 1100 tokens per email; floor at 4500 so seq1_only (3 emails) has room for all 3
-    var maxTokens = Math.min(8192, Math.max(4500, wireframe.length * 1100));
+      var emailCtx       = _buildBriefStoryCtx(brief);
+      emailCtx.theme_id  = brief.theme_id || brief.theme || '';
+      emailCtx.icp_code  = brief.icp || '';
+      emailCtx.seq_stage = wf.stage;
 
-    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type':      'application/json'
-      },
-      payload: JSON.stringify({
-        model:      'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        system:     systemPrompt,
-        messages:   [{ role: 'user', content: 'Generate the ' + wireframe.length + '-email sequence for the ' + (brief.icp || 'target') + ' ICP. Return only the JSON array.' }]
-      }),
-      muteHttpExceptions: true
-    });
+      var systemPrompt =
+        getMasterSystemPrompt('email_full', emailCtx) +
+        '=== EMAIL SEQUENCE RULES ===\n' +
+        'From name: Taylor at easyChef Pro\n' +
+        'TESTIMONIALS ARE BANNED: Never write "One mom told us...", "A customer said...", or any fabricated testimonial. No invented names, no invented quotes.\n' +
+        'NUMBERS POLICY: ONLY use figures from the approved claims list. No other dollar amounts, percentages, or counts.\n' +
+        'BODY LENGTH: Each step section should be 2-4 sentences. Total email should be 250+ words across all steps combined.\n' +
+        'BODY PS: Every email must end with a P.S. line — one sentence that adds urgency or reinforces the founding offer.\n\n' +
+        '=== CAMPAIGN ===\n' +
+        'Name: '                  + (brief.name || '')                 + '\n' +
+        'Landing page: '          + lpUrl                               + '\n' +
+        'Kickstart headline: '    + (copy && copy.headline    || '')    + '\n' +
+        'Kickstart subheadline: ' + (copy && copy.subheadline || '')    + '\n' +
+        'Kickstart CTA: '         + (copy && copy.cta_primary || '')    + '\n' +
+        'Proof bar: '             + proofBarStr                         + '\n\n' +
+        '=== ' + variantInstr + ' ===\n\n' +
+        '=== THIS EMAIL ===\n' +
+        'ID: ' + wf.seq + '-E' + wf.num + ' (Global #' + wf.global + ')\n' +
+        'Stage: ' + wf.stage.toUpperCase() + '\n' +
+        'Theme: ' + wf.theme + '\n' +
+        'Role: ' + wf.role + '\n' +
+        'Send day: Day ' + wf.day + ' after "' + wf.trigger + '"\n' +
+        (isWelcome
+          ? 'SPECIAL RULE — NO CTA: This is the welcome confirmation email. step7_cta_text and step7_cta_button MUST be empty strings. No call-to-action, no link. The nurture sequence has not started yet.\n\n'
+          : '\n') +
+        '=== OUTPUT FORMAT ===\n' +
+        'Return ONLY a valid JSON object. No markdown. No explanation.\n' +
+        '{\n' +
+        '  "subject_a": "Money angle — under 50 chars, no emoji",\n' +
+        '  "subject_b": "Simplicity/emotion angle — under 50 chars, no emoji",\n' +
+        '  "preview_text": "Under 90 chars — bridges both subject angles, creates curiosity",\n' +
+        '  "from_name": "Taylor at easyChef Pro",\n' +
+        '  "step1_hook": "2-3 sentences — hooks the reader, specific to ICP pain and this email\'s stage",\n' +
+        '  "step2_problem": "2-3 sentences naming the exact pain — specific moment, not generic",\n' +
+        '  "step3_agitate": "2-3 sentences deepening the pain — name the cost, make it real",\n' +
+        '  "step4_solve": "2 sentences — easyChef Pro as the obvious answer",\n' +
+        '  "step5_value": "2-3 sentences — specific outcomes, approved claims only, peace-forward",\n' +
+        '  "step6_proof": "1-2 sentences — one approved stat exact wording, no invented testimonials",\n' +
+        '  "step7_cta_text": "CTA line — outcome-framed, under 10 words",\n' +
+        '  "step7_cta_button": "Button label — under 6 words",\n' +
+        '  "step7_ps": "P.S. — one sentence urgency or founding offer reinforcement"\n' +
+        '}';
 
-    var data  = JSON.parse(resp.getContentText());
-    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
-    if (!reply && data.error) {
-      return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
-    }
+      var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key':         apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type':      'application/json'
+        },
+        payload: JSON.stringify({
+          model:      'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          system:     systemPrompt,
+          messages:   [{ role: 'user', content: 'Generate email ' + wf.seq + '-E' + wf.num + ' (' + wf.stage.toUpperCase() + ' stage) for the ' + (brief.icp || 'target') + ' ICP. Return only the JSON object.' }]
+        }),
+        muteHttpExceptions: true
+      });
 
-    var jsonStr    = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-    var emails     = JSON.parse(jsonStr);
-    var campaignId = brief.id || '';
-
-    emails.forEach(function(e) {
-      var wf = _sbFindWireframe(e.seq_id);
-      if (wf) {
-        if (e.send_day      === undefined) e.send_day      = wf.day;
-        if (!e.trigger_event)              e.trigger_event = wf.trigger;
-        if (!e.theme)                      e.theme         = wf.theme;
-        if (!e.funnel_stage)               e.funnel_stage  = wf.stage;
-        if (!e.global_number)              e.global_number = wf.global;
-        if (!e.sequence_code)              e.sequence_code = wf.seq;
-        if (!e.email_number)               e.email_number  = wf.num;
+      var data  = JSON.parse(resp.getContentText());
+      var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
+      if (!reply && data.error) {
+        Logger.log('buildEmailCalendar: API error on ' + wf.seq + '-E' + wf.num + ' — ' +
+          (typeof data.error === 'object' ? data.error.message : String(data.error)));
+        continue;
       }
-      e.campaign_id = campaignId;
-      e.status      = e.status || 'draft';
+
+      var e = null;
+      try {
+        var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+        e = JSON.parse(jsonStr);
+      } catch (parseErr) {
+        Logger.log('buildEmailCalendar: parse error on ' + wf.seq + '-E' + wf.num + ' — ' + parseErr.message);
+        continue;
+      }
+
+      // SEQ-1-E1 no-CTA enforcement
+      if (isWelcome) { e.step7_cta_text = ''; e.step7_cta_button = ''; }
+
+      // Metadata
+      e.seq_id        = wf.seq + '-E' + wf.num;
+      e.sequence_code = wf.seq;
+      e.email_number  = wf.num;
+      e.global_number = wf.global;
+      e.send_day      = wf.day;
+      e.trigger_event = wf.trigger;
+      e.theme         = wf.theme;
+      e.funnel_stage  = wf.stage;
+      e.campaign_id   = campaignId;
+      e.status        = 'draft';
+
+      // Legacy field aliases for backward compat
+      e.subject_line_a = e.subject_a      || '';
+      e.subject_line_b = e.subject_b      || '';
+      e.preview_text_a = e.preview_text   || '';
+      e.preview_text_b = '';
+      e.body_hook      = e.step1_hook     || '';
+      e.body_problem   = e.step2_problem  || '';
+      e.body_agitate   = e.step3_agitate  || '';
+      e.body_solve     = e.step4_solve    || '';
+      e.body_value     = e.step5_value    || '';
+      e.body_proof     = e.step6_proof    || '';
+      e.body_cta       = e.step7_cta_text || '';
+      e.body_ps        = e.step7_ps       || '';
+
+      emails.push(e);
 
       var writeA = varMode === 'both' || varMode === 'variant_a';
       var writeB = varMode === 'both' || varMode === 'variant_b';
@@ -548,22 +547,22 @@ function buildEmailCalendar(brief, copy) {
           campaign_id:   campaignId,
           sequence_code: e.sequence_code,
           email_number:  e.email_number,
-          subject_line:  e.subject_line_a || '',
-          preview_text:  e.preview_text_a || '',
-          body_hook:     e.body_hook      || '',
-          body_problem:  e.body_problem   || '',
-          body_agitate:  e.body_agitate   || '',
-          body_solve:    e.body_solve     || '',
-          body_value:    e.body_value     || '',
-          body_proof:    e.body_proof     || '',
-          body_cta:      e.body_cta       || '',
-          body_ps:       e.body_ps        || '',
-          from_name:     e.from_name      || 'Taylor at easyChef Pro',
+          subject_line:  e.subject_line_a,
+          preview_text:  e.preview_text_a,
+          body_hook:     e.body_hook,
+          body_problem:  e.body_problem,
+          body_agitate:  e.body_agitate,
+          body_solve:    e.body_solve,
+          body_value:    e.body_value,
+          body_proof:    e.body_proof,
+          body_cta:      e.body_cta,
+          body_ps:       e.body_ps,
+          from_name:     e.from_name || 'Taylor at easyChef Pro',
           send_day:      e.send_day,
-          trigger_event: e.trigger_event  || '',
-          funnel_stage:  e.funnel_stage   || '',
-          body_theme:    e.theme          || '',
-          role:          wf ? (wf.role    || '') : '',
+          trigger_event: e.trigger_event,
+          funnel_stage:  e.funnel_stage,
+          body_theme:    e.theme,
+          role:          wf.role || '',
           status:        'draft'
         });
       }
@@ -574,26 +573,26 @@ function buildEmailCalendar(brief, copy) {
           campaign_id:   campaignId,
           sequence_code: e.sequence_code,
           email_number:  e.email_number,
-          subject_line:  e.subject_line_b || '',
-          preview_text:  e.preview_text_b || '',
-          body_hook:     e.body_hook      || '',
-          body_problem:  e.body_problem   || '',
-          body_agitate:  e.body_agitate   || '',
-          body_solve:    e.body_solve     || '',
-          body_value:    e.body_value     || '',
-          body_proof:    e.body_proof     || '',
-          body_cta:      e.body_cta       || '',
-          body_ps:       e.body_ps        || '',
-          from_name:     e.from_name      || 'Taylor at easyChef Pro',
+          subject_line:  e.subject_line_b,
+          preview_text:  e.preview_text_a,
+          body_hook:     e.body_hook,
+          body_problem:  e.body_problem,
+          body_agitate:  e.body_agitate,
+          body_solve:    e.body_solve,
+          body_value:    e.body_value,
+          body_proof:    e.body_proof,
+          body_cta:      e.body_cta,
+          body_ps:       e.body_ps,
+          from_name:     e.from_name || 'Taylor at easyChef Pro',
           send_day:      e.send_day,
-          trigger_event: e.trigger_event  || '',
-          funnel_stage:  e.funnel_stage   || '',
-          body_theme:    e.theme          || '',
-          role:          wf ? (wf.role    || '') : '',
+          trigger_event: e.trigger_event,
+          funnel_stage:  e.funnel_stage,
+          body_theme:    e.theme,
+          role:          wf.role || '',
           status:        'draft'
         });
       }
-    });
+    }
 
     return { ok: true, emails: emails, seq_mode: seqMode, variant_mode: varMode };
 
@@ -718,6 +717,8 @@ function buildSocialCalendar(brief, copy) {
         postCtx.platform    = channel;
         postCtx.stage       = stage;
         postCtx.post_number = pi + 1;
+        postCtx.theme_id    = brief.theme_id || brief.theme || '';
+        postCtx.icp_code    = brief.icp || '';
 
         // Theme food rule: Post 4 (SOLVE) onward must name the food by name
         var foodRule = '';
@@ -730,7 +731,7 @@ function buildSocialCalendar(brief, copy) {
         }
 
         var systemPrompt =
-          getMasterSystemPrompt('social_post', postCtx) +
+          getMasterSystemPrompt('social_post_' + stage, postCtx) +
           '=== PLATFORM ===\n' +
           (channelRules || platformNote) + '\n\n' +
           '=== CAMPAIGN CONTEXT ===\n' +

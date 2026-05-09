@@ -302,57 +302,132 @@ function _buildStoryContextBlock(context) {
   return block + '\n';
 }
 
-/**
- * Returns a complete base system prompt with all context blocks injected.
- * type: 'social_post' | 'landing_page' | 'email' | 'image_prompt'
- * context: same object as _buildStoryContextBlock
- */
-function getMasterSystemPrompt(type, context) {
-  var ctx = context || {};
-  Logger.log('[MASTER PROMPT CTX] type=' + type + ' theme=' + (ctx.theme||'') + ' icp=' + (ctx.icp_code||'') +
-    ' stage=' + (ctx.stage||'') + ' hook_angle=' + (ctx.hook_angle||'') +
-    ' feature_hook=' + (ctx.feature_hook||'') + ' theme_food=' + (ctx.theme_food||''));
+// ── Sheet-reading helpers for getMasterSystemPrompt ───────────────────────────
 
-  // image_prompt: story + visual only
-  if (type === 'image_prompt') {
-    var _vb = '';
-    if (ctx.image_mood_hook || ctx.image_mood_cta || ctx.theme_food) {
-      _vb = '=== VISUAL ANCHORS ===\n' +
-        (ctx.image_mood_hook ? 'HOOK: ' + ctx.image_mood_hook + '\n' : '') +
-        (ctx.image_mood_cta  ? 'CTA: '  + ctx.image_mood_cta  + '\n' : '') +
-        (ctx.theme_food      ? 'FOOD: ' + ctx.theme_food       + '\n' : '') + '\n';
+function _getIcpRow(icp_code) {
+  if (!icp_code) return {};
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('ICPProfiles');
+    if (!sheet) return {};
+    var vals    = sheet.getDataRange().getValues();
+    var headers = vals[0].map(function(h) { return String(h).toLowerCase().trim().replace(/\s+/g, '_'); });
+    for (var i = 1; i < vals.length; i++) {
+      var row = {};
+      headers.forEach(function(h, j) { row[h] = vals[i][j]; });
+      var code = String(row.icp_code || row.id || '').toLowerCase().trim();
+      if (code && code === String(icp_code).toLowerCase().trim()) return row;
     }
-    return _buildStoryContextBlock(ctx) + _vb;
+  } catch(e) { Logger.log('_getIcpRow error: ' + e.message); }
+  return {};
+}
+
+function _getThemeRow(theme_id) {
+  if (!theme_id) return {};
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('ThemeLibrary');
+    if (!sheet) return {};
+    var vals    = sheet.getDataRange().getValues();
+    var headers = vals[0].map(function(h) { return String(h).toLowerCase().trim().replace(/\s+/g, '_'); });
+    for (var i = 1; i < vals.length; i++) {
+      var row = {};
+      headers.forEach(function(h, j) { row[h] = vals[i][j]; });
+      var id = String(row.theme_id || row.id || '').toLowerCase().trim();
+      if (id && id === String(theme_id).toLowerCase().trim()) return row;
+    }
+  } catch(e) { Logger.log('_getThemeRow error: ' + e.message); }
+  return {};
+}
+
+function _getCcSetting(key_prefix) {
+  var results = [];
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('CcSettings');
+    if (!sheet) return results;
+    var vals    = sheet.getDataRange().getValues();
+    var headers = vals[0].map(function(h) { return String(h).toLowerCase().trim().replace(/\s+/g, '_'); });
+    var prefix  = String(key_prefix).toLowerCase();
+    for (var i = 1; i < vals.length; i++) {
+      var row = {};
+      headers.forEach(function(h, j) { row[h] = vals[i][j]; });
+      var key    = String(row.key    || '').toLowerCase();
+      var active = String(row.active || '').toLowerCase();
+      if (key.indexOf(prefix) === 0 && (active === 'true' || active === '1' || active === 'yes')) {
+        results.push({ key: String(row.key || ''), label: String(row.label || row.value || '') });
+      }
+    }
+  } catch(e) { Logger.log('_getCcSetting error: ' + e.message); }
+  return results;
+}
+
+function _getApprovedClaimsRows() {
+  var results = [];
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('ApprovedClaims');
+    if (!sheet) return results;
+    var vals    = sheet.getDataRange().getValues();
+    var headers = vals[0].map(function(h) { return String(h).toLowerCase().trim().replace(/\s+/g, '_'); });
+    for (var i = 1; i < vals.length; i++) {
+      var row = {};
+      headers.forEach(function(h, j) { row[h] = vals[i][j]; });
+      var approved = String(row.approved || row.active || '').toLowerCase();
+      if (approved === 'true' || approved === '1' || approved === 'yes') {
+        results.push({ claim: String(row.claim || row.name || ''), exact_wording: String(row.exact_wording || row.claim || '') });
+      }
+    }
+  } catch(e) { Logger.log('_getApprovedClaimsRows error: ' + e.message); }
+  return results;
+}
+
+function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl, angle, claims) {
+  var ctx = context || {};
+
+  // Role
+  var role;
+  if (type.indexOf('social_post') === 0) {
+    role = 'You are the easyChef Pro social media copywriter. Your only job is to move people from scroll to click.';
+  } else if (type === 'lp_full' || type === 'landing_page') {
+    role = 'You are the easyChef Pro landing page copywriter. Write high-converting copy that closes the waitlist.';
+  } else if (type === 'email_full' || type === 'email') {
+    role = 'You are the easyChef Pro email sequence copywriter. Write personal, conversion-focused emails that feel like a friend sent them.';
+  } else if (type === 'seo') {
+    role = 'You are the easyChef Pro SEO strategist. Write metadata that ranks on Google and converts on social.';
+  } else {
+    role = 'You are the easyChef Pro campaign copywriter.';
   }
 
-  var roleMap = {
-    social_post:  'You are the easyChef Pro social media copywriter. Your only job is to move people from scroll to click.',
-    landing_page: 'You are the easyChef Pro landing page copywriter. Write high-converting copy that closes the waitlist.',
-    email:        'You are the easyChef Pro email sequence copywriter. Write personal, conversion-focused emails that feel like a friend sent them.'
-  };
-  var role = roleMap[type] || 'You are the easyChef Pro campaign copywriter.';
+  // Section D: Emotional Arc (social + email only)
+  var sD = '';
+  if (type.indexOf('social_post') === 0 || type === 'email_full' || type === 'email') {
+    sD = _EMOTIONAL_ARC_COPY;
+  }
 
-  // Claims
-  var claimsCtx = '';
-  try { claimsCtx = _getClaimsContext(); }
-  catch(e) { claimsCtx = 'Use only approved claims. Do not invent statistics.\n\n'; }
+  // Section E: Claims + Brand Plug + Proof Bar
+  var claimsCtx = '=== APPROVED CLAIMS — USE EXACT WORDING ONLY ===\n';
+  if (Array.isArray(claims) && claims.length) {
+    claimsCtx += 'Approved claims (use exact wording only — never invent statistics):\n';
+    claims.forEach(function(c) { claimsCtx += '- ' + (c.exact_wording || c.claim || '') + '\n'; });
+    claimsCtx += '\n';
+  } else {
+    claimsCtx += 'Use only approved claims. Do not invent statistics.\n\n';
+  }
   claimsCtx += 'FOUNDING OFFER RULE: Use exact wording: "Lock in $7.99/month founding price — 60% off forever". Never write "50% off" in any form.\n\n';
 
-  // Brand plug
   var brandPlugCtx = '';
-  try {
-    var _bpSettings = getCcSettings();
-    var _bpRows     = (_bpSettings.brand_plug || []);
-    var _bpTagline  = (_bpRows.find(function(r){ return r.key === 'tagline'; }) || {}).label || 'Your kitchen. In command.';
-    var _bpOrigin   = (_bpRows.find(function(r){ return r.key === 'origin';  }) || {}).label || 'Built by first responders.';
-    var _bpClaims   = _bpRows.filter(function(r){ return r.key.indexOf('proof_') === 0; }).map(function(r){ return '    · ' + r.label; }).join('\n');
+  if (Array.isArray(brandPlug) && brandPlug.length) {
+    var _bpTagline = (brandPlug.filter(function(r) { return String(r.key).toLowerCase().indexOf('tagline') > -1; })[0] || {}).label || 'Your kitchen. In command.';
+    var _bpOrigin  = (brandPlug.filter(function(r) { return String(r.key).toLowerCase().indexOf('origin')  > -1; })[0] || {}).label || 'Built by first responders.';
+    var _bpClaims  = brandPlug.filter(function(r) { return String(r.key).toLowerCase().indexOf('proof_') > -1; }).map(function(r) { return '    · ' + r.label; }).join('\n');
     brandPlugCtx =
       'BRAND PLUG — appears above every CTA button, exact order, exact wording. This is never optional.\n' +
       '  Line 1 — Tagline: "' + _bpTagline + '"\n' +
       '  Line 2 — Origin:  "' + _bpOrigin  + '"\n' +
       '  Line 3 — Proof:   One approved claim (choose whichever fits the campaign angle):\n' +
-      _bpClaims + '\n\n';
-  } catch(e) {
+      (_bpClaims || '    · Validated across 10,000 household profiles') + '\n\n';
+  } else {
     brandPlugCtx = 'BRAND PLUG: Place tagline, origin, and one proof claim above every CTA button. Exact wording only.\n\n';
   }
 
@@ -362,91 +437,211 @@ function getMasterSystemPrompt(type, context) {
     '  Item 2 — exact wording always: "69.5% less food waste"\n' +
     '  Item 3 — exact wording always: "30 minutes fridge to table"\n\n';
 
-  // ICP — expanded with all available profile fields
-  var icpCtx = '';
-  try { icpCtx = _getIcpContext(ctx.icp_code || ctx.icp || ''); }
-  catch(e) { icpCtx = 'ICP: ' + (ctx.icp_code || '') + '\n'; }
+  var sE = claimsCtx + brandPlugCtx + proofBarCtx;
 
-  // Story context
-  var storyBlock = _buildStoryContextBlock(ctx);
+  // Section F: ICP + Theme + Settings + Story
+  var icpCtx = '=== TARGET ICP ===\n';
+  var icpHasData = icp && Object.keys(icp).length > 0;
+  if (icpHasData) {
+    icpCtx += (icp.icp_code || icp.id || ctx.icp_code || '') + '\n';
+    if (icp.demographics)        icpCtx += 'Demographics: '        + icp.demographics        + '\n';
+    if (icp.psychographics)      icpCtx += 'Psychographics: '      + icp.psychographics      + '\n';
+    if (icp.entry_moment)        icpCtx += 'Entry moment: '        + icp.entry_moment        + '\n';
+    if (icp.primary_pain)        icpCtx += 'Primary pain: '        + icp.primary_pain        + '\n';
+    if (icp.secondary_pain)      icpCtx += 'Secondary pain: '      + icp.secondary_pain      + '\n';
+    if (icp.value_trigger)       icpCtx += 'Value trigger: '       + icp.value_trigger       + '\n';
+    if (icp.loss_aversion)       icpCtx += 'Loss aversion: '       + icp.loss_aversion       + '\n';
+    if (icp.emotional_entry)     icpCtx += 'Emotional entry: '     + icp.emotional_entry     + '\n';
+    if (icp.emotional_payoff)    icpCtx += 'Emotional payoff: '    + icp.emotional_payoff    + '\n';
+    if (icp.message_hierarchy)   icpCtx += 'Message hierarchy: '   + icp.message_hierarchy   + '\n';
+    if (icp.conversion_triggers) icpCtx += 'Conversion triggers: ' + icp.conversion_triggers + '\n';
+    if (icp.device)              icpCtx += 'Primary device: '      + icp.device              + '\n';
+    if (icp.channels)            icpCtx += 'Preferred channels: '  + icp.channels            + '\n';
+  } else {
+    try { icpCtx += _getIcpContext(ctx.icp_code || ctx.icp || ''); }
+    catch(e) { icpCtx += 'ICP: ' + (ctx.icp_code || ctx.icp || 'Unknown') + '\n'; }
+  }
+  icpCtx += '\n';
 
-  // Visual anchors
-  var visualBlock = '';
-  if (ctx.image_mood_hook || ctx.image_mood_cta || ctx.theme_food) {
-    visualBlock = '=== VISUAL ANCHORS FOR THIS CAMPAIGN ===\n';
-    if (ctx.image_mood_hook) visualBlock += 'HOOK IMAGE MOOD: ' + ctx.image_mood_hook + '\n';
-    if (ctx.image_mood_cta)  visualBlock += 'CTA IMAGE MOOD: '  + ctx.image_mood_cta  + '\n';
-    if (ctx.theme_food)      visualBlock += 'THEME FOOD: '       + ctx.theme_food      + ' — use this food by name in Post 4 (SOLVE) and beyond\n';
-    visualBlock += '\n';
+  var themeCtx = '';
+  var themeHasData = theme && Object.keys(theme).length > 0;
+  if (themeHasData) {
+    themeCtx = '=== CAMPAIGN THEME ===\n';
+    if (theme.theme_name || theme.name)  themeCtx += 'Theme: '           + (theme.theme_name || theme.name) + '\n';
+    if (theme.food_type)                 themeCtx += 'Theme food: '       + theme.food_type + ' — name this food in Post 4 (SOLVE) and beyond\n';
+    if (theme.hook_angle)                themeCtx += 'Hook angle: '       + theme.hook_angle + '\n';
+    if (theme.emotional_entry)           themeCtx += 'Emotional entry: '  + theme.emotional_entry + '\n';
+    if (theme.emotional_payoff)          themeCtx += 'Emotional payoff: ' + theme.emotional_payoff + '\n';
+    themeCtx += '\n';
+  } else if (ctx.theme_food || ctx.image_mood_hook || ctx.image_mood_cta) {
+    themeCtx = '=== VISUAL ANCHORS FOR THIS CAMPAIGN ===\n';
+    if (ctx.image_mood_hook) themeCtx += 'HOOK IMAGE MOOD: ' + ctx.image_mood_hook + '\n';
+    if (ctx.image_mood_cta)  themeCtx += 'CTA IMAGE MOOD: '  + ctx.image_mood_cta  + '\n';
+    if (ctx.theme_food)      themeCtx += 'THEME FOOD: '       + ctx.theme_food + ' — use this food by name in Post 4 (SOLVE) and beyond\n';
+    themeCtx += '\n';
   }
 
-  // Founding Family CTA vocabulary (conditional)
-  var foundingCtx = '';
-  var _angle = (ctx.campaign_angle || '').toLowerCase();
-  var _jt    = (ctx.journey_type   || '').toLowerCase();
-  if (_angle.indexOf('exclusivity') > -1 || _angle.indexOf('founder') > -1 ||
-      _jt === 'pre-launch-waitlist' || _jt === 'alpha-onboarding' || _jt === 'beta-testing') {
-    foundingCtx =
-      '=== FOUNDING FAMILY CTA VOCABULARY — USE THESE EXACT PHRASES ===\n' +
-      '  Primary CTA:   "Claim your founding spot"\n' +
-      '  Secondary CTA: "Get Early Access"\n' +
-      '  Confirmation:  "You\'re in, founding family. $7.99/month locked forever."\n' +
-      '  Scarcity line: "First 5,000 families lock in $7.99/month forever. The rest pay $19.99."\n' +
-      '  Identity line: "You\'re not just joining an app. You\'re founding the kitchen of the future."\n\n';
+  var settingsCtx = '';
+  if (Array.isArray(urgency) && urgency.length) {
+    settingsCtx += '=== URGENCY OPTIONS ===\n';
+    urgency.forEach(function(u) { settingsCtx += '- ' + u.label + '\n'; });
+    settingsCtx += '\n';
+  }
+  if (Array.isArray(excl) && excl.length) {
+    settingsCtx += '=== EXCLUSIVITY ANGLES ===\n';
+    excl.forEach(function(ex) { settingsCtx += '- ' + ex.label + '\n'; });
+    settingsCtx += '\n';
+  }
+  if (Array.isArray(angle) && angle.length) {
+    settingsCtx += '=== CAMPAIGN ANGLES ===\n';
+    angle.forEach(function(a) { settingsCtx += '- ' + a.label + '\n'; });
+    settingsCtx += '\n';
   }
 
-  // Arc 2 urgency (conditional)
-  var arc2Ctx = '';
-  var _isArc2 = (_angle.indexOf('urgency') > -1 ||
-                (_angle.indexOf('exclusivity') > -1 && parseInt(ctx.campaign_duration_days) >= 35));
-  if (_isArc2) {
-    arc2Ctx =
-      '=== SOCIAL ARC 2 — URGENCY / SCARCITY (Days 22–28) ===\n' +
-      'Second 7-post arc — run the full framework with a founding-price-closing angle.\n' +
-      '  Post 1 (Day 22 · hook):    Founding spots are running out\n' +
-      '  Post 2 (Day 23 · problem): She has not joined yet\n' +
-      '  Post 3 (Day 24 · agitate): July 1 is the deadline — founding price closes\n' +
-      '  Post 4 (Day 25 · solve):   $7.99/month locks forever — claim before July 1\n' +
-      '  Post 5 (Day 26 · value):   What founding families get that no one else will\n' +
-      '  Post 6 (Day 27 · proof):   Families already in — founding spots filling\n' +
-      '  Post 7 (Day 28 · cta):     Last chance — founding price ends at 5,000 families\n' +
-      'Arc 2: use Founding Family vocabulary. Urgency and loss only — no new angles.\n\n';
+  var sF = icpCtx + themeCtx + settingsCtx + _buildStoryContextBlock(ctx);
+
+  // Section G: Type-specific instructions
+  var sG = '';
+  switch (type) {
+    case 'social_post_hook':
+      sG = '=== THIS POST: HOOK (Post 1) ===\nStop the scroll in the first 5 words. Name the specific 6:30 PM moment — not the category.\nEmotional direction: ' + _STAGE_EMOTIONS.hook + '\nNo product mention. Name the feeling and the moment only.\n\n'; break;
+    case 'social_post_problem':
+      sG = '=== THIS POST: PROBLEM (Post 2) ===\nName the exact pain in one sentence. Specific moment — not a general problem.\nEmotional direction: ' + _STAGE_EMOTIONS.problem + '\nShe knows this feeling too well. Nothing has ever fixed it. Write that exhaustion.\n\n'; break;
+    case 'social_post_agitate':
+      sG = '=== THIS POST: AGITATE (Post 3) ===\nMake the cost real. Use the $1,336/year figure. One undeniable number per sentence.\nEmotional direction: ' + _STAGE_EMOTIONS.agitate + '\nKILLS: Shame language. Never imply the user is failing. Ever.\nWORKS: "The average family throws away $1,336 of groceries every year. Not bad decisions. Just no system."\n\n'; break;
+    case 'social_post_solve':
+      sG = '=== THIS POST: SOLVE (Post 4) ===\nOne sentence only. Introduce easyChef Pro as the obvious answer. No feature lists.\nEmotional direction: ' + _STAGE_EMOTIONS.solve + '\nName the theme food by name in this post if a theme food is set.\nWORKS: "easyChef Pro looks at what is in your fridge and tells you exactly what to make tonight."\n\n'; break;
+    case 'social_post_value':
+      sG = '=== THIS POST: VALUE (Post 5) ===\nOutcomes she wants. Not features — feelings and results. Specific, not aspirational.\nEmotional direction: ' + _STAGE_EMOTIONS.value + '\nName the theme food if set. Use approved savings figures exact.\nWORKS: "$1,336 back. 30 minutes fridge to table. And the 6:30 panic is just gone."\n\n'; break;
+    case 'social_post_proof':
+      sG = '=== THIS POST: PROOF (Post 6) ===\nOne validated stat from the approved claims list. One only. Never invented.\nEmotional direction: ' + _STAGE_EMOTIONS.proof + '\nWORKS: "Validated across 10,000 household profiles." Exact wording from the approved list.\n\n'; break;
+    case 'social_post_cta':
+      sG = '=== THIS POST: CTA (Post 7) ===\nOne action. Outcome-framed. Low friction. Tell them what they GET, not what they DO.\nEmotional direction: ' + _STAGE_EMOTIONS.cta + '\nWORKS: "Claim your founding spot — $7.99/month locked forever. First 5,000 families only."\n\n'; break;
+    case 'lp_full':
+    case 'landing_page':
+      sG = '=== FABRICATION PROHIBITION — LANDING PAGE ===\nNEVER invent testimonials, names, user stories, or social proof numbers.\nNEVER use statistics not in the approved claims list.\nApproved figures only: $1,336/year · 69.5% · 30 min · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · 10,000 household profiles · built by first responders\n\n'; break;
+    case 'email_full':
+    case 'email':
+      sG = '=== EMAIL BODY — 7-STEP STRUCTURE ===\nstep1_hook: First line — stops the read, names the moment (1 sentence)\nstep2_problem: Names her exact pain (1-2 sentences)\nstep3_agitate: Makes the cost real — use approved figures (1-2 sentences)\nstep4_solve: Introduces easyChef Pro as the answer (1 sentence)\nstep5_value: Specific outcomes — peace, control, savings (1-2 sentences)\nstep6_proof: One validated stat, exact wording from approved list (1 sentence)\nstep7_cta_text: Outcome-framed CTA line (1 sentence)\nstep7_cta_button: Button label under 6 words\nstep7_ps: P.S. line — urgency or exclusivity angle (1 sentence)\nSEQ-1-E1 RULE: body_cta and step7_cta_button must be empty strings for the welcome email.\n\n'; break;
+    case 'seo':
+      sG = '=== SEO RULES ===\nmeta_title: 50–60 chars exactly. Format: "[Specific Benefit] | easyChef Pro".\nmeta_description: 145–155 chars exactly. Must include one approved stat. Ends with a soft CTA.\nog_title: Under 60 chars.\nog_description: Under 200 chars.\nfocus_keyword: 2–4 word phrase.\nsecondary_keywords: Array of exactly 4 specific phrases.\n\n'; break;
+    default: sG = '';
   }
 
-  // Build base prompt — ordered for maximum context effectiveness
-  var base = role + '\n\n' +
-    _MASTER_STORY +
-    _CATEGORY_POSITIONING +
-    _7_STEP_FRAMEWORK +
-    _BRAND_VOICE_RULES;
+  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _7_STEP_FRAMEWORK + _BRAND_VOICE_RULES + sD + _AB_ARCH + sE + sF + sG;
+}
 
-  // Emotional arc — social and email only (not LP where stage doesn't apply linearly)
-  if (type === 'social_post' || type === 'email') {
-    base += _EMOTIONAL_ARC_COPY;
+/**
+ * Returns a complete system prompt. Reads ICP, Theme, CcSettings, and
+ * ApprovedClaims from the sheet, then delegates to _buildMasterPrompt.
+ * type: 'social_post_hook' | 'social_post_problem' | 'social_post_agitate' |
+ *       'social_post_solve' | 'social_post_value' | 'social_post_proof' |
+ *       'social_post_cta' | 'lp_full' | 'email_full' | 'seo' |
+ *       'social_post' | 'landing_page' | 'email' | 'image_prompt' (backward-compat)
+ */
+function getMasterSystemPrompt(type, context) {
+  context = context || {};
+  Logger.log('[MASTER PROMPT] type=' + type + ' icp=' + (context.icp_code || context.icp || '') +
+    ' theme_id=' + (context.theme_id || context.theme || '') + ' stage=' + (context.stage || ''));
+
+  // image_prompt: story + visual anchors only — no sheet reads needed
+  if (type === 'image_prompt') {
+    var _vb = '';
+    if (context.image_mood_hook || context.image_mood_cta || context.theme_food) {
+      _vb = '=== VISUAL ANCHORS ===\n' +
+        (context.image_mood_hook ? 'HOOK: ' + context.image_mood_hook + '\n' : '') +
+        (context.image_mood_cta  ? 'CTA: '  + context.image_mood_cta  + '\n' : '') +
+        (context.theme_food      ? 'FOOD: ' + context.theme_food       + '\n' : '') + '\n';
+    }
+    return _buildStoryContextBlock(context) + _vb;
   }
 
-  // LP fabrication prohibition
-  if (type === 'landing_page') {
-    base +=
-      '=== FABRICATION PROHIBITION — LANDING PAGE ===\n' +
-      'NEVER invent testimonials, names, user stories, or social proof numbers.\n' +
-      'NEVER use statistics not in the approved claims list.\n' +
-      'Approved figures only: $1,336/year · 69.5% · 30 min · 9 patent-pending technologies · ' +
-      '800,000 products · 10,000 recipe pages · registered dietitians · 10,000 household profiles · built by first responders\n\n';
+  var icp       = _getIcpRow(context.icp_code || context.icp || '');
+  var theme     = _getThemeRow(context.theme_id || context.theme || '');
+
+  // Design brief types — art direction only, no copy machinery needed
+  if (type === 'post_brief' || type === 'email_brief' || type === 'lp_brief') {
+    return _buildDesignBriefPrompt(type, context, icp, theme);
   }
 
-  base +=
-    _AB_ARCH +
-    '=== APPROVED CLAIMS — USE EXACT WORDING ONLY ===\n' + claimsCtx +
-    brandPlugCtx +
-    proofBarCtx +
-    '=== TARGET ICP ===\n' + icpCtx + '\n' +
-    storyBlock +
-    visualBlock +
-    foundingCtx +
-    arc2Ctx;
+  var brandPlug = _getCcSetting('BRAND_PLUG');
+  var urgency   = _getCcSetting('URGENCY_TYPES');
+  var excl      = _getCcSetting('EXCLUSIVITY_ANGLES');
+  var angle     = _getCcSetting('CAMPAIGN_ANGLES');
+  var claims    = _getApprovedClaimsRows();
 
-  return base;
+  return _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl, angle, claims);
+}
+
+// ── Design brief system prompts — art direction for Figma designer ────────────
+function _buildDesignBriefPrompt(type, ctx, icp, theme) {
+  var _icpName   = (icp  && (icp.name  || icp.id))  || (ctx.icp_code || ctx.icp || '');
+  var _themeName = (theme && (theme.theme_name || theme.name)) || (ctx.theme || '');
+  var _themeFood = (theme && theme.food_type)        || (ctx.theme_food || '');
+  var _campaign  = ctx.campaign_name || '';
+
+  if (type === 'post_brief') {
+    return 'You are the art director for easyChef Pro. Generate a unique, stage-specific DESIGN BRIEF and HASHTAGS for each social post for the Figma designer.\n\n' +
+      '=== CAMPAIGN ===\n' +
+      (_campaign  ? 'Campaign: '    + _campaign  + '\n' : '') +
+      (_themeName ? 'Theme: '       + _themeName + '\n' : '') +
+      (_themeFood ? 'Theme food: '  + _themeFood + '\n' : '') +
+      (_icpName   ? 'ICP: '         + _icpName   + '\n' : '') + '\n' +
+      '=== PHONE REVEAL RULE (NON-NEGOTIABLE) ===\n' +
+      'Posts 1-3 (Hook · Problem · Agitate): NO PHONE — the problem must feel real before the solution appears.\n' +
+      'Post 4 (Solve): PHONE APPEARS — first reveal. Phone shows app solving the exact problem from Post 3.\n' +
+      'Posts 5-7 (Value · Proof · CTA): PHONE VISIBLE — phone present but not the hero. Show outcomes.\n\n' +
+      '=== DESIGN BRIEF FORMAT PER POST ===\n' +
+      'STAGE: [funnel stage name]\n' +
+      'EMOTION: [exact emotional state — 3-5 words]\n' +
+      'SCENE DIRECTION: [3-4 specific sentences — what to shoot or illustrate, referencing hook text and theme food]\n' +
+      'PHONE RULE: [NO PHONE — phone does not appear until Post 4] or [PHONE APPEARS — Post 4 first reveal] or [PHONE VISIBLE — posts 5–7]\n' +
+      'CHANNEL FORMAT: [platform · dimensions · aspect ratio]\n' +
+      'WHAT NOT TO SHOW: [anything breaking the emotional arc or brand rules for this stage]\n\n' +
+      '=== HASHTAG RULES (platform-locked, no exceptions) ===\n' +
+      'Instagram: 5-8 hashtags · broad + niche mix · always include #easychefpro · stage-specific\n' +
+      'Pinterest: 3-5 hashtags · keyword-focused · SEO-weighted · always include #easychefpro\n' +
+      'TikTok: 3-5 hashtags · trending + niche · always include #easychefpro\n' +
+      'Facebook: NO hashtags → return empty string\n' +
+      'Nextdoor: NO hashtags → return empty string\n' +
+      'X: 1-2 hashtags MAX · only if directly relevant\n' +
+      'YouTube: NO hashtags → return empty string\n\n' +
+      'Every post must have a DIFFERENT brief and DIFFERENT hashtags — never duplicate across posts.\n' +
+      'Return ONLY valid JSON. No explanation. No markdown fences.';
+  }
+
+  if (type === 'email_brief') {
+    return 'You are the art director for easyChef Pro email campaigns. Generate a unique design brief per email for the email designer. Each email in the sequence has a different emotional stage — the visual must match.\n\n' +
+      '=== CAMPAIGN ===\n' +
+      (_campaign  ? 'Campaign: ' + _campaign  + '\n' : '') +
+      (_themeName ? 'Theme: '    + _themeName + '\n' : '') +
+      (_icpName   ? 'ICP: '      + _icpName   + '\n' : '') + '\n' +
+      '=== EMAIL DESIGN BRIEF FORMAT PER EMAIL ===\n' +
+      'HEADER IMAGE DIRECTION: [what appears above the fold — mood, scene, no specific product]\n' +
+      'EMAIL LAYOUT: [single column · hero image top · or text-first · depends on stage]\n' +
+      'VISUAL TONE: [matches emotional arc — e.g. "warm amber, quiet before storm" for Hook]\n' +
+      'CTA BUTTON: [color · copy · placement]\n\n' +
+      'Each email MUST have a different visual concept — the funnel stage changes, the design must too.\n' +
+      'Return ONLY valid JSON. No explanation. No markdown fences.';
+  }
+
+  if (type === 'lp_brief') {
+    return 'You are the art director for easyChef Pro landing pages. Generate a design brief for the Figma designer.\n\n' +
+      '=== CAMPAIGN ===\n' +
+      (_campaign  ? 'Campaign: ' + _campaign  + '\n' : '') +
+      (_themeName ? 'Theme: '    + _themeName + '\n' : '') +
+      (_themeFood ? 'Food: '     + _themeFood + '\n' : '') +
+      (_icpName   ? 'ICP: '      + _icpName   + '\n' : '') + '\n' +
+      '=== LP DESIGN BRIEF FORMAT ===\n' +
+      'hero_visual: [what appears above the fold — scene direction for the hero image]\n' +
+      'section_visuals: [one line per section — Problem · Agitate · Solve · Value · Proof]\n' +
+      'loop_diagram: [TRACK → PLAN → OPTIMIZE → COOK → SHOP — describe how this icon row looks in the Solve section]\n' +
+      'social_proof_bar: [layout and style direction for the 3-stat proof bar]\n' +
+      'cta_button_style: [color · full width on mobile · copy direction · placement]\n\n' +
+      'Return ONLY a JSON object with keys: hero_visual, section_visuals, loop_diagram, social_proof_bar, cta_button_style. No explanation. No markdown.';
+  }
+
+  return '';
 }
 
 function _getPlatformNote(channelName) {
@@ -1035,7 +1230,7 @@ function buildLandingPage(brief, copy) {
   var _lpStoryCtx = _buildBriefStoryCtx(brief);
 
   var systemPrompt =
-    getMasterSystemPrompt('landing_page', _lpStoryCtx) +
+    getMasterSystemPrompt('lp_full', _lpStoryCtx) +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Landing page URL: ' + lpUrl + '\n' +
     'Funnel: '          + (brief.funnel         || 'A-Waitlist') + '\n' +
@@ -1141,7 +1336,17 @@ function buildLandingPage(brief, copy) {
       var result = JSON.parse(jsonStr);
       // Back-compat: keep proof_items pointing to same array as proof_bar
       result.proof_items = Array.isArray(result.proof_bar) ? result.proof_bar : (result.proof_items || []);
-      return { ok: true, lp: result };
+
+      // Auto-generate SEO metadata after successful LP parse
+      var seoResult = null;
+      try {
+        var _seoResp = generateLpSeo(brief, result);
+        if (_seoResp && _seoResp.ok) seoResult = _seoResp.seo;
+      } catch (_seoErr) {
+        Logger.log('buildLandingPage: generateLpSeo failed — ' + _seoErr.message);
+      }
+
+      return { ok: true, lp: result, seo: seoResult };
     } catch (e) {
       return { ok: true, lp: null, raw: reply };
     }

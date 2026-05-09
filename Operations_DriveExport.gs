@@ -83,6 +83,18 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
     var _genDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM d, yyyy');
 
+    // ── 1b. Generate design briefs via Claude (one batch call per asset type) ──
+    Logger.log('[DriveExport] Step 1b: generating design briefs');
+    var _apiKey = '';
+    try { _apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY') || ''; } catch(ke) {}
+    var _briefs = { postBriefs: {}, emailBriefs: {}, lpBrief: {} };
+    if (_apiKey && posts.length > 0) {
+      try { _briefs = _generateDesignBriefs(brief, posts, emails, lp, _apiKey); }
+      catch(be) { Logger.log('[DriveExport] design briefs error (non-fatal): ' + be.message); }
+    }
+    Logger.log('[DriveExport] design briefs: ' + Object.keys(_briefs.postBriefs).length + ' posts · ' +
+      Object.keys(_briefs.emailBriefs).length + ' emails · LP: ' + (!!_briefs.lpBrief.hero_visual));
+
     // ── 2. 00 — Campaign Brief (HTML file) ─────────────────────────────────────
     Logger.log('[DriveExport] Section 2: Campaign Brief HTML');
     try {
@@ -104,7 +116,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     Logger.log('[DriveExport] Section 3: Social Posts HTML (' + posts.length + ')');
     try {
       if (posts.length > 0) {
-        var postsHtml = _buildSocialPostsHtml(brief, posts, _genDate);
+        var postsHtml = _buildSocialPostsHtml(brief, posts, _genDate, _briefs.postBriefs);
         var postsFile = DriveApp.createFile('01 — Social Posts.html', postsHtml, MimeType.HTML);
         postsFile.moveTo(folder);
         try { postsFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
@@ -117,7 +129,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     Logger.log('[DriveExport] Section 4: Email Sequences HTML (' + emails.length + ')');
     try {
       if (emails.length > 0) {
-        var emailsHtml = _buildEmailSeqsHtml(brief, emails, _genDate);
+        var emailsHtml = _buildEmailSeqsHtml(brief, emails, _genDate, _briefs.emailBriefs);
         var emailsFile = DriveApp.createFile('02 — Email Sequences.html', emailsHtml, MimeType.HTML);
         emailsFile.moveTo(folder);
         try { emailsFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
@@ -129,7 +141,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     // ── 5. 03 — LP Reference (HTML file) ────────────────────────────────────
     Logger.log('[DriveExport] Section 5: LP Reference HTML');
     try {
-      var lpRefHtml = _buildLpReferenceHtml(brief, copy, lp, posts, emails, _genDate);
+      var lpRefHtml = _buildLpReferenceHtml(brief, copy, lp, posts, emails, _genDate, _briefs.lpBrief);
       var lpRefFile = DriveApp.createFile('03 — LP Reference.html', lpRefHtml, MimeType.HTML);
       lpRefFile.moveTo(folder);
       try { lpRefFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
@@ -294,6 +306,108 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 }
 
 
+// ── Generate design briefs via Claude API (one batch call per asset type) ─────
+function _generateDesignBriefs(brief, posts, emails, lp, apiKey) {
+  var result = { postBriefs: {}, emailBriefs: {}, lpBrief: {} };
+
+  var _claudeFetch = function(systemPrompt, userMessage) {
+    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      payload: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
+      }),
+      muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) throw new Error('Claude API ' + resp.getResponseCode() + ': ' + resp.getContentText().substring(0, 200));
+    return JSON.parse(resp.getContentText()).content[0].text;
+  };
+
+  var ctx = { icp_code: brief.icp || '', theme_id: brief.theme || '', campaign_id: brief.id || '', campaign_name: brief.name || '' };
+
+  // ── Social post briefs + hashtags ──────────────────────────────────────────
+  try {
+    var postSys = getMasterSystemPrompt('post_brief', ctx);
+    var postMsg = 'CAMPAIGN: ' + JSON.stringify({
+      id: brief.id, name: brief.name, theme: brief.theme, icp: brief.icp,
+      channels: brief.channels, campaign_angle: brief.campaign_angle
+    }) + '\n\nPOSTS:\n' + JSON.stringify(posts.map(function(p, idx) {
+      return {
+        id: p.id || '',
+        post_num: p.post_num || (idx + 1),
+        platform: p.platform || p.channel || '',
+        funnel_stage: p.funnel_stage || p.theme || '',
+        hook: p.hook || '',
+        body: (p.body_copy || p.body || '').substring(0, 200),
+        scheduled_day: p.scheduled_day || 0
+      };
+    }));
+    var postRaw = _claudeFetch(postSys, postMsg);
+    var postMatch = postRaw.match(/\{[\s\S]*\}/);
+    if (postMatch) {
+      var postJson = JSON.parse(postMatch[0]);
+      (postJson.posts || []).forEach(function(pb) {
+        if (pb.id) result.postBriefs[pb.id] = { design_brief: pb.design_brief || '', hashtags: pb.hashtags || '' };
+      });
+    }
+    Logger.log('[DesignBriefs] posts: ' + Object.keys(result.postBriefs).length + ' briefs');
+  } catch(e) { Logger.log('[DesignBriefs] posts error: ' + e.message); }
+
+  // ── Email design briefs ────────────────────────────────────────────────────
+  if (emails.length > 0) {
+    try {
+      var emailSys = getMasterSystemPrompt('email_brief', ctx);
+      var emailMsg = 'CAMPAIGN: ' + JSON.stringify({
+        id: brief.id, name: brief.name, theme: brief.theme, icp: brief.icp
+      }) + '\n\nEMAILS:\n' + JSON.stringify(emails.map(function(e) {
+        return {
+          id: e.id || e.seq_id || '',
+          seq_id: e.seq_id || '',
+          email_number: e.email_number || 1,
+          funnel_stage: e.funnel_stage || '',
+          subject: e.subject_line_a || e.subject || '',
+          send_day: e.send_day || 0
+        };
+      }));
+      var emailRaw = _claudeFetch(emailSys, emailMsg);
+      var emailMatch = emailRaw.match(/\{[\s\S]*\}/);
+      if (emailMatch) {
+        var emailJson = JSON.parse(emailMatch[0]);
+        (emailJson.emails || []).forEach(function(eb) {
+          if (eb.id) result.emailBriefs[eb.id] = { design_brief: eb.design_brief || '' };
+        });
+      }
+      Logger.log('[DesignBriefs] emails: ' + Object.keys(result.emailBriefs).length + ' briefs');
+    } catch(e) { Logger.log('[DesignBriefs] emails error: ' + e.message); }
+  }
+
+  // ── LP brief ───────────────────────────────────────────────────────────────
+  try {
+    var lpSys = getMasterSystemPrompt('lp_brief', ctx);
+    var lpMsg = 'CAMPAIGN: ' + JSON.stringify({
+      id: brief.id, name: brief.name, theme: brief.theme, icp: brief.icp,
+      slug: lp.slug || brief.slug || '',
+      hero_headline: lp.hero_headline || '',
+      cta_primary: lp.cta_primary || '',
+      campaign_angle: brief.campaign_angle || ''
+    });
+    var lpRaw = _claudeFetch(lpSys, lpMsg);
+    var lpMatch = lpRaw.match(/\{[\s\S]*\}/);
+    if (lpMatch) result.lpBrief = JSON.parse(lpMatch[0]);
+    Logger.log('[DesignBriefs] lp: ' + (!!result.lpBrief.hero_visual));
+  } catch(e) { Logger.log('[DesignBriefs] lp error: ' + e.message); }
+
+  return result;
+}
+
+
 // ── Write drive_url back to the CampaignBriefs sheet row ─────────────────────
 function _saveCampaignDriveUrl(briefId, driveUrl) {
   if (!briefId || !driveUrl) return;
@@ -443,9 +557,10 @@ function _deSafe(str, maxLen) {
 }
 
 // ── HTML LP Reference builder ─────────────────────────────────────────────────
-function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
-  lp   = lp   || {};
-  copy = copy || {};
+function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate, lpBrief) {
+  lp      = lp      || {};
+  copy    = copy    || {};
+  lpBrief = lpBrief || {};
   var _h = function(v) {
     return String(v == null ? '' : v)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -572,6 +687,8 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   + '  .td-dim    { color:var(--gray); font-size:11px; width:22%; }\n'
   + '  .char-count { color:var(--gray); font-size:11px; }\n'
   + '  .badge-blocker { display:inline-block; background:#CC0000; color:var(--white); padding:2px 8px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:0.05em; }\n'
+  + '  .td-brief { background:#EEF4FB !important; white-space:pre-wrap; line-height:1.7; }\n'
+  + '  .td-brief-label { background:#EEF4FB !important; color:#2C6DAA; font-weight:700; white-space:nowrap; }\n'
   + '  .footer { margin-top:40px; padding-top:12px; border-top:2px solid var(--red); font-size:11px; color:var(--gray); }\n'
   + '  @media print { body { padding:20px; } .sec-header { page-break-before:auto; } }\n'
   + '</style>\n';
@@ -612,6 +729,18 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   + '<table>\n'
   + '  <thead><tr><th style="width:6%">Step</th><th style="width:12%">Name</th><th style="width:22%">Job</th><th>Copy</th></tr></thead>\n'
   + '  <tbody>\n' + stepsRows + '  </tbody>\n</table>\n\n'
+
+  // ── 04 DESIGN BRIEF ──
+  + (lpBrief.hero_visual
+      ? '<div class="sec-header">04 &mdash; DESIGN BRIEF</div>\n'
+        + '<table><tbody>\n'
+        + '  <tr><td class="td-label td-brief-label">Hero Visual</td><td class="td-brief">'      + _h(lpBrief.hero_visual      || '') + '</td></tr>\n'
+        + '  <tr><td class="td-label td-brief-label">Section Visuals</td><td class="td-brief">'  + _h(lpBrief.section_visuals  || '') + '</td></tr>\n'
+        + '  <tr><td class="td-label td-brief-label">Loop Diagram</td><td class="td-brief">'     + _h(lpBrief.loop_diagram     || '') + '</td></tr>\n'
+        + '  <tr><td class="td-label td-brief-label">Social Proof Bar</td><td class="td-brief">' + _h(lpBrief.social_proof_bar || '') + '</td></tr>\n'
+        + '  <tr><td class="td-label td-brief-label">CTA Button Style</td><td class="td-brief">' + _h(lpBrief.cta_button_style || '') + '</td></tr>\n'
+        + '</tbody></table>\n\n'
+      : '')
 
   // ── 05 URGENCY — Fix 4: pull from brief.urgency_trigger ──
   + '<div class="sec-header">05 &mdash; URGENCY</div>\n'
@@ -674,7 +803,8 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
 
 
 // ── HTML Social Posts builder ─────────────────────────────────────────────────
-function _buildSocialPostsHtml(brief, posts, genDate) {
+function _buildSocialPostsHtml(brief, posts, genDate, postBriefs) {
+  postBriefs = postBriefs || {};
   posts = Array.isArray(posts) ? posts : [];
   var _h = function(v) {
     return String(v == null ? '' : v)
@@ -725,7 +855,10 @@ function _buildSocialPostsHtml(brief, posts, genDate) {
         cardsHtml += '      <tr><td class="td-label">Body</td><td class="td-value td-copy">'
           + _h(_bodyText) + '<br><span class="char-count">(' + _bodyText.length + ' chars)</span></td></tr>\n';
       }
-      if (post.hashtags) cardsHtml += '      <tr><td class="td-label">Hashtags</td><td class="td-value">'        + _h(post.hashtags) + '</td></tr>\n';
+      var _pb = postBriefs[post.id] || {};
+      var _hashtags = _pb.hashtags || post.hashtags || '';
+      if (_hashtags) cardsHtml += '      <tr><td class="td-label">Hashtags</td><td class="td-value">'           + _h(_hashtags)     + '</td></tr>\n';
+      if (_pb.design_brief) cardsHtml += '      <tr><td class="td-label td-brief-label">DESIGN BRIEF → FIGMA</td><td class="td-brief td-value">' + _h(_pb.design_brief) + '</td></tr>\n';
       if (post.cta)      cardsHtml += '      <tr><td class="td-label">CTA</td><td class="td-value">'             + _h(post.cta)      + '</td></tr>\n';
       if (post.utm_url)  cardsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">' + _h(post.utm_url)  + '</td></tr>\n';
       if (post.dl_id)    cardsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">'           + _h(post.dl_id)    + '</td></tr>\n';
@@ -769,6 +902,8 @@ function _buildSocialPostsHtml(brief, posts, genDate) {
   + '  .badge-stage { display:inline-block; background:var(--red); color:var(--white); padding:2px 8px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:0.05em; }\n'
   + '  .emo-label { font-size:11px; color:var(--gray); font-style:italic; }\n'
   + '  .char-count { font-size:11px; color:var(--gray); font-style:normal; }\n'
+  + '  .td-brief { background:#EEF4FB !important; white-space:pre-wrap; line-height:1.7; }\n'
+  + '  .td-brief-label { background:#EEF4FB !important; color:#2C6DAA; font-weight:700; white-space:nowrap; }\n'
   + '  .footer { margin-top:40px; padding-top:12px; border-top:2px solid var(--red); font-size:11px; color:var(--gray); }\n'
   + '  @media print { .channel-section { page-break-inside:avoid; } }\n'
   + '</style>\n';
@@ -798,8 +933,9 @@ function _buildSocialPostsHtml(brief, posts, genDate) {
 
 
 // ── HTML Email Sequences builder ──────────────────────────────────────────────
-function _buildEmailSeqsHtml(brief, emails, genDate) {
-  emails = Array.isArray(emails) ? emails : [];
+function _buildEmailSeqsHtml(brief, emails, genDate, emailBriefs) {
+  emails      = Array.isArray(emails) ? emails : [];
+  emailBriefs = emailBriefs || {};
   var _h = function(v) {
     return String(v == null ? '' : v)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -874,6 +1010,8 @@ function _buildEmailSeqsHtml(brief, emails, genDate) {
       if (email.utm_url) seqsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">' + _h(email.utm_url) + '</td></tr>\n';
       var st = email.status || 'draft';
       seqsHtml += '      <tr><td class="td-label">Status</td><td class="td-value"><span class="badge badge-' + _h(st) + '">' + _h(st.toUpperCase()) + '</span></td></tr>\n';
+      var _eb = emailBriefs[email.id || email.seq_id] || {};
+      if (_eb.design_brief) seqsHtml += '      <tr><td class="td-label td-brief-label">DESIGN BRIEF → FIGMA</td><td class="td-brief td-value">' + _h(_eb.design_brief) + '</td></tr>\n';
       seqsHtml += '    </tbody></table>\n  </div>\n';
     });
     seqsHtml += '</div>\n';
@@ -907,6 +1045,8 @@ function _buildEmailSeqsHtml(brief, emails, genDate) {
   + '  .td-url   { font-family:monospace; font-size:11px; word-break:break-all; color:var(--gray); }\n'
   + '  .td-pending { color:#999; font-style:italic; }\n'
   + '  .td-dim { font-weight:400; color:var(--gray); font-size:11px; }\n'
+  + '  .td-brief { background:#EEF4FB !important; white-space:pre-wrap; line-height:1.7; }\n'
+  + '  .td-brief-label { background:#EEF4FB !important; color:#2C6DAA; font-weight:700; white-space:nowrap; }\n'
   + '  .badge { display:inline-block; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:0.05em; }\n'
   + '  .badge-a    { background:var(--red);   color:var(--white); }\n'
   + '  .badge-b    { background:var(--black); color:var(--white); }\n'
