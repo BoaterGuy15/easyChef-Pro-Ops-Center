@@ -3060,3 +3060,69 @@ function _updateIcpSparseRows4() {
   try { SpreadsheetApp.getUi().alert('ICP update done — ' + updated + ' rows updated.'); } catch(e) {}
   return { updated: updated };
 }
+
+
+// ── EC-2026-001 one-time seed ─────────────────────────────────────────────────
+// Apps Script editor → select _seedEC2026001Brief → Run → View Execution log.
+// Safe to re-run — setCampaignBrief and addGeneratedCopy both upsert.
+
+function _seedEC2026001Brief() {
+  var CAMPAIGN_ID = 'EC-2026-001';
+
+  // ── 1. CampaignBriefs row ─────────────────────────────────────────────────
+  setCampaignBrief({
+    id:              CAMPAIGN_ID,
+    name:            'Taco Tuesday Panic Escape',
+    icp_code:        'super_mom',
+    blueprint:       'A-Waitlist',
+    channel:         'Facebook',
+    goal:            'waitlist_signup_completed',
+    slug:            'lp/waitlist-a',
+    launch_date:     '2026-05-27',
+    status:          'active',
+    ml_approved:     true,
+    post_count:      35,
+    post_frequency:  'daily',
+    email_sequences: 'full',
+    email_variants:  'both',
+    theme:           'taco-tuesday',
+    publish_day:     'Tuesday',
+    channels:        ['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','X'],
+    notes:           JSON.stringify({
+      campaign_angle:      'speed',
+      urgency_trigger:     'First 5,000 families lock in $7.99/month forever',
+      founding_offer:      '$7.99/month · 60% off forever',
+      campaign_duration:   35
+    })
+  });
+  Logger.log('[_seedEC2026001Brief] CampaignBriefs row written: ' + CAMPAIGN_ID);
+
+  // ── 2. GeneratedCopy row (needed by runner for headline / subheadline / CTA) ──
+  // addGeneratedCopy uses id as unique key — fixed id prevents duplicate rows on re-run.
+  var existing = getGeneratedCopy(CAMPAIGN_ID);
+  if (!existing || !existing.length) {
+    addGeneratedCopy({
+      id:              'copy-ec2026001-seed',
+      campaign_id:     CAMPAIGN_ID,
+      icp_code:        'super_mom',
+      channel:         'Facebook',
+      headline:        'Stop the mealtime madness',
+      subheadline:     '6:30 PM. Ingredients in the fridge. No plan. Again.',
+      email_subject_a: 'You\'re throwing away $1,336 a year',
+      email_subject_b: 'Every night at 6:30, the panic starts',
+      lp_hero:         'Stop the mealtime madness',
+      proof_bar:       '$1,336/year saved · 30 min fridge to table · 69.5% less food waste',
+      cta_primary:     'Claim your founding spot',
+      social_hook:     '6:30 PM panic is real. This app stops it.',
+      share_mechanic:  'Invite a friend — get 2 months free',
+      generated_at:    new Date().toISOString(),
+      approved:        true
+    });
+    Logger.log('[_seedEC2026001Brief] GeneratedCopy row written');
+  } else {
+    Logger.log('[_seedEC2026001Brief] GeneratedCopy already exists — skipped');
+  }
+
+  Logger.log('[_seedEC2026001Brief] Done — EC-2026-001 brief and copy ready for ⚡ Run Full Campaign');
+  try { SpreadsheetApp.getUi().alert('EC-2026-001 seeded. Click ⚡ Run Full Campaign to generate all assets.'); } catch(e) {}
+}
