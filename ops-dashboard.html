@@ -856,7 +856,8 @@ td.gantt-range-target{background:rgba(201,168,76,0.06)}
 // CONFIG — paste your Apps Script Web App URL to enable sync
 // ─────────────────────────────────────────────────────────────
 const CONFIG = {
-  sheetsUrl: 'https://script.google.com/macros/s/AKfycby76LfE9os1bNF8yERtRTjGZzeIXtfDOWJ1s9o4UeZSpOkrnYQXbtAxI6cAEnBs9UvSwQ/exec',
+  sheetsUrl:   'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec',
+  campaignUrl: 'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec',
   sharedDriveUrl: 'https://drive.google.com/drive/folders/1p-unAqDk2pwlz-zO2NLh8uHZkTzFM7_h',
   anthropicKey: '' // paste your Anthropic API key here
 };
@@ -23935,7 +23936,8 @@ function _ccDebugTest(action, campaignId) {
   panel.style.display = 'block';
   panel.textContent = '[' + action + '] sending…';
   var payload = { action: action, campaign_id: campaignId };
-  fetch(CONFIG.sheetsUrl, {
+  var _debugUrl = (CONFIG && CONFIG.campaignUrl) || CONFIG.sheetsUrl;
+  fetch(_debugUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -23962,7 +23964,7 @@ function _ccDebugTest(action, campaignId) {
 
 // ── One-click full campaign runner ───────────────────────────────────────────
 function _ccRunFullCampaign(campaignId){
-  if(!CONFIG.sheetsUrl){_showToast('<div style="color:var(--muted)">No backend URL configured.</div>',2500);return;}
+  if(!CONFIG.campaignUrl){_showToast('<div style="color:var(--muted)">No campaign backend URL configured.</div>',2500);return;}
   var btn=document.getElementById('cc-run-full-btn');
   var panel=document.getElementById('cc-full-run-panel');
   var stepsEl=document.getElementById('cc-full-run-steps');
@@ -23974,7 +23976,7 @@ function _ccRunFullCampaign(campaignId){
   if(stepsEl){stepsEl.innerHTML='';}
   if(summEl){summEl.style.display='none';summEl.innerHTML='';}
 
-  var base=CONFIG.sheetsUrl;
+  var base=CONFIG.campaignUrl;
   var brief=null;var copy={};var seqRes={};var saveRes={};
 
   function step(msg,done){
