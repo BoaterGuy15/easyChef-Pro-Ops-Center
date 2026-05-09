@@ -1034,9 +1034,26 @@ function _buildEmailSeqsHtml(brief, emails, genDate, emailBriefs) {
   seqOrder.forEach(function(seq) {
     var seqEmails = seqMap[seq];
     seqsHtml += '<div class="seq-section">\n';
+    // Deduplicate: one card per unique seq_id — merge A+B variant data into first occurrence
+    var _seen = {}, _deduped = [];
+    seqEmails.forEach(function(em) {
+      var _key = em.seq_id || (seq + '-E' + (em.email_number || 1));
+      if (!_seen.hasOwnProperty(_key)) {
+        _seen[_key] = _deduped.length;
+        _deduped.push(em);
+      } else {
+        var _ex = _deduped[_seen[_key]];
+        if (!_ex.subject_line_b && em.subject_line_b) _ex.subject_line_b = em.subject_line_b;
+        if (!_ex.subject_line_a && em.subject_line_a) _ex.subject_line_a = em.subject_line_a;
+        if (!_ex.dl_id          && em.dl_id)          _ex.dl_id          = em.dl_id;
+        if (!_ex.utm_url        && em.utm_url)         _ex.utm_url        = em.utm_url;
+        if (!_ex.preview_text   && em.preview_text)    _ex.preview_text   = em.preview_text;
+        if (!_ex.preview_text_a && em.preview_text_a)  _ex.preview_text_a = em.preview_text_a;
+      }
+    });
     seqsHtml += '  <div class="seq-header">' + _h(seq)
-             + ' <span class="seq-count">' + seqEmails.length + ' email' + (seqEmails.length !== 1 ? 's' : '') + '</span></div>\n';
-    seqEmails.forEach(function(email) {
+             + ' <span class="seq-count">' + _deduped.length + ' email' + (_deduped.length !== 1 ? 's' : '') + '</span></div>\n';
+    _deduped.forEach(function(email) {
       var emailNum = email.email_number || (email.seq_id ? (parseInt((String(email.seq_id).match(/-E(\d+)$/i)||[])[1])||1) : 1);
       var dayLabel = email.send_day !== undefined ? email.send_day : '—';
       var subA     = email.subject_line_a || email.subject   || '';
@@ -1083,8 +1100,11 @@ function _buildEmailSeqsHtml(brief, emails, genDate, emailBriefs) {
         + '</td></tr>\n';
       // P.S.
       if (email.body_ps) seqsHtml += '      <tr><td class="td-label td-dim">P.S.</td><td class="td-value td-copy">' + _h(email.body_ps) + '</td></tr>\n';
-      if (email.dl_id)   seqsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">'          + _h(email.dl_id)   + '</td></tr>\n';
-      if (email.utm_url) seqsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">' + _h(email.utm_url) + '</td></tr>\n';
+      // DL ID and UTM Link — always render; show — when blank so they're never silently missing
+      seqsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">'
+        + (email.dl_id ? _h(email.dl_id) : '<span class="td-pending">—</span>') + '</td></tr>\n';
+      seqsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">'
+        + (email.utm_url ? _h(email.utm_url) : '<span class="td-pending">—</span>') + '</td></tr>\n';
       var st = email.status || 'draft';
       seqsHtml += '      <tr><td class="td-label">Status</td><td class="td-value"><span class="badge badge-' + _h(st) + '">' + _h(st.toUpperCase()) + '</span></td></tr>\n';
       var _eb = emailBriefs[email.id || email.seq_id] || {};
