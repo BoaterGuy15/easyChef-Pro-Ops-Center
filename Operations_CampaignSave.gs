@@ -262,6 +262,136 @@ function saveCampaignDraft(body) {
   }
 }
 
+// ── Full campaign pipeline — 3-step split (avoids 6-min GAS timeout) ─────────
+// Each function loads its own data from the sheet. Frontend calls them in
+// sequence; results are written to the sheet before the next step starts.
+
+function _fcNormalizeBrief(rawBrief) {
+  return {
+    id:                    rawBrief.id,
+    name:                  rawBrief.name,
+    icp:                   rawBrief.icp_code,
+    channel:               rawBrief.channel,
+    channels:              Array.isArray(rawBrief.channels) ? rawBrief.channels : [],
+    funnel:                rawBrief.blueprint,
+    blueprint:             rawBrief.blueprint,
+    blueprint_code:        rawBrief.blueprint,
+    goal:                  rawBrief.goal,
+    slug:                  rawBrief.slug,
+    launchDate:            rawBrief.launch_date,
+    launch_date:           rawBrief.launch_date,
+    theme:                 rawBrief.theme,
+    status:                rawBrief.status,
+    approved:              true,
+    ml_approved:           true,
+    post_count:            Math.min(parseInt(rawBrief.post_count) || 7, 7),
+    post_frequency:        rawBrief.post_frequency  || 'every_2_days',
+    email_sequences:       rawBrief.email_sequences  || 'full',
+    email_sequence_mode:   rawBrief.email_sequences  || 'full',
+    email_variants:        rawBrief.email_variants   || 'both',
+    campaign_duration_days: 35
+  };
+}
+
+function _fcLoad(campaignId) {
+  var rawBrief = getCampaignBriefs(campaignId);
+  if (!rawBrief) return null;
+  var brief    = _fcNormalizeBrief(rawBrief);
+  var copyRows = getGeneratedCopy(campaignId);
+  var copy     = copyRows.length ? copyRows[copyRows.length - 1] : {};
+  return { brief: brief, copy: copy };
+}
+
+/**
+ * Step 1: Generate all social posts (arc channels) + video scripts.
+ * Writes each post to SocialPosts sheet before returning.
+ * post_count capped at 7 to keep each Claude call ≤ 2 min.
+ */
+function fcGenerateSocialPosts(campaignId) {
+  try {
+    var ctx = _fcLoad(campaignId);
+    if (!ctx) return { ok: false, error: 'Brief not found: ' + campaignId };
+    Logger.log('[fcSocial] Starting buildSocialCalendar for ' + campaignId);
+    var result = buildSocialCalendar(ctx.brief, ctx.copy);
+    if (!result.ok) return { ok: false, error: result.error };
+    var posts = result.posts || [];
+    var tk = posts.filter(function(p){return(p.platform||'').toLowerCase()==='tiktok';}).length;
+    var yt = posts.filter(function(p){return(p.platform||'').toLowerCase()==='youtube';}).length;
+    Logger.log('[fcSocial] Done — ' + posts.length + ' posts (' + tk + ' TikTok · ' + yt + ' YouTube)');
+    return { ok: true, posts: posts.length, tiktok: tk, youtube: yt };
+  } catch(e) {
+    Logger.log('[fcSocial] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Step 2: Generate full email sequence (SEQ-1 through SEQ-4, both variants).
+ * One Claude API call; writes to EmailSequences sheet before returning.
+ */
+function fcGenerateEmails(campaignId) {
+  try {
+    var ctx = _fcLoad(campaignId);
+    if (!ctx) return { ok: false, error: 'Brief not found: ' + campaignId };
+    Logger.log('[fcEmails] Starting buildEmailCalendar for ' + campaignId);
+    var result = buildEmailCalendar(ctx.brief, ctx.copy);
+    if (!result.ok) return { ok: false, error: result.error };
+    var emails = result.emails || [];
+    Logger.log('[fcEmails] Done — ' + emails.length + ' emails');
+    return { ok: true, emails: emails.length };
+  } catch(e) {
+    Logger.log('[fcEmails] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Step 3: Generate UTMs + DL_IDs, export to Drive.
+ * Reads posts + emails from sheet (written by steps 1 + 2) — no payload needed.
+ */
+function fcGenerateUtmAndExport(campaignId) {
+  try {
+    var ctx = _fcLoad(campaignId);
+    if (!ctx) return { ok: false, error: 'Brief not found: ' + campaignId };
+    var brief = ctx.brief;
+    var copy  = ctx.copy;
+
+    // Load data already written to sheet by steps 1 + 2
+    var posts  = getSocialPosts(campaignId);
+    var emails = getEmailSequences(campaignId);
+    Logger.log('[fcUTM] Posts from sheet: ' + posts.length + ' | Emails: ' + emails.length);
+
+    // Generate UTMs (approved=true triggers DL generation)
+    var saveResult = saveCampaignDraft({ brief: brief, copy: copy, posts: posts, emails: emails });
+    var utmCount   = (saveResult.utms || []).length;
+    Logger.log('[fcUTM] UTMs generated: ' + utmCount);
+
+    // Export to Drive
+    var lp          = null;
+    try { lp = getLPInventoryBySlug(brief.slug) || null; } catch(le) {}
+    var driveResult = { ok: false, error: 'skipped' };
+    try {
+      driveResult = exportCampaignToDrive(brief, copy, posts, lp || {}, emails);
+    } catch(de) {
+      Logger.log('[fcUTM] Drive export failed (non-fatal): ' + de.message);
+    }
+
+    Logger.log('[fcUTM] Done — ' + utmCount + ' UTMs · Drive: ' + driveResult.ok);
+    return {
+      ok:        true,
+      utms:      utmCount,
+      posts:     posts.length,
+      emails:    emails.length,
+      drive_ok:  !!(driveResult.ok),
+      drive_url: (driveResult.ok && driveResult.folder_url) ? driveResult.folder_url : ''
+    };
+  } catch(e) {
+    Logger.log('[fcUTM] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+
 // ── One-click full campaign pipeline ─────────────────────────────────────────
 
 /**

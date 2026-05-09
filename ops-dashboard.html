@@ -23975,7 +23975,7 @@ function _ccRunFullCampaign(campaignId){
 
   Promise.resolve()
 
-    // ── Step 1: Load brief ──────────────────────────────────────────────────
+    // ── Step 1: Load brief (verify it exists) ───────────────────────────────
     .then(function(){
       step('Loading ' + campaignId + ' brief from Campaign Center sheet…');
       return _post('campaign_brief_read',{id:campaignId});
@@ -23983,77 +23983,62 @@ function _ccRunFullCampaign(campaignId){
     .then(function(r){
       if(!r.briefs) throw new Error('Brief not found — run the wizard first to create ' + campaignId);
       brief=r.briefs;
-      // Normalize for pipeline
-      brief.icp=brief.icp||brief.icp_code;
-      brief.launchDate=brief.launchDate||brief.launch_date;
-      brief.channels=Array.isArray(brief.channels)?brief.channels:(brief.channel?[brief.channel]:[]);
-      brief.approved=true;brief.ml_approved=true;
-      brief.email_sequence_mode=brief.email_sequences||'full';
-      brief.campaign_duration_days=35;
       step('Brief loaded — '+brief.name,true);
     })
 
-    // ── Step 2: Load copy ───────────────────────────────────────────────────
+    // ── Step 2: Load copy (verify it exists) ────────────────────────────────
     .then(function(){
       return _post('generated_copy_read',{campaign_id:campaignId});
     })
     .then(function(r){
       var rows=r.copy||[];
       copy=rows.length?rows[rows.length-1]:{};
-      step('Copy '+(copy.headline?'"'+copy.headline.slice(0,50)+'…" loaded':'(none yet — proceeding with brief only)'),true);
+      step('Copy '+(copy.headline?'"'+copy.headline.slice(0,50)+'…" loaded':'(none — proceeding with brief only)'),true);
     })
 
-    // ── Step 3: Build full sequence (the heavy Claude API step) ─────────────
+    // ── Step 3: Generate social posts + video scripts ───────────────────────
     .then(function(){
-      step('Generating 13 emails + 35 social posts + 6 video scripts (2–4 min — Claude API)…');
-      return _post('build_full_sequence',{brief:brief,copy:copy});
+      step('Generating social posts + video scripts (1–2 min — Claude API)…');
+      return _post('generate_social_posts',{campaign_id:campaignId});
     })
     .then(function(r){
-      if(!r.ok) throw new Error('Sequence build failed: '+(r.error||'unknown'));
-      seqRes=r;
-      var emails=(r.emails||[]).length;
-      var posts=(r.posts||[]).length;
-      var videos=(r.posts||[]).filter(function(p){var pl=(p.platform||'').toLowerCase();return pl==='youtube'||pl==='tiktok';}).length;
-      var social=posts-videos;
-      step(emails+' emails · '+social+' social posts · '+videos+' video scripts generated',true);
-      // Update in-memory state so Assets tab renders immediately
-      if(r.posts&&r.posts.length) _ccLastPosts=r.posts;
-      if(r.emails&&r.emails.length) _ccLastEmails=r.emails;
+      if(!r.ok) throw new Error('Social generation failed: '+(r.error||'unknown'));
+      // r.posts, r.tiktok, r.youtube are counts (numbers), not arrays
+      var social=(r.posts||0)-(r.tiktok||0)-(r.youtube||0);
+      var videos=(r.tiktok||0)+(r.youtube||0);
+      seqRes.postCount=r.posts||0;
+      step(social+' social posts · '+videos+' video scripts saved to sheet',true);
     })
 
-    // ── Step 4: Save draft + UTMs ───────────────────────────────────────────
+    // ── Step 4: Generate email sequence ─────────────────────────────────────
     .then(function(){
-      step('Generating UTMs + DL_IDs…');
-      return _post('campaign_save_draft',{brief:brief,copy:copy,posts:seqRes.posts||[],emails:seqRes.emails||[]});
+      step('Generating email sequence (1–2 min — Claude API)…');
+      return _post('generate_emails',{campaign_id:campaignId});
     })
     .then(function(r){
+      if(!r.ok) throw new Error('Email generation failed: '+(r.error||'unknown'));
+      // r.emails is a count (number), not an array
+      seqRes.emailCount=r.emails||0;
+      step(seqRes.emailCount+' emails saved to sheet',true);
+    })
+
+    // ── Step 5: Generate UTMs + DL_IDs + export to Drive ───────────────────
+    .then(function(){
+      step('Generating UTMs + DL_IDs + exporting to Drive…');
+      return _post('generate_utm_and_export',{campaign_id:campaignId});
+    })
+    .then(function(r){
+      if(!r.ok) throw new Error('UTM/export step failed: '+(r.error||'unknown'));
       saveRes=r;
-      var utms=(r.utms||[]).length;
-      step(utms+' UTM links activated',true);
-    })
-
-    // ── Step 5: Build calendar view ─────────────────────────────────────────
-    .then(function(){
-      step('Building full content calendar…');
-      var calDays=(seqRes.calendar||[]).length;
-      step(calDays+' calendar days merged (emails + social)',true);
-    })
-
-    // ── Step 6: Export to Drive ─────────────────────────────────────────────
-    .then(function(){
-      step('Exporting campaign package to Drive…');
-      return _post('export_to_drive',{brief:brief,copy:copy,posts:seqRes.posts||[],emails:seqRes.emails||[]});
-    })
-    .then(function(r){
-      if(r.ok&&r.folder_url){
+      step((r.utms||0)+' UTM links activated',true);
+      if(r.drive_ok&&r.drive_url){
         step('Drive export complete — Brief + Social + Emails + LP Reference + Calendar',true);
-        var total=(seqRes.emails||[]).length+(seqRes.posts||[]).length;
-        done(total,r.folder_url);
       } else {
         step('Drive export skipped — '+(r.error||'no folder URL returned'));
-        var total=(seqRes.emails||[]).length+(seqRes.posts||[]).length;
-        done(total,'');
       }
+      // r.posts and r.emails are counts re-read from sheet by the UTM step
+      var total=(r.posts||seqRes.postCount||0)+(r.emails||seqRes.emailCount||0);
+      done(total,r.drive_url||'');
     })
 
     .catch(function(e){fail(e.message);});
