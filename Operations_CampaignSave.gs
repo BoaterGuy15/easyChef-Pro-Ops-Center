@@ -131,13 +131,15 @@ function saveCampaignDraft(body) {
             '&utm_medium='   + encodeURIComponent(u.utm_medium||'') +
             '&utm_campaign=' + encodeURIComponent(u.utm_campaign||'') +
             '&utm_content='  + encodeURIComponent(u.utm_content||'');
-          return { dl_id:u.dl_id, utm_content:u.utm_content, asset_name:u.notes||u.utm_content, full_url:fullUrl, status:'ACTIVE' };
+          return { dl_id:u.dl_id, utm_content:u.utm_content, channel:u.channel, utm_campaign:u.utm_campaign, destination_url:u.destination_url, utm_source:u.utm_source, utm_medium:u.utm_medium, asset_name:u.notes||u.utm_content, full_url:fullUrl, status:'ACTIVE' };
         });
         Logger.log('[CampaignSave] reusing ' + utms.length + ' existing ACTIVE DL_IDs');
         // Supplement any missing per-sequence email DLs — checks per utm_campaign code, not just "channel has any DL"
         var _suppBase = _buildLpUrl(brief.slug || 'waitlist');
         var _suppChs  = (Array.isArray(brief.channels)&&brief.channels.length)?brief.channels:[brief.channel||'Facebook'];
         var _suppSeqs = _getActiveEmailSeqs(brief.email_sequence_mode || brief.email_sequences);
+        // Collect supplement entries, then batch-write — avoids per-entry _nextDlId + setDlRegistryEntry calls
+        var _suppPending = [];
         _suppChs.forEach(function(ch) {
           var _chD = _getChannelData(ch);
           if ((_chD.utm_medium||'').toLowerCase() !== 'email') return;
@@ -146,21 +148,45 @@ function saveCampaignDraft(body) {
             .map(function(r){ return r.utm_campaign || ''; });
           _suppSeqs.forEach(function(seq) {
             if (_existingCodes.indexOf(seq[1]) !== -1) return;
-            var _dlId = _nextDlId(_chD.dl_prefix || 'EM');
-            var _utmC = _dlId + '_' + seq[1];
-            var _fu   = _suppBase + '?utm_source=' + encodeURIComponent(_chD.utm_source) + '&utm_medium=' + encodeURIComponent(_chD.utm_medium) + '&utm_campaign=' + encodeURIComponent(seq[1]) + '&utm_content=' + encodeURIComponent(_utmC);
-            setDlRegistryEntry({dl_id:_dlId, utm_content:_utmC, campaign_id:brief.id, channel:ch, destination_url:_suppBase, utm_source:_chD.utm_source, utm_medium:_chD.utm_medium, utm_campaign:seq[1], status:'ACTIVE', notes:seq[0]});
-            utms.push({dl_id:_dlId, utm_content:_utmC, asset_name:seq[0], full_url:_fu, status:'ACTIVE'});
-            Logger.log('[CampaignSave] supplemented missing seq DL: ' + _dlId + ' · ' + seq[0]);
+            _suppPending.push({ ch:ch, chD:_chD, seq:seq });
           });
         });
+        if (_suppPending.length) {
+          var _suppSheet   = _getCCSheet(_CC_TAB.DL);
+          var _suppHeaders = _CC_HDR.DeepLinkRegistry;
+          var _suppLastRow = _suppSheet.getLastRow();
+          var _suppMaxPfx  = {};
+          if (_suppLastRow >= 2) {
+            _suppSheet.getRange(2, 1, _suppLastRow - 1, 1).getValues().forEach(function(r) {
+              var m = String(r[0]).match(/^DL-([A-Z]+)-(\d+)$/);
+              if (m) { var p=m[1],n=parseInt(m[2],10); if (!_suppMaxPfx[p]||n>_suppMaxPfx[p]) _suppMaxPfx[p]=n; }
+            });
+          }
+          var _suppNow  = _ccNow();
+          var _suppRows = [];
+          _suppPending.forEach(function(pd) {
+            var pfx = pd.chD.dl_prefix || 'EM';
+            _suppMaxPfx[pfx] = (_suppMaxPfx[pfx] || 0) + 1;
+            var _dlId = 'DL-' + pfx + '-' + String(_suppMaxPfx[pfx]).padStart(4, '0');
+            var _utmC = _dlId + '_' + pd.seq[1];
+            var _fu   = _suppBase + '?utm_source=' + encodeURIComponent(pd.chD.utm_source) + '&utm_medium=' + encodeURIComponent(pd.chD.utm_medium) + '&utm_campaign=' + encodeURIComponent(pd.seq[1]) + '&utm_content=' + encodeURIComponent(_utmC);
+            _suppRows.push([_dlId, _utmC, brief.id, pd.ch, _suppBase, pd.chD.utm_source, pd.chD.utm_medium, pd.seq[1], 'ACTIVE', _suppNow, _suppNow, 'saveCampaignDraft', pd.seq[0]]);
+            utms.push({ dl_id:_dlId, utm_content:_utmC, channel:pd.ch, utm_campaign:pd.seq[1], destination_url:_suppBase, utm_source:pd.chD.utm_source, utm_medium:pd.chD.utm_medium, asset_name:pd.seq[0], full_url:_fu, status:'ACTIVE' });
+            Logger.log('[CampaignSave] supplement queued: ' + _dlId + ' · ' + pd.seq[0]);
+          });
+          var _suppAppendAt = _suppSheet.getLastRow() + 1;
+          var _suppRange    = _suppSheet.getRange(_suppAppendAt, 1, _suppRows.length, _suppHeaders.length);
+          _suppRange.setNumberFormat('@');
+          _suppRange.setValues(_suppRows);
+        }
       } else {
-        // No ACTIVE entries — generate one DL_ID per asset per channel
-        var _baseUrl = _buildLpUrl(brief.slug || 'waitlist');
-        var _stages7 = ['post1_hook','post2_problem','post3_agitate','post4_solve','post5_value','post6_proof','post7_cta'];
-        var _channels = (Array.isArray(brief.channels) && brief.channels.length)
+        // No ACTIVE entries — collect all assets first, then batch-write to DL registry in one call
+        var _baseUrl     = _buildLpUrl(brief.slug || 'waitlist');
+        var _stages7     = ['post1_hook','post2_problem','post3_agitate','post4_solve','post5_value','post6_proof','post7_cta'];
+        var _channels    = (Array.isArray(brief.channels) && brief.channels.length)
           ? brief.channels : [brief.channel || 'Facebook'];
         var _lpGenerated = false;
+        var _pendingDls  = [];
 
         _channels.forEach(function(channelName) {
           var _chData    = _getChannelData(channelName);
@@ -169,38 +195,21 @@ function saveCampaignDraft(body) {
           var _chNameLow = channelName.toLowerCase();
           var _isEmailCh = _chMedium === 'email';
 
-          // LP once across all channels (tied to first channel processed)
           if (!_lpGenerated && lp && (lp.hero_headline || lp.solve_section)) {
             _chAssets.push({asset_name:'Landing Page', descriptor:'lp', asset_type:'lp'});
             _lpGenerated = true;
           }
 
           if (_chNameLow === 'tiktok') {
-            // TikTok: 1 feature spotlight video per campaign
             var _tkFeat = _getTikTokFeature(brief);
-            _chAssets.push({
-              asset_name: 'TikTok · Feature Spotlight — ' + _tkFeat.toUpperCase(),
-              descriptor:  _tkFeat + '_spotlight',
-              asset_type: 'video'
-            });
+            _chAssets.push({asset_name:'TikTok · Feature Spotlight — '+_tkFeat.toUpperCase(), descriptor:_tkFeat+'_spotlight', asset_type:'video'});
           } else if (_chNameLow === 'youtube') {
-            // YouTube: 1 explainer video — releases Day 7
-            _chAssets.push({
-              asset_name: 'YouTube · Explainer — Day 7',
-              descriptor:  'explainer_day7',
-              asset_type: 'video'
-            });
+            _chAssets.push({asset_name:'YouTube · Explainer — Day 7', descriptor:'explainer_day7', asset_type:'video'});
           } else if (_chMedium === 'social' || _chMedium === 'community') {
-            // Social/community: 7-post arc (Reddit gets community=true flag via utm_medium)
             _stages7.forEach(function(stage, i) {
-              _chAssets.push({
-                asset_name: channelName + ' · Post ' + (i+1) + ' — ' + stage,
-                descriptor:  stage,
-                asset_type: 'post'
-              });
+              _chAssets.push({asset_name:channelName+' · Post '+(i+1)+' — '+stage, descriptor:stage, asset_type:'post'});
             });
           } else if (!_chAssets.length) {
-            // Email: 1 DL per active sequence. Other (video handled above, affiliate/organic/direct): skip.
             if (!_isEmailCh) return;
             var _emailSeqs = _getActiveEmailSeqs(brief.email_sequence_mode || brief.email_sequences);
             _emailSeqs.forEach(function(seq) {
@@ -211,41 +220,47 @@ function saveCampaignDraft(body) {
             }
           }
 
-          // Write directly to registry — bypasses generateUtmUrls conflict logic
-          // which would cancel sibling-channel entries when force:true
           _chAssets.forEach(function(asset) {
-            var prefix          = asset.asset_type === 'lp' ? 'LP' : (_chData.dl_prefix || 'SOC');
-            var dlId            = _nextDlId(prefix);
-            var utmContent      = dlId + '_' + (asset.descriptor || '');
-            // Controlled vocab: per-channel utm_campaign lookup; email seqs use their own code
-            var _assetUtmCode   = asset.utm_campaign_override || _buildUtmCampaignCode(brief, channelName);
-            var fullUrl         = _baseUrl +
-              '?utm_source='   + encodeURIComponent(_chData.utm_source) +
-              '&utm_medium='   + encodeURIComponent(_chData.utm_medium) +
-              '&utm_campaign=' + encodeURIComponent(_assetUtmCode) +
-              '&utm_content='  + encodeURIComponent(utmContent);
-
-            setDlRegistryEntry({
-              dl_id:           dlId,
-              utm_content:     utmContent,
-              campaign_id:     brief.id,
-              channel:         channelName,
-              destination_url: _baseUrl,
-              utm_source:      _chData.utm_source,
-              utm_medium:      _chData.utm_medium,
-              utm_campaign:    _assetUtmCode,
-              status:          'ACTIVE',
-              notes:           asset.asset_name || ''
-            });
-
-            utms.push({ dl_id:dlId, utm_content:utmContent, asset_name:asset.asset_name, full_url:fullUrl, status:'ACTIVE' });
+            var prefix        = asset.asset_type === 'lp' ? 'LP' : (_chData.dl_prefix || 'SOC');
+            var _assetUtmCode = asset.utm_campaign_override || _buildUtmCampaignCode(brief, channelName);
+            _pendingDls.push({ prefix:prefix, channelName:channelName, chData:_chData, asset:asset, utmCode:_assetUtmCode });
           });
-
-          Logger.log('[CampaignSave] ' + channelName + ': generated ' + _chAssets.length + ' DL_IDs');
-          _utmTotalGenerated += _chAssets.length;
+          Logger.log('[CampaignSave] ' + channelName + ': queued ' + _chAssets.length + ' DL assets');
         });
 
-        Logger.log('[CampaignSave] total new ACTIVE DL_IDs: ' + _utmTotalGenerated);
+        // BATCH: read DL registry once → assign all IDs in memory → write all rows in one setValues call
+        var _genSheet   = _getCCSheet(_CC_TAB.DL);
+        var _genHeaders = _CC_HDR.DeepLinkRegistry;
+        var _genLastRow = _genSheet.getLastRow();
+        var _maxByPfx   = {};
+        if (_genLastRow >= 2) {
+          _genSheet.getRange(2, 1, _genLastRow - 1, 1).getValues().forEach(function(r) {
+            var m = String(r[0]).match(/^DL-([A-Z]+)-(\d+)$/);
+            if (m) { var p=m[1], n=parseInt(m[2],10); if (!_maxByPfx[p]||n>_maxByPfx[p]) _maxByPfx[p]=n; }
+          });
+        }
+        var _genNow  = _ccNow();
+        var _newRows = [];
+        _pendingDls.forEach(function(pd) {
+          _maxByPfx[pd.prefix] = (_maxByPfx[pd.prefix] || 0) + 1;
+          var dlId       = 'DL-' + pd.prefix + '-' + String(_maxByPfx[pd.prefix]).padStart(4, '0');
+          var utmContent = dlId + '_' + (pd.asset.descriptor || '');
+          var fullUrl    = _baseUrl +
+            '?utm_source='   + encodeURIComponent(pd.chData.utm_source) +
+            '&utm_medium='   + encodeURIComponent(pd.chData.utm_medium) +
+            '&utm_campaign=' + encodeURIComponent(pd.utmCode) +
+            '&utm_content='  + encodeURIComponent(utmContent);
+          _newRows.push([dlId, utmContent, brief.id, pd.channelName, _baseUrl, pd.chData.utm_source, pd.chData.utm_medium, pd.utmCode, 'ACTIVE', _genNow, _genNow, 'saveCampaignDraft', pd.asset.asset_name || '']);
+          utms.push({ dl_id:dlId, utm_content:utmContent, channel:pd.channelName, utm_campaign:pd.utmCode, destination_url:_baseUrl, utm_source:pd.chData.utm_source, utm_medium:pd.chData.utm_medium, asset_name:pd.asset.asset_name, full_url:fullUrl, status:'ACTIVE' });
+        });
+        if (_newRows.length) {
+          var _genAppendAt = _genSheet.getLastRow() + 1;
+          var _genRange    = _genSheet.getRange(_genAppendAt, 1, _newRows.length, _genHeaders.length);
+          _genRange.setNumberFormat('@');
+          _genRange.setValues(_newRows);
+        }
+        Logger.log('[CampaignSave] batched ' + _newRows.length + ' new ACTIVE DL_IDs');
+        _utmTotalGenerated = _newRows.length;
       }
     }
 

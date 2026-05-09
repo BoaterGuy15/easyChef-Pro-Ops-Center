@@ -245,7 +245,8 @@ function fcGenerateUtmAndSave(campaignId) {
     Logger.log('[fcUTMSave] Posts: ' + posts.length + ' | Emails: ' + emails.length);
 
     // 1. Generate ACTIVE DL entries in DeepLinkRegistry
-    var saveResult = saveCampaignDraft({ brief: brief, copy: copy, posts: posts, emails: emails });
+    // Posts + emails are already in the sheet from Steps 1+2 — don't re-pass them here
+    var saveResult = saveCampaignDraft({ brief: brief, copy: copy, posts: [], emails: [] });
     var utms = saveResult.utms || [];
     Logger.log('[fcUTMSave] DL entries generated: ' + utms.length);
 
