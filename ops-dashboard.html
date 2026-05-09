@@ -23962,6 +23962,40 @@ function _ccDebugTest(action, campaignId) {
   });
 }
 
+// ── Clear campaign data — deletes generated rows, keeps brief + copy ─────────
+function _ccClearCampaignData(campaignId) {
+  var confirmed = confirm(
+    'This will delete all generated rows for\n' +
+    campaignId + ' from SocialPosts, EmailSequences,\n' +
+    'DeepLinkRegistry, and VideoScripts tabs.\n' +
+    'Campaign Brief and GeneratedCopy are kept.\n' +
+    'Cannot be undone. Continue?'
+  );
+  if (!confirmed) return;
+  var panel = document.getElementById('cc-debug-panel');
+  if (panel) { panel.style.display = 'block'; panel.textContent = '[clear_campaign_data] sending…'; }
+  var _url = (CONFIG && CONFIG.campaignUrl) || CONFIG.sheetsUrl;
+  fetch(_url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'clear_campaign_data', campaign_id: campaignId })
+  })
+  .then(function(res) {
+    var ct = res.headers.get('content-type') || '';
+    if (ct.indexOf('application/json') < 0 && ct.indexOf('text/plain') < 0) {
+      return res.text().then(function(t) {
+        if (panel) panel.textContent = '[clear_campaign_data] Non-JSON response (GAS timeout or error):\n' + t.substring(0, 600);
+      });
+    }
+    return res.json().then(function(data) {
+      if (panel) panel.textContent = '[clear_campaign_data] ' + (data.ok ? 'SUCCESS' : 'FAILED') + '\n' + JSON.stringify(data, null, 2);
+    });
+  })
+  .catch(function(err) {
+    if (panel) panel.textContent = '[clear_campaign_data] CORS or network error\n' + err.message;
+  });
+}
+
 // ── One-click full campaign runner ───────────────────────────────────────────
 function _ccRunFullCampaign(campaignId){
   if(!CONFIG.campaignUrl){_showToast('<div style="color:var(--muted)">No campaign backend URL configured.</div>',2500);return;}
@@ -29364,6 +29398,7 @@ function _campaignsRenderInner(root){
           '<button onclick="_ccDebugTest(\'ping\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Ping GAS</button>'+
           '<button onclick="_ccDebugTest(\'generate_utm_and_save\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 3 Only</button>'+
           '<button onclick="_ccDebugTest(\'export_campaign_to_drive\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 4 Only</button>'+
+          '<button onclick="_ccClearCampaignData(\'EC-2026-001\')" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🗑 Clear Campaign Data</button>'+
         '</div>'+
         '<div id="cc-debug-panel" style="display:none;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:14px 16px;margin-bottom:14px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:1.7;color:#c9a84c;white-space:pre-wrap;max-height:260px;overflow:auto"></div>'
       : '')+

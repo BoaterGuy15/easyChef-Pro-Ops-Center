@@ -409,3 +409,84 @@ function fcExportCampaignToDrive(campaignId) {
     return { ok: false, partial: true, error: e.message };
   }
 }
+
+// ── Pipeline utility: clear all generated rows for a campaign ─────────────────
+// Deletes from SocialPosts, EmailSequences, DeepLinkRegistry.
+// Keeps CampaignBriefs and GeneratedCopy untouched.
+// Uses batch pattern: one read per sheet, filter in memory, one write back.
+
+function fcClearCampaignData(data) {
+  var campaignId = String(data.campaign_id || '').trim();
+  if (!campaignId) return { ok: false, error: 'campaign_id is required' };
+
+  var cleared = { posts: 0, emails: 0, dl_ids: 0, videos: 0 };
+
+  function _batchClearTab(tabName) {
+    try {
+      var sheet   = _getCCSheet(tabName);
+      var allData = sheet.getDataRange().getValues();
+      if (allData.length < 2) return 0;
+      var headers = allData[0];
+      var cidIdx  = headers.map(function(h) { return String(h).trim(); }).indexOf('campaign_id');
+      if (cidIdx < 0) return 0;
+      var kept    = [headers];
+      var deleted = 0;
+      for (var i = 1; i < allData.length; i++) {
+        if (String(allData[i][cidIdx]).trim() === campaignId) {
+          deleted++;
+        } else {
+          kept.push(allData[i]);
+        }
+      }
+      if (deleted === 0) return 0;
+      sheet.clearContents();
+      if (kept.length > 0) {
+        sheet.getRange(1, 1, kept.length, headers.length).setValues(kept);
+      }
+      Logger.log('[fcClear] ' + tabName + ': deleted ' + deleted + ' rows');
+      return deleted;
+    } catch(e) {
+      Logger.log('[fcClear] ' + tabName + ': ' + e.message);
+      return 0;
+    }
+  }
+
+  // SocialPosts — count video scripts separately (TikTok / YouTube rows)
+  try {
+    var postsSheet   = _getCCSheet(_CC_TAB.SOCIAL);
+    var postsData    = postsSheet.getDataRange().getValues();
+    if (postsData.length >= 2) {
+      var postsHdrs = postsData[0].map(function(h) { return String(h).trim(); });
+      var cidIdx    = postsHdrs.indexOf('campaign_id');
+      var platIdx   = postsHdrs.indexOf('platform');
+      var keptPosts = [postsData[0]];
+      for (var i = 1; i < postsData.length; i++) {
+        if (String(postsData[i][cidIdx]).trim() === campaignId) {
+          var plat = platIdx >= 0 ? String(postsData[i][platIdx]).toLowerCase() : '';
+          if (plat === 'tiktok' || plat === 'youtube') {
+            cleared.videos++;
+          } else {
+            cleared.posts++;
+          }
+        } else {
+          keptPosts.push(postsData[i]);
+        }
+      }
+      if (cleared.posts + cleared.videos > 0) {
+        postsSheet.clearContents();
+        if (keptPosts.length > 0) {
+          postsSheet.getRange(1, 1, keptPosts.length, postsData[0].length).setValues(keptPosts);
+        }
+      }
+      Logger.log('[fcClear] SocialPosts: deleted ' + cleared.posts + ' posts + ' + cleared.videos + ' video scripts');
+    }
+  } catch(e) {
+    Logger.log('[fcClear] SocialPosts: ' + e.message);
+  }
+
+  cleared.emails = _batchClearTab(_CC_TAB.EMAIL);
+  cleared.dl_ids = _batchClearTab(_CC_TAB.DL);
+
+  Logger.log('[fcClear] Done — ' + campaignId + ' · posts:' + cleared.posts + ' emails:' + cleared.emails + ' dl_ids:' + cleared.dl_ids + ' videos:' + cleared.videos);
+  return { ok: true, cleared: cleared };
+}

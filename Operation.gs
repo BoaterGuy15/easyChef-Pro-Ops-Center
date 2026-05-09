@@ -784,6 +784,7 @@ function doPost(e) {
     if(body.action === 'generate_emails')            return respond(fcGenerateEmails(body.campaign_id||''));
     if(body.action === 'generate_utm_and_save')      return respond(fcGenerateUtmAndSave(body.campaign_id||''));
     if(body.action === 'export_campaign_to_drive')   return respond(fcExportCampaignToDrive(body.campaign_id||''));
+    if(body.action === 'clear_campaign_data')        return respond(fcClearCampaignData(body));
     if(body.action === 'generate_utm_and_export') {
       try {
         return respond(fcGenerateUtmAndExport(body.campaign_id||''));
