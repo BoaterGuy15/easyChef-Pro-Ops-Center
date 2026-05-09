@@ -399,7 +399,7 @@ function buildEmailCalendar(brief, copy) {
 
     var icpCtx    = _getIcpContext(brief.icp || '');
     var claimsCtx = _getClaimsContext();
-    var lpUrl     = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
+    var lpUrl     = _buildLpUrl(brief.slug || 'waitlist');
 
     var wireframeDesc = wireframe.map(function(e) {
       return e.seq + '-E' + e.num +
@@ -614,7 +614,7 @@ function buildSocialCalendar(brief, copy) {
     var frequency  = brief.post_frequency       || '3x_week';
     var seqMode    = _sbNormalizeSeqMode(brief.email_sequence_mode || brief.email_sequences);
     var activeSeqs = _SB_SEQ_MAP[seqMode]       || _SB_SEQ_MAP['seq1_seq2'];
-    var lpUrl      = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
+    var lpUrl      = _buildLpUrl(brief.slug || 'waitlist');
     var campaignId = brief.id || '';
 
     // All selected channels — fall back to brief.channel if channels array absent

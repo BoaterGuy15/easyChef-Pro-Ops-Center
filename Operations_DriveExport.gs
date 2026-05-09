@@ -15,6 +15,31 @@
 var _CAMPAIGNS_ROOT_NAME = 'easyChef Pro Campaigns';
 var _CAMPAIGNS_ROOT_ID   = '1OUu2k1Iv-6nk1APO3sF3qm217YV3sGJf';
 
+// Shared helpers ──────────────────────────────────────────────────────────────
+
+// Always returns https://easychefpro.com/lp/{slug} regardless of whether slug
+// already has the lp/ prefix or not. Call this everywhere a full LP URL is needed.
+function _buildLpUrl(slug) {
+  var clean = String(slug || 'waitlist-a').replace(/^lp\//, '');
+  return 'https://easychefpro.com/lp/' + clean;
+}
+
+// Formats any date value (JS Date, Excel serial, ISO string) as "MMM d, yyyy".
+// Returns '' for null/undefined/unparseable values.
+function _fmtDateDisplay(val) {
+  if (val === null || val === undefined || val === '') return '';
+  var d;
+  if (val instanceof Date) {
+    d = val;
+  } else if (typeof val === 'number') {
+    d = new Date((val - 25569) * 86400 * 1000); // Excel serial → JS Date
+  } else {
+    d = new Date(String(val));
+  }
+  if (isNaN(d.getTime())) return String(val);
+  try { return Utilities.formatDate(d, Session.getScriptTimeZone(), 'MMM d, yyyy'); } catch(e) { return String(val); }
+}
+
 var _BRAND_RED   = '#FF0000';
 var _BRAND_WHITE = '#FFFFFF';
 var _BRAND_BEIGE = '#F6EFE8';
@@ -138,7 +163,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         if (!_launch) return '';
         var d = new Date(_launch);
         d.setDate(d.getDate() + day);
-        return (d.getMonth()+1) + '/' + d.getDate() + '/' + d.getFullYear() + ' 08:00';
+        // Use ISO format so Sheets cannot auto-parse it as a date serial
+        return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
       };
 
       var calDataRows = [];
@@ -206,6 +232,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       var numDataRows = calDataRows.length;
       if (numDataRows > 0) {
         calSh.getRange(4, 1, numDataRows, numCols).setValues(calDataRows);
+        // Force date column (col 2) to plain text — prevents serial number conversion
+        calSh.getRange(4, 2, numDataRows, 1).setNumberFormat('@');
         for (var ri = 0; ri < numDataRows; ri++) {
           var rowRange = calSh.getRange(ri + 4, 1, 1, numCols);
           rowRange.setBackground(ri % 2 === 0 ? _BRAND_WHITE : _BRAND_BEIGE);
@@ -423,10 +451,10 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   };
 
-  // Fix 1: strip leading lp/ before prepending domain so we never get lp/lp/
-  var slug     = (lp.slug || brief.slug || 'waitlist-a').replace(/^lp\//,'');
-  var lpUrl    = 'easychefpro.com/lp/' + slug;
-  var canonUrl = 'https://easychefpro.com/lp/' + slug;
+  // Use shared helper — strips any leading lp/ before prepending, so never lp/lp/
+  var slug     = String(lp.slug || brief.slug || 'waitlist-a').replace(/^lp\//, '');
+  var canonUrl = _buildLpUrl(slug);
+  var lpUrl    = canonUrl.replace('https://', '');
   var icp      = lp.icp  || brief.icp  || '';
 
   // Fix 4 (DL_IDs): collect from posts/emails AND query DeepLinkRegistry for ACTIVE entries
@@ -639,11 +667,15 @@ function _buildSocialPostsHtml(brief, posts, genDate) {
     cardsHtml += '  <div class="channel-header">' + _h(ch.toUpperCase())
               + ' <span class="ch-count">' + chPosts.length + ' post' + (chPosts.length !== 1 ? 's' : '') + '</span></div>\n';
     chPosts.forEach(function(post, pi) {
-      var postNum    = post.post_num || (pi + 1);
-      var stageLabel = post.funnel_stage || post.theme || '';
-      var dayLabel   = post.scheduled_day !== undefined ? post.scheduled_day : '—';
+      var postNum  = post.post_num || (pi + 1);
+      var rawDay   = post.scheduled_day;
+      var dayLabel = (rawDay !== undefined && rawDay !== null && rawDay !== '') ? rawDay : 'TBD';
+      var fmtDate  = _fmtDateDisplay(post.scheduled_date);
       cardsHtml += '  <div class="post-card">\n';
-      cardsHtml += '    <div class="post-card-header">Post ' + _h(postNum) + ' &nbsp;&middot;&nbsp; Day ' + _h(dayLabel) + ' &nbsp;&middot;&nbsp; ' + _h(stageLabel) + '</div>\n';
+      cardsHtml += '    <div class="post-card-header">Post ' + _h(postNum)
+               + ' &nbsp;&middot;&nbsp; Day ' + _h(dayLabel)
+               + (fmtDate ? ' &nbsp;&middot;&nbsp; ' + _h(fmtDate) : '')
+               + '</div>\n';
       cardsHtml += '    <table><tbody>\n';
       if (post.hook)                        cardsHtml += '      <tr><td class="td-label">Hook</td><td class="td-value td-copy">'        + _h(post.hook)                    + '</td></tr>\n';
       if (post.body_copy || post.body)      cardsHtml += '      <tr><td class="td-label">Body</td><td class="td-value td-copy">'        + _h(post.body_copy || post.body)  + '</td></tr>\n';
@@ -724,6 +756,9 @@ function _buildEmailSeqsHtml(brief, emails, genDate) {
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   };
 
+  // Due-date defaults by sequence for PENDING placeholder
+  var _DUE = { 'SEQ-1':'May 20', 'SEQ-2':'May 24', 'SEQ-3':'Jun 2', 'SEQ-4':'Jun 30', 'OB':'May 20' };
+
   // Group by sequence, sorted
   var seqMap = {}, seqOrder = [];
   emails.forEach(function(e) {
@@ -748,12 +783,20 @@ function _buildEmailSeqsHtml(brief, emails, genDate) {
       var preB     = email.preview_text_b || '';
       var cta      = email.body_cta       || email.cta_text  || '';
       var ctaUrl   = email.cta_url        || '';
+      // PENDING placeholder when copy is missing
+      var seqBase  = seq.replace(/-E\d+.*$/, '');
+      var dueDate  = (email.due_date && String(email.due_date).trim()) || _DUE[seqBase] || 'TBD';
+      var pendTxt  = 'PENDING — copy due ' + dueDate;
       seqsHtml += '  <div class="email-card">\n';
       seqsHtml += '    <div class="email-card-header">' + _h(seq + '-E' + emailNum)
                + ' &nbsp;&middot;&nbsp; Day ' + _h(dayLabel) + ' &nbsp;&middot;&nbsp; ' + _h(email.funnel_stage || '') + '</div>\n';
       seqsHtml += '    <table><tbody>\n';
-      seqsHtml += '      <tr><td class="td-label">Subject A</td><td class="td-value td-copy"><span class="badge badge-a">A</span> ' + _h(subA) + '</td></tr>\n';
-      if (subB) seqsHtml += '      <tr><td class="td-label">Subject B</td><td class="td-value td-copy"><span class="badge badge-b">B</span> ' + _h(subB) + '</td></tr>\n';
+      // Subject A — always render row; show PENDING placeholder when blank
+      seqsHtml += '      <tr><td class="td-label">Subject A</td><td class="td-value td-copy"><span class="badge badge-a">A</span> '
+               + (subA ? _h(subA) : '<span class="td-pending">' + _h(pendTxt) + '</span>') + '</td></tr>\n';
+      // Subject B — always render row; show PENDING placeholder when blank
+      seqsHtml += '      <tr><td class="td-label">Subject B</td><td class="td-value td-copy"><span class="badge badge-b">B</span> '
+               + (subB ? _h(subB) : '<span class="td-pending">' + _h(pendTxt) + '</span>') + '</td></tr>\n';
       if (preA) seqsHtml += '      <tr><td class="td-label">Preview A</td><td class="td-value td-copy">' + _h(preA) + '</td></tr>\n';
       if (preB) seqsHtml += '      <tr><td class="td-label">Preview B</td><td class="td-value td-copy">' + _h(preB) + '</td></tr>\n';
       if (email.body) seqsHtml += '      <tr><td class="td-label">Body</td><td class="td-value">' + _h(email.body) + '</td></tr>\n';
@@ -793,6 +836,7 @@ function _buildEmailSeqsHtml(brief, emails, genDate) {
   + '  .td-value { color:var(--body); }\n'
   + '  .td-copy  { font-style:italic; }\n'
   + '  .td-url   { font-family:monospace; font-size:11px; word-break:break-all; color:var(--gray); }\n'
+  + '  .td-pending { color:#999; font-style:italic; }\n'
   + '  .badge { display:inline-block; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:0.05em; }\n'
   + '  .badge-a    { background:var(--red);   color:var(--white); }\n'
   + '  .badge-b    { background:var(--black); color:var(--white); }\n'

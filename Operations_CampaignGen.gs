@@ -142,7 +142,7 @@ function campaignGen(brief) {
     'Campaign name: '   + (brief.name   || '') + '\n' +
     'Funnel: '          + (brief.funnel || '') + '\n' +
     'Conversion goal: ' + (brief.goal   || '') + '\n' +
-    'Landing page: https://easychefpro.com/' + (brief.slug || '') + '\n\n' +
+    'Landing page: ' + _buildLpUrl(brief.slug || 'waitlist') + '\n\n' +
     '=== OUTPUT FORMAT ===\n' +
     'Return ONLY a valid JSON object. No explanation. No markdown wrapping.\n' +
     '{\n' +

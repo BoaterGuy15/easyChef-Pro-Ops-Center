@@ -473,7 +473,7 @@ function buildEmailSequence(brief, copy) {
   var apiKey = props.getProperty('ANTHROPIC_API_KEY');
   if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
 
-  var lpUrl = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
+  var lpUrl = _buildLpUrl(brief.slug || 'waitlist');
 
   var _esStoryCtx = _buildBriefStoryCtx(brief);
 
@@ -556,7 +556,7 @@ function buildSocialPosts(brief, copy) {
   // Phase guard: before July 1 2026 launch, never use download CTA
   var _launchDate = new Date('2026-07-01');
   if (new Date() < _launchDate && ctaType === 'download') ctaType = 'waitlist';
-  var lpUrl    = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
+  var lpUrl    = _buildLpUrl(brief.slug || 'waitlist');
 
   var ctaConf = { cta: 'Join the waitlist free — early access July 1', loss: 'Founding price ends at 5,000 families' };
   try {
@@ -878,7 +878,7 @@ function buildLandingPage(brief, copy) {
   var apiKey = props.getProperty('ANTHROPIC_API_KEY');
   if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
 
-  var lpUrl   = 'https://easychefpro.com/' + (brief.slug || 'lp/waitlist');
+  var lpUrl   = _buildLpUrl(brief.slug || 'waitlist');
   var ctaType = brief.cta_type || 'waitlist';
   // Phase guard: pre-launch
   var _lpLaunchDate = new Date('2026-07-01');

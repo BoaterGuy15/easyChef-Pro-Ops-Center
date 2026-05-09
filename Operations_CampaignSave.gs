@@ -83,7 +83,7 @@ function saveCampaignDraft(body) {
         campaign_id:      brief.id   || '',
         icp_code:         brief.icp  || '',
         slug:             brief.slug || '',
-        full_url:         lp.cta_url || ('https://easychefpro.com/' + (brief.slug || '')),
+        full_url:         lp.cta_url || _buildLpUrl(brief.slug || 'waitlist'),
         hero_headline:    lp.hero_headline    || '',
         hero_subheadline: lp.hero_subheadline || '',
         section_problem:  lp.problem_section  || '',
@@ -135,7 +135,7 @@ function saveCampaignDraft(body) {
         });
         Logger.log('[CampaignSave] reusing ' + utms.length + ' existing ACTIVE DL_IDs');
         // Supplement any missing per-sequence email DLs — checks per utm_campaign code, not just "channel has any DL"
-        var _suppBase = 'https://easychefpro.com/' + (brief.slug||'').replace(/^\//,'');
+        var _suppBase = _buildLpUrl(brief.slug || 'waitlist');
         var _suppChs  = (Array.isArray(brief.channels)&&brief.channels.length)?brief.channels:[brief.channel||'Facebook'];
         var _suppSeqs = _getActiveEmailSeqs(brief.email_sequence_mode || brief.email_sequences);
         _suppChs.forEach(function(ch) {
@@ -156,7 +156,7 @@ function saveCampaignDraft(body) {
         });
       } else {
         // No ACTIVE entries — generate one DL_ID per asset per channel
-        var _baseUrl = 'https://easychefpro.com/' + (brief.slug||'').replace(/^\//,'');
+        var _baseUrl = _buildLpUrl(brief.slug || 'waitlist');
         var _stages7 = ['post1_hook','post2_problem','post3_agitate','post4_solve','post5_value','post6_proof','post7_cta'];
         var _channels = (Array.isArray(brief.channels) && brief.channels.length)
           ? brief.channels : [brief.channel || 'Facebook'];

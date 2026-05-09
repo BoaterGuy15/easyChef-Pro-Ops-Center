@@ -50,7 +50,7 @@ function generateUtmUrls(body) {
 
     // ── Resolve default channel data from Channels tab ──────────────────────
     var defaultChData = _getChannelData(brief.channel || 'Facebook');
-    var baseUrl       = 'https://easychefpro.com/' + (brief.slug || '').replace(/^\//, '');
+    var baseUrl       = _buildLpUrl(brief.slug || 'waitlist');
     var urls          = [];
 
     // ── Generate one DL_ID per asset ────────────────────────────────────────
