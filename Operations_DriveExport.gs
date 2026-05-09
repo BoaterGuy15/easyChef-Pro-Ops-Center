@@ -386,13 +386,25 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
               '&utm_content=' + encodeURIComponent(dlId + '_' + seqCode + '_cta');
           }
           var stage = String(eRef.funnel_stage || '');
-          var _eb   = _emailBriefs[(pair.a || {}).id] || _emailBriefs[eRef.id] || {};
-          var designBrief = _eb.design_brief ? _oneLiner(String(_eb.design_brief)) : '';
+          // Build design brief from EmailSequences fields — no Claude API needed
+          var _mkBrief = function(e, variant) {
+            var hdr = 'EMAIL BRIEF · ' + seqCode + ' E' + emailNum + ' ' + variant;
+            var lines = [hdr];
+            if (e.subject_angle) lines.push('Subject angle: ' + e.subject_angle);
+            if (e.body_theme)    lines.push('Body theme: '    + e.body_theme);
+            if (e.funnel_stage)  lines.push('Funnel stage: '  + e.funnel_stage);
+            if (e.trigger_event) lines.push('Trigger: '       + e.trigger_event);
+            if (e.body_hook)     lines.push('Hook: '          + String(e.body_hook).substring(0, 80));
+            if (e.body_cta)      lines.push('CTA: '           + e.body_cta);
+            return lines.join('\n');
+          };
+          var _briefA = _mkBrief(pair.a || eRef, 'A');
+          var _briefB = _mkBrief(pair.b || eRef, 'B');
           var shared = [day, _dtStr(day), _wkLbl(day), stage, seqCode + '-E' + emailNum, 'Email',
             '', preA, cta, utmUrl, dlId, '', 'Subject line · Klaviyo split',
-            designBrief, '', String(eRef.status || 'draft'), 'Klaviyo', '6:30 AM local'];
-          var rowA = shared.slice(); rowA[6] = subA;        rowA[11] = 'A'; calDataRows.push(rowA);
-          var rowB = shared.slice(); rowB[6] = subB||'None'; rowB[11] = 'B'; calDataRows.push(rowB);
+            '', '', String(eRef.status || 'draft'), 'Klaviyo', '6:30 AM local'];
+          var rowA = shared.slice(); rowA[6] = subA;         rowA[11] = 'A'; rowA[13] = _briefA; calDataRows.push(rowA);
+          var rowB = shared.slice(); rowB[6] = subB||'None'; rowB[11] = 'B'; rowB[13] = _briefB; calDataRows.push(rowB);
         });
         Logger.log('[CalendarXlsx] email rows: ' + (_emailOrder.length * 2) + ' (' + _emailOrder.length + ' pairs)');
       } catch(ee) { Logger.log('[CalendarXlsx] email rows error: ' + ee.message); }
