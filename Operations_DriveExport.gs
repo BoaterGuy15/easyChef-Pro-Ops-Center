@@ -398,8 +398,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
             if (e.body_cta)      lines.push('CTA: '           + e.body_cta);
             return lines.join('\n');
           };
-          var _briefA = _mkBrief(pair.a || eRef, 'A');
-          var _briefB = _mkBrief(pair.b || eRef, 'B');
+          var _briefA = (pair.a || eRef).design_brief || _mkBrief(pair.a || eRef, 'A');
+          var _briefB = (pair.b || eRef).design_brief || _mkBrief(pair.b || eRef, 'B');
           var shared = [day, _dtStr(day), _wkLbl(day), stage, seqCode + '-E' + emailNum, 'Email',
             '', preA, cta, utmUrl, dlId, '', 'Subject line · Klaviyo split',
             '', '', String(eRef.status || 'draft'), 'Klaviyo', '6:30 AM local'];
@@ -428,8 +428,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           var _sheetHashtags = String(p.hashtags || p.hashtag || '');
           var _rawTags       = _briefHashtags || _sheetHashtags;
           var _hashtags      = _NO_TAG[chKey] ? '' : _rawTags;
-          var _briefFull     = String((_postBriefs[p.id] && _postBriefs[p.id].design_brief) || '');
-          var _designBrief   = _briefFull ? _oneLiner(_briefFull) : 'Design brief pending';
+          var _briefFull     = String(p.design_brief || (_postBriefs[p.id] && _postBriefs[p.id].design_brief) || '');
+          var _designBrief   = _briefFull ? _oneLiner(_briefFull) : 'Brief pending generation';
           var _owner         = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
           var _sendTime      = _SEND_TIMES[chKey] || '9:00 AM local';
           // A/B: when ab_test active, build Variant B UTM URL for the Variant column
@@ -635,6 +635,47 @@ function _generateDesignBriefs(brief, posts, emails, lp, apiKey) {
     if (lpMatch) result.lpBrief = JSON.parse(lpMatch[0]);
     Logger.log('[DesignBriefs] lp: ' + (!!result.lpBrief.hero_visual));
   } catch(e) { Logger.log('[DesignBriefs] lp error: ' + e.message); }
+
+  // ── Batch write design_briefs back to Sheet ──────────────────────────────
+  if (Object.keys(result.postBriefs).length > 0) {
+    try {
+      var _spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+      var _spLast  = _spSheet.getLastRow();
+      if (_spLast >= 2) {
+        var _spData  = _spSheet.getRange(2, 1, _spLast - 1, 16).getValues();
+        var _spDirty = false;
+        _spData.forEach(function(row) {
+          var _pid = String(row[0] || '');
+          if (_pid && result.postBriefs[_pid] && result.postBriefs[_pid].design_brief) {
+            row[15] = result.postBriefs[_pid].design_brief;
+            _spDirty = true;
+          }
+        });
+        if (_spDirty) _spSheet.getRange(2, 1, _spData.length, 16).setValues(_spData);
+        Logger.log('[DesignBriefs] SocialPosts write-back done');
+      }
+    } catch(we) { Logger.log('[DesignBriefs] SocialPosts write-back error: ' + we.message); }
+  }
+
+  if (Object.keys(result.emailBriefs).length > 0) {
+    try {
+      var _esSheet = _getCCSheet(_CC_TAB.EMAIL);
+      var _esLast  = _esSheet.getLastRow();
+      if (_esLast >= 2) {
+        var _esData  = _esSheet.getRange(2, 1, _esLast - 1, 26).getValues();
+        var _esDirty = false;
+        _esData.forEach(function(row) {
+          var _eid = String(row[0] || '');
+          if (_eid && result.emailBriefs[_eid] && result.emailBriefs[_eid].design_brief) {
+            row[25] = result.emailBriefs[_eid].design_brief;
+            _esDirty = true;
+          }
+        });
+        if (_esDirty) _esSheet.getRange(2, 1, _esData.length, 26).setValues(_esData);
+        Logger.log('[DesignBriefs] EmailSequences write-back done');
+      }
+    } catch(we) { Logger.log('[DesignBriefs] EmailSequences write-back error: ' + we.message); }
+  }
 
   return result;
 }

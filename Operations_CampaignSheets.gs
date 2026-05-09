@@ -68,7 +68,8 @@ var _CC_HDR = {
     'preview_text','body_hook','body_problem','body_agitate','body_solve',
     'body_value','body_proof','body_cta','send_day','trigger_event',
     'status','approved','approved_by','built_in_klaviyo','klaviyo_id',
-    'funnel_stage','subject_angle','body_theme','role','seq_template_id'
+    'funnel_stage','subject_angle','body_theme','role','seq_template_id',
+    'design_brief'
   ],
   CampaignTypes: [
     'id','cta_type','label','cta_text','destination_url','destination_label',
@@ -82,7 +83,8 @@ var _CC_HDR = {
   ],
   SocialPosts: [
     'id','campaign_id','platform','hook','body_copy','cta','hashtags',
-    'image_brief','image_url','scheduled_date','scheduled_time','status','dl_id','utm_url','posted_url'
+    'image_brief','image_url','scheduled_date','scheduled_time','status','dl_id','utm_url','posted_url',
+    'design_brief'
   ],
   LandingPages: [
     'id','campaign_id','icp_code','slug','full_url','title_tag','meta_description',
@@ -1050,7 +1052,8 @@ function _seqRowToObj(r) {
     subject_angle:   r[21] || '',
     body_theme:      r[22] || '',
     role:            r[23] || '',
-    seq_template_id: r[24] || ''
+    seq_template_id: r[24] || '',
+    design_brief:    r[25] || ''
   };
 }
 
@@ -1102,7 +1105,8 @@ function setEmailSequence(item) {
     item.subject_angle     !== undefined ? item.subject_angle     : (ex ? ex[21] : ''),
     item.body_theme        !== undefined ? item.body_theme        : (ex ? ex[22] : ''),
     item.role              !== undefined ? item.role              : (ex ? ex[23] : ''),
-    item.seq_template_id   !== undefined ? item.seq_template_id   : (ex ? ex[24] : '')
+    item.seq_template_id   !== undefined ? item.seq_template_id   : (ex ? ex[24] : ''),
+    item.design_brief      !== undefined ? item.design_brief      : (ex ? ex[25] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -1116,7 +1120,8 @@ function _socialRowToObj(r) {
     image_url: r[8] || '',
     scheduled_date: _ccFmtDate(r[9]), scheduled_time: r[10] || '08:00',
     status: r[11],
-    dl_id: r[12], utm_url: r[13], posted_url: r[14]
+    dl_id: r[12], utm_url: r[13], posted_url: r[14],
+    design_brief: r[15] || ''
   };
 }
 
@@ -1158,7 +1163,8 @@ function setSocialPost(item) {
     item.status         !== undefined ? item.status         : (ex ? ex[11] : 'draft'),
     item.dl_id          !== undefined ? item.dl_id          : (ex ? ex[12] : ''),
     item.utm_url        !== undefined ? item.utm_url        : (ex ? ex[13] : ''),
-    item.posted_url     !== undefined ? item.posted_url     : (ex ? ex[14] : '')
+    item.posted_url     !== undefined ? item.posted_url     : (ex ? ex[14] : ''),
+    item.design_brief   !== undefined ? item.design_brief   : (ex ? ex[15] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
