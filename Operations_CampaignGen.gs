@@ -296,19 +296,71 @@ function fcGenerateUtmAndSave(campaignId) {
     }
     Logger.log('[fcUTMSave] SocialPosts dl_id+utm_url writes: ' + dlWriteCount);
 
-    // 4. Build emailDlMap {emailId|seqId → {dl_id, utm_url}} for batch write
+    // 4. Ensure DL-EM entries exist in DeepLinkRegistry (one per sequence), then build emailDlMap
     Logger.log('[UTM-EMAIL] emails to process: ' + emails.length);
-    emails.forEach(function(email) {
-      Logger.log('[UTM-EMAIL] id: ' + email.id + ' seq_id: ' + email.seq_id +
-        ' sequence_code: ' + email.sequence_code + ' dl_id: ' + email.dl_id + ' utm_url: ' + email.utm_url);
+    var _seqDefs = [
+      { seq: 'SEQ-1', code: 'seq1_welcome'    },
+      { seq: 'SEQ-2', code: 'seq2_nurture'    },
+      { seq: 'SEQ-3', code: 'seq3_urgency'    },
+      { seq: 'SEQ-4', code: 'seq4_launch_day' }
+    ];
+    var _lpBaseEmail = _buildLpUrl(brief.slug || brief.lp_slug_a || 'waitlist-a');
+    var _emUtmSrc = 'klaviyo'; var _emUtmMed = 'email';
+    try {
+      var _emChData = _getChannelData('Email');
+      _emUtmSrc = _emChData.utm_source || 'klaviyo';
+      _emUtmMed = _emChData.utm_medium || 'email';
+    } catch(ece) {}
+
+    // Read existing DL-EM entries keyed by SEQ-N
+    var _existEmDls  = getDlRegistry(brief.id || '').filter(function(u) { return /^DL-EM/i.test(u.dl_id || ''); });
+    var _emBySeq     = {};
+    _existEmDls.forEach(function(dl, i) {
+      var _sm = String(dl.notes || dl.utm_content || '').match(/SEQ-\d+/i);
+      if (_sm) _emBySeq[_sm[0].toUpperCase()] = dl;
+      else if (_seqDefs[i]) _emBySeq[_seqDefs[i].seq] = dl; // positional fallback
     });
-    var emailDls = utms.filter(function(u) {
-      return /^DL-EM/i.test(u.dl_id || '') ||
-             (u.channel || '').toLowerCase() === 'email';
-    });
-    Logger.log('[UTM-EMAIL] emailDls in registry: ' + emailDls.length);
-    // Positional assignment: SEQ-1→emailDls[0], SEQ-2→emailDls[1], etc.
-    var _seqOrder = ['SEQ-1', 'SEQ-2', 'SEQ-3', 'SEQ-4'];
+    Logger.log('[UTM-EMAIL] DL-EM entries in registry: ' + _existEmDls.length);
+
+    // Generate any missing DL-EM entries as a single batch write
+    var _missingSeqs = _seqDefs.filter(function(sd) { return !_emBySeq[sd.seq]; });
+    if (_missingSeqs.length) {
+      Logger.log('[UTM-EMAIL] Generating ' + _missingSeqs.length + ' missing DL-EM entries: ' +
+        _missingSeqs.map(function(sd){return sd.seq;}).join(', '));
+      var _emSheet   = _getCCSheet(_CC_TAB.DL);
+      var _emHeaders = _CC_HDR.DeepLinkRegistry;
+      var _emMaxNum  = 0;
+      if (_emSheet.getLastRow() >= 2) {
+        _emSheet.getRange(2, 1, _emSheet.getLastRow() - 1, 1).getValues().forEach(function(r) {
+          var m = String(r[0]).match(/^DL-EM-(\d+)/i);
+          if (m) { var n = parseInt(m[1], 10); if (n > _emMaxNum) _emMaxNum = n; }
+        });
+      }
+      var _emNow = _ccNow(); var _emNewRows = [];
+      _missingSeqs.forEach(function(sd) {
+        _emMaxNum++;
+        var _dlId    = 'DL-EM-' + String(_emMaxNum).padStart(4, '0');
+        var _utmC    = _dlId + '_' + sd.seq + '_cta';
+        var _fullUrl = _lpBaseEmail +
+          '?utm_source='   + encodeURIComponent(_emUtmSrc) +
+          '&utm_medium='   + encodeURIComponent(_emUtmMed) +
+          '&utm_campaign=' + encodeURIComponent(brief.id || '') +
+          '&utm_content='  + encodeURIComponent(_utmC);
+        _emNewRows.push([_dlId, _utmC, brief.id, 'Email', _lpBaseEmail,
+          _emUtmSrc, _emUtmMed, sd.code, 'ACTIVE', _emNow, _emNow,
+          'fcGenerateUtmAndSave', 'Email · ' + sd.seq]);
+        _emBySeq[sd.seq] = { dl_id: _dlId, utm_source: _emUtmSrc, utm_medium: _emUtmMed,
+          destination_url: _lpBaseEmail, utm_content: _utmC, full_url: _fullUrl };
+      });
+      var _emAppendAt = _emSheet.getLastRow() + 1;
+      var _emRange    = _emSheet.getRange(_emAppendAt, 1, _emNewRows.length, _emHeaders.length);
+      _emRange.setNumberFormat('@');
+      _emRange.setValues(_emNewRows);
+      Logger.log('[UTM-EMAIL] Registered: ' + _emNewRows.map(function(r){return r[0];}).join(', '));
+    }
+    Logger.log('[UTM-EMAIL] DL-EM map built — seqs: ' + Object.keys(_emBySeq).join(', '));
+
+    // Build emailDlMap {emailId|seqId → {dl_id, utm_url}} for batch write
     var _emailsBySeq = {};
     emails.forEach(function(email) {
       var seq = email.sequence_code || '';
@@ -316,18 +368,21 @@ function fcGenerateUtmAndSave(campaignId) {
       _emailsBySeq[seq].push(email);
     });
     var emailDlMap = {};
-    _seqOrder.forEach(function(seq, idx) {
-      var entry = emailDls[idx] || null;
-      if (!entry) return;
-      (_emailsBySeq[seq] || []).forEach(function(email) {
+    _seqDefs.forEach(function(sd) {
+      var _entry = _emBySeq[sd.seq];
+      if (!_entry) return;
+      var _dlId    = _entry.dl_id || '';
+      var _dlBase  = _entry.destination_url || _lpBaseEmail;
+      var _dlUtmC  = _entry.utm_content || (_dlId + '_' + sd.seq + '_cta');
+      var _fullUrl = _entry.full_url || (_dlBase +
+        '?utm_source='   + encodeURIComponent(_entry.utm_source || _emUtmSrc) +
+        '&utm_medium='   + encodeURIComponent(_entry.utm_medium || _emUtmMed) +
+        '&utm_campaign=' + encodeURIComponent(brief.id || '') +
+        '&utm_content='  + encodeURIComponent(_dlUtmC));
+      (_emailsBySeq[sd.seq] || []).forEach(function(email) {
         var mapKey = String(email.id || email.seq_id || '');
         if (!mapKey) return;
-        var fullUrl = (entry.destination_url || 'https://easychefpro.com/lp/waitlist-a') +
-          '?utm_source=klaviyo' +
-          '&utm_medium=email' +
-          '&utm_campaign=' + encodeURIComponent(brief.id || '') +
-          '&utm_content=' + encodeURIComponent((entry.dl_id || '') + '_' + (email.seq_id || seq) + '_cta');
-        emailDlMap[mapKey] = { dl_id: entry.dl_id, utm_url: fullUrl };
+        emailDlMap[mapKey] = { dl_id: _dlId, utm_url: _fullUrl };
       });
     });
     Logger.log('[UTM-EMAIL] emailDlMap keys built: ' + Object.keys(emailDlMap).length);
