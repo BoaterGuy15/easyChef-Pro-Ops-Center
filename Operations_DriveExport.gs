@@ -86,13 +86,13 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     // ── 2. 00 — Campaign Brief (HTML file) ─────────────────────────────────────
     Logger.log('[DriveExport] Section 2: Campaign Brief HTML');
     try {
-      var _dlCount = (function() {
-        var seen = {};
-        posts.forEach(function(p)  { if (p.dl_id)  seen[p.dl_id]  = 1; });
-        emails.forEach(function(e) { if (e.dl_id)  seen[e.dl_id]  = 1; });
-        return Object.keys(seen).length;
-      })();
-      var briefHtml = _buildBriefHtml(brief, copy, _dlCount, _genDate);
+      var _regDls = [];
+      try {
+        _regDls = getDlRegistry(brief.id || '').filter(function(r) {
+          return (r.status || '').toUpperCase() === 'ACTIVE';
+        });
+      } catch(re) {}
+      var briefHtml = _buildBriefHtml(brief, copy, _regDls, _genDate);
       var briefFile = DriveApp.createFile('00 — Campaign Brief.html', briefHtml, MimeType.HTML);
       briefFile.moveTo(folder);
       try { briefFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(se) {}
@@ -148,7 +148,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       calSh.setName('Calendar');
       calSh.setTabColor(_BRAND_RED);
 
-      var _CAL_HDR  = ['Day','Scheduled Date/Time','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA URL','Image Brief','Hashtags','Status'];
+      var _CAL_HDR  = ['Day','Date','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA Text','UTM URL','DL ID','Image Brief','Hashtags','Status'];
       var _SEQ_OFF  = { 'SEQ-1':0, 'SEQ-2':0, 'SEQ-3':28, 'SEQ-4':42, 'SEQ-5':0 };
       var _launch   = brief.launchDate ? new Date(brief.launchDate + 'T12:00:00') : null;
       var numCols   = _CAL_HDR.length;
@@ -164,7 +164,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         var d = new Date(_launch);
         d.setDate(d.getDate() + day);
         // Use ISO format so Sheets cannot auto-parse it as a date serial
-        return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+        return Utilities.formatDate(d, Session.getScriptTimeZone(), 'MMM d, yyyy');
       };
 
       var calDataRows = [];
@@ -179,14 +179,14 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         var preA     = e.preview_text_a || e.preheader || '';
         var preB     = e.preview_text_b || '';
         var cta      = e.body_cta       || e.cta_text  || '';
-        calDataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (A)', 'Email', subA, preA, cta, '', '', e.status||'draft']);
-        if (subB) calDataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (B)', 'Email', subB, preB, cta, '', '', e.status||'draft']);
+        calDataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (A)', 'Email', subA, preA, cta, e.utm_url||'', e.dl_id||'', '', '', e.status||'draft']);
+        if (subB) calDataRows.push([day, _dtStr(day), _wkLbl(day), e.funnel_stage||'', seqCode+'-E'+emailNum+' (B)', 'Email', subB, preB, cta, e.utm_url||'', e.dl_id||'', '', '', e.status||'draft']);
       });
 
       // Social post rows
       posts.forEach(function(p) {
         var pday = parseInt(p.scheduled_day) || 0;
-        calDataRows.push([pday, _dtStr(pday), _wkLbl(pday), p.theme||'', 'Social', p.platform||p.channel||'', p.hook||'', p.body_copy||p.body||'', p.utm_url||'', '', p.hashtags||'', p.status||'draft']);
+        calDataRows.push([pday, _dtStr(pday), _wkLbl(pday), p.theme||'', 'Social', p.platform||p.channel||'', p.hook||'', p.body_copy||p.body||'', p.cta||'', p.utm_url||'', p.dl_id||'', '', p.hashtags||'', p.status||'draft']);
       });
 
       // Sort by day ascending
@@ -244,15 +244,15 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         }
         // Bold the Day column (col 1)
         calSh.getRange(4, 1, numDataRows, 1).setFontWeight('bold');
-        // Wrap text for Subject/Hook (7), Preview/Body (8), Image Brief (10)
-        [7, 8, 10].forEach(function(col) {
+        // Wrap text for Subject/Hook (7), Preview/Body (8), UTM URL (10), Image Brief (12)
+        [7, 8, 10, 12].forEach(function(col) {
           calSh.getRange(4, col, numDataRows, 1).setWrap(true);
         });
       }
 
       // ── Column widths ──
       calSh.autoResizeColumns(1, numCols);
-      var _minWidths = [40, 140, 160, 90, 130, 90, 260, 280, 260, 200, 120, 70];
+      var _minWidths = [40, 120, 150, 90, 120, 90, 240, 260, 140, 260, 90, 160, 110, 70];
       _minWidths.forEach(function(minW, ci) {
         if (calSh.getColumnWidth(ci + 1) < minW) calSh.setColumnWidth(ci + 1, minW);
       });
@@ -706,12 +706,29 @@ function _buildSocialPostsHtml(brief, posts, genDate) {
                + (fmtDate ? ' &nbsp;&middot;&nbsp; ' + _h(fmtDate) : '')
                + '</div>\n';
       cardsHtml += '    <table><tbody>\n';
-      if (post.hook)                        cardsHtml += '      <tr><td class="td-label">Hook</td><td class="td-value td-copy">'        + _h(post.hook)                    + '</td></tr>\n';
-      if (post.body_copy || post.body)      cardsHtml += '      <tr><td class="td-label">Body</td><td class="td-value td-copy">'        + _h(post.body_copy || post.body)  + '</td></tr>\n';
-      if (post.hashtags)                    cardsHtml += '      <tr><td class="td-label">Hashtags</td><td class="td-value">'            + _h(post.hashtags)                + '</td></tr>\n';
-      if (post.cta)                         cardsHtml += '      <tr><td class="td-label">CTA</td><td class="td-value">'                 + _h(post.cta)                     + '</td></tr>\n';
-      if (post.utm_url)                     cardsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">'     + _h(post.utm_url)                 + '</td></tr>\n';
-      if (post.dl_id)                       cardsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">'              + _h(post.dl_id)                   + '</td></tr>\n';
+      var _stage    = post.funnel_stage || post.theme || '';
+      var _stageEmo = {
+        hook:'Exhausted · Defeated', problem:'Frustrated · Stuck',
+        agitate:'Shocked · Recognition', solve:'Curious · Surprised',
+        value:'Calm · Confident', proof:'Trusting · Proud', cta:'Peaceful · Satisfied'
+      };
+      var _emoTxt = _stage ? (_stageEmo[_stage.toLowerCase()] || '') : '';
+      if (_stage) {
+        cardsHtml += '      <tr><td class="td-label">Stage</td><td class="td-value">'
+          + '<span class="badge-stage">' + _h(_stage.toUpperCase()) + '</span>'
+          + (_emoTxt ? ' <span class="emo-label">' + _h(_emoTxt) + '</span>' : '')
+          + '</td></tr>\n';
+      }
+      if (post.hook) cardsHtml += '      <tr><td class="td-label">Hook</td><td class="td-value td-copy">' + _h(post.hook) + '</td></tr>\n';
+      var _bodyText = post.body_copy || post.body || '';
+      if (_bodyText) {
+        cardsHtml += '      <tr><td class="td-label">Body</td><td class="td-value td-copy">'
+          + _h(_bodyText) + '<br><span class="char-count">(' + _bodyText.length + ' chars)</span></td></tr>\n';
+      }
+      if (post.hashtags) cardsHtml += '      <tr><td class="td-label">Hashtags</td><td class="td-value">'        + _h(post.hashtags) + '</td></tr>\n';
+      if (post.cta)      cardsHtml += '      <tr><td class="td-label">CTA</td><td class="td-value">'             + _h(post.cta)      + '</td></tr>\n';
+      if (post.utm_url)  cardsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">' + _h(post.utm_url)  + '</td></tr>\n';
+      if (post.dl_id)    cardsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">'           + _h(post.dl_id)    + '</td></tr>\n';
       var st = post.status || 'draft';
       cardsHtml += '      <tr><td class="td-label">Status</td><td class="td-value"><span class="badge badge-' + _h(st) + '">' + _h(st.toUpperCase()) + '</span></td></tr>\n';
       cardsHtml += '    </tbody></table>\n  </div>\n';
@@ -749,6 +766,9 @@ function _buildSocialPostsHtml(brief, posts, genDate) {
   + '  .badge-draft    { background:var(--beige); color:var(--gray); border:1px solid var(--border); }\n'
   + '  .badge-approved { background:#00A844; color:var(--white); }\n'
   + '  .badge-live     { background:var(--red); color:var(--white); }\n'
+  + '  .badge-stage { display:inline-block; background:var(--red); color:var(--white); padding:2px 8px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:0.05em; }\n'
+  + '  .emo-label { font-size:11px; color:var(--gray); font-style:italic; }\n'
+  + '  .char-count { font-size:11px; color:var(--gray); font-style:normal; }\n'
   + '  .footer { margin-top:40px; padding-top:12px; border-top:2px solid var(--red); font-size:11px; color:var(--gray); }\n'
   + '  @media print { .channel-section { page-break-inside:avoid; } }\n'
   + '</style>\n';
@@ -826,11 +846,31 @@ function _buildEmailSeqsHtml(brief, emails, genDate) {
       // Subject B — always render row; show PENDING placeholder when blank
       seqsHtml += '      <tr><td class="td-label">Subject B</td><td class="td-value td-copy"><span class="badge badge-b">B</span> '
                + (subB ? _h(subB) : '<span class="td-pending">' + _h(pendTxt) + '</span>') + '</td></tr>\n';
-      if (preA) seqsHtml += '      <tr><td class="td-label">Preview A</td><td class="td-value td-copy">' + _h(preA) + '</td></tr>\n';
-      if (preB) seqsHtml += '      <tr><td class="td-label">Preview B</td><td class="td-value td-copy">' + _h(preB) + '</td></tr>\n';
-      if (email.body) seqsHtml += '      <tr><td class="td-label">Body</td><td class="td-value">' + _h(email.body) + '</td></tr>\n';
-      if (cta)  seqsHtml += '      <tr><td class="td-label">CTA</td><td class="td-value">' + _h(cta) + (ctaUrl ? ' <span class="td-url">&rarr; ' + _h(ctaUrl) + '</span>' : '') + '</td></tr>\n';
-      if (email.dl_id)  seqsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">' + _h(email.dl_id) + '</td></tr>\n';
+      // Preview — always render; uses single preview_text field with fallback to legacy
+      var _previewText = email.preview_text || preA || preB || '';
+      seqsHtml += '      <tr><td class="td-label">Preview</td><td class="td-value td-copy">'
+        + (_previewText ? _h(_previewText) : '<span class="td-pending">' + _h(pendTxt) + '</span>')
+        + '</td></tr>\n';
+      // Step-by-step body rows
+      var _hasSteps = email.step1_hook || email.body_hook || email.body_problem;
+      if (email.step1_hook    || email.body_hook)    seqsHtml += '      <tr><td class="td-label td-dim">1 Hook</td><td class="td-value td-copy">'    + _h(email.step1_hook    || email.body_hook)    + '</td></tr>\n';
+      if (email.step2_problem || email.body_problem) seqsHtml += '      <tr><td class="td-label td-dim">2 Problem</td><td class="td-value td-copy">' + _h(email.step2_problem || email.body_problem) + '</td></tr>\n';
+      if (email.step3_agitate || email.body_agitate) seqsHtml += '      <tr><td class="td-label td-dim">3 Agitate</td><td class="td-value td-copy">' + _h(email.step3_agitate || email.body_agitate) + '</td></tr>\n';
+      if (email.step4_solve   || email.body_solve)   seqsHtml += '      <tr><td class="td-label td-dim">4 Solve</td><td class="td-value td-copy">'   + _h(email.step4_solve   || email.body_solve)   + '</td></tr>\n';
+      if (email.step5_value   || email.body_value)   seqsHtml += '      <tr><td class="td-label td-dim">5 Value</td><td class="td-value td-copy">'   + _h(email.step5_value   || email.body_value)   + '</td></tr>\n';
+      if (email.step6_proof   || email.body_proof)   seqsHtml += '      <tr><td class="td-label td-dim">6 Proof</td><td class="td-value td-copy">'   + _h(email.step6_proof   || email.body_proof)   + '</td></tr>\n';
+      if (!_hasSteps && email.body) seqsHtml += '      <tr><td class="td-label">Body</td><td class="td-value td-copy">' + _h(email.body) + '</td></tr>\n';
+      // CTA with optional button label
+      var _ctaText = email.step7_cta_text || cta || '';
+      var _ctaBtn  = email.step7_cta_button || '';
+      if (_ctaText) seqsHtml += '      <tr><td class="td-label td-dim">7 CTA</td><td class="td-value">'
+        + _h(_ctaText)
+        + (_ctaBtn ? ' &nbsp;<span class="badge badge-b">' + _h(_ctaBtn) + '</span>' : '')
+        + (ctaUrl  ? ' <span class="td-url">&rarr; ' + _h(ctaUrl) + '</span>' : '')
+        + '</td></tr>\n';
+      // P.S.
+      if (email.body_ps) seqsHtml += '      <tr><td class="td-label td-dim">P.S.</td><td class="td-value td-copy">' + _h(email.body_ps) + '</td></tr>\n';
+      if (email.dl_id)   seqsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">'          + _h(email.dl_id)   + '</td></tr>\n';
       if (email.utm_url) seqsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">' + _h(email.utm_url) + '</td></tr>\n';
       var st = email.status || 'draft';
       seqsHtml += '      <tr><td class="td-label">Status</td><td class="td-value"><span class="badge badge-' + _h(st) + '">' + _h(st.toUpperCase()) + '</span></td></tr>\n';
@@ -866,6 +906,7 @@ function _buildEmailSeqsHtml(brief, emails, genDate) {
   + '  .td-copy  { font-style:italic; }\n'
   + '  .td-url   { font-family:monospace; font-size:11px; word-break:break-all; color:var(--gray); }\n'
   + '  .td-pending { color:#999; font-style:italic; }\n'
+  + '  .td-dim { font-weight:400; color:var(--gray); font-size:11px; }\n'
   + '  .badge { display:inline-block; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; letter-spacing:0.05em; }\n'
   + '  .badge-a    { background:var(--red);   color:var(--white); }\n'
   + '  .badge-b    { background:var(--black); color:var(--white); }\n'
@@ -901,12 +942,29 @@ function _buildEmailSeqsHtml(brief, emails, genDate) {
 
 
 // ── HTML Campaign Brief builder ───────────────────────────────────────────────
-function _buildBriefHtml(brief, copy, dlCount, genDate) {
+function _buildBriefHtml(brief, copy, dlEntries, genDate) {
   copy = copy || {};
   var _h = function(v) {
     return String(v == null ? '' : v)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   };
+  var dlCount = Array.isArray(dlEntries) ? dlEntries.length : (parseInt(dlEntries) || 0);
+  var _pfxMap = {};
+  if (Array.isArray(dlEntries)) {
+    dlEntries.forEach(function(u) {
+      var parts = (u.dl_id || '').split('-');
+      var pfx = parts.length >= 2 ? parts[1] : '';
+      if (pfx) _pfxMap[pfx] = (_pfxMap[pfx] || 0) + 1;
+    });
+  }
+  var _pfxSummary = Object.keys(_pfxMap).sort().map(function(p) {
+    return p + '×' + _pfxMap[p];
+  }).join(' · ') || '—';
+  var _utmCampaignMap = {};
+  if (Array.isArray(dlEntries)) {
+    dlEntries.forEach(function(u) { if (u.utm_campaign) _utmCampaignMap[u.utm_campaign] = 1; });
+  }
+  var _utmCampaignStr = Object.keys(_utmCampaignMap).join(' · ') || '—';
   var chs  = Array.isArray(brief.channels) ? brief.channels.join(' · ') : (brief.channel || '');
   var seqN = String(brief.email_sequences || 4);
 
@@ -1000,7 +1058,8 @@ function _buildBriefHtml(brief, copy, dlCount, genDate) {
   + '  <tr><td class="td-label">utm_medium (email)</td><td class="td-value">email</td></tr>\n'
   + '  <tr><td class="td-label">utm_medium (video)</td><td class="td-value">video</td></tr>\n'
   + '  <tr><td class="td-label">utm_content format</td><td class="td-value">DL-[PREFIX]-[NNNN]_[stage_descriptor]</td></tr>\n'
-  + '  <tr><td class="td-label">DL_ID count</td><td class="td-value">' + _h(dlCount) + ' ACTIVE (7×FB &middot; 7×IG &middot; 1×TK &middot; 7×PT &middot; 7×ND &middot; 1×YT &middot; 7×X &middot; 1×EM)</td></tr>\n'
+  + '  <tr><td class="td-label">DL_ID count</td><td class="td-value">' + _h(dlCount) + ' ACTIVE &middot; ' + _h(_pfxSummary) + '</td></tr>\n'
+  + '  <tr><td class="td-label">utm_campaign values</td><td class="td-value">' + _h(_utmCampaignStr) + '</td></tr>\n'
   + '</tbody></table>\n\n'
   // FOOTER
   + '<div class="footer">\n'

@@ -231,7 +231,7 @@ function campaignGen(brief) {
   }
 }
 
-// ── Pipeline step: UTM + DL generation only (no Drive) ────────────────────────
+// ── Pipeline step: UTM + DL generation — writes DL_IDs to all Sheet tabs ─────
 
 function fcGenerateUtmAndSave(campaignId) {
   try {
@@ -244,18 +244,99 @@ function fcGenerateUtmAndSave(campaignId) {
     var emails = getEmailSequences(campaignId);
     Logger.log('[fcUTMSave] Posts: ' + posts.length + ' | Emails: ' + emails.length);
 
+    // 1. Generate ACTIVE DL entries in DeepLinkRegistry
     var saveResult = saveCampaignDraft({ brief: brief, copy: copy, posts: posts, emails: emails });
-    var utmCount   = (saveResult.utms || []).length;
-    Logger.log('[fcUTMSave] Done — ' + utmCount + ' DL_IDs registered');
+    var utms = saveResult.utms || [];
+    Logger.log('[fcUTMSave] DL entries generated: ' + utms.length);
 
-    return { ok: true, dl_count: utmCount, posts: posts.length, emails: emails.length };
+    // 2. Write dl_id + utm_url back to SocialPosts tab rows
+    // Group social UTMs by platform (exclude LP and Email prefixes)
+    var _utmByPlatform = {};
+    utms.forEach(function(u) {
+      if (/^DL-LP/i.test(u.dl_id || '') || /^DL-EM/i.test(u.dl_id || '')) return;
+      var ch = (u.channel || '').toLowerCase();
+      if (!_utmByPlatform[ch]) _utmByPlatform[ch] = [];
+      _utmByPlatform[ch].push(u);
+    });
+    var _postsByPlatform = {};
+    posts.forEach(function(p) {
+      var pl = (p.platform || '').toLowerCase();
+      if (!_postsByPlatform[pl]) _postsByPlatform[pl] = [];
+      _postsByPlatform[pl].push(p);
+    });
+    var dlWriteCount = 0;
+    Object.keys(_postsByPlatform).forEach(function(platform) {
+      var pArr = _postsByPlatform[platform];
+      var uArr = _utmByPlatform[platform] || [];
+      pArr.forEach(function(post, i) {
+        var u = uArr[i] || uArr[uArr.length - 1] || null;
+        if (!u || !post.id) return;
+        setSocialPost({ id: post.id, dl_id: u.dl_id, utm_url: u.full_url });
+        dlWriteCount++;
+      });
+    });
+    Logger.log('[fcUTMSave] SocialPosts dl_id+utm_url writes: ' + dlWriteCount);
+
+    // 3. Write dl_id + utm_url to EmailSequences rows (if columns exist in sheet)
+    var _seqToCode = {
+      'SEQ-1': 'seq1_welcome', 'SEQ-2': 'seq2_nurture',
+      'SEQ-3': 'seq3_urgency', 'SEQ-4': 'seq4_launch_day'
+    };
+    var emailDls = utms.filter(function(u) {
+      return /^DL-EM/i.test(u.dl_id || '') ||
+             (u.channel || '').toLowerCase() === 'email';
+    });
+    emails.forEach(function(email) {
+      var code  = _seqToCode[email.sequence_code || ''] || '';
+      var entry = null;
+      for (var di = 0; di < emailDls.length; di++) {
+        if ((emailDls[di].utm_campaign || '') === code) { entry = emailDls[di]; break; }
+      }
+      if (!entry || !email.id) return;
+      var fullUrl = (entry.destination_url || '') +
+        '?utm_source='   + encodeURIComponent(entry.utm_source   || '') +
+        '&utm_medium='   + encodeURIComponent(entry.utm_medium   || '') +
+        '&utm_campaign=' + encodeURIComponent(entry.utm_campaign || '') +
+        '&utm_content='  + encodeURIComponent(entry.utm_content  || '');
+      _writeEmailDlId(email.id, entry.dl_id, fullUrl);
+    });
+
+    // 4. Confirm LP DL_ID is ACTIVE in DeepLinkRegistry
+    var lpDlId = '';
+    utms.forEach(function(u) { if (/^DL-LP/i.test(u.dl_id || '')) lpDlId = u.dl_id; });
+    Logger.log('[fcUTMSave] Done — ' + utms.length + ' DL_IDs · LP: ' + lpDlId + ' · social writes: ' + dlWriteCount);
+
+    return { ok: true, dl_count: utms.length, posts: posts.length, emails: emails.length, lp_dl_id: lpDlId };
   } catch(e) {
     Logger.log('[fcUTMSave] ERROR: ' + e.message);
     return { ok: false, error: e.message };
   }
 }
 
-// ── Pipeline step: Drive export only (separate GAS call) ──────────────────────
+// Write dl_id + utm_url directly to an EmailSequences row if those columns exist.
+// Safe no-op when the sheet has not yet had those columns added.
+function _writeEmailDlId(emailId, dlId, utmUrl) {
+  try {
+    var sheet   = _getCCSheet(_CC_TAB.EMAIL);
+    var data    = sheet.getDataRange().getValues();
+    if (data.length < 1) return;
+    var headers = data[0].map(function(h) { return String(h).trim(); });
+    var dlCol   = headers.indexOf('dl_id');
+    var urlCol  = headers.indexOf('utm_url');
+    if (dlCol < 0 && urlCol < 0) return;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(emailId)) {
+        if (dlCol  >= 0) sheet.getRange(i + 1, dlCol  + 1).setValue(dlId);
+        if (urlCol >= 0) sheet.getRange(i + 1, urlCol + 1).setValue(utmUrl);
+        return;
+      }
+    }
+  } catch(e) {
+    Logger.log('[writeEmailDlId] ' + emailId + ': ' + e.message);
+  }
+}
+
+// ── Pipeline step: Drive export — reads DL_IDs from Sheet, never blank ────────
 
 function fcExportCampaignToDrive(campaignId) {
   try {
@@ -268,6 +349,38 @@ function fcExportCampaignToDrive(campaignId) {
     var emails = getEmailSequences(campaignId);
     var lp     = null;
     try { lp = getLPInventoryBySlug(brief.slug) || null; } catch(le) {}
+
+    // Enrich email objects with DL_IDs from DeepLinkRegistry.
+    // EmailSequences tab may not have dl_id column — DeepLinkRegistry is authoritative.
+    var _seqToCode = {
+      'SEQ-1': 'seq1_welcome', 'SEQ-2': 'seq2_nurture',
+      'SEQ-3': 'seq3_urgency', 'SEQ-4': 'seq4_launch_day'
+    };
+    try {
+      var allDls   = getDlRegistry(campaignId);
+      var emailDls = allDls.filter(function(u) {
+        return /^DL-EM/i.test(u.dl_id || '') ||
+               (u.channel || '').toLowerCase() === 'email';
+      });
+      emails.forEach(function(email) {
+        if (email.dl_id) return; // already written by fcGenerateUtmAndSave
+        var code  = _seqToCode[email.sequence_code || ''] || '';
+        var entry = null;
+        for (var di = 0; di < emailDls.length; di++) {
+          if ((emailDls[di].utm_campaign || '') === code) { entry = emailDls[di]; break; }
+        }
+        if (!entry) return;
+        email.dl_id   = entry.dl_id;
+        email.utm_url = (entry.destination_url || '') +
+          '?utm_source='   + encodeURIComponent(entry.utm_source   || '') +
+          '&utm_medium='   + encodeURIComponent(entry.utm_medium   || '') +
+          '&utm_campaign=' + encodeURIComponent(entry.utm_campaign || '') +
+          '&utm_content='  + encodeURIComponent(entry.utm_content  || '');
+      });
+      Logger.log('[fcDriveExport] Email DL enrichment: ' + emailDls.length + ' entries from registry');
+    } catch(dlErr) {
+      Logger.log('[fcDriveExport] Email DL enrichment failed: ' + dlErr.message);
+    }
 
     Logger.log('[fcDriveExport] Starting — posts: ' + posts.length + ' | emails: ' + emails.length);
     var result = exportCampaignToDrive(brief, copy, posts, lp || {}, emails);
