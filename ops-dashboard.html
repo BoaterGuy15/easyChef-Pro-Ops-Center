@@ -23928,6 +23928,38 @@ function _ccCopyFallback(text,confirm){
   document.body.removeChild(el);
 }
 
+// ── Debug test helper — runs a single GAS action and shows raw result ────────
+function _ccDebugTest(action, campaignId) {
+  var panel = document.getElementById('cc-debug-panel');
+  if (!panel) return;
+  panel.style.display = 'block';
+  panel.textContent = '[' + action + '] sending…';
+  var payload = { action: action, campaign_id: campaignId };
+  fetch(CONFIG.sheetsUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(function(res) {
+    var ct = res.headers.get('content-type') || '';
+    if (ct.indexOf('application/json') < 0 && ct.indexOf('text/plain') < 0) {
+      return res.text().then(function(t) {
+        panel.textContent = '[' + action + '] Non-JSON response (GAS timeout or HTML error page):\n' + t.substring(0, 600);
+      });
+    }
+    return res.json().then(function(data) {
+      if (data && data.error && data.error.indexOf('Expected task array') >= 0) {
+        panel.textContent = '[' + action + '] Action not found in doPost router\n' + JSON.stringify(data, null, 2);
+      } else {
+        panel.textContent = '[' + action + '] ' + (data.ok ? 'SUCCESS' : 'FAILED') + '\n' + JSON.stringify(data, null, 2);
+      }
+    });
+  })
+  .catch(function(err) {
+    panel.textContent = '[' + action + '] CORS or network error — action may not be registered, or GAS timed out\n' + err.message;
+  });
+}
+
 // ── One-click full campaign runner ───────────────────────────────────────────
 function _ccRunFullCampaign(campaignId){
   if(!CONFIG.sheetsUrl){_showToast('<div style="color:var(--muted)">No backend URL configured.</div>',2500);return;}
@@ -29323,6 +29355,16 @@ function _campaignsRenderInner(root){
           '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
         '</div>'+
       '</div>'+
+      // ── Debug buttons — visible only when ?debug=true ──────────────────────
+      (window.location.search.indexOf('debug=true')>=0 ?
+        '<div id="cc-debug-bar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:14px">'+
+          '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-family:\'DM Mono\',monospace">DEBUG</span>'+
+          '<button onclick="_ccDebugTest(\'ping\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Ping GAS</button>'+
+          '<button onclick="_ccDebugTest(\'generate_utm_and_save\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 3 Only</button>'+
+          '<button onclick="_ccDebugTest(\'export_campaign_to_drive\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 4 Only</button>'+
+        '</div>'+
+        '<div id="cc-debug-panel" style="display:none;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:14px 16px;margin-bottom:14px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:1.7;color:#c9a84c;white-space:pre-wrap;max-height:260px;overflow:auto"></div>'
+      : '')+
       // ── Full Campaign Progress Panel ────────────────────────────────────────
       '<div id="cc-full-run-panel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">'+
         '<div style="padding:10px 16px;background:rgba(201,168,76,0.07);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'+

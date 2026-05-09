@@ -578,6 +578,9 @@ function doPost(e) {
     var veraResult = handleVeraAction(body);
     if(veraResult) return veraResult;
 
+    // ── Ping — confirms GAS is alive and CORS headers are present ─────────
+    if(body.action === 'ping') return respond({ ok:true, pong:true, version:'@351', ts:new Date().toISOString() });
+
     if(body.action === 'agenda_write') { setAgendaItem({ id:body.id||'', title:body.title||'', detail:body.detail||'', decision:body.decision||'', checked:body.checked||'false', owner:body.owner||'', deadline:body.deadline||'', category:body.category||'Manual', taskId:body.taskId||'', flag:body.flag||'', actionPlan:body.actionPlan||'', taskPlan:body.taskPlan||'', taskPlans:typeof body.taskPlans==='string'?JSON.parse(body.taskPlans||'[]'):body.taskPlans||[] }); return respond({ ok: true }); }
     if(body.action === 'anthropic') return callAnthropic(body);
     if(body.action === 'channel_maps_write') { setChannelMapEntry(body.mapType, body.key, body.channelId, body.channelName, body.changedBy||''); return respond({ ok:true }); }
