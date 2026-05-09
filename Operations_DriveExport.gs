@@ -710,6 +710,16 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate, lpBrief)
     ['6', 'PROOF',   'Proof bar (3 stats)',          _proofContent],
     ['7', 'CTA',     'Primary CTA (3× on page)',    _ctaContent]
   ];
+  // FIX 1: section_visuals may be a keyed object from Claude — flatten to plain text
+  var sectionVisualsText = '';
+  if (lpBrief.section_visuals && typeof lpBrief.section_visuals === 'object') {
+    sectionVisualsText = Object.keys(lpBrief.section_visuals).map(function(k) {
+      return k.toUpperCase() + ': ' + String(lpBrief.section_visuals[k]);
+    }).join('\n');
+  } else {
+    sectionVisualsText = String(lpBrief.section_visuals || '');
+  }
+
   var stepsRows = '';
   steps.forEach(function(s) {
     stepsRows += '  <tr>'
@@ -812,7 +822,7 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate, lpBrief)
       ? '<div class="sec-header">04 &mdash; DESIGN BRIEF</div>\n'
         + '<table><tbody>\n'
         + '  <tr><td class="td-label td-brief-label">Hero Visual</td><td class="td-brief">'      + _h(lpBrief.hero_visual      || '') + '</td></tr>\n'
-        + '  <tr><td class="td-label td-brief-label">Section Visuals</td><td class="td-brief">'  + _h(lpBrief.section_visuals  || '') + '</td></tr>\n'
+        + '  <tr><td class="td-label td-brief-label">Section Visuals</td><td class="td-brief">'  + _h(sectionVisualsText) + '</td></tr>\n'
         + '  <tr><td class="td-label td-brief-label">Loop Diagram</td><td class="td-brief">'     + _h(lpBrief.loop_diagram     || '') + '</td></tr>\n'
         + '  <tr><td class="td-label td-brief-label">Social Proof Bar</td><td class="td-brief">' + _h(lpBrief.social_proof_bar || '') + '</td></tr>\n'
         + '  <tr><td class="td-label td-brief-label">CTA Button Style</td><td class="td-brief">' + _h(lpBrief.cta_button_style || '') + '</td></tr>\n'
@@ -1255,12 +1265,17 @@ function _buildBriefHtml(brief, copy, dlEntries, genDate) {
   + '  <tr><td class="td-label">Goal</td><td class="td-value">' + _h(brief.goal) + '</td></tr>\n'
   + '  <tr><td class="td-label">Landing Page</td><td class="td-value">' + _h(brief.slug) + '</td></tr>\n'
   + '  <tr><td class="td-label">Launch Date</td><td class="td-value">' + _h(brief.launchDate) + '</td></tr>\n'
-  + '  <tr><td class="td-label">Campaign Angle</td><td class="td-value">' + _h(brief.campaign_angle) + '</td></tr>\n'
+  + '  <tr><td class="td-label">Campaign Angle</td><td class="td-value">' + _h(brief.campaign_angle || brief.angle || '') + '</td></tr>\n'
   + '  <tr><td class="td-label">Post Count</td><td class="td-value">' + _h(brief.post_count) + ' per platform &middot; ' + _h(brief.post_frequency) + '</td></tr>\n'
   + '  <tr><td class="td-label">Email Sequences</td><td class="td-value">SEQ-1 through SEQ-' + seqN + ' &middot; ' + seqN + ' DL_IDs</td></tr>\n'
   + '  <tr><td class="td-label">Email Variants</td><td class="td-value">A + B per email (A/B subject line test)</td></tr>\n'
-  + '  <tr><td class="td-label">Urgency Trigger</td><td class="td-value">' + _h(brief.urgency_trigger) + '</td></tr>\n'
-  + '  <tr><td class="td-label">Status</td><td class="td-value">' + _h((brief.status || 'draft').toUpperCase()) + '</td></tr>\n'
+  + '  <tr><td class="td-label">Urgency Trigger</td><td class="td-value">' + _h(brief.urgency_trigger || brief.urgency || '') + '</td></tr>\n'
+  + (function() {
+      var _approved = brief.ml_approved === true || brief.ml_approved === 'true' || brief.ml_approved === 1 || brief.ml_approved === '1';
+      return '  <tr><td class="td-label">Status</td><td class="td-value">'
+        + (_approved ? '<span style="color:#00A844;font-weight:600">ACTIVE</span>' : 'DRAFT')
+        + '</td></tr>\n';
+    })()
   + '</tbody></table>\n\n'
   // 02 GENERATED COPY
   + '<div class="section-label">02 &mdash; Generated Copy</div>\n'
