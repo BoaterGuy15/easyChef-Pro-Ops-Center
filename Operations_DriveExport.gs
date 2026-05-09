@@ -234,6 +234,16 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         if (!ends.length) return t.substring(0, 120);
         return t.substring(0, Math.min.apply(null, ends) + 1);
       };
+      // FIX 1: platform-optimised send times for Super Mom ICP
+      var _SEND_TIMES = {
+        'facebook':  '9:30 AM local',
+        'instagram': '11:30 AM local',
+        'pinterest': '8:00 PM local',
+        'nextdoor':  '8:30 AM local',
+        'x':         '9:00 AM local',
+        'tiktok':    '7:00 PM local (drop day)',
+        'youtube':   '12:00 PM local (drop day)'
+      };
       var _NO_TAG     = { 'facebook':1, 'nextdoor':1, 'youtube':1 };
       var _postBriefs = (_briefs && _briefs.postBriefs) ? _briefs.postBriefs : {};
 
@@ -248,18 +258,21 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           var day = (_seqDays && _seqDays[emailNum - 1] !== undefined)
             ? _seqDays[emailNum - 1]
             : (parseInt(e.send_day) || 0);
-          var subA = String(e.subject_line_a || e.subject   || '');
-          var preA = String(e.preview_text   || e.preview_text_a || e.preheader || '');
+          // FIX 2: explicit subject / utm_url / dl_id with all field-name variants
+          var subA   = String(e.subject_line_a || e.subject_a || e.subject   || '');
+          var preA   = String(e.preview_text   || e.preview_text_a || e.preheader || '');
           if (preA.length > 100) preA = preA.substring(0, 100);
-          var cta  = String(e.body_cta       || e.cta_text  || '');
+          var cta    = String(e.body_cta || e.cta_text || e.cta || '');
+          var utmUrl = String(e.utm_url  || e.utmUrl   || e.utm_link || '');
+          var dlId   = String(e.dl_id    || e.dlId     || e.deeplink_id || '');
           calDataRows.push([
             day, _dtStr(day), _wkLbl(day), String(e.funnel_stage || ''),
             seqCode + '-E' + emailNum, 'Email',
             subA, preA, cta,
-            String(e.utm_url || ''), String(e.dl_id || ''),
+            utmUrl, dlId,
             '', '',
             String(e.status || 'draft'),
-            'Klaviyo', '9:00 AM local'
+            'Klaviyo', '6:30 AM local'   // FIX 1: email send time
           ]);
         });
         Logger.log('[CalendarXlsx] email rows: ' + emails.length);
@@ -275,12 +288,15 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
                       p.scheduled_day !== '' && parseInt(p.scheduled_day) !== 0)
             ? parseInt(p.scheduled_day)
             : _chIdx[chKey];
-          var _rawTags    = String((_postBriefs[p.id] && _postBriefs[p.id].hashtags) || p.hashtags || '');
-          var _hashtags   = _NO_TAG[chKey] ? '' : _rawTags;
-          var _briefFull  = String((_postBriefs[p.id] && _postBriefs[p.id].design_brief) || '');
-          var _designBrief = _briefFull ? _oneLiner(_briefFull) : 'Design brief pending';
-          var _owner      = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
-          var _sendTime   = (chKey === 'tiktok' || chKey === 'youtube') ? 'Drop day - no time' : '9:00 AM local';
+          // FIX 3: explicit hashtag chain — brief → sheet field → blank for no-tag channels
+          var _briefHashtags = _postBriefs[p.id] ? String(_postBriefs[p.id].hashtags || '') : '';
+          var _sheetHashtags = String(p.hashtags || p.hashtag || '');
+          var _rawTags       = _briefHashtags || _sheetHashtags;
+          var _hashtags      = _NO_TAG[chKey] ? '' : _rawTags;
+          var _briefFull     = String((_postBriefs[p.id] && _postBriefs[p.id].design_brief) || '');
+          var _designBrief   = _briefFull ? _oneLiner(_briefFull) : 'Design brief pending';
+          var _owner         = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
+          var _sendTime      = _SEND_TIMES[chKey] || '9:00 AM local'; // FIX 1
           calDataRows.push([
             pday, _dtStr(pday), _wkLbl(pday), String(p.theme || ''),
             'Social', String(p.platform || p.channel || ''),
