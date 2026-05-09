@@ -23939,7 +23939,7 @@ function _ccDebugTest(action, campaignId) {
   var _debugUrl = (CONFIG && CONFIG.campaignUrl) || CONFIG.sheetsUrl;
   fetch(_debugUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload)
   })
   .then(function(res) {
@@ -28813,7 +28813,7 @@ function _ccUpdateAssetStatus(type,id,status){
   if(!CONFIG.sheetsUrl)return;
   var body={action:type+'_write'};
   body[type]={id:id,status:status};
-  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})
     .then(function(r){return r.json();})
     .then(function(d){
       if(d&&d.ok){
