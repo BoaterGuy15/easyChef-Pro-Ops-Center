@@ -592,7 +592,22 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
     '   No invented user counts (e.g. "847 moms"). Testimonials section: leave blank until real\n' +
     '   beta feedback is available.\n\n' +
     '4. SCENE DIRECTION: No shame language directed at the user. The system is broken — never her fault.\n' +
-    '   Write scenes that show broken systems, wasted food, and time lost — not personal failure.\n\n';
+    '   Write scenes that show broken systems, wasted food, and time lost — not personal failure.\n\n' +
+    '5. BANNED CLAIMS — never write these figures or phrases:\n' +
+    '   $111/month · $112/month · any invented monthly savings figure → use "$1,336/year" only\n' +
+    '   "2.3 times per week" or any invented frequency statistic → banned\n' +
+    '   Any invented scarcity numbers (e.g. "4,847 families", "153 spots left") → banned\n' +
+    '   Urgency allowed ONLY as: "First 5,000 families only" or "Founding price ends July 1"\n\n' +
+    '6. BANNED ORIGIN PHRASES:\n' +
+    '   "Built by parents" → must be "Built by first responders"\n' +
+    '   "Born in Silicon Valley" · "Born in [any city]" · any location reference → banned\n\n' +
+    '7. BANNED NAMES AND IDENTIFIERS:\n' +
+    '   Sarah → absolutely never use this name\n' +
+    '   Any invented first name in copy → banned\n' +
+    '   Any invented location in copy → banned\n\n' +
+    '8. BANNED FORMATS:\n' +
+    '   Before/after testimonial format → banned\n' +
+    '   Invented testimonial quotes with names → banned\n\n';
 
   if (type === 'post_brief') {
     return 'You are the art director for easyChef Pro. Generate a unique, stage-specific DESIGN BRIEF and HASHTAGS for each social post for the Figma designer.\n\n' +
@@ -649,7 +664,7 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
       (_themeFood ? 'Food: '     + _themeFood + '\n' : '') +
       (_icpName   ? 'ICP: '      + _icpName   + '\n' : '') + '\n' +
       _BRAND_RULES +
-      '5. LP PHONE RULE (non-negotiable):\n' +
+      '9. LP PHONE RULE (non-negotiable):\n' +
       '   Hero section: phone NOT visible — no app in the hero image.\n' +
       '   Solve section: phone APPEARS for the first time — shows app solving the problem.\n' +
       '   Value · Proof · CTA sections: phone VISIBLE — present but not the hero element.\n\n' +

@@ -249,7 +249,17 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
       var calDataRows = [];
 
-      // Email rows — variant A, absolute schedule
+      // Funnel stage fallback by post number (1-indexed)
+      var _FUNNEL_STAGES = ['hook','problem','agitate','solve','value','proof','cta'];
+      // Social posts use a separate week-label: days 1-7 are always Week 1 Social Arc
+      var _wkLblSocial = function(day) {
+        if (day >= 35) return 'Launch Day';
+        if (day >= 22) return 'Weeks 4-6 Launch Countdown';
+        if (day >= 8)  return 'Weeks 2-3 Email Nurture';
+        return 'Week 1 Social Arc';
+      };
+
+      // Email rows — two rows per email: Variant A (subject_line_a) + Variant B (subject_line_b)
       try {
         emails.forEach(function(e) {
           var seqCode  = e.sequence_code || (e.seq_id ? String(e.seq_id).replace(/-E\d+$/i,'') : 'EMAIL');
@@ -258,26 +268,37 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           var day = (_seqDays && _seqDays[emailNum - 1] !== undefined)
             ? _seqDays[emailNum - 1]
             : (parseInt(e.send_day) || 0);
-          // FIX 2: explicit subject / utm_url / dl_id with all field-name variants
-          var subA   = String(e.subject_line_a || e.subject_a || e.subject   || '');
-          var preA   = String(e.preview_text   || e.preview_text_a || e.preheader || '');
+          var subA   = String(e.subject_line_a || e.subject_a || e.subject || '');
+          var subB   = String(e.subject_line_b || e.subject_b || '');
+          var preA   = String(e.preview_text || e.preview_text_a || e.preheader || e.preview || '');
           if (preA.length > 100) preA = preA.substring(0, 100);
-          var cta    = String(e.body_cta || e.cta_text || e.cta || '');
+          var _isFirst = (emailNum === 1 && seqCode === 'SEQ-1');
+          var cta    = String(e.body_cta || e.cta_text || e.cta || (_isFirst ? 'Claim your founding spot' : ''));
           var utmUrl = String(e.utm_url  || e.utmUrl   || e.utm_link || '');
           var dlId   = String(e.dl_id    || e.dlId     || e.deeplink_id || '');
-          calDataRows.push([
-            day, _dtStr(day), _wkLbl(day), String(e.funnel_stage || ''),
+          var stage  = String(e.funnel_stage || '');
+          var rowBase = [
+            day, _dtStr(day), _wkLbl(day), stage,
             seqCode + '-E' + emailNum, 'Email',
-            subA, preA, cta,
+            '', preA, cta,
             utmUrl, dlId,
-            'A',                           // Variant — email rows are always A (subject_line_a)
-            'Subject line · Klaviyo split', // Test
-            '', '',                        // Design Brief, Hashtags
+            '', 'Subject line · Klaviyo split', // Variant filled per-row, Test fixed
+            '', '',                              // Design Brief, Hashtags
             String(e.status || 'draft'),
             'Klaviyo', '6:30 AM local'
-          ]);
+          ];
+          // Row A
+          var rowA = rowBase.slice();
+          rowA[6]  = subA;  // Subject / Hook
+          rowA[11] = 'A';   // Variant
+          calDataRows.push(rowA);
+          // Row B
+          var rowB = rowBase.slice();
+          rowB[6]  = subB || 'None';  // Variant B subject (or "None" if blank)
+          rowB[11] = 'B';             // Variant
+          calDataRows.push(rowB);
         });
-        Logger.log('[CalendarXlsx] email rows: ' + emails.length);
+        Logger.log('[CalendarXlsx] email rows: ' + (emails.length * 2) + ' (A+B pairs)');
       } catch(ee) { Logger.log('[CalendarXlsx] email rows error: ' + ee.message); }
 
       // Social post rows
@@ -290,7 +311,11 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
                       p.scheduled_day !== '' && parseInt(p.scheduled_day) !== 0)
             ? parseInt(p.scheduled_day)
             : _chIdx[chKey];
-          // FIX 3: explicit hashtag chain — brief → sheet field → blank for no-tag channels
+          // Funnel stage: field → fallback from post_num or channel position
+          var _postNum   = parseInt(p.post_num || _chIdx[chKey]) || 1;
+          var _stageIdx  = Math.min(_postNum - 1, _FUNNEL_STAGES.length - 1);
+          var _stage     = String(p.funnel_stage || p.stage || p.theme || _FUNNEL_STAGES[_stageIdx] || '');
+          // Hashtag chain: design brief → sheet field → blank for no-tag channels
           var _briefHashtags = _postBriefs[p.id] ? String(_postBriefs[p.id].hashtags || '') : '';
           var _sheetHashtags = String(p.hashtags || p.hashtag || '');
           var _rawTags       = _briefHashtags || _sheetHashtags;
@@ -298,9 +323,9 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           var _briefFull     = String((_postBriefs[p.id] && _postBriefs[p.id].design_brief) || '');
           var _designBrief   = _briefFull ? _oneLiner(_briefFull) : 'Design brief pending';
           var _owner         = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
-          var _sendTime      = _SEND_TIMES[chKey] || '9:00 AM local'; // FIX 1
+          var _sendTime      = _SEND_TIMES[chKey] || '9:00 AM local';
           calDataRows.push([
-            pday, _dtStr(pday), _wkLbl(pday), String(p.theme || ''),
+            pday, _dtStr(pday), _wkLblSocial(pday), _stage,
             'Social', String(p.platform || p.channel || ''),
             String(p.hook || ''), String(p.body_copy || p.body || ''), String(p.cta || ''),
             String(p.utm_url || ''), String(p.dl_id || ''),
