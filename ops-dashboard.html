@@ -24478,7 +24478,6 @@ function _ccBuildSectionBButtons(){
     '</div>';
     btns+='<div style="margin:0 12px 8px 0">'+
       '<button onclick="_ccBuildSocialWithOpts()" style="background:'+_CC_RED+';border:none;color:#fff;'+btnStyle+'"><span id="cc-ks-social-btn-label">'+_ccBuildSocialBtnLabel()+'</span></button>'+
-      '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:4px">Each post has image controls and a Generate Image button</div>'+
     '</div>';
   }
   if(hasEmail){
@@ -25780,11 +25779,9 @@ function _ccRenderSocialPosts(posts,container,channel){
 
     var bodyText=String(post.body||'');
     var hashText=pc.hashtags?(String(post.hashtags||'')||fallbackHash):'';
-    var imgText=String(post.image_brief||'')||pc.imgFallback;
     var bodyId ='ks-post-'+i+'-body';
     var cntId  ='ks-post-'+i+'-cnt';
     var hashId ='ks-post-'+i+'-hash';
-    var imgId  ='cc-img-brief-'+pNum;
     var hookId ='ks-post-'+i+'-hook';
     var cpId   ='cc-custom-prompt-'+pNum;
     var aiBriefId='cc-ai-brief-panel-'+pNum;
@@ -25820,8 +25817,6 @@ function _ccRenderSocialPosts(posts,container,channel){
           '<div style="font-size:10px;color:var(--muted);margin-top:3px">Facebook and Nextdoor = leave empty</div>'+
         '</div>'
       :'')+
-      // Full image control panel
-      _ccRenderImagePanel(pNum,'s',post)+
       // CTA + link placement row
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
         '<div>'+
@@ -25865,11 +25860,9 @@ function _ccSavePostEdits(idx,prefix){
   var hookEl=document.getElementById('ks-post-'+idx+'-hook');
   var bodyEl=document.getElementById('ks-post-'+idx+'-body');
   var hashEl=document.getElementById('ks-post-'+idx+'-hash');
-  var briefEl=document.getElementById('cc-img-brief-'+pNum);
   if(hookEl) post.hook=hookEl.value;
   if(bodyEl) post.body=bodyEl.value;
   if(hashEl) post.hashtags=hashEl.value;
-  if(briefEl) post.image_brief=briefEl.value;
   var statusEl=document.getElementById('ks-post-'+idx+'-save-status');
   if(statusEl){statusEl.textContent='✓ Saved';statusEl.style.color='#22c55e';statusEl.style.display='inline';setTimeout(function(){statusEl.style.display='none';},2000);}
 }
@@ -26291,23 +26284,6 @@ function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
       '</div></div>';
   }
 
-  // Generate All Images button — exclude Nextdoor and video channels
-  var imgChannels=order.filter(function(ch){var l=ch.toLowerCase();return l!=='nextdoor'&&!_ccIsVideoChannel(ch);});
-  if(imgChannels.length>0){
-    html+='<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'+
-      '<button id="cc-gen-all-btn" onclick="_ccQueueAllImages(this,'+posts.length+')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">🎨 Generate All Images ('+posts.length+' posts)</button>'+
-      '<div id="cc-gen-all-progress" style="display:none;margin-top:8px">'+
-        '<div style="display:flex;align-items:center;gap:10px">'+
-          '<div style="background:var(--surface);border-radius:4px;height:8px;overflow:hidden;flex:1;max-width:320px">'+
-            '<div id="cc-gen-all-bar" style="background:'+_CC_RED+';height:100%;width:0%;transition:width 0.3s"></div>'+
-          '</div>'+
-          '<button id="cc-gen-pause-btn" onclick="_ccToggleGenAllPause()" style="display:none;background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">⏸ Pause</button>'+
-        '</div>'+
-        '<div id="cc-gen-all-label" style="font-size:10px;color:var(--muted);margin-top:4px;font-family:\'DM Mono\',monospace"></div>'+
-      '</div>'+
-    '</div>';
-  }
-
   order.forEach(function(ch){
     html+='<div style="padding:8px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border)">'+
       '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">'+safe(ch)+'</span>'+
@@ -26325,7 +26301,6 @@ function _ccRenderMultiChannelPosts(posts,schedule,pushNotifs,container){
           '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">'+safe(post.hook||'')+'</div>'+
           '<textarea rows="3" style="'+taStyle+';margin-bottom:6px" oninput="this.closest(\'[data-pkey]\').querySelector(\'.mc-body-val\').textContent=this.value" data-field="body">'+safe(post.body||'')+'</textarea>'+
           (post.hashtags?'<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:6px">'+safe(post.hashtags)+'</div>':'')+
-          _ccRenderImagePanel(idx,'m',post)+
         '</div>';
       }
     });

@@ -191,7 +191,7 @@ function buildFullSequence(brief, copy, existingPosts, existingEmails) {
             feature:ft.code, feature_label:ft.label,
             hook:ft.code+' — '+ft.label,
             body_copy:_tscript, script:_tscript,
-            cta:'Link in bio', hashtags:'', image_brief:'' });
+            cta:'Link in bio', hashtags:'' });
         });
       }
       if (_hasYT) {
@@ -200,7 +200,7 @@ function buildFullSequence(brief, copy, existingPosts, existingEmails) {
           post_num:1, scheduled_day:6, theme:'cta', funnel_stage:'cta',
           hook:'easyChef Pro — 60-second explainer',
           body_copy:_ytScript, script:_ytScript,
-          cta:'Join the waitlist — link in description', hashtags:'', image_brief:'' });
+          cta:'Join the waitlist — link in description', hashtags:'' });
       }
       Logger.log('[buildFullSequence] existingPosts: ' + existingPosts.length + ' → ' + _arcPosts.length + ' after TK/YT static replacement');
       socialResult = _sbScheduleExistingPosts(brief, _arcPosts);
@@ -298,8 +298,7 @@ function _sbScheduleExistingPosts(brief, existingPosts) {
           feature:        p.feature      || '',
           feature_label:  p.feature_label|| '',
           cta:            p.cta          || '',
-          hashtags:       p.hashtags     || '',
-          image_brief:    p.image_brief  || ''
+          hashtags:       p.hashtags     || ''
         };
 
         setSocialPost({
@@ -310,7 +309,6 @@ function _sbScheduleExistingPosts(brief, existingPosts) {
           body_copy:      mapped.body_copy,
           cta:            mapped.cta,
           hashtags:       mapped.hashtags,
-          image_brief:    mapped.image_brief,
           scheduled_date: scheduledDate,
           status:         'draft'
         });
@@ -668,10 +666,10 @@ function buildSocialCalendar(brief, copy) {
                     feature: ft.code, feature_label: ft.label,
                     hook: ft.code + ' — ' + ft.label,
                     body_copy: script, script: script,
-                    cta:'Link in bio', hashtags:'', image_brief:'' };
+                    cta:'Link in bio', hashtags:'' };
           setSocialPost({ id:postId, campaign_id:campaignId, platform:'TikTok',
             hook:p.hook, body_copy:script, cta:p.cta,
-            hashtags:'', image_brief:'', scheduled_date:_sched, status:'draft' });
+            hashtags:'', scheduled_date:_sched, status:'draft' });
           allPosts.push(p);
         });
         Logger.log('[buildSocialCalendar] TikTok: 4 feature spotlights seeded (Days 3/10/17/24)');
@@ -684,10 +682,10 @@ function buildSocialCalendar(brief, copy) {
                          theme:'cta', funnel_stage:'cta',
                          hook:'easyChef Pro — 60-second explainer',
                          body_copy:ytScript, script:ytScript,
-                         cta:'Join the waitlist — link in description', hashtags:'', image_brief:'' };
+                         cta:'Join the waitlist — link in description', hashtags:'' };
         setSocialPost({ id:ytId, campaign_id:campaignId, platform:'YouTube',
           hook:ytPost.hook, body_copy:ytScript, cta:ytPost.cta,
-          hashtags:'', image_brief:'', scheduled_date:ytSched, status:'draft' });
+          hashtags:'', scheduled_date:ytSched, status:'draft' });
         allPosts.push(ytPost);
         Logger.log('[buildSocialCalendar] YouTube: explainer script seeded (Day 6)');
       }
@@ -739,8 +737,7 @@ function buildSocialCalendar(brief, copy) {
         '    "hook": "Scroll-stopper first line — under 15 words",\n' +
         '    "body_copy": "Full post body — plain text, no markdown, no asterisks",\n' +
         '    "cta": "CTA line — under 10 words",\n' +
-        '    "hashtags": "hashtags or empty string",\n' +
-        '    "image_brief": "One sentence describing the ideal image or video for this post"\n' +
+        '    "hashtags": "hashtags or empty string"\n' +
         '  }\n' +
         ']';
 
@@ -799,7 +796,6 @@ function buildSocialCalendar(brief, copy) {
           body_copy:      p.body_copy   || '',
           cta:            p.cta         || '',
           hashtags:       p.hashtags    || '',
-          image_brief:    p.image_brief || '',
           scheduled_date: _sched,
           status:         'draft'
         });
@@ -867,11 +863,11 @@ function _sbBuildArc2Posts(brief, arc1Posts) {
         hook:       '[Arc 2 · ' + t.theme.toUpperCase() + '] ' + t.role,
         body_copy:  'Urgency arc · ' + t.role + ' · Founding price $7.99/month',
         cta:        'Claim your founding spot',
-        hashtags:   '', image_brief: 'Arc 2 · ' + t.theme + ' · founding price closing · urgency angle'
+        hashtags:   ''
       };
       setSocialPost({ id:postId, campaign_id:campaignId, platform:channel,
         hook:post.hook, body_copy:post.body_copy, cta:post.cta,
-        hashtags:'', image_brief:post.image_brief,
+        hashtags:'',
         scheduled_date:sched, status:'draft' });
       arc2Posts.push(post);
     });
@@ -895,11 +891,11 @@ function _sbBuildArc2Posts(brief, arc1Posts) {
       hook:'Founding price closes July 1 — last chance',
       body_copy:tkScript, script:tkScript,
       cta:'Link in bio — claim your founding spot',
-      hashtags:'', image_brief:''
+      hashtags:''
     };
     setSocialPost({ id:tkId, campaign_id:campaignId, platform:'TikTok',
       hook:tkPost.hook, body_copy:tkScript, cta:tkPost.cta,
-      hashtags:'', image_brief:'', scheduled_date:tkDate, status:'draft' });
+      hashtags:'', scheduled_date:tkDate, status:'draft' });
     arc2Posts.push(tkPost);
   }
 

@@ -160,7 +160,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       // Social post rows
       posts.forEach(function(p) {
         var pday = parseInt(p.scheduled_day) || 0;
-        calDataRows.push([pday, _dtStr(pday), _wkLbl(pday), p.theme||'', 'Social', p.platform||p.channel||'', p.hook||'', p.body_copy||p.body||'', p.utm_url||'', p.image_brief||'', p.hashtags||'', p.status||'draft']);
+        calDataRows.push([pday, _dtStr(pday), _wkLbl(pday), p.theme||'', 'Social', p.platform||p.channel||'', p.hook||'', p.body_copy||p.body||'', p.utm_url||'', '', p.hashtags||'', p.status||'draft']);
       });
 
       // Sort by day ascending
@@ -557,14 +557,6 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   + '  <thead><tr><th style="width:6%">Step</th><th style="width:12%">Name</th><th style="width:22%">Job</th><th>Copy</th></tr></thead>\n'
   + '  <tbody>\n' + stepsRows + '  </tbody>\n</table>\n\n'
 
-  // ── 03 IMAGE SPECS ──
-  + '<div class="sec-header">03 &mdash; IMAGE SPECS</div>\n'
-  + '<table><tbody>\n'
-  + '  <tr><td class="td-label">Hero Image Brief</td><td>' + _h(lp.image_brief || brief.image_brief || '') + '</td></tr>\n'
-  + '  <tr><td class="td-label">Dimensions</td><td>1200 &times; 630px</td></tr>\n'
-  + '  <tr><td class="td-label">Format</td><td>JPG</td></tr>\n'
-  + '</tbody></table>\n\n'
-
   // ── 05 URGENCY — Fix 4: pull from brief.urgency_trigger ──
   + '<div class="sec-header">05 &mdash; URGENCY</div>\n'
   + '<table><tbody>\n'
@@ -657,7 +649,6 @@ function _buildSocialPostsHtml(brief, posts, genDate) {
       if (post.body_copy || post.body)      cardsHtml += '      <tr><td class="td-label">Body</td><td class="td-value td-copy">'        + _h(post.body_copy || post.body)  + '</td></tr>\n';
       if (post.hashtags)                    cardsHtml += '      <tr><td class="td-label">Hashtags</td><td class="td-value">'            + _h(post.hashtags)                + '</td></tr>\n';
       if (post.cta)                         cardsHtml += '      <tr><td class="td-label">CTA</td><td class="td-value">'                 + _h(post.cta)                     + '</td></tr>\n';
-      if (post.image_brief)                 cardsHtml += '      <tr><td class="td-label">Image Brief</td><td class="td-value">'         + _h(post.image_brief)             + '</td></tr>\n';
       if (post.utm_url)                     cardsHtml += '      <tr><td class="td-label">UTM Link</td><td class="td-value td-url">'     + _h(post.utm_url)                 + '</td></tr>\n';
       if (post.dl_id)                       cardsHtml += '      <tr><td class="td-label">DL ID</td><td class="td-value">'              + _h(post.dl_id)                   + '</td></tr>\n';
       var st = post.status || 'draft';
