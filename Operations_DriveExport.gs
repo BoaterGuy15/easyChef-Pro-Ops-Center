@@ -476,27 +476,55 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   var ctaCopy = (lp.cta_primary || copy.cta_primary || '') +
                 (lp.cta_url ? '  →  ' + lp.cta_url : ('  →  ' + canonUrl));
 
-  // 7-step arc rows — Fix 2 (Steps 2/3/4) + Fix 3 (Step 5 value field)
+  // 7-step arc rows — expanded with new LP section fields
   var _agitate = lp.agitate_section
     || (brief.campaign_angle
         ? brief.campaign_angle + ' · $1,336/year · food waste · takeout'
         : '$1,336/year · food waste · takeout');
+
+  // Section 4 SOLVE: feature callouts (if available)
+  var _solveCallouts = '';
+  if (lp.solve_track || lp.solve_plan || lp.solve_optimize || lp.solve_cook || lp.solve_shop) {
+    _solveCallouts = ' | TRACK: ' + _h(lp.solve_track || '—') +
+      ' | PLAN: '     + _h(lp.solve_plan     || '—') +
+      ' | OPTIMIZE: ' + _h(lp.solve_optimize || '—') +
+      ' | COOK: '     + _h(lp.solve_cook     || '—') +
+      ' | SHOP: '     + _h(lp.solve_shop     || '—');
+  }
+  var _solveContent = _h(lp.solve_section || 'easyChef Pro closes the loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP') + _solveCallouts;
+
+  // Section 5 VALUE: "WHAT CHANGES MONDAY" tag + value copy
+  var _valueTag  = lp.value_section_tag ? '[' + _h(lp.value_section_tag) + '] ' : '';
+  var _valueCopy = _valueTag + _h(lp.value_section || lp.social_proof || lp.cta_primary || copy.cta_primary || brief.cta_primary || '');
+
+  // Section 6 PROOF: extended proof lines
+  var _proofContent = proofBar +
+    (lp.proof_origin_line     ? ' | Origin: '     + _h(lp.proof_origin_line)     : '') +
+    (lp.proof_validation_line ? ' | Validation: ' + _h(lp.proof_validation_line) : '') +
+    (lp.proof_founding_line   ? ' | Founding: '   + _h(lp.proof_founding_line)   : '');
+
+  // Section 7 CTA: 3 appearances
+  var _ctaContent = _h(lp.cta_primary || copy.cta_primary || '') +
+    (lp.cta_supporting  ? ' | Supporting: '  + _h(lp.cta_supporting)  : '') +
+    (lp.cta_exclusivity ? ' | Exclusivity: ' + _h(lp.cta_exclusivity) : '') +
+    ('  →  ' + canonUrl);
+
   var steps = [
-    ['1', 'HOOK',    'Hero headline',       lp.hero_headline   || copy.headline    || ''],
-    ['2', 'PROBLEM', 'Problem block',       lp.problem_section || brief.subheadline || '6:30 PM wall · fridge full · no plan'],
-    ['3', 'AGITATE', 'Agitate block',       _agitate],
-    ['4', 'SOLVE',   'Solve block',         lp.solve_section   || 'easyChef Pro closes the loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP'],
-    ['5', 'VALUE',   'Value statement',     lp.social_proof    || lp.cta_primary || copy.cta_primary || brief.cta_primary || ''],
-    ['6', 'PROOF',   'Proof bar (3 stats)', proofBar],
-    ['7', 'CTA',     'Primary CTA + URL',   ctaCopy]
+    ['1', 'HOOK',    'Hero headline + subheadline', _h(lp.hero_headline || copy.headline || '') + (lp.hero_subheadline ? ' / ' + _h(lp.hero_subheadline) : '')],
+    ['2', 'PROBLEM', 'Problem block',               _h(lp.problem_section || brief.subheadline || '6:30 PM wall · fridge full · no plan')],
+    ['3', 'AGITATE', 'Agitate block',               _h(_agitate)],
+    ['4', 'SOLVE',   'Solve + feature callouts',    _solveContent],
+    ['5', 'VALUE',   'What Changes Monday',         _valueCopy],
+    ['6', 'PROOF',   'Proof bar (3 stats)',          _proofContent],
+    ['7', 'CTA',     'Primary CTA (3× on page)',    _ctaContent]
   ];
   var stepsRows = '';
   steps.forEach(function(s) {
     stepsRows += '  <tr>'
-      + '<td class="td-step td-center">' + _h(s[0]) + '</td>'
-      + '<td class="td-step td-center">' + _h(s[1]) + '</td>'
-      + '<td class="td-dim">'           + _h(s[2]) + '</td>'
-      + '<td>'                          + _h(s[3]) + '</td>'
+      + '<td class="td-step td-center">' + s[0] + '</td>'
+      + '<td class="td-step td-center">' + s[1] + '</td>'
+      + '<td class="td-dim">'           + s[2]  + '</td>'
+      + '<td>'                          + s[3]  + '</td>'
       + '</tr>\n';
   });
 
@@ -609,6 +637,7 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   + '  <tr><td class="td-label">OG Description</td><td>' + _h(ogDesc)    + '</td></tr>\n'
   + '  <tr><td class="td-label">Canonical URL</td><td>'  + _h(lp.canonical_url || canonUrl) + '</td></tr>\n'
   + '  <tr><td class="td-label">Focus Keyword</td><td>'  + _h(lp.focus_keyword || '—') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Secondary Keywords</td><td>' + _h(Array.isArray(lp.secondary_keywords) ? lp.secondary_keywords.join(' · ') : (lp.secondary_keywords || '—')) + '</td></tr>\n'
   + '</tbody></table>\n\n'
 
   // ── 08 TRACKING ──

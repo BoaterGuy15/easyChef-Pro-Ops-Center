@@ -43,11 +43,21 @@ function _getIcpContext(icpCode) {
   try {
     var profile = getIcpProfile(icpCode);
     if (profile) {
-      return 'ICP: ' + profile.name + '\n' +
-        'Demographics: ' + (profile.demographics || '') + '\n' +
-        'Primary pain: ' + (profile.primary_pain || '') + '\n' +
-        'Value trigger: ' + (profile.value_trigger || '') + '\n' +
-        'Message hierarchy: ' + (profile.message_hierarchy || '') + '\n';
+      var ctx = 'ICP: ' + profile.name + '\n';
+      if (profile.demographics)        ctx += 'Demographics: '        + profile.demographics        + '\n';
+      if (profile.psychographics)      ctx += 'Psychographics: '      + profile.psychographics      + '\n';
+      if (profile.entry_moment)        ctx += 'Entry moment: '        + profile.entry_moment        + '\n';
+      if (profile.primary_pain)        ctx += 'Primary pain: '        + profile.primary_pain        + '\n';
+      if (profile.secondary_pain)      ctx += 'Secondary pain: '      + profile.secondary_pain      + '\n';
+      if (profile.value_trigger)       ctx += 'Value trigger: '       + profile.value_trigger       + '\n';
+      if (profile.loss_aversion)       ctx += 'Loss aversion: '       + profile.loss_aversion       + '\n';
+      if (profile.emotional_entry)     ctx += 'Emotional entry: '     + profile.emotional_entry     + '\n';
+      if (profile.emotional_payoff)    ctx += 'Emotional payoff: '    + profile.emotional_payoff    + '\n';
+      if (profile.message_hierarchy)   ctx += 'Message hierarchy: '   + profile.message_hierarchy   + '\n';
+      if (profile.conversion_triggers) ctx += 'Conversion triggers: ' + profile.conversion_triggers + '\n';
+      if (profile.device)              ctx += 'Primary device: '      + profile.device              + '\n';
+      if (profile.channels)            ctx += 'Preferred channels: '  + profile.channels            + '\n';
+      return ctx;
     }
   } catch (e) {}
   return 'ICP: ' + (icpCode || 'Unknown') + '\n';
@@ -135,6 +145,87 @@ var _STAGE_EMOTIONS = {
   cta:     'Pure peace and satisfaction. The weight is gone. This is the feeling she is buying.'
 };
 
+// ── Master narrative spine — injected into every system prompt ─────────────────
+var _MASTER_STORY =
+  '=== MASTER STORY — READ THIS FIRST. EVERY WORD YOU WRITE CONNECTS BACK TO THIS. ===\n' +
+  '"Your kitchen is broken. Not because of you. Because no tool ever closed the loop.\n' +
+  'easyChef Pro closes the loop. Your kitchen. In command."\n' +
+  'The ICP\'s kitchen is broken — not her fault — and easyChef Pro is the only tool that closes the full loop.\n' +
+  'This is the narrative spine. Every headline, every hook, every CTA must connect back to it.\n\n';
+
+// ── Category positioning — how to frame easyChef Pro vs competitors ───────────
+var _CATEGORY_POSITIONING =
+  '=== CATEGORY POSITIONING — HOW TO FRAME easyChef Pro ===\n' +
+  '"easyChef Pro is the only food app you need. Not a feature — a category claim.\n' +
+  'Every other app solves one part: the recipe, the grocery list, the budget tracker.\n' +
+  'easyChef Pro closes the full loop: TRACK what you have → PLAN the week → SHOP efficiently → COOK confidently → ZERO waste.\n' +
+  'Never position against a specific competitor. Position against the broken status quo.\n' +
+  'The enemy is not another app. The enemy is the 6:30 PM panic. The expired spinach. The $1,336 thrown away."\n\n';
+
+// ── 7-step copy framework — what works, what kills each step ──────────────────
+var _7_STEP_FRAMEWORK =
+  '=== 7-STEP COPY FRAMEWORK — EVERY PIECE OF COPY FOLLOWS THIS EXACTLY ===\n' +
+  'Step 1 — HOOK: Stop the scroll in the first 5 words. Name the specific moment — not the category.\n' +
+  '  KILLS: "Are you tired of..." / "Imagine a world..." / any generic opener.\n' +
+  '  WORKS: Name the exact time, object, feeling. "6:30 PM. Empty fridge. Three kids asking."\n\n' +
+  'Step 2 — PROBLEM: Name the exact pain in one sentence. Specific moment — not a general problem.\n' +
+  '  KILLS: Abstract language. "Meal planning is hard" is dead copy.\n' +
+  '  WORKS: "You buy groceries Sunday. By Wednesday it\'s a guessing game and someone gets cereal."\n\n' +
+  'Step 3 — AGITATE: Make the cost real. One undeniable number per sentence. Honest — never dramatic.\n' +
+  '  KILLS: Shame language. "You are failing your family" is never acceptable. Ever.\n' +
+  '  WORKS: "The average family throws away $1,336 of groceries every year. Not bad decisions. Just no system."\n\n' +
+  'Step 4 — SOLVE: One sentence only. Introduce easyChef Pro as the obvious answer. No feature lists.\n' +
+  '  KILLS: "easyChef Pro has 5 powerful features including..." — no. One sentence.\n' +
+  '  WORKS: "easyChef Pro looks at what is in your fridge and tells you exactly what to make tonight."\n\n' +
+  'Step 5 — VALUE: Outcomes she wants. Not features — feelings and results. Specific, not aspirational.\n' +
+  '  KILLS: "You will feel amazing about cooking again." Vague. Empty.\n' +
+  '  WORKS: "$1,336 back. 30 minutes fridge to table. And the 6:30 panic is just gone."\n\n' +
+  'Step 6 — PROOF: One validated stat from the approved claims list. One only. Never invented.\n' +
+  '  KILLS: Made-up stats / invented testimonials / "thousands of families love it".\n' +
+  '  WORKS: "Validated across 10,000 household profiles." Exact wording from the approved list.\n\n' +
+  'Step 7 — CTA: One action. Outcome-framed. Low friction. Tell them what they GET, not what they DO.\n' +
+  '  KILLS: "Click here" / "Sign up now" — action-framed, not outcome-framed.\n' +
+  '  WORKS: "Claim your founding spot — $7.99/month locked forever. First 5,000 families only."\n\n';
+
+// ── Brand voice rules — non-negotiable ────────────────────────────────────────
+var _BRAND_VOICE_RULES =
+  '=== BRAND VOICE — NON-NEGOTIABLE RULES ===\n' +
+  'FORBIDDEN WORDS — never write any of these:\n' +
+  '  × optimize / optimized / optimizing\n' +
+  '  × seamless / frictionless\n' +
+  '  × leverage / leveraging\n' +
+  '  × ecosystem\n' +
+  '  × AI-powered / AI-driven / powered by AI\n' +
+  '  × pain points — name the exact pain instead\n' +
+  '  × "the app" — always use "easyChef Pro"\n' +
+  '  × game-changer / revolutionary / innovative\n' +
+  '  × solution — say what it does, never call it "a solution"\n' +
+  '  × shame language — never imply the user is failing, lazy, or doing something wrong\n\n' +
+  'REQUIRED:\n' +
+  '  ✓ Write like a friend texting at the kitchen table — warm, direct, specific\n' +
+  '  ✓ Name the exact moment / exact food / exact feeling — never generic\n' +
+  '  ✓ One idea per sentence. Short sentences. Active voice.\n' +
+  '  ✓ Empathy before authority — she must feel understood before she will trust\n' +
+  '  ✓ No markdown in output: no **, no *, no #, no backticks\n\n';
+
+// ── Per-stage emotional arc — injected into social post + email prompts ────────
+var _EMOTIONAL_ARC_COPY =
+  '=== EMOTIONAL ARC — MATCH THE EXACT STAGE EMOTION IN YOUR COPY ===\n' +
+  'Post 1 — HOOK:    She is EXHAUSTED + DEFEATED. This is the worst moment of her day.\n' +
+  '  No hope yet. No product mention. Just name the feeling and the moment.\n' +
+  'Post 2 — PROBLEM: She is FRUSTRATED. She knows this pain too well.\n' +
+  '  Nothing has ever fixed it. She has tried and given up. Write that exhaustion.\n' +
+  'Post 3 — AGITATE: She is SHOCKED + in RECOGNITION. She is seeing the true cost for the first time.\n' +
+  '  Name the $1,336 number. Make it undeniable. She cannot look away.\n' +
+  'Post 4 — SOLVE:   She is CURIOUS + SURPRISED. Something is different here.\n' +
+  '  The penny is dropping. Keep this post short — let the insight land, do not over-explain.\n' +
+  'Post 5 — VALUE:   She is CALM + CONFIDENT. This is what in control feels like.\n' +
+  '  She can already see her Monday being different. Specific outcomes, not feelings.\n' +
+  'Post 6 — PROOF:   She is TRUSTING + PROUD. Her family is happy. She did this.\n' +
+  '  Use one real proof point from the approved list. No invented testimonials.\n' +
+  'Post 7 — CTA:     She is PEACEFUL + SATISFIED. The weight is gone.\n' +
+  '  The CTA matches the relief, not the pressure. One action. Low friction.\n\n';
+
 /**
  * Builds a story context object from a brief, picking up all theme-injected fields
  * the frontend adds via _ccExtendBriefWithTheme().
@@ -212,62 +303,91 @@ function _buildStoryContextBlock(context) {
 }
 
 /**
- * Returns a complete base system prompt with STORY CONTEXT injected.
+ * Returns a complete base system prompt with all context blocks injected.
  * type: 'social_post' | 'landing_page' | 'email' | 'image_prompt'
  * context: same object as _buildStoryContextBlock
  */
 function getMasterSystemPrompt(type, context) {
-  var ctx        = context || {};
+  var ctx = context || {};
   Logger.log('[MASTER PROMPT CTX] type=' + type + ' theme=' + (ctx.theme||'') + ' icp=' + (ctx.icp_code||'') +
-    ' hook_angle=' + (ctx.hook_angle||'') + ' problem_angle=' + (ctx.problem_angle||'') +
-    ' feature_hook=' + (ctx.feature_hook||'') + ' emotional_entry=' + (ctx.emotional_entry||''));
-  var storyBlock = _buildStoryContextBlock(ctx);
-  var claimsCtx  = '';
+    ' stage=' + (ctx.stage||'') + ' hook_angle=' + (ctx.hook_angle||'') +
+    ' feature_hook=' + (ctx.feature_hook||'') + ' theme_food=' + (ctx.theme_food||''));
+
+  // image_prompt: story + visual only
+  if (type === 'image_prompt') {
+    var _vb = '';
+    if (ctx.image_mood_hook || ctx.image_mood_cta || ctx.theme_food) {
+      _vb = '=== VISUAL ANCHORS ===\n' +
+        (ctx.image_mood_hook ? 'HOOK: ' + ctx.image_mood_hook + '\n' : '') +
+        (ctx.image_mood_cta  ? 'CTA: '  + ctx.image_mood_cta  + '\n' : '') +
+        (ctx.theme_food      ? 'FOOD: ' + ctx.theme_food       + '\n' : '') + '\n';
+    }
+    return _buildStoryContextBlock(ctx) + _vb;
+  }
+
+  var roleMap = {
+    social_post:  'You are the easyChef Pro social media copywriter. Your only job is to move people from scroll to click.',
+    landing_page: 'You are the easyChef Pro landing page copywriter. Write high-converting copy that closes the waitlist.',
+    email:        'You are the easyChef Pro email sequence copywriter. Write personal, conversion-focused emails that feel like a friend sent them.'
+  };
+  var role = roleMap[type] || 'You are the easyChef Pro campaign copywriter.';
+
+  // Claims
+  var claimsCtx = '';
   try { claimsCtx = _getClaimsContext(); }
   catch(e) { claimsCtx = 'Use only approved claims. Do not invent statistics.\n\n'; }
-  claimsCtx += 'FOUNDING OFFER RULE: founding_offer field must use exact wording: "Lock in $7.99/month founding price — 60% off forever". Never write "50% off" in any form.\n\n';
+  claimsCtx += 'FOUNDING OFFER RULE: Use exact wording: "Lock in $7.99/month founding price — 60% off forever". Never write "50% off" in any form.\n\n';
+
+  // Brand plug
+  var brandPlugCtx = '';
   try {
     var _bpSettings = getCcSettings();
     var _bpRows     = (_bpSettings.brand_plug || []);
     var _bpTagline  = (_bpRows.find(function(r){ return r.key === 'tagline'; }) || {}).label || 'Your kitchen. In command.';
     var _bpOrigin   = (_bpRows.find(function(r){ return r.key === 'origin';  }) || {}).label || 'Built by first responders.';
     var _bpClaims   = _bpRows.filter(function(r){ return r.key.indexOf('proof_') === 0; }).map(function(r){ return '    · ' + r.label; }).join('\n');
-    claimsCtx += 'BRAND PLUG RULE: Every landing page must include these three lines above the CTA button, in this exact order. This is never optional — it is the reason she clicks.\n' +
+    brandPlugCtx =
+      'BRAND PLUG — appears above every CTA button, exact order, exact wording. This is never optional.\n' +
       '  Line 1 — Tagline: "' + _bpTagline + '"\n' +
       '  Line 2 — Origin:  "' + _bpOrigin  + '"\n' +
-      '  Line 3 — Proof:   One approved claim from this list (use whichever fits the campaign angle):\n' +
-      _bpClaims + '\n' +
-      'Place the brand plug immediately above the CTA button. Exact wording. No paraphrasing.\n\n';
+      '  Line 3 — Proof:   One approved claim (choose whichever fits the campaign angle):\n' +
+      _bpClaims + '\n\n';
   } catch(e) {
-    claimsCtx += 'BRAND PLUG RULE: Place tagline, origin, and one proof claim above every CTA button. Exact wording only.\n\n';
+    brandPlugCtx = 'BRAND PLUG: Place tagline, origin, and one proof claim above every CTA button. Exact wording only.\n\n';
   }
-  claimsCtx += 'PROOF BAR RULE: proof_bar is always an array of exactly 3 items.\n' +
-    '  Item 1 — creative social proof statement generated per campaign. Style: "Busy families are already..." or similar descriptive trust language. NEVER a stat. NEVER a percentage. NEVER a dollar amount. NEVER an invented user count. Descriptive trust language only.\n' +
+
+  var proofBarCtx =
+    'PROOF BAR: Always exactly 3 items.\n' +
+    '  Item 1 — creative trust statement (e.g. "Busy families are already...") — NO stats, NO %, NO $ amounts, NO invented user counts\n' +
     '  Item 2 — exact wording always: "69.5% less food waste"\n' +
     '  Item 3 — exact wording always: "30 minutes fridge to table"\n\n';
+
+  // ICP — expanded with all available profile fields
   var icpCtx = '';
   try { icpCtx = _getIcpContext(ctx.icp_code || ctx.icp || ''); }
   catch(e) { icpCtx = 'ICP: ' + (ctx.icp_code || '') + '\n'; }
 
-  // Dynamic visual anchor block — built from ThemeLibrary fields, works for any theme
+  // Story context
+  var storyBlock = _buildStoryContextBlock(ctx);
+
+  // Visual anchors
   var visualBlock = '';
   if (ctx.image_mood_hook || ctx.image_mood_cta || ctx.theme_food) {
     visualBlock = '=== VISUAL ANCHORS FOR THIS CAMPAIGN ===\n';
-    if (ctx.image_mood_hook) visualBlock += 'HOOK IMAGE MOOD: '           + ctx.image_mood_hook + '\n';
-    if (ctx.image_mood_cta)  visualBlock += 'CTA IMAGE MOOD: '            + ctx.image_mood_cta  + '\n';
-    if (ctx.theme_food)      visualBlock += 'FOOD IN THIS CAMPAIGN: '     + ctx.theme_food      + '\n';
-    visualBlock += 'Every post must match these visual scenes. Write copy that pairs with these images.\n\n';
+    if (ctx.image_mood_hook) visualBlock += 'HOOK IMAGE MOOD: ' + ctx.image_mood_hook + '\n';
+    if (ctx.image_mood_cta)  visualBlock += 'CTA IMAGE MOOD: '  + ctx.image_mood_cta  + '\n';
+    if (ctx.theme_food)      visualBlock += 'THEME FOOD: '       + ctx.theme_food      + ' — use this food by name in Post 4 (SOLVE) and beyond\n';
+    visualBlock += '\n';
   }
 
-  // Founding Family CTA vocabulary — injected when angle or journey type matches
+  // Founding Family CTA vocabulary (conditional)
   var foundingCtx = '';
   var _angle = (ctx.campaign_angle || '').toLowerCase();
   var _jt    = (ctx.journey_type   || '').toLowerCase();
   if (_angle.indexOf('exclusivity') > -1 || _angle.indexOf('founder') > -1 ||
       _jt === 'pre-launch-waitlist' || _jt === 'alpha-onboarding' || _jt === 'beta-testing') {
     foundingCtx =
-      '=== FOUNDING FAMILY CTA VOCABULARY ===\n' +
-      'Use these exact phrases for all CTAs in this campaign. Do not paraphrase.\n' +
+      '=== FOUNDING FAMILY CTA VOCABULARY — USE THESE EXACT PHRASES ===\n' +
       '  Primary CTA:   "Claim your founding spot"\n' +
       '  Secondary CTA: "Get Early Access"\n' +
       '  Confirmation:  "You\'re in, founding family. $7.99/month locked forever."\n' +
@@ -275,14 +395,14 @@ function getMasterSystemPrompt(type, context) {
       '  Identity line: "You\'re not just joining an app. You\'re founding the kitchen of the future."\n\n';
   }
 
-  // Arc 2 urgency context — injected for the second social arc (Days 22–28)
+  // Arc 2 urgency (conditional)
   var arc2Ctx = '';
   var _isArc2 = (_angle.indexOf('urgency') > -1 ||
                 (_angle.indexOf('exclusivity') > -1 && parseInt(ctx.campaign_duration_days) >= 35));
   if (_isArc2) {
     arc2Ctx =
       '=== SOCIAL ARC 2 — URGENCY / SCARCITY (Days 22–28) ===\n' +
-      'This is the second 7-post arc. Run the full 7-step framework again with a founding-price-closing angle.\n' +
+      'Second 7-post arc — run the full framework with a founding-price-closing angle.\n' +
       '  Post 1 (Day 22 · hook):    Founding spots are running out\n' +
       '  Post 2 (Day 23 · problem): She has not joined yet\n' +
       '  Post 3 (Day 24 · agitate): July 1 is the deadline — founding price closes\n' +
@@ -290,32 +410,43 @@ function getMasterSystemPrompt(type, context) {
       '  Post 5 (Day 26 · value):   What founding families get that no one else will\n' +
       '  Post 6 (Day 27 · proof):   Families already in — founding spots filling\n' +
       '  Post 7 (Day 28 · cta):     Last chance — founding price ends at 5,000 families\n' +
-      'Every post in Arc 2 must use Founding Family CTA vocabulary (above). No new angles — urgency and loss only.\n\n';
+      'Arc 2: use Founding Family vocabulary. Urgency and loss only — no new angles.\n\n';
   }
 
-  if (type === 'social_post') {
-    return 'You are the easyChef Pro social media writer.\n\n' +
-      _AB_ARCH + _AB_VOICE + claimsCtx + foundingCtx + arc2Ctx + storyBlock + visualBlock +
-      '=== TARGET ICP ===\n' + icpCtx + '\n';
+  // Build base prompt — ordered for maximum context effectiveness
+  var base = role + '\n\n' +
+    _MASTER_STORY +
+    _CATEGORY_POSITIONING +
+    _7_STEP_FRAMEWORK +
+    _BRAND_VOICE_RULES;
+
+  // Emotional arc — social and email only (not LP where stage doesn't apply linearly)
+  if (type === 'social_post' || type === 'email') {
+    base += _EMOTIONAL_ARC_COPY;
   }
+
+  // LP fabrication prohibition
   if (type === 'landing_page') {
-    return 'You are the easyChef Pro landing page writer. You write high-converting landing page copy.\n\n' +
-      _AB_ARCH + _AB_VOICE +
-      'CRITICAL: Never invent testimonials, names, or social proof stories. Never use statistics that are not in the approved claims list. Approved claims only — exact wording: $1,336/year · 69.5% · 30 minutes · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · validated across 10,000 household profiles · built by first responders\n\n' +
-      claimsCtx + foundingCtx + arc2Ctx + storyBlock + visualBlock +
-      '=== TARGET ICP ===\n' + icpCtx + '\n';
+    base +=
+      '=== FABRICATION PROHIBITION — LANDING PAGE ===\n' +
+      'NEVER invent testimonials, names, user stories, or social proof numbers.\n' +
+      'NEVER use statistics not in the approved claims list.\n' +
+      'Approved figures only: $1,336/year · 69.5% · 30 min · 9 patent-pending technologies · ' +
+      '800,000 products · 10,000 recipe pages · registered dietitians · 10,000 household profiles · built by first responders\n\n';
   }
-  if (type === 'email') {
-    return 'You are the easyChef Pro email sequence writer. You write conversion email copy.\n\n' +
-      _AB_ARCH + _AB_VOICE + claimsCtx + foundingCtx + arc2Ctx + storyBlock + visualBlock +
-      '=== TARGET ICP ===\n' + icpCtx + '\n';
-  }
-  // image_prompt: story block only — caller merges with brand/visual rules
-  if (type === 'image_prompt') {
-    return storyBlock + visualBlock;
-  }
-  return _AB_ARCH + _AB_VOICE + claimsCtx + foundingCtx + arc2Ctx + storyBlock + visualBlock +
-    '=== TARGET ICP ===\n' + icpCtx + '\n';
+
+  base +=
+    _AB_ARCH +
+    '=== APPROVED CLAIMS — USE EXACT WORDING ONLY ===\n' + claimsCtx +
+    brandPlugCtx +
+    proofBarCtx +
+    '=== TARGET ICP ===\n' + icpCtx + '\n' +
+    storyBlock +
+    visualBlock +
+    foundingCtx +
+    arc2Ctx;
+
+  return base;
 }
 
 function _getPlatformNote(channelName) {
@@ -915,22 +1046,40 @@ function buildLandingPage(brief, copy) {
     (copy && copy.lp_hero  ? 'LP hero copy: '     + copy.lp_hero  + '\n' : '') + '\n' +
     '=== 7-SECTION LP STRUCTURE — FOLLOW EXACTLY ===\n\n' +
     'SECTION 1 — HOOK (hero)\n' +
-    'hero_headline: Mirrors the campaign hook. Specific to the ICP pain. Under 12 words.\n' +
+    'hero_headline: Mirrors the campaign hook. Specific to the ICP pain. Under 12 words. No punctuation at end.\n' +
     'hero_subheadline: Names the exact moment in plain language. One sentence. Under 20 words.\n' +
-    'hero_cta: Use this exact text: "' + ctaConf.cta + '"\n\n' +
+    'hero_cta: Use this exact text: "' + ctaConf.cta + '"\n' +
+    'social_proof_bar: 1 sentence of descriptive trust language. Style: "Families in [city types] are already joining..." NEVER a stat or dollar amount.\n\n' +
     'SECTION 2 — PROBLEM\n' +
-    'problem_section: Her exact moment. Name the 6:30 PM wall precisely. No solution. No product mention. 2-3 sentences.\n\n' +
+    'problem_headline: Section headline. One sentence. Names the moment, not the category. Under 14 words.\n' +
+    'problem_section: Her exact moment. The 6:30 PM wall precisely. No solution. No product mention. 2-3 sentences.\n' +
+    'problem_visual: One sentence visual direction for the designer — what this section looks like.\n\n' +
     'SECTION 3 — AGITATE\n' +
-    'agitate_section: The cost. Use $1,336/year exact wording. Also $111/month. Also $25/week. One undeniable number per sentence. 2-3 sentences maximum.\n\n' +
+    'agitate_headline: One sentence. Names the cost. Under 12 words.\n' +
+    'agitate_section: The cost. Use $1,336/year exact wording. Also $111/month. Also $25/week. One undeniable number per sentence. 2-3 sentences.\n\n' +
     'SECTION 4 — SOLVE\n' +
-    'solve_section: One sentence only. Write: "easyChef Pro looks at what is in your fridge and tells you exactly what to make tonight." Do not add feature lists.\n\n' +
+    'solve_section: One sentence only. "easyChef Pro looks at what is in your fridge and tells you exactly what to make tonight."\n' +
+    'solve_track: One-liner for TRACK feature (Pantry & Waste Screen). Under 10 words. Outcome-framed.\n' +
+    'solve_plan: One-liner for PLAN feature (Meal Planning Screen). Under 10 words. Outcome-framed.\n' +
+    'solve_optimize: One-liner for OPTIMIZE feature (Savings Dashboard). Under 10 words. Outcome-framed.\n' +
+    'solve_cook: One-liner for COOK feature (Recipe & Cook Mode). Under 10 words. Outcome-framed.\n' +
+    'solve_shop: One-liner for SHOP feature (Shopping List Screen). Under 10 words. Outcome-framed.\n\n' +
     'SECTION 5 — VALUE\n' +
-    'value_section: Three outcomes she wants. Not features — feelings and results. Write as 3 flowing sentences, not bullet points.\n\n' +
+    'value_section_tag: Write exactly: "WHAT CHANGES MONDAY"\n' +
+    'value_section: Three specific outcomes she wants. Peace and control forward — not feature forward. 3 flowing sentences.\n\n' +
     'SECTION 6 — PROOF\n' +
-    'proof_bar: Array of exactly 3 approved claims. Use only exact wording from the approved list. NEVER invent testimonials, names, or make-up stats. Do not write "Join 10,000 families" — that is not an approved claim. Use: "Validated across 10,000 household profiles" and "Built by first responders" and one stat from the claims list.\n\n' +
-    'SECTION 7 — CTA\n' +
-    'closing_headline: Urgency-framed founding price headline. One sentence.\n' +
+    'proof_bar: Array of exactly 3 items from the approved claims list. Exact wording only. NEVER invented stats.\n' +
+    '  proof_bar[0]: "Validated across 10,000 household profiles"\n' +
+    '  proof_bar[1]: "Built by first responders"\n' +
+    '  proof_bar[2]: One more approved stat ($1,336 or 69.5% or 30 min)\n' +
+    'proof_origin_line: One sentence on who built this and why. Uses approved "built by first responders" angle.\n' +
+    'proof_validation_line: One sentence using the "validated across 10,000 household profiles" claim exactly.\n' +
+    'proof_founding_line: One sentence on the founding price and why it ends. Under 15 words.\n\n' +
+    'SECTION 7 — CTA (appears 3 times on the page)\n' +
+    'closing_headline: Urgency-framed founding price headline. One sentence. Under 12 words.\n' +
     'cta_primary: Write exactly: "' + ctaConf.cta + '"\n' +
+    'cta_supporting: A second CTA variant. Outcome-framed. Under 8 words. Different angle from primary.\n' +
+    'cta_exclusivity: The exclusivity line. Write exactly: "First 5,000 families only — founding price locked forever"\n' +
     'cta_scarcity: Write exactly: "First 5,000 families lock in $7.99/month forever"\n' +
     'cta_loss_aversion: Write exactly: "After that: $19.99/month"\n\n' +
     '=== OUTPUT FORMAT ===\n' +
@@ -939,13 +1088,28 @@ function buildLandingPage(brief, copy) {
     '  "hero_headline": "",\n' +
     '  "hero_subheadline": "",\n' +
     '  "hero_cta": "' + ctaConf.cta + '",\n' +
+    '  "social_proof_bar": "",\n' +
+    '  "problem_headline": "",\n' +
     '  "problem_section": "",\n' +
+    '  "problem_visual": "",\n' +
+    '  "agitate_headline": "",\n' +
     '  "agitate_section": "",\n' +
     '  "solve_section": "easyChef Pro looks at what is in your fridge and tells you exactly what to make tonight.",\n' +
+    '  "solve_track": "",\n' +
+    '  "solve_plan": "",\n' +
+    '  "solve_optimize": "",\n' +
+    '  "solve_cook": "",\n' +
+    '  "solve_shop": "",\n' +
+    '  "value_section_tag": "WHAT CHANGES MONDAY",\n' +
     '  "value_section": "",\n' +
     '  "proof_bar": ["Validated across 10,000 household profiles", "Built by first responders", ""],\n' +
+    '  "proof_origin_line": "",\n' +
+    '  "proof_validation_line": "",\n' +
+    '  "proof_founding_line": "",\n' +
     '  "closing_headline": "",\n' +
     '  "cta_primary": "' + ctaConf.cta + '",\n' +
+    '  "cta_supporting": "",\n' +
+    '  "cta_exclusivity": "First 5,000 families only — founding price locked forever",\n' +
     '  "cta_scarcity": "First 5,000 families lock in $7.99/month forever",\n' +
     '  "cta_loss_aversion": "After that: $19.99/month",\n' +
     '  "cta_url": "' + lpUrl + '"\n' +
@@ -982,6 +1146,86 @@ function buildLandingPage(brief, copy) {
       return { ok: true, lp: null, raw: reply };
     }
   } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── generateLpSeo ─────────────────────────────────────────────────────────────
+
+/**
+ * Generates SEO metadata for a landing page.
+ * Called automatically after buildLandingPage() — also callable standalone.
+ * Returns { ok: true, seo: { meta_title, meta_description, og_title, og_description,
+ *   focus_keyword, secondary_keywords } }
+ */
+function generateLpSeo(brief, lpData) {
+  if (!brief) return { ok: false, error: 'brief is required' };
+
+  var props  = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty('ANTHROPIC_API_KEY');
+  if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
+
+  var hero = (lpData && lpData.hero_headline)    || '';
+  var sub  = (lpData && lpData.hero_subheadline) || '';
+  var icpCtx = '';
+  try { icpCtx = _getIcpContext(brief.icp || ''); } catch(e) {}
+
+  var systemPrompt =
+    'You are the easyChef Pro SEO strategist. Write metadata that ranks on Google and converts on social.\n\n' +
+    '=== PAGE CONTEXT ===\n' +
+    'ICP: '              + (brief.icp || '')                    + '\n' +
+    (icpCtx ? icpCtx                                            + '\n' : '') +
+    'Theme: '            + (brief.theme || '')                  + '\n' +
+    'Campaign angle: '   + (brief.campaign_angle || 'savings')  + '\n' +
+    'Hero headline: '    + hero                                  + '\n' +
+    'Hero subheadline: ' + sub                                   + '\n\n' +
+    '=== SEO RULES ===\n' +
+    'meta_title: 50–60 chars exactly. Format: "[Specific Benefit] | easyChef Pro". Must include the primary keyword. Count characters carefully.\n' +
+    'meta_description: 145–155 chars exactly. Must include one approved stat ($1,336 or 69.5% or 30 min). Ends with a soft CTA. Count characters carefully.\n' +
+    'og_title: Under 60 chars. Same as meta_title or a punchy variation — this is what appears when shared on Facebook/Instagram.\n' +
+    'og_description: Under 200 chars. Compelling share text — specific benefit + one approved stat.\n' +
+    'focus_keyword: 2–4 word phrase. Specific, not generic. Not "meal planning app" but "family meal planning app that saves money".\n' +
+    'secondary_keywords: Array of exactly 4 specific phrases. Include savings, time-saving, family, and waste-reduction angles.\n\n' +
+    '=== OUTPUT FORMAT ===\n' +
+    'Return ONLY valid JSON. No markdown. No explanation.\n' +
+    '{\n' +
+    '  "meta_title": "",\n' +
+    '  "meta_description": "",\n' +
+    '  "og_title": "",\n' +
+    '  "og_description": "",\n' +
+    '  "focus_keyword": "",\n' +
+    '  "secondary_keywords": ["", "", "", ""]\n' +
+    '}';
+
+  try {
+    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key':         apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type':      'application/json'
+      },
+      payload: JSON.stringify({
+        model:      'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        system:     systemPrompt,
+        messages:   [{ role: 'user', content: 'Generate SEO metadata for the ' + (brief.icp || 'selected') + ' ICP landing page. Return only the JSON object.' }]
+      }),
+      muteHttpExceptions: true
+    });
+
+    var data  = JSON.parse(resp.getContentText());
+    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
+    if (!reply && data.error) return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+
+    try {
+      var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+      var seo     = JSON.parse(jsonStr);
+      return { ok: true, seo: seo };
+    } catch(e) {
+      return { ok: true, seo: null, raw: reply };
+    }
+  } catch(e) {
     return { ok: false, error: e.message };
   }
 }

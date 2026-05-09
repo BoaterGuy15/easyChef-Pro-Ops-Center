@@ -427,18 +427,16 @@ function buildEmailCalendar(brief, copy) {
         'Same body structure for both — only subject_line and preview_text differ.';
     }
 
+    var _emailStoryCtx = _buildBriefStoryCtx(brief);
+
     var systemPrompt =
-      'You are the easyChef Pro email sequence architect. Generate a complete email sequence as a JSON array.\n\n' +
-      _AB_ARCH +
-      _AB_VOICE +
-      '=== APPROVED CLAIMS ===\n' + claimsCtx +
-      '=== NUMBERS POLICY — HARD BLOCK ===\n' +
-      'ONLY use statistics and figures that appear verbatim in the APPROVED CLAIMS section above.\n' +
-      'Permitted figures: $1,336/year · 69.5% less food waste · 30 minutes fridge to table · 800,000 products · 10,000 recipe pages at launch.\n' +
-      'NO OTHERS. Do not use any dollar amount, percentage, or count not in that list.\n' +
-      'TESTIMONIALS ARE BANNED: Never write "One mom told us...", "A customer said...", "Users report...", or any fabricated testimonial, attribution, or invented quote. No invented names. No invented figures. This is a non-negotiable hard block — any invented testimonial or unapproved statistic invalidates the entire output.\n' +
-      'If no approved stat fits, write without a statistic rather than inventing one.\n\n' +
-      '=== TARGET ICP ===\n' + icpCtx + '\n' +
+      getMasterSystemPrompt('email', _emailStoryCtx) +
+      '=== EMAIL SEQUENCE RULES ===\n' +
+      'From name: Taylor at easyChef Pro\n' +
+      'TESTIMONIALS ARE BANNED: Never write "One mom told us...", "A customer said...", or any fabricated testimonial. No invented names, no invented quotes.\n' +
+      'NUMBERS POLICY: ONLY use figures from the approved claims list. No other dollar amounts, percentages, or counts.\n' +
+      'BODY LENGTH: Each email body section should be 2-4 sentences minimum. Total email should be 250+ words across all body sections combined.\n' +
+      'BODY PS: Every email must end with a P.S. line — one sentence that adds urgency or reinforces the founding offer.\n\n' +
       '=== CAMPAIGN ===\n' +
       'Name: '                  + (brief.name || '')                      + '\n' +
       'Landing page: '          + lpUrl                                    + '\n' +
@@ -449,9 +447,11 @@ function buildEmailCalendar(brief, copy) {
         ? copy.proof_bar.join(' · ')
         : (copy && copy.proof_bar || ''))                                   + '\n\n' +
       '=== ' + variantInstr + ' ===\n\n' +
-      '=== 7-STEP FRAMEWORK ===\n' +
-      'Hook → Problem → Agitate → Solve → Value → Proof → CTA\n' +
-      'Every email focuses on its assigned stage. Do not try to hit all 7 in every email.\n\n' +
+      '=== 7-STEP FRAMEWORK — ONE STAGE PER EMAIL ===\n' +
+      'Each email focuses on its assigned stage only. Do not try to hit all 7 in every email.\n' +
+      'subject_line_a: Money/savings angle — 8-12 words, specific dollar amount or stat when it fits the stage\n' +
+      'subject_line_b: Emotion/time angle — 8-12 words, names the feeling or the exact moment\n' +
+      'preview_text_a and preview_text_b: 85-100 chars, extends the subject line, creates curiosity\n\n' +
       '=== EMAIL WIREFRAME — ' + wireframe.length + ' EMAILS ===\n' +
       wireframeDesc + '\n\n' +
       '=== COUNT REQUIREMENT — NON-NEGOTIABLE ===\n' +
@@ -479,13 +479,15 @@ function buildEmailCalendar(brief, copy) {
       '    "subject_line_b": "Under 50 chars — simplicity angle — no emoji",\n' +
       '    "preview_text_a": "Under 90 chars — extends subject A",\n' +
       '    "preview_text_b": "Under 90 chars — extends subject B",\n' +
-      '    "body_hook": "First 1-2 sentences — stops the read, specific to ICP pain",\n' +
-      '    "body_problem": "1-2 sentences naming the exact pain",\n' +
-      '    "body_agitate": "1-2 sentences deepening the pain",\n' +
-      '    "body_solve": "1 sentence — easyChef Pro as the answer",\n' +
-      '    "body_value": "1-2 sentences — specific value, approved claims only",\n' +
-      '    "body_proof": "1 sentence — approved stat or social proof",\n' +
+      '    "from_name": "Taylor at easyChef Pro",\n' +
+      '    "body_hook": "2-3 sentences — hooks the reader, specific to ICP pain and this email\'s stage",\n' +
+      '    "body_problem": "2-3 sentences naming the exact pain — specific moment, not generic",\n' +
+      '    "body_agitate": "2-3 sentences deepening the pain — name the cost, make it real",\n' +
+      '    "body_solve": "2 sentences — easyChef Pro as the obvious answer",\n' +
+      '    "body_value": "2-3 sentences — specific outcomes, approved claims only, peace-forward",\n' +
+      '    "body_proof": "1-2 sentences — one approved stat exact wording, no invented testimonials",\n' +
       '    "body_cta": "CTA line with full URL — outcome-framed, under 10 words",\n' +
+      '    "body_ps": "P.S. — one sentence urgency or founding offer reinforcement",\n' +
       '    "send_day": 0,\n' +
       '    "trigger_event": "waitlist_signup",\n' +
       '    "theme": "welcome",\n' +
@@ -555,6 +557,8 @@ function buildEmailCalendar(brief, copy) {
           body_value:    e.body_value     || '',
           body_proof:    e.body_proof     || '',
           body_cta:      e.body_cta       || '',
+          body_ps:       e.body_ps        || '',
+          from_name:     e.from_name      || 'Taylor at easyChef Pro',
           send_day:      e.send_day,
           trigger_event: e.trigger_event  || '',
           funnel_stage:  e.funnel_stage   || '',
@@ -579,6 +583,8 @@ function buildEmailCalendar(brief, copy) {
           body_value:    e.body_value     || '',
           body_proof:    e.body_proof     || '',
           body_cta:      e.body_cta       || '',
+          body_ps:       e.body_ps        || '',
+          from_name:     e.from_name      || 'Taylor at easyChef Pro',
           send_day:      e.send_day,
           trigger_event: e.trigger_event  || '',
           funnel_stage:  e.funnel_stage   || '',
@@ -636,7 +642,6 @@ function buildSocialCalendar(brief, copy) {
         ' | Aligns with email: ' + t.role;
     }).join('\n');
 
-    var maxTokens = Math.min(8000, Math.max(2000, postCount * 600));
     var allPosts  = [];
 
     // Separate special-asset channels (TikTok spotlight, YouTube explainer)
@@ -691,116 +696,129 @@ function buildSocialCalendar(brief, copy) {
       }
     });
 
-    // One API call per regular social channel — 7-post arc
+    // One Claude call per post per channel — deeply contextualized per funnel stage
+    var _arcThemes   = ['hook', 'problem', 'agitate', 'solve', 'value', 'proof', 'cta'];
+    var _charLimits  = { facebook: 400, instagram: 2200, x: 280, pinterest: 500, nextdoor: 300 };
+    var _foodType    = (brief.themeData && brief.themeData.food_type) || brief.theme_food || brief.food_type || '';
+
     for (var ci = 0; ci < arcChannels.length; ci++) {
-      var channel      = arcChannels[ci];
+      var channel  = arcChannels[ci];
+      var chSlug   = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
+      var charLimit = _charLimits[channel.toLowerCase()] || 400;
+      var channelRules = _getChannelRules(channel);
       var platformNote = _getPlatformNote(channel);
 
-      var systemPrompt =
-        'You are the easyChef Pro social media writer building a synchronized content calendar.\n' +
-        'These posts run in parallel with the email sequence — each post primes the audience for the email that follows.\n\n' +
-        _AB_ARCH +
-        _AB_VOICE +
-        '=== APPROVED CLAIMS ===\n' + claimsCtx +
-        '=== NUMBERS POLICY — STRICTLY ENFORCED ===\n' +
-        'ONLY use statistics and figures that appear verbatim in the APPROVED CLAIMS section above.\n' +
-        'NEVER invent, estimate, or extrapolate any number — no follower counts, waitlist sizes, dollar amounts, or percentages that are not in APPROVED CLAIMS.\n' +
-        'If no approved stat fits a post, write the post without a statistic rather than inventing one.\n\n' +
-        '=== PLATFORM ===\n' + platformNote + '\n\n' +
-        '=== TARGET ICP ===\n' + icpCtx + '\n' +
-        '=== CAMPAIGN ===\n' +
-        'Name: '        + (brief.name || '')              + '\n' +
-        'Landing page: '+ lpUrl                            + '\n' +
-        'Headline: '    + (copy && copy.headline    || '') + '\n' +
-        'Social hook: ' + (copy && copy.social_hook || '') + '\n' +
-        'CTA: '         + (copy && copy.cta_primary || '') + '\n\n' +
-        '=== POSTING FREQUENCY ===\n' +
-        'Frequency: ' + frequency + '\n' +
-        'Total posts: ' + postCount + '\n\n' +
-        '=== CONTENT SCHEDULE — ' + postCount + ' POSTS ===\n' +
-        'Each post is 1 day ahead of the aligned email to prime the inbox open.\n' +
-        scheduleDesc + '\n\n' +
-        '=== PLATFORM REQUIREMENTS ===\n' +
-        'Optimal character count: ' + (brief.platform_optimal_chars || '150-300') + '\n' +
-        'Hashtags: ' + (brief.use_hashtags
-          ? 'Include ' + (brief.hashtag_count_min || 0) + '-' + (brief.hashtag_count_max || 0) + ' hashtags'
-          : 'No hashtags on this platform — leave hashtags as empty string') + '\n' +
-        'Content format: ' + (brief.content_format || 'post') + '\n' +
-        'Link placement: ' + (brief.link_placement || 'in post body') + '\n\n' +
-        '=== OUTPUT FORMAT ===\n' +
-        'Return ONLY a valid JSON array. No markdown. No explanation.\n' +
-        '[\n' +
-        '  {\n' +
-        '    "post_num": 1,\n' +
-        '    "scheduled_day": 0,\n' +
-        '    "theme": "welcome",\n' +
-        '    "hook": "Scroll-stopper first line — under 15 words",\n' +
-        '    "body_copy": "Full post body — plain text, no markdown, no asterisks",\n' +
-        '    "cta": "CTA line — under 10 words",\n' +
-        '    "hashtags": "hashtags or empty string"\n' +
-        '  }\n' +
-        ']';
+      for (var pi = 0; pi < postCount; pi++) {
+        var sched  = themeSchedule[pi] || {};
+        var stage  = sched.theme || _arcThemes[Math.min(pi, _arcThemes.length - 1)] || 'hook';
+        var postId = campaignId + '-' + chSlug + '-POST-' + String(pi + 1).padStart(3, '0');
 
-      var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key':         apiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type':      'application/json'
-        },
-        payload: JSON.stringify({
-          model:      'claude-sonnet-4-20250514',
-          max_tokens: maxTokens,
-          system:     systemPrompt,
-          messages:   [{ role: 'user', content: 'Generate the ' + postCount + '-post social calendar for ' + channel + '. Return only the JSON array.' }]
-        }),
-        muteHttpExceptions: true
-      });
+        // Build stage-specific story context
+        var postCtx         = _buildBriefStoryCtx(brief);
+        postCtx.platform    = channel;
+        postCtx.stage       = stage;
+        postCtx.post_number = pi + 1;
 
-      var data  = JSON.parse(resp.getContentText());
-      var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
-      if (!reply && data.error) {
-        Logger.log('[buildSocialCalendar] ' + channel + ' error: ' + JSON.stringify(data.error));
-        continue; // skip this channel on error, keep going for others
-      }
-
-      var jsonStr    = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-      var chPosts    = JSON.parse(jsonStr);
-      var chSlug     = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-      var _arcThemes=['hook','problem','agitate','solve','value','proof','cta'];
-      chPosts.forEach(function(p, i) {
-        var sched  = themeSchedule[i] || {};
-        var postId = campaignId + '-' + chSlug + '-POST-' + String(i + 1).padStart(3, '0');
-
-        p.id          = postId;
-        p.campaign_id = campaignId;
-        p.platform    = channel;
-        // Sequential daily arc: post i → day i so all platforms sync to the same stage on the same day
-        if (p.scheduled_day === undefined) p.scheduled_day = i;
-        if (!p.theme)                      p.theme         = sched.theme || _arcThemes[i] || '';
-
-        var _sched = '';
-        if (brief.launchDate && p.scheduled_day !== undefined) {
-          try {
-            var _ld = new Date(brief.launchDate + 'T12:00:00');
-            _ld.setDate(_ld.getDate() + p.scheduled_day);
-            _sched = Utilities.formatDate(_ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-          } catch(de) { _sched = ''; }
+        // Theme food rule: Post 4 (SOLVE) onward must name the food by name
+        var foodRule = '';
+        if (pi >= 3 && _foodType) {
+          foodRule =
+            'FOOD RULE — CRITICAL: This is Post ' + (pi + 1) + ' (' + stage.toUpperCase() + '). ' +
+            'The theme food for this campaign is "' + _foodType + '". ' +
+            'You MUST mention "' + _foodType + '" by name in the hook or body. ' +
+            'This grounds the copy in something specific — never write generic "dinner" or "meal".\n\n';
         }
-        setSocialPost({
-          id:             postId,
-          campaign_id:    campaignId,
-          platform:       channel,
-          hook:           p.hook        || '',
-          body_copy:      p.body_copy   || '',
-          cta:            p.cta         || '',
-          hashtags:       p.hashtags    || '',
-          scheduled_date: _sched,
-          status:         'draft'
-        });
-        allPosts.push(p);
-      });
+
+        var systemPrompt =
+          getMasterSystemPrompt('social_post', postCtx) +
+          '=== PLATFORM ===\n' +
+          (channelRules || platformNote) + '\n\n' +
+          '=== CAMPAIGN CONTEXT ===\n' +
+          'Landing page: '   + lpUrl                            + '\n' +
+          'Campaign angle: ' + (brief.campaign_angle || 'savings') + '\n' +
+          'Social hook: '    + (copy && copy.social_hook || '') + '\n\n' +
+          '=== THIS POST ===\n' +
+          'Post ' + (pi + 1) + ' of ' + postCount + ' — Stage: ' + stage.toUpperCase() + '\n' +
+          'Email alignment: ' + (sched.role || stage) + '\n' +
+          'Scheduled day: '   + (sched.day !== undefined ? sched.day : pi) + '\n' +
+          'Character limit: ' + charLimit + ' chars for body\n' +
+          (brief.use_hashtags
+            ? 'Hashtags: Include ' + (brief.hashtag_count_min || 0) + '–' + (brief.hashtag_count_max || 0) + ' hashtags at end\n'
+            : 'Hashtags: None on this platform — leave hashtags field as empty string\n') +
+          foodRule +
+          '=== OUTPUT FORMAT ===\n' +
+          'Return ONLY a valid JSON object for this single post. No markdown. No explanation.\n' +
+          '{\n' +
+          '  "post_num": ' + (pi + 1) + ',\n' +
+          '  "scheduled_day": ' + (sched.day !== undefined ? sched.day : pi) + ',\n' +
+          '  "theme": "' + stage + '",\n' +
+          '  "hook": "First line — stops the scroll — under 15 words",\n' +
+          '  "body_copy": "Full post body — plain text, no markdown — under ' + charLimit + ' chars",\n' +
+          '  "cta": "CTA line — under 10 words",\n' +
+          '  "hashtags": "hashtags or empty string"\n' +
+          '}';
+
+        try {
+          var postResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key':         apiKey,
+              'anthropic-version': '2023-06-01',
+              'Content-Type':      'application/json'
+            },
+            payload: JSON.stringify({
+              model:      'claude-sonnet-4-20250514',
+              max_tokens: 1024,
+              system:     systemPrompt,
+              messages:   [{ role: 'user', content: 'Write Post ' + (pi + 1) + ' (' + stage.toUpperCase() + ') for ' + channel + ' — ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object.' }]
+            }),
+            muteHttpExceptions: true
+          });
+
+          var postData  = JSON.parse(postResp.getContentText());
+          var postReply = (Array.isArray(postData.content) && postData.content[0] && postData.content[0].text) || '';
+          if (!postReply && postData.error) {
+            Logger.log('[buildSocialCalendar] ' + channel + ' post ' + (pi + 1) + ' error: ' + JSON.stringify(postData.error));
+            continue;
+          }
+
+          var postJsonStr = postReply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+          var p           = JSON.parse(postJsonStr);
+
+          p.id          = postId;
+          p.campaign_id = campaignId;
+          p.platform    = channel;
+          if (p.scheduled_day === undefined) p.scheduled_day = sched.day !== undefined ? sched.day : pi;
+          if (!p.theme)                      p.theme         = stage;
+          if (_foodType && !p.food_type)     p.food_type     = _foodType;
+
+          var _sched = '';
+          if (brief.launchDate && p.scheduled_day !== undefined) {
+            try {
+              var _ld = new Date(brief.launchDate + 'T12:00:00');
+              _ld.setDate(_ld.getDate() + p.scheduled_day);
+              _sched = Utilities.formatDate(_ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+            } catch(de) { _sched = ''; }
+          }
+
+          setSocialPost({
+            id:             postId,
+            campaign_id:    campaignId,
+            platform:       channel,
+            hook:           p.hook      || '',
+            body_copy:      p.body_copy || '',
+            cta:            p.cta       || '',
+            hashtags:       p.hashtags  || '',
+            scheduled_date: _sched,
+            status:         'draft'
+          });
+          allPosts.push(p);
+          Logger.log('[buildSocialCalendar] ' + channel + ' post ' + (pi + 1) + ' (' + stage + ') saved');
+
+        } catch(postErr) {
+          Logger.log('[buildSocialCalendar] ' + channel + ' post ' + (pi + 1) + ' fetch error: ' + postErr.message);
+        }
+      }
     }
 
     return { ok: true, posts: allPosts, frequency: frequency };
