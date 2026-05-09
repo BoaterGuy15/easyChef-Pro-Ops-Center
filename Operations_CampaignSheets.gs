@@ -1311,17 +1311,17 @@ function getNextCampaignId() {
 // ── Slug availability check ───────────────────────────────────────────────────
 
 function checkSlugAvailable(slug) {
-  if (!slug) return { ok: false, error: 'slug is required' };
+  if (!slug) return { ok: false, available: false, error: 'slug is required' };
   var sheet   = _getCCSheet(_CC_TAB.PAGES);
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { ok: true };
+  if (lastRow < 2) return { ok: true, available: true };
   var rows = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][3]).trim() === String(slug).trim()) {
-      return { ok: false, conflict_campaign_id: String(rows[i][1]) };
+      return { ok: true, available: false, conflict_campaign_id: String(rows[i][1]) };
     }
   }
-  return { ok: true };
+  return { ok: true, available: true };
 }
 
 // ── Channels tab migration ────────────────────────────────────────────────────

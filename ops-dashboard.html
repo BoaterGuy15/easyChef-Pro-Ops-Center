@@ -23649,7 +23649,7 @@ function _ccCheckSlug(){
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'check_slug_available',slug:slug})})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d&&d.ok===true){_campSlugStatus='ok';_ccSlugStatus('ok',slug);}
+      if(d&&d.available===true){_campSlugStatus='ok';_ccSlugStatus('ok',slug);}
       else{
         var cid=d?d.conflict_campaign_id:'';
         if((cid&&_campBrief&&cid===_campBrief.id)||_campBrief._lpReused){
