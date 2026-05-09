@@ -1594,11 +1594,50 @@ function _seedCcSettings(sheet) {
     ['CAMPAIGN_ANGLES','health','Health','',true],
     ['CAMPAIGN_ANGLES','convenience','Convenience','',true],
     ['CAMPAIGN_ANGLES','community','Community','',true],
-    ['CAMPAIGN_ANGLES','founder','Founder','',true]
+    ['CAMPAIGN_ANGLES','founder','Founder','',true],
+    // BRAND_PLUG — tagline + origin (read-only display), 8 selectable proof claims
+    ['BRAND_PLUG','tagline',  'Your kitchen. In command.',                          '',true],
+    ['BRAND_PLUG','origin',   'Built by first responders.',                         '',true],
+    ['BRAND_PLUG','proof_001','$1,336/year saved',                                  '',true],
+    ['BRAND_PLUG','proof_002','69.5% less food waste',                              '',true],
+    ['BRAND_PLUG','proof_003','30 minutes fridge to table',                         '',true],
+    ['BRAND_PLUG','proof_004','9 patent-pending technologies',                      '',true],
+    ['BRAND_PLUG','proof_005','Registered dietitians. FDA-grade data.',             '',true],
+    ['BRAND_PLUG','proof_006','Validated across 10,000 household profiles',         '',true],
+    ['BRAND_PLUG','proof_007','Built for working families. Tested by first responders.',  '',true],
+    ['BRAND_PLUG','proof_008','Zero shortcuts. Zero guesswork. All home.',          '',true]
   ];
   rows.forEach(function(row) { sheet.appendRow(row); });
   CacheService.getScriptCache().remove('cc_settings_v1');
   Logger.log('CcSettings: seeded ' + rows.length + ' rows');
+}
+
+// Run once from GAS editor to add BRAND_PLUG rows to an existing CcSettings sheet.
+function addBrandPlugSettings() {
+  var sheet  = _getCCSheet(_CC_TAB.SETTINGS);
+  var last   = sheet.getLastRow();
+  if (last >= 2) {
+    var secs = sheet.getRange(2, 1, last - 1, 1).getValues().map(function(r){ return String(r[0]).toUpperCase(); });
+    if (secs.indexOf('BRAND_PLUG') > -1) {
+      Logger.log('BRAND_PLUG rows already exist — skipping.');
+      return;
+    }
+  }
+  var rows = [
+    ['BRAND_PLUG','tagline',  'Your kitchen. In command.',                          '',true],
+    ['BRAND_PLUG','origin',   'Built by first responders.',                         '',true],
+    ['BRAND_PLUG','proof_001','$1,336/year saved',                                  '',true],
+    ['BRAND_PLUG','proof_002','69.5% less food waste',                              '',true],
+    ['BRAND_PLUG','proof_003','30 minutes fridge to table',                         '',true],
+    ['BRAND_PLUG','proof_004','9 patent-pending technologies',                      '',true],
+    ['BRAND_PLUG','proof_005','Registered dietitians. FDA-grade data.',             '',true],
+    ['BRAND_PLUG','proof_006','Validated across 10,000 household profiles',         '',true],
+    ['BRAND_PLUG','proof_007','Built for working families. Tested by first responders.',  '',true],
+    ['BRAND_PLUG','proof_008','Zero shortcuts. Zero guesswork. All home.',          '',true]
+  ];
+  rows.forEach(function(row) { sheet.appendRow(row); });
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  Logger.log('BRAND_PLUG: added ' + rows.length + ' rows.');
 }
 
 function getCcSettings() {
@@ -1609,7 +1648,7 @@ function getCcSettings() {
   var sheet = _getCCSheet(_CC_TAB.SETTINGS);
   if (sheet.getLastRow() < 2) _seedCcSettings(sheet);
 
-  var result = { theme_categories:[], journey_types:[], app_features:[], campaign_angles:[] };
+  var result = { theme_categories:[], journey_types:[], app_features:[], campaign_angles:[], brand_plug:[] };
   var last   = sheet.getLastRow();
   if (last < 2) { cache.put('cc_settings_v1', JSON.stringify(result), 300); return result; }
 
@@ -1623,6 +1662,7 @@ function getCcSettings() {
     else if (sec === 'JOURNEY_TYPES')    result.journey_types.push(row);
     else if (sec === 'APP_FEATURES')     result.app_features.push(row);
     else if (sec === 'CAMPAIGN_ANGLES')  result.campaign_angles.push(row);
+    else if (sec === 'BRAND_PLUG')       result.brand_plug.push(row);
   });
 
   cache.put('cc_settings_v1', JSON.stringify(result), 300);

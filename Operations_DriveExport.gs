@@ -566,6 +566,22 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   + '  <tr><td class="td-label">Active DL_IDs</td><td>' + _h(dlIds) + '</td></tr>\n'
   + '</tbody></table>\n\n'
 
+  // ── 07 BRAND PLUG ──
+  + (function(){
+      var _bpRows    = [];
+      try { _bpRows = (getCcSettings().brand_plug || []); } catch(e) {}
+      var _bpTagline = (_bpRows.find(function(r){ return r.key === 'tagline'; }) || {}).label || 'Your kitchen. In command.';
+      var _bpOrigin  = (_bpRows.find(function(r){ return r.key === 'origin';  }) || {}).label || 'Built by first responders.';
+      var _proofClaim = _h(lp.proof_claim || brief.proof_claim || '$1,336/year saved');
+      return '<div class="sec-header">07 &mdash; BRAND PLUG (above CTA &mdash; always, never optional)</div>\n'
+        + '<table><tbody>\n'
+        + '  <tr><td class="td-label">Line 1 &mdash; Tagline</td><td style="font-weight:600">' + _h(_bpTagline) + '</td></tr>\n'
+        + '  <tr><td class="td-label">Line 2 &mdash; Origin</td><td style="font-weight:600">' + _h(_bpOrigin) + '</td></tr>\n'
+        + '  <tr><td class="td-label">Line 3 &mdash; Proof Claim</td><td style="font-weight:600">' + _proofClaim + '</td></tr>\n'
+        + '  <tr><td class="td-label">Placement Rule</td><td>These three lines appear above the CTA button on every LP, below the hero headline on the coming soon page, and in the proof bar on Variant A and B.</td></tr>\n'
+        + '</tbody></table>\n\n';
+    })()
+
   // ── FOOTER ──
   + '<div class="footer">easyChef Pro &nbsp;&middot;&nbsp; Digital Galactica Labs LLC &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; Generated '
   + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'

@@ -226,6 +226,21 @@ function getMasterSystemPrompt(type, context) {
   try { claimsCtx = _getClaimsContext(); }
   catch(e) { claimsCtx = 'Use only approved claims. Do not invent statistics.\n\n'; }
   claimsCtx += 'FOUNDING OFFER RULE: founding_offer field must use exact wording: "Lock in $7.99/month founding price — 60% off forever". Never write "50% off" in any form.\n\n';
+  try {
+    var _bpSettings = getCcSettings();
+    var _bpRows     = (_bpSettings.brand_plug || []);
+    var _bpTagline  = (_bpRows.find(function(r){ return r.key === 'tagline'; }) || {}).label || 'Your kitchen. In command.';
+    var _bpOrigin   = (_bpRows.find(function(r){ return r.key === 'origin';  }) || {}).label || 'Built by first responders.';
+    var _bpClaims   = _bpRows.filter(function(r){ return r.key.indexOf('proof_') === 0; }).map(function(r){ return '    · ' + r.label; }).join('\n');
+    claimsCtx += 'BRAND PLUG RULE: Every landing page must include these three lines above the CTA button, in this exact order. This is never optional — it is the reason she clicks.\n' +
+      '  Line 1 — Tagline: "' + _bpTagline + '"\n' +
+      '  Line 2 — Origin:  "' + _bpOrigin  + '"\n' +
+      '  Line 3 — Proof:   One approved claim from this list (use whichever fits the campaign angle):\n' +
+      _bpClaims + '\n' +
+      'Place the brand plug immediately above the CTA button. Exact wording. No paraphrasing.\n\n';
+  } catch(e) {
+    claimsCtx += 'BRAND PLUG RULE: Place tagline, origin, and one proof claim above every CTA button. Exact wording only.\n\n';
+  }
   claimsCtx += 'PROOF BAR RULE: proof_bar is always an array of exactly 3 items.\n' +
     '  Item 1 — creative social proof statement generated per campaign. Style: "Busy families are already..." or similar descriptive trust language. NEVER a stat. NEVER a percentage. NEVER a dollar amount. NEVER an invented user count. Descriptive trust language only.\n' +
     '  Item 2 — exact wording always: "69.5% less food waste"\n' +

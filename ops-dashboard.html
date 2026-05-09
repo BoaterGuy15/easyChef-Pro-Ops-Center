@@ -22131,6 +22131,18 @@ var _CC_SETTINGS_FALLBACK = {
     {key:'exclusivity',label:'Exclusivity',extra:''},{key:'simplicity',label:'Simplicity',extra:''},
     {key:'transformation',label:'Transformation',extra:''},{key:'family',label:'Family First',extra:''},
     {key:'pride',label:'Pride & Accomplishment',extra:''},{key:'adventure',label:'Culinary Adventure',extra:''}
+  ],
+  brand_plug: [
+    {key:'tagline',   label:'Your kitchen. In command.',                                extra:''},
+    {key:'origin',    label:'Built by first responders.',                               extra:''},
+    {key:'proof_001', label:'$1,336/year saved',                                        extra:''},
+    {key:'proof_002', label:'69.5% less food waste',                                    extra:''},
+    {key:'proof_003', label:'30 minutes fridge to table',                               extra:''},
+    {key:'proof_004', label:'9 patent-pending technologies',                            extra:''},
+    {key:'proof_005', label:'Registered dietitians. FDA-grade data.',                   extra:''},
+    {key:'proof_006', label:'Validated across 10,000 household profiles',               extra:''},
+    {key:'proof_007', label:'Built for working families. Tested by first responders.',  extra:''},
+    {key:'proof_008', label:'Zero shortcuts. Zero guesswork. All home.',                extra:''}
   ]
 };
 
@@ -22221,7 +22233,7 @@ function _ccCloseSettings() {
 }
 
 function _ccStTab(sec) {
-  ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES'].forEach(function(s){
+  ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES','BRAND_PLUG'].forEach(function(s){
     var p=document.getElementById('cc-st-panel-'+s);
     var b=document.getElementById('cc-st-tab-'+s);
     if(p) p.style.display=(s===sec)?'block':'none';
@@ -22309,7 +22321,7 @@ function _ccDeleteSetting(sec,key,btn){
 }
 
 function _ccRebuildSectionUI(sec){
-  var MAP={THEME_CATEGORIES:'theme_categories',JOURNEY_TYPES:'journey_types',APP_FEATURES:'app_features',CAMPAIGN_ANGLES:'campaign_angles'};
+  var MAP={THEME_CATEGORIES:'theme_categories',JOURNEY_TYPES:'journey_types',APP_FEATURES:'app_features',CAMPAIGN_ANGLES:'campaign_angles',BRAND_PLUG:'brand_plug'};
   var sk=MAP[sec]; if(!sk||!_ccSettingsData)return;
   var all=_ccSettingsData[sk]||[];
   var active=all.filter(function(r){return r.active!==false;});
@@ -22352,7 +22364,7 @@ function _ccSettingsPanelHtml() {
   var BTN='border:none;padding:7px 16px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.05em;text-transform:uppercase';
   var TABST='padding:6px 14px;border-radius:5px 5px 0 0;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border:none;font-family:\'DM Mono\',monospace';
   var LBL9='font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px;font-family:\'DM Mono\',monospace';
-  var sdata=_ccSettingsData||{theme_categories:[],journey_types:[],app_features:[],campaign_angles:[]};
+  var sdata=_ccSettingsData||{theme_categories:[],journey_types:[],app_features:[],campaign_angles:[],brand_plug:[]};
 
   function panel(sec,title,desc,hasExtra,extraPh,items){
     var active=items.filter(function(r){return r.active!==false;});
@@ -22406,8 +22418,8 @@ function _ccSettingsPanelHtml() {
       '<button onclick="_ccCloseSettings()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:5px;font-size:13px;cursor:pointer">✕</button>'+
     '</div>'+
     '<div style="display:flex;gap:2px;padding:12px 20px 0;border-bottom:1px solid var(--border);flex-shrink:0">'+
-      ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES'].map(function(s,i){
-        var labels=['Categories','Journey Types','App Features','Angles'];
+      ['THEME_CATEGORIES','JOURNEY_TYPES','APP_FEATURES','CAMPAIGN_ANGLES','BRAND_PLUG'].map(function(s,i){
+        var labels=['Categories','Journey Types','App Features','Angles','Brand Plug'];
         var isFirst=i===0;
         return '<button id="cc-st-tab-'+s+'" onclick="_ccStTab(\''+s+'\')" style="'+TABST+';background:'+(isFirst?_CC_RED:'transparent')+';color:'+(isFirst?'#fff':'var(--muted)')+(isFirst?'':';border:1px solid var(--border);border-bottom:none')+'">'+labels[i]+'</button>';
       }).join('')+
@@ -22417,6 +22429,7 @@ function _ccSettingsPanelHtml() {
       panel('JOURNEY_TYPES','Journey Types','Shown in Create Theme form. Key = identifier, Label = display name, Extra = App Feature code auto-selected when this journey type is picked.',true,'Feature Code',sdata.journey_types)+
       panel('APP_FEATURES','App Features','Key = feature code (e.g. COOK), Label = AI context description, Extra = screen label written to the sheet.',true,'Screen Label',sdata.app_features)+
       panel('CAMPAIGN_ANGLES','Angles','Campaign angle options. Key = stored value, Label = display name in form.',false,'',sdata.campaign_angles)+
+      panel('BRAND_PLUG','Brand Plug','Brand plug appears above every CTA button — never optional. Key = tagline | origin | proof_001 … proof_008. Tagline and origin are read-only in the LP Builder; proof claims populate the dropdown.',false,'',sdata.brand_plug||[])+
     '</div>'+
     '<div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0">'+
       '<button onclick="_ccCloseSettings()" style="'+BTN+';background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 20px">Close</button>'+
@@ -24678,6 +24691,24 @@ function _ccShowBuildLpForm() {
     '<div style="margin-bottom:16px"><label style="'+LBL+'">Headline <span style="font-size:9px;font-weight:400">(pre-filled from kickstart if run)</span></label>'+
       '<input id="cc-blp-headline" type="text" value="'+_esc(headline)+'" placeholder="e.g. Stop wasting $1,336 a year on food you never eat" style="'+IS+'">'+
     '</div>'+
+    // Brand Plug — always above CTA, never optional — values from _ccSettingsData.brand_plug
+    (function(){
+      var _bp = (_ccSettingsData && _ccSettingsData.brand_plug) ? _ccSettingsData.brand_plug : _CC_SETTINGS_FALLBACK.brand_plug;
+      var _bpTagline = (_bp.find(function(r){return r.key==='tagline';})||{}).label || 'Your kitchen. In command.';
+      var _bpOrigin  = (_bp.find(function(r){return r.key==='origin'; })||{}).label || 'Built by first responders.';
+      var _proofOpts = _bp.filter(function(r){return r.active!==false && r.key.indexOf('proof_')===0;})
+        .map(function(r){return '<option value="'+_esc(r.label)+'">'+_esc(r.label)+'</option>';}).join('');
+      return '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:'+_CC_RED+';margin-bottom:6px;text-transform:uppercase;'+mf+'">BRAND PLUG — always above CTA</div>'+
+        '<div style="padding:12px;background:var(--bg);border-radius:6px;border:1px solid rgba(255,0,0,0.2);margin-bottom:16px">'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+            '<div><label style="'+LBL+'">Line 1 — Tagline</label><input type="text" value="'+_esc(_bpTagline)+'" readonly tabindex="-1" style="'+RO+'color:#f59e0b"></div>'+
+            '<div><label style="'+LBL+'">Line 2 — Origin</label><input type="text" value="'+_esc(_bpOrigin)+'" readonly tabindex="-1" style="'+RO+'color:#f59e0b"></div>'+
+          '</div>'+
+          '<div><label style="'+LBL+'">Line 3 — Proof Claim <span style="font-size:9px;font-weight:400;text-transform:none">(user picks one)</span></label>'+
+            '<select id="cc-blp-proof-claim" style="'+IS+'">'+(_proofOpts||'<option value="">— open ⚙ Settings to add proof claims —</option>')+'</select>'+
+          '</div>'+
+        '</div>';
+    })()+
     // Auto-generated preview
     '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase;'+mf+'">AUTO-GENERATED</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;padding:12px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">'+
@@ -24707,10 +24738,12 @@ function _ccHideBuildLpForm() {
 }
 
 function _ccSaveBuildLp() {
-  var variant  = ((document.getElementById('cc-blp-variant')||{}).value  || 'a');
-  var purpose  = ((document.getElementById('cc-blp-purpose')||{}).value  || 'Waitlist');
-  var headline = ((document.getElementById('cc-blp-headline')||{}).value || '');
-  var slug     = ((document.getElementById('cc-blp-slug-preview')||{}).value || '').trim();
+  var variant     = ((document.getElementById('cc-blp-variant')||{}).value      || 'a');
+  var purpose     = ((document.getElementById('cc-blp-purpose')||{}).value      || 'Waitlist');
+  var headline    = ((document.getElementById('cc-blp-headline')||{}).value     || '');
+  var _bpFallback = ((_ccSettingsData||_CC_SETTINGS_FALLBACK).brand_plug||[]).find(function(r){return r.key.indexOf('proof_')===0;});
+  var proofClaim  = ((document.getElementById('cc-blp-proof-claim')||{}).value  || (_bpFallback&&_bpFallback.label) || '$1,336/year saved');
+  var slug        = ((document.getElementById('cc-blp-slug-preview')||{}).value || '').trim();
   var statusEl = document.getElementById('cc-blp-status');
   if(!slug){ if(statusEl){statusEl.textContent='⚠️ Slug required';statusEl.style.color='#ef4444';} return; }
   if(!CONFIG.sheetsUrl){ if(statusEl){statusEl.textContent='⚠️ No sheet URL';statusEl.style.color='#ef4444';} return; }
@@ -24727,6 +24760,7 @@ function _ccSaveBuildLp() {
     purpose:     purpose,
     headline:    headline,
     angle:       t.campaign_angle || _campBrief.campaign_angle || '',
+    proof_claim: proofClaim,
     campaign_id: _campBrief.id   || ''
   })})
   .then(function(r){return r.json();})
