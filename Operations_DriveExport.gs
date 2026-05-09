@@ -411,6 +411,12 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
       // Social post rows
       try {
+        var _DEFAULT_TAGS = {
+          'instagram': '#mealplanning #foodwaste #busymom #easyChefPro #mealprep #familydinners #grocerysavings',
+          'tiktok':    '#easyChefPro #mealprep #busymom #foodwaste #dinnerideas',
+          'pinterest': '#mealplanning #familydinners #grocerysavings #foodwaste #easyrecipes #busymom #mealprep'
+        };
+        var _TAG_PLATFORMS = { 'instagram':1, 'tiktok':1, 'pinterest':1 };
         var _chIdx = {};
         posts.forEach(function(p) {
           var chKey = String(p.platform || p.channel || 'other').toLowerCase();
@@ -423,11 +429,18 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           var _postNum   = parseInt(p.post_num || _chIdx[chKey]) || 1;
           var _stageIdx  = Math.min(_postNum - 1, _FUNNEL_STAGES.length - 1);
           var _stage     = String(p.funnel_stage || p.stage || p.theme || _FUNNEL_STAGES[_stageIdx] || '');
-          // Hashtag chain: design brief → sheet field → blank for no-tag channels
+          // Hashtag chain: sheet → Channels tab → locked defaults (IG/TK/PT only); blank for no-tag channels
           var _briefHashtags = _postBriefs[p.id] ? String(_postBriefs[p.id].hashtags || '') : '';
           var _sheetHashtags = String(p.hashtags || p.hashtag || '');
-          var _rawTags       = _briefHashtags || _sheetHashtags;
-          var _hashtags      = _NO_TAG[chKey] ? '' : _rawTags;
+          var _chHashtags    = _channelMap[chKey] ? String(_channelMap[chKey].hashtag_suggestions || '') : '';
+          var _hashtags      = '';
+          if (!_NO_TAG[chKey]) {
+            if (_TAG_PLATFORMS[chKey]) {
+              _hashtags = _briefHashtags || _sheetHashtags || _chHashtags || _DEFAULT_TAGS[chKey] || '';
+            } else {
+              _hashtags = _briefHashtags || _sheetHashtags;
+            }
+          }
           var _briefFull     = String(p.design_brief || (_postBriefs[p.id] && _postBriefs[p.id].design_brief) || '');
           var _designBrief   = _briefFull ? _oneLiner(_briefFull) : 'Brief pending generation';
           var _owner         = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
