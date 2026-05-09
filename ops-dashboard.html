@@ -24159,7 +24159,7 @@ function _ccRunFullCampaign(campaignId){
 function _ccEnsureBriefColumns(){
   var btn=document.getElementById('cc-fix-cols-btn');
   if(btn){btn.disabled=true;btn.textContent='🔧 Checking...';}
-  fetch(CONFIG.campaignUrl,{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(CONFIG.campaignUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
     body:JSON.stringify({action:'ensure_brief_columns'})})
   .then(function(r){return r.json();})
   .then(function(d){
