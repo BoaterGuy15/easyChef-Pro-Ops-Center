@@ -775,6 +775,7 @@ function doPost(e) {
 
     // ── Sequence Builder ──────────────────────────────────────────────────────────
     if(body.action === 'build_full_sequence') return respond(buildFullSequence(body.brief, body.copy, body.posts||[], body.emails||[]));
+    if(body.action === 'run_full_campaign')   return respond(runFullCampaignAutomatic(body.campaign_id||''));
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });

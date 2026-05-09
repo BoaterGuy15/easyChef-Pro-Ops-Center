@@ -23928,6 +23928,137 @@ function _ccCopyFallback(text,confirm){
   document.body.removeChild(el);
 }
 
+// ── One-click full campaign runner ───────────────────────────────────────────
+function _ccRunFullCampaign(campaignId){
+  if(!CONFIG.sheetsUrl){_showToast('<div style="color:var(--muted)">No backend URL configured.</div>',2500);return;}
+  var btn=document.getElementById('cc-run-full-btn');
+  var panel=document.getElementById('cc-full-run-panel');
+  var stepsEl=document.getElementById('cc-full-run-steps');
+  var summEl=document.getElementById('cc-full-run-summary');
+  var mf="font-family:'DM Mono',monospace;";
+
+  if(btn){btn.disabled=true;btn.textContent='⏳ Running…';}
+  if(panel){panel.style.display='block';}
+  if(stepsEl){stepsEl.innerHTML='';}
+  if(summEl){summEl.style.display='none';summEl.innerHTML='';}
+
+  var base=CONFIG.sheetsUrl;
+  var brief=null;var copy={};var seqRes={};var saveRes={};
+
+  function step(msg,done){
+    if(!stepsEl) return;
+    var color=done?'#22c55e':'var(--muted)';
+    var icon=done?'✓':'⏳';
+    stepsEl.innerHTML+='<div style="color:'+color+';'+mf+'">'+icon+' '+msg+'</div>';
+  }
+  function fail(msg){
+    if(!stepsEl) return;
+    stepsEl.innerHTML+='<div style="color:#ef4444;'+mf+'">✗ '+msg+'</div>';
+    if(summEl){summEl.style.display='block';summEl.style.color='#ef4444';summEl.innerHTML='Pipeline stopped — see error above.';}
+    if(btn){btn.disabled=false;btn.textContent='⚡ Run Full Campaign — '+campaignId;}
+  }
+  function done(total,driveUrl){
+    if(summEl){
+      summEl.style.display='block';summEl.style.color='#22c55e';
+      summEl.innerHTML='✅ Campaign ready — '+total+' assets generated'+(driveUrl?' &nbsp;·&nbsp; <a href="'+driveUrl+'" target="_blank" style="color:var(--gold)">Open Drive folder</a>':'');
+    }
+    if(btn){btn.disabled=false;btn.textContent='⚡ Run Full Campaign — '+campaignId;}
+  }
+
+  function _post(action,body){
+    return fetch(base,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify(Object.assign({action:action},body||{}))}).then(function(r){return r.json();});
+  }
+  function _get(qs){
+    return fetch(base+'?'+qs).then(function(r){return r.json();});
+  }
+
+  Promise.resolve()
+
+    // ── Step 1: Load brief ──────────────────────────────────────────────────
+    .then(function(){
+      step('Loading ' + campaignId + ' brief from Campaign Center sheet…');
+      return _get('action=campaign_brief_read&id='+encodeURIComponent(campaignId));
+    })
+    .then(function(r){
+      if(!r.briefs) throw new Error('Brief not found — run the wizard first to create ' + campaignId);
+      brief=r.briefs;
+      // Normalize for pipeline
+      brief.icp=brief.icp||brief.icp_code;
+      brief.launchDate=brief.launchDate||brief.launch_date;
+      brief.channels=Array.isArray(brief.channels)?brief.channels:(brief.channel?[brief.channel]:[]);
+      brief.approved=true;brief.ml_approved=true;
+      brief.email_sequence_mode=brief.email_sequences||'full';
+      brief.campaign_duration_days=35;
+      step('Brief loaded — '+brief.name,true);
+    })
+
+    // ── Step 2: Load copy ───────────────────────────────────────────────────
+    .then(function(){
+      return _post('generated_copy_read',{campaign_id:campaignId});
+    })
+    .then(function(r){
+      var rows=r.copy||[];
+      copy=rows.length?rows[rows.length-1]:{};
+      step('Copy '+(copy.headline?'"'+copy.headline.slice(0,50)+'…" loaded':'(none yet — proceeding with brief only)'),true);
+    })
+
+    // ── Step 3: Build full sequence (the heavy Claude API step) ─────────────
+    .then(function(){
+      step('Generating 13 emails + 35 social posts + 6 video scripts (2–4 min — Claude API)…');
+      return _post('build_full_sequence',{brief:brief,copy:copy});
+    })
+    .then(function(r){
+      if(!r.ok) throw new Error('Sequence build failed: '+(r.error||'unknown'));
+      seqRes=r;
+      var emails=(r.emails||[]).length;
+      var posts=(r.posts||[]).length;
+      var videos=(r.posts||[]).filter(function(p){var pl=(p.platform||'').toLowerCase();return pl==='youtube'||pl==='tiktok';}).length;
+      var social=posts-videos;
+      step(emails+' emails · '+social+' social posts · '+videos+' video scripts generated',true);
+      // Update in-memory state so Assets tab renders immediately
+      if(r.posts&&r.posts.length) _ccLastPosts=r.posts;
+      if(r.emails&&r.emails.length) _ccLastEmails=r.emails;
+    })
+
+    // ── Step 4: Save draft + UTMs ───────────────────────────────────────────
+    .then(function(){
+      step('Generating UTMs + DL_IDs…');
+      return _post('campaign_save_draft',{brief:brief,copy:copy,posts:seqRes.posts||[],emails:seqRes.emails||[]});
+    })
+    .then(function(r){
+      saveRes=r;
+      var utms=(r.utms||[]).length;
+      step(utms+' UTM links activated',true);
+    })
+
+    // ── Step 5: Build calendar view ─────────────────────────────────────────
+    .then(function(){
+      step('Building full content calendar…');
+      var calDays=(seqRes.calendar||[]).length;
+      step(calDays+' calendar days merged (emails + social)',true);
+    })
+
+    // ── Step 6: Export to Drive ─────────────────────────────────────────────
+    .then(function(){
+      step('Exporting campaign package to Drive…');
+      return _post('export_to_drive',{brief:brief,copy:copy,posts:seqRes.posts||[],emails:seqRes.emails||[]});
+    })
+    .then(function(r){
+      if(r.ok&&r.folder_url){
+        step('Drive export complete — Brief + Social + Emails + LP Reference + Calendar',true);
+        var total=(seqRes.emails||[]).length+(seqRes.posts||[]).length;
+        done(total,r.folder_url);
+      } else {
+        step('Drive export skipped — '+(r.error||'no folder URL returned'));
+        var total=(seqRes.emails||[]).length+(seqRes.posts||[]).length;
+        done(total,'');
+      }
+    })
+
+    .catch(function(e){fail(e.message);});
+}
+
 function _ccRunFrontendTests(){
   var base=CONFIG.sheetsUrl;
   var out=[];
@@ -29217,7 +29348,19 @@ function _campaignsRenderInner(root){
           '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
           '<div style="font-size:12px;color:var(--muted);margin-top:2px">Theme → LP → Kickstart → Brief → Assets → Calendar</div>'+
         '</div>'+
-        '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+          '<button id="cc-run-full-btn" onclick="_ccRunFullCampaign(\'EC-2026-001\')" style="background:var(--gold);border:none;color:#000;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">⚡ Run Full Campaign — EC-2026-001</button>'+
+          '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
+        '</div>'+
+      '</div>'+
+      // ── Full Campaign Progress Panel ────────────────────────────────────────
+      '<div id="cc-full-run-panel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">'+
+        '<div style="padding:10px 16px;background:rgba(201,168,76,0.07);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'+
+          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);font-family:\'DM Mono\',monospace">⚡ Full Campaign Pipeline — EC-2026-001</span>'+
+          '<button onclick="document.getElementById(\'cc-full-run-panel\').style.display=\'none\'" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px">✕</button>'+
+        '</div>'+
+        '<div id="cc-full-run-steps" style="padding:14px 16px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:2"></div>'+
+        '<div id="cc-full-run-summary" style="padding:10px 16px;border-top:1px solid var(--border);font-family:\'DM Mono\',monospace;font-size:12px;font-weight:700;display:none"></div>'+
       '</div>'+
       // ── Wizard step bar ────────────────────────────────────────────────────
       '<div id="cc-wizard-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:20px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">'+

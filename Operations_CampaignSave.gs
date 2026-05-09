@@ -262,6 +262,106 @@ function saveCampaignDraft(body) {
   }
 }
 
+// ── One-click full campaign pipeline ─────────────────────────────────────────
+
+/**
+ * Loads brief from sheet, builds full sequence (emails + social + video scripts),
+ * generates UTMs, exports to Drive — all server-side in one call.
+ * Called via action='run_full_campaign'.
+ * Returns { ok, campaign_id, emails, posts, video_scripts, utms, calendar, drive_url, total_assets }
+ */
+function runFullCampaignAutomatic(campaignId) {
+  try {
+    if (!campaignId) return { ok: false, error: 'campaign_id is required' };
+
+    // 1. Load brief from sheet
+    var rawBrief = getCampaignBriefs(campaignId);
+    if (!rawBrief) return { ok: false, error: 'Brief not found: ' + campaignId };
+    Logger.log('[runFullCampaign] Brief loaded: ' + rawBrief.name);
+
+    // Normalize brief shape for the pipeline (sheet uses icp_code; pipeline uses icp, launchDate, etc.)
+    var brief = {
+      id:                    rawBrief.id,
+      name:                  rawBrief.name,
+      icp:                   rawBrief.icp_code,
+      channel:               rawBrief.channel,
+      channels:              Array.isArray(rawBrief.channels) ? rawBrief.channels : [],
+      funnel:                rawBrief.blueprint,
+      blueprint:             rawBrief.blueprint,
+      blueprint_code:        rawBrief.blueprint,
+      goal:                  rawBrief.goal,
+      slug:                  rawBrief.slug,
+      launchDate:            rawBrief.launch_date,
+      launch_date:           rawBrief.launch_date,
+      theme:                 rawBrief.theme,
+      status:                rawBrief.status,
+      approved:              true,
+      ml_approved:           true,
+      post_count:            rawBrief.post_count      || 7,
+      post_frequency:        rawBrief.post_frequency  || 'every_2_days',
+      email_sequences:       rawBrief.email_sequences || 'full',
+      email_sequence_mode:   rawBrief.email_sequences || 'full',
+      email_variants:        rawBrief.email_variants  || 'both',
+      campaign_duration_days: 35
+    };
+
+    // 2. Load most recent generated copy for this campaign
+    var copyRows = getGeneratedCopy(campaignId);
+    var copy = (copyRows && copyRows.length > 0) ? copyRows[copyRows.length - 1] : {};
+    Logger.log('[runFullCampaign] Copy: ' + (copy.headline || '(none yet)'));
+
+    // 3. Build full sequence — emails + all social channels + video scripts (TikTok/YouTube templates)
+    Logger.log('[runFullCampaign] buildFullSequence starting...');
+    var seqResult = buildFullSequence(brief, copy);
+    if (!seqResult.ok) return { ok: false, step: 'sequence', error: seqResult.error };
+    var emailCount = (seqResult.emails || []).length;
+    var postCount  = (seqResult.posts  || []).length;
+    var videoCount = (seqResult.posts  || []).filter(function(p) {
+      var pl = (p.platform || '').toLowerCase();
+      return pl === 'youtube' || pl === 'tiktok';
+    }).length;
+    Logger.log('[runFullCampaign] Sequence: ' + emailCount + ' emails, ' + postCount + ' posts (' + videoCount + ' video scripts)');
+
+    // 4. Load LP for this campaign (needed for Drive export + UTM save)
+    var lp = null;
+    try { lp = getLPInventoryBySlug(rawBrief.slug) || null; } catch(le) {}
+
+    // 5. Save draft + generate UTMs (approved=true triggers UTM generation)
+    Logger.log('[runFullCampaign] saveCampaignDraft + UTMs...');
+    var saveResult = saveCampaignDraft({ brief: brief, copy: copy, lp: lp, posts: seqResult.posts || [], emails: seqResult.emails || [] });
+    var utmCount = (saveResult && saveResult.utms && saveResult.utms.length) || 0;
+    Logger.log('[runFullCampaign] UTMs: ' + utmCount);
+
+    // 6. Export to Drive
+    Logger.log('[runFullCampaign] exportCampaignToDrive...');
+    var driveResult = { ok: false, error: 'skipped' };
+    try {
+      driveResult = exportCampaignToDrive(brief, copy, seqResult.posts || [], lp || {}, seqResult.emails || []);
+    } catch(de) {
+      Logger.log('[runFullCampaign] Drive export failed (non-fatal): ' + de.message);
+      driveResult = { ok: false, error: de.message };
+    }
+
+    Logger.log('[runFullCampaign] Done — ' + (emailCount + postCount) + ' total assets');
+    return {
+      ok:            true,
+      campaign_id:   campaignId,
+      emails:        emailCount,
+      posts:         postCount,
+      video_scripts: videoCount,
+      utms:          utmCount,
+      calendar:      (seqResult.calendar || []).length,
+      drive_url:     (driveResult.ok && driveResult.folder_url) ? driveResult.folder_url : '',
+      drive_ok:      !!(driveResult.ok),
+      total_assets:  emailCount + postCount
+    };
+  } catch(e) {
+    Logger.log('[runFullCampaign] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+
 /**
  * Returns [[seqLabel, utm_campaign_code], ...] for the active sequence mode.
  * Used to generate one DL per email sequence instead of one per campaign.
