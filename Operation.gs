@@ -779,7 +779,14 @@ function doPost(e) {
     if(body.action === 'run_full_campaign')        return respond(runFullCampaignAutomatic(body.campaign_id||''));
     if(body.action === 'generate_social_posts')    return respond(fcGenerateSocialPosts(body.campaign_id||''));
     if(body.action === 'generate_emails')          return respond(fcGenerateEmails(body.campaign_id||''));
-    if(body.action === 'generate_utm_and_export')  return respond(fcGenerateUtmAndExport(body.campaign_id||''));
+    if(body.action === 'generate_utm_and_export') {
+      try {
+        return respond(fcGenerateUtmAndExport(body.campaign_id||''));
+      } catch(driveErr) {
+        return respond({ ok:false, error:driveErr.message, partial:true,
+          note:'Drive export failed — check folder permissions or execution timeout' });
+      }
+    }
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });
