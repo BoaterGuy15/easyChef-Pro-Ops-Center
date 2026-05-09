@@ -24156,6 +24156,26 @@ function _ccRunFullCampaign(campaignId){
     .catch(function(e){fail(e.message);});
 }
 
+function _ccEnsureBriefColumns(){
+  var btn=document.getElementById('cc-fix-cols-btn');
+  if(btn){btn.disabled=true;btn.textContent='🔧 Checking...';}
+  fetch(CONFIG.campaignUrl,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'ensure_brief_columns'})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(btn){btn.disabled=false;btn.textContent='🔧 Fix Sheet Columns';}
+    if(d.added===0){
+      _showToast('<span style="color:#22c55e">✓ All columns present — nothing to add</span>',3000);
+    } else {
+      _showToast('<span style="color:#22c55e">✓ Added '+d.added+' column(s): '+d.columns.join(', ')+'</span>',5000);
+    }
+  })
+  .catch(function(e){
+    if(btn){btn.disabled=false;btn.textContent='🔧 Fix Sheet Columns';}
+    _showToast('<span style="color:#ef4444">✗ Column fix failed: '+e.message+'</span>',4000);
+  });
+}
+
 function _ccRunFrontendTests(){
   var base=CONFIG.sheetsUrl;
   var out=[];
@@ -29497,6 +29517,7 @@ function _campaignsRenderInner(root){
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
           '<button id="cc-run-full-btn" onclick="_ccRunFullCampaign(\'EC-2026-001\')" style="background:var(--gold);border:none;color:#000;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">⚡ Run Full Campaign — EC-2026-001</button>'+
           '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
+          '<button onclick="_ccEnsureBriefColumns()" id="cc-fix-cols-btn" style="background:transparent;border:1px solid #6b7280;color:#9ca3af;padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🔧 Fix Sheet Columns</button>'+
         '</div>'+
       '</div>'+
       // ── Debug buttons — visible only when ?debug=true ──────────────────────

@@ -305,8 +305,20 @@ function _patchCustomFolderName(driveId, newName) {
   }
 }
 
+// Runs ensureCampaignBriefColumns() once per script instance.
+// Script Properties cache the "done" state so subsequent loads skip the sheet read.
+function _ensureColumnsOnce() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty('brief_cols_ensured') === 'true') return;
+    var result = ensureCampaignBriefColumns();
+    if (result && result.ok && result.added === 0) props.setProperty('brief_cols_ensured', 'true');
+  } catch(e) { Logger.log('[ensureColumnsOnce] ' + e.message); }
+}
+
 function doGet(e) {
   try {
+    _ensureColumnsOnce();
     if(e.parameter.action === 'version') return respond({ok:true, v:'2026-05-08-folder'});
     if(e.parameter.action === 'drive_file_read') {
       try { var _rf=DriveApp.getFileById(e.parameter.fileId||''); return respond({ok:true,name:_rf.getName(),text:_rf.getBlob().getDataAsString()}); }
@@ -750,6 +762,10 @@ function doPost(e) {
     if(body.action === 'campaign_brief_write')   { setCampaignBrief(body.brief); return respond({ ok:true }); }
     if(body.action === 'campaign_save_draft') return respond(saveCampaignDraft(body));
     if(body.action === 'export_to_drive')    return respond(exportCampaignToDrive(body.brief||{}, body.copy||{}, body.posts||[], body.lp||null, body.emails||[]));
+    if(body.action === 'ensure_brief_columns') {
+      PropertiesService.getScriptProperties().deleteProperty('brief_cols_ensured'); // force re-check
+      return respond(ensureCampaignBriefColumns());
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
