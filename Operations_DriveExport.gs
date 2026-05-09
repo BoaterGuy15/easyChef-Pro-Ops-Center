@@ -160,114 +160,14 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       calSh.setName('Calendar');
       calSh.setTabColor(_BRAND_RED);
 
-      // FIX 3: renamed column; FIX 6: two new columns
+      Logger.log('[CalendarXlsx] start — posts: ' + posts.length + ' emails: ' + emails.length);
+
+      // 16 columns: Day · Date · Week · FunnelStage · Type · Platform · Subject · Preview · CTA · UTM · DL · DesignBrief · Hashtags · Status · Owner · SendTime
       var _CAL_HDR = ['Day','Date','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA Text','UTM URL','DL ID','Design Brief — Figma','Hashtags','Status','Owner','Send Time'];
+      var numCols  = _CAL_HDR.length; // 16
 
-      // FIX 4: absolute day schedule per sequence — overrides send_day
-      var _EMAIL_DAYS = {
-        'SEQ-1': [0, 3, 7],
-        'SEQ-2': [7, 10, 14, 18, 25],
-        'SEQ-3': [22, 25, 28, 31],
-        'SEQ-4': [35]
-      };
-
-      var _launch  = brief.launchDate ? new Date(brief.launchDate + 'T12:00:00') : null;
-      var numCols  = _CAL_HDR.length;
-
-      var _wkLbl = function(day) {
-        if (day >= 35) return 'Launch Day';
-        if (day >= 22) return 'Weeks 4–6 Launch Countdown';
-        if (day >= 7)  return 'Weeks 2–3 Email Nurture';
-        return 'Week 1 Social Arc';
-      };
-      var _dtStr = function(day) {
-        if (!_launch) return '';
-        var d = new Date(_launch);
-        d.setDate(d.getDate() + day);
-        return Utilities.formatDate(d, Session.getScriptTimeZone(), 'MMM d, yyyy');
-      };
-      // Return just the first sentence of a brief for a single-line calendar cell
-      var _oneLiner = function(text) {
-        if (!text) return '';
-        var ends = [text.indexOf('.'), text.indexOf('!'), text.indexOf('?')].filter(function(i) { return i > 0; });
-        if (!ends.length) return text.substring(0, 120);
-        return text.substring(0, Math.min.apply(null, ends) + 1);
-      };
-      // Channels that never receive hashtags
-      var _NO_TAG = { 'facebook':1, 'nextdoor':1, 'youtube':1 };
-
-      var calDataRows = [];
-
-      // ── Email rows — variant A, absolute schedule ─────────────────────────
-      emails.forEach(function(e) {
-        var seqCode  = e.sequence_code || (e.seq_id ? String(e.seq_id).replace(/-E\d+$/i,'') : 'EMAIL');
-        var emailNum = e.email_number  || (e.seq_id ? (parseInt((String(e.seq_id).match(/-E(\d+)$/i)||[])[1])||1) : 1);
-
-        // FIX 4: use schedule map, fall back to send_day
-        var _seqDays = _EMAIL_DAYS[seqCode];
-        var day = (_seqDays && _seqDays[emailNum - 1] !== undefined)
-          ? _seqDays[emailNum - 1]
-          : (parseInt(e.send_day) || 0);
-
-        // FIX 1: pull all content fields from EmailSequences tab
-        var subA = e.subject_line_a || e.subject   || '';
-        var preA = e.preview_text   || e.preview_text_a || e.preheader || '';
-        if (preA.length > 100) preA = preA.substring(0, 100);
-        var cta  = e.body_cta       || e.cta_text  || '';
-
-        calDataRows.push([
-          day, _dtStr(day), _wkLbl(day), e.funnel_stage || '',
-          seqCode + '-E' + emailNum, 'Email',
-          subA, preA, cta,
-          e.utm_url || '', e.dl_id || '',
-          '',   // Design Brief — blank for email rows
-          '',   // Hashtags — blank for emails
-          e.status || 'draft',
-          'Klaviyo',          // FIX 6: Owner
-          '9:00 AM local'     // FIX 6: Send Time
-        ]);
-      });
-
-      // ── Social post rows ──────────────────────────────────────────────────
-      var _chIdx = {};
-      posts.forEach(function(p) {
-        var chKey = (p.platform || p.channel || 'other').toLowerCase();
-        _chIdx[chKey] = (_chIdx[chKey] || 0) + 1;
-
-        // FIX 5: use scheduled_day if non-zero; else fall back to position within channel
-        var pday = (p.scheduled_day !== undefined && p.scheduled_day !== null &&
-                    p.scheduled_day !== '' && parseInt(p.scheduled_day) !== 0)
-          ? parseInt(p.scheduled_day)
-          : _chIdx[chKey];
-
-        // FIX 2: hashtags — comma-separated plain text; blank for Facebook/Nextdoor/YouTube
-        var _rawTags = (_briefs.postBriefs[p.id] && _briefs.postBriefs[p.id].hashtags)
-          || p.hashtags || '';
-        var _hashtags = _NO_TAG[chKey] ? '' : _rawTags;
-
-        // FIX 3: design brief — one sentence; fallback label when not generated
-        var _briefFull = (_briefs.postBriefs[p.id] && _briefs.postBriefs[p.id].design_brief) || '';
-        var _designBrief = _briefFull ? _oneLiner(_briefFull) : 'Design brief pending';
-
-        // FIX 6: Owner and Send Time
-        var _owner    = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
-        var _sendTime = (chKey === 'tiktok' || chKey === 'youtube') ? 'Drop day — no time' : '9:00 AM local';
-
-        calDataRows.push([
-          pday, _dtStr(pday), _wkLbl(pday), p.theme || '',
-          'Social', p.platform || p.channel || '',
-          p.hook || '', p.body_copy || p.body || '', p.cta || '',
-          p.utm_url || '', p.dl_id || '',
-          _designBrief, _hashtags,
-          p.status || 'draft',
-          _owner, _sendTime
-        ]);
-      });
-
-      // Sort by day ascending
-      calDataRows.sort(function(a, b) { return (parseInt(a[0])||0) - (parseInt(b[0])||0); });
-
-      // ── Row 1: Campaign title (merged, red) ──
+      // ── Write title / meta / headers FIRST so they always appear ─────────
+      // Row 1: Campaign title (merged, red)
       var titleRange = calSh.getRange(1, 1, 1, numCols);
       titleRange.merge();
       calSh.getRange(1, 1).setValue('easyChef Pro  ·  ' + (brief.name || safeName) + '  ·  ' + (brief.id || '') + '  ·  Launch ' + (brief.launchDate || ''));
@@ -279,10 +179,11 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       titleRange.setVerticalAlignment('middle');
       calSh.setRowHeight(1, 36);
 
-      // ── Row 2: Meta info (merged, beige) ──
+      // Row 2: Meta (placeholder — item count patched after data is built)
       var metaRange = calSh.getRange(2, 1, 1, numCols);
       metaRange.merge();
-      calSh.getRange(2, 1).setValue('ICP: ' + (brief.icp || '') + '   ·   Theme: ' + (brief.theme || '') + '   ·   ' + (brief.channels ? brief.channels.join(', ') : '') + '   ·   Generated ' + _genDate + '   ·   ' + calDataRows.length + ' items');
+      var _metaCell = calSh.getRange(2, 1);
+      _metaCell.setValue('ICP: ' + (brief.icp || '') + '   ·   Theme: ' + (brief.theme || '') + '   ·   ' + (brief.channels ? brief.channels.join(', ') : '') + '   ·   Generated ' + _genDate);
       metaRange.setBackground(_BRAND_BEIGE);
       metaRange.setFontColor(_BRAND_GREY);
       metaRange.setFontFamily('Arial');
@@ -291,7 +192,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       metaRange.setVerticalAlignment('middle');
       calSh.setRowHeight(2, 22);
 
-      // ── Row 3: Column headers (red) ──
+      // Row 3: Column headers (red)
       var hdrRange = calSh.getRange(3, 1, 1, numCols);
       hdrRange.setValues([_CAL_HDR]);
       hdrRange.setBackground(_BRAND_RED);
@@ -303,11 +204,103 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       calSh.setRowHeight(3, 28);
       calSh.setFrozenRows(3);
 
-      // ── Data rows (start at row 4) ──
+      // ── Build data rows ───────────────────────────────────────────────────
+      var _EMAIL_DAYS = {
+        'SEQ-1': [0, 3, 7],
+        'SEQ-2': [7, 10, 14, 18, 25],
+        'SEQ-3': [22, 25, 28, 31],
+        'SEQ-4': [35]
+      };
+      var _calLaunch = brief.launchDate ? new Date(brief.launchDate + 'T12:00:00') : null;
+      var _wkLbl = function(day) {
+        if (day >= 35) return 'Launch Day';
+        if (day >= 22) return 'Weeks 4-6 Launch Countdown';
+        if (day >= 7)  return 'Weeks 2-3 Email Nurture';
+        return 'Week 1 Social Arc';
+      };
+      var _dtStr = function(day) {
+        if (!_calLaunch) return '';
+        var d = new Date(_calLaunch);
+        d.setDate(d.getDate() + day);
+        return Utilities.formatDate(d, Session.getScriptTimeZone(), 'MMM d, yyyy');
+      };
+      var _oneLiner = function(text) {
+        if (!text) return '';
+        var t = String(text);
+        var dot  = t.indexOf('.');
+        var excl = t.indexOf('!');
+        var qm   = t.indexOf('?');
+        var ends = [dot, excl, qm].filter(function(i) { return i > 0; });
+        if (!ends.length) return t.substring(0, 120);
+        return t.substring(0, Math.min.apply(null, ends) + 1);
+      };
+      var _NO_TAG     = { 'facebook':1, 'nextdoor':1, 'youtube':1 };
+      var _postBriefs = (_briefs && _briefs.postBriefs) ? _briefs.postBriefs : {};
+
+      var calDataRows = [];
+
+      // Email rows — variant A, absolute schedule
+      try {
+        emails.forEach(function(e) {
+          var seqCode  = e.sequence_code || (e.seq_id ? String(e.seq_id).replace(/-E\d+$/i,'') : 'EMAIL');
+          var emailNum = e.email_number  || (e.seq_id ? (parseInt((String(e.seq_id).match(/-E(\d+)$/i)||[])[1])||1) : 1);
+          var _seqDays = _EMAIL_DAYS[seqCode];
+          var day = (_seqDays && _seqDays[emailNum - 1] !== undefined)
+            ? _seqDays[emailNum - 1]
+            : (parseInt(e.send_day) || 0);
+          var subA = String(e.subject_line_a || e.subject   || '');
+          var preA = String(e.preview_text   || e.preview_text_a || e.preheader || '');
+          if (preA.length > 100) preA = preA.substring(0, 100);
+          var cta  = String(e.body_cta       || e.cta_text  || '');
+          calDataRows.push([
+            day, _dtStr(day), _wkLbl(day), String(e.funnel_stage || ''),
+            seqCode + '-E' + emailNum, 'Email',
+            subA, preA, cta,
+            String(e.utm_url || ''), String(e.dl_id || ''),
+            '', '',
+            String(e.status || 'draft'),
+            'Klaviyo', '9:00 AM local'
+          ]);
+        });
+        Logger.log('[CalendarXlsx] email rows: ' + emails.length);
+      } catch(ee) { Logger.log('[CalendarXlsx] email rows error: ' + ee.message); }
+
+      // Social post rows
+      try {
+        var _chIdx = {};
+        posts.forEach(function(p) {
+          var chKey = String(p.platform || p.channel || 'other').toLowerCase();
+          _chIdx[chKey] = (_chIdx[chKey] || 0) + 1;
+          var pday = (p.scheduled_day !== undefined && p.scheduled_day !== null &&
+                      p.scheduled_day !== '' && parseInt(p.scheduled_day) !== 0)
+            ? parseInt(p.scheduled_day)
+            : _chIdx[chKey];
+          var _rawTags    = String((_postBriefs[p.id] && _postBriefs[p.id].hashtags) || p.hashtags || '');
+          var _hashtags   = _NO_TAG[chKey] ? '' : _rawTags;
+          var _briefFull  = String((_postBriefs[p.id] && _postBriefs[p.id].design_brief) || '');
+          var _designBrief = _briefFull ? _oneLiner(_briefFull) : 'Design brief pending';
+          var _owner      = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
+          var _sendTime   = (chKey === 'tiktok' || chKey === 'youtube') ? 'Drop day - no time' : '9:00 AM local';
+          calDataRows.push([
+            pday, _dtStr(pday), _wkLbl(pday), String(p.theme || ''),
+            'Social', String(p.platform || p.channel || ''),
+            String(p.hook || ''), String(p.body_copy || p.body || ''), String(p.cta || ''),
+            String(p.utm_url || ''), String(p.dl_id || ''),
+            _designBrief, _hashtags,
+            String(p.status || 'draft'),
+            _owner, _sendTime
+          ]);
+        });
+        Logger.log('[CalendarXlsx] post rows: ' + posts.length);
+      } catch(pe) { Logger.log('[CalendarXlsx] post rows error: ' + pe.message); }
+
+      calDataRows.sort(function(a, b) { return (parseInt(a[0])||0) - (parseInt(b[0])||0); });
+      Logger.log('[CalendarXlsx] total rows built: ' + calDataRows.length);
+
+      // ── Write data rows ───────────────────────────────────────────────────
       var numDataRows = calDataRows.length;
       if (numDataRows > 0) {
         calSh.getRange(4, 1, numDataRows, numCols).setValues(calDataRows);
-        // Force date column (col 2) to plain text — prevents serial number conversion
         calSh.getRange(4, 2, numDataRows, 1).setNumberFormat('@');
         for (var ri = 0; ri < numDataRows; ri++) {
           var rowRange = calSh.getRange(ri + 4, 1, 1, numCols);
@@ -317,25 +310,24 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           rowRange.setFontColor(_BRAND_BODY);
           rowRange.setVerticalAlignment('top');
         }
-        // Bold the Day column (col 1)
         calSh.getRange(4, 1, numDataRows, 1).setFontWeight('bold');
-        // Wrap text for Subject/Hook (7), Preview/Body (8), UTM URL (10), Design Brief (12)
         [7, 8, 10, 12].forEach(function(col) {
           calSh.getRange(4, col, numDataRows, 1).setWrap(true);
         });
+        // Patch item count into meta row now that we know it
+        _metaCell.setValue('ICP: ' + (brief.icp || '') + '   ·   Theme: ' + (brief.theme || '') + '   ·   ' + (brief.channels ? brief.channels.join(', ') : '') + '   ·   Generated ' + _genDate + '   ·   ' + numDataRows + ' items');
       }
 
       // ── Column widths ──
       calSh.autoResizeColumns(1, numCols);
-      // 16 columns: Day · Date · Week · FunnelStage · Type · Platform · Subject · Preview · CTA · UTM · DL · DesignBrief · Hashtags · Status · Owner · SendTime
       var _minWidths = [40, 120, 150, 90, 120, 90, 240, 260, 140, 260, 90, 200, 130, 70, 90, 120];
       _minWidths.forEach(function(minW, ci) {
         if (calSh.getColumnWidth(ci + 1) < minW) calSh.setColumnWidth(ci + 1, minW);
       });
 
       docUrls.calendar = 'https://docs.google.com/spreadsheets/d/' + calSS.getId() + '/view';
-      Logger.log('[DriveExport] calendar: ' + calDataRows.length + ' rows (' + emails.length + ' emails / ' + posts.length + ' posts)');
-    } catch(e) { Logger.log('[DriveExport] calendar error: ' + e.message); }
+      Logger.log('[DriveExport] calendar: ' + numDataRows + ' rows (' + emails.length + ' emails / ' + posts.length + ' posts)');
+    } catch(e) { Logger.log('[DriveExport] calendar error: ' + e.message + (e.stack ? '\n' + e.stack : '')); }
 
     // ── 7. Register in Docs tab ─────────────────────────────────────────────
     try {

@@ -580,6 +580,20 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
   var _themeFood = (theme && theme.food_type)        || (ctx.theme_food || '');
   var _campaign  = ctx.campaign_name || '';
 
+  // Locked brand rules — injected into every brief prompt, non-negotiable
+  var _BRAND_RULES =
+    '=== BRAND RULES — NON-NEGOTIABLE ===\n' +
+    '1. CTA BUTTON COLOR: ALWAYS #FF0000 red. Never orange. Never coral. Never any other color.\n' +
+    '   Brand palette: #FF0000 (red) · #F6EFE8 (beige) · #000000 (black) · #FFFFFF (white)\n\n' +
+    '2. PROOF BAR STATS: Use ONLY these three approved claims, word-for-word:\n' +
+    '   $1,336/year savings · 69.5% less food waste · 30 min fridge to table\n' +
+    '   Never invent stats. Never invent numbers. Never use any percentage not in this list.\n\n' +
+    '3. TESTIMONIALS: No invented testimonials. No invented names. No "real mom photos with quotes."\n' +
+    '   No invented user counts (e.g. "847 moms"). Testimonials section: leave blank until real\n' +
+    '   beta feedback is available.\n\n' +
+    '4. SCENE DIRECTION: No shame language directed at the user. The system is broken — never her fault.\n' +
+    '   Write scenes that show broken systems, wasted food, and time lost — not personal failure.\n\n';
+
   if (type === 'post_brief') {
     return 'You are the art director for easyChef Pro. Generate a unique, stage-specific DESIGN BRIEF and HASHTAGS for each social post for the Figma designer.\n\n' +
       '=== CAMPAIGN ===\n' +
@@ -587,6 +601,7 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
       (_themeName ? 'Theme: '       + _themeName + '\n' : '') +
       (_themeFood ? 'Theme food: '  + _themeFood + '\n' : '') +
       (_icpName   ? 'ICP: '         + _icpName   + '\n' : '') + '\n' +
+      _BRAND_RULES +
       '=== PHONE REVEAL RULE (NON-NEGOTIABLE) ===\n' +
       'Posts 1-3 (Hook · Problem · Agitate): NO PHONE — the problem must feel real before the solution appears.\n' +
       'Post 4 (Solve): PHONE APPEARS — first reveal. Phone shows app solving the exact problem from Post 3.\n' +
@@ -595,17 +610,17 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
       'STAGE: [funnel stage name]\n' +
       'EMOTION: [exact emotional state — 3-5 words]\n' +
       'SCENE DIRECTION: [3-4 specific sentences — what to shoot or illustrate, referencing hook text and theme food]\n' +
-      'PHONE RULE: [NO PHONE — phone does not appear until Post 4] or [PHONE APPEARS — Post 4 first reveal] or [PHONE VISIBLE — posts 5–7]\n' +
+      'PHONE RULE: [NO PHONE — phone does not appear until Post 4] or [PHONE APPEARS — Post 4 first reveal] or [PHONE VISIBLE — posts 5-7]\n' +
       'CHANNEL FORMAT: [platform · dimensions · aspect ratio]\n' +
       'WHAT NOT TO SHOW: [anything breaking the emotional arc or brand rules for this stage]\n\n' +
       '=== HASHTAG RULES (platform-locked, no exceptions) ===\n' +
       'Instagram: 5-8 hashtags · broad + niche mix · always include #easychefpro · stage-specific\n' +
       'Pinterest: 3-5 hashtags · keyword-focused · SEO-weighted · always include #easychefpro\n' +
       'TikTok: 3-5 hashtags · trending + niche · always include #easychefpro\n' +
-      'Facebook: NO hashtags → return empty string\n' +
-      'Nextdoor: NO hashtags → return empty string\n' +
+      'Facebook: NO hashtags — return empty string\n' +
+      'Nextdoor: NO hashtags — return empty string\n' +
       'X: 1-2 hashtags MAX · only if directly relevant\n' +
-      'YouTube: NO hashtags → return empty string\n\n' +
+      'YouTube: NO hashtags — return empty string\n\n' +
       'Every post must have a DIFFERENT brief and DIFFERENT hashtags — never duplicate across posts.\n' +
       'Return ONLY valid JSON. No explanation. No markdown fences.';
   }
@@ -616,11 +631,12 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
       (_campaign  ? 'Campaign: ' + _campaign  + '\n' : '') +
       (_themeName ? 'Theme: '    + _themeName + '\n' : '') +
       (_icpName   ? 'ICP: '      + _icpName   + '\n' : '') + '\n' +
+      _BRAND_RULES +
       '=== EMAIL DESIGN BRIEF FORMAT PER EMAIL ===\n' +
       'HEADER IMAGE DIRECTION: [what appears above the fold — mood, scene, no specific product]\n' +
       'EMAIL LAYOUT: [single column · hero image top · or text-first · depends on stage]\n' +
       'VISUAL TONE: [matches emotional arc — e.g. "warm amber, quiet before storm" for Hook]\n' +
-      'CTA BUTTON: [color · copy · placement]\n\n' +
+      'CTA BUTTON: [always #FF0000 red · full-width on mobile · copy direction · placement]\n\n' +
       'Each email MUST have a different visual concept — the funnel stage changes, the design must too.\n' +
       'Return ONLY valid JSON. No explanation. No markdown fences.';
   }
@@ -632,12 +648,17 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
       (_themeName ? 'Theme: '    + _themeName + '\n' : '') +
       (_themeFood ? 'Food: '     + _themeFood + '\n' : '') +
       (_icpName   ? 'ICP: '      + _icpName   + '\n' : '') + '\n' +
+      _BRAND_RULES +
+      '5. LP PHONE RULE (non-negotiable):\n' +
+      '   Hero section: phone NOT visible — no app in the hero image.\n' +
+      '   Solve section: phone APPEARS for the first time — shows app solving the problem.\n' +
+      '   Value · Proof · CTA sections: phone VISIBLE — present but not the hero element.\n\n' +
       '=== LP DESIGN BRIEF FORMAT ===\n' +
-      'hero_visual: [what appears above the fold — scene direction for the hero image]\n' +
-      'section_visuals: [one line per section — Problem · Agitate · Solve · Value · Proof]\n' +
-      'loop_diagram: [TRACK → PLAN → OPTIMIZE → COOK → SHOP — describe how this icon row looks in the Solve section]\n' +
-      'social_proof_bar: [layout and style direction for the 3-stat proof bar]\n' +
-      'cta_button_style: [color · full width on mobile · copy direction · placement]\n\n' +
+      'hero_visual: [what appears above the fold — scene direction, NO phone, NO app UI]\n' +
+      'section_visuals: [one line per section — Problem · Agitate · Solve (phone first appears) · Value · Proof]\n' +
+      'loop_diagram: [TRACK -> PLAN -> OPTIMIZE -> COOK -> SHOP — describe how this icon row looks in the Solve section]\n' +
+      'social_proof_bar: [layout and style for the 3-stat proof bar using ONLY approved claims: $1,336/year · 69.5% less food waste · 30 min fridge to table]\n' +
+      'cta_button_style: [always #FF0000 red · full width on mobile · copy direction · placement]\n\n' +
       'Return ONLY a JSON object with keys: hero_visual, section_visuals, loop_diagram, social_proof_bar, cta_button_style. No explanation. No markdown.';
   }
 
