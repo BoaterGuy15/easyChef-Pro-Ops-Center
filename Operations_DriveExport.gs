@@ -348,6 +348,16 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       // Email rows — pair A and B variants (sheet has one row per variant, id ends in -A or -B)
       // Group by base ID (strip -A/-B suffix), then emit one Row A + one Row B per pair
       try {
+        // Sort: SEQ-N ascending → email_number ascending → A before B
+        emails.sort(function(a, b) {
+          var _key = function(e) {
+            var seqNum   = parseInt((e.sequence_code || '').replace('SEQ-', '')) || 99;
+            var emailNum = parseInt(e.email_number) || 99;
+            var variant  = (e.id && String(e.id).endsWith('-B')) ? 1 : 0;
+            return seqNum * 10000 + emailNum * 10 + variant;
+          };
+          return _key(a) - _key(b);
+        });
         var _emailGroups = {};
         var _emailOrder  = [];
         emails.forEach(function(e) {
