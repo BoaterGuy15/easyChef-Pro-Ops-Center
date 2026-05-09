@@ -191,9 +191,16 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
       Logger.log('[CalendarXlsx] start — posts: ' + posts.length + ' emails: ' + emails.length);
 
-      // 18 columns: Day · Date · Week · FunnelStage · Type · Platform · Subject · Preview · CTA · UTM · DL · Variant · Test · DesignBrief · Hashtags · Status · Owner · SendTime
-      var _CAL_HDR = ['Day','Date','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA Text','UTM URL','DL ID','Variant','Test','Design Brief — Figma','Hashtags','Status','Owner','Send Time'];
-      var numCols  = _CAL_HDR.length; // 18
+      // 27 columns: Day · Date · Week · FunnelStage · Type · Platform · Subject · Preview · CTA · UTM · DL · Variant · Test · DesignBrief · Hashtags · Status · Owner · SendTime
+      //             + Image URL · Image Dimensions · Phone Rule · Platform Note · Klaviyo ID · Conversion Target · Experiment ID · Posted URL · Emotional Direction
+      var _CAL_HDR = [
+        'Day','Date','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body',
+        'CTA Text','UTM URL','DL ID','Variant','Test','Design Brief — Figma','Hashtags',
+        'Status','Owner','Send Time',
+        'Image URL','Image Dimensions','Phone Rule','Platform Note',
+        'Klaviyo ID','Conversion Target','Experiment ID','Posted URL ✍','Emotional Direction'
+      ];
+      var numCols  = _CAL_HDR.length; // 27
 
       // ── Write title / meta / headers FIRST so they always appear ─────────
       // Row 1: Campaign title (merged, red)
@@ -333,6 +340,45 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         }
       } catch(de) { Logger.log('[CalendarXlsx] WARNING: DeepLinkRegistry read error: ' + de.message); }
 
+      // ── Static lookup maps for new columns ──────────────────────────────────
+      var _fsConvTarget = {
+        'hook':    '25–45% LP capture',
+        'problem': '45–60% email open',
+        'agitate': '55–70% click-through',
+        'solve':   '30–50% email open',
+        'value':   '35–55% email open',
+        'proof':   '40–60% social share',
+        'cta':     '35–50% waitlist → download'
+      };
+      var _emailEmotionMap = {
+        'hook': 'exhausted', 'problem': 'frustrated', 'agitate': 'activated',
+        'solve': 'curious',  'value':   'relieved',   'proof':   'trusting', 'cta': 'happy'
+      };
+      var _noPhoneStages  = { 'hook':1, 'problem':1, 'agitate':1 };
+      var _phoneVisStages = { 'solve':1, 'value':1, 'proof':1, 'cta':1 };
+      var _themeImageMoodHook = '', _themeImageMoodCta = '';
+      try {
+        var _themeLibRows = getThemeLibrary(brief.icp || '');
+        if (_themeLibRows.length > 0) {
+          var _themeKey = (brief.theme || '').toLowerCase();
+          var _themeLibObj = null;
+          for (var _ti = 0; _ti < _themeLibRows.length; _ti++) {
+            if (((_themeLibRows[_ti].theme_slug || '').toLowerCase() === _themeKey) ||
+                ((_themeLibRows[_ti].theme_name || '').toLowerCase() === _themeKey)) {
+              _themeLibObj = _themeLibRows[_ti]; break;
+            }
+          }
+          if (!_themeLibObj) _themeLibObj = _themeLibRows[0];
+          if (_themeLibObj) {
+            _themeImageMoodHook = String(_themeLibObj.image_mood_hook || '');
+            _themeImageMoodCta  = String(_themeLibObj.image_mood_cta  || '');
+          }
+        }
+        Logger.log('[CalendarXlsx] ThemeLib mood: hook=' + _themeImageMoodHook + ' cta=' + _themeImageMoodCta);
+      } catch(te) { Logger.log('[CalendarXlsx] ThemeLibrary error: ' + te.message); }
+      var _isAbTest = (brief.ab_test === true || String(brief.ab_test) === 'true' || brief.ab_test === 1);
+      var _abExpId  = _isAbTest ? String(brief.ab_experiment_id || '') : '';
+
       var calDataRows = [];
 
       // Funnel stage fallback by post number (1-indexed)
@@ -410,9 +456,21 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           };
           var _briefA = (pair.a || eRef).design_brief || _mkBrief(pair.a || eRef, 'A');
           var _briefB = (pair.b || eRef).design_brief || _mkBrief(pair.b || eRef, 'B');
+          var _eCh       = _channelMap['email'] || {};
+          var _eStageKey = (eRef.funnel_stage || stage || '').toLowerCase();
           var shared = [day, _dtStr(day), _wkLbl(day), stage, seqCode + '-E' + emailNum, 'Email',
             '', preA, cta, utmUrl, dlId, '', 'Subject line · Klaviyo split',
-            '', '', String(eRef.status || 'draft'), 'Klaviyo', '6:30 AM local'];
+            '', '', String(eRef.status || 'draft'), 'Klaviyo', '6:30 AM local',
+            '',                                            // [18] Image URL — email blank
+            String(_eCh.image_dimensions || ''),           // [19] Image Dimensions
+            '',                                            // [20] Phone Rule — email blank
+            String(_eCh.platform_note || ''),              // [21] Platform Note
+            String(eRef.klaviyo_id || 'Not built yet'),    // [22] Klaviyo ID
+            _fsConvTarget[_eStageKey] || '',               // [23] Conversion Target
+            _abExpId,                                      // [24] Experiment ID
+            '',                                            // [25] Posted URL — email blank
+            _emailEmotionMap[_eStageKey] || ''             // [26] Emotional Direction
+          ];
           var rowA = shared.slice(); rowA[6] = subA;         rowA[11] = 'A'; rowA[13] = _briefA; calDataRows.push(rowA);
           var rowB = shared.slice(); rowB[6] = subB||'None'; rowB[11] = 'B'; rowB[13] = _briefB; calDataRows.push(rowB);
         });
@@ -474,6 +532,13 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
             }
             _abVariantCell = 'Variant B: ' + _abUtmB;
           }
+          // New column values (19-27)
+          var _sCh        = _channelMap[chKey] || {};
+          var _sStageKey  = (_stage || '').toLowerCase();
+          var _phoneRule  = _noPhoneStages[_sStageKey]  ? 'NO PHONE' :
+                            _phoneVisStages[_sStageKey] ? 'PHONE VISIBLE' :
+                            (_postNum <= 3 ? 'NO PHONE' : 'PHONE VISIBLE');
+          var _sEmotion   = _postNum <= 3 ? _themeImageMoodHook : _themeImageMoodCta;
           calDataRows.push([
             pday, _dtStr(pday), _wkLblSocial(pday), _stage,
             'Social', String(p.platform || p.channel || ''),
@@ -482,7 +547,16 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
             _abVariantCell, '',            // Variant (A/B UTM), Test — blank for non-AB
             _designBrief, _hashtags,
             String(p.status || 'draft'),
-            _owner, _sendTime
+            _owner, _sendTime,
+            String(p.image_url || ''),              // [18] Image URL
+            String(_sCh.image_dimensions || ''),    // [19] Image Dimensions
+            _phoneRule,                             // [20] Phone Rule
+            String(_sCh.platform_note || ''),       // [21] Platform Note
+            '',                                     // [22] Klaviyo ID — social blank
+            _fsConvTarget[_sStageKey] || '',        // [23] Conversion Target
+            '',                                     // [24] Experiment ID — social blank
+            '',                                     // [25] Posted URL — Searah fills
+            _sEmotion                               // [26] Emotional Direction
           ]);
         });
         Logger.log('[CalendarXlsx] post rows: ' + posts.length);
@@ -513,7 +587,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           'MILESTONE',
           'MILESTONE',
           m.theme || '',
-          '', '', '', '', '', '', '', '', '', '', ''
+          '', '', '', '', '', '', '', '', '', '', '',  // cols 8-18
+          '', '', '', '', '', '', '', '', ''            // cols 19-27
         ];
       };
       calDataRows.forEach(function(row) {
@@ -560,18 +635,28 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         for (var ri = 0; ri < numTotalRows; ri++) {
           if (!_isMilestone[ri]) calSh.getRange(ri + 4, 1, 1, 1).setFontWeight('bold');
         }
-        // Wrap: Subject/Hook(7) · Preview/Body(8) · UTM URL(10) · Design Brief(14)
-        [7, 8, 10, 14].forEach(function(col) {
+        // Wrap: Subject/Hook(7) · Preview/Body(8) · UTM URL(10) · Design Brief(14) · Platform Note(22) · Emotional Direction(27)
+        [7, 8, 10, 14, 22, 27].forEach(function(col) {
           calSh.getRange(4, col, numTotalRows, 1).setWrap(true);
         });
+        // Phone Rule coloring — col 21 · red=NO PHONE · green=PHONE VISIBLE
+        for (var ri = 0; ri < numTotalRows; ri++) {
+          if (!_isMilestone[ri]) {
+            var _pr = String(_finalRows[ri][20] || '');
+            if (_pr === 'NO PHONE')          calSh.getRange(ri + 4, 21, 1, 1).setFontColor('#cc0000');
+            else if (_pr === 'PHONE VISIBLE') calSh.getRange(ri + 4, 21, 1, 1).setFontColor('#00a844');
+          }
+        }
         // Patch item count into meta row — regular rows only
         _metaCell.setValue('ICP: ' + (brief.icp || '') + '   ·   Theme: ' + (brief.theme || '') + '   ·   ' + (brief.channels ? brief.channels.join(', ') : '') + '   ·   Generated ' + _genDate + '   ·   ' + numDataRows + ' items · ' + _milestones.length + ' milestones');
       }
 
       // ── Column widths ──
       calSh.autoResizeColumns(1, numCols);
-      // 18 cols: Day · Date · Week · Stage · Type · Platform · Subject · Preview · CTA · UTM · DL · Variant · Test · DesignBrief · Hashtags · Status · Owner · SendTime
-      var _minWidths = [40, 120, 150, 90, 120, 90, 240, 260, 140, 260, 90, 60, 160, 200, 130, 70, 90, 120];
+      // 27 cols: Day · Date · Week · Stage · Type · Platform · Subject · Preview · CTA · UTM · DL · Variant · Test · DesignBrief · Hashtags · Status · Owner · SendTime
+      //          + Image URL · Image Dims · Phone Rule · Platform Note · Klaviyo ID · Conv Target · Experiment ID · Posted URL · Emotional Dir
+      var _minWidths = [40, 120, 150, 90, 120, 90, 240, 260, 140, 260, 90, 60, 160, 200, 130, 70, 90, 120,
+                        180, 110, 100, 220, 110, 150, 100, 150, 140];
       _minWidths.forEach(function(minW, ci) {
         if (calSh.getColumnWidth(ci + 1) < minW) calSh.setColumnWidth(ci + 1, minW);
       });
