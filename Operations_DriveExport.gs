@@ -491,26 +491,81 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       calDataRows.sort(function(a, b) { return (parseInt(a[0])||0) - (parseInt(b[0])||0); });
       Logger.log('[CalendarXlsx] total rows built: ' + calDataRows.length);
 
-      // ── Write data rows ───────────────────────────────────────────────────
-      var numDataRows = calDataRows.length;
-      if (numDataRows > 0) {
-        calSh.getRange(4, 1, numDataRows, numCols).setValues(calDataRows);
-        calSh.getRange(4, 2, numDataRows, 1).setNumberFormat('@');
-        for (var ri = 0; ri < numDataRows; ri++) {
-          var rowRange = calSh.getRange(ri + 4, 1, 1, numCols);
-          rowRange.setBackground(ri % 2 === 0 ? _BRAND_WHITE : _BRAND_BEIGE);
-          rowRange.setFontFamily('Arial');
-          rowRange.setFontSize(9);
-          rowRange.setFontColor(_BRAND_BODY);
-          rowRange.setVerticalAlignment('top');
+      // ── Load milestone rows from ContentCalendar tab ──────────────────────
+      var _milestones = [];
+      try {
+        _milestones = getContentCalendar(brief.id || '')
+          .filter(function(m) { return (m.channel || '').toUpperCase() === 'MILESTONE'; })
+          .sort(function(a, b) { return (parseInt(a.day_number)||0) - (parseInt(b.day_number)||0); });
+        Logger.log('[CalendarXlsx] milestones loaded: ' + _milestones.length);
+      } catch(me) { Logger.log('[CalendarXlsx] milestones error: ' + me.message); }
+
+      // ── Interleave milestone rows at correct chronological positions ───────
+      var _finalRows   = [];
+      var _isMilestone = [];
+      var _msIdx       = 0;
+      var _mkMsRow     = function(m) {
+        return [
+          parseInt(m.day_number) || 0,
+          m.scheduled_date || '',
+          'MILESTONE',
+          m.funnel_stage || '',
+          'MILESTONE',
+          'MILESTONE',
+          m.theme || '',
+          '', '', '', '', '', '', '', '', '', '', ''
+        ];
+      };
+      calDataRows.forEach(function(row) {
+        var rowDay = parseInt(row[0]) || 0;
+        while (_msIdx < _milestones.length && (parseInt(_milestones[_msIdx].day_number)||0) <= rowDay) {
+          _finalRows.push(_mkMsRow(_milestones[_msIdx++]));
+          _isMilestone.push(true);
         }
-        calSh.getRange(4, 1, numDataRows, 1).setFontWeight('bold');
-        // Wrap: Subject/Hook(7) · Preview/Body(8) · UTM URL(10) · Design Brief(14 — shifted by 2 new cols)
+        _finalRows.push(row);
+        _isMilestone.push(false);
+      });
+      while (_msIdx < _milestones.length) {
+        _finalRows.push(_mkMsRow(_milestones[_msIdx++]));
+        _isMilestone.push(true);
+      }
+
+      // ── Write data rows ───────────────────────────────────────────────────
+      var numDataRows   = calDataRows.length;
+      var numTotalRows  = _finalRows.length;
+      if (numTotalRows > 0) {
+        calSh.getRange(4, 1, numTotalRows, numCols).setValues(_finalRows);
+        calSh.getRange(4, 2, numTotalRows, 1).setNumberFormat('@');
+        var _zebraToggle = 0;
+        for (var ri = 0; ri < numTotalRows; ri++) {
+          var rowRange = calSh.getRange(ri + 4, 1, 1, numCols);
+          if (_isMilestone[ri]) {
+            rowRange.setBackground('#1a1a1a');
+            rowRange.setFontColor('#ffffff');
+            rowRange.setFontWeight('bold');
+            rowRange.setFontSize(11);
+            rowRange.setFontFamily('Arial');
+            rowRange.setVerticalAlignment('middle');
+          } else {
+            rowRange.setBackground(_zebraToggle % 2 === 0 ? _BRAND_WHITE : _BRAND_BEIGE);
+            rowRange.setFontFamily('Arial');
+            rowRange.setFontSize(9);
+            rowRange.setFontColor(_BRAND_BODY);
+            rowRange.setFontWeight('normal');
+            rowRange.setVerticalAlignment('top');
+            _zebraToggle++;
+          }
+        }
+        // Day column bold for regular rows only
+        for (var ri = 0; ri < numTotalRows; ri++) {
+          if (!_isMilestone[ri]) calSh.getRange(ri + 4, 1, 1, 1).setFontWeight('bold');
+        }
+        // Wrap: Subject/Hook(7) · Preview/Body(8) · UTM URL(10) · Design Brief(14)
         [7, 8, 10, 14].forEach(function(col) {
-          calSh.getRange(4, col, numDataRows, 1).setWrap(true);
+          calSh.getRange(4, col, numTotalRows, 1).setWrap(true);
         });
-        // Patch item count into meta row now that we know it
-        _metaCell.setValue('ICP: ' + (brief.icp || '') + '   ·   Theme: ' + (brief.theme || '') + '   ·   ' + (brief.channels ? brief.channels.join(', ') : '') + '   ·   Generated ' + _genDate + '   ·   ' + numDataRows + ' items');
+        // Patch item count into meta row — regular rows only
+        _metaCell.setValue('ICP: ' + (brief.icp || '') + '   ·   Theme: ' + (brief.theme || '') + '   ·   ' + (brief.channels ? brief.channels.join(', ') : '') + '   ·   Generated ' + _genDate + '   ·   ' + numDataRows + ' items · ' + _milestones.length + ' milestones');
       }
 
       // ── Column widths ──
@@ -522,7 +577,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
       });
 
       docUrls.calendar = 'https://docs.google.com/spreadsheets/d/' + calSS.getId() + '/view';
-      Logger.log('[DriveExport] calendar: ' + numDataRows + ' rows (' + emails.length + ' emails / ' + posts.length + ' posts)');
+      Logger.log('[DriveExport] calendar: ' + numDataRows + ' rows + ' + _milestones.length + ' milestones (' + emails.length + ' emails / ' + posts.length + ' posts)');
     } catch(e) { Logger.log('[DriveExport] calendar error: ' + e.message + (e.stack ? '\n' + e.stack : '')); }
 
     // ── 7. Register in Docs tab ─────────────────────────────────────────────
@@ -1593,6 +1648,23 @@ function testEmailCalendarRow() {
   var emails = getEmailSequences(campaignId);
   Logger.log('Emails in sheet: ' + emails.length);
   if (!emails.length) { Logger.log('No emails found — check EmailSequences tab, campaign_id column'); return; }
+
+  // Sort + print all 26 rows in sequence order
+  var _emailSortKey = function(e) {
+    var seqNum   = parseInt((e.sequence_code || '').replace('SEQ-', '')) || 99;
+    var emailNum = parseInt(e.email_number) || 99;
+    var variant  = (e.id && String(e.id).endsWith('-B')) ? 1 : 0;
+    return seqNum * 10000 + emailNum * 10 + variant;
+  };
+  emails.sort(function(a, b) { return _emailSortKey(a) - _emailSortKey(b); });
+  Logger.log('=== All ' + emails.length + ' rows in sort order ===');
+  emails.forEach(function(e, i) {
+    Logger.log('[' + (i + 1) + '] '
+      + e.sequence_code + '-E' + e.email_number
+      + ' ' + (String(e.id).endsWith('-B') ? 'B' : 'A')
+      + ' | sort key: ' + _emailSortKey(e));
+  });
+  Logger.log('---');
 
   // Show every field name on the first email object so we know what the schema returns
   Logger.log('Fields on email object: ' + JSON.stringify(Object.keys(emails[0])));
