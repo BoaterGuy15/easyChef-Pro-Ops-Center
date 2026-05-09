@@ -1685,6 +1685,53 @@ function testEmailCalendarRow() {
     Logger.log('  CTA Text        read from EmailSequences: ' + cta);
     Logger.log('  DL ID           read from ' + dlSrc + ': ' + (dlId || '(blank)'));
     Logger.log('  UTM URL         built from LP slug + Channels tab: ' + (utmUrl || '(blank — DL ID or LP slug missing)'));
+    // Design Brief column — what the XLSX row will show
+    var _sheetBrief = String(eRef.design_brief || '');
+    var _computedBrief = (function() {
+      var hdr = 'EMAIL BRIEF · ' + seqCode + ' E' + emailNum + ' A';
+      var lines = [hdr];
+      if (eRef.subject_angle) lines.push('Subject angle: ' + eRef.subject_angle);
+      if (eRef.body_theme)    lines.push('Body theme: '    + eRef.body_theme);
+      if (eRef.funnel_stage)  lines.push('Funnel stage: '  + eRef.funnel_stage);
+      if (eRef.trigger_event) lines.push('Trigger: '       + eRef.trigger_event);
+      if (eRef.body_hook)     lines.push('Hook: '          + String(eRef.body_hook).substring(0, 80));
+      if (eRef.body_cta)      lines.push('CTA: '           + eRef.body_cta);
+      return lines.join(' | ');
+    })();
+    var _finalBrief = _sheetBrief || _computedBrief;
+    Logger.log('  Design Brief    source: ' + (_sheetBrief ? 'EmailSequences.design_brief (sheet-stored)' : '_mkBrief() built from fields'));
+    Logger.log('  Design Brief    value:  ' + (_finalBrief || '(BLANK — no fields populated)').substring(0, 200));
   });
   Logger.log('=== Done — ' + _shown + ' sequences shown ===');
+}
+
+// ── Helper: look up hashtag_suggestions for a platform from the Channels tab ──
+function _channelHashtags(platform) {
+  try {
+    var channels = getChannels();
+    var key = (platform || '').toLowerCase();
+    for (var i = 0; i < channels.length; i++) {
+      if ((channels[i].name || '').toLowerCase() === key) {
+        return channels[i].hashtag_suggestions || '';
+      }
+    }
+  } catch(e) { Logger.log('[_channelHashtags] ' + e.message); }
+  return '';
+}
+
+// ── Test: log hashtag resolution for IG/TK/PT posts — no API calls ──
+// To use: open Apps Script editor → select testSocialHashtagRow → Run → view Execution log
+function testSocialHashtagRow() {
+  const campaignId = 'EC-2026-001';
+  const posts = getSocialPosts(campaignId);
+  const igPosts = posts.filter(p => p.platform === 'Instagram').slice(0,3);
+  const tkPosts = posts.filter(p => p.platform === 'TikTok').slice(0,2);
+  const ptPosts = posts.filter(p => p.platform === 'Pinterest').slice(0,2);
+  Logger.log('=== testSocialHashtagRow: ' + campaignId + ' ===');
+  Logger.log('IG posts: ' + igPosts.length + '  TK posts: ' + tkPosts.length + '  PT posts: ' + ptPosts.length);
+  [...igPosts, ...tkPosts, ...ptPosts].forEach(p => {
+    const hashtags = p.hashtags || _channelHashtags(p.platform) || '';
+    Logger.log(p.platform + ' | ' + (p.funnel_stage||'(no stage)') + ' | hashtags: ' + (hashtags || 'BLANK'));
+  });
+  Logger.log('=== Done ===');
 }

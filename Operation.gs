@@ -766,6 +766,8 @@ function doPost(e) {
       PropertiesService.getScriptProperties().deleteProperty('brief_cols_ensured'); // force re-check
       return respond(ensureCampaignBriefColumns());
     }
+    if(body.action === 'test_email_cal_row')      { testEmailCalendarRow();   return respond({ ok:true, log: Logger.getLog() }); }
+    if(body.action === 'test_social_hashtag_row') { testSocialHashtagRow();   return respond({ ok:true, log: Logger.getLog() }); }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
