@@ -162,9 +162,9 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
       Logger.log('[CalendarXlsx] start — posts: ' + posts.length + ' emails: ' + emails.length);
 
-      // 16 columns: Day · Date · Week · FunnelStage · Type · Platform · Subject · Preview · CTA · UTM · DL · DesignBrief · Hashtags · Status · Owner · SendTime
-      var _CAL_HDR = ['Day','Date','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA Text','UTM URL','DL ID','Design Brief — Figma','Hashtags','Status','Owner','Send Time'];
-      var numCols  = _CAL_HDR.length; // 16
+      // 18 columns: Day · Date · Week · FunnelStage · Type · Platform · Subject · Preview · CTA · UTM · DL · Variant · Test · DesignBrief · Hashtags · Status · Owner · SendTime
+      var _CAL_HDR = ['Day','Date','Week','Funnel Stage','Type','Platform','Subject / Hook','Preview / Body','CTA Text','UTM URL','DL ID','Variant','Test','Design Brief — Figma','Hashtags','Status','Owner','Send Time'];
+      var numCols  = _CAL_HDR.length; // 18
 
       // ── Write title / meta / headers FIRST so they always appear ─────────
       // Row 1: Campaign title (merged, red)
@@ -270,9 +270,11 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
             seqCode + '-E' + emailNum, 'Email',
             subA, preA, cta,
             utmUrl, dlId,
-            '', '',
+            'A',                           // Variant — email rows are always A (subject_line_a)
+            'Subject line · Klaviyo split', // Test
+            '', '',                        // Design Brief, Hashtags
             String(e.status || 'draft'),
-            'Klaviyo', '6:30 AM local'   // FIX 1: email send time
+            'Klaviyo', '6:30 AM local'
           ]);
         });
         Logger.log('[CalendarXlsx] email rows: ' + emails.length);
@@ -302,6 +304,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
             'Social', String(p.platform || p.channel || ''),
             String(p.hook || ''), String(p.body_copy || p.body || ''), String(p.cta || ''),
             String(p.utm_url || ''), String(p.dl_id || ''),
+            '', '',                        // Variant, Test — blank for social posts
             _designBrief, _hashtags,
             String(p.status || 'draft'),
             _owner, _sendTime
@@ -327,7 +330,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           rowRange.setVerticalAlignment('top');
         }
         calSh.getRange(4, 1, numDataRows, 1).setFontWeight('bold');
-        [7, 8, 10, 12].forEach(function(col) {
+        // Wrap: Subject/Hook(7) · Preview/Body(8) · UTM URL(10) · Design Brief(14 — shifted by 2 new cols)
+        [7, 8, 10, 14].forEach(function(col) {
           calSh.getRange(4, col, numDataRows, 1).setWrap(true);
         });
         // Patch item count into meta row now that we know it
@@ -336,7 +340,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
 
       // ── Column widths ──
       calSh.autoResizeColumns(1, numCols);
-      var _minWidths = [40, 120, 150, 90, 120, 90, 240, 260, 140, 260, 90, 200, 130, 70, 90, 120];
+      // 18 cols: Day · Date · Week · Stage · Type · Platform · Subject · Preview · CTA · UTM · DL · Variant · Test · DesignBrief · Hashtags · Status · Owner · SendTime
+      var _minWidths = [40, 120, 150, 90, 120, 90, 240, 260, 140, 260, 90, 60, 160, 200, 130, 70, 90, 120];
       _minWidths.forEach(function(minW, ci) {
         if (calSh.getColumnWidth(ci + 1) < minW) calSh.setColumnWidth(ci + 1, minW);
       });
