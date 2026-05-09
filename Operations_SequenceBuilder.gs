@@ -181,7 +181,7 @@ function buildFullSequence(brief, copy, existingPosts, existingEmails) {
       var _hasYT = _briefChs.some(function(c){return(c||'').toLowerCase()==='youtube';});
       if (_hasTK) {
         var _tkFts  = _getTikTokFeatureList(brief);
-        var _tkDays = [3, 10, 17, 24];
+        var _tkDays = [3, 10, 17, 24, 31];
         _tkFts.forEach(function(ft, fi) {
           var _tday   = _tkDays[fi] !== undefined ? _tkDays[fi] : (3 + fi * 7);
           var _tscript = _buildTikTokScriptTemplate(ft.code, ft.label, brief);
@@ -653,7 +653,7 @@ function buildSocialCalendar(brief, copy) {
 
     // Video script entries — TikTok (4 spotlights) and YouTube (1 explainer)
     var _tkFeatures = _getTikTokFeatureList(brief);
-    var _tkDays     = [3, 10, 17, 24]; // four spotlights across the 35-day arc
+    var _tkDays     = [3, 10, 17, 24, 31]; // five spotlights across the 35-day arc
     videoChannels.forEach(function(channel) {
       var chLow = channel.toLowerCase();
       if (chLow === 'tiktok') {
@@ -1002,20 +1002,17 @@ function _sbOffsetDate(brief, day) {
 }
 
 /**
- * Returns 4 TikTok feature objects for the 4 spotlight cards (Days 3/10/17/24).
- * Primary feature is derived from brief theme; remaining 3 cycle through others.
+ * Returns 5 TikTok feature objects for the 5 spotlight cards (Days 3/10/17/24/31).
+ * Order is fixed: TRACK → PLAN → OPTIMIZE → COOK → SHOP
  */
 function _getTikTokFeatureList(brief) {
-  var ALL = [
-    { code:'PLAN',     label:'Weekly Meal Planning'    },
-    { code:'COOK',     label:'30-Minute Dinner Mode'   },
+  return [
     { code:'TRACK',    label:'Waste & Savings Tracker' },
-    { code:'OPTIMIZE', label:'Smart Grocery List'      }
+    { code:'PLAN',     label:'Weekly Meal Planning'    },
+    { code:'OPTIMIZE', label:'Smart Grocery List'      },
+    { code:'COOK',     label:'30-Minute Dinner Mode'   },
+    { code:'SHOP',     label:'In-App Grocery Shop'     }
   ];
-  var primary = (_getTikTokFeature(brief) || 'cook').toUpperCase();
-  var primaryFeat = ALL.find(function(f){ return f.code === primary; }) || ALL[1];
-  var rest = ALL.filter(function(f){ return f.code !== primaryFeat.code; });
-  return [primaryFeat, rest[0], rest[1], rest[2]];
 }
 
 function _buildTikTokScriptTemplate(code, label, brief) {
@@ -1023,13 +1020,15 @@ function _buildTikTokScriptTemplate(code, label, brief) {
     PLAN:     'What if dinner was already planned?',
     COOK:     'Dinner in 30 minutes — with what\'s in your fridge.',
     TRACK:    'You\'re throwing away $1,336 a year. Let\'s stop that.',
-    OPTIMIZE: 'One grocery list. Zero overlap. Zero waste.'
+    OPTIMIZE: 'One grocery list. Zero overlap. Zero waste.',
+    SHOP:     'Groceries ordered without leaving the app. Watch.'
   };
   var demos = {
     PLAN:     'Screen recording: tap Meal Plan → week auto-fills with 5 dinners → one tap to confirm',
     COOK:     'Screen recording: scan fridge → recipe generated → 30-minute timer starts',
     TRACK:    'Screen recording: receipt scan → waste score updates → $1,336/year savings counter',
-    OPTIMIZE: 'Screen recording: smart grocery list → sorted by aisle → zero duplicates'
+    OPTIMIZE: 'Screen recording: smart grocery list → sorted by aisle → zero duplicates',
+    SHOP:     'Screen recording: tap Shop → grocery list auto-fills cart → checkout in under 60 seconds'
   };
   return [
     'FEATURE: ' + code + ' — ' + label,
