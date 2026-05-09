@@ -204,6 +204,14 @@ function buildFullSequence(brief, copy, existingPosts, existingEmails) {
     // ── Stamp UTMs from DeepLinkRegistry onto every post ────────────────────
     var posts = _sbAttachUtms(socialResult.posts || [], brief.id || '');
 
+    // ── Arc 2: Urgency social posts (Days 22–28) for A-Waitlist 35-day campaigns ─
+    var isWaitlist35 = (brief.blueprint === 'A-Waitlist' || brief.blueprint_code === 'A-Waitlist') &&
+                       (parseInt(brief.campaign_duration_days) || 0) >= 35;
+    if (isWaitlist35) {
+      var arc2Posts = _sbBuildArc2Posts(brief, posts);
+      posts = posts.concat(arc2Posts);
+    }
+
     var calendar = _sbMergeCalendar(emailResult.emails || [], posts);
 
     return {
@@ -792,11 +800,98 @@ function buildSocialCalendar(brief, copy) {
 }
 
 
+// ── _sbBuildArc2Posts ─────────────────────────────────────────────────────────
+/**
+ * Builds the second 7-post urgency/scarcity arc (Days 22–28, 0-indexed 21–27)
+ * for Blueprint A-Waitlist 35-day campaigns. Mirrors the 7-step framework with
+ * a founding-price-closing / last-chance angle. One per arc channel per day.
+ */
+function _sbBuildArc2Posts(brief, arc1Posts) {
+  var ARC2_SCHEDULE = [
+    { offset: 21, theme: 'hook',    role: 'founding spots are running out' },
+    { offset: 22, theme: 'problem', role: 'she has not joined yet' },
+    { offset: 23, theme: 'agitate', role: 'July 1 is the deadline — founding price closes' },
+    { offset: 24, theme: 'solve',   role: '$7.99/month locks forever — claim before July 1' },
+    { offset: 25, theme: 'value',   role: 'what founding families get that no one else will' },
+    { offset: 26, theme: 'proof',   role: 'families already in — founding spots filling' },
+    { offset: 27, theme: 'cta',     role: 'last chance — founding price ends at 5,000 families' }
+  ];
+
+  // Derive unique arc channels from Arc 1 (exclude TikTok, YouTube, Email)
+  var seen = {}, channels = [];
+  (arc1Posts || []).forEach(function(p) {
+    var ch = p.platform || p.channel || '';
+    var cl = ch.toLowerCase();
+    if (cl && cl !== 'tiktok' && cl !== 'youtube' && cl !== 'email' && !seen[cl]) {
+      seen[cl] = true;
+      channels.push(ch);
+    }
+  });
+
+  var campaignId = brief.id || '';
+  var arc2Posts  = [];
+
+  function _arc2Date(offset) {
+    if (!brief.launchDate) return '';
+    try {
+      var ld = new Date(brief.launchDate + 'T12:00:00');
+      ld.setDate(ld.getDate() + offset);
+      return Utilities.formatDate(ld, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    } catch(e) { return ''; }
+  }
+
+  channels.forEach(function(channel) {
+    var chSlug = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
+    ARC2_SCHEDULE.forEach(function(t, i) {
+      var postId = campaignId + '-' + chSlug + '-ARC2-' + String(i + 1).padStart(3, '0');
+      var sched  = _arc2Date(t.offset);
+      var post = {
+        id: postId, campaign_id: campaignId, platform: channel,
+        post_num: i + 1, scheduled_day: t.offset, scheduled_date: sched,
+        theme: t.theme, funnel_stage: t.theme,
+        hook:       '[Arc 2 · ' + t.theme.toUpperCase() + '] ' + t.role,
+        body_copy:  'Urgency arc · ' + t.role + ' · Founding price $7.99/month',
+        cta:        'Claim your founding spot',
+        hashtags:   '', image_brief: 'Arc 2 · ' + t.theme + ' · founding price closing · urgency angle'
+      };
+      setSocialPost({ id:postId, campaign_id:campaignId, platform:channel,
+        hook:post.hook, body_copy:post.body_copy, cta:post.cta,
+        hashtags:'', image_brief:post.image_brief,
+        scheduled_date:sched, status:'draft' });
+      arc2Posts.push(post);
+    });
+  });
+
+  // TikTok Arc 2 urgency spotlight — Day 26 (Jun 22)
+  var briefChs = Array.isArray(brief.channels) ? brief.channels : [];
+  if (briefChs.some(function(c){return(c||'').toLowerCase()==='tiktok';})) {
+    var tkId   = campaignId + '-tiktok-ARC2-001';
+    var tkDate = _arc2Date(25);
+    var tkPost = {
+      id:tkId, campaign_id:campaignId, platform:'TikTok',
+      post_num:2, scheduled_day:25, scheduled_date:tkDate,
+      theme:'urgency', funnel_stage:'cta',
+      hook:'Founding price closes July 1 — last chance TikTok spotlight',
+      body_copy:'Scarcity spotlight · $7.99/month founding price · July 1 deadline · 5,000 family cap',
+      cta:'Link in bio — claim your founding spot',
+      hashtags:'', image_brief:'Arc 2 TikTok · urgency · founding price ending · countdown'
+    };
+    setSocialPost({ id:tkId, campaign_id:campaignId, platform:'TikTok',
+      hook:tkPost.hook, body_copy:tkPost.body_copy, cta:tkPost.cta,
+      hashtags:'', image_brief:tkPost.image_brief, scheduled_date:tkDate, status:'draft' });
+    arc2Posts.push(tkPost);
+  }
+
+  Logger.log('[_sbBuildArc2Posts] ' + arc2Posts.length + ' Arc 2 urgency posts built (Days 22–28)');
+  return arc2Posts;
+}
+
+
 // ── _sbMergeCalendar ──────────────────────────────────────────────────────────
 
 /**
  * Merges email and social arrays into a day-indexed calendar view.
- * SEQ-3 send_days offset +28 days; SEQ-4 +42 days (≈ June 17 and July 1).
+ * SEQ-3 fires at offset 21 (Jun 17); SEQ-4 at offset 35 (Jul 1).
  * Returns sorted array of { day, trigger, emails:[], posts:[] }
  */
 function _sbMergeCalendar(emails, posts) {

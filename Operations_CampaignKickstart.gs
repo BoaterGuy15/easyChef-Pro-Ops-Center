@@ -494,7 +494,20 @@ function getCampaignDefaults() {
     channels:               ['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email','X'],
     post_count:             7,
     post_frequency:         'daily',
-    campaign_duration_days: 7,
+    campaign_duration_days: 35,
+    social_arc_days:        7,
+    email_window_days:      35,
+    // Arc 1 (Days 1–7): hook → problem → agitate → solve → value → proof → cta
+    social_arc_1_start:     1,
+    social_arc_1_end:       7,
+    // Arc 2 (Days 22–28): urgency / scarcity repeat of 7-step framework
+    social_arc_2_start:     22,
+    social_arc_2_end:       28,
+    // Email sequence calendar day offsets (Day 1 = May 27)
+    email_seq1_start:       0,    // Day 1 (May 27) — waitlist_signup trigger
+    email_seq2_start:       8,    // Day 8 (Jun 3)  — seq1_complete trigger
+    email_seq3_start:       22,   // Day 22 (Jun 17) — june_17_urgency trigger
+    email_seq4_start:       35,   // Day 35 (Jul 1)  — july_1_launch trigger
     total_dl_ids:           30,
     email_sequences:        4,
     email_variants:         2,

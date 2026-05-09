@@ -244,28 +244,62 @@ function getMasterSystemPrompt(type, context) {
     visualBlock += 'Every post must match these visual scenes. Write copy that pairs with these images.\n\n';
   }
 
+  // Founding Family CTA vocabulary — injected when angle or journey type matches
+  var foundingCtx = '';
+  var _angle = (ctx.campaign_angle || '').toLowerCase();
+  var _jt    = (ctx.journey_type   || '').toLowerCase();
+  if (_angle.indexOf('exclusivity') > -1 || _angle.indexOf('founder') > -1 ||
+      _jt === 'pre-launch-waitlist' || _jt === 'alpha-onboarding' || _jt === 'beta-testing') {
+    foundingCtx =
+      '=== FOUNDING FAMILY CTA VOCABULARY ===\n' +
+      'Use these exact phrases for all CTAs in this campaign. Do not paraphrase.\n' +
+      '  Primary CTA:   "Claim your founding spot"\n' +
+      '  Secondary CTA: "Get Early Access"\n' +
+      '  Confirmation:  "You\'re in, founding family. $7.99/month locked forever."\n' +
+      '  Scarcity line: "First 5,000 families lock in $7.99/month forever. The rest pay $19.99."\n' +
+      '  Identity line: "You\'re not just joining an app. You\'re founding the kitchen of the future."\n\n';
+  }
+
+  // Arc 2 urgency context — injected for the second social arc (Days 22–28)
+  var arc2Ctx = '';
+  var _isArc2 = (_angle.indexOf('urgency') > -1 ||
+                (_angle.indexOf('exclusivity') > -1 && parseInt(ctx.campaign_duration_days) >= 35));
+  if (_isArc2) {
+    arc2Ctx =
+      '=== SOCIAL ARC 2 — URGENCY / SCARCITY (Days 22–28) ===\n' +
+      'This is the second 7-post arc. Run the full 7-step framework again with a founding-price-closing angle.\n' +
+      '  Post 1 (Day 22 · hook):    Founding spots are running out\n' +
+      '  Post 2 (Day 23 · problem): She has not joined yet\n' +
+      '  Post 3 (Day 24 · agitate): July 1 is the deadline — founding price closes\n' +
+      '  Post 4 (Day 25 · solve):   $7.99/month locks forever — claim before July 1\n' +
+      '  Post 5 (Day 26 · value):   What founding families get that no one else will\n' +
+      '  Post 6 (Day 27 · proof):   Families already in — founding spots filling\n' +
+      '  Post 7 (Day 28 · cta):     Last chance — founding price ends at 5,000 families\n' +
+      'Every post in Arc 2 must use Founding Family CTA vocabulary (above). No new angles — urgency and loss only.\n\n';
+  }
+
   if (type === 'social_post') {
     return 'You are the easyChef Pro social media writer.\n\n' +
-      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + visualBlock +
+      _AB_ARCH + _AB_VOICE + claimsCtx + foundingCtx + arc2Ctx + storyBlock + visualBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   if (type === 'landing_page') {
     return 'You are the easyChef Pro landing page writer. You write high-converting landing page copy.\n\n' +
       _AB_ARCH + _AB_VOICE +
       'CRITICAL: Never invent testimonials, names, or social proof stories. Never use statistics that are not in the approved claims list. Approved claims only — exact wording: $1,336/year · 69.5% · 30 minutes · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · validated across 10,000 household profiles · built by first responders\n\n' +
-      claimsCtx + storyBlock + visualBlock +
+      claimsCtx + foundingCtx + arc2Ctx + storyBlock + visualBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   if (type === 'email') {
     return 'You are the easyChef Pro email sequence writer. You write conversion email copy.\n\n' +
-      _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + visualBlock +
+      _AB_ARCH + _AB_VOICE + claimsCtx + foundingCtx + arc2Ctx + storyBlock + visualBlock +
       '=== TARGET ICP ===\n' + icpCtx + '\n';
   }
   // image_prompt: story block only — caller merges with brand/visual rules
   if (type === 'image_prompt') {
     return storyBlock + visualBlock;
   }
-  return _AB_ARCH + _AB_VOICE + claimsCtx + storyBlock + visualBlock +
+  return _AB_ARCH + _AB_VOICE + claimsCtx + foundingCtx + arc2Ctx + storyBlock + visualBlock +
     '=== TARGET ICP ===\n' + icpCtx + '\n';
 }
 

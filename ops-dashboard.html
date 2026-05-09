@@ -21952,6 +21952,31 @@ function _ccLoadThemeLibrary(icp) {
     .catch(function(){});
 }
 
+var _ccAllThemesLoaded=false;
+function _ccPreloadAllThemes(cb) {
+  if(!CONFIG.sheetsUrl) { if(cb) cb(); return; }
+  fetch(CONFIG.sheetsUrl+'?action=theme_library_read')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok && Array.isArray(d.themes)) {
+        d.themes.forEach(function(t){
+          var code=((t.icp_code||'unknown').toLowerCase().replace(/\s+/g,'_'));
+          if(!_ccThemeLib[code]) _ccThemeLib[code]=[];
+          if(!_ccThemeLib[code].find(function(x){return x.id===t.id;})) _ccThemeLib[code].push(t);
+        });
+        _ccAllThemesLoaded=true;
+        // If wizard Step 1 is already rendered with the right ICP, refresh it
+        var curIcp=(_campBrief.icp||'').toLowerCase().replace(/\s+/g,'_');
+        if(curIcp && _ccThemeLib[curIcp]) {
+          var s1p=document.getElementById('cc-step1-theme-picker');
+          if(s1p && s1p.textContent.indexOf('Loading')>-1) s1p.innerHTML=_ccRenderThemeCards(_ccThemeLib[curIcp],_campBrief.theme||'');
+        }
+      }
+      if(cb) cb();
+    })
+    .catch(function(){ if(cb) cb(); });
+}
+
 function _ccRenderThemeCards(themes, selected) {
   if(!themes || !themes.length) return '<div style="font-size:11px;color:var(--muted);padding:4px 0">No themes available for this ICP yet.</div>';
   return themes.map(function(t) {
@@ -22786,7 +22811,15 @@ function _ccSaveNewTheme() {
   };
   if(!CONFIG.sheetsUrl){_afterSave();return;}
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'theme_library_write',theme:newTheme})})
-    .then(function(){_afterSave();})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.ok){
+        if(statusEl){statusEl.textContent='⚠️ Sheet save failed: '+(d.error||'unknown error');statusEl.style.color='#ef4444';}
+        _showToast('⚠️ Theme NOT saved to sheet — check GAS logs',3000);
+        return;
+      }
+      _afterSave();
+    })
     .catch(function(){if(statusEl){statusEl.textContent='⚠️ Sheet save failed — theme active locally';statusEl.style.color='#ef4444';}_afterSave();});
 }
 
@@ -27679,10 +27712,10 @@ function _ccRenderCalendarResult(d,container){
   var _ldate=(function(){var s=_campBrief.launchDate||'';if(!s)return null;var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);})();
   var dayToDate=function(n){if(!_ldate)return '';var d=new Date(_ldate);d.setDate(d.getDate()+n);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
   var weekGroups=[
-    {label:'Week 1 — 7-Day Social Arc'+(_ldate?' · '+dayToDate(0)+'–'+dayToDate(6):''),      min:0,  max:6},
-    {label:'Weeks 2–3 — Email Nurture'+(_ldate?' · '+dayToDate(7)+'–'+dayToDate(24):''),     min:7,  max:24},
-    {label:'Weeks 4–6 — Launch Countdown'+(_ldate?' · '+dayToDate(25)+'–'+dayToDate(48):''), min:25, max:47},
-    {label:'Launch Day',                                                                        min:48, max:9999}
+    {label:'Week 1 — Arc 1: Social Arc'+(_ldate?' · '+dayToDate(0)+'–'+dayToDate(6):''),          min:0,  max:6},
+    {label:'Weeks 2–3 — Nurture Window'+(_ldate?' · '+dayToDate(7)+'–'+dayToDate(20):''),         min:7,  max:20},
+    {label:'Weeks 4–5 — Arc 2: Urgency Push'+(_ldate?' · '+dayToDate(21)+'–'+dayToDate(34):''),   min:21, max:34},
+    {label:'Launch Day — July 1'+(_ldate?' · '+dayToDate(35):''),                                  min:35, max:9999}
   ];
   var summaryHtml=
     '<div style="padding:10px 14px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.25);border-radius:8px;font-size:12px;font-weight:600;color:#22c55e;margin-bottom:14px">'+
@@ -28732,7 +28765,133 @@ function _ccCancelEdit(){
   if(el) setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'start'});},40);
 }
 // ── Main render + tab switcher ──────────────────────────────────────────────
+// ── Theme Library Panel ────────────────────────────────────────────────────
+function _ccRenderThemeLibraryPanel() {
+  return '<div id="cc-tl-wrap" style="width:100%">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">'+
+      '<div>'+
+        '<div style="font-size:14px;font-weight:700;color:var(--text)">📚 Theme Library</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px">All themes saved to Google Sheets — live from ThemeLibrary tab</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+        '<select id="cc-tl-filter-icp" onchange="_ccTlApplyFilter()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-family:\'DM Mono\',monospace;background:var(--surface);color:var(--text)">'+
+          '<option value="">All ICPs</option>'+
+        '</select>'+
+        '<select id="cc-tl-filter-cat" onchange="_ccTlApplyFilter()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-family:\'DM Mono\',monospace;background:var(--surface);color:var(--text)">'+
+          '<option value="">All Categories</option>'+
+        '</select>'+
+        '<button onclick="_ccRefreshThemeLibraryPanel()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace">↻ Refresh</button>'+
+        '<button onclick="_ccToggleNewTheme()" style="background:'+_CC_RED+';border:none;color:#fff;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">+ New Theme</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="cc-tl-grid" style="font-size:12px;color:var(--muted);padding:40px 0;text-align:center;font-family:\'DM Mono\',monospace">Loading themes from Google Sheets…</div>'+
+  '</div>';
+}
+
+var _ccTlAllThemes=[];
+
+function _ccRefreshThemeLibraryPanel() {
+  var grid=document.getElementById('cc-tl-grid');
+  if(grid) grid.innerHTML='<div style="font-size:12px;color:var(--muted);padding:40px 0;text-align:center;font-family:\'DM Mono\',monospace">Loading themes from Google Sheets…</div>';
+  if(!CONFIG.sheetsUrl) {
+    _ccTlRenderGrid(_ccTlFlattenLib());
+    return;
+  }
+  fetch(CONFIG.sheetsUrl+'?action=theme_library_read')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var themes=[];
+      if(d.ok && Array.isArray(d.themes)) {
+        themes=d.themes;
+        // Sync into _ccThemeLib cache
+        themes.forEach(function(t){
+          var code=((t.icp_code||'unknown').toLowerCase().replace(/\s+/g,'_'));
+          if(!_ccThemeLib[code]) _ccThemeLib[code]=[];
+          if(!_ccThemeLib[code].find(function(x){return x.id===t.id;})) _ccThemeLib[code].push(t);
+        });
+        _ccAllThemesLoaded=true;
+      }
+      _ccTlAllThemes=themes;
+      _ccTlPopulateFilters(themes);
+      _ccTlApplyFilter();
+    })
+    .catch(function(){
+      _ccTlAllThemes=_ccTlFlattenLib();
+      _ccTlPopulateFilters(_ccTlAllThemes);
+      _ccTlApplyFilter();
+    });
+}
+
+function _ccTlFlattenLib() {
+  var out=[];
+  Object.keys(_ccThemeLib||{}).forEach(function(k){(_ccThemeLib[k]||[]).forEach(function(t){out.push(t);});});
+  return out;
+}
+
+function _ccTlPopulateFilters(themes) {
+  var icpSel=document.getElementById('cc-tl-filter-icp');
+  var catSel=document.getElementById('cc-tl-filter-cat');
+  if(!icpSel||!catSel) return;
+  var icps={}, cats={};
+  themes.forEach(function(t){
+    if(t.icp_code) icps[t.icp_code]=true;
+    if(t.category) cats[t.category]=true;
+  });
+  var prevIcp=icpSel.value, prevCat=catSel.value;
+  icpSel.innerHTML='<option value="">All ICPs</option>'+Object.keys(icps).sort().map(function(k){return '<option value="'+k+'">'+(k||'—')+'</option>';}).join('');
+  catSel.innerHTML='<option value="">All Categories</option>'+Object.keys(cats).sort().map(function(k){return '<option value="'+k+'">'+(k||'—')+'</option>';}).join('');
+  if(prevIcp) icpSel.value=prevIcp;
+  if(prevCat) catSel.value=prevCat;
+}
+
+function _ccTlApplyFilter() {
+  var icpSel=document.getElementById('cc-tl-filter-icp');
+  var catSel=document.getElementById('cc-tl-filter-cat');
+  var filterIcp=(icpSel?icpSel.value:'').toLowerCase();
+  var filterCat=(catSel?catSel.value:'').toLowerCase();
+  var filtered=_ccTlAllThemes.filter(function(t){
+    if(filterIcp && (t.icp_code||'').toLowerCase()!==filterIcp) return false;
+    if(filterCat && (t.category||'').toLowerCase()!==filterCat) return false;
+    return true;
+  });
+  _ccTlRenderGrid(filtered);
+}
+
+function _ccTlRenderGrid(themes) {
+  var safe=function(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var grid=document.getElementById('cc-tl-grid');
+  if(!grid) return;
+  if(!themes||!themes.length) {
+    grid.innerHTML='<div style="padding:60px 0;text-align:center;color:var(--muted);font-size:12px;font-family:\'DM Mono\',monospace">No themes found. Create your first theme with the wizard above.</div>';
+    return;
+  }
+  var cards=themes.map(function(t){
+    var icpBadge=t.icp_code?'<span style="font-size:9px;font-family:\'DM Mono\',monospace;font-weight:700;color:'+_CC_RED+';padding:1px 6px;border:1px solid rgba(255,0,0,0.25);border-radius:3px;flex-shrink:0">'+t.icp_code+'</span>':'';
+    var featureBadge=t.app_feature?'<span style="font-size:9px;font-family:\'DM Mono\',monospace;color:var(--muted);padding:1px 6px;border:1px solid var(--border);border-radius:3px;flex-shrink:0">'+t.app_feature+'</span>':'';
+    var dayBadge=t.publish_day?'<span style="font-size:9px;font-family:\'DM Mono\',monospace;color:var(--muted);padding:1px 6px;border:1px solid var(--border);border-radius:3px;flex-shrink:0">'+t.publish_day+'</span>':'';
+    var _td=JSON.stringify(t).replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    var nameEsc=(t.theme_name||'').replace(/'/g,"\\'");
+    var dayEsc=(t.publish_day||'').replace(/'/g,"\\'");
+    var angEsc=(t.campaign_angle||'').replace(/'/g,"\\'");
+    var urgEsc=(t.urgency_trigger||'').replace(/'/g,"\\'");
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">'+icpBadge+featureBadge+dayBadge+'</div>'+
+      '<div style="font-size:13px;font-weight:700;color:var(--text);line-height:1.3">'+_safe(t.theme_name)+'</div>'+
+      '<div style="font-size:10px;color:var(--muted)">'+_safe(t.category)+'</div>'+
+      (t.emotional_entry?'<div style="font-size:11px;color:var(--text);font-style:italic;line-height:1.4">"'+_safe(t.emotional_entry.slice(0,80))+(t.emotional_entry.length>80?'…':'')+'"</div>':'')+
+      (t.food_type?'<div style="font-size:10px;color:var(--muted)">🥘 '+_safe(t.food_type.split('—')[0].trim().slice(0,50))+'</div>':'')+
+      (t.campaign_angle?'<div style="font-size:10px;color:var(--muted)">Angle: '+_safe(t.campaign_angle)+'</div>':'')+
+      '<div style="margin-top:4px">'+
+        '<button data-theme="'+_td+'" onclick="var t=JSON.parse(this.dataset.theme);_ccSelectTheme(\''+nameEsc+'\',\''+dayEsc+'\',\''+angEsc+'\',\''+urgEsc+'\',t);_ccWizardGoTo(1);_showToast(\'Theme selected: '+nameEsc+'\',2000)" style="background:'+_CC_RED+';border:none;color:#fff;padding:5px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace">Use This Theme</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  grid.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'+cards+'</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:12px;text-align:right">'+themes.length+' theme'+(themes.length!==1?'s':'')+' · live from Google Sheets ThemeLibrary tab</div>';
+}
+
 var _CC_TABS=[
+  {id:'theme-lib',lbl:'📚 Theme Library'},
   {id:'brief',lbl:'📋 Brief'},
   {id:'utm',lbl:'🔗 UTM Generator'},
   {id:'registry',lbl:'📎 Deep Links'},
@@ -28754,6 +28913,7 @@ function _campaignsRender(){
       _ccLoadSettings(); // pre-fetch settings so form dropdowns are ready
       _ccLoadChannels();
       _ccLoadBlueprintConfigs();
+      _ccPreloadAllThemes(); // pre-load all themes from sheet so Step 1 picker works after refresh
       _campaignsRenderInner(root);
     },0);
     return;
@@ -28911,6 +29071,7 @@ function _campSwitchTab(t){
   else if(t==='content-hub'){panel.innerHTML=_ccRenderContentHub();if(!_ccHubCache.loaded)setTimeout(_ccLoadHub,0);}
   else if(t==='brand-assets') panel.innerHTML=_ccRenderBrandAssets();
   else if(t==='searah'){panel.innerHTML=_ccRenderSearah();if(!_ccSearahCache.loaded)setTimeout(_ccLoadSearah,0);}
+  else if(t==='theme-lib'){panel.innerHTML=_ccRenderThemeLibraryPanel();_ccRefreshThemeLibraryPanel();}
 }
 function _campaignsAddModal(){ _campSwitchTab('brief'); }
 // ── SEO Manager ────────────────────────────────────────────────────────────

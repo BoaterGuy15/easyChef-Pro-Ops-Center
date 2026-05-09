@@ -410,6 +410,29 @@ function _seedBlueprintConfig(sheet) {
   });
 }
 
+function _updateBlueprintAWaitlist35() {
+  var sheet = _getCCSheet(_CC_TAB.BLUEPRINTS);
+  var data  = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === 'bp-001') {
+      // Update: email_count(4)=13, social_post_count(5)=14 (7+7 across two arcs),
+      // description(9) to reflect 35-day arc
+      sheet.getRange(i + 1, 5).setValue(13);
+      sheet.getRange(i + 1, 6).setValue(14);
+      sheet.getRange(i + 1, 10).setValue(
+        '35-day pre-launch arc · May 27–Jul 1 · ' +
+        'campaign_duration_days:35 · social_arc_days:7 · email_window_days:35 · ' +
+        'Arc 1 social Days 1–7 · SEQ-1 Day 1 · SEQ-2 Day 8 · ' +
+        'Arc 2 urgency social Days 22–28 · SEQ-3 Jun 17 · SEQ-4 Jul 1'
+      );
+      Logger.log('[_updateBlueprintAWaitlist35] bp-001 updated');
+      return { ok: true };
+    }
+  }
+  Logger.log('[_updateBlueprintAWaitlist35] bp-001 not found — run seed first');
+  return { ok: false, error: 'bp-001 not found' };
+}
+
 function _seedLPInventory(sheet) {
   if (!sheet) return;
   var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
@@ -599,6 +622,47 @@ function setThemeLibraryRow(item) {
   ];
   _ccUpsert(sheet, headers, id, row);
   return id;
+}
+
+function _seedFoundingFamilyTheme() {
+  var sheet = _getCCSheet(_CC_TAB.THEME_LIBRARY);
+  var last  = sheet.getLastRow();
+  var THEME_NAME = 'Founding Family Pre-Launch';
+  // Skip if already exists
+  if (last >= 2) {
+    var existing = sheet.getRange(2, 3, last - 1, 1).getValues().map(function(r){ return r[0]; });
+    if (existing.indexOf(THEME_NAME) > -1) {
+      Logger.log('Theme "' + THEME_NAME + '" already exists — skipping.');
+      return { skipped: true };
+    }
+  }
+  var id = setThemeLibraryRow({
+    icp_code:        'super_mom',
+    theme_name:      THEME_NAME,
+    category:        'pre-launch',
+    emotional_entry: 'She found us before the world did — curious, hopeful',
+    emotional_payoff:'She is founding the kitchen of the future — proud, exclusive',
+    hook_angle:      '',
+    problem_angle:   '',
+    agitate_angle:   '',
+    food_type:       '',
+    publish_day:     '',
+    post_count:      7,
+    blueprint_code:  'A-Waitlist',
+    campaign_angle:  'exclusivity / founder',
+    urgency_trigger: '',
+    image_mood_hook: '',
+    image_mood_cta:  '',
+    active:          true,
+    notes:           'journey_type: pre-launch-waitlist',
+    app_feature:     'COOK',
+    app_screen_label:'Recipe page',
+    feature_hook:    '',
+    feature_proof:   '',
+    persona_rotation:''
+  });
+  Logger.log('Seeded theme "' + THEME_NAME + '" with id: ' + id);
+  return { ok: true, id: id };
 }
 
 function _deduplicateSeededTabs() {
@@ -2531,25 +2595,30 @@ function applyPreLaunchTimeline() {
     ['fs-004','solve',   '4','9', '10','0',  'Introduce easyChef Pro as the inevitable obvious answer. One sentence. No feature list.',                                    'Solve — introduce easyChef Pro as the answer',  'Introduce easyChef Pro — one sentence',      'pair-4-solve',   'The answer exists — she just needs to find it',  now,'','2026-06-05'],
     ['fs-005','value',   '5','13','14','0',  'Translate features into outcomes she actually wants. Feelings and results, not specs. 30 minutes. What you already have.',   'Value — outcomes not features',                 'Show the outcomes — 30 minutes, real food',  'pair-5-value',   'Every night without it costs her time and money',now,'','2026-06-09'],
     ['fs-006','proof',   '6','24','25','0',  'One specific honest proof point. Validated across 10,000 household profiles. Built by first responders. Then the offer.',    'Proof — one honest stat, then the offer',       'One proof point — then founding price',      'pair-6-proof',   'Social proof closes the last objection',         now,'','2026-06-20'],
-    ['fs-007','cta',     '7','0', '1', '28', 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                      'CTA — one action, loss aversion, urgency',      'Founding price — last chance angle',         'pair-7-cta',     'Founding price ends at 5,000 families',          now,'','2026-06-24']
+    ['fs-007','cta',     '7','0', '1', '21', 'One action. Low friction. Outcome-framed. Not sign up — tell her what she is getting.',                                      'CTA — one action, loss aversion, urgency',      'Founding price — last chance angle',         'pair-7-cta',     'Founding price ends at 5,000 families',          now,'','2026-06-17']
   ];
   fsRows.forEach(function(row) { _ccUpsert(fsSheet, fsHdr, row[0], row); });
-  Logger.log('[Timeline] FunnelStages updated (7 rows)');
+  Logger.log('[Timeline] FunnelStages updated (7 rows) — cta seq_offset_days=21 (SEQ-3 Jun 17, SEQ-4 Jul 1)');
 
   // ── 3. CampaignBriefs — update EC-2026-001 launch_date to pre-launch date ───
   setCampaignBrief({ id: 'EC-2026-001', launch_date: '2026-05-27' });
   Logger.log('[Timeline] CampaignBriefs EC-2026-001 launch_date → 2026-05-27');
 
-  // ── 4. ContentCalendar — add/update milestone rows ──────────────────────────
+  // ── 4. ContentCalendar — add/update milestone rows (full 35-day arc) ─────────
   var milestones = [
-    { id:'cc-ms-001', day:0,  date:'2026-05-27', stage:'PRE-LAUNCH LIVE',       theme:'Waitlist opens · SEQ-1 fires · EC-2026-001 launches' },
+    { id:'cc-ms-001', day:0,  date:'2026-05-27', stage:'PRE-LAUNCH LIVE',       theme:'Social Arc 1 begins · SEQ-1 E1 fires · waitlist opens · EC-2026-001 launches' },
     { id:'cc-ms-002', day:0,  date:'2026-05-27', stage:'ALPHA INVITES',          theme:'Personal outreach begins from Taylor' },
-    { id:'cc-ms-003', day:1,  date:'2026-05-28', stage:'QUESTIONNAIRE OPEN',     theme:'Alpha questionnaire live' },
-    { id:'cc-ms-004', day:7,  date:'2026-06-03', stage:'QUESTIONNAIRE CLOSES',   theme:'Taylor reviews responses' },
-    { id:'cc-ms-005', day:12, date:'2026-06-08', stage:'ALPHA APP ACCESS',        theme:'Alpha group gets the app' },
-    { id:'cc-ms-006', day:26, date:'2026-06-22', stage:'ALPHA FEEDBACK',          theme:'Feedback email fires' },
-    { id:'cc-ms-007', day:33, date:'2026-06-29', stage:'BETA INVITES',            theme:'Beta campaign launches' },
-    { id:'cc-ms-008', day:35, date:'2026-07-01', stage:'PUBLIC LAUNCH',           theme:'App goes live · SEQ-4 fires · Alpha → advanced features · Beta continues' }
+    { id:'cc-ms-003', day:2,  date:'2026-05-29', stage:'SEQ-1 E2',               theme:'SEQ-1 E2 fires — problem email · alpha questionnaire open' },
+    { id:'cc-ms-004', day:3,  date:'2026-05-30', stage:'TIKTOK SPOTLIGHT',       theme:'TikTok Day 4 spotlight fires — feature demo' },
+    { id:'cc-ms-005', day:6,  date:'2026-06-02', stage:'SEQ-1 E3 · YOUTUBE',     theme:'SEQ-1 E3 fires — value + CTA · YouTube 60-sec explainer publishes' },
+    { id:'cc-ms-006', day:7,  date:'2026-06-03', stage:'SEQ-2 BEGINS',           theme:'SEQ-2 nurture sequence begins · alpha questionnaire closes · Taylor reviews responses' },
+    { id:'cc-ms-007', day:12, date:'2026-06-08', stage:'ALPHA APP ACCESS',        theme:'Alpha group gets app access · feedback loop begins' },
+    { id:'cc-ms-008', day:16, date:'2026-06-13', stage:'SEQ-2 ENDS',             theme:'SEQ-2 final nurture email fires' },
+    { id:'cc-ms-009', day:21, date:'2026-06-17', stage:'SEQ-3 BEGINS · ARC 2',   theme:'SEQ-3 urgency sequence begins · Social Arc 2 fires (Days 22–28 · scarcity angle)' },
+    { id:'cc-ms-010', day:25, date:'2026-06-22', stage:'ALPHA FEEDBACK EMAIL',   theme:'Alpha feedback email fires · testimonial gathering' },
+    { id:'cc-ms-011', day:28, date:'2026-06-25', stage:'SEQ-3 E3 LAST CALL',     theme:'SEQ-3 E3 fires — last call urgency · founding price window closing' },
+    { id:'cc-ms-012', day:32, date:'2026-06-29', stage:'BETA INVITES',            theme:'Beta invite campaign launches · SEQ-3 E4 final email' },
+    { id:'cc-ms-013', day:35, date:'2026-07-01', stage:'PUBLIC LAUNCH',           theme:'App goes live · SEQ-4 E1 launch day fires · founding price closes · Alpha → advanced features · Beta continues' }
   ];
   milestones.forEach(function(m) {
     setContentCalendarEntry({
@@ -2569,7 +2638,7 @@ function applyPreLaunchTimeline() {
       utm_url:        ''
     });
   });
-  Logger.log('[Timeline] ContentCalendar — 8 milestone rows written');
+  Logger.log('[Timeline] ContentCalendar — 13 milestone rows written (full 35-day arc)');
 
   Logger.log('[Timeline] DONE — pre-launch timeline applied. Verify in Campaign Center sheet.');
 }
