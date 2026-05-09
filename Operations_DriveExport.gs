@@ -423,15 +423,21 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   };
 
-  var slug     = lp.slug || brief.slug || 'waitlist-a';
+  // Fix 1: strip leading lp/ before prepending domain so we never get lp/lp/
+  var slug     = (lp.slug || brief.slug || 'waitlist-a').replace(/^lp\//,'');
   var lpUrl    = 'easychefpro.com/lp/' + slug;
   var canonUrl = 'https://easychefpro.com/lp/' + slug;
   var icp      = lp.icp  || brief.icp  || '';
 
-  // Collect all active DL IDs across posts + emails
+  // Fix 4 (DL_IDs): collect from posts/emails AND query DeepLinkRegistry for ACTIVE entries
   var dlIdMap = {};
   (Array.isArray(posts)  ? posts  : []).forEach(function(p) { if (p.dl_id) dlIdMap[p.dl_id] = 1; });
   (Array.isArray(emails) ? emails : []).forEach(function(e) { if (e.dl_id) dlIdMap[e.dl_id] = 1; });
+  try {
+    var regRows = getDlRegistry(brief.id || '');
+    regRows.filter(function(r){ return (r.status||'').toUpperCase() === 'ACTIVE'; })
+           .forEach(function(r){ if (r.dl_id) dlIdMap[r.dl_id] = 1; });
+  } catch(re) {}
   var dlIds = Object.keys(dlIdMap).sort().join(' · ') || '—';
 
   // Proof bar — use lp.proof_items or approved-claims default
@@ -442,13 +448,17 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   var ctaCopy = (lp.cta_primary || copy.cta_primary || '') +
                 (lp.cta_url ? '  →  ' + lp.cta_url : ('  →  ' + canonUrl));
 
-  // 7-step arc rows
+  // 7-step arc rows — Fix 2 (Steps 2/3/4) + Fix 3 (Step 5 value field)
+  var _agitate = lp.agitate_section
+    || (brief.campaign_angle
+        ? brief.campaign_angle + ' · $1,336/year · food waste · takeout'
+        : '$1,336/year · food waste · takeout');
   var steps = [
     ['1', 'HOOK',    'Hero headline',       lp.hero_headline   || copy.headline    || ''],
-    ['2', 'PROBLEM', 'Problem block',       lp.problem_section || ''],
-    ['3', 'AGITATE', 'Agitate block',       lp.agitate_section || ''],
-    ['4', 'SOLVE',   'Solve block',         lp.solve_section   || ''],
-    ['5', 'VALUE',   'Value statement',     lp.social_proof    || copy.subheadline || ''],
+    ['2', 'PROBLEM', 'Problem block',       lp.problem_section || brief.subheadline || '6:30 PM wall · fridge full · no plan'],
+    ['3', 'AGITATE', 'Agitate block',       _agitate],
+    ['4', 'SOLVE',   'Solve block',         lp.solve_section   || 'easyChef Pro closes the loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP'],
+    ['5', 'VALUE',   'Value statement',     lp.social_proof    || lp.cta_primary || copy.cta_primary || brief.cta_primary || ''],
     ['6', 'PROOF',   'Proof bar (3 stats)', proofBar],
     ['7', 'CTA',     'Primary CTA + URL',   ctaCopy]
   ];
@@ -462,13 +472,22 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
       + '</tr>\n';
   });
 
-  // SEO meta
-  var metaTitle = lp.meta_title       || '';
+  // Fix 4 (SEO): auto-generate from headline + approved claims when lp fields are blank
+  var metaTitle = lp.meta_title || '';
   var metaDesc  = lp.meta_description || '';
+  if (!metaTitle) {
+    var _autoT = (copy.headline || brief.theme || 'Meal Planning & Grocery App') + ' — easyChef Pro';
+    metaTitle = _autoT.length > 60 ? _autoT.substring(0, 57) + '…' : _autoT;
+  }
+  if (!metaDesc) {
+    var _autoD = (brief.subheadline || 'Stop wasting food and money.')
+      + ' Track waste · Plan meals · Optimize nutrition · Cook faster · Shop smarter. Join the waitlist.';
+    metaDesc = _autoD.length > 155 ? _autoD.substring(0, 152) + '…' : _autoD;
+  }
   var ogTitle   = lp.og_title         || metaTitle;
   var ogDesc    = lp.og_description   || metaDesc;
-  var mtLen     = metaTitle ? ' <span class="char-count">(' + metaTitle.length + ' chars)</span>' : '';
-  var mdLen     = metaDesc  ? ' <span class="char-count">(' + metaDesc.length  + ' chars)</span>' : '';
+  var mtLen     = ' <span class="char-count">(' + metaTitle.length + ' chars)</span>';
+  var mdLen     = ' <span class="char-count">(' + metaDesc.length  + ' chars)</span>';
 
   var blueprint = _h(brief.funnel || 'Blueprint A-Waitlist');
   var variant   = _h(lp.variant   || 'A &mdash; Money Funnel');
@@ -546,19 +565,19 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate) {
   + '  <tr><td class="td-label">Format</td><td>JPG</td></tr>\n'
   + '</tbody></table>\n\n'
 
-  // ── 05 URGENCY ──
+  // ── 05 URGENCY — Fix 4: pull from brief.urgency_trigger ──
   + '<div class="sec-header">05 &mdash; URGENCY</div>\n'
   + '<table><tbody>\n'
-  + '  <tr><td class="td-label">Urgency Type</td><td>' + _h(lp.urgency_type || '—') + '</td></tr>\n'
-  + '  <tr><td class="td-label">Urgency Line</td><td style="font-weight:600">' + _h(lp.urgency_line || '—') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Urgency Type</td><td>' + _h(lp.urgency_type || 'Founding member scarcity') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Urgency Line</td><td style="font-weight:600">' + _h(lp.urgency_line || brief.urgency_trigger || '—') + '</td></tr>\n'
   + '  <tr><td class="td-label">Placement</td><td>' + _h(lp.urgency_placement || 'below-hero') + '</td></tr>\n'
   + '</tbody></table>\n\n'
 
-  // ── 06 EXCLUSIVITY ──
+  // ── 06 EXCLUSIVITY — Fix 4: pull from brief.founding_offer ──
   + '<div class="sec-header">06 &mdash; EXCLUSIVITY</div>\n'
   + '<table><tbody>\n'
-  + '  <tr><td class="td-label">Exclusivity Angle</td><td>' + _h(lp.exclusivity_angle || '—') + '</td></tr>\n'
-  + '  <tr><td class="td-label">Exclusivity Line</td><td style="font-weight:600">' + _h(lp.exclusivity_line || '—') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Exclusivity Angle</td><td>' + _h(lp.exclusivity_angle || 'Founding family offer') + '</td></tr>\n'
+  + '  <tr><td class="td-label">Exclusivity Line</td><td style="font-weight:600">' + _h(lp.exclusivity_line || brief.founding_offer || '—') + '</td></tr>\n'
   + '</tbody></table>\n\n'
 
   // ── 07 SEO PACKAGE ──
