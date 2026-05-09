@@ -777,8 +777,10 @@ function doPost(e) {
     // ── Sequence Builder ──────────────────────────────────────────────────────────
     if(body.action === 'build_full_sequence')      return respond(buildFullSequence(body.brief, body.copy, body.posts||[], body.emails||[]));
     if(body.action === 'run_full_campaign')        return respond(runFullCampaignAutomatic(body.campaign_id||''));
-    if(body.action === 'generate_social_posts')    return respond(fcGenerateSocialPosts(body.campaign_id||''));
-    if(body.action === 'generate_emails')          return respond(fcGenerateEmails(body.campaign_id||''));
+    if(body.action === 'generate_social_posts')      return respond(fcGenerateSocialPosts(body.campaign_id||''));
+    if(body.action === 'generate_emails')            return respond(fcGenerateEmails(body.campaign_id||''));
+    if(body.action === 'generate_utm_and_save')      return respond(fcGenerateUtmAndSave(body.campaign_id||''));
+    if(body.action === 'export_campaign_to_drive')   return respond(fcExportCampaignToDrive(body.campaign_id||''));
     if(body.action === 'generate_utm_and_export') {
       try {
         return respond(fcGenerateUtmAndExport(body.campaign_id||''));

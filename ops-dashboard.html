@@ -24022,23 +24022,33 @@ function _ccRunFullCampaign(campaignId){
       step(seqRes.emailCount+' emails saved to sheet',true);
     })
 
-    // ── Step 5: Generate UTMs + DL_IDs + export to Drive ───────────────────
+    // ── Step 5: Generate UTMs + DL_IDs (fast · under 30 sec) ──────────────
     .then(function(){
-      step('Generating UTMs + DL_IDs + exporting to Drive…');
-      return _post('generate_utm_and_export',{campaign_id:campaignId});
+      step('Generating UTMs + DL_IDs…');
+      return _post('generate_utm_and_save',{campaign_id:campaignId});
     })
     .then(function(r){
-      if(!r.ok) throw new Error('UTM/export step failed: '+(r.error||'unknown'));
+      if(!r.ok) throw new Error('UTM step failed: '+(r.error||'unknown'));
       saveRes=r;
-      step((r.utms||0)+' UTM links activated',true);
-      if(r.drive_ok&&r.drive_url){
-        step('Drive export complete — Brief + Social + Emails + LP Reference + Calendar',true);
+      step((r.dl_count||0)+' DL_IDs registered',true);
+    })
+
+    // ── Step 6: Export to Drive (slow · own 6-min GAS clock) ───────────────
+    .then(function(){
+      step('Exporting to Drive (2–4 min — builds 5 branded campaign files)…');
+      return _post('export_campaign_to_drive',{campaign_id:campaignId}).catch(function(){
+        return { ok:false, partial:true, error:'network timeout' };
+      });
+    })
+    .then(function(r){
+      var total=(saveRes.posts||seqRes.postCount||0)+(saveRes.emails||seqRes.emailCount||0);
+      if(r&&r.ok&&r.folder_url){
+        step('Campaign files exported to Drive',true);
+        done(total,r.folder_url);
       } else {
-        step('Drive export skipped — '+(r.error||'no folder URL returned'));
+        step('⚠ Drive export failed — UTMs and copy are saved. Run Export to Drive manually from the Assets panel.');
+        done(total,'');
       }
-      // r.posts and r.emails are counts re-read from sheet by the UTM step
-      var total=(r.posts||seqRes.postCount||0)+(r.emails||seqRes.emailCount||0);
-      done(total,r.drive_url||'');
     })
 
     .catch(function(e){fail(e.message);});

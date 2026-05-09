@@ -230,3 +230,51 @@ function campaignGen(brief) {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Pipeline step: UTM + DL generation only (no Drive) ────────────────────────
+
+function fcGenerateUtmAndSave(campaignId) {
+  try {
+    var ctx = _fcLoad(campaignId);
+    if (!ctx) return { ok: false, error: 'Brief not found: ' + campaignId };
+    var brief = ctx.brief;
+    var copy  = ctx.copy;
+
+    var posts  = getSocialPosts(campaignId);
+    var emails = getEmailSequences(campaignId);
+    Logger.log('[fcUTMSave] Posts: ' + posts.length + ' | Emails: ' + emails.length);
+
+    var saveResult = saveCampaignDraft({ brief: brief, copy: copy, posts: posts, emails: emails });
+    var utmCount   = (saveResult.utms || []).length;
+    Logger.log('[fcUTMSave] Done — ' + utmCount + ' DL_IDs registered');
+
+    return { ok: true, dl_count: utmCount, posts: posts.length, emails: emails.length };
+  } catch(e) {
+    Logger.log('[fcUTMSave] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Pipeline step: Drive export only (separate GAS call) ──────────────────────
+
+function fcExportCampaignToDrive(campaignId) {
+  try {
+    var ctx = _fcLoad(campaignId);
+    if (!ctx) return { ok: false, error: 'Brief not found: ' + campaignId };
+    var brief = ctx.brief;
+    var copy  = ctx.copy;
+
+    var posts  = getSocialPosts(campaignId);
+    var emails = getEmailSequences(campaignId);
+    var lp     = null;
+    try { lp = getLPInventoryBySlug(brief.slug) || null; } catch(le) {}
+
+    Logger.log('[fcDriveExport] Starting — posts: ' + posts.length + ' | emails: ' + emails.length);
+    var result = exportCampaignToDrive(brief, copy, posts, lp || {}, emails);
+    Logger.log('[fcDriveExport] Done — ok: ' + result.ok + ' url: ' + (result.folder_url || ''));
+    return result;
+  } catch(e) {
+    Logger.log('[fcDriveExport] ERROR: ' + e.message);
+    return { ok: false, partial: true, error: e.message };
+  }
+}
