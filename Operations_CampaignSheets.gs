@@ -133,6 +133,7 @@ var _CC_HDR = {
     'caption','hashtags',
     'dl_id','utm_url','figma_export_url','final_asset_url',
     'publisher','scheduled_url','published_url','notes',
+    'day','week','funnel_stage','emotional_stage','icp_target','experiment_id','blocked_by',
     'created_at','updated_at'
   ],
   CampaignMetrics: [
@@ -2404,8 +2405,15 @@ function _calRowToObj(r) {
     scheduled_url:    String(r[18] || ''),
     published_url:    String(r[19] || ''),
     notes:            String(r[20] || ''),
-    created_at:       _ccFmtDate(r[21]),
-    updated_at:       _ccFmtDate(r[22])
+    day:              Number(r[21] || 0),
+    week:             Number(r[22] || 0),
+    funnel_stage:     String(r[23] || ''),
+    emotional_stage:  String(r[24] || ''),
+    icp_target:       String(r[25] || ''),
+    experiment_id:    String(r[26] || ''),
+    blocked_by:       String(r[27] || ''),
+    created_at:       _ccFmtDate(r[28]),
+    updated_at:       _ccFmtDate(r[29])
   };
 }
 
@@ -2463,7 +2471,14 @@ function setContentCalendarEntry(item) {
     _v('scheduled_url',    null,              18, ''),
     _v('published_url',    null,              19, ''),
     _v('notes',            'theme',           20, ''),
-    ex ? ex[21] : now,
+    _v('day',              'day_number',      21, ''),
+    _v('week',             null,              22, ''),
+    _v('funnel_stage',     null,              23, ''),
+    _v('emotional_stage',  null,              24, ''),
+    _v('icp_target',       null,              25, ''),
+    _v('experiment_id',    null,              26, ''),
+    _v('blocked_by',       null,              27, ''),
+    ex ? ex[28] : now,
     now
   ];
   _ccUpsert(sheet, headers, calId, row);

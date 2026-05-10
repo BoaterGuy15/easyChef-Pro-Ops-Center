@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Campaign Cockpit</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif; background: #0c0c0e; color: #f0f0f0; padding: 16px; min-height: 100vh; }
+
+    header { margin-bottom: 20px; }
+    h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    .tagline { font-size: 13px; color: #666; margin-top: 4px; }
+
+    .card { background: #161618; border: 1px solid #2a2a2e; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    .card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #666; margin-bottom: 14px; font-weight: 600; }
+
+    /* KPI row */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .kpi { background: #161618; border: 1px solid #2a2a2e; border-radius: 14px; padding: 14px 16px; }
+    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; font-weight: 600; }
+    .kpi-val { font-size: 32px; font-weight: 700; margin-top: 4px; line-height: 1; }
+    .kpi-sub { font-size: 11px; color: #555; margin-top: 4px; }
+    .red   { color: #ff453a; }
+    .green { color: #32d74b; }
+    .yellow{ color: #ffd60a; }
+    .blue  { color: #0a84ff; }
+    .purple{ color: #bf5af2; }
+
+    /* Pipeline bars */
+    .pipeline-row { display: flex; align-items: center; margin-bottom: 9px; gap: 10px; }
+    .pipeline-label { width: 115px; font-size: 13px; color: #aaa; text-transform: capitalize; flex-shrink: 0; }
+    .bar-wrap { flex: 1; background: #222; border-radius: 5px; height: 18px; overflow: hidden; }
+    .bar { height: 100%; border-radius: 5px; transition: width 0.5s ease; min-width: 2px; }
+    .pipeline-count { width: 32px; text-align: right; font-size: 13px; color: #888; }
+
+    /* Platform grid */
+    .plat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .plat-cell { background: #1e1e22; border-radius: 10px; padding: 10px 12px; }
+    .plat-name { font-size: 11px; color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .plat-num  { font-size: 20px; font-weight: 700; }
+    .plat-sub  { font-size: 10px; color: #555; margin-top: 2px; }
+
+    /* Week grid */
+    .week-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 6px; }
+    .week-cell { background: #1e1e22; border-radius: 8px; padding: 8px; text-align: center; }
+    .week-label { font-size: 10px; color: #666; margin-bottom: 4px; }
+    .week-total { font-size: 18px; font-weight: 700; }
+    .week-blocked { font-size: 10px; color: #ff453a; margin-top: 2px; }
+
+    /* Emotion tags */
+    .emotion-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+    .emotion-tag { background: #1e1228; border: 1px solid #3a1a5a; color: #bf5af2; border-radius: 6px; padding: 4px 10px; font-size: 12px; }
+    .emotion-count { color: #888; font-size: 11px; margin-left: 4px; }
+
+    /* Funnel tags */
+    .funnel-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+    .funnel-tag { background: #0e1a2e; border: 1px solid #1a3a5a; color: #0a84ff; border-radius: 6px; padding: 4px 10px; font-size: 12px; }
+
+    /* Blocked list */
+    .blocked-item { border-left: 3px solid #ff453a; padding: 10px 12px; margin-bottom: 8px; background: #1a1214; border-radius: 0 10px 10px 0; }
+    .blocked-id  { font-size: 11px; color: #888; }
+    .blocked-reason { font-size: 13px; color: #ff9999; margin-top: 3px; font-weight: 500; }
+    .blocked-meta { font-size: 11px; color: #555; margin-top: 2px; }
+
+    /* Approval items */
+    .queue-item { background: #1a1c14; border-left: 3px solid #ffd60a; border-radius: 0 10px 10px 0; padding: 10px 12px; margin-bottom: 8px; }
+    .queue-id   { font-size: 11px; color: #888; }
+    .queue-date { font-size: 13px; color: #ffd60a; font-weight: 500; }
+
+    /* Late */
+    .late-item  { background: #1a1414; border-left: 3px solid #ff6b35; border-radius: 0 10px 10px 0; padding: 10px 12px; margin-bottom: 8px; }
+
+    /* Buttons */
+    .btn { background: #222; border: 1px solid #333; color: #f0f0f0; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 600; width: 100%; margin-top: 4px; cursor: pointer; letter-spacing: 0.2px; }
+    .btn:active { background: #333; }
+
+    /* Loading */
+    .loading { text-align: center; padding: 60px 0; color: #555; font-size: 15px; }
+    .dot-anim::after { content: ''; animation: dots 1.2s infinite; }
+    @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+
+    @media (min-width: 600px) {
+      body { max-width: 680px; margin: 0 auto; padding: 24px; }
+      .kpi-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+      .plat-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Campaign Cockpit</h1>
+    <div class="tagline" id="tagline">EC-2026-001 · Loading<span class="dot-anim"></span></div>
+  </header>
+  <div id="app"><div class="loading">Connecting to Campaign Center<span class="dot-anim"></span></div></div>
+
+  <script>
+    var PIPELINE_COLORS = {
+      generated:       '#3a3a3a',
+      in_figma:        '#0a4a8a',
+      designer_review: '#6a5a00',
+      approved:        '#0a5a1a',
+      scheduled:       '#0a3a6a',
+      published:       '#0a6a3a',
+      reported:        '#3a3a6a'
+    };
+
+    function fmt(n) { return (n || 0).toString(); }
+
+    function pipelineBar(label, n, total, color) {
+      var pct = total ? Math.max(2, Math.round(n / total * 100)) : 0;
+      if (!n) pct = 0;
+      return '<div class="pipeline-row">' +
+        '<div class="pipeline-label">' + label.replace(/_/g, ' ') + '</div>' +
+        '<div class="bar-wrap"><div class="bar" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+        '<div class="pipeline-count">' + fmt(n) + '</div>' +
+      '</div>';
+    }
+
+    function render(d) {
+      var total    = d.total_assets || 0;
+      var blocked  = d.blocked_count || 0;
+      var aq       = d.approval_queue_count || 0;
+      var rts      = d.ready_to_schedule_count || 0;
+      var late     = d.late_count || 0;
+      var published= (d.pipeline || {}).published || 0;
+      var now      = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+
+      document.getElementById('tagline').innerHTML =
+        'EC-2026-001 &nbsp;·&nbsp; ' + total + ' assets &nbsp;·&nbsp; refreshed ' + now;
+
+      // KPIs
+      var kpis =
+        '<div class="kpi"><div class="kpi-label">Total Assets</div><div class="kpi-val">' + total + '</div></div>' +
+        '<div class="kpi"><div class="kpi-label">Blocked</div><div class="kpi-val red">' + blocked + '</div></div>' +
+        '<div class="kpi"><div class="kpi-label">Approval Queue</div><div class="kpi-val yellow">' + aq + '</div></div>' +
+        '<div class="kpi"><div class="kpi-label">Ready to Post</div><div class="kpi-val green">' + rts + '</div></div>';
+
+      // Pipeline
+      var pipe = d.pipeline || {};
+      var pipeBars = Object.keys(pipe).map(function(s) {
+        return pipelineBar(s, pipe[s], total, PIPELINE_COLORS[s] || '#444');
+      }).join('');
+
+      // By platform
+      var bp = d.by_platform || {};
+      var platCells = Object.keys(bp).map(function(p) {
+        var pl = bp[p];
+        var gen = pl.generated || 0;
+        var pub = pl.published || 0;
+        return '<div class="plat-cell">' +
+          '<div class="plat-name">' + p + '</div>' +
+          '<div class="plat-num">' + gen + '</div>' +
+          '<div class="plat-sub">' + pub + ' published</div></div>';
+      }).join('');
+
+      // By week
+      var bw = d.by_week || {};
+      var weekCells = Object.keys(bw).sort().map(function(w) {
+        var wk = bw[w];
+        return '<div class="week-cell">' +
+          '<div class="week-label">' + w.replace('week_','Wk') + '</div>' +
+          '<div class="week-total">' + wk.total + '</div>' +
+          '<div class="week-blocked">' + wk.blocked + ' blk</div></div>';
+      }).join('');
+
+      // Emotional arc
+      var be = d.by_emotional_stage || {};
+      var emotions = Object.keys(be).map(function(e) {
+        return '<span class="emotion-tag">' + e + '<span class="emotion-count"> ' + be[e] + '</span></span>';
+      }).join('');
+
+      // Funnel stages
+      var bf = d.by_funnel_stage || {};
+      var funnels = Object.keys(bf).map(function(f) {
+        return '<span class="funnel-tag">' + f + ' <span class="emotion-count">' + bf[f] + '</span></span>';
+      }).join('');
+
+      // Approval queue
+      var aqItems = (d.approval_queue || []).slice(0, 10).map(function(item) {
+        return '<div class="queue-item">' +
+          '<div class="queue-id">' + item.asset_id + ' · ' + item.platform + '</div>' +
+          '<div class="queue-date">Publish: ' + (item.publish_date || '—') + '</div></div>';
+      }).join('') || '<div style="color:#555;font-size:13px">No items awaiting approval.</div>';
+
+      // Blocked
+      var blItems = (d.blocked_count > 0)
+        ? '<div style="color:#555;font-size:13px;margin-bottom:8px">Showing top blocks — run <em>get_blocked_assets</em> for full list.</div>' +
+          '<div class="blocked-item"><div class="blocked-id">All ' + blocked + ' assets</div><div class="blocked-reason">waiting for Figma — not yet assigned</div><div class="blocked-meta">Advance by assigning figma_file_id + setting creative_status = in_figma</div></div>'
+        : '<div style="color:#32d74b;font-size:13px">No blocked assets.</div>';
+
+      // Late
+      var lateSection = late > 0
+        ? '<div class="card"><div class="card-title red">Late Assets (' + late + ')</div>' +
+          (d.late_assets || []).slice(0,5).map(function(a) {
+            return '<div class="late-item"><div class="blocked-id">' + a.asset_id + ' · ' + a.platform + '</div>' +
+              '<div class="blocked-reason">Was due: ' + a.publish_date + '</div>' +
+              '<div class="blocked-meta">Status: ' + a.status + '</div></div>';
+          }).join('') + '</div>'
+        : '';
+
+      document.getElementById('app').innerHTML =
+        '<div class="kpi-grid">' + kpis + '</div>' +
+        '<div class="card"><div class="card-title">Pipeline Status</div>' + pipeBars + '</div>' +
+        '<div class="card"><div class="card-title">By Platform</div><div class="plat-grid">' + platCells + '</div></div>' +
+        '<div class="card"><div class="card-title">By Week</div><div class="week-grid">' + weekCells + '</div></div>' +
+        '<div class="card"><div class="card-title">Emotional Arc</div><div class="emotion-wrap">' + emotions + '</div></div>' +
+        '<div class="card"><div class="card-title">Funnel Stages</div><div class="funnel-wrap">' + funnels + '</div></div>' +
+        '<div class="card"><div class="card-title yellow">Approval Queue</div>' + aqItems + '</div>' +
+        '<div class="card"><div class="card-title red">Blocked (' + blocked + ')</div>' + blItems + '</div>' +
+        lateSection +
+        '<button class="btn" onclick="load()">↻ Refresh</button>' +
+        '<div style="height:40px"></div>';
+    }
+
+    function load() {
+      document.getElementById('tagline').innerHTML = 'EC-2026-001 &nbsp;·&nbsp; Refreshing<span class="dot-anim"></span>';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.ok) render(result);
+          else document.getElementById('app').innerHTML =
+            '<div class="loading">Error loading data.</div>';
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('app').innerHTML =
+            '<div class="loading">Connection error. Tap Refresh to retry.</div>' +
+            '<button class="btn" onclick="load()" style="margin-top:16px">↻ Refresh</button>';
+        })
+        .getCampaignDashboard('EC-2026-001');
+    }
+
+    load();
+    setInterval(load, 60000);
+  </script>
+</body>
+</html>

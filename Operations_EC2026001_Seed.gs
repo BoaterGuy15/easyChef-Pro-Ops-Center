@@ -2064,6 +2064,42 @@ var _CAL_POST_TIMES  = {
   'YouTube':   '14:00', 'Email':     '09:00'
 };
 var _CAL_TZ = 'America/Los_Angeles';
+var _EMOTIONAL_ARC = {
+  'hook':    'exhausted',  'problem': 'frustrated', 'agitate': 'activated',
+  'solve':   'curious',   'value':   'relieved',   'proof':   'trusting',
+  'cta':     'hopeful'
+};
+
+// Returns a human-readable string describing what is blocking this asset from publishing.
+// Empty string means no block (published or fully ready).
+function _computeBlockedReason(r, H) {
+  var status   = String(r[H.status]          || 'generated');
+  var approval = String(r[H.approval_status] || 'pending');
+  var creative = String(r[H.creative_status] || 'generated');
+  var figmaId  = String(r[H.figma_file_id]   || '');
+  var finalUrl = String(r[H.final_asset_url]  || '');
+  var dlId     = String(r[H.dl_id]            || '');
+
+  if (status === 'published' || status === 'reported') return '';
+  if (approval === 'approved' && finalUrl) return '';
+
+  var reasons = [];
+  if (!dlId) reasons.push('missing dl_id');
+
+  if (creative === 'generated') {
+    reasons.push('waiting for Figma — not yet assigned');
+  } else if (creative === 'in_figma') {
+    reasons.push(!figmaId ? 'figma_file_id not recorded' : 'in production');
+  } else if (creative === 'designer_review') {
+    reasons.push('awaiting designer sign-off');
+  } else if (creative === 'approved' && approval === 'pending') {
+    reasons.push('creative approved — awaiting Taylor approval');
+  } else if (approval === 'approved' && !finalUrl) {
+    reasons.push('approved — export and upload final_asset_url');
+  }
+
+  return reasons.join(' · ');
+}
 
 function seedEC2026001ContentCalendar() {
   try {
@@ -2075,10 +2111,13 @@ function seedEC2026001ContentCalendar() {
     var spRows  = spSheet.getRange(2, 1, spLast - 1, 16).getValues();
 
     var ccSheet  = _getCCSheet(_CC_TAB.CONTENT_CAL);
-    var headers  = _CC_HDR[_CC_TAB.CONTENT_CAL]; // 23 columns
+    var headers  = _CC_HDR[_CC_TAB.CONTENT_CAL]; // 30 columns
     var STATUS_COL   = headers.indexOf('status')          + 1;
     var APPROVAL_COL = headers.indexOf('approval_status') + 1;
     var CREATIVE_COL = headers.indexOf('creative_status') + 1;
+    // Build header→index map for _computeBlockedReason
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
 
     // Clear all existing data rows (schema change: old milestone rows have corrupt column layout).
     // Idempotency is re-introduced in Phase 2 once designers start filling in fields.
@@ -2110,33 +2149,56 @@ function seedEC2026001ContentCalendar() {
         pubDate = Utilities.formatDate(d, _CAL_TZ, 'yyyy-MM-dd');
       }
 
-      var platform = String(row[2]);
-      var calId    = 'cc-' + assetId; // e.g. cc-ec001-sp-001
+      var platform    = String(row[2]);
+      var calId       = 'cc-' + assetId;
+      var funnelStage = String(b.funnel_stage || '');
+      var emotion     = _EMOTIONAL_ARC[funnelStage] || '';
+      var week        = day ? Math.ceil(day / 7) : '';
+      var dlId        = String(row[12] || b.dl_id   || '');
+      var utmUrl      = String(row[13] || b.utm_url || '');
+
+      // Compute initial blocked_by against a synthetic row matching header order
+      var syntheticRow = [];
+      syntheticRow[H.status]          = 'generated';
+      syntheticRow[H.approval_status] = 'pending';
+      syntheticRow[H.creative_status] = 'generated';
+      syntheticRow[H.figma_file_id]   = '';
+      syntheticRow[H.final_asset_url] = '';
+      syntheticRow[H.dl_id]           = dlId;
+      syntheticRow[H.publish_date]    = pubDate;
+      var blockedBy = _computeBlockedReason(syntheticRow, H);
 
       newRows.push([
-        calId,                                       // calendar_id
-        assetId,                                     // asset_id
-        'EC-2026-001',                               // campaign_id
-        platform,                                    // platform
-        '',                                          // account
-        pubDate,                                     // publish_date
-        _CAL_POST_TIMES[platform] || '10:00',        // publish_time
-        _CAL_TZ,                                     // timezone
-        'generated',                                 // status
-        'pending',                                   // approval_status
-        'generated',                                 // creative_status
-        String(b.caption_opening || ''),             // caption (seed from brief)
-        '',                                          // hashtags
-        String(row[12] || b.dl_id   || ''),          // dl_id
-        String(row[13] || b.utm_url || ''),          // utm_url
-        '',                                          // figma_export_url
-        '',                                          // final_asset_url
-        '',                                          // publisher
-        '',                                          // scheduled_url
-        '',                                          // published_url
-        '',                                          // notes
-        now,                                         // created_at
-        now                                          // updated_at
+        calId,                                // calendar_id
+        assetId,                              // asset_id
+        'EC-2026-001',                        // campaign_id
+        platform,                             // platform
+        '',                                   // account
+        pubDate,                              // publish_date
+        _CAL_POST_TIMES[platform] || '10:00', // publish_time
+        _CAL_TZ,                              // timezone
+        'generated',                          // status
+        'pending',                            // approval_status
+        'generated',                          // creative_status
+        String(b.caption_opening || ''),      // caption
+        '',                                   // hashtags
+        dlId,                                 // dl_id
+        utmUrl,                               // utm_url
+        '',                                   // figma_export_url
+        '',                                   // final_asset_url
+        '',                                   // publisher
+        '',                                   // scheduled_url
+        '',                                   // published_url
+        '',                                   // notes
+        day,                                  // day
+        week,                                 // week
+        funnelStage,                          // funnel_stage
+        emotion,                              // emotional_stage
+        String(b.icp_target || ''),           // icp_target
+        '',                                   // experiment_id
+        blockedBy,                            // blocked_by
+        now,                                  // created_at
+        now                                   // updated_at
       ]);
     }
 
@@ -2162,6 +2224,167 @@ function seedEC2026001ContentCalendar() {
 
   } catch(e) {
     Logger.log('[seedEC2026001ContentCalendar] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Cockpit: blocked assets + campaign dashboard ──────────────────────────────
+
+function getBlockedAssets(campaignId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = ccSheet.getLastRow();
+    if (last < 2) return { ok: true, blocked: [], total_blocked: 0 };
+
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+    var data = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
+
+    var blocked = [];
+    for (var i = 0; i < data.length; i++) {
+      var r = data[i];
+      if (!r[0] || String(r[H.campaign_id]) !== campaignId) continue;
+      var reason = _computeBlockedReason(r, H);
+      if (reason && reason !== 'in production') {
+        blocked.push({
+          calendar_id:    String(r[H.calendar_id]),
+          asset_id:       String(r[H.asset_id]),
+          platform:       String(r[H.platform]),
+          day:            Number(r[H.day] || 0),
+          publish_date:   String(r[H.publish_date] || ''),
+          status:         String(r[H.status]),
+          creative_status:String(r[H.creative_status]),
+          approval_status:String(r[H.approval_status]),
+          blocked_by:     reason
+        });
+      }
+    }
+    // Refresh blocked_by column in sheet
+    for (var j = 0; j < data.length; j++) {
+      if (!data[j][0] || String(data[j][H.campaign_id]) !== campaignId) continue;
+      var updated = _computeBlockedReason(data[j], H);
+      ccSheet.getRange(j + 2, H.blocked_by + 1).setValue(updated);
+    }
+
+    blocked.sort(function(a, b) { return (a.day || 99) - (b.day || 99); });
+    Logger.log('[getBlockedAssets] blocked:' + blocked.length);
+    return { ok: true, total_blocked: blocked.length, blocked: blocked };
+  } catch(e) {
+    Logger.log('[getBlockedAssets] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function getCampaignDashboard(campaignId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = ccSheet.getLastRow();
+    if (last < 2) return { ok: true, campaign: campaignId, total_assets: 0 };
+
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+    var data  = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
+    var today = new Date();
+
+    var pipeline   = {};
+    var byPlatform = {};
+    var byFunnel   = {};
+    var byEmotion  = {};
+    var byWeek     = {};
+    _CAL_STATUSES.forEach(function(s) { pipeline[s] = 0; });
+
+    var approvalQueue    = [];
+    var readyToSchedule  = [];
+    var lateAssets       = [];
+    var blockedCount     = 0;
+    var total            = 0;
+
+    for (var i = 0; i < data.length; i++) {
+      var r = data[i];
+      if (!r[0] || String(r[H.campaign_id]) !== campaignId) continue;
+      total++;
+
+      var status   = String(r[H.status]          || 'generated');
+      var approval = String(r[H.approval_status] || 'pending');
+      var creative = String(r[H.creative_status] || 'generated');
+      var platform = String(r[H.platform]        || '');
+      var funnel   = String(r[H.funnel_stage]    || '');
+      var emotion  = String(r[H.emotional_stage] || '');
+      var week     = Number(r[H.week]            || 0);
+      var day      = Number(r[H.day]             || 0);
+      var finalUrl = String(r[H.final_asset_url] || '');
+      var calId    = String(r[H.calendar_id]     || '');
+      var assetId  = String(r[H.asset_id]        || '');
+      var pubDate  = r[H.publish_date];
+
+      pipeline[status] = (pipeline[status] || 0) + 1;
+
+      if (!byPlatform[platform]) {
+        byPlatform[platform] = {};
+        _CAL_STATUSES.forEach(function(s) { byPlatform[platform][s] = 0; });
+      }
+      byPlatform[platform][status]++;
+
+      if (funnel)  byFunnel[funnel]   = (byFunnel[funnel]  || 0) + 1;
+      if (emotion) byEmotion[emotion] = (byEmotion[emotion] || 0) + 1;
+
+      if (week) {
+        var wk = 'week_' + week;
+        if (!byWeek[wk]) byWeek[wk] = { total: 0, published: 0, approved: 0, blocked: 0 };
+        byWeek[wk].total++;
+        if (status === 'published')          byWeek[wk].published++;
+        if (approval === 'approved')         byWeek[wk].approved++;
+        var br = _computeBlockedReason(r, H);
+        if (br && br !== 'in production') { byWeek[wk].blocked++; blockedCount++; }
+      }
+
+      if (creative === 'approved' && approval === 'pending') {
+        approvalQueue.push({ calendar_id: calId, asset_id: assetId, platform: platform,
+                             publish_date: String(pubDate || ''), day: day });
+      }
+      if (approval === 'approved' && finalUrl && status !== 'scheduled' && status !== 'published') {
+        readyToSchedule.push({ calendar_id: calId, asset_id: assetId, platform: platform,
+                               publish_date: String(pubDate || '') });
+      }
+      if (pubDate && status !== 'published' && status !== 'reported') {
+        try {
+          var pd = pubDate instanceof Date ? pubDate : new Date(String(pubDate));
+          if (!isNaN(pd.getTime()) && pd < today) {
+            lateAssets.push({ calendar_id: calId, asset_id: assetId, platform: platform,
+                              publish_date: String(pubDate), status: status, day: day });
+          }
+        } catch(e) {}
+      }
+    }
+
+    approvalQueue.sort(function(a, b) { return (a.day||99)-(b.day||99); });
+    lateAssets.sort(function(a, b) { return (a.day||99)-(b.day||99); });
+
+    Logger.log('[getCampaignDashboard] total:' + total + ' blocked:' + blockedCount +
+               ' late:' + lateAssets.length + ' approval_queue:' + approvalQueue.length);
+    return {
+      ok: true,
+      campaign: campaignId,
+      total_assets: total,
+      pipeline: pipeline,
+      by_platform: byPlatform,
+      by_funnel_stage: byFunnel,
+      by_emotional_stage: byEmotion,
+      by_week: byWeek,
+      approval_queue_count: approvalQueue.length,
+      approval_queue: approvalQueue,
+      ready_to_schedule_count: readyToSchedule.length,
+      ready_to_schedule: readyToSchedule,
+      blocked_count: blockedCount,
+      late_count: lateAssets.length,
+      late_assets: lateAssets
+    };
+  } catch(e) {
+    Logger.log('[getCampaignDashboard] ERROR: ' + e.message);
     return { ok: false, error: e.message };
   }
 }

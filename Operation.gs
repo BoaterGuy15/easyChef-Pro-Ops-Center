@@ -332,6 +332,11 @@ function doGet(e) {
       appendPMFRow({ date:p.date||'', notes:p.notes||'', overall_status:p.overall||'', kpi1_target:p.k1t||'', kpi1_current:p.k1c||'', kpi1_name:p.k1n||'First Strike Rate', kpi2_target:p.k2t||'', kpi2_current:p.k2c||'', kpi2_name:p.k2n||'14-Day Retention', kpi3_target:p.k3t||'', kpi3_current:p.k3c||'', kpi3_name:p.k3n||'Sean Ellis PMF Score' });
       return respond({ ok: true });
     }
+    if(e.parameter.action === 'cockpit') {
+      return HtmlService.createHtmlOutputFromFile('cockpit')
+        .setTitle('Campaign Cockpit — EC-2026-001')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
     if(e.parameter.action === 'links_read') return respond({ok:true, links: getLinks(e.parameter.fromType||'', e.parameter.fromId||'', e.parameter.toType||'')});
     if(e.parameter.action === 'launchplan_read') return respond({ok:true, items: getLaunchPlan()});
     if(e.parameter.action === 'pmf_read') {
@@ -884,6 +889,14 @@ function doPost(e) {
     if(body.action === 'content_calendar_report') {
       var _ccr = getContentCalendarReport();
       return respond({ ok:_ccr.ok, result:_ccr, log: Logger.getLog() });
+    }
+    if(body.action === 'get_blocked_assets') {
+      var _bl = getBlockedAssets(body.campaign_id);
+      return respond({ ok:_bl.ok, result:_bl, log: Logger.getLog() });
+    }
+    if(body.action === 'get_campaign_dashboard') {
+      var _dash = getCampaignDashboard(body.campaign_id);
+      return respond({ ok:_dash.ok, result:_dash, log: Logger.getLog() });
     }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
