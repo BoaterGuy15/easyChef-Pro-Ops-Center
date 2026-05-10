@@ -1645,18 +1645,31 @@ function generateEC2026001BriefDoc() {
         var brief = {};
         try { brief = JSON.parse(String(sr[15])); } catch(pe) {}
         if (!posts[plat]) posts[plat] = [];
+        var pspecs = brief.platform_specs || {};
         posts[plat].push({
-          id:       String(sr[0]),
-          hook_a:   brief.hook_a  || String(sr[3]),
-          hook_b:   brief.hook_b  || '',
-          scene:    brief.scene_direction || String(sr[7]),
-          stage:    brief.funnel_stage    || '',
-          day:      Number(brief.day)     || 0,
-          date:     String(sr[9]),
-          dl_id:    String(sr[12]),
-          hashtags: String(sr[6]),
-          cta:      String(sr[5]),
-          phone:    brief.phone_visibility ? 'VISIBLE' : 'NO PHONE'
+          id:               String(sr[0]),
+          hook_a:           brief.hook_a            || String(sr[3]),
+          hook_b:           brief.hook_b            || '',
+          scene:            brief.scene_direction   || String(sr[7]),
+          stage:            brief.funnel_stage      || '',
+          day:              Number(brief.day)        || 0,
+          date:             String(sr[9]),
+          dl_id:            String(sr[12]),
+          hashtags:         String(sr[6]),
+          cta:              String(sr[5]),
+          phone:            brief.phone_visibility  ? 'VISIBLE' : 'NO PHONE',
+          emotional_state:  brief.emotional_state   || '',
+          objective:        brief.objective         || '',
+          visual_tone:      brief.visual_tone       || '',
+          camera_style:     brief.camera_style      || '',
+          platform_specs:   pspecs,
+          what_not_to_show: brief.what_not_to_show  || [],
+          scene_sequence:   brief.scene_sequence    || [],
+          story_arc:        brief.story_arc         || [],
+          audio_direction:  brief.audio_direction   || '',
+          motion_direction: brief.motion_direction  || '',
+          duration_target:  pspecs.duration_target  || '',
+          copy_density:     brief.copy_density      || ''
         });
       }
       var platKeys = Object.keys(posts);
@@ -1682,14 +1695,35 @@ function generateEC2026001BriefDoc() {
           _ecDocSubsection(body, 'WEEK ' + week + ' · DAYS ' + ((week-1)*7+1) + '–' + (week*7));
           lastWeek = week;
         }
-        var hook_b_line = p.hook_b ? 'Hook B (Time/Founding): ' + p.hook_b : '';
-        var tags_line   = p.hashtags && p.hashtags !== 'undefined' ? 'Hashtags: ' + p.hashtags : '';
+        var hook_b_line = p.hook_b ? 'Hook B (Time/Founding Family): ' + p.hook_b : '';
+        var tags_line   = p.hashtags && p.hashtags !== 'undefined' && p.hashtags !== ''
+          ? 'Hashtags: ' + p.hashtags : '';
+        var wnt_line    = p.what_not_to_show && p.what_not_to_show.length
+          ? 'DO NOT SHOW: ' + p.what_not_to_show.join(' · ') : '';
+        var spec_line   = p.platform_specs && p.platform_specs.size
+          ? 'Specs: ' + p.platform_specs.size + ' · ' + (p.platform_specs.ratio || '') +
+            (p.duration_target ? ' · ' + p.duration_target : '') +
+            ' · format: ' + (p.platform_specs.format || 'PNG') : '';
+        var video_parts = [];
+        if (p.scene_sequence && p.scene_sequence.length)
+          video_parts.push('Sequence: ' + p.scene_sequence.map(function(s, i){ return (i+1) + '. ' + s; }).join(' · '));
+        if (p.story_arc && p.story_arc.length)
+          video_parts.push('Arc: ' + p.story_arc.join(' → '));
+        if (p.audio_direction)   video_parts.push('Audio: ' + p.audio_direction);
+        if (p.motion_direction)  video_parts.push('Motion: ' + p.motion_direction);
         var lines = [
-          'Day ' + p.day + '  ·  ' + p.date + '  ·  DL_ID: ' + (p.dl_id || '—') + '  ·  Stage: ' + p.stage + '  ·  Phone: ' + p.phone,
-          'Hook A (Money/Savings):  ' + (p.hook_a || '—'),
+          'Day ' + p.day + '  ·  ' + p.date + '  ·  DL_ID: ' + (p.dl_id || '—') +
+            '  ·  Stage: ' + p.stage + '  ·  Emotional: ' + (p.emotional_state || '—') +
+            '  ·  Phone: ' + p.phone,
+          'Objective: ' + (p.objective || '—') + '  ·  Visual Tone: ' + (p.visual_tone || '—') +
+            '  ·  Camera: ' + (p.camera_style || '—'),
+          'Hook A (Money/Savings): ' + (p.hook_a || '—'),
           hook_b_line,
-          'Scene: ' + (String(p.scene || '').split('·').slice(0,4).join('·').trim()),
+          'Scene: ' + (String(p.scene || '').split('·').slice(0, 5).join(' · ').trim()),
+          wnt_line,
+          video_parts.length ? video_parts.join('\n') : '',
           tags_line,
+          spec_line,
           'CTA: ' + (p.cta || '—')
         ].filter(Boolean).join('\n');
         body.appendParagraph(lines);
@@ -1729,6 +1763,198 @@ function generateEC2026001BriefDoc() {
 
   } catch(e) {
     Logger.log('[generateEC2026001BriefDoc] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Upgrade EC-2026-001 Design Briefs to Universal Creative Brief Schema ─────
+// Enriches design_brief JSON for all 218 posts with full UCBS fields.
+// Run via doPost: { "action": "upgrade_ec2026001_design_briefs" }
+
+function upgradeEC2026001DesignBriefs() {
+  try {
+    var EMOTIONAL = {
+      hook:'exhausted', problem:'frustrated', agitate:'overwhelmed',
+      solve:'hopeful', value:'curious', proof:'convinced',
+      urgency:'motivated', cta:'ready', launch:'excited'
+    };
+    var OBJECTIVE = {
+      hook:'pattern_interruption', problem:'emotional_recognition',
+      agitate:'pain_amplification', solve:'belief_transfer',
+      value:'feature_understanding', proof:'trust_building',
+      urgency:'scarcity_activation', cta:'conversion', launch:'social_proof'
+    };
+    var VISUAL_TONE = {
+      hook:'warm dim cinematic realism', problem:'warm amber with soft shadows',
+      agitate:'desaturated heavy grain', solve:'warm soft reveal',
+      value:'clean modern bright', proof:'confident editorial',
+      urgency:'high contrast bold', cta:'warm bold red accent', launch:'celebration warm'
+    };
+    var ASSET_TYPE = {
+      Facebook:'social_post', Instagram:'social_post', Pinterest:'social_post',
+      Nextdoor:'social_post', X:'social_post',
+      TikTok:'short_form_video', YouTube:'youtube_short', Email:'email'
+    };
+    var CAMERA = {
+      Facebook:'slight handheld realism', Instagram:'slight handheld realism',
+      Pinterest:'editorial lifestyle still', Nextdoor:'documentary neighborhood style',
+      X:'editorial still', TikTok:'handheld authentic',
+      YouTube:'slightly stabilized lifestyle realism', Email:'editorial warm'
+    };
+    var LAYOUT = {
+      Facebook:'image dominant · minimal text overlay',
+      Instagram:'image dominant · minimal text overlay',
+      Pinterest:'vertical image dominant · keyword text below',
+      Nextdoor:'community-feel · neighborhood context',
+      X:'bold headline over image · high contrast',
+      TikTok:'full-bleed vertical · bold captions bottom third',
+      YouTube:'full-bleed vertical · narrative progression',
+      Email:'single column · hero-first'
+    };
+    var PLAT_SPECS = {
+      Facebook:  { ratio:'4:5',  size:'1080x1350', format:'PNG' },
+      Instagram: { ratio:'4:5',  size:'1080x1350', format:'PNG' },
+      Pinterest: { ratio:'2:3',  size:'1000x1500', format:'PNG' },
+      Nextdoor:  { ratio:'1:1',  size:'1080x1080', format:'PNG' },
+      X:         { ratio:'16:9', size:'1200x675',  format:'PNG' },
+      TikTok:    { ratio:'9:16', size:'1080x1920', format:'MP4', duration_target:'15-22s' },
+      YouTube:   { ratio:'9:16', size:'1080x1920', format:'MP4', duration_target:'30-45s' },
+      Email:     { width:'600px', layout:'single_column', format:'HTML' }
+    };
+    var WNTSHOW_STAGE = {
+      hook:    ['smiling forced joy','app UI','product reveal','bright polished lighting'],
+      problem: ['phone app screens','solution reveal','smiling cheerful lighting'],
+      agitate: ['solutions','positivity','app screens','relief'],
+      solve:   ['overproduced acting','corporate energy','dollar amounts in hero (time LP)'],
+      value:   ['invented testimonials','competitor logos'],
+      proof:   ['invented testimonials','real names without consent','manufactured urgency'],
+      urgency: ['false scarcity claims','desperation energy'],
+      cta:     ['multiple competing CTAs','clutter'],
+      launch:  ['unfulfilled promises']
+    };
+    var WNTSHOW_PLAT = {
+      TikTok:   ['polished commercial lighting','overproduced acting','feature explanations'],
+      YouTube:  ['corporate SaaS energy','fake influencer acting','feature bullet lists'],
+      Email:    ['dashboard screenshots','feature grids','corporate design','SaaS newsletter energy'],
+      Pinterest:['text-heavy images','low resolution photography']
+    };
+    var BRAND_RULES = [
+      'CTA color: #FF0000 — always, no exceptions',
+      'Headlines: #000000 · Body text: #333333',
+      'Background primary: #FFFFFF · Accent: #F6EFE8 beige',
+      'Fonts: Proza Libre Bold (headlines) · Inter Regular (body/CTA/tags)',
+      'NEVER "sign up" — use outcome-framed CTAs',
+      'NEVER invented testimonials or real names without consent',
+      'FORBIDDEN colors: blue · navy · gradient · orange · coral'
+    ];
+    var TK_AUDIO = {
+      hook:    'quiet kitchen ambience · emotional music rise',
+      problem: 'quiet kitchen tension · distant family sounds',
+      agitate: 'building tension · no resolution',
+      solve:   'shift to warm hopeful underscore at reveal',
+      value:   'bright functional upbeat',
+      proof:   'confident rhythm · validation energy',
+      urgency: 'urgent beat · countdown energy',
+      cta:     'momentum build · close hard',
+      launch:  'celebration energy · launch day beat'
+    };
+    var YT_ARCS = {
+      hook:    ['Dinner stress established','Recognition moment','Curiosity raised','Hold'],
+      problem: ['Pain framing','Real kitchen scene','Emotional peak','Question left open'],
+      agitate: ['Pain amplified','Multiple failures','Breaking point','Question left open'],
+      solve:   ['Dinner stress','Recognition','Discovery of easyChef Pro','Relief'],
+      value:   ['Feature introduced','Demonstration','Outcome revealed','CTA bridge'],
+      proof:   ['Stat reveal','Validation moment','Belief shift','CTA'],
+      urgency: ['Scarcity framed','Founding family energy','Decision moment','Hard CTA'],
+      cta:     ['Final tension','Solution reminder','Founding offer','Convert'],
+      launch:  ['Launch day energy','Access confirmed','Celebration','Share CTA']
+    };
+
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var lastRow = spSheet.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'SocialPosts empty' };
+
+    var rows = spSheet.getRange(2, 1, lastRow - 1, 16).getValues();
+    var updated = 0;
+
+    var newCol16 = rows.map(function(row) {
+      if (String(row[1]) !== 'EC-2026-001') return [row[15]];
+
+      var platform = String(row[2]);
+      var cta      = String(row[5]);
+      var existing = {};
+      try { existing = JSON.parse(String(row[15])); } catch(e) {}
+      var stage = existing.funnel_stage || '';
+
+      var wntBase = WNTSHOW_STAGE[stage]    || [];
+      var wntPlat = WNTSHOW_PLAT[platform]  || [];
+      var wntMerged = wntBase.concat(wntPlat.filter(function(v) {
+        return wntBase.indexOf(v) < 0;
+      }));
+
+      var brief = {
+        asset_type:       ASSET_TYPE[platform]   || 'social_post',
+        platform:         platform,
+        campaign_id:      'EC-2026-001',
+        theme:            'Pre-Launch Arc — The Invisible Leak',
+        day:              existing.day            || 0,
+        funnel_stage:     stage,
+        emotional_state:  EMOTIONAL[stage]        || '',
+        objective:        OBJECTIVE[stage]         || '',
+        hook_a:           existing.hook_a          || '',
+        hook_b:           existing.hook_b          || '',
+        scene_direction:  existing.scene_direction || '',
+        visual_tone:      VISUAL_TONE[stage]       || '',
+        camera_style:     CAMERA[platform]         || '',
+        layout_direction: LAYOUT[platform]         || '',
+        phone_visibility: existing.phone_visibility != null ? existing.phone_visibility : false,
+        cta:              cta,
+        what_not_to_show: wntMerged,
+        brand_rules:      BRAND_RULES,
+        platform_specs:   PLAT_SPECS[platform]    || {},
+        motion_direction: '',
+        audio_direction:  '',
+        export_requirements: PLAT_SPECS[platform] || {}
+      };
+
+      if (platform === 'TikTok') {
+        brief.opening_hook       = existing.hook_a || '';
+        var rawScene = String(existing.scene_direction || '');
+        brief.scene_sequence     = rawScene
+          ? rawScene.split('·').map(function(s){ return s.trim(); }).filter(Boolean)
+          : [];
+        brief.editing_style      = 'fast cuts first 3 seconds · emotional pacing after';
+        brief.text_overlay_style = 'minimal bold captions · bottom third';
+        brief.audio_direction    = TK_AUDIO[stage]  || 'warm emotional underscore';
+        brief.motion_direction   = 'authentic handheld · no stabilization in hook/problem';
+      }
+
+      if (platform === 'YouTube') {
+        brief.opening_pattern  = '3-second emotional tension';
+        brief.story_arc        = YT_ARCS[stage] || ['Hook','Build','Reveal','CTA'];
+        brief.motion_direction = (stage === 'hook' || stage === 'problem')
+          ? 'slow push into scene · handheld realism'
+          : 'smooth transitions · lifestyle warmth';
+        brief.audio_direction  = 'emotional music underscore · voiceover optional';
+      }
+
+      if (platform === 'Email') {
+        brief.header_image_direction = existing.scene_direction || '';
+        brief.copy_density = (stage === 'hook' || stage === 'problem') ? 'low'
+          : (stage === 'value') ? 'medium-high' : 'medium';
+        brief.cta_style = { color: '#FF0000', placement: 'above_ps', copy: cta };
+      }
+
+      updated++;
+      return [JSON.stringify(brief)];
+    });
+
+    spSheet.getRange(2, 16, newCol16.length, 1).setValues(newCol16);
+    Logger.log('[upgradeEC2026001DesignBriefs] updated: ' + updated);
+    return { ok: true, updated: updated };
+
+  } catch(e) {
+    Logger.log('[upgradeEC2026001DesignBriefs] ERROR: ' + e.message + '\n' + e.stack);
     return { ok: false, error: e.message };
   }
 }
