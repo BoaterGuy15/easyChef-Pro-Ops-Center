@@ -1387,7 +1387,7 @@ function fmtK(n){return n>=1000?'$'+Math.round(n/1000).toLocaleString()+'K':fmt(
       <div class="aml-sec-items open" id="aml-sitems-blockers">
         <div class="aml-tbl-hdr"><div></div><div>Action item</div><div>Owner</div><div class="aml-hdr-note">Date done / Notes</div></div>
         <div class="aml-item" id="aml-item-b1" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b1')"></div><div class="aml-item-text">Build the /thank-you page URL — blocks Convert.com Primary Goal. A/B test cannot run without it.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b1" placeholder="Add date or note…" oninput="amlNoteChange('b1',this.value)"></div></div>
-        <div class="aml-item" id="aml-item-b2" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b2')"></div><div class="aml-item-text">Install Convert.com (10019256-10019672) on /lp/waitlist-a, /lp/waitlist-b, and /thank-you — FIRST in &lt;head&gt;.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b2" placeholder="Add date or note…" oninput="amlNoteChange('b2',this.value)"></div></div>
+        <div class="aml-item" id="aml-item-b2" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b2')"></div><div class="aml-item-text">Install Convert.com (10019256-100140422) on /lp/waitlist-a, /lp/waitlist-b, and /thank-you — FIRST in &lt;head&gt;.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b2" placeholder="Add date or note…" oninput="amlNoteChange('b2',this.value)"></div></div>
         <div class="aml-item" id="aml-item-b3" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b3')"></div><div class="aml-item-text">Install Microsoft Clarity (wjxhprug80) — SECOND in &lt;head&gt; on those same three pages.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b3" placeholder="Add date or note…" oninput="amlNoteChange('b3',this.value)"></div></div>
         <div class="aml-item" id="aml-item-b4" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b4')"></div><div class="aml-item-text">Set Convert.com audience filter to utm_medium=email ONLY before activating the experiment.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b4" placeholder="Add date or note…" oninput="amlNoteChange('b4',this.value)"></div></div>
         <div class="aml-item" id="aml-item-b5" data-tag="blocker" data-done="0"><div class="aml-item-cb"><input type="checkbox" onchange="amlTick('b5')"></div><div class="aml-item-text">Klaviyo: configure to read utm_content on form submit and tag cohort lp_variant_a or lp_variant_b.</div><div class="aml-item-tag"><span class="aml-tag blocker">BLOCKER</span></div><div class="aml-item-note"><input type="text" id="aml-note-b5" placeholder="Add date or note…" oninput="amlNoteChange('b5',this.value)"></div></div>
@@ -21859,7 +21859,7 @@ var _ccLastImages={};
 var _ccBrandOverlay={};
 var _ccSelectedScreenshot={};
 var _ccLogoPosState={}; // per-post logo position: 'none'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
-var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'],goal:'',slug:'',launchDate:'',approved:false,ml_approved:false,status:'draft',post_count:7,post_frequency:'daily',email_sequences:4,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:'',ab_test:false,ab_tool:'convert.com',ab_split:'50/50',lp_slug_a:'',lp_slug_b:'',ab_experiment_id:'10019672'};
+var _campBrief={id:'',name:'',icp:'',funnel:'',channel:'',channels:['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'],goal:'',slug:'',launchDate:'',approved:false,ml_approved:false,status:'draft',post_count:7,post_frequency:'daily',email_sequences:4,theme:'',publish_day:'',campaign_angle:'savings',urgency_trigger:'',ab_test:false,ab_tool:'convert.com',ab_split:'50/50',lp_slug_a:'',lp_slug_b:'',ab_experiment_id:'100140422'};
 var _campDLCache=[];
 var _campPerfCache={};
 var _campUtmUrls=[];
@@ -23151,7 +23151,7 @@ function _ccRenderBrief(){
                 '<input type="text" id="cc-ab-slug-b" value="'+(b.lp_slug_b||'')+'" style="'+_ns+'" oninput="_campBrief.lp_slug_b=this.value" placeholder="lp/waitlist-b">'+
               '</div>'+
               '<div style="margin-bottom:14px">'+_lbl('Convert.com Experiment ID')+
-                '<input type="text" id="cc-ab-experiment" value="'+(b.ab_experiment_id||'10019672')+'" style="'+_ns+'" oninput="_ccBriefSync()">'+
+                '<input type="text" id="cc-ab-experiment" value="'+(b.ab_experiment_id||'100140422')+'" style="'+_ns+'" oninput="_ccBriefSync()">'+
                 '<div style="font-size:10px;color:var(--muted);margin-top:2px">Account: 10019256 &nbsp;·&nbsp; Tool: Convert.com</div>'+
               '</div>'+
               '<div style="margin-bottom:14px">'+_lbl('Traffic Split')+
@@ -24908,7 +24908,7 @@ function _ccToggleAbTest(){
   if(_campBrief.ab_test){
     _campBrief.ab_tool='convert.com';
     _campBrief.ab_split='50/50';
-    _campBrief.ab_experiment_id='10019672';
+    _campBrief.ab_experiment_id='100140422';
   }
   var bSection=document.getElementById('cc-ab-b-section');
   var abInfo=document.getElementById('cc-ab-info');
@@ -29223,7 +29223,7 @@ function _ccWizardAdvance(toStep,summary){
           '<div id="cc-ks-lp-results-b"><div style="font-size:11px;color:var(--muted);'+_mf2+'">'+(_abOn?'Searching…':'')+'</div></div>'+
         '</div>'+
         '<div id="cc-ab-info" style="margin-top:12px;padding:9px 14px;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.25);border-radius:7px;font-size:10px;'+_mf2+'color:var(--muted);display:'+(_abOn?'block':'none')+'">'+
-          'Test tool: <strong style="color:var(--text)">Convert.com</strong> &nbsp;·&nbsp; Account <strong style="color:var(--text)">10019256</strong> &nbsp;·&nbsp; Experiment: <strong style="color:var(--text)">10019672</strong> (auto-assigned) &nbsp;·&nbsp; Split: <strong style="color:var(--text)">50/50</strong>'+
+          'Test tool: <strong style="color:var(--text)">Convert.com</strong> &nbsp;·&nbsp; Account <strong style="color:var(--text)">10019256</strong> &nbsp;·&nbsp; Experiment: <strong style="color:var(--text)">100140422</strong> (auto-assigned) &nbsp;·&nbsp; Split: <strong style="color:var(--text)">50/50</strong>'+
         '</div>'+
         '<div id="cc-step1-footer" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<span style="font-size:11px;color:var(--muted);'+_mf2+'">Selected LP: <strong id="cc-lp-footer-label" style="color:var(--text)">'+(_aLocked?'easychefpro.com/'+_aLocked:'none selected')+'</strong></span>'+
@@ -29817,7 +29817,7 @@ const AML_SECTIONS=[
     color:'#CC0000',
     items:[
       {id:'b1',text:'Build the /thank-you page URL — blocks Convert.com Primary Goal. A/B test cannot run without it.',tag:'blocker'},
-      {id:'b2',text:'Install Convert.com (10019256-10019672) on /lp/waitlist-a, /lp/waitlist-b, and /thank-you — FIRST in &lt;head&gt;.',tag:'blocker'},
+      {id:'b2',text:'Install Convert.com (10019256-100140422) on /lp/waitlist-a, /lp/waitlist-b, and /thank-you — FIRST in &lt;head&gt;.',tag:'blocker'},
       {id:'b3',text:'Install Microsoft Clarity (wjxhprug80) — SECOND in &lt;head&gt; on those same three pages.',tag:'blocker'},
       {id:'b4',text:'Set Convert.com audience filter to utm_medium=email ONLY before activating the experiment.',tag:'blocker'},
       {id:'b5',text:'Klaviyo: configure to read utm_content on form submit and tag cohort lp_variant_a or lp_variant_b.',tag:'blocker'},

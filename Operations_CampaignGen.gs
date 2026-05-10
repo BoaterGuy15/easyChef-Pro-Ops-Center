@@ -461,7 +461,7 @@ function fcGenerateUtmAndSave(campaignId) {
           _abRows.push([_dlId, _utmC, brief.id, 'LP-' + vt.variant, _baseUrl,
             _abLpCh.utm_source || 'direct', _abLpCh.utm_medium || 'referral',
             brief.id, 'ACTIVE', _abNow, _abNow, 'fcGenerateUtmAndSave',
-            'LP Variant ' + vt.variant + ' — ab_experiment_id=' + (brief.ab_experiment_id || '10019672')]);
+            'LP Variant ' + vt.variant + ' — ab_experiment_id=' + (brief.ab_experiment_id || '100140422')]);
           _abUTMs.push({ dl_id: _dlId, utm_content: _utmC, channel: 'LP-' + vt.variant,
             destination_url: _baseUrl, utm_source: _abLpCh.utm_source,
             utm_medium: _abLpCh.utm_medium, full_url: _fullUrl, status: 'ACTIVE' });

@@ -152,10 +152,10 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           if (/DL-LP.*-A$/i.test(u.dl_id || '')) _dlA = u;
           if (/DL-LP.*-B$/i.test(u.dl_id || '')) _dlB = u;
         });
-        var _abBriefA = { ab_variant: 'A', ab_experiment_id: brief.ab_experiment_id || '10019672',
+        var _abBriefA = { ab_variant: 'A', ab_experiment_id: brief.ab_experiment_id || '100140422',
           ab_split: brief.ab_split || '50/50', ab_tool: brief.ab_tool || 'Convert.com',
           dl_id: _dlA ? _dlA.dl_id : '', utm_url: _dlA ? _dlA.full_url || _buildLpUrl(brief.lp_slug_a) : _buildLpUrl(brief.lp_slug_a) };
-        var _abBriefB = { ab_variant: 'B', ab_experiment_id: brief.ab_experiment_id || '10019672',
+        var _abBriefB = { ab_variant: 'B', ab_experiment_id: brief.ab_experiment_id || '100140422',
           ab_split: brief.ab_split || '50/50', ab_tool: brief.ab_tool || 'Convert.com',
           dl_id: _dlB ? _dlB.dl_id : '', utm_url: _dlB ? _dlB.full_url || _buildLpUrl(brief.lp_slug_b) : _buildLpUrl(brief.lp_slug_b) };
         var lpRefHtmlA = _buildLpReferenceHtml(brief, copy, _lpA, posts, emails, _genDate, _abBriefA);

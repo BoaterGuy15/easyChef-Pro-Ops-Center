@@ -251,6 +251,58 @@ function syncConvertToSheet(campaignId) {
   return summary;
 }
 
+// ── FUNCTION 4a — updateConvertExperimentId ──────────────────────────────────
+/**
+ * One-time migration: updates experience ID 10019672 → 100140422 in the live Sheet.
+ * Touches CcSettings (key='convert_experiment_id', col 4) and
+ * CampaignBriefs (id='EC-2026-001', ab_experiment_id column).
+ * Run once from Apps Script editor: updateConvertExperimentId()
+ */
+function updateConvertExperimentId() {
+  var OLD_ID = '10019672';
+  var NEW_ID = '100140422';
+  var updated = [];
+
+  // CcSettings tab — scan r[1] (key) for 'convert_experiment_id', update r[3] (extra)
+  try {
+    var settingsSh = _getCCSheet(_CC_TAB.SETTINGS);
+    var sLast = settingsSh.getLastRow();
+    if (sLast >= 2) {
+      var sRows = settingsSh.getRange(2, 1, sLast - 1, 4).getValues();
+      for (var i = 0; i < sRows.length; i++) {
+        if (String(sRows[i][1] || '').toLowerCase() === 'convert_experiment_id') {
+          if (String(sRows[i][3]) === OLD_ID) {
+            settingsSh.getRange(i + 2, 4).setValue(NEW_ID);
+            updated.push('CcSettings row ' + (i + 2) + ': ' + OLD_ID + ' → ' + NEW_ID);
+          }
+        }
+      }
+    }
+  } catch(e) { Logger.log('[updateConvertExperimentId] CcSettings error: ' + e.message); }
+
+  // CampaignBriefs tab — scan r[0] (id) for 'EC-2026-001', update ab_experiment_id column
+  try {
+    var briefsSh  = _getCCSheet(_CC_TAB.BRIEFS);
+    var bHdrs     = _CC_HDR.CampaignBriefs;
+    var abExpCol  = bHdrs.indexOf('ab_experiment_id') + 1; // 1-based
+    var bLast     = briefsSh.getLastRow();
+    if (abExpCol > 0 && bLast >= 2) {
+      var bRows = briefsSh.getRange(2, 1, bLast - 1, abExpCol).getValues();
+      for (var j = 0; j < bRows.length; j++) {
+        if (String(bRows[j][0]) === 'EC-2026-001') {
+          if (String(bRows[j][abExpCol - 1]) === OLD_ID || bRows[j][abExpCol - 1] === '') {
+            briefsSh.getRange(j + 2, abExpCol).setValue(NEW_ID);
+            updated.push('CampaignBriefs row ' + (j + 2) + ' (EC-2026-001) ab_experiment_id: → ' + NEW_ID);
+          }
+        }
+      }
+    }
+  } catch(e) { Logger.log('[updateConvertExperimentId] CampaignBriefs error: ' + e.message); }
+
+  Logger.log('[updateConvertExperimentId] Done — ' + (updated.length ? updated.join(' | ') : 'nothing to update'));
+  return { ok: true, updated: updated };
+}
+
 // ── FUNCTION 4 — scheduledConvertSync ────────────────────────────────────────
 /**
  * Daily time-trigger entry point — syncs all active experiments across all campaigns.

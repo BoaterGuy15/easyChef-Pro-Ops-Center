@@ -42,7 +42,7 @@ easyChef Pro is a family meal planning and grocery budgeting mobile app. It targ
 | GitHub → Vercel (main) | easychefpro.com marketing site |
 | GitHub → GitHub Pages (staging) | ops.dgl.dev internal dashboard |
 | Klaviyo | Email platform, waitlist sequences SEQ-1 through SEQ-5 |
-| Convert.com (10019256-10019672) | A/B test: Waitlist LP Variant A vs B |
+| Convert.com (10019256-100140422) | A/B test: Waitlist LP Variant A vs B |
 | Microsoft Clarity (wjxhprug80) | Heatmaps and session recording |
 | GA4 (G-Q4DYEEXFKV) | Analytics, waitlist conversion tracking |
 | Zendesk | Customer support (easychefpro.zendesk.com) |
