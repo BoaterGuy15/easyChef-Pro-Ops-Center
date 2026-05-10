@@ -825,6 +825,10 @@ function doPost(e) {
       var _datesResult = fixEC2026001Dates();
       return respond({ ok:_datesResult.ok, result:_datesResult, log: Logger.getLog() });
     }
+    if(body.action === 'generate_ec2026001_brief_doc') {
+      var _briefResult = generateEC2026001BriefDoc();
+      return respond({ ok:_briefResult.ok, result:_briefResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });

@@ -1427,6 +1427,69 @@ function generateLPFigmaDoc() {
       '  Clarity: wjxhprug80 · GA4: G-Q4DYEEXFKV'
     );
 
+    // ── Section 08: Tracking & Deep Links ────────────────────────────────────
+    body.appendParagraph('SECTION 08 · TRACKING & DEEP LINKS').setHeading(H1);
+    body.appendParagraph('Active DL_IDs for EC-2026-001 — read live from DeepLinkRegistry at doc generation time');
+
+    var DL_PREFIX_MAP = {
+      'EM': 'Email', 'FB': 'Facebook', 'IG': 'Instagram',
+      'PT': 'Pinterest', 'ND': 'Nextdoor', 'X': 'X',
+      'TK': 'TikTok', 'YT': 'YouTube', 'LP': 'LP'
+    };
+    var dlSheet8  = _getCCSheet(_CC_TAB.DL);
+    var dlLast8   = dlSheet8.getLastRow();
+    var dlByPlat8 = {};
+
+    if (dlLast8 >= 2) {
+      var dlData8 = dlSheet8.getRange(2, 1, dlLast8 - 1, 9).getValues();
+      for (var di8 = 0; di8 < dlData8.length; di8++) {
+        var dr = dlData8[di8];
+        var dlId8  = String(dr[0]).trim();
+        var camId8 = String(dr[2]).trim();
+        var stat8  = String(dr[8]).trim().toLowerCase();
+        if (camId8 !== 'EC-2026-001' || stat8 !== 'active' || !dlId8) continue;
+        var seg8  = dlId8.replace(/^DL-/, '').split('-')[0];
+        var plat8 = DL_PREFIX_MAP[seg8] || seg8;
+        if (!dlByPlat8[plat8]) dlByPlat8[plat8] = [];
+        dlByPlat8[plat8].push(dlId8);
+      }
+    }
+
+    var PLAT_ORD8  = ['Facebook','Instagram','Pinterest','Nextdoor','X','TikTok','YouTube','Email','LP'];
+    var dlSumLines = [];
+    for (var pi8 = 0; pi8 < PLAT_ORD8.length; pi8++) {
+      var plat8n = PLAT_ORD8[pi8];
+      var ids8   = dlByPlat8[plat8n] || [];
+      if (!ids8.length) { dlSumLines.push(plat8n + ': — (0 active IDs)'); continue; }
+      ids8.sort();
+      var cnt8 = ids8.length;
+      if (plat8n === 'Email') {
+        var base8 = ids8.filter(function(id) { return !/\-B$/.test(id); });
+        var bvar8 = ids8.filter(function(id) { return /\-B$/.test(id); });
+        if (base8.length && bvar8.length) {
+          dlSumLines.push('Email: ' + base8[0] + ' – ' + base8[base8.length-1] + ' + B variants (' + cnt8 + ' IDs)');
+          continue;
+        }
+      }
+      if (plat8n === 'LP') { dlSumLines.push('LP: ' + ids8.join(' · ') + ' (' + cnt8 + ' IDs)'); continue; }
+      if (cnt8 === 1) { dlSumLines.push(plat8n + ': ' + ids8[0] + ' (1 ID)'); continue; }
+      dlSumLines.push(plat8n + ': ' + ids8[0] + ' – ' + ids8[cnt8-1] + ' (' + cnt8 + ' IDs)');
+    }
+
+    body.appendParagraph('ACTIVE DL_IDs BY PLATFORM').setHeading(H2);
+    body.appendParagraph(dlSumLines.join('\n') || 'No active DL IDs found in DeepLinkRegistry for EC-2026-001');
+
+    body.appendParagraph('ANALYTICS').setHeading(H2);
+    body.appendParagraph(
+      'GA4:     G-Q4DYEEXFKV · Stream: 6500506359\n' +
+      'Clarity: wjxhprug80\n' +
+      'Convert: Experience 100140422 · 50/50 split\n' +
+      '         Variant A → /lp/waitlist-a (money/savings)\n' +
+      '         Variant B → /lp/waitlist-b (time/founding family)\n' +
+      '         Goal: waitlist signup form submit\n' +
+      'Klaviyo: letscook@easychef.io'
+    );
+
     doc.saveAndClose();
     var docUrl = 'https://docs.google.com/document/d/' + doc.getId() + '/edit';
     Logger.log('[generateLPFigmaDoc] created: ' + docUrl);
@@ -1434,6 +1497,199 @@ function generateLPFigmaDoc() {
 
   } catch(e) {
     Logger.log('[generateLPFigmaDoc] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── EC-2026-001 Campaign Creative Brief Doc ───────────────────────────────────
+// Generates a human-readable branded Google Doc with full creative briefs for
+// every post, grouped by platform. Reads live from SocialPosts sheet.
+// Run via doPost: { "action": "generate_ec2026001_brief_doc" }
+
+function generateEC2026001BriefDoc() {
+  try {
+    var CAMPAIGN_FOLDER_ID = '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl';
+    var doc  = DocumentApp.create('easyChef Pro — Campaign Creative Brief — EC-2026-001');
+    var body = doc.getBody();
+
+    try {
+      var f = DriveApp.getFileById(doc.getId());
+      DriveApp.getFolderById(CAMPAIGN_FOLDER_ID).addFile(f);
+      DriveApp.getRootFolder().removeFile(f);
+    } catch(me) { Logger.log('[generateEC2026001BriefDoc] folder: ' + me.message); }
+
+    var H1 = DocumentApp.ParagraphHeading.HEADING1;
+    var H2 = DocumentApp.ParagraphHeading.HEADING2;
+    var H3 = DocumentApp.ParagraphHeading.HEADING3;
+
+    // ── Cover ────────────────────────────────────────────────────────────────
+    body.appendParagraph('easyChef Pro — Campaign Creative Brief').setHeading(H1);
+    body.appendParagraph(
+      'EC-2026-001 · Pre-Launch Arc 2026 — The Invisible Leak\n' +
+      'Campaign: May 27 – Jun 30, 2026 · Launch: July 1, 2026 · 35 days · 218 posts\n' +
+      'Generated: ' + Utilities.formatDate(new Date(), 'America/Los_Angeles', 'yyyy-MM-dd HH:mm z')
+    );
+    body.appendHorizontalRule();
+
+    // ── Campaign Overview ─────────────────────────────────────────────────────
+    body.appendParagraph('CAMPAIGN OVERVIEW').setHeading(H1);
+    body.appendParagraph(
+      'What this campaign does:\n' +
+      'Builds a waitlist of 5,000 founding families in 35 days before the July 1 launch of easyChef Pro.\n\n' +
+      'The hook:\n' +
+      '"You have an invisible leak — $111/month in groceries that expire before they become dinner."\n\n' +
+      'The solution:\n' +
+      'easyChef Pro is the only app that closes the full kitchen loop:\n' +
+      '  TRACK pantry → PLAN meals → OPTIMIZE nutrition → COOK from what you have → SHOP what you need\n\n' +
+      'The offer:\n' +
+      '  Founding price: $7.99/month (60% off forever) — first 5,000 families only\n' +
+      '  Free to join the waitlist\n' +
+      '  7-day free trial at launch\n\n' +
+      'A/B Test — Convert.com Experience 100140422 · 50/50 split:\n' +
+      '  LP A → easychefpro.com/lp/waitlist-a — Money/savings angle · ICP: super_mom_money\n' +
+      '  LP B → easychefpro.com/lp/waitlist-b — Time/founding family angle · ICP: super_mom_time'
+    );
+    body.appendHorizontalRule();
+
+    // ── Brand System ──────────────────────────────────────────────────────────
+    body.appendParagraph('BRAND SYSTEM').setHeading(H1);
+    body.appendParagraph(
+      'COLORS\n' +
+      '  CTA buttons:     #FF0000 — always, no exceptions\n' +
+      '  Headlines:       #000000\n' +
+      '  Body text:       #333333\n' +
+      '  Background:      #FFFFFF (primary) · #F6EFE8 beige (accent)\n' +
+      '  Dark sections:   #000000 with white text\n' +
+      '  FORBIDDEN:       blue · navy · gradient · orange · coral\n\n' +
+      'FONTS\n' +
+      '  Headlines: Proza Libre Bold\n' +
+      '  Body / CTA / Tags: Inter Regular\n\n' +
+      'VOICE\n' +
+      '  Empathetic — the system is broken, not her\n' +
+      '  Specific — $111/month · $1,336/year · 30 minutes · 69.5% less waste\n' +
+      '  Founding family energy — she found this first\n' +
+      '  NEVER: "sign up" · invented testimonials · real names without consent\n\n' +
+      'PHONE RULE\n' +
+      '  Days 1–7 (hook/problem): NO PHONE in frame\n' +
+      '  Days 8–14 (solve): FIRST REVEAL — warm light on device\n' +
+      '  Days 15+ (value/proof/cta): PHONE VISIBLE — outcomes not features'
+    );
+    body.appendHorizontalRule();
+
+    // ── 35-Day Arc ────────────────────────────────────────────────────────────
+    body.appendParagraph('35-DAY CAMPAIGN ARC').setHeading(H1);
+    body.appendParagraph(
+      'Week 1 — Days 1–7  — HOOK + PROBLEM\n' +
+      '  Establish the invisible leak. Real kitchens. Real frustration. No phone yet.\n\n' +
+      'Week 2 — Days 8–14 — AGITATE + SOLVE\n' +
+      '  Deepen the pain. Introduce easyChef Pro for the first time. First reveal.\n\n' +
+      'Week 3 — Days 15–21 — VALUE\n' +
+      '  Walk through each feature. TRACK → PLAN → OPTIMIZE → COOK → SHOP.\n\n' +
+      'Week 4 — Days 22–28 — PROOF + URGENCY\n' +
+      '  Stats. Validation. $1,336/year. Founding family scarcity.\n\n' +
+      'Week 5 — Days 29–35 — CTA + LAUNCH\n' +
+      '  Close hard. Countdown. July 1 launch day energy.'
+    );
+    body.appendHorizontalRule();
+
+    // ── Read SocialPosts ──────────────────────────────────────────────────────
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spLast  = spSheet.getLastRow();
+    var posts   = {};
+
+    if (spLast >= 2) {
+      var spRows = spSheet.getRange(2, 1, spLast - 1, 16).getValues();
+      for (var si = 0; si < spRows.length; si++) {
+        var sr = spRows[si];
+        if (String(sr[1]) !== 'EC-2026-001') continue;
+        var plat  = String(sr[2]);
+        var brief = {};
+        try { brief = JSON.parse(String(sr[15])); } catch(pe) {}
+        if (!posts[plat]) posts[plat] = [];
+        posts[plat].push({
+          id:       String(sr[0]),
+          hook_a:   brief.hook_a  || String(sr[3]),
+          hook_b:   brief.hook_b  || '',
+          scene:    brief.scene_direction || String(sr[7]),
+          stage:    brief.funnel_stage    || '',
+          day:      Number(brief.day)     || 0,
+          date:     String(sr[9]),
+          dl_id:    String(sr[12]),
+          hashtags: String(sr[6]),
+          cta:      String(sr[5]),
+          phone:    brief.phone_visibility ? 'VISIBLE' : 'NO PHONE'
+        });
+      }
+      var platKeys = Object.keys(posts);
+      for (var pk = 0; pk < platKeys.length; pk++) {
+        posts[platKeys[pk]].sort(function(a, b) { return a.day - b.day; });
+      }
+    }
+
+    // ── Per-Platform Briefs ───────────────────────────────────────────────────
+    var PLAT_ORDER = ['Facebook','Instagram','Pinterest','Nextdoor','X','TikTok','YouTube','Email'];
+    for (var pli = 0; pli < PLAT_ORDER.length; pli++) {
+      var plat    = PLAT_ORDER[pli];
+      var pPosts  = posts[plat] || [];
+      if (!pPosts.length) continue;
+
+      body.appendParagraph(plat.toUpperCase() + ' — ' + pPosts.length + ' POSTS').setHeading(H1);
+
+      var lastWeek = 0;
+      for (var pi = 0; pi < pPosts.length; pi++) {
+        var p    = pPosts[pi];
+        var week = Math.ceil((p.day || 1) / 7);
+        if (week !== lastWeek) {
+          body.appendParagraph('WEEK ' + week + ' · DAYS ' + ((week-1)*7+1) + '–' + (week*7)).setHeading(H2);
+          lastWeek = week;
+        }
+        var hook_b_line = p.hook_b ? 'Hook B (Time/Founding): ' + p.hook_b : '';
+        var tags_line   = p.hashtags && p.hashtags !== 'undefined' ? 'Hashtags: ' + p.hashtags : '';
+        var lines = [
+          'Day ' + p.day + '  ·  ' + p.date + '  ·  DL_ID: ' + (p.dl_id || '—') + '  ·  Stage: ' + p.stage + '  ·  Phone: ' + p.phone,
+          'Hook A (Money/Savings):  ' + (p.hook_a || '—'),
+          hook_b_line,
+          'Scene: ' + (String(p.scene || '').split('·').slice(0,4).join('·').trim()),
+          tags_line,
+          'CTA: ' + (p.cta || '—')
+        ].filter(Boolean).join('\n');
+        body.appendParagraph(lines);
+      }
+      body.appendHorizontalRule();
+    }
+
+    // ── Email Sequences Summary ───────────────────────────────────────────────
+    body.appendParagraph('EMAIL SEQUENCES').setHeading(H1);
+    body.appendParagraph(
+      'SEQ-1 (Welcome + Days 0-6) — DL-EM-0001 / DL-EM-0001-B\n' +
+      '  E1 Day 0: Waitlist confirmation — trigger: waitlist_signup_completed\n' +
+      '  E2 Day 3: The leak named — nurture\n' +
+      '  E3 Day 6: The gap between apps — nurture\n\n' +
+      'SEQ-2 (Feature walkthrough — Days 8-21) — DL-EM-0002 / DL-EM-0002-B\n' +
+      '  E1 Day 8: TRACK — Pantry Intelligence\n' +
+      '  E2 Day 12: PLAN — Meal Planning Engine\n' +
+      '  E3 Day 15: OPTIMIZE — Nutrition Scoring\n' +
+      '  E4 Day 18: COOK — 30 minutes fridge to table\n' +
+      '  E5 Day 21: SHOP — 1-click to cart\n\n' +
+      'SEQ-3 (Proof + Urgency — Days 22-29) — DL-EM-0003 / DL-EM-0003-B\n' +
+      '  E1 Day 22: The math — $1,336/year\n' +
+      '  E2 Day 24: 10,000 households validated\n' +
+      '  E3 Day 27: First 5,000 only\n' +
+      '  E4 Day 29: Founding price closes\n\n' +
+      'SEQ-4 (Launch Day — Day 35) — DL-EM-0004 / DL-EM-0004-B\n' +
+      '  E1 Day 35: The leak is closed. July 1. Now.'
+    );
+
+    doc.saveAndClose();
+    var briefUrl = 'https://docs.google.com/document/d/' + doc.getId() + '/edit';
+    Logger.log('[generateEC2026001BriefDoc] created: ' + briefUrl);
+    var totalPosts = 0;
+    var pKeys = Object.keys(posts);
+    for (var tk = 0; tk < pKeys.length; tk++) totalPosts += posts[pKeys[tk]].length;
+    return { ok: true, doc_url: briefUrl, doc_id: doc.getId(), post_count: totalPosts };
+
+  } catch(e) {
+    Logger.log('[generateEC2026001BriefDoc] ERROR: ' + e.message + '\n' + e.stack);
     return { ok: false, error: e.message };
   }
 }
