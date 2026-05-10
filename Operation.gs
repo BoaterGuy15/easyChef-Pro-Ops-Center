@@ -773,6 +773,10 @@ function doPost(e) {
       var _cvtResult = syncConvertToSheet(body.campaignId || '');
       return respond({ ok:true, result: _cvtResult, log: Logger.getLog() });
     }
+    if(body.action === 'update_convert_id') {
+      updateConvertExperimentId();
+      return respond({ ok:true, message: 'Convert ID updated to 100140422' });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
