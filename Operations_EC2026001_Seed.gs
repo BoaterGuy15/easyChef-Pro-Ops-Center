@@ -6,9 +6,13 @@
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function _ec001_platMap(t) {
-  if (t === 'email')   return 'Email';
-  if (t === 'tiktok')  return 'TikTok';
-  if (t === 'youtube') return 'YouTube';
+  if (t === 'email')     return 'Email';
+  if (t === 'tiktok')    return 'TikTok';
+  if (t === 'youtube')   return 'YouTube';
+  if (t === 'instagram') return 'Instagram';
+  if (t === 'x')         return 'X';
+  if (t === 'pinterest') return 'Pinterest';
+  if (t === 'nextdoor')  return 'Nextdoor';
   return 'Facebook';
 }
 
@@ -28,7 +32,9 @@ function _ec001_cta(stage) {
 }
 
 function _ec001_htags(feature, type) {
-  if (type === 'email') return '';
+  if (type === 'email' || type === 'pinterest' || type === 'nextdoor') return '';
+  if (type === 'youtube') return '#mealplanningapp #foodwaste #kitchenapp #easychefpro';
+  if (type === 'x') return '#easychefpro #mealplanning #foodwaste';
   var base = '#easychefpro';
   var ft = {
     'problem':  '#grocerybudget #foodwaste #mealplanningfails #savemoney #kitchenlife #momlife',
@@ -43,8 +49,8 @@ function _ec001_htags(feature, type) {
     'all':      '#mealplanningapp #kitchenapp #foodtech #familyfood'
   };
   var tags = ft[feature] || ft['proof'];
-  if (type === 'tiktok') tags = tags + ' #momsoftiktok #cooktok #mealpreptok #kitchenhack #fyp';
-  if (type === 'youtube') return '#mealplanningapp #foodwaste #kitchenapp #easychefpro';
+  if (type === 'tiktok')    tags = tags + ' #momsoftiktok #cooktok #mealpreptok #kitchenhack #fyp';
+  if (type === 'instagram') tags = tags + ' #instafood #momstagram #mealprepping #foodblogger #kitchenlife';
   return base + ' ' + tags;
 }
 
@@ -131,12 +137,12 @@ function seedEC2026001() {
       blueprint:        'A-Waitlist',
       launch_date:      '2026-07-01',
       status:           'active',
-      post_count:       35,
+      post_count:       218,
       post_frequency:   'daily',
       email_sequences:  4,
       theme:            'invisible-leak',
       publish_day:      'daily',
-      channels:         ['Facebook','Instagram','TikTok','YouTube','Email'],
+      channels:         ['Facebook','Instagram','X','Pinterest','Nextdoor','TikTok','YouTube','Email'],
       ab_test:          true,
       ab_tool:          'convert.com',
       ab_split:         '50/50',
@@ -305,64 +311,66 @@ function seedEC2026001() {
       }
     }
 
-    var postData = [
-      // ── WEEK 1 · Introduce the leak ──────────────────────────────────────────
-      {day:1,  stage:'hook',    type:'social',  feature:'problem',  hA:'You have an invisible leak. $111 a month.',                 hB:'6:30 PM. Fridge full. Five apps open. Still no dinner.'},
-      {day:2,  stage:'hook',    type:'social',  feature:'problem',  hA:'$111/month disappearing from your grocery budget.',          hB:'That 6:30 PM wall. Every single night.'},
-      {day:3,  stage:'problem', type:'email',   feature:'problem',  hA:'Throwing away $111 every month (not your fault)',            hB:'Six apps open. Groceries on the counter. Nothing for dinner.'},
-      {day:3,  stage:'problem', type:'social',  feature:'problem',  hA:'Five apps. None of them talk to each other.',                hB:"Mealime doesn't know your pantry. No app closes the loop."},
-      {day:4,  stage:'hook',    type:'tiktok',  feature:'TRACK',    hA:'TK-1 · TRACK · "$1,336 in your fridge right now."',         hB:''},
-      {day:5,  stage:'agitate', type:'social',  feature:'problem',  hA:'The spinach. The ground beef. The yogurt. $111 gone.',       hB:'DoorDash again. The groceries sit untouched.'},
-      {day:6,  stage:'agitate', type:'email',   feature:'problem',  hA:'$1,336 thrown away every year',                             hB:'What if dinner was decided before you opened the fridge?'},
-      {day:6,  stage:'agitate', type:'social',  feature:'problem',  hA:'$1,336. Every year. Food you bought. Never ate.',            hB:'5–10 hours a week deciding what to eat. That time is yours.'},
-      {day:7,  stage:'agitate', type:'youtube', feature:'problem',  hA:'YT-1 · The Problem · 60 seconds',                           hB:''},
-      // ── WEEK 2 · TRACK replaces NoWaste ──────────────────────────────────────
-      {day:8,  stage:'solve',   type:'email',   feature:'TRACK',    hA:'$1,336 back in your pocket this year',                      hB:"The grocery leak that's draining your budget"},
-      {day:8,  stage:'solve',   type:'social',  feature:'TRACK',    hA:'TRACK. Your pantry, finally tracked. The leak starts here.', hB:"easyChef Pro knows what's in your fridge before it expires."},
-      {day:9,  stage:'value',   type:'social',  feature:'TRACK',    hA:'Scan your receipt. Every item tracked. Expiry fires first.', hB:'The app caught the spinach before you did.'},
-      {day:10, stage:'value',   type:'social',  feature:'TRACK',    hA:'No more buying what you already have.',                      hB:'The pantry knows. You never duplicate again.'},
-      {day:11, stage:'value',   type:'tiktok',  feature:'PLAN',     hA:'TK-2 · PLAN · "One Sunday. Five dinners. From what you have."', hB:''},
-      {day:12, stage:'value',   type:'email',   feature:'TRACK',    hA:'$111 back every month with 30-minute dinners',               hB:'30 minutes from fridge panic to family dinner'},
-      {day:12, stage:'proof',   type:'social',  feature:'TRACK',    hA:'69.5% less food waste. $111/month back. Validated.',         hB:'The leak is measurable. The fix is proven.'},
-      {day:13, stage:'value',   type:'social',  feature:'TRACK',    hA:'TRACK replaced your pantry app. And connects to everything.', hB:'One app. The pantry feeds the plan feeds the recipe.'},
-      {day:14, stage:'proof',   type:'social',  feature:'TRACK',    hA:'9 patent-pending technologies. Validated across 10,000 households.', hB:'Built by first responders. Not Silicon Valley.'},
-      // ── WEEK 3 · PLAN + OPTIMIZE ─────────────────────────────────────────────
-      {day:15, stage:'value',   type:'email',   feature:'PLAN',     hA:'$1,336 of groceries thrown away every year',                 hB:'That spinach you bought Sunday is brown today'},
-      {day:15, stage:'value',   type:'social',  feature:'PLAN',     hA:'Your pantry auto-builds the meal plan. No manual entry.',    hB:'PLAN replaced your meal planner. It knows what you already have.'},
-      {day:16, stage:'value',   type:'social',  feature:'PLAN',     hA:'Monday: salmon. Tuesday: tacos. From what you paid for.',    hB:'Five dinners planned from what you already own.'},
-      {day:17, stage:'value',   type:'tiktok',  feature:'OPTIMIZE', hA:'TK-3 · OPTIMIZE · "Six nutrition scores. Every meal. No logging."', hB:''},
-      {day:17, stage:'value',   type:'social',  feature:'OPTIMIZE', hA:'Every meal scored across 6 nutrition dimensions. FDA-grade. No manual tracking.', hB:'OPTIMIZE replaced your nutrition app. Scores from your actual fridge.'},
-      {day:18, stage:'value',   type:'email',   feature:'PLAN',     hA:'That $111 you threw away last month',                        hB:'Every expired yogurt is $3 down the drain'},
-      {day:18, stage:'value',   type:'social',  feature:'OPTIMIZE', hA:'Registered dietitians validated every recipe. 6 dimensions. Every meal.', hB:'No app scored your nutrition from your pantry before.'},
-      {day:19, stage:'value',   type:'social',  feature:'PLAN',     hA:'PLAN and OPTIMIZE talking to each other.',                   hB:'Two apps replaced. Three to go. One loop building.'},
-      {day:20, stage:'proof',   type:'social',  feature:'proof',    hA:'800,000 products. 9 patent-pending technologies.',           hB:'Built by first responders who needed this as much as you do.'},
-      {day:21, stage:'proof',   type:'email',   feature:'proof',    hA:'$1,336 savings ends July 1st',                               hB:'4 days left to escape 6:30 PM panic'},
-      {day:21, stage:'solve',   type:'youtube', feature:'all',      hA:'YT-2 · The Solution · TRACK→PLAN→OPTIMIZE→COOK→SHOP',       hB:''},
-      // ── WEEK 4 · COOK + SHOP + URGENCY ───────────────────────────────────────
-      {day:22, stage:'value',   type:'email',   feature:'COOK',     hA:'5,000 founding spots. The window is closing.',               hB:'You have been deciding for 3 weeks. Here is what that costs.'},
-      {day:22, stage:'value',   type:'tiktok',  feature:'COOK',     hA:"TK-4 · COOK · \"30 minutes. From what's in your fridge.\"",  hB:''},
-      {day:22, stage:'value',   type:'social',  feature:'COOK',     hA:"COOK turns your fridge into tonight's recipe. 30 minutes.",  hB:'easyChef Pro replaced your recipe app. Already knows what you have.'},
-      {day:23, stage:'value',   type:'social',  feature:'COOK',     hA:'10,000 recipe pages at launch. All from what you own.',      hB:'30 minutes. From the fridge you already have.'},
-      {day:24, stage:'urgency', type:'email',   feature:'urgency',  hA:'$7.99 founding price ends in 10 days',                       hB:'Your kitchen panic has 10 days left'},
-      {day:24, stage:'urgency', type:'social',  feature:'urgency',  hA:'$7.99/month. 60% off. Founding price closes at 5,000.',      hB:'Two leaks closing — your grocery budget AND this price.'},
-      {day:25, stage:'value',   type:'social',  feature:'SHOP',     hA:'1-click shopping. The list builds itself.',                  hB:'Never buy what you already have again.'},
-      {day:26, stage:'value',   type:'tiktok',  feature:'SHOP',     hA:"TK-5 · SHOP · \"The list builds itself. 1-click to your cart.\"", hB:''},
-      {day:26, stage:'value',   type:'social',  feature:'SHOP',     hA:'800,000 products. 1-click shopping. Done.',                  hB:"Shopping used to take 45 minutes. Now it's one click."},
-      {day:27, stage:'urgency', type:'email',   feature:'urgency',  hA:'$1,336 savings ends July 1st',                               hB:'4 days left to escape 6:30 PM panic'},
-      {day:27, stage:'urgency', type:'social',  feature:'urgency',  hA:'Five apps replaced. One leak closed. 4 days left.',          hB:'Every night you wing it is $3.66. Price goes up in 4 days.'},
-      {day:28, stage:'urgency', type:'social',  feature:'urgency',  hA:'$7.99 or $19.99. You decide before July 1.',                 hB:'The founding family window is closing.'},
-      // ── WEEK 5 · Launch ──────────────────────────────────────────────────────
-      {day:29, stage:'cta',     type:'email',   feature:'launch',   hA:'$1,336 saved or lost — you choose tomorrow',                 hB:'Tomorrow: 6:30 PM panic returns forever'},
-      {day:29, stage:'cta',     type:'social',  feature:'launch',   hA:'TRACK → PLAN → OPTIMIZE → COOK → SHOP. One loop. July 1.',   hB:'The founding family window is almost closed.'},
-      {day:30, stage:'cta',     type:'social',  feature:'launch',   hA:'You are founding the kitchen of the future.',                hB:'You found this before everyone else.'},
-      {day:31, stage:'cta',     type:'social',  feature:'launch',   hA:'Five apps replaced. One founding price. First 5,000 only.',  hB:'Dinner figured out before you open the fridge. Forever.'},
-      {day:32, stage:'cta',     type:'social',  feature:'launch',   hA:'Founding price closes at 5,000 families.',                   hB:'Real scarcity. Not manufactured.'},
-      {day:33, stage:'proof',   type:'social',  feature:'proof',    hA:'10,000 households. 69.5% less waste. The leak is gone.',      hB:'Real outcomes. Real kitchens.'},
-      {day:34, stage:'cta',     type:'social',  feature:'launch',   hA:'Tomorrow your kitchen changes.',                             hB:'July 1. The loop closes. Your kitchen is in command.'},
-      {day:35, stage:'launch',  type:'email',   feature:'launch',   hA:'The app is live. Your kitchen is in command.',               hB:'July 1. You were first. Here is your access.'},
-      {day:35, stage:'launch',  type:'youtube', feature:'launch',   hA:'YT-3 · Launch Day · The leak is closed.',                    hB:''},
-      {day:35, stage:'launch',  type:'social',  feature:'launch',   hA:'TRACK → PLAN → OPTIMIZE → COOK → SHOP. Live. Now.',          hB:'Your kitchen. In command. July 1.'}
+    // ── 218 posts: 6 platforms × 35 days + 5 TikTok spotlights + 3 YouTube spotlights ──
+    var _ARC = [
+      {day:1,  stage:'hook',    feature:'problem',  hA:'You have an invisible leak. $111 a month.',                  hB:'6:30 PM. Fridge full. Five apps open. Still no dinner.'},
+      {day:2,  stage:'hook',    feature:'problem',  hA:'$111/month disappearing from your grocery budget.',           hB:'That 6:30 PM wall. Every single night.'},
+      {day:3,  stage:'problem', feature:'problem',  hA:'Five apps. None of them talk to each other.',                 hB:"Mealime doesn't know your pantry. No app closes the loop."},
+      {day:4,  stage:'problem', feature:'problem',  hA:"You buy groceries Sunday. By Wednesday it's a guessing game.", hB:'Dinner is already decided by 6:30 PM — or it isn\'t.'},
+      {day:5,  stage:'agitate', feature:'problem',  hA:'The spinach. The ground beef. The yogurt. $111 gone.',        hB:'DoorDash again. The groceries sit untouched.'},
+      {day:6,  stage:'agitate', feature:'problem',  hA:'$1,336. Every year. Food you bought. Never ate.',             hB:'5–10 hours a week deciding what to eat. That time is yours.'},
+      {day:7,  stage:'agitate', feature:'problem',  hA:"The leak is invisible. The cost isn't. $111/month.",          hB:'The 6:30 PM wall is a system problem. Not a you problem.'},
+      {day:8,  stage:'solve',   feature:'TRACK',    hA:'TRACK. Your pantry, finally tracked. The leak starts here.',  hB:"easyChef Pro knows what's in your fridge before it expires."},
+      {day:9,  stage:'value',   feature:'TRACK',    hA:'Scan your receipt. Every item tracked. Expiry fires first.',  hB:'The app caught the spinach before you did.'},
+      {day:10, stage:'value',   feature:'TRACK',    hA:'No more buying what you already have.',                       hB:'The pantry knows. You never duplicate again.'},
+      {day:11, stage:'value',   feature:'TRACK',    hA:'TRACK replaced NoWaste — and it does more.',                  hB:'The leak starts in your pantry. TRACK closes it.'},
+      {day:12, stage:'value',   feature:'TRACK',    hA:'69.5% less food waste. $111/month back. Validated.',          hB:'The leak is measurable. The fix is proven.'},
+      {day:13, stage:'value',   feature:'TRACK',    hA:'TRACK connects to everything. PLAN sees your pantry.',        hB:'One app. The pantry feeds the plan feeds the recipe.'},
+      {day:14, stage:'proof',   feature:'proof',    hA:'9 patent-pending technologies. Validated across 10,000 households.', hB:'Built by first responders. Not Silicon Valley.'},
+      {day:15, stage:'value',   feature:'PLAN',     hA:'Your pantry auto-builds the meal plan. No manual entry.',     hB:'PLAN replaced your meal planner. It knows what you already have.'},
+      {day:16, stage:'value',   feature:'PLAN',     hA:'Monday: salmon. Tuesday: tacos. From what you paid for.',     hB:'Five dinners planned from what you already own.'},
+      {day:17, stage:'value',   feature:'PLAN',     hA:'PLAN and OPTIMIZE together. Two apps replaced.',              hB:'Dinner planned. Nutrition scored. Zero manual entry.'},
+      {day:18, stage:'value',   feature:'OPTIMIZE', hA:'Every meal scored across 6 nutrition dimensions. FDA-grade. No manual tracking.', hB:'OPTIMIZE replaced your nutrition app. Scores from your actual fridge.'},
+      {day:19, stage:'value',   feature:'OPTIMIZE', hA:'Registered dietitians validated every recipe. 6 dimensions. Every meal.', hB:'No app scored your nutrition from your pantry before.'},
+      {day:20, stage:'proof',   feature:'proof',    hA:'800,000 products. 9 patent-pending technologies.',            hB:'Built by first responders who needed this as much as you do.'},
+      {day:21, stage:'proof',   feature:'all',      hA:'TRACK → PLAN → OPTIMIZE → COOK → SHOP. The full loop.',      hB:'Five apps replaced. The 6:30 PM panic — gone.'},
+      {day:22, stage:'urgency', feature:'urgency',  hA:'5,000 founding spots. The window is closing.',                hB:"You've been deciding for 3 weeks. Here's what that costs."},
+      {day:23, stage:'value',   feature:'COOK',     hA:"COOK turns your fridge into tonight's recipe. 30 minutes.",   hB:"easyChef Pro replaced your recipe app. Already knows what you have."},
+      {day:24, stage:'urgency', feature:'urgency',  hA:'$7.99/month. 60% off. Founding price closes at 5,000.',       hB:'Two leaks closing — your grocery budget AND this price.'},
+      {day:25, stage:'value',   feature:'SHOP',     hA:'1-click shopping. The list builds itself.',                   hB:'Never buy what you already have again.'},
+      {day:26, stage:'value',   feature:'SHOP',     hA:'800,000 products. 1-click shopping. Done.',                   hB:"Shopping used to take 45 minutes. Now it's one click."},
+      {day:27, stage:'urgency', feature:'urgency',  hA:'Five apps replaced. One leak closed. 4 days left.',           hB:'Every night you wing it is $3.66. Price goes up in 4 days.'},
+      {day:28, stage:'urgency', feature:'urgency',  hA:'$7.99 or $19.99. You decide before July 1.',                  hB:'The founding family window is closing.'},
+      {day:29, stage:'cta',     feature:'launch',   hA:'TRACK → PLAN → OPTIMIZE → COOK → SHOP. One loop. July 1.',    hB:'The founding family window is almost closed.'},
+      {day:30, stage:'cta',     feature:'launch',   hA:'You are founding the kitchen of the future.',                 hB:'You found this before everyone else.'},
+      {day:31, stage:'cta',     feature:'launch',   hA:'Five apps replaced. One founding price. First 5,000 only.',   hB:'Dinner figured out before you open the fridge. Forever.'},
+      {day:32, stage:'cta',     feature:'launch',   hA:'Founding price closes at 5,000 families. Real scarcity.',     hB:'The founding family window is closing.'},
+      {day:33, stage:'proof',   feature:'proof',    hA:'10,000 households. 69.5% less waste. The leak is gone.',      hB:'Real outcomes. Real kitchens.'},
+      {day:34, stage:'cta',     feature:'launch',   hA:'Tomorrow your kitchen changes.',                              hB:'July 1. The loop closes. Your kitchen is in command.'},
+      {day:35, stage:'launch',  feature:'launch',   hA:'TRACK → PLAN → OPTIMIZE → COOK → SHOP. Live. Now.',          hB:'Your kitchen. In command. July 1.'}
     ];
+
+    var _DAILY_TYPES = ['facebook','instagram','pinterest','nextdoor','x','email'];
+    var postData = [];
+
+    // 6 platforms × 35 days = 210 rows
+    _ARC.forEach(function(d) {
+      _DAILY_TYPES.forEach(function(t) {
+        postData.push({day:d.day, stage:d.stage, feature:d.feature, type:t, hA:d.hA, hB:d.hB});
+      });
+    });
+
+    // TikTok spotlights — days 4, 11, 17, 22, 26
+    postData.push({day:4,  stage:'solve',  feature:'TRACK',    type:'tiktok', hA:'TK-1 · TRACK · "$1,336 in your fridge right now."',              hB:''});
+    postData.push({day:11, stage:'value',  feature:'PLAN',     type:'tiktok', hA:'TK-2 · PLAN · "One Sunday. Five dinners. From what you have."',   hB:''});
+    postData.push({day:17, stage:'value',  feature:'OPTIMIZE', type:'tiktok', hA:'TK-3 · OPTIMIZE · "Six nutrition scores. Every meal. No logging."', hB:''});
+    postData.push({day:22, stage:'value',  feature:'COOK',     type:'tiktok', hA:"TK-4 · COOK · \"30 minutes. From what's in your fridge.\"",       hB:''});
+    postData.push({day:26, stage:'value',  feature:'SHOP',     type:'tiktok', hA:'TK-5 · SHOP · "The list builds itself. 1-click to your cart."',   hB:''});
+
+    // YouTube spotlights — days 7, 21, 35
+    postData.push({day:7,  stage:'agitate', feature:'problem', type:'youtube', hA:'YT-1 · The Problem · 60 seconds · the invisible leak',            hB:''});
+    postData.push({day:21, stage:'proof',   feature:'all',     type:'youtube', hA:'YT-2 · The Solution · TRACK→PLAN→OPTIMIZE→COOK→SHOP',            hB:''});
+    postData.push({day:35, stage:'launch',  feature:'launch',  type:'youtube', hA:'YT-3 · Launch Day · The leak is closed.',                          hB:''});
 
     var spHdrLen = _CC_HDR.SocialPosts.length; // 16
     var newRows = postData.map(function(r, idx) {
@@ -996,11 +1004,11 @@ function fillEC2026001SocialBody() {
   try {
     var results = [];
 
-    // Stage → email sequence note (for Email platform rows)
-    var DAY_SEQ = { 3:'SEQ-1 E1', 6:'SEQ-1 E2', 8:'SEQ-1 E3', 12:'SEQ-2 E1',
-                    15:'SEQ-2 E2', 18:'SEQ-2 E3', 21:'SEQ-2 E4',
+    // Day → email sequence ref (calendar notes for Email platform rows)
+    var DAY_SEQ = { 0:'SEQ-1 E1', 3:'SEQ-1 E2', 6:'SEQ-1 E3', 8:'SEQ-2 E1', 12:'SEQ-2 E2',
+                    15:'SEQ-2 E3', 18:'SEQ-2 E4', 21:'SEQ-2 E5',
                     22:'SEQ-3 E1', 24:'SEQ-3 E2', 27:'SEQ-3 E3',
-                    29:'SEQ-4 E1', 35:'SEQ-5 E1' };
+                    29:'SEQ-3 E4', 35:'SEQ-4 E1' };
 
     var _fb = function(stage, feature, hook, utmUrl) {
       var base = {
@@ -1053,8 +1061,83 @@ function fillEC2026001SocialBody() {
     };
 
     var _em = function(day, hook) {
-      var seq = DAY_SEQ[day] || 'SEQ email';
-      return seq + ' fires — Variant A → /lp/waitlist-a | Variant B → /lp/waitlist-b\n\nHook: ' + hook;
+      var seq = DAY_SEQ[day];
+      if (seq) return seq + ' fires — Variant A → /lp/waitlist-a | Variant B → /lp/waitlist-b\n\nHook: ' + hook;
+      return 'No send — nurture period · Day ' + day + '\n\nNext email: ' + hook;
+    };
+
+    var _ig = function(stage, feature, hook, utmUrl) {
+      var m = {
+        hook:    hook + '\n\n$111/month. Disappearing into groceries that never became dinner.\n\neasyChef Pro closes the loop — TRACK → PLAN → OPTIMIZE → COOK → SHOP.\n\nLink in bio — join free.',
+        problem: hook + '\n\nFive apps. None of them talk to each other. None of them know what\'s in your fridge right now.\n\neasyChef Pro replaces all five. One loop. Link in bio.',
+        agitate: hook + '\n\n$1,336 a year. Not your fault. Just no system.\n\n69.5% less food waste when the loop closes.\n\nLink in bio.',
+        solve:   hook + '\n\nTRACK closes the leak. Scan your receipt. Every item logged. Expiry fires before the loss happens.\n\nLink in bio.',
+        value:   (function(){
+          var vMap = {
+            TRACK:    hook + '\n\nTRACK replaced NoWaste — and does more. Your pantry feeds the meal plan feeds the recipe. Link in bio.',
+            PLAN:     hook + '\n\nPLAN builds five dinners from what you already own. No manual entry. No 6:30 PM guessing. Link in bio.',
+            OPTIMIZE: hook + '\n\n6 nutrition dimensions. FDA-grade data. Registered dietitians. Every meal scored automatically. Link in bio.',
+            COOK:     hook + '\n\n30 minutes fridge to table. From what you already have. COOK knows your pantry. Link in bio.',
+            SHOP:     hook + '\n\nThe list builds itself. 800k products. 1-click to your cart. Only what\'s missing. Link in bio.',
+            proof:    hook + '\n\n10,000 households. 69.5% less waste. $111/month saved. Link in bio.',
+            all:      hook + '\n\nOne loop. Five apps replaced. $1,336/year average savings. Link in bio.'
+          };
+          return vMap[feature] || vMap['all'];
+        })(),
+        proof:   hook + '\n\n10,000 household profiles. 69.5% less food waste. $1,336/year average savings.\n\nBuilt by first responders.\n\nLink in bio.',
+        urgency: hook + '\n\n5,000 founding spots. $7.99/month — 60% off forever. The window is closing.\n\nLink in bio.',
+        cta:     hook + '\n\nFirst 5,000 families lock $7.99/month forever. TRACK → PLAN → OPTIMIZE → COOK → SHOP.\n\nLink in bio.',
+        launch:  hook + '\n\neasyChef Pro is live. The invisible leak — closed. Your kitchen. In command.\n\nLink in bio.'
+      };
+      var body = m[stage] || m['value'];
+      return body + (utmUrl ? '\n\n' + utmUrl : '');
+    };
+
+    var _xp = function(stage, feature, hook) {
+      var url = '\n\neasychefpro.com/lp/waitlist-a';
+      var m = {
+        hook:    hook + '\n\n$111/month. Every month. easyChef Pro closes the loop.' + url,
+        problem: hook + '\n\nFive apps. None talk to each other. easyChef Pro replaces all five.' + url,
+        agitate: hook + '\n\n$1,336/year average savings. Not from couponing. From a system.' + url,
+        solve:   hook + '\n\nTRACK → PLAN → OPTIMIZE → COOK → SHOP. One loop.' + url,
+        value:   hook + '\n\n' + (feature !== 'all' && feature !== 'proof' ? feature + ' — part of the loop. ' : '') + 'Five apps replaced.' + url,
+        proof:   hook + '\n\n10,000 households. 69.5% less food waste. The data is real.' + url,
+        urgency: hook + '\n\n$7.99/month. 60% off. First 5,000 families only.' + url,
+        cta:     hook + '\n\nFirst 5,000 lock $7.99/month forever. Real scarcity.' + url,
+        launch:  hook + '\n\neasyChef Pro is live.' + url
+      };
+      return m[stage] || m['value'];
+    };
+
+    var _pt = function(stage, feature, hook) {
+      var base = {
+        hook:    hook + '\n\nThe average family throws away $1,336 in groceries every year. Not bad decisions — just no system. easyChef Pro closes the loop with TRACK → PLAN → OPTIMIZE → COOK → SHOP. Five apps replaced. One tool that knows what\'s in your fridge, plans the week, and builds the shopping list automatically.\n\nJoin the waitlist — early access July 1 · easychefpro.com',
+        problem: hook + '\n\nFive apps open. None of them talk to each other. Your pantry app doesn\'t know your meal planner. Your meal planner doesn\'t know your nutrition tracker. easyChef Pro closes every gap — one app replaces five.\n\nEarly access July 1 · easychefpro.com',
+        agitate: hook + '\n\nFamilies save an average of $111 a month when the grocery leak is closed. That\'s $1,336/year average savings — not from couponing, but from having a system that tracks what you have, plans what to make, and shops only for what\'s missing.\n\nJoin the waitlist · easychefpro.com',
+        solve:   hook + '\n\nTRACK scans your receipt and tracks every item with expiry dates. Your pantry finally knows what\'s in it — and talks to the meal plan, the recipe, and the shopping list. The invisible leak closes.\n\nEarly access July 1 · easychefpro.com',
+        value:   hook + '\n\neasyChef Pro replaces NoWaste, Mealime, MyFitnessPal, your recipe app, and your shopping list — with one loop: TRACK → PLAN → OPTIMIZE → COOK → SHOP. Validated across 10,000 household profiles. 69.5% less food waste. Families save an average of $111 a month.\n\nJoin the waitlist · easychefpro.com',
+        proof:   hook + '\n\nValidated across 10,000 household profiles. 69.5% less food waste. Families save an average of $111 a month. Built by first responders. 9 patent-pending technologies.\n\nJoin the waitlist — early access July 1 · easychefpro.com',
+        urgency: hook + '\n\nFirst 5,000 founding families lock in $7.99/month forever — 60% off the $19.99 standard price. Early access opens July 1. Real scarcity. Join the waitlist now.\n\neasychefpro.com',
+        cta:     hook + '\n\nJoin the easyChef Pro founding family — first 5,000 families lock $7.99/month forever. TRACK → PLAN → OPTIMIZE → COOK → SHOP. Five apps replaced. Early access July 1.\n\neasychefpro.com',
+        launch:  hook + '\n\neasyChef Pro is live. The meal planning app that closes the invisible grocery leak — TRACK → PLAN → OPTIMIZE → COOK → SHOP. Download now and scan your first receipt free.\n\neasychefpro.com'
+      };
+      return base[stage] || base['value'];
+    };
+
+    var _nd = function(stage, feature, hook) {
+      var url = '\n\nLearn more: easychefpro.com/lp/waitlist-a';
+      var m = {
+        hook:    hook + '\n\nFamilies in our area are saving an average of $111 a month on groceries with easyChef Pro — without couponing or buying less. It tracks what\'s in your fridge, plans the week from what you already own, and closes the $1,336/year grocery leak.' + url,
+        problem: hook + '\n\nA lot of families here deal with this — groceries that don\'t turn into dinner. Five apps that don\'t talk to each other. easyChef Pro closes the loop. One app replaces five. Early access July 1.' + url,
+        agitate: hook + '\n\nThe average family throws away $1,336 in groceries every year. Not bad decisions — just no system. easyChef Pro tracks what you have before it expires and plans meals from what you already own.' + url,
+        solve:   hook + '\n\nTRACK scans your receipt, logs every item with expiry dates, and connects to your meal plan automatically. The pantry leak closes. 69.5% less food waste for families using the full loop.' + url,
+        value:   hook + '\n\neasyChef Pro replaces five apps your family might already use — NoWaste, Mealime, MyFitnessPal, your recipe app, and your shopping list — with one connected system. Families save $111/month on average.' + url,
+        proof:   hook + '\n\nValidated across 10,000 household profiles. 69.5% less food waste. $1,336/year average savings. Built by first responders. 9 patent-pending technologies. Early access July 1.' + url,
+        urgency: hook + '\n\nFirst 5,000 founding families lock in $7.99/month forever — 60% off the standard $19.99 price. Spots are filling. Join the waitlist now.' + url,
+        cta:     hook + '\n\nIf you\'ve been curious about easyChef Pro — now is the time. First 5,000 families get $7.99/month locked forever. That\'s $111 saved every month for $8.' + url,
+        launch:  hook + '\n\neasyChef Pro is live today. If you\'re in the founding family, your access is ready. If not, you can still join — link below.' + url
+      };
+      return m[stage] || m['value'];
     };
 
     // ── Load SocialPosts ──────────────────────────────────────────────────────
@@ -1081,10 +1164,14 @@ function fillEC2026001SocialBody() {
       var day      = bfObj.day          || 1;
 
       var body = '';
-      if      (platform === 'Email')   body = _em(day, hook);
-      else if (platform === 'TikTok')  body = _tk(stage, feature, hook);
-      else if (platform === 'YouTube') body = _yt(stage, feature, hook);
-      else                             body = _fb(stage, feature, hook, utmUrl);
+      if      (platform === 'Email')     body = _em(day, hook);
+      else if (platform === 'TikTok')    body = _tk(stage, feature, hook);
+      else if (platform === 'YouTube')   body = _yt(stage, feature, hook);
+      else if (platform === 'Instagram') body = _ig(stage, feature, hook, utmUrl);
+      else if (platform === 'X')         body = _xp(stage, feature, hook);
+      else if (platform === 'Pinterest') body = _pt(stage, feature, hook);
+      else if (platform === 'Nextdoor')  body = _nd(stage, feature, hook);
+      else                               body = _fb(stage, feature, hook, utmUrl);
 
       spSheet.getRange(ri + 1, COL['body_copy'] + 1).setValue(body);
       updated++;
@@ -1309,6 +1396,393 @@ function generateLPFigmaDoc() {
   }
 }
 
+// ── FIX EC-2026-001 Email Sequences ──────────────────────────────────────────
+// FIX 1: Delete DL-EM-0020..0043 from DeepLinkRegistry
+// FIX 2+3: Clear and re-seed 26 rows with correct seq/email numbering, days, DL IDs
+// Final: SEQ-1(E1 day0, E2 day3, E3 day6) · SEQ-2(E1-E5 days 8-21) · SEQ-3(E1-E4 days 22-29) · SEQ-4(E1 day35)
+// DL mapping: SEQ-1→DL-EM-0001, SEQ-2→DL-EM-0002, SEQ-3→DL-EM-0003, SEQ-4→DL-EM-0004
+// Run via doPost: { "action": "fix_ec2026001_emails" }
+
+function fixEC2026001Emails() {
+  try {
+    var results = [];
+    var _uA = function(dl, sl) {
+      return 'https://easychefpro.com/lp/waitlist-a?utm_source=email&utm_medium=email&utm_campaign=ec-2026-001&utm_content=' + encodeURIComponent(dl + '|' + sl);
+    };
+    var _uB = function(dl, sl) {
+      return 'https://easychefpro.com/lp/waitlist-b?utm_source=email&utm_medium=email&utm_campaign=ec-2026-001&utm_content=' + encodeURIComponent(dl + '|' + sl);
+    };
+
+    // ── FIX 1: Delete DL-EM-0020..0043 ───────────────────────────────────────
+    var dlSheet     = _getCCSheet(_CC_TAB.DL);
+    var dlData      = dlSheet.getDataRange().getValues();
+    var dlHdrs      = dlData[0].map(function(h) { return String(h).trim(); });
+    var dlIdCol     = dlHdrs.indexOf('dl_id');
+    var deleteCount = 0;
+    for (var di = dlData.length - 1; di >= 1; di--) {
+      var dlId = String(dlData[di][dlIdCol] || '');
+      var m = dlId.match(/^DL-EM-(\d+)$/);
+      if (m) {
+        var n = parseInt(m[1], 10);
+        if (n >= 20 && n <= 43) { dlSheet.deleteRow(di + 1); deleteCount++; }
+      }
+    }
+    results.push('✓ DL-EM-0020–0043 deleted: ' + deleteCount + ' rows');
+
+    // ── FIX 2+3: 13-email corrected array ────────────────────────────────────
+    var ED = [
+      // ── SEQ-1: Welcome / Problem Arc (E1 day0 NEW, E2 day3, E3 day6) ────────
+      { seq:1, n:1, day:0, stage:'hook', feature:'problem',
+        trigger:'waitlist_signup_completed',
+        dlA:'DL-EM-0001', slA:'seq1-e1-a', dlB:'DL-EM-0001-B', slB:'seq1-e1-b',
+        a:{ sub:"You're on the waitlist. The invisible leak is about to close.",
+            pre:"You found it. Most people never do.",
+            hk:"You just joined 10,000 households who found the invisible leak. $111 a month. Disappearing into groceries that never became dinner.",
+            pr:"The spinach that wilted. The ground beef pushed to the back. The yogurt that expired. Five apps open — none of them talking to each other. The leak runs in the gap.",
+            ag:"Families save an average of $111 a month when the leak is closed. That's $1,336/year average savings. Not from couponing. Not from buying less. From having a system.",
+            so:"easyChef Pro closes the loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP. Five apps replaced. One system.",
+            va:"You're on the waitlist. Early access opens July 1. The founding price — $7.99/month — is locked for the first 5,000 families.",
+            pf:"Validated across 10,000 household profiles. 69.5% less food waste. Built by first responders.",
+            ct:"Join the waitlist — early access July 1" },
+        b:{ sub:"You're in. Welcome to the founding family.",
+            pre:"You were here before anyone else.",
+            hk:"Welcome. You just joined the easyChef Pro founding family — early access July 1.",
+            pr:"Every night you wing dinner costs 20 minutes. Every app that doesn't talk to the next one costs another 20. You've been doing this for years without a system.",
+            ag:"easyChef Pro replaces five apps with one loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP. Dinner decided before you open the fridge. The mental load — lifted.",
+            so:"You're founding family. That means you get access first — and you lock $7.99/month forever. 60% off the $19.99 standard price.",
+            va:"Over the next 35 days, we'll show you exactly how the system closes every gap. Starting with the one that costs $111 a month.",
+            pf:"Validated across 10,000 household profiles. Built by first responders who needed this as much as you do.",
+            ct:"Join the founding family — early access July 1" }},
+
+      { seq:1, n:2, day:3, stage:'problem', feature:'problem',
+        trigger:'',
+        dlA:'DL-EM-0001', slA:'seq1-e2-a', dlB:'DL-EM-0001-B', slB:'seq1-e2-b',
+        a:{ sub:"You're throwing away $111 every month",
+            pre:"Not your fault. Just no system.",
+            hk:"You have an invisible leak in your grocery budget. $111 a month. Every month. Not because of bad decisions — because the system was never designed to close the loop.",
+            pr:"You buy groceries on Sunday. By Wednesday it's a guessing game. The spinach goes limp. The ground beef gets pushed to the back. The yogurt expires. You order delivery. Again.",
+            ag:"Families save an average of $111 a month when the leak is closed. That's $1,336/year average savings. Not from couponing. Not from buying less. From having a system.",
+            so:"easyChef Pro closes the loop. Five apps replaced. One leak closed.",
+            va:"TRACK what's in your fridge before it expires. PLAN the week from what you already own. COOK 30-minute dinners from what's there. SHOP only what's missing. OPTIMIZE every meal with registered dietitians.",
+            pf:"Validated across 10,000 household profiles. 69.5% less food waste. Built by first responders.",
+            ct:"Join the waitlist — early access July 1" },
+        b:{ sub:"Six apps open. Groceries on the counter. Nothing for dinner.",
+            pre:"The 6:30 PM wall is not a you problem.",
+            hk:"It's 6:30 PM. The fridge is full. Five apps are open. And you still don't know what to make for dinner.",
+            pr:"You have Mealime. A pantry app. A nutrition tracker. A recipe app. A shopping list. None of them talk to each other. None of them know what's actually in your fridge right now.",
+            ag:"You spend 5 to 10 hours a week deciding what to eat. Every night you wing it is an evening that wasn't yours. Every delivery order is $30 that should have stayed in your wallet.",
+            so:"easyChef Pro closes the loop. One app. Five replaced. Dinner figured out before you open the fridge.",
+            va:"The meal plan builds from what you already own. The recipe is waiting. The shopping list writes itself. The nutrition score fires automatically.",
+            pf:"Validated across 10,000 household profiles. Built by first responders who needed this as much as you do.",
+            ct:"Join the founding family — early access July 1" }},
+
+      { seq:1, n:3, day:6, stage:'agitate', feature:'problem',
+        trigger:'',
+        dlA:'DL-EM-0001', slA:'seq1-e3-a', dlB:'DL-EM-0001-B', slB:'seq1-e3-b',
+        a:{ sub:"$1,336 thrown away every year — not your fault",
+            pre:"Do the math. It's jarring.",
+            hk:"$1,336. That's how much the average family throws away in groceries every year.",
+            pr:"It's not the big grocery trips. It's the spinach that wilted by Wednesday. The ground beef pushed to the back. The yogurt that expired before anyone touched it.",
+            ag:"That's $111 every month. $3.66 every single day. From your fridge to your garbage bin. Without a system, it never stops.",
+            so:"easyChef Pro tracks what you have before it expires. TRACK → PLAN → COOK → SHOP — the full loop, closed.",
+            va:"Your pantry knows what's in it. The meal plan builds from what you own. The recipe uses what's there. The shopping list only buys what's missing.",
+            pf:"69.5% less food waste. Validated across 10,000 household profiles.",
+            ct:"Join the waitlist — early access July 1" },
+        b:{ sub:"What if dinner was decided before you opened the fridge?",
+            pre:"That question changes everything.",
+            hk:"What if the hardest part of tonight's dinner was already done before you got home?",
+            pr:"Every night, the 6:30 PM decision costs you 20 minutes minimum. Stare at the fridge. Check an app. Nothing matches what you have. Open delivery. Spend $35 you didn't plan for.",
+            ag:"That's 5 to 10 hours a week you don't get back. Multiplied by 52 weeks. That time belongs to you — and to your family.",
+            so:"easyChef Pro decides dinner before you open the fridge. The plan is already built from what you own.",
+            va:"Open the app. Your week is planned. Tonight's recipe is from your fridge. The shopping list for what's missing is ready. Nutrition scored automatically.",
+            pf:"Validated across 10,000 household profiles. Built by first responders.",
+            ct:"Join the founding family — early access July 1" }},
+
+      // ── SEQ-2: Solve + Value Arc (E1 day8, E2 day12, E3 day15, E4 day18, E5 day21) ──
+      { seq:2, n:1, day:8, stage:'solve', feature:'TRACK',
+        trigger:'',
+        dlA:'DL-EM-0002', slA:'seq2-e1-a', dlB:'DL-EM-0002-B', slB:'seq2-e1-b',
+        a:{ sub:"$1,336 back in your pocket this year",
+            pre:"The leak starts with your pantry.",
+            hk:"$1,336 back. Not from couponing. From knowing what's in your fridge before it expires.",
+            pr:"The leak starts in your pantry. You buy things you already have. You forget what's expiring. You miss the window when the spinach was still good.",
+            ag:"easyChef Pro TRACK sees everything the moment you scan your receipt. Expiry alerts fire before the loss happens. You never buy what you already have again.",
+            so:"TRACK replaced NoWaste — and it does more. Every item it logs feeds every decision downstream.",
+            va:"The pantry data builds the meal plan. The meal plan builds the recipe. The recipe builds the shopping list. One loop. Closed.",
+            pf:"Families save an average of $111 a month. $1,336/year average savings. 69.5% less food waste.",
+            ct:"Join the waitlist — early access July 1" },
+        b:{ sub:"The grocery leak — closed",
+            pre:"This is what TRACK actually does.",
+            hk:"The first thing easyChef Pro does is close the leak.",
+            pr:"TRACK scans your receipt. Every item logged. Expiry tracked. Duplicate purchases caught before they happen. The pantry you couldn't see — now you see it.",
+            ag:"When TRACK knows what you have, everything follows automatically. The meal plan builds from what you own. You never open the fridge wondering what to make.",
+            so:"TRACK → PLAN → OPTIMIZE → COOK → SHOP. The full loop. From one app. Five apps — replaced.",
+            va:"Dinner figured out before 6:30 PM. The mental load — lifted. Kitchen in command.",
+            pf:"Validated across 10,000 household profiles. Built by first responders.",
+            ct:"Join the founding family — early access July 1" }},
+
+      { seq:2, n:2, day:12, stage:'value', feature:'TRACK',
+        trigger:'',
+        dlA:'DL-EM-0002', slA:'seq2-e2-a', dlB:'DL-EM-0002-B', slB:'seq2-e2-b',
+        a:{ sub:"$111 back every month with 30-minute dinners",
+            pre:"This is how the math works.",
+            hk:"You scan the receipt. easyChef Pro does the rest.",
+            pr:"TRACK logs every item with expiry dates. The pantry you couldn't see is now visible — and it's talking to every other feature in the app.",
+            ag:"The moment something is about to expire, TRACK fires an alert. PLAN pulls it into tonight's dinner. Nothing goes to waste. The $111 stops disappearing.",
+            so:"TRACK replaced NoWaste — and it opened the whole loop.",
+            va:"PLAN sees your pantry and builds five dinners from what you already own. No manual entry. No 'what do I have?' — Monday through Friday, done.",
+            pf:"Families save an average of $111 a month. $1,336/year average savings.",
+            ct:"Join the waitlist — early access July 1" },
+        b:{ sub:"30 minutes from fridge panic to family dinner",
+            pre:"The app built the plan from what you already have.",
+            hk:"Monday. Tuesday. Wednesday. Thursday. Friday. Five dinners — from what you already own.",
+            pr:"PLAN doesn't ask you to enter anything. It reads your pantry from TRACK. It sees what's expiring first. It builds the week automatically.",
+            ag:"Sunday: scan your receipt. Monday morning: your week is already planned. No 6:30 PM decisions. No 'what's for dinner' spiral. No delivery.",
+            so:"PLAN replaced Mealime — but Mealime never knew what you had. PLAN does.",
+            va:"Five dinners planned. Each recipe ready. Each from your fridge. 30 minutes fridge to table.",
+            pf:"Validated across 10,000 household profiles. 69.5% less food waste.",
+            ct:"Join the founding family — early access July 1" }},
+
+      { seq:2, n:3, day:15, stage:'value', feature:'PLAN',
+        trigger:'',
+        dlA:'DL-EM-0002', slA:'seq2-e3-a', dlB:'DL-EM-0002-B', slB:'seq2-e3-b',
+        a:{ sub:"$1,336 of groceries thrown away every year",
+            pre:"Week three. Here's what PLAN actually builds.",
+            hk:"The meal plan builds itself. From what you already paid for.",
+            pr:"Monday: salmon from last week. Tuesday: tacos from the ground beef. Wednesday: stir fry from the vegetables about to expire. Thursday: pasta from the back of the pantry.",
+            ag:"PLAN sees all of it. From the pantry TRACK built. Five dinners from what you already own. Zero guessing. Zero waste.",
+            so:"PLAN replaced your meal planner — but it knows your pantry. No planner did that before.",
+            va:"The week is planned before Monday arrives. The recipes are ready. The shopping list for what's missing builds itself.",
+            pf:"Families save an average of $111 a month. 69.5% less food waste.",
+            ct:"Join the waitlist — early access July 1" },
+        b:{ sub:"That spinach you bought Sunday is brown today",
+            pre:"Not with easyChef Pro.",
+            hk:"The spinach you bought on Sunday. Today is Wednesday. You know what happened to it.",
+            pr:"Not anymore. TRACK saw it the day you scanned the receipt. PLAN pulled it into Monday's dinner. You cooked it while it was still good.",
+            ag:"That's the difference. The pantry talks to the meal plan. The meal plan talks to the recipe. Nothing expires in the dark.",
+            so:"PLAN knows what you have. Builds from what's expiring first. Five dinners. From your fridge. Automatic.",
+            va:"The week is figured out before you open the fridge on Sunday night. The 6:30 PM panic doesn't come.",
+            pf:"Validated across 10,000 household profiles. 69.5% less food waste.",
+            ct:"Join the founding family — early access July 1" }},
+
+      { seq:2, n:4, day:18, stage:'value', feature:'OPTIMIZE',
+        trigger:'',
+        dlA:'DL-EM-0002', slA:'seq2-e4-a', dlB:'DL-EM-0002-B', slB:'seq2-e4-b',
+        a:{ sub:"That $111 you threw away last month",
+            pre:"OPTIMIZE closes the nutrition loop.",
+            hk:"OPTIMIZE scores every meal COOK produces. 6 nutrition dimensions. FDA-grade data. Registered dietitians.",
+            pr:"Your meal plan is built from your pantry. Your recipe is ready in 30 minutes. Every meal you cook is now scored — automatically. No food logging. No manual tracking.",
+            ag:"Every meal COOK produces gets scored before you plate it. If something's off nutritionally, PLAN adjusts next week's dinners. The loop optimizes itself.",
+            so:"OPTIMIZE replaced MyFitnessPal — but MyFitnessPal never knew your pantry. OPTIMIZE does.",
+            va:"TRACK → PLAN → OPTIMIZE → COOK → SHOP. Five apps replaced. One system. The leak — closed.",
+            pf:"Registered dietitians validated every recipe. 69.5% less food waste. Families save an average of $111 a month.",
+            ct:"Join the waitlist — early access July 1" },
+        b:{ sub:"Every expired yogurt is $3 down the drain",
+            pre:"The nutrition loop closes this week.",
+            hk:"OPTIMIZE fires automatically. You didn't log anything. The meal COOK produced is already scored.",
+            pr:"6 nutrition dimensions. FDA-grade data. Registered dietitians validated every recipe. Every meal from your fridge — scored before it reaches the table.",
+            ag:"You used to track every calorie on a separate app. OPTIMIZE does all of it from what you actually cooked. From your actual pantry. Without a single manual entry.",
+            so:"OPTIMIZE replaced your nutrition tracker — and it's connected to COOK, PLAN, and TRACK.",
+            va:"The full loop closes. Five apps replaced. Dinner figured out. Kitchen in command.",
+            pf:"Validated across 10,000 household profiles. Built by first responders.",
+            ct:"Join the founding family — early access July 1" }},
+
+      { seq:2, n:5, day:21, stage:'proof', feature:'proof',
+        trigger:'',
+        dlA:'DL-EM-0002', slA:'seq2-e5-a', dlB:'DL-EM-0002-B', slB:'seq2-e5-b',
+        a:{ sub:"$1,336 savings ends July 1st",
+            pre:"10,000 households. The data is in.",
+            hk:"10,000 household profiles. 69.5% less food waste. $1,336/year average savings. Not a promise. Validated data.",
+            pr:"That's from real households running the full loop: TRACK → PLAN → OPTIMIZE → COOK → SHOP. Five apps replaced. One system.",
+            ag:"9 patent-pending technologies. Built by first responders. Not Silicon Valley. People who needed this as much as you do.",
+            so:"The data is in. The system works. The founding price — $7.99/month — closes July 1.",
+            va:"$7.99 to save $111 a month. That's 60% off the standard price of $19.99. Forever. For the first 5,000 families.",
+            pf:"Families save an average of $111 a month. 69.5% less food waste. Validated across 10,000 household profiles.",
+            ct:"Join the waitlist — early access July 1" },
+        b:{ sub:"The proof is in. Here's the number.",
+            pre:"Time to decide.",
+            hk:"The data is real. 10,000 households. The 6:30 PM panic — gone.",
+            pr:"Not because they got better at cooking. Because the system closes the loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP. Five apps replaced.",
+            ag:"9 patent-pending technologies. Built by first responders. $1,336/year average savings. 69.5% less food waste.",
+            so:"The founding price is $7.99/month. 60% off forever. For the first 5,000 families only.",
+            va:"Dinner figured out. Kitchen in command. The mental load — gone.",
+            pf:"Validated across 10,000 household profiles. Built by first responders.",
+            ct:"Join the founding family — early access July 1" }},
+
+      // ── SEQ-3: Urgency + CTA Arc (E1 day22, E2 day24, E3 day27, E4 day29) ────
+      { seq:3, n:1, day:22, stage:'urgency', feature:'urgency',
+        trigger:'',
+        dlA:'DL-EM-0003', slA:'seq3-e1-a', dlB:'DL-EM-0003-B', slB:'seq3-e1-b',
+        a:{ sub:"5,000 founding spots. The window is closing.",
+            pre:"Three weeks of buildup. Here's the number.",
+            hk:"5,000 founding families. $7.99/month. Forever. The window is closing.",
+            pr:"You've been following the invisible leak for three weeks. You know what TRACK does. You know what the 5-app loop closes.",
+            ag:"$7.99/month is 60% off the standard price of $19.99. It locks the day the 5,000 spots fill. Real scarcity. Not manufactured.",
+            so:"Early access: July 1. Founding price: $7.99/month. Your decision: now.",
+            va:"$7.99 to save $111 a month. $1,336/year average savings. First 5,000 only.",
+            pf:"Validated across 10,000 household profiles. 69.5% less food waste.",
+            ct:"Lock in $7.99/month — 60% off forever" },
+        b:{ sub:"You've been deciding for 3 weeks. Here's what that costs.",
+            pre:"Every day without the system is $3.66.",
+            hk:"Three weeks. You watched the invisible leak. Saw the 5-app fragmentation. Watched TRACK close it.",
+            pr:"Every day without the system: $3.66 in groceries that become garbage. Every night without the meal plan: 20 minutes of decision that should have been yours.",
+            ag:"The founding price closes when 5,000 spots fill. After that: $19.99/month. The gap is $12 a month. Forever. Just from waiting.",
+            so:"Founding family: $7.99/month. 60% off. For the first 5,000 only.",
+            va:"Early access July 1. Founding price locked. Kitchen in command.",
+            pf:"Built by first responders. Validated across 10,000 household profiles.",
+            ct:"Join the founding family — lock in $7.99/month" }},
+
+      { seq:3, n:2, day:24, stage:'urgency', feature:'urgency',
+        trigger:'',
+        dlA:'DL-EM-0003', slA:'seq3-e2-a', dlB:'DL-EM-0003-B', slB:'seq3-e2-b',
+        a:{ sub:"$7.99 founding price ends in 10 days",
+            pre:"The math is simple.",
+            hk:"$7.99/month. $111 saved every month. The math pays for itself in the first week.",
+            pr:"10 days left before July 1. 10 days before early access opens. 10 days before the founding price closes at 5,000 spots.",
+            ag:"After 5,000 spots: $19.99/month. The difference is $12 every month. Forever. That's $144 a year — just from waiting.",
+            so:"Join the waitlist today. Lock $7.99/month before it closes.",
+            va:"30 minutes fridge to table. $1,336/year average savings. 69.5% less food waste. Founded at $7.99.",
+            pf:"Families save an average of $111 a month. Validated across 10,000 household profiles.",
+            ct:"Lock in $7.99/month — 60% off forever" },
+        b:{ sub:"Your kitchen panic has 10 days left",
+            pre:"Then it's over. Here's why.",
+            hk:"10 days from now, the 6:30 PM panic has a system.",
+            pr:"Early access opens July 1. The founding price closes with the first 5,000 spots. You've been following this for three weeks. You know what the app does.",
+            ag:"Every night you wait is an evening that wasn't yours. Every week without the system costs 5 to 10 hours of decisions. That's the real price of waiting.",
+            so:"Join the waitlist. Lock $7.99/month. Get early access July 1.",
+            va:"Dinner decided. Groceries planned. Kitchen in command. The mental load — gone.",
+            pf:"Built by first responders. Validated across 10,000 household profiles.",
+            ct:"Join the founding family — lock in $7.99/month" }},
+
+      { seq:3, n:3, day:27, stage:'urgency', feature:'urgency',
+        trigger:'',
+        dlA:'DL-EM-0003', slA:'seq3-e3-a', dlB:'DL-EM-0003-B', slB:'seq3-e3-b',
+        a:{ sub:"Five apps replaced. One leak closed. 4 days left.",
+            pre:"Last urgency email.",
+            hk:"4 days. July 1 is real. The founding price closes when 5,000 spots fill.",
+            pr:"You've seen the full loop: TRACK → PLAN → OPTIMIZE → COOK → SHOP. Five apps replaced. One leak closed. $1,336/year average savings.",
+            ag:"The standard price after 5,000: $19.99/month. The founding price: $7.99/month. 60% off. Forever. For the first 5,000 families only.",
+            so:"4 days to lock in. Early access July 1. Founding price closes at 5,000.",
+            va:"$1,336/year average savings. 69.5% less food waste. 30 minutes fridge to table. $7.99/month.",
+            pf:"Validated across 10,000 household profiles. 9 patent-pending technologies. Built by first responders.",
+            ct:"Lock in $7.99/month — 60% off forever" },
+        b:{ sub:"4 days left to escape 6:30 PM panic",
+            pre:"Last call.",
+            hk:"4 days. The founding price closes when 5,000 spots fill. This is your last urgency email.",
+            pr:"You found easyChef Pro before it launched. You followed the invisible leak. You saw the loop close. Now you know what the app does.",
+            ag:"Every night you wait is still 20 minutes of 6:30 PM panic. Every day without the system costs $3.66 in groceries that become garbage.",
+            so:"Join the founding family. Early access July 1. $7.99/month. The 6:30 PM wall — gone.",
+            va:"Dinner figured out. Kitchen in command. Founding price locked. Forever.",
+            pf:"Built by first responders. Validated across 10,000 household profiles.",
+            ct:"Join the founding family — 4 days left" }},
+
+      { seq:3, n:4, day:29, stage:'cta', feature:'launch',
+        trigger:'',
+        dlA:'DL-EM-0003', slA:'seq3-e4-a', dlB:'DL-EM-0003-B', slB:'seq3-e4-b',
+        a:{ sub:"$1,336 saved or lost — you choose tomorrow",
+            pre:"Tomorrow is the day.",
+            hk:"Tomorrow. July 1. Early access opens.",
+            pr:"You've had 29 days with the invisible leak. You know what $111 a month costs. You know what the system does. Tomorrow you either close the leak — or you don't.",
+            ag:"The founding price — $7.99/month — closes with the 5,000 spots. After that: $19.99/month standard. Real scarcity. Not manufactured.",
+            so:"Join the waitlist today. Your access opens tomorrow.",
+            va:"$1,336/year average savings. 69.5% less food waste. 30 minutes fridge to table. Founded at $7.99.",
+            pf:"Families save an average of $111 a month. Validated across 10,000 household profiles.",
+            ct:"Join the founding family — last chance at $7.99/month" },
+        b:{ sub:"Tomorrow: 6:30 PM panic returns forever",
+            pre:"Or it doesn't. Your choice.",
+            hk:"Tomorrow you get early access. Or you don't.",
+            pr:"The founding family window is almost closed. 5,000 spots. The first families to join lock $7.99/month forever.",
+            ag:"You found easyChef Pro before the world did. You followed the invisible leak. Tomorrow you either join the founding family — or you watch them close the door.",
+            so:"Join the founding family today. Early access July 1.",
+            va:"Dinner decided. Kitchen in command. You were first.",
+            pf:"Built by first responders. Validated across 10,000 household profiles.",
+            ct:"Join the founding family — your last chance" }},
+
+      // ── SEQ-4: Launch Day (E1 day35) ─────────────────────────────────────────
+      { seq:4, n:1, day:35, stage:'launch', feature:'launch',
+        trigger:'',
+        dlA:'DL-EM-0004', slA:'seq4-e1-a', dlB:'DL-EM-0004-B', slB:'seq4-e1-b',
+        a:{ sub:"The app is live. Your kitchen is in command.",
+            pre:"July 1. Here's your access.",
+            hk:"It's July 1. easyChef Pro is live. Your founding family access is ready.",
+            pr:"The invisible leak — closed. The 5-app fragmentation — replaced. TRACK → PLAN → OPTIMIZE → COOK → SHOP — one loop, one app, live today.",
+            ag:"You were here before the launch. You know what $111 a month means. Today you get it back.",
+            so:"Download easyChef Pro. Scan your first receipt. The loop starts now.",
+            va:"Your pantry is tracked. Your week is planned. Your dinner is ready in 30 minutes. Your nutrition is scored. Your shopping list builds itself. $1,336/year average savings — yours.",
+            pf:"Validated across 10,000 household profiles. 69.5% less food waste. Built by first responders.",
+            ct:"Try easyChef Pro free for 7 days — no credit card" },
+        b:{ sub:"July 1. You were first. Here is your access.",
+            pre:"Your kitchen is in command.",
+            hk:"You're in the founding family. July 1. easyChef Pro is live.",
+            pr:"You found this before anyone else. You followed the invisible leak. You watched the loop close. Today you get founding family access.",
+            ag:"Dinner is already figured out for tonight. TRACK → PLAN → OPTIMIZE → COOK → SHOP — the loop is running.",
+            so:"Download easyChef Pro. Scan your first receipt. Your week builds itself.",
+            va:"Founding family. Founding price. Kitchen in command. The 6:30 PM panic — permanently gone.",
+            pf:"Built by first responders. Validated across 10,000 household profiles.",
+            ct:"Try easyChef Pro free for 7 days — no credit card" }}
+    ];
+
+    // ── Clear existing EC-2026-001 emails ─────────────────────────────────────
+    var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+    var emLast  = emSheet.getLastRow();
+    if (emLast >= 2) {
+      var emData = emSheet.getRange(2, 1, emLast - 1, 2).getValues();
+      for (var ci = emData.length - 1; ci >= 0; ci--) {
+        if (String(emData[ci][1]) === 'EC-2026-001') emSheet.deleteRow(ci + 2);
+      }
+    }
+    results.push('✓ EmailSequences cleared: existing EC-2026-001 rows removed');
+
+    // ── Build and write 26 rows ───────────────────────────────────────────────
+    var emRows = [];
+    ED.forEach(function(e) {
+      var seqCode = 'SEQ-' + e.seq;
+      var templ   = 'EC2026001-' + seqCode + '-E' + e.n;
+      var urlA    = _uA(e.dlA, e.slA);
+      var urlB    = _uB(e.dlB, e.slB);
+      var trigA   = e.trigger || ('klaviyo_' + seqCode.toLowerCase() + '_segment_a');
+      var trigB   = e.trigger || ('klaviyo_' + seqCode.toLowerCase() + '_segment_b');
+
+      emRows.push([
+        'ec001-email-s' + e.seq + '-e' + e.n + '-a',
+        'EC-2026-001', seqCode, e.n,
+        e.a.sub, e.a.pre, e.a.hk, e.a.pr, e.a.ag, e.a.so, e.a.va, e.a.pf,
+        e.a.ct + '\n' + urlA,
+        e.day, trigA,
+        'draft', false, '', false, '',
+        e.stage, 'money', 'invisible-leak', 'waitlist-a', templ + '-A',
+        JSON.stringify({ dl_id: e.dlA, utm_url: urlA, lp: 'waitlist-a', segment: 'money', day: e.day })
+      ]);
+
+      emRows.push([
+        'ec001-email-s' + e.seq + '-e' + e.n + '-b',
+        'EC-2026-001', seqCode, e.n,
+        e.b.sub, e.b.pre, e.b.hk, e.b.pr, e.b.ag, e.b.so, e.b.va, e.b.pf,
+        e.b.ct + '\n' + urlB,
+        e.day, trigB,
+        'draft', false, '', false, '',
+        e.stage, 'time', 'invisible-leak', 'waitlist-b', templ + '-B',
+        JSON.stringify({ dl_id: e.dlB, utm_url: urlB, lp: 'waitlist-b', segment: 'time_founding', day: e.day })
+      ]);
+    });
+
+    var emStart = emSheet.getLastRow() + 1;
+    emSheet.getRange(emStart, 1, emRows.length, 26).setValues(emRows);
+    results.push('✓ EmailSequences seeded: ' + emRows.length + ' rows (13 emails × A+B)');
+    results.push('  SEQ-1: 3 emails · E1 day0 (welcome) · E2 day3 · E3 day6 · DL-EM-0001');
+    results.push('  SEQ-2: 5 emails · E1 day8 · E2 day12 · E3 day15 · E4 day18 · E5 day21 · DL-EM-0002');
+    results.push('  SEQ-3: 4 emails · E1 day22 · E2 day24 · E3 day27 · E4 day29 · DL-EM-0003');
+    results.push('  SEQ-4: 1 email  · E1 day35 · DL-EM-0004');
+
+    Logger.log('[fixEC2026001Emails] ' + results.join(' | '));
+    return { ok: true, results: results, email_count: emRows.length, dl_deleted: deleteCount };
+
+  } catch(e) {
+    Logger.log('[fixEC2026001Emails] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Complete EC-2026-001 seed orchestrator ────────────────────────────────────
 // Runs: emails + social body copy + Figma doc in one call.
 // Run via doPost: { "action": "seed_ec2026001_complete" }
@@ -1316,7 +1790,7 @@ function generateLPFigmaDoc() {
 function seedEC2026001Complete() {
   var log = [];
   try {
-    var em   = seedEC2026001Emails();
+    var em   = fixEC2026001Emails();
     log.push('emails: ' + (em.ok ? em.email_count + ' records' : 'ERROR — ' + em.error));
 
     var sc   = fillEC2026001SocialBody();
