@@ -127,9 +127,13 @@ var _CC_HDR = {
     'sent_at','open_rate','created_at'
   ],
   ContentCalendar: [
-    'id','campaign_id','day_number','scheduled_date','channel',
-    'asset_type','asset_id','funnel_stage','pair_id',
-    'theme','publish_day','status','dl_id','utm_url','created_at'
+    'calendar_id','asset_id','campaign_id','platform','account',
+    'publish_date','publish_time','timezone',
+    'status','approval_status','creative_status',
+    'caption','hashtags',
+    'dl_id','utm_url','figma_export_url','final_asset_url',
+    'publisher','scheduled_url','published_url','notes',
+    'created_at','updated_at'
   ],
   CampaignMetrics: [
     'id','campaign_id','week_number','report_date','channel',
@@ -2379,21 +2383,29 @@ function setPushNotification(item) {
 
 function _calRowToObj(r) {
   return {
-    id:             String(r[0]  || ''),
-    campaign_id:    String(r[1]  || ''),
-    day_number:     Number(r[2]  || 0),
-    scheduled_date: _ccFmtDate(r[3]),
-    channel:        String(r[4]  || ''),
-    asset_type:     String(r[5]  || ''),
-    asset_id:       String(r[6]  || ''),
-    funnel_stage:   String(r[7]  || ''),
-    pair_id:        String(r[8]  || ''),
-    theme:          String(r[9]  || ''),
-    publish_day:    String(r[10] || ''),
-    status:         String(r[11] || 'draft'),
-    dl_id:          String(r[12] || ''),
-    utm_url:        String(r[13] || ''),
-    created_at:     _ccFmtDate(r[14])
+    calendar_id:      String(r[0]  || ''),
+    asset_id:         String(r[1]  || ''),
+    campaign_id:      String(r[2]  || ''),
+    platform:         String(r[3]  || ''),
+    account:          String(r[4]  || ''),
+    publish_date:     _ccFmtDate(r[5]),
+    publish_time:     String(r[6]  || ''),
+    timezone:         String(r[7]  || ''),
+    status:           String(r[8]  || 'generated'),
+    approval_status:  String(r[9]  || 'pending'),
+    creative_status:  String(r[10] || 'generated'),
+    caption:          String(r[11] || ''),
+    hashtags:         String(r[12] || ''),
+    dl_id:            String(r[13] || ''),
+    utm_url:          String(r[14] || ''),
+    figma_export_url: String(r[15] || ''),
+    final_asset_url:  String(r[16] || ''),
+    publisher:        String(r[17] || ''),
+    scheduled_url:    String(r[18] || ''),
+    published_url:    String(r[19] || ''),
+    notes:            String(r[20] || ''),
+    created_at:       _ccFmtDate(r[21]),
+    updated_at:       _ccFmtDate(r[22])
   };
 }
 
@@ -2409,7 +2421,10 @@ function getContentCalendar(campaignId) {
 }
 
 function setContentCalendarEntry(item) {
-  if (!item || !item.id) return;
+  // Accepts both new schema fields and old field names (backward compat for timeline function).
+  // Old callers use: item.id, item.channel, item.scheduled_date — mapped to new columns.
+  var calId = item.calendar_id || item.id;
+  if (!calId) return;
   var sheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
   var headers = _CC_HDR.ContentCalendar;
   var now     = _ccNow();
@@ -2418,27 +2433,40 @@ function setContentCalendarEntry(item) {
   if (lastRow >= 2) {
     var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
     for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i][0]) === String(item.id)) { ex = rows[i]; break; }
+      if (String(rows[i][0]) === String(calId)) { ex = rows[i]; break; }
     }
   }
+  function _v(newKey, oldKey, exIdx, def) {
+    if (item[newKey] !== undefined) return item[newKey];
+    if (oldKey && item[oldKey] !== undefined) return item[oldKey];
+    return ex ? ex[exIdx] : (def !== undefined ? def : '');
+  }
   var row = [
-    item.id,
-    item.campaign_id    !== undefined ? item.campaign_id    : (ex ? ex[1]  : ''),
-    item.day_number     !== undefined ? item.day_number     : (ex ? ex[2]  : ''),
-    item.scheduled_date !== undefined ? item.scheduled_date : (ex ? ex[3]  : ''),
-    item.channel        !== undefined ? item.channel        : (ex ? ex[4]  : ''),
-    item.asset_type     !== undefined ? item.asset_type     : (ex ? ex[5]  : ''),
-    item.asset_id       !== undefined ? item.asset_id       : (ex ? ex[6]  : ''),
-    item.funnel_stage   !== undefined ? item.funnel_stage   : (ex ? ex[7]  : ''),
-    item.pair_id        !== undefined ? item.pair_id        : (ex ? ex[8]  : ''),
-    item.theme          !== undefined ? item.theme          : (ex ? ex[9]  : ''),
-    item.publish_day    !== undefined ? item.publish_day    : (ex ? ex[10] : ''),
-    item.status         !== undefined ? item.status         : (ex ? ex[11] : 'draft'),
-    item.dl_id          !== undefined ? item.dl_id          : (ex ? ex[12] : ''),
-    item.utm_url        !== undefined ? item.utm_url        : (ex ? ex[13] : ''),
-    ex ? ex[14] : now
+    calId,
+    _v('asset_id',         null,              1,  ''),
+    _v('campaign_id',      null,              2,  ''),
+    _v('platform',         'channel',         3,  ''),
+    _v('account',          null,              4,  ''),
+    _v('publish_date',     'scheduled_date',  5,  ''),
+    _v('publish_time',     null,              6,  ''),
+    _v('timezone',         null,              7,  ''),
+    _v('status',           null,              8,  'generated'),
+    _v('approval_status',  null,              9,  'pending'),
+    _v('creative_status',  null,              10, 'generated'),
+    _v('caption',          null,              11, ''),
+    _v('hashtags',         null,              12, ''),
+    _v('dl_id',            null,              13, ''),
+    _v('utm_url',          null,              14, ''),
+    _v('figma_export_url', null,              15, ''),
+    _v('final_asset_url',  null,              16, ''),
+    _v('publisher',        null,              17, ''),
+    _v('scheduled_url',    null,              18, ''),
+    _v('published_url',    null,              19, ''),
+    _v('notes',            'theme',           20, ''),
+    ex ? ex[21] : now,
+    now
   ];
-  _ccUpsert(sheet, headers, item.id, row);
+  _ccUpsert(sheet, headers, calId, row);
 }
 
 /**

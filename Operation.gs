@@ -869,6 +869,22 @@ function doPost(e) {
       var _rpResult = getAssetLifecycleReport();
       return respond({ ok:_rpResult.ok, result:_rpResult, log: Logger.getLog() });
     }
+    if(body.action === 'seed_ec2026001_content_calendar') {
+      var _ccSeed = seedEC2026001ContentCalendar();
+      return respond({ ok:_ccSeed.ok, result:_ccSeed, log: Logger.getLog() });
+    }
+    if(body.action === 'get_approval_queue') {
+      var _aq = getApprovalQueue();
+      return respond({ ok:_aq.ok, result:_aq, log: Logger.getLog() });
+    }
+    if(body.action === 'approve_for_scheduling') {
+      var _ap = approveForScheduling(body.calendar_id);
+      return respond({ ok:_ap.ok, result:_ap, log: Logger.getLog() });
+    }
+    if(body.action === 'content_calendar_report') {
+      var _ccr = getContentCalendarReport();
+      return respond({ ok:_ccr.ok, result:_ccr, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });

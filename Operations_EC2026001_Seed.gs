@@ -2047,6 +2047,251 @@ function getAssetLifecycleReport() {
   }
 }
 
+// ── ContentCalendar — Phase 1 & 2 ────────────────────────────────────────────
+// Phase 1: seed_ec2026001_content_calendar — populate 218 posts with publish
+//   dates, platform posting times, and initial status=generated.
+// Phase 2: get_approval_queue / approve_for_scheduling — approval gate before
+//   a post can advance to scheduled.
+//
+// Campaign window: May 27 – Jun 30, 2026 (35 days). Day 1 = May 27.
+// Posting times are Pacific defaults; override via account-level settings later.
+
+var _CAL_STATUSES    = ['generated','in_figma','designer_review','approved','scheduled','published','reported'];
+var _CAL_APPROVAL    = ['pending','approved','rejected'];
+var _CAL_POST_TIMES  = {
+  'Facebook':  '09:00', 'Instagram': '11:00', 'Pinterest': '20:00',
+  'Nextdoor':  '07:00', 'X':         '12:00', 'TikTok':    '19:00',
+  'YouTube':   '14:00', 'Email':     '09:00'
+};
+var _CAL_TZ = 'America/Los_Angeles';
+
+function seedEC2026001ContentCalendar() {
+  try {
+    var CAMPAIGN_START = new Date(2026, 4, 27); // May 27, 2026 (month 0-indexed)
+
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spLast  = spSheet.getLastRow();
+    if (spLast < 2) return { ok: false, error: 'SocialPosts empty' };
+    var spRows  = spSheet.getRange(2, 1, spLast - 1, 16).getValues();
+
+    var ccSheet  = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var headers  = _CC_HDR[_CC_TAB.CONTENT_CAL]; // 23 columns
+    var STATUS_COL   = headers.indexOf('status')          + 1;
+    var APPROVAL_COL = headers.indexOf('approval_status') + 1;
+    var CREATIVE_COL = headers.indexOf('creative_status') + 1;
+
+    // Clear all existing data rows (schema change: old milestone rows have corrupt column layout).
+    // Idempotency is re-introduced in Phase 2 once designers start filling in fields.
+    ccSheet.clearContents();
+    ccSheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    ccSheet.setFrozenRows(1);
+    ccSheet.setFrozenColumns(2);
+
+    var existingByAsset = {}; // empty — fresh write every time for now
+
+    var now     = new Date().toISOString();
+    var newRows = [];
+
+    for (var i = 0; i < spRows.length; i++) {
+      var row = spRows[i];
+      if (String(row[1]) !== 'EC-2026-001') continue;
+
+      var assetId = String(row[0]);
+      if (existingByAsset[assetId]) continue; // idempotent
+
+      var b = {};
+      try { b = JSON.parse(String(row[15])); } catch(e) {}
+
+      var day = Number(b.day) || 0;
+      var pubDate = '';
+      if (day > 0) {
+        var d = new Date(CAMPAIGN_START.getTime());
+        d.setDate(d.getDate() + (day - 1));
+        pubDate = Utilities.formatDate(d, _CAL_TZ, 'yyyy-MM-dd');
+      }
+
+      var platform = String(row[2]);
+      var calId    = 'cc-' + assetId; // e.g. cc-ec001-sp-001
+
+      newRows.push([
+        calId,                                       // calendar_id
+        assetId,                                     // asset_id
+        'EC-2026-001',                               // campaign_id
+        platform,                                    // platform
+        '',                                          // account
+        pubDate,                                     // publish_date
+        _CAL_POST_TIMES[platform] || '10:00',        // publish_time
+        _CAL_TZ,                                     // timezone
+        'generated',                                 // status
+        'pending',                                   // approval_status
+        'generated',                                 // creative_status
+        String(b.caption_opening || ''),             // caption (seed from brief)
+        '',                                          // hashtags
+        String(row[12] || b.dl_id   || ''),          // dl_id
+        String(row[13] || b.utm_url || ''),          // utm_url
+        '',                                          // figma_export_url
+        '',                                          // final_asset_url
+        '',                                          // publisher
+        '',                                          // scheduled_url
+        '',                                          // published_url
+        '',                                          // notes
+        now,                                         // created_at
+        now                                          // updated_at
+      ]);
+    }
+
+    if (newRows.length) {
+      var writeStart = ccSheet.getLastRow() + 1;
+      ccSheet.getRange(writeStart, 1, newRows.length, headers.length).setValues(newRows);
+      // Dropdown validation
+      var statusRule   = SpreadsheetApp.newDataValidation()
+        .requireValueInList(_CAL_STATUSES, true).setAllowInvalid(false).build();
+      var approvalRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(_CAL_APPROVAL, true).setAllowInvalid(false).build();
+      ccSheet.getRange(writeStart, STATUS_COL,   newRows.length, 1).setDataValidation(statusRule);
+      ccSheet.getRange(writeStart, APPROVAL_COL, newRows.length, 1).setDataValidation(approvalRule);
+      ccSheet.getRange(writeStart, CREATIVE_COL, newRows.length, 1).setDataValidation(statusRule);
+    }
+
+    var skipped = Object.keys(existingByAsset).length;
+    Logger.log('[seedEC2026001ContentCalendar] seeded:' + newRows.length + ' skipped:' + skipped);
+    return {
+      ok: true, seeded: newRows.length, skipped: skipped,
+      campaign_start: '2026-05-27', campaign_end: '2026-06-30'
+    };
+
+  } catch(e) {
+    Logger.log('[seedEC2026001ContentCalendar] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Phase 2: Approval gate ────────────────────────────────────────────────────
+
+function getApprovalQueue() {
+  try {
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = ccSheet.getLastRow();
+    if (last < 2) return { ok: true, queue: [], total: 0 };
+
+    var headers      = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var calIdCol     = headers.indexOf('calendar_id');
+    var assetCol     = headers.indexOf('asset_id');
+    var platCol      = headers.indexOf('platform');
+    var pubDateCol   = headers.indexOf('publish_date');
+    var statusCol    = headers.indexOf('status');
+    var approvalCol  = headers.indexOf('approval_status');
+    var creativeCol  = headers.indexOf('creative_status');
+    var captionCol   = headers.indexOf('caption');
+    var dlCol        = headers.indexOf('dl_id');
+
+    var data  = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
+    var queue = [];
+
+    for (var i = 0; i < data.length; i++) {
+      var r = data[i];
+      if (!r[calIdCol]) continue;
+      // Ready for Taylor approval: creative is approved, awaiting campaign approval
+      if (String(r[creativeCol]) === 'approved' && String(r[approvalCol]) === 'pending') {
+        queue.push({
+          calendar_id:     String(r[calIdCol]),
+          asset_id:        String(r[assetCol]),
+          platform:        String(r[platCol]),
+          publish_date:    String(r[pubDateCol]),
+          status:          String(r[statusCol]),
+          approval_status: 'pending',
+          creative_status: 'approved',
+          caption:         String(r[captionCol] || ''),
+          dl_id:           String(r[dlCol] || '')
+        });
+      }
+    }
+
+    Logger.log('[getApprovalQueue] queue:' + queue.length);
+    return { ok: true, queue: queue, total: queue.length };
+
+  } catch(e) {
+    Logger.log('[getApprovalQueue] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function approveForScheduling(calendarId) {
+  try {
+    if (!calendarId) return { ok: false, error: 'calendar_id required' };
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = ccSheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'ContentCalendar empty' };
+
+    var headers     = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var data        = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
+    var approvalCol = headers.indexOf('approval_status') + 1;
+    var statusCol   = headers.indexOf('status')          + 1;
+    var updatedCol  = headers.indexOf('updated_at')      + 1;
+    var now         = new Date().toISOString();
+
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][0]) === String(calendarId)) {
+        var sheetRow = i + 2;
+        if (String(data[i][headers.indexOf('approval_status')]) === 'approved') {
+          return { ok: false, error: calendarId + ' already approved' };
+        }
+        ccSheet.getRange(sheetRow, approvalCol).setValue('approved');
+        ccSheet.getRange(sheetRow, statusCol).setValue('approved');
+        ccSheet.getRange(sheetRow, updatedCol).setValue(now);
+        Logger.log('[approveForScheduling] ' + calendarId + ' → approved');
+        return { ok: true, calendar_id: calendarId, approval_status: 'approved', status: 'approved' };
+      }
+    }
+    return { ok: false, error: 'calendar_id not found: ' + calendarId };
+
+  } catch(e) {
+    Logger.log('[approveForScheduling] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function getContentCalendarReport() {
+  try {
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = ccSheet.getLastRow();
+    if (last < 2) return { ok: true, total: 0, by_status: {}, by_approval: {}, by_platform: {} };
+
+    var headers     = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var platCol     = headers.indexOf('platform');
+    var statusCol   = headers.indexOf('status');
+    var approvalCol = headers.indexOf('approval_status');
+    var data        = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
+
+    var byStatus   = {};
+    var byApproval = {};
+    var byPlatform = {};
+    _CAL_STATUSES.forEach(function(s) { byStatus[s] = 0; });
+    _CAL_APPROVAL.forEach(function(s) { byApproval[s] = 0; });
+
+    for (var i = 0; i < data.length; i++) {
+      if (!data[i][0]) continue; // skip blank rows
+      var platform = String(data[i][platCol]     || '');
+      var status   = String(data[i][statusCol]   || 'generated');
+      var approval = String(data[i][approvalCol] || 'pending');
+      byStatus[status]   = (byStatus[status]   || 0) + 1;
+      byApproval[approval] = (byApproval[approval] || 0) + 1;
+      if (!byPlatform[platform]) {
+        byPlatform[platform] = {};
+        _CAL_STATUSES.forEach(function(s) { byPlatform[platform][s] = 0; });
+      }
+      byPlatform[platform][status] = (byPlatform[platform][status] || 0) + 1;
+    }
+
+    Logger.log('[getContentCalendarReport] total:' + data.length);
+    return { ok: true, total: data.length, by_status: byStatus, by_approval: byApproval, by_platform: byPlatform };
+
+  } catch(e) {
+    Logger.log('[getContentCalendarReport] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Upgrade EC-2026-001 Design Briefs to Universal Creative Brief Schema ─────
 // Enriches design_brief JSON for all 218 posts with full UCBS fields.
 // Run via doPost: { "action": "upgrade_ec2026001_design_briefs" }
