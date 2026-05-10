@@ -134,7 +134,7 @@ var _CC_HDR = {
     'dl_id','utm_url','figma_export_url','final_asset_url',
     'publisher','scheduled_url','published_url','notes',
     'day','week','funnel_stage','emotional_stage','icp_target','experiment_id','blocked_by',
-    'created_at','updated_at'
+    'created_at','updated_at','brief_doc_url'
   ],
   CampaignMetrics: [
     'id','campaign_id','week_number','report_date','channel',

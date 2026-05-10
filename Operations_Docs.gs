@@ -227,7 +227,7 @@ function generateBriefDocs(campaignId) {
   if (!campaignId) return { ok: false, error: 'campaignId required' };
   try {
     var posts   = getSocialPosts(campaignId);
-    var brief   = getCampaignBrief(campaignId);
+    var brief   = getCampaignBriefs(campaignId);
     var theme   = brief && brief.theme ? _getThemeRow(brief.theme) : {};
     var icpRows = getIcpProfiles ? getIcpProfiles() : [];
     var icp     = icpRows.find(function(r) { return r.code === (brief && brief.icp_code); }) || {};
@@ -371,6 +371,129 @@ function generateBriefDocs(campaignId) {
     return { ok: true, created: results.length, briefs: results };
   } catch(e) {
     Logger.log('[generateBriefDocs] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── ContentCalendar Brief Docs ─────────────────────────────────────────────────
+// generateContentCalBriefDocs(campaignId) — creates one Google Doc per row in
+// ContentCalendar (not SocialPosts), writes URL back to brief_doc_url column.
+// Skips rows that already have a brief_doc_url.
+
+function generateContentCalBriefDocs(campaignId) {
+  if (!campaignId) return { ok: false, error: 'campaignId required' };
+  try {
+    var ccSheet  = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last     = ccSheet.getLastRow();
+    if (last < 2) return { ok: true, created: 0, skipped: 0 };
+
+    var headers  = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+    // Ensure brief_doc_url column exists in the sheet header row
+    var headerRow = ccSheet.getRange(1, 1, 1, headers.length).getValues()[0];
+    var briefCol  = headers.indexOf('brief_doc_url') + 1; // 1-indexed
+
+    var data = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
+
+    // Campaign Drive folder
+    var campaignFolderIds = { 'EC-2026-001': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl' };
+    var folderId = campaignFolderIds[campaignId] || '';
+    var briefFolder;
+    try {
+      if (folderId) briefFolder = DriveApp.getFolderById(folderId);
+    } catch(fe) { briefFolder = DriveApp.getRootFolder(); }
+    if (!briefFolder) briefFolder = DriveApp.getRootFolder();
+
+    var created = 0, skipped = 0;
+    var BATCH = 30; // stay well under 6-min limit
+
+    for (var i = 0; i < data.length && created < BATCH; i++) {
+      var r = data[i];
+      if (!r[0] || String(r[H.campaign_id]) !== campaignId) continue;
+      var existing = String(r[H.brief_doc_url] || '');
+      if (existing) { skipped++; continue; }
+
+      var assetId  = String(r[H.asset_id]        || '');
+      var platform = String(r[H.platform]         || '');
+      var calId    = String(r[H.calendar_id]      || '');
+      var dlId     = String(r[H.dl_id]            || '');
+      var pubDate  = String(r[H.publish_date]     || '');
+      var pubTime  = String(r[H.publish_time]     || '');
+      var funnel   = String(r[H.funnel_stage]     || '');
+      var emotion  = String(r[H.emotional_stage]  || '');
+      var icp      = String(r[H.icp_target]       || '');
+      var status   = String(r[H.status]           || '');
+      var caption  = String(r[H.caption]          || '');
+      var hashtags = String(r[H.hashtags]         || '');
+      var figma    = String(r[H.figma_export_url] || '');
+      var day      = String(r[H.day]              || '');
+      var week     = String(r[H.week]             || '');
+
+      var title = 'Brief ' + assetId + ' — ' + platform + ' — ' + funnel;
+      var doc  = DocumentApp.create(title);
+      var body = doc.getBody();
+
+      var H1 = DocumentApp.ParagraphHeading.HEADING1;
+      var H2 = DocumentApp.ParagraphHeading.HEADING2;
+
+      body.appendParagraph('ASSET BRIEF — ' + assetId).setHeading(H1);
+      body.appendParagraph('Campaign: ' + campaignId + '   ·   Platform: ' + platform);
+      body.appendParagraph(' ');
+
+      body.appendParagraph('Asset Details').setHeading(H2);
+      body.appendParagraph('Asset ID:       ' + assetId);
+      body.appendParagraph('Calendar ID:    ' + calId);
+      body.appendParagraph('DL ID:          ' + dlId);
+      body.appendParagraph('Platform:       ' + platform);
+      body.appendParagraph('Publish Date:   ' + pubDate + (pubTime ? '  ' + pubTime : ''));
+      body.appendParagraph('Campaign Day:   Day ' + day + '  ·  Week ' + week);
+      body.appendParagraph('Status:         ' + status);
+      body.appendParagraph(' ');
+
+      body.appendParagraph('Content Direction').setHeading(H2);
+      body.appendParagraph('Funnel Stage:   ' + (funnel   || '—'));
+      body.appendParagraph('Emotional Arc:  ' + (emotion  || '—'));
+      body.appendParagraph('ICP Target:     ' + (icp      || '—'));
+      body.appendParagraph(' ');
+
+      if (caption || hashtags) {
+        body.appendParagraph('Content').setHeading(H2);
+        if (caption)  body.appendParagraph('Caption:\n' + caption);
+        if (hashtags) body.appendParagraph('Hashtags:\n' + hashtags);
+        body.appendParagraph(' ');
+      }
+
+      if (figma) {
+        body.appendParagraph('Links').setHeading(H2);
+        body.appendParagraph('Figma: ' + figma);
+      }
+
+      doc.saveAndClose();
+      var docUrl = 'https://docs.google.com/document/d/' + doc.getId() + '/edit';
+
+      try {
+        var docFile = DriveApp.getFileById(doc.getId());
+        briefFolder.addFile(docFile);
+        DriveApp.getRootFolder().removeFile(docFile);
+      } catch(me) {}
+
+      // Write URL back to brief_doc_url column
+      ccSheet.getRange(i + 2, briefCol).setValue(docUrl);
+      created++;
+      Logger.log('[generateContentCalBriefDocs] ' + assetId + ' → ' + docUrl);
+    }
+
+    var remaining = 0;
+    for (var j = i; j < data.length; j++) {
+      var rj = data[j];
+      if (String(rj[H.campaign_id]) === campaignId && !String(rj[H.brief_doc_url]||'')) remaining++;
+    }
+
+    Logger.log('[generateContentCalBriefDocs] created:' + created + ' skipped:' + skipped + ' remaining:' + remaining);
+    return { ok: true, created: created, skipped: skipped, remaining: remaining };
+  } catch(e) {
+    Logger.log('[generateContentCalBriefDocs] ERROR: ' + e.message);
     return { ok: false, error: e.message };
   }
 }

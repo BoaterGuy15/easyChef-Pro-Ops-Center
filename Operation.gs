@@ -794,6 +794,10 @@ function doPost(e) {
       var _bdResult = generateBriefDocs(body.campaign_id || '');
       return respond({ ok:true, result: _bdResult, log: Logger.getLog() });
     }
+    if(body.action === 'generate_content_cal_brief_docs') {
+      var _ccbResult = generateContentCalBriefDocs(body.campaign_id || '');
+      return respond({ ok:true, result: _ccbResult, log: Logger.getLog() });
+    }
     if(body.action === 'add_lp_variant_purpose_settings') {
       addLpVariantPurposeSettings();
       return respond({ ok:true, log: Logger.getLog() });

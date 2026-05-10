@@ -2449,11 +2449,11 @@ function getCampaignCalendar(campaignId) {
       var assetId  = String(r[H.asset_id]          || '');
       var calId    = String(r[H.calendar_id]       || '');
       var dlId     = String(r[H.dl_id]             || '');
-      var figmaUrl = String(r[H.figma_export_url]  || '');
-      var pubTime  = String(r[H.publish_time]      || '');
-      var day      = Number(r[H.day]               || 0);
-      var week     = Number(r[H.week]              || 0);
-      var briefDocUrl = dlId ? (spMap[dlId] || '') : '';
+      var figmaUrl    = String(r[H.figma_export_url] || '');
+      var pubTime     = String(r[H.publish_time]    || '');
+      var day         = Number(r[H.day]             || 0);
+      var week        = Number(r[H.week]            || 0);
+      var briefDocUrl = String(r[H.brief_doc_url]   || '') || (dlId ? (spMap[dlId] || '') : '');
       var blockedReason = _computeBlockedReason(r, H);
       var isBlocked = !!(blockedReason && blockedReason !== 'in production');
 
