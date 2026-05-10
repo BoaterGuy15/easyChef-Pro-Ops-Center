@@ -2400,6 +2400,25 @@ function getCampaignCalendar(campaignId) {
 
     var sheetId  = ccSheet.getParent().getId();
     var sheetGid = ccSheet.getSheetId();
+
+    // Build dl_id → design_brief URL map from SocialPosts
+    var spMap = {};
+    try {
+      var spSheet2 = _getCCSheet(_CC_TAB.SOCIAL);
+      var spLast2  = spSheet2.getLastRow();
+      if (spLast2 >= 2) {
+        var spHdrs2 = _CC_HDR[_CC_TAB.SOCIAL];
+        var spH2 = {};
+        spHdrs2.forEach(function(h, i) { spH2[h] = i; });
+        var spData2 = spSheet2.getRange(2, 1, spLast2 - 1, spHdrs2.length).getValues();
+        spData2.forEach(function(row) {
+          var dlId2     = String(row[spH2.dl_id]       || '');
+          var briefUrl2 = String(row[spH2.design_brief] || '');
+          if (dlId2 && briefUrl2) spMap[dlId2] = briefUrl2;
+        });
+      }
+    } catch(se) { Logger.log('[getCampaignCalendar] spMap error: ' + se.message); }
+
     var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
     var H = {};
     headers.forEach(function(h, i) { H[h] = i; });
@@ -2427,11 +2446,14 @@ function getCampaignCalendar(campaignId) {
       var approval = String(r[H.approval_status] || 'pending');
       var emotion  = String(r[H.emotional_stage] || '');
       var funnel   = String(r[H.funnel_stage]    || '');
-      var assetId  = String(r[H.asset_id]        || '');
-      var calId    = String(r[H.calendar_id]     || '');
-      var pubTime  = String(r[H.publish_time]    || '');
-      var day      = Number(r[H.day]             || 0);
-      var week     = Number(r[H.week]            || 0);
+      var assetId  = String(r[H.asset_id]          || '');
+      var calId    = String(r[H.calendar_id]       || '');
+      var dlId     = String(r[H.dl_id]             || '');
+      var figmaUrl = String(r[H.figma_export_url]  || '');
+      var pubTime  = String(r[H.publish_time]      || '');
+      var day      = Number(r[H.day]               || 0);
+      var week     = Number(r[H.week]              || 0);
+      var briefDocUrl = dlId ? (spMap[dlId] || '') : '';
       var blockedReason = _computeBlockedReason(r, H);
       var isBlocked = !!(blockedReason && blockedReason !== 'in production');
 
@@ -2439,10 +2461,11 @@ function getCampaignCalendar(campaignId) {
         days[dateKey] = { date: dateKey, day: day, week: week, posts: [], total: 0, published: 0, approved: 0, blocked: 0 };
       }
       days[dateKey].posts.push({
-        asset_id: assetId, calendar_id: calId, platform: platform,
+        asset_id: assetId, calendar_id: calId, dl_id: dlId, platform: platform,
         status: status, creative_status: creative, approval_status: approval,
         emotional_stage: emotion, funnel_stage: funnel, publish_time: pubTime,
         blocked: isBlocked, blocked_reason: blockedReason,
+        figma_url: figmaUrl, brief_doc_url: briefDocUrl,
         sheet_row: sheetRow
       });
       days[dateKey].total++;

@@ -325,7 +325,7 @@
       Object.keys(calData.days).forEach(function(dk){
         var day=calData.days[dk];
         day.posts.forEach(function(p){
-          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
+          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',dl_id:p.dl_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,figma_url:p.figma_url||'',brief_doc_url:p.brief_doc_url||'',date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
           posts.push(post);
           POST_REGISTRY[p.asset_id]=post;
         });
@@ -618,17 +618,17 @@
         rows+=pmRow('Reason', p.blocked_reason||'No reason recorded', 'red');
       }
 
-      // Links — Google Sheet row live; others stubbed for next phase
+      // Links
       var sheetUrl=null;
       if(SHEET_ID&&SHEET_GID&&p.sheet_row){
         sheetUrl='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid='+SHEET_GID+'&range=A'+p.sheet_row;
       }
       rows+='<div class="pm-section">Linked Assets</div>';
       rows+='<div class="pm-links">'+
-        pmLink('Figma', null)+
+        pmLink('Figma', p.figma_url||null)+
         pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', DRIVE_FOLDER_URL||null)+
-        pmLink('Brief Doc', null)+
+        pmLink('Brief Doc', p.brief_doc_url||null)+
       '</div>';
 
       document.getElementById('pm-body').innerHTML=rows;
