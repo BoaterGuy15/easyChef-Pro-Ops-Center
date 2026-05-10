@@ -285,26 +285,129 @@ function _seedICPProfiles(sheet) {
 
 function _seedApprovedClaims(sheet) {
   if (!sheet) return;
-  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
-  [
-    ['annual_savings',   'savings',      '$1,336/year — never $1,500',                              true, 'Taylor','',''],
-    ['food_waste',       'waste',        '69.5% — never 70%',                                       true, 'Taylor','',''],
-    ['fridge_to_table',  'speed',        '30 minutes fridge to table',                              true, 'Taylor','',''],
-    ['technologies',     'product',      '9 patent-pending technologies — never "9 patents"',       true, 'Taylor','',''],
-    ['database',         'product',      '800,000 products',                                        true, 'Taylor','',''],
-    ['recipes',          'product',      '10,000 recipe pages at launch',                           true, 'Taylor','',''],
-    ['dietitians',       'credibility',  'registered dietitians — word "registered" required',      true, 'Taylor','',''],
-    ['profiles',         'validation',   'validated across 10,000 household profiles',              true, 'Taylor','',''],
-    ['founding_discount','pricing',      '60% off — never 50% off',                                 true, 'Taylor','',''],
-    ['founding_price',   'pricing',      '$7.99/month founding price',                              true, 'Taylor','',''],
-    ['standard_price',   'pricing',      '$19.99/month',                                            true, 'Taylor','',''],
-    ['annual_price',     'pricing',      '$191.88/year ($15.99/month)',                             true, 'Taylor','',''],
-    ['origin',           'brand',        'Built by first responders',                               true, 'Taylor','',''],
-    ['roi_framing',      'roi',          '$10/$111 (11:1 ROI)',                                     false,'',     '','PENDING APPROVAL'],
-    ['reddit_tone',      'channel_rule', 'Reddit: community-first tone — never direct promotion',  true, 'Taylor','','']
-  ].forEach(function(row) {
-    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
-  });
+  _ccHdrStyle(sheet, _CC_HDR.ApprovedClaims);
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
+  var rows = [
+    // ACTIVE
+    ['annual_savings',         'savings',      '$1,336/year average savings — never say $1,500',                                                                              'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['monthly_savings',        'savings',      'Families save an average of $111 a month — that is $1,336 a year',                                                            'ACTIVE',       'Taylor','2026-05-09','Derived from annual_savings'],
+    ['roi_standard',           'roi',          'easyChef Pro costs $20 a month. Families save an average of $111. The app pays for itself — five times over.',                'ACTIVE',       'Taylor','2026-05-09','Standard price ROI'],
+    ['roi_founding',           'roi',          'At founding price easyChef Pro is $8 a month. Families save an average of $111. That is over $100 back every month.',         'ACTIVE',       'Taylor','2026-05-09','Founding price ROI — retire at 5,000 families'],
+    ['food_waste',             'waste',        '69.5% less food waste — never say 70%',                                                                                       'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['fridge_to_table',        'speed',        '30 minutes fridge to table',                                                                                                  'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['database',               'product',      '800,000 products in our database',                                                                                            'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['dietitians',             'credibility',  'Registered dietitians — the word registered is always required',                                                              'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['profiles',               'validation',   'Validated across 10,000 household profiles',                                                                                  'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['recipes',                'product',      '10,000 recipe pages at launch',                                                                                               'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['kitchen_in_command',     'positioning',  'Your kitchen in command',                                                                                                     'ACTIVE',       'Taylor','2026-05-03','Brand tagline — locked'],
+    ['origin',                 'brand',        'Built by first responders',                                                                                                   'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['origin_full',            'brand',        'Built by firefighters and paramedics',                                                                                        'ACTIVE',       'Taylor','2026-05-03','Full version of origin claim'],
+    ['technologies',           'product',      '9 patent-pending technologies — never say 9 patents',                                                                         'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['founding_price',         'pricing',      '$7.99 per month founding price',                                                                                              'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['founding_discount',      'pricing',      '60% off — never say 50% off',                                                                                                'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['standard_price',         'pricing',      '$19.99 per month',                                                                                                           'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['annual_price',           'pricing',      '$191.88 per year — $15.99 per month',                                                                                        'ACTIVE',       'Taylor','2026-05-03','Core approved claim'],
+    ['reddit_tone',            'channel_rule', 'Reddit: community-first tone — never direct promotion',                                                                      'ACTIVE',       'Taylor','2026-05-05','Channel rule'],
+    // PENDING
+    ['waste_equals_money',     'savings',      'The average family throws away $111 in groceries every single month — easyChef Pro closes that leak',                         'PENDING',      'Taylor','','Ties savings to waste'],
+    ['grocery_bill',           'savings',      'Your grocery bill goes down because your shopping list only includes what you actually need',                                  'PENDING',      'Taylor','',''],
+    ['no_overbuy',             'savings',      'Never buy what you already have — easyChef Pro checks your kitchen before it builds your list',                               'PENDING',      'Taylor','',''],
+    ['spoilage_prevention',    'waste',        'easyChef Pro plans meals around what is about to expire — food gets used before it goes bad',                                 'PENDING',      'Taylor','',''],
+    ['nothing_forgotten',      'waste',        'Nothing gets forgotten at the back of the fridge anymore',                                                                    'PENDING',      'Taylor','',''],
+    ['use_what_you_have',      'waste',        'Every meal plan starts with what you already own — not what you need to buy',                                                 'PENDING',      'Taylor','',''],
+    ['fridge_awareness',       'waste',        'easyChef Pro knows what is in your fridge before you open it',                                                               'PENDING',      'Taylor','',''],
+    ['dinner_decided',         'speed',        'Dinner is already decided before you open the fridge',                                                                        'PENDING',      'Taylor','',''],
+    ['no_decision_wall',       'speed',        'No more standing at the fridge at 6:30 PM wondering what to make',                                                           'PENDING',      'Taylor','','Super mom anchor moment'],
+    ['faster_than_takeout',    'speed',        'Getting dinner on the table is faster than ordering it',                                                                      'PENDING',      'Taylor','',''],
+    ['sunday_reset',           'speed',        'Plan the whole week in one sitting — Sunday sorted every other night handled',                                                'PENDING',      'Taylor','',''],
+    ['grocery_scanning_free',  'product',      'Scanning your groceries into your pantry is always free — no subscription needed to get started',                            'PENDING',      'Taylor','','Addresses MFP #1 complaint'],
+    ['photo_recognition',      'product',      'Take a photo of any food or meal — easyChef Pro finds it in our verified database and gives you a recipe built on facts not guesswork', 'PENDING', 'Taylor','','Confirmed capability'],
+    ['receipt_scan',           'product',      'Scan your grocery receipt and your pantry updates itself automatically',                                                      'PENDING',      'Taylor','',''],
+    ['auto_pantry_update',     'product',      'Your pantry updates every time you cook a meal or groceries arrive',                                                          'PENDING',      'Taylor','',''],
+    ['expiry_tracking',        'product',      'easyChef Pro tracks expiry dates so food gets used before it goes bad',                                                       'PENDING',      'Taylor','',''],
+    ['knows_your_kitchen',     'product',      'easyChef Pro always knows what is in your kitchen — you never have to check',                                                 'PENDING',      'Taylor','',''],
+    ['no_food_logging',        'product',      'Your pantry updates itself — no daily food logging required',                                                                 'PENDING',      'Taylor','','Addresses MFP #3 complaint'],
+    ['three_ingredients',      'product',      'Tell easyChef Pro three things in your fridge and it shows you tonight\'s dinner',                                            'PENDING',      'Taylor','','Onboarding hook'],
+    ['setup_time',             'product',      'Your kitchen is set up and running in under 10 minutes',                                                                      'PENDING',      'Taylor','',''],
+    ['weekly_meal_plan',       'product',      'A full week of dinners planned around what you already have in your kitchen',                                                 'PENDING',      'Taylor','',''],
+    ['pantry_first_planning',  'product',      'Your meal plan is built from your fridge and pantry first — shopping comes after',                                            'PENDING',      'Taylor','',''],
+    ['schedule_aware',         'product',      'easyChef Pro knows your busy nights — shorter prep times when you need them',                                                 'PENDING',      'Taylor','','Experience page anchor'],
+    ['adaptive_planning',      'product',      'Your meal plan adapts to your week — not the other way around',                                                               'PENDING',      'Taylor','',''],
+    ['no_repeat_meals',        'product',      'easyChef Pro remembers what your family has eaten recently — no repetitive dinners',                                          'PENDING',      'Taylor','',''],
+    ['comfort_food',           'product',      'Still makes room for the comfort food nights — easyChef Pro plans around real life not a perfect diet',                       'PENDING',      'Taylor','',''],
+    ['quick_meals',            'product',      'Knows when you need a quick dinner — shorter prep times automatically on your busy nights',                                   'PENDING',      'Taylor','',''],
+    ['six_nutrition_dimensions','nutrition',   'Every meal scored across 6 nutrition dimensions — not just calories',                                                         'PENDING',      'Taylor','',''],
+    ['fda_grade',              'credibility',  'FDA-grade nutrition data — the same standard doctors and dietitians use',                                                     'PENDING',      'Taylor','',''],
+    ['verified_nutrition',     'credibility',  'Every food in our database is verified by registered dietitians — not submitted by strangers',                                'PENDING',      'Taylor','','Addresses MFP #2 complaint'],
+    ['nutrition_you_can_trust','credibility',  'Nutrition numbers you can trust — verified not guessed',                                                                      'PENDING',      'Taylor','',''],
+    ['deterministic_data',     'credibility',  'The same food gives the same verified answer every time — no guessing just facts',                                            'PENDING',      'Taylor','',''],
+    ['health_conditions',      'product',      'Handles diabetes allergies and heart health restrictions in one place — tell us once never repeat it',                        'PENDING',      'Taylor','',''],
+    ['family_memory',          'product',      'Tell easyChef Pro about your family once — allergies health needs food preferences — it never forgets',                       'PENDING',      'Taylor','',''],
+    ['allergy_safe',           'product',      'Allergy restrictions stored permanently — every meal suggestion is safe for your family',                                     'PENDING',      'Taylor','',''],
+    ['sodium_tracking',        'nutrition',    'Tracks sodium for heart health — meal plans that respect your doctor\'s guidance',                                            'PENDING',      'Taylor','',''],
+    ['macro_tracking',         'nutrition',    'Tracks protein carbs and fat across every meal your family eats',                                                             'PENDING',      'Taylor','',''],
+    ['calorie_accuracy',       'nutrition',    'Calorie counts your family can actually trust — verified against 800,000 products',                                           'PENDING',      'Taylor','',''],
+    ['no_generic_advice',      'nutrition',    'Nutrition recommendations built around your family\'s real health needs — not generic guidance',                               'PENDING',      'Taylor','',''],
+    ['nutrition_steers',       'nutrition',    'easyChef Pro quietly steers your family toward healthier choices — without changing how you cook',                            'PENDING',      'Taylor','',''],
+    ['picky_eater',            'product',      'Handles the picky eater in your family — tell easyChef Pro what they will not eat and it never suggests it',                 'PENDING',      'Taylor','',''],
+    ['fridge_to_recipe',       'product',      'Turn what is already in your fridge into tonight\'s dinner in 30 minutes',                                                   'PENDING',      'Taylor','',''],
+    ['recipe_from_what_you_have','product',    'Every recipe is built from ingredients you already own — not a list of things to go buy',                                    'PENDING',      'Taylor','',''],
+    ['step_by_step',           'product',      'Step by step cooking instructions — everything you need from first chop to last plate',                                       'PENDING',      'Taylor','',''],
+    ['cook_mode',              'product',      'Hands-free cook mode — follow step by step instructions while your hands are busy cooking',                                   'PENDING',      'Taylor','',''],
+    ['verified_recipes',       'credibility',  'Every recipe in easyChef Pro is built on verified nutrition data — the numbers are always right',                             'PENDING',      'Taylor','',''],
+    ['recipe_to_cart',         'product',      'One click adds every ingredient from any recipe straight to your shopping list',                                              'PENDING',      'Taylor','',''],
+    ['shopping_list_auto',     'product',      'Your shopping list builds itself from your meal plan — using what you already have first then listing only what is missing',  'PENDING',      'Taylor','',''],
+    ['pantry_first_shopping',  'product',      'easyChef Pro checks your pantry and fridge first — your shopping list only shows what you actually need to buy',             'PENDING',      'Taylor','',''],
+    ['one_click_checkout',     'product',      'One-click checkout at Walmart — more grocery stores coming',                                                                  'PENDING',      'Taylor','','Walmart only currently'],
+    ['grocery_stores_growing', 'product',      'Shop from your list with one tap — Walmart today more stores added regularly',                                                'PENDING',      'Taylor','',''],
+    ['shared_grocery_list',    'product',      'Share your grocery list with anyone — it updates in real time so everyone sees the same list',                                'PENDING',      'Taylor','','Confirmed capability'],
+    ['family_shopping',        'product',      'One grocery list shared across your whole family — anyone can add to it everyone sees it instantly',                          'PENDING',      'Taylor','',''],
+    ['no_duplicate_buying',    'product',      'No more buying a second jar of something you already have — your list knows your kitchen',                                    'PENDING',      'Taylor','',''],
+    ['list_quantity',          'product',      'Your shopping list shows exact quantities — no guessing how much to buy',                                                     'PENDING',      'Taylor','',''],
+    ['less_trips',             'product',      'Fewer trips to the grocery store — your list covers the whole week in one shop',                                              'PENDING',      'Taylor','',''],
+    ['one_app',                'positioning',  'One app replaces five — NoWaste Mealime MyFitnessPal Pinterest and Instacart',                                               'PENDING',      'Taylor','','Five app claim — core position'],
+    ['full_loop',              'positioning',  'TRACK PLAN OPTIMIZE COOK SHOP — one closed loop every week',                                                                 'PENDING',      'Taylor','','Always 5 stages never 4'],
+    ['only_app',               'positioning',  'easyChef Pro is the only food app you need',                                                                                 'PENDING',      'Taylor','','Category claim'],
+    ['no_tracking',            'positioning',  'easyChef Pro does not track your food. It manages it.',                                                                      'PENDING',      'Taylor','','vs MFP positioning'],
+    ['outcomes_not_dashboards','positioning',  'easyChef Pro does not show you charts — it shows you tonight\'s dinner',                                                     'PENDING',      'Taylor','','Addresses MFP #10'],
+    ['loop_closes',            'positioning',  'The loop closes. Every week.',                                                                                               'PENDING',      'Taylor','',''],
+    ['not_a_meal_planner',     'positioning',  'easyChef Pro is not a meal planner — it is the only app that runs the whole kitchen',                                        'PENDING',      'Taylor','',''],
+    ['not_a_calorie_tracker',  'positioning',  'easyChef Pro is not a calorie tracker — it tells you what to cook not what you ate',                                         'PENDING',      'Taylor','','vs MyFitnessPal'],
+    ['closes_the_loop',        'positioning',  'Every other food app handles one step — easyChef Pro handles all five',                                                      'PENDING',      'Taylor','',''],
+    ['no_ads',                 'brand',        'easyChef Pro never shows ads — not now not ever',                                                                            'PENDING',      'Taylor','','Brand principle'],
+    ['no_credit_card',         'trial',        '7-day free trial — no credit card needed to get started',                                                                    'PENDING',      'Taylor','','Updated: reflects 7-day trial not free tier'],
+    ['command_structure',      'brand',        'Built by people who spent 30 years running systems under pressure — now running yours',                                       'PENDING',      'Taylor','','Firefighter origin story'],
+    ['modern_design',          'brand',        'Built from the ground up in 2026 — not a 2016 app with a new coat of paint',                                                 'PENDING',      'Taylor','','vs MFP UX complaint'],
+    ['built_right',            'credibility',  'Three years in development — nine inventions filed with the USPTO before a single family used it',                           'PENDING',      'Taylor','',''],
+    ['no_hallucination',       'credibility',  'Every nutrition number comes from a verified source — easyChef Pro never makes up data',                                     'PENDING',      'Taylor','','Trust claim vs AI apps'],
+    ['works_on_phone',         'product',      'Works on iPhone and Android',                                                                                                'PENDING',      'Taylor','',''],
+    ['whole_family',           'product',      'One app for the whole family — everyone\'s preferences restrictions and needs in one place',                                  'PENDING',      'Taylor','',''],
+    ['encouraging_voice',      'brand',        'Designed to encourage not shame — no guilt for what you ate yesterday',                                                      'PENDING',      'Taylor','','Addresses MFP guilt complaint'],
+    ['founding_scarcity',      'pricing',      'Founding price locks in forever for the first 5,000 families — after that the price goes to $19.99',                         'PENDING',      'Taylor','','Scarcity is real — hard close at 5,000'],
+    ['seven_day_trial',        'trial',        'Try easyChef Pro free for 7 days — full access from your first night — no credit card',                                      'PENDING',      'Taylor','','Replaces free_is_full — no free tier exists'],
+    ['peaceful_evenings',      'outcome',      'Dinner handled before you walk in the door — evenings back for your family',                                                  'PENDING',      'Taylor','',''],
+    ['less_stress',            'outcome',      'The mental load of running a kitchen — gone',                                                                                 'PENDING',      'Taylor','',''],
+    ['back_to_cooking',        'outcome',      'easyChef Pro handles the logistics — you handle the cooking',                                                                 'PENDING',      'Taylor','','Kitchen Director framing'],
+    ['proud_table',            'outcome',      'Sit down to dinner feeling proud of what is on the table',                                                                    'PENDING',      'Taylor','',''],
+    ['decision_free',          'outcome',      'No more daily food decisions — easyChef Pro makes them for you',                                                              'PENDING',      'Taylor','',''],
+    ['trial_full_access',      'trial',        'Your 7-day trial runs the complete loop — TRACK PLAN OPTIMIZE COOK SHOP — every feature on from night one',                  'PENDING',      'Taylor','','No stripped version — trial IS the real product'],
+    ['trial_no_limits',        'trial',        'No limited version. No stripped features. The trial is the real product.',                                                   'PENDING',      'Taylor','',''],
+    ['trial_converts',         'trial',        'By Day 7 you have already planned meals saved food and used the shopping list — the decision to keep it is easy',             'PENDING',      'Taylor','','Trial designed to reach Tipping Point by Day 7'],
+    ['trial_vs_competitors',   'positioning',  'Every other app makes you pay before you believe. easyChef Pro gives you 7 days to find out for yourself.',                  'PENDING',      'Taylor','',''],
+    ['founding_trial',         'pricing',      'Start your 7-day free trial today — lock in founding price at $7.99 a month before the 5,000 spots are gone',               'PENDING',      'Taylor','','Combines trial + founding urgency'],
+    // LEGAL REVIEW
+    ['guilt_free',             'positioning',  'Nutrition without guilt — built to coach not judge',                                                                          'LEGAL_REVIEW', '','','Emotional health claim — legal review required'],
+    ['health_goals',           'outcomes',     '87.5% of households reach the health goals easyChef Pro suggests',                                                            'LEGAL_REVIEW', '','','Pending Taylor + legal'],
+    ['glp1_support',           'product',      'Supports GLP-1 medication nutrition needs — meal plans that work with your treatment',                                        'LEGAL_REVIEW', '','','Medical territory'],
+    ['postpartum',             'product',      'Postpartum nutrition mode — meal plans designed for what your body needs after birth',                                        'LEGAL_REVIEW', '','','Medical territory'],
+    ['coaching_not_judging',   'brand',        'easyChef Pro coaches your family toward better eating — it never judges what you had for dinner',                             'LEGAL_REVIEW', '','','Emotional health claim'],
+    // BUILD NEEDED
+    ['voice_logging',          'product',      'Add ingredients to your pantry hands-free while you cook',                                                                    'BUILD_NEEDED', '','','Product build not yet confirmed'],
+    ['apple_health',           'product',      'Syncs with Apple Health — your food and fitness in one place nothing lost',                                                   'BUILD_NEEDED', '','','Integration TBD']
+  ];
+  if (rows.length > 0) sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  Logger.log('[_seedApprovedClaims] Seeded ' + rows.length + ' claims');
 }
 
 function _seedDeepLinkRegistry(sheet) {
@@ -750,9 +853,11 @@ function setIcpProfile(item) {
 // ── ApprovedClaims ────────────────────────────────────────────────────────────
 
 function _claimRowToObj(r) {
+  var statusRaw = r[3] === true ? 'ACTIVE' : r[3] === false ? 'PENDING' : String(r[3] || '');
   return {
     id: r[0], claim_type: r[1], exact_wording: r[2],
-    approved: r[3] === true || String(r[3]).toLowerCase() === 'true',
+    status: statusRaw,
+    approved: statusRaw === 'ACTIVE' || statusRaw === 'true' || r[3] === true,
     approved_by: r[4], approved_date: _ccFmtDate(r[5]), notes: r[6]
   };
 }
