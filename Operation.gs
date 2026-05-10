@@ -789,6 +789,14 @@ function doPost(e) {
       var _bdResult = generateBriefDocs(body.campaign_id || '');
       return respond({ ok:true, result: _bdResult, log: Logger.getLog() });
     }
+    if(body.action === 'add_lp_variant_purpose_settings') {
+      addLpVariantPurposeSettings();
+      return respond({ ok:true, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_ec_2026_001') {
+      var _seedResult = seedEC2026001();
+      return respond({ ok:_seedResult.ok, result:_seedResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
