@@ -222,7 +222,8 @@ var _7_STEP_FRAMEWORK =
 var _BRAND_VOICE_RULES =
   '=== BRAND VOICE — NON-NEGOTIABLE RULES ===\n' +
   'FORBIDDEN WORDS — never write any of these:\n' +
-  '  × optimize / optimized / optimizing\n' +
+  '  × optimize / optimized / optimizing — as a generic verb (e.g. "optimize your meals");\n' +
+  '    EXCEPTION: "OPTIMIZE screen" and "the OPTIMIZE feature" (the five-stage loop label) are allowed\n' +
   '  × seamless / frictionless\n' +
   '  × leverage / leveraging\n' +
   '  × ecosystem\n' +

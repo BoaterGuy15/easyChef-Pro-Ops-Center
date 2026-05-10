@@ -3366,7 +3366,7 @@ function _seedBrandDoctrine(sheet) {
     ['SCRIPT_ORDER_001', 'technical', 'hard', true,
       '{"order":["convert.com","clarity","ga4"],"install_location":"head"}'],
     ['VOICE_FORBIDDEN_001', 'voice_control', 'soft', true,
-      '{"forbidden_words":["revolutionary","game-changing","optimize","seamless","leverage","ecosystem","effortlessly","the app","pain points"],"forbidden_figures":["$1,500","$1500","$112","70%","50% off","Built by parents"],"banned_names":["Sarah","Lisa","Jennifer"]}'],
+      '{"forbidden_words":["revolutionary","game-changing","optimize (as verb — e.g. optimize your meals)","seamless","leverage","ecosystem","effortlessly","the app","pain points"],"forbidden_figures":["$1,500","$1500","$112","70%","50% off","Built by parents"],"banned_names":["Sarah","Lisa","Jennifer"],"optimize_exception":"OPTIMIZE screen and the OPTIMIZE feature label (the five-stage loop) are allowed"}'],
     ['VOICE_REQUIRED_001', 'voice_control', 'soft', true,
       '{"product_name":"easyChef Pro","required_phrases":["easyChef Pro","Built by first responders"],"approved_savings":"$1,336/year","approved_waste":"69.5%","approved_time":"30 minutes","approved_founding_discount":"60% off","monthly_savings_note":"$111 requires word average in body copy"}'],
     ['APPROVED_CLAIMS_001', 'compliance', 'hard', true,
