@@ -2382,6 +2382,47 @@ function setPushNotification(item) {
 
 // ── ContentCalendar ───────────────────────────────────────────────────────────
 
+// updateContentCalField — write creative_status or approval_status for one asset.
+// Whitelisted to only those two fields to prevent arbitrary sheet writes.
+function updateContentCalField(assetId, field, value) {
+  var ALLOWED = {
+    creative_status: ['generated','in_figma','designer_review','approved'],
+    approval_status: ['pending','approved','rejected']
+  };
+  if (!assetId)              return { ok: false, error: 'assetId required' };
+  if (!ALLOWED[field])       return { ok: false, error: 'field not allowed: ' + field };
+  if (ALLOWED[field].indexOf(value) === -1) return { ok: false, error: 'invalid value: ' + value };
+
+  try {
+    var sheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = sheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'ContentCalendar empty' };
+
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+
+    var assetCol   = H.asset_id   + 1;
+    var fieldCol   = H[field]     + 1;
+    var updatedCol = H.updated_at + 1;
+
+    var ids = sheet.getRange(2, assetCol, last - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === String(assetId)) {
+        var row = i + 2;
+        sheet.getRange(row, fieldCol).setValue(value);
+        sheet.getRange(row, updatedCol).setValue(new Date());
+        Logger.log('[updateContentCalField] ' + assetId + '.' + field + ' → ' + value);
+        return { ok: true, asset_id: assetId, field: field, value: value, row: row };
+      }
+    }
+    return { ok: false, error: 'asset not found: ' + assetId };
+  } catch(e) {
+    Logger.log('[updateContentCalField] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 function _calRowToObj(r) {
   return {
     calendar_id:      String(r[0]  || ''),

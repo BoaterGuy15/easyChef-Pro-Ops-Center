@@ -199,6 +199,26 @@
     .pm-link.ready { border-color: #0a84ff; color: #0a84ff; cursor: pointer; background: rgba(10,132,255,0.08); }
     .pm-link.ready:hover { background: rgba(10,132,255,0.16); }
     .pm-link .pm-link-tag { font-size: 8px; color: #333; text-transform: uppercase; letter-spacing: 0.6px; margin-left: 4px; }
+    /* Status pickers */
+    .pm-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .pm-pick { padding: 5px 12px; border-radius: 7px; border: 1px solid #2a2a2e; background: #0e0e10; font-size: 11px; font-weight: 500; font-family: inherit; cursor: pointer; color: #555; transition: all 0.12s; }
+    .pm-pick:hover { border-color: #3a3a3e; color: #aaa; }
+    .pm-pick.current { font-weight: 700; cursor: default; }
+    .pm-pick.cs-generated  { border-color: #3a3a3a; color: #666; }
+    .pm-pick.cs-in_figma   { border-color: #0a4a8a; color: #3a7aff; }
+    .pm-pick.cs-designer_review { border-color: #6a5a00; color: #ffd60a; }
+    .pm-pick.cs-approved   { border-color: #0a5a1a; color: #32d74b; }
+    .pm-pick.as-pending    { border-color: #3a3a3a; color: #666; }
+    .pm-pick.as-approved   { border-color: #0a5a1a; color: #32d74b; }
+    .pm-pick.as-rejected   { border-color: #5a0a0a; color: #ff453a; }
+    .pm-pick.current.cs-generated  { background: rgba(58,58,58,0.3); }
+    .pm-pick.current.cs-in_figma   { background: rgba(10,74,138,0.3); }
+    .pm-pick.current.cs-designer_review { background: rgba(106,90,0,0.3); }
+    .pm-pick.current.cs-approved   { background: rgba(10,90,26,0.3); }
+    .pm-pick.current.as-pending    { background: rgba(58,58,58,0.3); }
+    .pm-pick.current.as-approved   { background: rgba(10,90,26,0.3); }
+    .pm-pick.current.as-rejected   { background: rgba(90,10,10,0.3); }
+    .pm-save-msg { font-size: 11px; margin-top: 6px; min-height: 16px; color: #32d74b; }
     .post-row { cursor: pointer; transition: background 0.1s; border-radius: 4px; }
     .post-row:hover { background: #1e1e22; }
     .post-row-sm { cursor: pointer; transition: background 0.1s; border-radius: 4px; padding-left: 4px; padding-right: 4px; }
@@ -618,6 +638,18 @@
         rows+=pmRow('Reason', p.blocked_reason||'No reason recorded', 'red');
       }
 
+      // Status pickers
+      rows+='<div class="pm-section">Update Status</div>';
+      rows+='<div style="margin-bottom:10px">';
+      rows+='<div class="pm-lbl" style="margin-bottom:6px">Creative Status</div>';
+      rows+='<div class="pm-picker">'+renderPicker('creative_status',CS_OPTS,'cs',p.creative_status||'generated',p.asset_id)+'</div>';
+      rows+='</div>';
+      rows+='<div style="margin-bottom:10px">';
+      rows+='<div class="pm-lbl" style="margin-bottom:6px">Approval Status</div>';
+      rows+='<div class="pm-picker">'+renderPicker('approval_status',AS_OPTS,'as',p.approval_status||'pending',p.asset_id)+'</div>';
+      rows+='</div>';
+      rows+='<div class="pm-save-msg" id="pm-save-msg"></div>';
+
       // Links
       var sheetUrl=null;
       if(SHEET_ID&&SHEET_GID&&p.sheet_row){
@@ -649,6 +681,45 @@
     function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}
 
     function closePostModal(){document.getElementById('pm-overlay').className='pm-overlay';}
+
+    // ── Status update ─────────────────────────────────────────────────────────
+    var CS_OPTS=[{v:'generated',l:'Generated'},{v:'in_figma',l:'In Figma'},{v:'designer_review',l:'Designer Review'},{v:'approved',l:'Approved'}];
+    var AS_OPTS=[{v:'pending',l:'Pending'},{v:'approved',l:'Approved'},{v:'rejected',l:'Rejected'}];
+
+    function renderPicker(field, opts, prefix, current, assetId){
+      return opts.map(function(o){
+        var isCur=o.v===current;
+        var cls='pm-pick '+prefix+'-'+o.v+(isCur?' current':'');
+        var click=isCur?'':' onclick="updatePostField(\''+assetId+'\',\''+field+'\',\''+o.v+'\')"';
+        return '<button class="'+cls+'"'+click+'>'+o.l+'</button>';
+      }).join('');
+    }
+
+    function updatePostField(assetId, field, value){
+      var msg=document.getElementById('pm-save-msg');
+      if(msg){msg.style.color='#666';msg.textContent='Saving…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok){
+            // Update local registry
+            if(POST_REGISTRY[assetId]) POST_REGISTRY[assetId][field]=value;
+            // Re-open modal to reflect new state
+            openPostModal(assetId);
+            var m=document.getElementById('pm-save-msg');
+            if(m){m.style.color='#32d74b';m.textContent='✓ Saved';}
+            // Refresh dashboard data after a short delay
+            setTimeout(function(){if(calData)applyAndRender();},600);
+          } else {
+            var m=document.getElementById('pm-save-msg');
+            if(m){m.style.color='#ff453a';m.textContent='Error: '+(r&&r.error?r.error:'unknown');}
+          }
+        })
+        .withFailureHandler(function(e){
+          var m=document.getElementById('pm-save-msg');
+          if(m){m.style.color='#ff453a';m.textContent='Connection error';}
+        })
+        .updateContentCalField(assetId, field, value);
+    }
 
     // ── Load ──────────────────────────────────────────────────────────────────
     function loadDashboard(){

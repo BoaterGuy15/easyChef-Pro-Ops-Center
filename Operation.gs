@@ -798,6 +798,10 @@ function doPost(e) {
       var _ccbResult = generateContentCalBriefDocs(body.campaign_id || '');
       return respond({ ok:true, result: _ccbResult, log: Logger.getLog() });
     }
+    if(body.action === 'update_content_cal_field') {
+      var _ucfResult = updateContentCalField(body.asset_id||'', body.field||'', body.value||'');
+      return respond({ ok:_ucfResult.ok, result:_ucfResult, log: Logger.getLog() });
+    }
     if(body.action === 'add_lp_variant_purpose_settings') {
       addLpVariantPurposeSettings();
       return respond({ ok:true, log: Logger.getLog() });
