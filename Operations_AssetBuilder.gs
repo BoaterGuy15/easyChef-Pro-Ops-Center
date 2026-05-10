@@ -635,7 +635,6 @@ function _compilePhoneRuleBlock() {
 
 function _compileComplianceBlock(themeData) {
   try {
-    const claims    = getBrandDoctrine('APPROVED_CLAIMS_001');
     const noTestim  = getBrandDoctrine('NO_INVENTED_TESTIMONIALS_001');
     const shame     = getBrandDoctrine('SHAME_LANGUAGE_001');
     const themeFood = getBrandDoctrine('THEME_FOOD_RULE_001');
@@ -643,17 +642,17 @@ function _compileComplianceBlock(themeData) {
 
     const lines = [];
 
-    if (claims && claims.active) {
-      const c = claims.conditions;
+    const activeClaims = getApprovedClaims(); // reads ApprovedClaims tab; already filtered to approved: true
+    if (activeClaims.length > 0) {
       lines.push('COMPLIANCE — APPROVED CLAIMS (hard rule):');
       lines.push('Use ONLY these exact figures. Never round. Never invent.');
-      if (c.approved && Array.isArray(c.approved)) {
-        c.approved.forEach(function(item) {
-          lines.push('  • ' + item.label + ': "' + item.exact_wording + '"');
-        });
-      }
-      if (c.forbidden && Array.isArray(c.forbidden)) {
-        lines.push('NEVER write: ' + c.forbidden.join(' · '));
+      activeClaims.forEach(function(c) {
+        lines.push('  • ' + c.claim_type + ': "' + c.exact_wording + '"');
+      });
+      // forbidden list stays in BrandDoctrine — changing it is a deliberate governance action
+      const claimsRule = getBrandDoctrine('APPROVED_CLAIMS_001');
+      if (claimsRule && claimsRule.conditions && claimsRule.conditions.forbidden) {
+        lines.push('NEVER write: ' + claimsRule.conditions.forbidden.join(' · '));
       }
       lines.push('');
     }
