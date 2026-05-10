@@ -148,6 +148,61 @@ function klaviyoPushSequence(body) {
   }
 }
 
+// ── Content team event tracking ───────────────────────────────────────────────
+// Both functions POST a Klaviyo event so the team can build flows / activity
+// feeds on "Content Note Added" and "Content Status Updated" metrics.
+// All events land on a single internal-team Klaviyo profile.
+
+var _KL_TEAM_PROFILE_EMAIL = 'content-team@easychefpro.com';
+
+function _klTrackEvent(metricName, props) {
+  try {
+    var payload = JSON.stringify({
+      data: {
+        type: 'event',
+        attributes: {
+          time:       new Date().toISOString(),
+          value:      1,
+          properties: props,
+          metric:  { data: { type: 'metric',  attributes: { name: metricName } } },
+          profile: { data: { type: 'profile', attributes: { email: _KL_TEAM_PROFILE_EMAIL } } }
+        }
+      }
+    });
+    var resp = UrlFetchApp.fetch(_KL_BASE + '/events/', {
+      method: 'POST', headers: _klHeaders(), payload: payload, muteHttpExceptions: true
+    });
+    var code = resp.getResponseCode();
+    if (code === 202 || code === 200 || code === 201) return { ok: true };
+    return { ok: false, error: 'Klaviyo HTTP ' + code + ': ' + resp.getContentText().slice(0,200) };
+  } catch(e) {
+    Logger.log('[_klTrackEvent] ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function klaviyoTrackNote(assetId, platform, noteText, author, briefDocUrl, sheetUrl) {
+  return _klTrackEvent('Content Note Added', {
+    asset_id:      assetId,
+    platform:      platform,
+    note:          noteText,
+    author:        author || 'Team',
+    brief_doc_url: briefDocUrl || '',
+    sheet_url:     sheetUrl   || ''
+  });
+}
+
+function klaviyoTrackStatusUpdate(assetId, platform, field, value, briefDocUrl, sheetUrl) {
+  return _klTrackEvent('Content Status Updated', {
+    asset_id:      assetId,
+    platform:      platform,
+    field:         field,
+    value:         value,
+    brief_doc_url: briefDocUrl || '',
+    sheet_url:     sheetUrl   || ''
+  });
+}
+
 // ── Diagnostic ────────────────────────────────────────────────────────────────
 // Run → _testKlaviyo → View Execution log
 function _testKlaviyo() {

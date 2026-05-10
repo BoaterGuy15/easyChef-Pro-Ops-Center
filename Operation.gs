@@ -806,6 +806,18 @@ function doPost(e) {
       var _noteResult = appendContentCalNote(body.asset_id||'', body.text||'', body.author||'');
       return respond({ ok:_noteResult.ok, result:_noteResult, log: Logger.getLog() });
     }
+    if(body.action === 'klaviyo_track_note') {
+      var _klnResult = klaviyoTrackNote(body.asset_id||'', body.platform||'', body.note||'', body.author||'', body.brief_doc_url||'', body.sheet_url||'');
+      return respond({ ok:_klnResult.ok, result:_klnResult, log: Logger.getLog() });
+    }
+    if(body.action === 'klaviyo_track_status') {
+      var _klsResult = klaviyoTrackStatusUpdate(body.asset_id||'', body.platform||'', body.field||'', body.value||'', body.brief_doc_url||'', body.sheet_url||'');
+      return respond({ ok:_klsResult.ok, result:_klsResult, log: Logger.getLog() });
+    }
+    if(body.action === 'figma_post_comment') {
+      var _figResult = figmaPostComment(body.figma_url||'', body.comment||'');
+      return respond({ ok:_figResult.ok, result:_figResult, log: Logger.getLog() });
+    }
     if(body.action === 'add_lp_variant_purpose_settings') {
       addLpVariantPurposeSettings();
       return respond({ ok:true, log: Logger.getLog() });

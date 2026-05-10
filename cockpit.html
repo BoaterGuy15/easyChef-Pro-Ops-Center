@@ -736,6 +736,11 @@
             openPostModal(assetId);
             var m=document.getElementById('pm-note-msg');
             if(m){m.style.color='#32d74b';m.textContent='✓ Note added';}
+            // Fire Klaviyo + Figma in the background — best effort, non-blocking
+            var p=POST_REGISTRY[assetId]||{};
+            var sheetUrl=SHEET_ID&&SHEET_GID&&p.sheet_row?'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid='+SHEET_GID+'&range=A'+p.sheet_row:'';
+            google.script.run.klaviyoTrackNote(assetId,p.platform||'',text,author,p.brief_doc_url||'',sheetUrl);
+            if(p.figma_url) google.script.run.figmaPostComment(p.figma_url,'['+author+'] '+text);
           } else {
             if(btn) btn.disabled=false;
             var m=document.getElementById('pm-note-msg');
@@ -769,14 +774,15 @@
       google.script.run
         .withSuccessHandler(function(r){
           if(r&&r.ok){
-            // Update local registry
             if(POST_REGISTRY[assetId]) POST_REGISTRY[assetId][field]=value;
-            // Re-open modal to reflect new state
             openPostModal(assetId);
             var m=document.getElementById('pm-save-msg');
             if(m){m.style.color='#32d74b';m.textContent='✓ Saved';}
-            // Refresh dashboard data after a short delay
             setTimeout(function(){if(calData)applyAndRender();},600);
+            // Fire Klaviyo status event — best effort
+            var p=POST_REGISTRY[assetId]||{};
+            var sheetUrl=SHEET_ID&&SHEET_GID&&p.sheet_row?'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid='+SHEET_GID+'&range=A'+p.sheet_row:'';
+            google.script.run.klaviyoTrackStatusUpdate(assetId,p.platform||'',field,value,p.brief_doc_url||'',sheetUrl);
           } else {
             var m=document.getElementById('pm-save-msg');
             if(m){m.style.color='#ff453a';m.textContent='Error: '+(r&&r.error?r.error:'unknown');}
