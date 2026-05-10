@@ -310,7 +310,12 @@ function _seedDeepLinkRegistry(sheet) {
     ['DL-SOC-0002','DL-SOC-0002_ig_health',     'ec-2026-001','Instagram','','instagram', 'social',   'ec-2026-001','active',now,'',now,'Instagram organic'],
     ['DL-SOC-0003','DL-SOC-0003_nextdoor',      'ec-2026-001','Nextdoor', '','nextdoor',  'social',   'ec-2026-001','active',now,'',now,'Nextdoor post'],
     ['DL-SOC-0004','DL-SOC-0004_tiktok_bio',    'ec-2026-001','TikTok',   '','tiktok',    'social',   'ec-2026-001','active',now,'',now,'TikTok bio link'],
-    ['DL-DIR-0001','DL-DIR-0001_alpha_recruit',  'ec-2026-001','Direct',   '','convertkit','referral', 'ec-2026-001','active',now,'',now,'Alpha recruit direct']
+    ['DL-DIR-0001','DL-DIR-0001_alpha_recruit',  'ec-2026-001','Direct',   '','convertkit','referral', 'ec-2026-001','active',now,'',now,'Alpha recruit direct'],
+    // Variant B email links — point to lp/waitlist-b for clean GA4 attribution per variant
+    ['DL-EM-0001-B','DL-EM-0001-B_SEQ-1_cta','EC-2026-001','Email','https://easychefpro.com/lp/waitlist-b','klaviyo','email','EC-2026-001','active',now,'',now,'Email · SEQ-1 · Variant B'],
+    ['DL-EM-0002-B','DL-EM-0002-B_SEQ-2_cta','EC-2026-001','Email','https://easychefpro.com/lp/waitlist-b','klaviyo','email','EC-2026-001','active',now,'',now,'Email · SEQ-2 · Variant B'],
+    ['DL-EM-0003-B','DL-EM-0003-B_SEQ-3_cta','EC-2026-001','Email','https://easychefpro.com/lp/waitlist-b','klaviyo','email','EC-2026-001','active',now,'',now,'Email · SEQ-3 · Variant B'],
+    ['DL-EM-0004-B','DL-EM-0004-B_SEQ-4_cta','EC-2026-001','Email','https://easychefpro.com/lp/waitlist-b','klaviyo','email','EC-2026-001','active',now,'',now,'Email · SEQ-4 · Variant B']
   ].forEach(function(row) {
     if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
   });

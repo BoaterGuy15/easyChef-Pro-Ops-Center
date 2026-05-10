@@ -159,6 +159,37 @@ function _getChannelData(channelName) {
 }
 
 /**
+ * One-time seed: adds DL-EM-B entries for Variant B email flows → lp/waitlist-b.
+ * Run once from the Apps Script editor: seedEmailBVariantDls()
+ * Idempotent — setDlRegistryEntry upserts by dl_id.
+ */
+function seedEmailBVariantDls() {
+  var campaignId = 'EC-2026-001';
+  var lpUrlB     = 'https://easychefpro.com/lp/waitlist-b';
+  [
+    { dl_id: 'DL-EM-0001-B', seq: 'SEQ-1' },
+    { dl_id: 'DL-EM-0002-B', seq: 'SEQ-2' },
+    { dl_id: 'DL-EM-0003-B', seq: 'SEQ-3' },
+    { dl_id: 'DL-EM-0004-B', seq: 'SEQ-4' }
+  ].forEach(function(item) {
+    setDlRegistryEntry({
+      dl_id:           item.dl_id,
+      utm_content:     item.dl_id + '_' + item.seq + '_cta',
+      campaign_id:     campaignId,
+      channel:         'Email',
+      destination_url: lpUrlB,
+      utm_source:      'klaviyo',
+      utm_medium:      'email',
+      utm_campaign:    campaignId,
+      status:          'active',
+      notes:           'Email · ' + item.seq + ' · Variant B'
+    });
+  });
+  Logger.log('[seedEmailBVariantDls] Seeded DL-EM-0001-B through DL-EM-0004-B → lp/waitlist-b');
+  return { ok: true, seeded: 4 };
+}
+
+/**
  * One-time cleanup: retires DL-FB-0002 (email asset that got FB prefix because
  * the channel field was missing on the asset object — fixed May 7 2026).
  * Run once from the Apps Script editor: retireFbEmailDl()

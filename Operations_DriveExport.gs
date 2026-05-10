@@ -340,6 +340,22 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
         }
       } catch(de) { Logger.log('[CalendarXlsx] WARNING: DeepLinkRegistry read error: ' + de.message); }
 
+      // Variant B DL map — DL-EM-*-B entries → lp/waitlist-b
+      var _emailDlMapB  = {};
+      var _lpUrlEmailB  = brief.lp_slug_b ? _buildLpUrl(brief.lp_slug_b) : _buildLpUrl('waitlist-b');
+      try {
+        var _regDlsAll = getDlRegistry(brief.id || '');
+        var _emDlsB    = _regDlsAll.filter(function(u) { return /^DL-EM.*-B$/i.test(u.dl_id || ''); });
+        _emDlsB.forEach(function(dl) {
+          var _seqMatch = String(dl.notes || dl.utm_content || '').match(/SEQ-\d+/i);
+          if (_seqMatch) _emailDlMapB[_seqMatch[0].toUpperCase()] = dl;
+        });
+        if (!Object.keys(_emailDlMapB).length) {
+          ['SEQ-1','SEQ-2','SEQ-3','SEQ-4'].forEach(function(seq, i) { if (_emDlsB[i]) _emailDlMapB[seq] = _emDlsB[i]; });
+        }
+        Logger.log('[CalendarXlsx] Email DL-B map: ' + JSON.stringify(Object.keys(_emailDlMapB)) + ' · B LP URL: ' + _lpUrlEmailB);
+      } catch(dbe) { Logger.log('[CalendarXlsx] WARNING: DL-B map read error: ' + dbe.message); }
+
       // ── Static lookup maps for new columns ──────────────────────────────────
       var _fsConvTarget = {
         'hook':    '25–45% LP capture',
@@ -428,11 +444,11 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
           if (preA.length > 100) preA = preA.substring(0, 100);
           var _isFirst = (emailNum === 1 && seqCode === 'SEQ-1');
           var cta  = String(eRef.body_cta || eRef.cta_text || eRef.cta || (_isFirst ? 'Claim your founding spot' : ''));
-          // dl_id: email object (written by fcGenerateUtmAndSave) → DL registry map → blank + warning
+          // Variant A — dl_id: email object → DL registry map → blank + warning
           var _dlEntry = _emailDlMap[seqCode] || null;
           var dlId = String(eRef.dl_id || eRef.dlId || (_dlEntry ? _dlEntry.dl_id : '') || '');
           if (!dlId) Logger.log('[CalendarXlsx] WARNING: No DL ID for ' + seqCode + ' — run fcGenerateUtmAndSave first');
-          // UTM URL: email object → build from sheet values → blank if LP URL or UTM source missing
+          // Variant A — UTM URL → lp/waitlist-a
           var utmUrl = String(eRef.utm_url || eRef.utmUrl || '');
           if (!utmUrl && dlId && _lpUrl && _emailUtmSource) {
             utmUrl = _lpUrl +
@@ -440,6 +456,17 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
               '&utm_medium=' + encodeURIComponent(_emailUtmMedium) +
               '&utm_campaign=' + encodeURIComponent(brief.id || '') +
               '&utm_content=' + encodeURIComponent(dlId + '_' + seqCode + '_cta');
+          }
+          // Variant B — dl_id and UTM URL → lp/waitlist-b
+          var _dlEntryB = _emailDlMapB[seqCode] || null;
+          var dlIdB    = _dlEntryB ? String(_dlEntryB.dl_id || '') : (dlId ? dlId + '-B' : '');
+          var utmUrlB  = '';
+          if (dlIdB && _lpUrlEmailB && _emailUtmSource) {
+            utmUrlB = _lpUrlEmailB +
+              '?utm_source=' + encodeURIComponent(_emailUtmSource) +
+              '&utm_medium=' + encodeURIComponent(_emailUtmMedium) +
+              '&utm_campaign=' + encodeURIComponent(brief.id || '') +
+              '&utm_content=' + encodeURIComponent(dlIdB + '_' + seqCode + '_cta');
           }
           var stage = String(eRef.funnel_stage || '');
           // Build design brief from EmailSequences fields — no Claude API needed
@@ -472,7 +499,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
             _emailEmotionMap[_eStageKey] || ''             // [26] Emotional Direction
           ];
           var rowA = shared.slice(); rowA[6] = subA;         rowA[11] = 'A'; rowA[13] = _briefA; calDataRows.push(rowA);
-          var rowB = shared.slice(); rowB[6] = subB||'None'; rowB[11] = 'B'; rowB[13] = _briefB; calDataRows.push(rowB);
+          var rowB = shared.slice(); rowB[6] = subB||'None'; rowB[9] = utmUrlB; rowB[10] = dlIdB; rowB[11] = 'B'; rowB[13] = _briefB; calDataRows.push(rowB);
         });
         Logger.log('[CalendarXlsx] email rows: ' + (_emailOrder.length * 2) + ' (' + _emailOrder.length + ' pairs)');
       } catch(ee) { Logger.log('[CalendarXlsx] email rows error: ' + ee.message); }
@@ -1900,5 +1927,102 @@ function testSocialHashtagRow() {
     const hashtags = p.hashtags || _channelHashtags(p.platform) || '';
     Logger.log(p.platform + ' | ' + (p.funnel_stage||'(no stage)') + ' | hashtags: ' + (hashtags || 'BLANK'));
   });
+  Logger.log('=== Done ===');
+}
+
+// ── Test: verify all 9 new columns (19-27) — no API calls ────────────────────
+function testNewColumns() {
+  var campaignId = 'EC-2026-001';
+  Logger.log('=== testNewColumns: ' + campaignId + ' ===');
+
+  // Load sources
+  var brief   = null;
+  var posts   = [];
+  var emails  = [];
+  var channels = {};
+  try { brief  = getCampaignBriefs(campaignId); } catch(e) { Logger.log('brief error: ' + e.message); }
+  try { posts  = getSocialPosts(campaignId); }    catch(e) { Logger.log('posts error: ' + e.message); }
+  try { emails = getEmailSequences(campaignId); } catch(e) { Logger.log('email error: ' + e.message); }
+  try {
+    getChannels().forEach(function(ch) { channels[(ch.name||'').toLowerCase()] = ch; });
+  } catch(e) { Logger.log('channels error: ' + e.message); }
+
+  Logger.log('brief loaded: ' + !!brief + ' | posts: ' + posts.length + ' | emails: ' + emails.length + ' | channels: ' + Object.keys(channels).length);
+
+  // Static maps (mirrors what the xlsx builder uses)
+  var _fsConvTarget = {
+    'hook':'25–45% LP capture','problem':'45–60% email open','agitate':'55–70% click-through',
+    'solve':'30–50% email open','value':'35–55% email open','proof':'40–60% social share',
+    'cta':'35–50% waitlist → download'
+  };
+  var _emailEmotionMap = {
+    'hook':'exhausted','problem':'frustrated','agitate':'activated',
+    'solve':'curious','value':'relieved','proof':'trusting','cta':'happy'
+  };
+  var _noPhoneStages  = {'hook':1,'problem':1,'agitate':1};
+  var _phoneVisStages = {'solve':1,'value':1,'proof':1,'cta':1};
+
+  // ThemeLibrary
+  var moodHook = '', moodCta = '';
+  try {
+    var tRows = getThemeLibrary(brief ? (brief.icp || '') : '');
+    if (tRows.length) {
+      var tKey = (brief ? (brief.theme || '') : '').toLowerCase();
+      var tObj = null;
+      for (var ti = 0; ti < tRows.length; ti++) {
+        if ((tRows[ti].theme_slug||'').toLowerCase() === tKey || (tRows[ti].theme_name||'').toLowerCase() === tKey) { tObj = tRows[ti]; break; }
+      }
+      if (!tObj) tObj = tRows[0];
+      moodHook = String(tObj.image_mood_hook || '');
+      moodCta  = String(tObj.image_mood_cta  || '');
+    }
+  } catch(te) { Logger.log('ThemeLib error: ' + te.message); }
+  Logger.log('ThemeLib mood_hook: "' + moodHook + '" | mood_cta: "' + moodCta + '"');
+
+  var isAbTest = brief && (brief.ab_test === true || String(brief.ab_test) === 'true' || brief.ab_test === 1);
+  var abExpId  = isAbTest ? String((brief && brief.ab_experiment_id) || '') : '';
+  Logger.log('A/B test: ' + isAbTest + ' | experiment_id: "' + abExpId + '"');
+
+  // ── Col 19-21: Image URL · Dimensions · Phone Rule — Social sample ──────────
+  Logger.log('--- SOCIAL rows (col 19-21 · 22 · 24 · 27) ---');
+  var _seenPlatforms = {};
+  posts.forEach(function(p, idx) {
+    var plat = (p.platform || '').toLowerCase();
+    if (_seenPlatforms[plat]) return;
+    _seenPlatforms[plat] = true;
+    var ch = channels[plat] || {};
+    var postNum = idx + 1;
+    var stageKey = (p.funnel_stage || '').toLowerCase();
+    var phoneRule = _noPhoneStages[stageKey]  ? 'NO PHONE' :
+                    _phoneVisStages[stageKey] ? 'PHONE VISIBLE' :
+                    (postNum <= 3 ? 'NO PHONE' : 'PHONE VISIBLE');
+    var emotion = postNum <= 3 ? moodHook : moodCta;
+    Logger.log('[' + p.platform + ']');
+    Logger.log('  Col 19 Image URL:        "' + (p.image_url || '(blank)') + '"');
+    Logger.log('  Col 20 Image Dimensions: "' + (ch.image_dimensions || '(blank — not in Channels tab)') + '"');
+    Logger.log('  Col 21 Phone Rule:       "' + phoneRule + '" (stage=' + (stageKey||'n/a') + ' post#' + postNum + ')');
+    Logger.log('  Col 22 Platform Note:    "' + (ch.platform_note || '(blank — not in Channels tab)') + '"');
+    Logger.log('  Col 24 Conv Target:      "' + (_fsConvTarget[stageKey] || '(no match for stage "' + stageKey + '")') + '"');
+    Logger.log('  Col 27 Emotion:          "' + (emotion || '(blank — ThemeLib not matched)') + '"');
+  });
+
+  // ── Col 23 Klaviyo ID · Col 25 Experiment ID · Col 27 Emotion — Email sample ─
+  Logger.log('--- EMAIL rows (col 20 · 22 · 23 · 24 · 25 · 27) ---');
+  var eCh = channels['email'] || {};
+  var _seenSeq = {};
+  emails.forEach(function(e) {
+    var seq = e.sequence_code || 'OTHER';
+    if (_seenSeq[seq]) return;
+    _seenSeq[seq] = true;
+    var stageKey = (e.funnel_stage || '').toLowerCase();
+    Logger.log('[' + seq + ' E' + (e.email_number||1) + ']');
+    Logger.log('  Col 20 Image Dimensions: "' + (eCh.image_dimensions || '(blank)') + '"');
+    Logger.log('  Col 22 Platform Note:    "' + (eCh.platform_note || '(blank)') + '"');
+    Logger.log('  Col 23 Klaviyo ID:       "' + (e.klaviyo_id || 'Not built yet') + '"');
+    Logger.log('  Col 24 Conv Target:      "' + (_fsConvTarget[stageKey] || '(no match for "' + stageKey + '")') + '"');
+    Logger.log('  Col 25 Experiment ID:    "' + abExpId + '"');
+    Logger.log('  Col 27 Emotion:          "' + (_emailEmotionMap[stageKey] || '(no match for "' + stageKey + '")') + '"');
+  });
+
   Logger.log('=== Done ===');
 }
