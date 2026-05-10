@@ -1792,7 +1792,21 @@ function _seedCcSettings(sheet) {
     ['BRAND_PLUG','proof_005','Registered dietitians. FDA-grade data.',             '',true],
     ['BRAND_PLUG','proof_006','Validated across 10,000 household profiles',         '',true],
     ['BRAND_PLUG','proof_007','Built for working families. Tested by first responders.',  '',true],
-    ['BRAND_PLUG','proof_008','Zero shortcuts. Zero guesswork. All home.',          '',true]
+    ['BRAND_PLUG','proof_008','Zero shortcuts. Zero guesswork. All home.',          '',true],
+    // LP_VARIANTS — key=slug letter used in slug builder, label=display name with angle descriptor
+    ['LP_VARIANTS','a',      'A — Money Hook','',true],
+    ['LP_VARIANTS','b',      'B — Simplicity','',true],
+    ['LP_VARIANTS','c',      'C — Founder',   '',true],
+    ['LP_VARIANTS','d',      'D — Alpha',     '',true],
+    ['LP_VARIANTS','e',      'E — Beta',      '',true],
+    ['LP_VARIANTS','custom', 'Custom',        '',true],
+    // LP_PURPOSES — key=value stored in LPInventory sheet, label=display name
+    ['LP_PURPOSES','Waitlist',   'Waitlist',   '',true],
+    ['LP_PURPOSES','Alpha',      'Alpha',      '',true],
+    ['LP_PURPOSES','Beta',       'Beta',       '',true],
+    ['LP_PURPOSES','Launch Day', 'Launch Day', '',true],
+    ['LP_PURPOSES','Affiliate',  'Affiliate',  '',true],
+    ['LP_PURPOSES','Custom',     'Custom',     '',true]
   ];
   rows.forEach(function(row) { sheet.appendRow(row); });
   CacheService.getScriptCache().remove('cc_settings_v1');
@@ -1857,6 +1871,38 @@ function addUrgencyExclusivitySettings() {
   Logger.log('addUrgencyExclusivitySettings: added ' + rows.length + ' rows.');
 }
 
+// Run once from GAS editor to add LP_VARIANTS + LP_PURPOSES to an existing CcSettings sheet.
+function addLpVariantPurposeSettings() {
+  var sheet    = _getCCSheet(_CC_TAB.SETTINGS);
+  var last     = sheet.getLastRow();
+  var existing = last >= 2 ? sheet.getRange(2, 1, last - 1, 1).getValues().map(function(r){ return String(r[0]).toUpperCase(); }) : [];
+  var rows = [];
+  if (existing.indexOf('LP_VARIANTS') < 0) {
+    rows = rows.concat([
+      ['LP_VARIANTS','a',      'A — Money Hook','',true],
+      ['LP_VARIANTS','b',      'B — Simplicity','',true],
+      ['LP_VARIANTS','c',      'C — Founder',   '',true],
+      ['LP_VARIANTS','d',      'D — Alpha',     '',true],
+      ['LP_VARIANTS','e',      'E — Beta',      '',true],
+      ['LP_VARIANTS','custom', 'Custom',        '',true]
+    ]);
+  }
+  if (existing.indexOf('LP_PURPOSES') < 0) {
+    rows = rows.concat([
+      ['LP_PURPOSES','Waitlist',   'Waitlist',   '',true],
+      ['LP_PURPOSES','Alpha',      'Alpha',      '',true],
+      ['LP_PURPOSES','Beta',       'Beta',       '',true],
+      ['LP_PURPOSES','Launch Day', 'Launch Day', '',true],
+      ['LP_PURPOSES','Affiliate',  'Affiliate',  '',true],
+      ['LP_PURPOSES','Custom',     'Custom',     '',true]
+    ]);
+  }
+  if (rows.length === 0) { Logger.log('LP_VARIANTS and LP_PURPOSES already exist — skipping.'); return; }
+  rows.forEach(function(row) { sheet.appendRow(row); });
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  Logger.log('addLpVariantPurposeSettings: added ' + rows.length + ' rows.');
+}
+
 // Look up a single LPInventory record by slug — used by LP Builder to reload SEO data.
 function getLPInventoryBySlug(slug) {
   if (!slug) return null;
@@ -1879,7 +1925,7 @@ function getCcSettings() {
   var sheet = _getCCSheet(_CC_TAB.SETTINGS);
   if (sheet.getLastRow() < 2) _seedCcSettings(sheet);
 
-  var result = { theme_categories:[], journey_types:[], app_features:[], campaign_angles:[], brand_plug:[], urgency_types:[], exclusivity_angles:[] };
+  var result = { theme_categories:[], journey_types:[], app_features:[], campaign_angles:[], brand_plug:[], urgency_types:[], exclusivity_angles:[], lp_variants:[], lp_purposes:[] };
   var last   = sheet.getLastRow();
   if (last < 2) { cache.put('cc_settings_v1', JSON.stringify(result), 300); return result; }
 
@@ -1894,8 +1940,10 @@ function getCcSettings() {
     else if (sec === 'APP_FEATURES')     result.app_features.push(row);
     else if (sec === 'CAMPAIGN_ANGLES')  result.campaign_angles.push(row);
     else if (sec === 'BRAND_PLUG')       result.brand_plug.push(row);
-    else if (sec === 'URGENCY_TYPES')    result.urgency_types.push(row);
+    else if (sec === 'URGENCY_TYPES')      result.urgency_types.push(row);
     else if (sec === 'EXCLUSIVITY_ANGLES') result.exclusivity_angles.push(row);
+    else if (sec === 'LP_VARIANTS')        result.lp_variants.push(row);
+    else if (sec === 'LP_PURPOSES')        result.lp_purposes.push(row);
   });
 
   cache.put('cc_settings_v1', JSON.stringify(result), 300);

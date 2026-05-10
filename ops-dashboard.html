@@ -22158,6 +22158,22 @@ var _CC_SETTINGS_FALLBACK = {
     {key:'beta-tester',     label:'Beta tester',     extra:'Real families shaped this before you got here.'},
     {key:'early-access',    label:'Early access',    extra:'You found this before the world did.'},
     {key:'personal-invite', label:'Personal invite', extra:'This invitation is for you personally.'}
+  ],
+  lp_variants: [
+    {key:'a',      label:'A — Money Hook', extra:''},
+    {key:'b',      label:'B — Simplicity', extra:''},
+    {key:'c',      label:'C — Founder',   extra:''},
+    {key:'d',      label:'D — Alpha',     extra:''},
+    {key:'e',      label:'E — Beta',      extra:''},
+    {key:'custom', label:'Custom',        extra:''}
+  ],
+  lp_purposes: [
+    {key:'Waitlist',    label:'Waitlist',    extra:''},
+    {key:'Alpha',       label:'Alpha',       extra:''},
+    {key:'Beta',        label:'Beta',        extra:''},
+    {key:'Launch Day',  label:'Launch Day',  extra:''},
+    {key:'Affiliate',   label:'Affiliate',   extra:''},
+    {key:'Custom',      label:'Custom',      extra:''}
   ]
 };
 
@@ -24994,24 +25010,22 @@ function _ccShowBuildLpForm() {
     // User inputs
     '<div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase;'+mf+'">YOU FILL</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
-      '<div><label style="'+LBL+'">LP Variant</label>'+
+    (function(){
+      var _lv=(_ccSettingsData&&_ccSettingsData.lp_variants)?_ccSettingsData.lp_variants:_CC_SETTINGS_FALLBACK.lp_variants;
+      var _lvOpts=_lv.filter(function(r){return r.active!==false;}).map(function(r){return '<option value="'+_esc(r.key)+'">'+_esc(r.label||r.key)+'</option>';}).join('');
+      return '<div><label style="'+LBL+'">LP Variant</label>'+
         '<select id="cc-blp-variant" style="'+IS+'" onchange="_ccBuildLpUpdateSlug()">'+
-          '<option value="a">A — Money Hook</option>'+
-          '<option value="b">B — Simplicity</option>'+
-          '<option value="c">C — Founder</option>'+
-          '<option value="d">D — Alpha</option>'+
-          '<option value="e">E — Beta</option>'+
-          '<option value="custom">Custom</option>'+
-        '</select></div>'+
-      '<div><label style="'+LBL+'">LP Purpose</label>'+
+        '<option value="">— select variant —</option>'+_lvOpts+
+        '</select></div>';
+    })()+
+    (function(){
+      var _lp=(_ccSettingsData&&_ccSettingsData.lp_purposes)?_ccSettingsData.lp_purposes:_CC_SETTINGS_FALLBACK.lp_purposes;
+      var _lpOpts=_lp.filter(function(r){return r.active!==false;}).map(function(r){return '<option value="'+_esc(r.key)+'">'+_esc(r.label||r.key)+'</option>';}).join('');
+      return '<div><label style="'+LBL+'">LP Purpose</label>'+
         '<select id="cc-blp-purpose" style="'+IS+'">'+
-          '<option value="Waitlist">Waitlist</option>'+
-          '<option value="Alpha">Alpha</option>'+
-          '<option value="Beta">Beta</option>'+
-          '<option value="Launch Day">Launch Day</option>'+
-          '<option value="Affiliate">Affiliate</option>'+
-          '<option value="Custom">Custom</option>'+
-        '</select></div>'+
+        '<option value="">— select purpose —</option>'+_lpOpts+
+        '</select></div>';
+    })()+
     '</div>'+
     '<div style="margin-bottom:16px"><label style="'+LBL+'">Headline <span style="font-size:9px;font-weight:400">(pre-filled from kickstart if run)</span></label>'+
       '<input id="cc-blp-headline" type="text" value="'+_esc(headline)+'" placeholder="e.g. Stop wasting $1,336 a year on food you never eat" style="'+IS+'">'+
