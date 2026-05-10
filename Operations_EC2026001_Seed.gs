@@ -2398,6 +2398,8 @@ function getCampaignCalendar(campaignId) {
     var last    = ccSheet.getLastRow();
     if (last < 2) return { ok: true, campaign: campaignId, days: {} };
 
+    var sheetId  = ccSheet.getParent().getId();
+    var sheetGid = ccSheet.getSheetId();
     var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
     var H = {};
     headers.forEach(function(h, i) { H[h] = i; });
@@ -2406,6 +2408,7 @@ function getCampaignCalendar(campaignId) {
 
     for (var i = 0; i < data.length; i++) {
       var r = data[i];
+      var sheetRow = i + 2;
       if (!r[0] || String(r[H.campaign_id]) !== campaignId) continue;
 
       var pubDate = r[H.publish_date];
@@ -2439,7 +2442,8 @@ function getCampaignCalendar(campaignId) {
         asset_id: assetId, calendar_id: calId, platform: platform,
         status: status, creative_status: creative, approval_status: approval,
         emotional_stage: emotion, funnel_stage: funnel, publish_time: pubTime,
-        blocked: isBlocked, blocked_reason: blockedReason
+        blocked: isBlocked, blocked_reason: blockedReason,
+        sheet_row: sheetRow
       });
       days[dateKey].total++;
       if (status === 'published')  days[dateKey].published++;
@@ -2452,7 +2456,7 @@ function getCampaignCalendar(campaignId) {
     });
 
     Logger.log('[getCampaignCalendar] ' + Object.keys(days).length + ' days');
-    return { ok: true, campaign: campaignId, days: days };
+    return { ok: true, campaign: campaignId, days: days, sheet_id: sheetId, sheet_gid: sheetGid };
   } catch(e) {
     Logger.log('[getCampaignCalendar] ERROR: ' + e.message);
     return { ok: false, error: e.message };

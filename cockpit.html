@@ -312,6 +312,7 @@
     var dashData=null, calData=null, activeTab='dash';
     var FILTERS={platform:{},status:{},emotion:{},funnel:{},week:{}};
     var POST_REGISTRY={};  // keyed by asset_id for fast modal lookup
+    var SHEET_ID='', SHEET_GID='';
 
     // ── Filter helpers ────────────────────────────────────────────────────────
     function activeCount(){return Object.keys(FILTERS.platform).length+Object.keys(FILTERS.status).length+Object.keys(FILTERS.emotion).length+Object.keys(FILTERS.funnel).length+Object.keys(FILTERS.week).length;}
@@ -324,7 +325,7 @@
       Object.keys(calData.days).forEach(function(dk){
         var day=calData.days[dk];
         day.posts.forEach(function(p){
-          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,date:dk,day:day.day,week:day.week};
+          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
           posts.push(post);
           POST_REGISTRY[p.asset_id]=post;
         });
@@ -617,11 +618,15 @@
         rows+=pmRow('Reason', p.blocked_reason||'No reason recorded', 'red');
       }
 
-      // Links — placeholders wired for future hookup
+      // Links — Google Sheet row live; others stubbed for next phase
+      var sheetUrl=null;
+      if(SHEET_ID&&SHEET_GID&&p.sheet_row){
+        sheetUrl='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid='+SHEET_GID+'&range=A'+p.sheet_row;
+      }
       rows+='<div class="pm-section">Linked Assets</div>';
       rows+='<div class="pm-links">'+
         pmLink('Figma', null)+
-        pmLink('Google Sheet Row', null)+
+        pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', null)+
         pmLink('Brief Doc', null)+
       '</div>';
@@ -654,7 +659,7 @@
     }
     function loadCalendar(){
       google.script.run
-        .withSuccessHandler(function(r){if(r&&r.ok){calData=r;applyAndRender();}})
+        .withSuccessHandler(function(r){if(r&&r.ok){calData=r;if(r.sheet_id)SHEET_ID=r.sheet_id;if(r.sheet_gid!==undefined)SHEET_GID=String(r.sheet_gid);applyAndRender();}})
         .withFailureHandler(function(){})
         .getCampaignCalendar('EC-2026-001');
     }
