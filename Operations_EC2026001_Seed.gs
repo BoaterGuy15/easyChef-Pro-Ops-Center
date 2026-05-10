@@ -2389,6 +2389,76 @@ function getCampaignDashboard(campaignId) {
   }
 }
 
+// ── Calendar feed ─────────────────────────────────────────────────────────────
+
+function getCampaignCalendar(campaignId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = ccSheet.getLastRow();
+    if (last < 2) return { ok: true, campaign: campaignId, days: {} };
+
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+    var data = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
+    var days = {};
+
+    for (var i = 0; i < data.length; i++) {
+      var r = data[i];
+      if (!r[0] || String(r[H.campaign_id]) !== campaignId) continue;
+
+      var pubDate = r[H.publish_date];
+      var dateKey = '';
+      if (pubDate) {
+        try {
+          var d = pubDate instanceof Date ? pubDate : new Date(String(pubDate));
+          if (!isNaN(d.getTime())) dateKey = Utilities.formatDate(d, 'America/Los_Angeles', 'yyyy-MM-dd');
+        } catch(e2) {}
+      }
+      if (!dateKey) continue;
+
+      var platform = String(r[H.platform]        || '');
+      var status   = String(r[H.status]          || 'generated');
+      var creative = String(r[H.creative_status] || 'generated');
+      var approval = String(r[H.approval_status] || 'pending');
+      var emotion  = String(r[H.emotional_stage] || '');
+      var funnel   = String(r[H.funnel_stage]    || '');
+      var assetId  = String(r[H.asset_id]        || '');
+      var calId    = String(r[H.calendar_id]     || '');
+      var pubTime  = String(r[H.publish_time]    || '');
+      var day      = Number(r[H.day]             || 0);
+      var week     = Number(r[H.week]            || 0);
+      var blockedReason = _computeBlockedReason(r, H);
+      var isBlocked = !!(blockedReason && blockedReason !== 'in production');
+
+      if (!days[dateKey]) {
+        days[dateKey] = { date: dateKey, day: day, week: week, posts: [], total: 0, published: 0, approved: 0, blocked: 0 };
+      }
+      days[dateKey].posts.push({
+        asset_id: assetId, calendar_id: calId, platform: platform,
+        status: status, creative_status: creative, approval_status: approval,
+        emotional_stage: emotion, funnel_stage: funnel, publish_time: pubTime,
+        blocked: isBlocked, blocked_reason: blockedReason
+      });
+      days[dateKey].total++;
+      if (status === 'published')  days[dateKey].published++;
+      if (approval === 'approved') days[dateKey].approved++;
+      if (isBlocked)               days[dateKey].blocked++;
+    }
+
+    Object.keys(days).forEach(function(dk) {
+      days[dk].posts.sort(function(a, b) { return a.platform.localeCompare(b.platform); });
+    });
+
+    Logger.log('[getCampaignCalendar] ' + Object.keys(days).length + ' days');
+    return { ok: true, campaign: campaignId, days: days };
+  } catch(e) {
+    Logger.log('[getCampaignCalendar] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Phase 2: Approval gate ────────────────────────────────────────────────────
 
 function getApprovalQueue() {

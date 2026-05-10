@@ -898,6 +898,10 @@ function doPost(e) {
       var _dash = getCampaignDashboard(body.campaign_id);
       return respond({ ok:_dash.ok, result:_dash, log: Logger.getLog() });
     }
+    if(body.action === 'get_campaign_calendar') {
+      var _calr = getCampaignCalendar(body.campaign_id);
+      return respond({ ok:_calr.ok, result:_calr, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
