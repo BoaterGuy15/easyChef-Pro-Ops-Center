@@ -29506,6 +29506,7 @@ function _ccTlRenderGrid(themes) {
 var _CC_TABS=[
   {id:'theme-lib',lbl:'📚 Theme Library'},
   {id:'brief',lbl:'📋 Brief'},
+  {id:'run-campaign',lbl:'🚀 Run Campaign'},
   {id:'utm',lbl:'🔗 UTM Generator'},
   {id:'registry',lbl:'📎 Deep Links'},
   {id:'distribution',lbl:'📧 Distribution'},
@@ -29709,8 +29710,113 @@ function _campSwitchTab(t){
   else if(t==='brand-assets') panel.innerHTML=_ccRenderBrandAssets();
   else if(t==='searah'){panel.innerHTML=_ccRenderSearah();if(!_ccSearahCache.loaded)setTimeout(_ccLoadSearah,0);}
   else if(t==='theme-lib'){panel.innerHTML=_ccRenderThemeLibraryPanel();_ccRefreshThemeLibraryPanel();}
+  else if(t==='run-campaign'){panel.innerHTML=_ccRenderRunCampaign();}
 }
 function _campaignsAddModal(){ _campSwitchTab('brief'); }
+
+// ── Run Campaign panel ──────────────────────────────────────────────────────
+var _ccRunLog = [];
+
+function _ccRunAction(action, label, extraBody) {
+  var logEl = document.getElementById('cc-run-log');
+  var btnEl = document.getElementById('cc-run-btn-' + action);
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Running…'; }
+  var entry = { action: action, label: label, ts: new Date().toLocaleTimeString(), status: 'running', msg: '' };
+  _ccRunLog.unshift(entry);
+  _ccRunLogRender();
+  var body = Object.assign({ action: action }, extraBody || {});
+  fetch(CONFIG.sheetsUrl, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(body) })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      entry.status = d.ok ? 'ok' : 'error';
+      if (d.result) {
+        var r = d.result;
+        if (r.results)      entry.msg = r.results.join(' · ');
+        else if (r.log)     entry.msg = Array.isArray(r.log) ? r.log.join(' · ') : String(r.log);
+        else if (r.doc_url) entry.msg = 'Doc: ' + r.doc_url;
+        else if (r.updated !== undefined) entry.msg = r.updated + ' updated';
+        else if (r.error)   entry.msg = r.error;
+        else                entry.msg = JSON.stringify(r).slice(0, 120);
+      } else if (d.error) { entry.msg = d.error; }
+      _ccRunLogRender();
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = d.ok ? '✓ Done' : '✗ Error'; setTimeout(function(){ if(btnEl) btnEl.textContent = 'Run'; btnEl.disabled = false; }, 3000); }
+    })
+    .catch(function(e) {
+      entry.status = 'error'; entry.msg = e.message;
+      _ccRunLogRender();
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = '✗ Error'; setTimeout(function(){ if(btnEl) btnEl.textContent = 'Run'; btnEl.disabled = false; }, 3000); }
+    });
+}
+
+function _ccRunLogRender() {
+  var el = document.getElementById('cc-run-log'); if (!el) return;
+  if (!_ccRunLog.length) { el.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:12px 0">No actions run yet.</div>'; return; }
+  el.innerHTML = _ccRunLog.map(function(e) {
+    var col = e.status === 'ok' ? '#22c55e' : e.status === 'error' ? '#ef4444' : 'var(--gold)';
+    var icon = e.status === 'ok' ? '✓' : e.status === 'error' ? '✗' : '…';
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="color:' + col + ';font-size:13px;flex-shrink:0;line-height:1.4">' + icon + '</span>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text)">' + e.label + '<span style="font-weight:400;color:var(--muted);margin-left:8px">' + e.ts + '</span></div>' +
+        (e.msg ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;word-break:break-all">' + e.msg + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function _ccRenderRunCampaign() {
+  var IS = 'padding:7px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;border:none;';
+  var btn = function(action, label, primary) {
+    var bg = primary ? _CC_RED : 'var(--surface)';
+    var fg = primary ? '#fff' : 'var(--text)';
+    var br = primary ? '' : 'border:1px solid var(--border);';
+    return '<button id="cc-run-btn-' + action + '" onclick="_ccRunAction(\'' + action + '\',\'' + label.replace(/'/g,"\\'") + '\')" style="' + IS + 'background:' + bg + ';color:' + fg + ';' + br + '">' + label + '</button>';
+  };
+
+  var steps = [
+    { action:'seed_ec_2026_001',              label:'1 · Seed campaign data',        desc:'CampaignBrief · ThemeLibrary · ICP Profiles · LP Inventory · 51 social posts' },
+    { action:'update_ec2026001_post_details', label:'2 · Assign DL IDs + UTM URLs',  desc:'Locks image briefs · hashtags · DL-FB/EM/TK/YT IDs · UTM URLs to all 51 posts' },
+    { action:'seed_ec2026001_emails',         label:'3 · Seed email sequences',       desc:'SEQ-1 through SEQ-5 · A (money → waitlist-a) + B (time → waitlist-b) · 24 records' },
+    { action:'fill_ec2026001_social_body',    label:'4 · Fill social body copy',      desc:'Facebook captions · TikTok scripts · YouTube descriptions · email calendar notes' },
+    { action:'generate_lp_figma_doc',         label:'5 · Generate LP Figma spec',     desc:'Full design spec for /lp/waitlist-a and /lp/waitlist-b in campaign Drive folder' },
+    { action:'generate_brief_docs',           label:'6 · Generate brief docs',        desc:'One Google Doc per social post — design brief for each asset' }
+  ];
+
+  var stepsHtml = steps.map(function(s) {
+    var extraBody = s.action === 'generate_brief_docs' ? ', function(){ _ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\',{campaign_id:\'EC-2026-001\'}) }' : '';
+    var isDoc = s.action === 'generate_brief_docs';
+    var onclick = isDoc
+      ? '_ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\',{campaign_id:\'EC-2026-001\'})'
+      : '_ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\')';
+    return '<div style="display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--border)">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text)">' + s.label + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + s.desc + '</div>' +
+      '</div>' +
+      '<button id="cc-run-btn-' + s.action + '" onclick="' + onclick + '" style="' + IS + 'background:var(--surface);color:var(--text);border:1px solid var(--border);flex-shrink:0">Run</button>' +
+    '</div>';
+  }).join('');
+
+  return '<div style="width:100%">' +
+    _ccSecHdr('🚀 Run Full Campaign — EC-2026-001') +
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px">' +
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.04)">' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Pre-Launch Arc 2026 — The Invisible Leak</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Campaign EC-2026-001 · May 27 – Jul 1 2026 · A/B split: money angle → waitlist-a · time/founding → waitlist-b</div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+          '<button onclick="_ccRunAction(\'seed_ec2026001_complete\',\'Run Everything (emails + social body + Figma doc)\')" style="' + IS + 'background:' + _CC_RED + ';color:#fff;padding:9px 22px;font-size:12px">Run Everything</button>' +
+          '<button onclick="_ccRunAction(\'seed_ec_2026_001\',\'Seed campaign data\');setTimeout(function(){_ccRunAction(\'update_ec2026001_post_details\',\'Assign DL IDs + UTM URLs\');},8000);" style="' + IS + 'background:var(--surface);color:var(--text);border:1px solid var(--border)">Re-seed + DL IDs</button>' +
+        '</div>' +
+      '</div>' +
+      stepsHtml +
+    '</div>' +
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">' +
+      _ccSecHdr('Run Log') +
+      '<div id="cc-run-log" style="padding:12px 16px;font-family:\'DM Mono\',monospace;max-height:320px;overflow-y:auto"><div style="color:var(--muted);font-size:11px">No actions run yet.</div></div>' +
+    '</div>' +
+  '</div>';
+}
+
 // ── SEO Manager ────────────────────────────────────────────────────────────
 function _seoRender(){
   var root=document.getElementById('seo-mgr-root'); if(!root) return;

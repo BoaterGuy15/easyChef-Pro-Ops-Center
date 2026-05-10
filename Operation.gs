@@ -797,6 +797,26 @@ function doPost(e) {
       var _seedResult = seedEC2026001();
       return respond({ ok:_seedResult.ok, result:_seedResult, log: Logger.getLog() });
     }
+    if(body.action === 'update_ec2026001_post_details') {
+      var _updResult = updateEC2026001PostDetails();
+      return respond({ ok:_updResult.ok, result:_updResult, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_ec2026001_emails') {
+      var _emResult = seedEC2026001Emails();
+      return respond({ ok:_emResult.ok, result:_emResult, log: Logger.getLog() });
+    }
+    if(body.action === 'fill_ec2026001_social_body') {
+      var _sbResult = fillEC2026001SocialBody();
+      return respond({ ok:_sbResult.ok, result:_sbResult, log: Logger.getLog() });
+    }
+    if(body.action === 'generate_lp_figma_doc') {
+      var _fdResult = generateLPFigmaDoc();
+      return respond({ ok:_fdResult.ok, result:_fdResult, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_ec2026001_complete') {
+      var _complResult = seedEC2026001Complete();
+      return respond({ ok:_complResult.ok, result:_complResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });

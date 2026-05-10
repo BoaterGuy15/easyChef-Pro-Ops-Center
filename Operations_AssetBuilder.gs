@@ -182,6 +182,17 @@ var _5_APP_REPLACEMENT =
   '  Post/email 4:     First reveal — phone appears with easyChef Pro open\n' +
   '  Posts/emails 5+:  Phone visible · app in use · outcomes not features\n\n';
 
+// ── Precision rules — exact figures, locked phrasing ─────────────────────────
+var _PRECISION_RULES =
+  '=== PRECISION RULES (LOCKED) ===\n' +
+  'Use exact figures only — no rounding, no approximating, no softening:\n\n' +
+  'ANNUAL SAVINGS:  "$1,336/year average savings" — NEVER "$1,500" · NEVER "over $1,000"\n' +
+  'MONTHLY SAVINGS: "Families save an average of $111 a month" — exact phrasing required\n' +
+  'FOOD WASTE:      "69.5% less food waste" — NEVER "70%" · NEVER "nearly 70%"\n' +
+  'DISCOUNT:        "60% off" — NEVER "50% off"\n' +
+  'DIETITIANS:      "registered dietitians" — "registered" always required · NEVER just "dietitians"\n' +
+  'CTA RULE:        NEVER "sign up" — use: "Join the waitlist" · "Get early access" · "Join the founding family" · "Lock in your spot"\n\n';
+
 // ── 7-step copy framework — what works, what kills each step ──────────────────
 var _7_STEP_FRAMEWORK =
   '=== 7-STEP COPY FRAMEWORK — EVERY PIECE OF COPY FOLLOWS THIS EXACTLY ===\n' +
@@ -552,7 +563,7 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
   var _voiceRules   = gov.voiceRules  || _BRAND_VOICE_RULES;
   var _phaseGuard   = gov.phaseGuard  ? gov.phaseGuard  : '';
   var _compliance   = gov.compliance  ? gov.compliance  : '';
-  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _5_APP_REPLACEMENT + _7_STEP_FRAMEWORK + _voiceRules + sD + _AB_ARCH + sE + sF + sG + _phaseGuard + _compliance;
+  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _5_APP_REPLACEMENT + _7_STEP_FRAMEWORK + _voiceRules + _PRECISION_RULES + sD + _AB_ARCH + sE + sF + sG + _phaseGuard + _compliance;
 }
 
 // ── Governance compiler functions ─────────────────────────────────────────────
