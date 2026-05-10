@@ -1189,6 +1189,46 @@ function fillEC2026001SocialBody() {
   }
 }
 
+// ── easyChef Pro Doc Branding Helpers ────────────────────────────────────────
+// Brand: #FF0000 (CTA/section red) · #000000 (body) · #F6EFE8 (beige accent)
+
+function _ecDocCover(body, docType, subtitle, meta) {
+  var tbl = body.appendTable([['easyChef Pro', docType], [subtitle, '']]);
+  var c00 = tbl.getCell(0, 0);
+  c00.setBackgroundColor('#FF0000');
+  c00.setPaddingTop(10).setPaddingBottom(10).setPaddingLeft(12).setPaddingRight(12);
+  c00.editAsText().setForegroundColor('#FFFFFF').setBold(true).setFontSize(20).setFontFamily('Arial');
+  var c01 = tbl.getCell(0, 1);
+  c01.setBackgroundColor('#000000');
+  c01.setPaddingTop(10).setPaddingBottom(10).setPaddingLeft(12).setPaddingRight(12);
+  c01.editAsText().setForegroundColor('#FFFFFF').setItalic(true).setFontSize(11).setFontFamily('Arial');
+  var c10 = tbl.getCell(1, 0);
+  c10.setBackgroundColor('#F6EFE8');
+  c10.setPaddingTop(8).setPaddingBottom(8).setPaddingLeft(12).setPaddingRight(12);
+  c10.editAsText().setForegroundColor('#000000').setBold(true).setFontSize(12).setFontFamily('Arial');
+  tbl.getCell(1, 1).setBackgroundColor('#F6EFE8');
+  if (meta) {
+    var mp = body.appendParagraph(meta);
+    mp.editAsText().setForegroundColor('#888888').setFontSize(9).setFontFamily('Arial').setItalic(true);
+    mp.setSpacingBefore(4);
+  }
+  body.appendHorizontalRule();
+}
+
+function _ecDocSection(body, title) {
+  var p = body.appendParagraph(title.toUpperCase());
+  p.editAsText().setForegroundColor('#FF0000').setBold(true).setFontSize(12).setFontFamily('Arial');
+  p.setSpacingBefore(14).setSpacingAfter(4);
+  return p;
+}
+
+function _ecDocSubsection(body, title) {
+  var p = body.appendParagraph(title);
+  p.editAsText().setForegroundColor('#000000').setBold(true).setFontSize(10).setFontFamily('Arial');
+  p.setSpacingBefore(8).setSpacingAfter(2);
+  return p;
+}
+
 // ── Generate LP Figma design spec Google Doc ──────────────────────────────────
 // Run via doPost: { "action": "generate_lp_figma_doc" }
 // Creates doc in EC-2026-001 campaign folder.
@@ -1210,15 +1250,14 @@ function generateLPFigmaDoc() {
     var H2 = DocumentApp.ParagraphHeading.HEADING2;
     var H3 = DocumentApp.ParagraphHeading.HEADING3;
 
-    body.appendParagraph('easyChef Pro — LP Design Spec').setHeading(H1);
-    body.appendParagraph('EC-2026-001 · Pre-Launch Arc 2026 · May 27 – Jul 1 2026 · A/B Test: Convert 100140422');
-    body.appendHorizontalRule();
+    _ecDocCover(body, 'LP Design Spec', 'EC-2026-001 · Pre-Launch Arc 2026',
+      'May 27 – Jul 1, 2026 · A/B Test Convert 100140422 · Variant A: /lp/waitlist-a · Variant B: /lp/waitlist-b');
 
     // ── Design Tokens ─────────────────────────────────────────────────────────
-    body.appendParagraph('DESIGN TOKENS').setHeading(H2);
-    body.appendParagraph('FONTS').setHeading(H3);
+    _ecDocSection(body, 'DESIGN TOKENS');
+    _ecDocSubsection(body, 'FONTS');
     body.appendParagraph('Headline: Proza Libre Bold\nBody / CTA / Tags: Inter Regular');
-    body.appendParagraph('COLORS').setHeading(H3);
+    _ecDocSubsection(body, 'COLORS');
     body.appendParagraph(
       'CTA buttons:       #FF0000 (always — no exceptions)\n' +
       'Headlines:         #000000\n' +
@@ -1229,7 +1268,7 @@ function generateLPFigmaDoc() {
       'Dark section bg:   #000000 (urgency/founding section)\n' +
       'FORBIDDEN:         no blue · no navy · no gradient · no orange · no coral'
     );
-    body.appendParagraph('RULES').setHeading(H3);
+    _ecDocSubsection(body, 'RULES');
     body.appendParagraph(
       'CTA buttons:  #FF0000 · white Inter text · pill shape · outcome-framed copy · NEVER "sign up"\n' +
       'Section tags: Inter Regular · #FF0000 · UPPERCASE · letter-spacing 2px\n' +
@@ -1239,16 +1278,16 @@ function generateLPFigmaDoc() {
     body.appendHorizontalRule();
 
     // ── LP A ──────────────────────────────────────────────────────────────────
-    body.appendParagraph('LP A — /lp/waitlist-a').setHeading(H1);
+    _ecDocSection(body, 'LP A — /lp/waitlist-a');
     body.appendParagraph('Variant A — Money · ICP: super_mom_money · Angle: savings · Convert: Variant A · 50% traffic');
 
-    body.appendParagraph('STEP 1 · HOOK').setHeading(H2);
+    _ecDocSubsection(body, 'STEP 1 · HOOK');
     body.appendParagraph(
       'Headline:    "Stop the mealtime madness."   [Proza Libre Bold · 52px · #000000]\n' +
       'Subheadline: "$180 in groceries. $47 in DoorDash. And tomorrow you\'ll do it again."   [Inter Regular · 22px · #333333]'
     );
 
-    body.appendParagraph('HERO (#FFFFFF background)').setHeading(H2);
+    _ecDocSubsection(body, 'HERO (#FFFFFF background)');
     body.appendParagraph(
       'Eyebrow:    [none]\n' +
       'Headline:   "Stop the Invisible Grocery Leak."   [Proza Libre Bold · 52px · #000000]\n' +
@@ -1258,13 +1297,13 @@ function generateLPFigmaDoc() {
       'Hero image: Warm kitchen 6:30 PM · woman 32-44 · groceries visible · 5 app icons on phone · NO PHONE APP UI · recognition not defeat · not staged'
     );
 
-    body.appendParagraph('PROOF BAR (#F6EFE8 · full width)').setHeading(H2);
+    _ecDocSubsection(body, 'PROOF BAR (#F6EFE8 · full width)');
     body.appendParagraph(
       '4 stats — Inter Regular · #000000 · centered · equal columns:\n' +
       '"$1,336/year average savings"  |  "30 minutes fridge to table"  |  "69.5% less food waste"  |  "10,000 household profiles"'
     );
 
-    body.appendParagraph('PROBLEM SECTION (#FFFFFF)').setHeading(H2);
+    _ecDocSubsection(body, 'PROBLEM SECTION (#FFFFFF)');
     body.appendParagraph(
       'Tag:      "THE PROBLEM"   [Inter · #FF0000 · UPPERCASE]\n' +
       'Headline: "Five apps. None of them talk to each other."   [Proza Libre Bold · 40px]\n' +
@@ -1272,7 +1311,7 @@ function generateLPFigmaDoc() {
       'Visual:   5 app logos (Mealime · NoWaste · MyFitnessPal · Recipe · Shopping list) · X marks · arrow → easyChef Pro logo'
     );
 
-    body.appendParagraph('SOLUTION SECTION (#F6EFE8)').setHeading(H2);
+    _ecDocSubsection(body, 'SOLUTION SECTION (#F6EFE8)');
     body.appendParagraph(
       'Tag:      "THE FIX"   [Inter · #FF0000 · UPPERCASE]\n' +
       'Headline: "One app closes the full loop."   [Proza Libre Bold · 40px]\n' +
@@ -1284,7 +1323,7 @@ function generateLPFigmaDoc() {
       'Visual:   Phone with TRACK screen · warm light · woman looking at phone (FIRST REVEAL energy)'
     );
 
-    body.appendParagraph('PROOF SECTION (#FFFFFF)').setHeading(H2);
+    _ecDocSubsection(body, 'PROOF SECTION (#FFFFFF)');
     body.appendParagraph(
       'Tag:      "THE PROOF"   [Inter · #FF0000 · UPPERCASE]\n' +
       'Headline: "The math is real."   [Proza Libre Bold · 40px]\n' +
@@ -1297,7 +1336,7 @@ function generateLPFigmaDoc() {
       'Origin:   "Built by first responders"   [Inter Regular · italic · #333333]'
     );
 
-    body.appendParagraph('URGENCY SECTION (#000000 · white text)').setHeading(H2);
+    _ecDocSubsection(body, 'URGENCY SECTION (#000000 · white text)');
     body.appendParagraph(
       'Headline: "First 5,000 families lock in $7.99/month forever."   [Proza Libre Bold · 44px · #FFFFFF]\n' +
       'Subhead:  "The rest pay $19.99. This closes when spots fill."   [Inter Regular · #FFFFFF · 70% opacity]\n' +
@@ -1305,7 +1344,7 @@ function generateLPFigmaDoc() {
       'Counter:  Founding spots remaining (live if available)'
     );
 
-    body.appendParagraph('FOOTER CTA (#F6EFE8)').setHeading(H2);
+    _ecDocSubsection(body, 'FOOTER CTA (#F6EFE8)');
     body.appendParagraph(
       'CTA:    "Join the founding family — early access July 1"   [#FF0000 button · full width mobile]\n' +
       'Trial:  "Try easyChef Pro free for 7 days — no credit card"   [Inter · #333333 · 14px]\n' +
@@ -1314,16 +1353,16 @@ function generateLPFigmaDoc() {
     body.appendHorizontalRule();
 
     // ── LP B ──────────────────────────────────────────────────────────────────
-    body.appendParagraph('LP B — /lp/waitlist-b').setHeading(H1);
+    _ecDocSection(body, 'LP B — /lp/waitlist-b');
     body.appendParagraph('Variant B — Time + Founding Family · ICP: super_mom_time · Angle: time_relief + founding_family · Convert: Variant B · 50% traffic');
 
-    body.appendParagraph('STEP 1 · HOOK').setHeading(H2);
+    _ecDocSubsection(body, 'STEP 1 · HOOK');
     body.appendParagraph(
       'Headline:    "Daily Dinner Figured Out."   [Proza Libre Bold · 52px · #000000]\n' +
       'Subheadline: "What if dinner was decided before you opened the fridge?"   [Inter Regular · 22px · #333333]'
     );
 
-    body.appendParagraph('HERO (#FFFFFF background)').setHeading(H2);
+    _ecDocSubsection(body, 'HERO (#FFFFFF background)');
     body.appendParagraph(
       'Eyebrow:    "FOUNDING FAMILY INVITATION"   [Inter · #FF0000 · UPPERCASE · 12px · letter-spacing 3px]\n' +
       'Headline:   "Daily Dinner Figured Out."   [Proza Libre Bold · 52px · #000000]\n' +
@@ -1333,10 +1372,10 @@ function generateLPFigmaDoc() {
       'Hero image: Woman in kitchen · calm unhurried energy · phone visible (PLAN screen) · warm golden light · kids soft in background · not staged'
     );
 
-    body.appendParagraph('PROOF BAR (#F6EFE8 · full width)').setHeading(H2);
+    _ecDocSubsection(body, 'PROOF BAR (#F6EFE8 · full width)');
     body.appendParagraph('Same 4-stat bar as LP A.');
 
-    body.appendParagraph('PROBLEM SECTION (#FFFFFF)').setHeading(H2);
+    _ecDocSubsection(body, 'PROBLEM SECTION (#FFFFFF)');
     body.appendParagraph(
       'Tag:      "THE PROBLEM"   [Inter · #FF0000 · UPPERCASE]\n' +
       'Headline: "The 6:30 PM wall hits every night."   [Proza Libre Bold · 40px]\n' +
@@ -1344,7 +1383,7 @@ function generateLPFigmaDoc() {
       'Visual:   Clock showing 6:30 · capable woman mid-decision · no shame · quiet frustration only'
     );
 
-    body.appendParagraph('SOLUTION SECTION (#F6EFE8)').setHeading(H2);
+    _ecDocSubsection(body, 'SOLUTION SECTION (#F6EFE8)');
     body.appendParagraph(
       'Tag:      "THE FIX"   [Inter · #FF0000 · UPPERCASE]\n' +
       'Headline: "Dinner figured out before you open the fridge."   [Proza Libre Bold · 40px]\n' +
@@ -1352,24 +1391,24 @@ function generateLPFigmaDoc() {
       'Visual:   Woman on couch · relaxed · kids settled in background · kitchen clean · phone in hand showing app · deep amber evening light'
     );
 
-    body.appendParagraph('PROOF SECTION (#FFFFFF)').setHeading(H2);
+    _ecDocSubsection(body, 'PROOF SECTION (#FFFFFF)');
     body.appendParagraph('Same proof section as LP A. Same stats. Same origin note.');
 
-    body.appendParagraph('FOUNDING FAMILY SECTION (#000000 · white text)').setHeading(H2);
+    _ecDocSubsection(body, 'FOUNDING FAMILY SECTION (#000000 · white text)');
     body.appendParagraph(
       'Headline: "You found this before everyone else."   [Proza Libre Bold · 44px · #FFFFFF]\n' +
       'Body:     "The founding family forms now. First 5,000 families. $7.99/month locked forever. The founding price closes when spots fill."\n' +
       'CTA:      "Join the founding family"   [#FF0000 button · white Inter]'
     );
 
-    body.appendParagraph('FOOTER CTA (#F6EFE8)').setHeading(H2);
+    _ecDocSubsection(body, 'FOOTER CTA (#F6EFE8)');
     body.appendParagraph(
       'CTA:    "Get early access — July 1"   [#FF0000 button · full width mobile]\n' +
       'Trial:  "Try easyChef Pro free for 7 days — no credit card"\n' +
       'Legal:  minimal · 11px · Inter · #999999'
     );
 
-    body.appendParagraph('SECTION 04 · DESIGN BRIEF — LP B (Time + Founding Family)').setHeading(H2);
+    _ecDocSubsection(body, 'SECTION 04 · DESIGN BRIEF — LP B (Time + Founding Family)');
     body.appendParagraph(
       'ANGLE: Time + Founding Family — dinner decided before she opens the fridge · founding identity resonates\n' +
       'ICP:   super_mom_time · Female 28–44 · household logistics manager · food delivery user · mental-load carrier\n\n' +
@@ -1399,7 +1438,7 @@ function generateLPFigmaDoc() {
     body.appendHorizontalRule();
 
     // ── Component Inventory ───────────────────────────────────────────────────
-    body.appendParagraph('COMPONENT INVENTORY (shared)').setHeading(H1);
+    _ecDocSection(body, 'COMPONENT INVENTORY (shared)');
     body.appendParagraph(
       'NavBar:          Logo left · "Join waitlist" CTA right · #FF0000 pill · sticky on scroll\n' +
       'ProofBar:        4-stat horizontal · #F6EFE8 · full width · Inter Regular\n' +
@@ -1428,7 +1467,7 @@ function generateLPFigmaDoc() {
     );
 
     // ── Section 08: Tracking & Deep Links ────────────────────────────────────
-    body.appendParagraph('SECTION 08 · TRACKING & DEEP LINKS').setHeading(H1);
+    _ecDocSection(body, 'SECTION 08 · TRACKING & DEEP LINKS');
     body.appendParagraph('Active DL_IDs for EC-2026-001 — read live from DeepLinkRegistry at doc generation time');
 
     var DL_PREFIX_MAP = {
@@ -1476,10 +1515,10 @@ function generateLPFigmaDoc() {
       dlSumLines.push(plat8n + ': ' + ids8[0] + ' – ' + ids8[cnt8-1] + ' (' + cnt8 + ' IDs)');
     }
 
-    body.appendParagraph('ACTIVE DL_IDs BY PLATFORM').setHeading(H2);
+    _ecDocSubsection(body, 'ACTIVE DL_IDs BY PLATFORM');
     body.appendParagraph(dlSumLines.join('\n') || 'No active DL IDs found in DeepLinkRegistry for EC-2026-001');
 
-    body.appendParagraph('ANALYTICS').setHeading(H2);
+    _ecDocSubsection(body, 'ANALYTICS');
     body.appendParagraph(
       'GA4:     G-Q4DYEEXFKV · Stream: 6500506359\n' +
       'Clarity: wjxhprug80\n' +
@@ -1523,16 +1562,16 @@ function generateEC2026001BriefDoc() {
     var H3 = DocumentApp.ParagraphHeading.HEADING3;
 
     // ── Cover ────────────────────────────────────────────────────────────────
-    body.appendParagraph('easyChef Pro — Campaign Creative Brief').setHeading(H1);
-    body.appendParagraph(
-      'EC-2026-001 · Pre-Launch Arc 2026 — The Invisible Leak\n' +
+    _ecDocCover(
+      body,
+      'Campaign Creative Brief',
+      'EC-2026-001 · Pre-Launch Arc 2026 — The Invisible Leak',
       'Campaign: May 27 – Jun 30, 2026 · Launch: July 1, 2026 · 35 days · 218 posts\n' +
       'Generated: ' + Utilities.formatDate(new Date(), 'America/Los_Angeles', 'yyyy-MM-dd HH:mm z')
     );
-    body.appendHorizontalRule();
 
     // ── Campaign Overview ─────────────────────────────────────────────────────
-    body.appendParagraph('CAMPAIGN OVERVIEW').setHeading(H1);
+    _ecDocSection(body, 'CAMPAIGN OVERVIEW');
     body.appendParagraph(
       'What this campaign does:\n' +
       'Builds a waitlist of 5,000 founding families in 35 days before the July 1 launch of easyChef Pro.\n\n' +
@@ -1552,7 +1591,7 @@ function generateEC2026001BriefDoc() {
     body.appendHorizontalRule();
 
     // ── Brand System ──────────────────────────────────────────────────────────
-    body.appendParagraph('BRAND SYSTEM').setHeading(H1);
+    _ecDocSection(body, 'BRAND SYSTEM');
     body.appendParagraph(
       'COLORS\n' +
       '  CTA buttons:     #FF0000 — always, no exceptions\n' +
@@ -1577,7 +1616,7 @@ function generateEC2026001BriefDoc() {
     body.appendHorizontalRule();
 
     // ── 35-Day Arc ────────────────────────────────────────────────────────────
-    body.appendParagraph('35-DAY CAMPAIGN ARC').setHeading(H1);
+    _ecDocSection(body, '35-DAY CAMPAIGN ARC');
     body.appendParagraph(
       'Week 1 — Days 1–7  — HOOK + PROBLEM\n' +
       '  Establish the invisible leak. Real kitchens. Real frustration. No phone yet.\n\n' +
@@ -1633,14 +1672,14 @@ function generateEC2026001BriefDoc() {
       var pPosts  = posts[plat] || [];
       if (!pPosts.length) continue;
 
-      body.appendParagraph(plat.toUpperCase() + ' — ' + pPosts.length + ' POSTS').setHeading(H1);
+      _ecDocSection(body, plat.toUpperCase() + ' — ' + pPosts.length + ' POSTS');
 
       var lastWeek = 0;
       for (var pi = 0; pi < pPosts.length; pi++) {
         var p    = pPosts[pi];
         var week = Math.ceil((p.day || 1) / 7);
         if (week !== lastWeek) {
-          body.appendParagraph('WEEK ' + week + ' · DAYS ' + ((week-1)*7+1) + '–' + (week*7)).setHeading(H2);
+          _ecDocSubsection(body, 'WEEK ' + week + ' · DAYS ' + ((week-1)*7+1) + '–' + (week*7));
           lastWeek = week;
         }
         var hook_b_line = p.hook_b ? 'Hook B (Time/Founding): ' + p.hook_b : '';
@@ -1659,7 +1698,7 @@ function generateEC2026001BriefDoc() {
     }
 
     // ── Email Sequences Summary ───────────────────────────────────────────────
-    body.appendParagraph('EMAIL SEQUENCES').setHeading(H1);
+    _ecDocSection(body, 'EMAIL SEQUENCES');
     body.appendParagraph(
       'SEQ-1 (Welcome + Days 0-6) — DL-EM-0001 / DL-EM-0001-B\n' +
       '  E1 Day 0: Waitlist confirmation — trigger: waitlist_signup_completed\n' +
