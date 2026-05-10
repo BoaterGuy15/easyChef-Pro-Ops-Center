@@ -498,8 +498,8 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
             '',                                            // [25] Posted URL — email blank
             _emailEmotionMap[_eStageKey] || ''             // [26] Emotional Direction
           ];
-          var rowA = shared.slice(); rowA[6] = subA;         rowA[11] = 'A'; rowA[13] = _briefA; calDataRows.push(rowA);
-          var rowB = shared.slice(); rowB[6] = subB||'None'; rowB[9] = utmUrlB; rowB[10] = dlIdB; rowB[11] = 'B'; rowB[13] = _briefB; calDataRows.push(rowB);
+          var rowA = shared.slice(); rowA[6] = subA;         rowA[11] = 'A'; rowA[13] = 'Brief ' + dlId;  calDataRows.push(rowA);
+          var rowB = shared.slice(); rowB[6] = subB||'None'; rowB[9] = utmUrlB; rowB[10] = dlIdB; rowB[11] = 'B'; rowB[13] = 'Brief ' + (dlIdB || dlId); calDataRows.push(rowB);
         });
         Logger.log('[CalendarXlsx] email rows: ' + (_emailOrder.length * 2) + ' (' + _emailOrder.length + ' pairs)');
       } catch(ee) { Logger.log('[CalendarXlsx] email rows error: ' + ee.message); }
@@ -536,8 +536,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
               _hashtags = _briefHashtags || _sheetHashtags;
             }
           }
-          var _briefFull     = String(p.design_brief || (_postBriefs[p.id] && _postBriefs[p.id].design_brief) || '');
-          var _designBrief   = _briefFull ? _oneLiner(_briefFull) : 'Brief pending generation';
+          var _designBrief   = 'Brief ' + String(p.dl_id || p.id || '');
           var _owner         = (chKey === 'tiktok' || chKey === 'youtube') ? 'Taylor' : 'Searah';
           var _sendTime      = _SEND_TIMES[chKey] || '9:00 AM local';
           // A/B: when ab_test active, build Variant B UTM URL for the Variant column

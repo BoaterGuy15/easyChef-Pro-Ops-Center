@@ -216,3 +216,161 @@ function _deleteDocRow(id) {
     }
   }
 }
+
+// ── Design Brief Docs ─────────────────────────────────────────────────────────
+// generateBriefDocs(campaignId) — creates one Google Doc per social post.
+// Names each doc "Brief [DL_ID] — [Platform] — [Stage]".
+// Stores doc URL back into SocialPosts tab design_brief column.
+// Returns array of { dl_id, doc_url, title }.
+
+function generateBriefDocs(campaignId) {
+  if (!campaignId) return { ok: false, error: 'campaignId required' };
+  try {
+    var posts   = getSocialPosts(campaignId);
+    var brief   = getCampaignBrief(campaignId);
+    var theme   = brief && brief.theme ? _getThemeRow(brief.theme) : {};
+    var icpRows = getIcpProfiles ? getIcpProfiles() : [];
+    var icp     = icpRows.find(function(r) { return r.code === (brief && brief.icp_code); }) || {};
+
+    // Resolve campaign Drive folder
+    var folderUrl  = brief && brief.drive_url ? brief.drive_url : '';
+    var briefFolder;
+    try {
+      if (folderUrl) {
+        var folderId = folderUrl.match(/[-\w]{25,}/);
+        var parent   = folderId ? DriveApp.getFolderById(folderId[0]) : DriveApp.getRootFolder();
+        // Create or find a "Design Briefs" subfolder
+        var bfIter = parent.getFoldersByName('Design Briefs');
+        briefFolder = bfIter.hasNext() ? bfIter.next() : parent.createFolder('Design Briefs');
+      } else {
+        briefFolder = DriveApp.getRootFolder();
+      }
+    } catch(fe) {
+      briefFolder = DriveApp.getRootFolder();
+      Logger.log('[generateBriefDocs] folder error: ' + fe.message);
+    }
+
+    var results = [];
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spLast  = spSheet.getLastRow();
+    var spData  = spLast > 1 ? spSheet.getRange(2, 1, spLast - 1, 16).getValues() : [];
+
+    posts.forEach(function(post) {
+      if (!post.dl_id && !post.id) return;
+      var dlId    = String(post.dl_id || post.id || '');
+      var platform = String(post.platform || '');
+      var stage   = String(post.funnel_stage || post.stage || '');
+      var title   = 'Brief ' + dlId + ' — ' + platform + ' — ' + stage;
+
+      // Parse stored design_brief JSON if available
+      var briefData = {};
+      try { briefData = JSON.parse(post.design_brief || '{}'); } catch(e) {}
+
+      // Build the doc body
+      var doc  = DocumentApp.create(title);
+      var body = doc.getBody();
+
+      // Move to campaign folder
+      try {
+        var docFile = DriveApp.getFileById(doc.getId());
+        briefFolder.addFile(docFile);
+        DriveApp.getRootFolder().removeFile(docFile);
+      } catch(me) { Logger.log('[generateBriefDocs] move error: ' + me.message); }
+
+      // ── Header ────────────────────────────────────────────────────────────
+      body.appendParagraph('DESIGN BRIEF — ' + dlId)
+          .setHeading(DocumentApp.ParagraphHeading.HEADING1);
+      body.appendParagraph(
+        [String(brief && brief.name || campaignId),
+         platform, String(theme && theme.theme_name || brief && brief.theme || '')]
+        .filter(Boolean).join(' · ')
+      ).setHeading(DocumentApp.ParagraphHeading.HEADING3);
+      body.appendHorizontalRule();
+
+      // ── Six questions ────────────────────────────────────────────────────
+      var questions = [
+        ['WHO THIS IS FOR',
+          (briefData.who_its_for ||
+           [icp.name || (brief && brief.icp_code) || '',
+            icp.primary_pain ? 'Primary pain: ' + icp.primary_pain : ''].filter(Boolean).join(' · '))],
+        ['EMOTIONAL STATE',
+          briefData.emotional_state || stage + ' — see funnel map'],
+        ['WHERE IN THE FUNNEL',
+          briefData.funnel_position || stage],
+        ['VISUAL STATE OF THE STORY',
+          briefData.visual_progression ||
+          (post.phone_rule ? post.phone_rule :
+           (stage === 'hook' || stage === 'problem' || stage === 'agitate'
+             ? 'Posts 1-3 — NO PHONE. Problem must feel real before solution appears.'
+             : stage === 'solve'
+             ? 'Post 4 — PHONE APPEARS for the first time. First reveal.'
+             : 'Posts 5-7 — PHONE VISIBLE. Outcomes, not features.'))],
+        ['WHAT MUST NOT APPEAR YET',
+          Array.isArray(briefData.what_not_to_show)
+            ? briefData.what_not_to_show.map(function(x){ return '• ' + x; }).join('\n')
+            : '• App UI before Post 4\n• Smiling before problem is acknowledged\n• Bright commercial lighting'],
+        ['WHAT ACTION THEY FEEL NEXT',
+          briefData.what_they_feel_next || 'Pause the scroll. Feel seen.']
+      ];
+      questions.forEach(function(q) {
+        body.appendParagraph(q[0]).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+        body.appendParagraph(q[1]);
+      });
+
+      body.appendHorizontalRule();
+
+      // ── Production details ───────────────────────────────────────────────
+      var details = [
+        ['SCENE DIRECTION',    briefData.scene_direction    || post.image_brief || ''],
+        ['VISUAL TONE',        briefData.visual_tone        || ''],
+        ['CAMERA STYLE',       briefData.camera_style       || ''],
+        ['LAYOUT',             briefData.layout_direction   || ''],
+        ['PHONE VISIBILITY',   briefData.phone_rule_note    || (post.phone_visibility === false ? 'NO PHONE' : 'PHONE VISIBLE')],
+        ['CTA',                briefData.cta                || post.cta || ''],
+        ['PLATFORM SPECS',
+          briefData.platform_specs
+            ? (briefData.platform_specs.ratio || '') + ' · ' + (briefData.platform_specs.size || '')
+            : platform]
+      ];
+      if (briefData.motion_direction) details.push(['MOTION DIRECTION', briefData.motion_direction]);
+      if (briefData.audio_direction)  details.push(['AUDIO DIRECTION',  briefData.audio_direction]);
+
+      details.forEach(function(d) {
+        if (!d[1]) return;
+        body.appendParagraph(d[0]).setHeading(DocumentApp.ParagraphHeading.HEADING3);
+        body.appendParagraph(d[1]);
+      });
+
+      body.appendHorizontalRule();
+
+      // ── Brand rules ──────────────────────────────────────────────────────
+      body.appendParagraph('BRAND RULES').setHeading(DocumentApp.ParagraphHeading.HEADING3);
+      body.appendParagraph(
+        '• CTA button: #FF0000 red — never orange, never coral\n' +
+        '• No shame language — the system is broken, never her fault\n' +
+        '• No invented names, locations, or testimonials\n' +
+        '• No forbidden words: revolutionary, game-changing, seamless, leverage\n' +
+        '• Urgency only as: "First 5,000 families" or "Founding price ends July 1"'
+      );
+
+      doc.saveAndClose();
+      var docUrl = 'https://docs.google.com/document/d/' + doc.getId() + '/edit';
+
+      // Write URL back to SocialPosts tab design_brief column (col 16)
+      for (var i = 0; i < spData.length; i++) {
+        if (String(spData[i][0]) === String(post.id || '')) {
+          spSheet.getRange(i + 2, 16, 1, 1).setValue(docUrl);
+          break;
+        }
+      }
+
+      results.push({ dl_id: dlId, title: title, doc_url: docUrl });
+      Logger.log('[generateBriefDocs] created: ' + title);
+    });
+
+    return { ok: true, created: results.length, briefs: results };
+  } catch(e) {
+    Logger.log('[generateBriefDocs] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

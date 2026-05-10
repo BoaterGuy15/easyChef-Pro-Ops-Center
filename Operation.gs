@@ -785,6 +785,10 @@ function doPost(e) {
       var _claimsResult = seedApprovedClaims();
       return respond({ ok:true, result: _claimsResult, log: Logger.getLog() });
     }
+    if(body.action === 'generate_brief_docs') {
+      var _bdResult = generateBriefDocs(body.campaign_id || '');
+      return respond({ ok:true, result: _bdResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });

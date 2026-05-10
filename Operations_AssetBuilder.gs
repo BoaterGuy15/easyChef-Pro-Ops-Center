@@ -875,7 +875,8 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme, govPhoneRule, govBrandRu
     '   Invented testimonial quotes with names → banned\n\n';
 
   if (type === 'post_brief') {
-    return 'You are the art director for easyChef Pro. Generate a unique, stage-specific DESIGN BRIEF and HASHTAGS for each social post for the Figma designer.\n\n' +
+    return 'You are the art director for easyChef Pro. You are not generating graphics. You are generating emotional states through visual systems.\n\n' +
+      'Generate a unique, stage-specific DESIGN BRIEF and HASHTAGS for each social post for the Figma designer.\n\n' +
       '=== CAMPAIGN ===\n' +
       (_campaign  ? 'Campaign: '    + _campaign  + '\n' : '') +
       (_themeName ? 'Theme: '       + _themeName + '\n' : '') +
@@ -888,13 +889,40 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme, govPhoneRule, govBrandRu
         'Post 4 (Solve): PHONE APPEARS — first reveal. Phone shows app solving the exact problem from Post 3.\n' +
         'Posts 5-7 (Value · Proof · CTA): PHONE VISIBLE — phone present but not the hero. Show outcomes.\n\n'
       )) +
-      '=== DESIGN BRIEF FORMAT PER POST ===\n' +
-      'STAGE: [funnel stage name]\n' +
-      'EMOTION: [exact emotional state — 3-5 words]\n' +
-      'SCENE DIRECTION: [3-4 specific sentences — what to shoot or illustrate, referencing hook text and theme food]\n' +
-      'PHONE RULE: [NO PHONE — phone does not appear until Post 4] or [PHONE APPEARS — Post 4 first reveal] or [PHONE VISIBLE — posts 5-7]\n' +
-      'CHANNEL FORMAT: [platform · dimensions · aspect ratio]\n' +
-      'WHAT NOT TO SHOW: [anything breaking the emotional arc or brand rules for this stage]\n\n' +
+      '=== DESIGN BRIEF JSON SCHEMA — output this exact structure for each post ===\n' +
+      'Each brief must answer all six questions for the designer:\n' +
+      '  1. WHO this is for — ICP name, emotional trigger, core pain\n' +
+      '  2. WHAT emotional state they are in — specific, visceral, 3-5 words\n' +
+      '  3. WHERE they are in the funnel — stage name + post number context + what came before\n' +
+      '  4. WHAT visual state the story is in — phone rule + what the visual progression is at this moment\n' +
+      '  5. WHAT must NOT appear yet — anything that breaks the emotional arc or reveals too early\n' +
+      '  6. WHAT action the user should feel next — not the CTA button, the internal emotional pull\n\n' +
+      'Output each post as a JSON object with these fields:\n' +
+      '{\n' +
+      '  "id": "[post DL ID]",\n' +
+      '  "asset_type": "social_post" | "short_form_video" | "youtube_short",\n' +
+      '  "platform": "[platform]",\n' +
+      '  "funnel_stage": "[stage]",\n' +
+      '  "who_its_for": "[ICP name · key pain in one sentence · emotional trigger]",\n' +
+      '  "emotional_state": "[exact emotional state — 3-5 words]",\n' +
+      '  "funnel_position": "[stage name · post N of 7 · what came before · what comes next]",\n' +
+      '  "visual_progression": "[phone rule at this post · visual story state · what has been shown so far]",\n' +
+      '  "objective": "[recognition | pattern_interruption | belief_transfer | urgency | conversion]",\n' +
+      '  "scene_direction": "[3-4 specific sentences — what to shoot or illustrate, referencing theme food and ICP moment]",\n' +
+      '  "visual_tone": "[e.g. warm dim cinematic realism · soft shadows · real home not styled]",\n' +
+      '  "camera_style": "[e.g. slight handheld realism · stabilized lifestyle · static hero]",\n' +
+      '  "layout_direction": "[e.g. image dominant minimal text · text-first · split hero]",\n' +
+      '  "phone_visibility": false | true,\n' +
+      '  "phone_rule_note": "[NO PHONE / PHONE APPEARS — first reveal / PHONE VISIBLE — outcome]",\n' +
+      '  "cta": "[CTA text for this post]",\n' +
+      '  "what_not_to_show": ["[item]", "[item]", "[item]"],\n' +
+      '  "what_they_feel_next": "[the internal emotional pull after seeing this post — not the button click, the feeling]",\n' +
+      '  "brand_rules": ["CTA button #FF0000 red", "No shame language — system is broken not her fault", "No invented names or testimonials"],\n' +
+      '  "platform_specs": { "ratio": "[ratio]", "size": "[WxH]" },\n' +
+      '  "motion_direction": "[for video only — else omit]",\n' +
+      '  "audio_direction": "[for video only — else omit]",\n' +
+      '  "hashtags": "[platform-appropriate hashtags or empty string]"\n' +
+      '}\n\n' +
       '=== HASHTAG RULES (platform-locked, no exceptions) ===\n' +
       'Instagram: 5-8 hashtags · broad + niche mix · always include #easychefpro · stage-specific\n' +
       'Pinterest: 3-5 hashtags · keyword-focused · SEO-weighted · always include #easychefpro\n' +
@@ -904,7 +932,7 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme, govPhoneRule, govBrandRu
       'X: 1-2 hashtags MAX · only if directly relevant\n' +
       'YouTube: NO hashtags — return empty string\n\n' +
       'Every post must have a DIFFERENT brief and DIFFERENT hashtags — never duplicate across posts.\n' +
-      'Return ONLY valid JSON. No explanation. No markdown fences.';
+      'Return ONLY valid JSON array of post objects. No explanation. No markdown fences.';
   }
 
   if (type === 'email_brief') {
