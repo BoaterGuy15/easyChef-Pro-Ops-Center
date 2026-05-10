@@ -531,7 +531,8 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
 
   var _voiceRules   = gov.voiceRules  || _BRAND_VOICE_RULES;
   var _phaseGuard   = gov.phaseGuard  ? gov.phaseGuard  : '';
-  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _7_STEP_FRAMEWORK + _voiceRules + sD + _AB_ARCH + sE + sF + sG + _phaseGuard;
+  var _compliance   = gov.compliance  ? gov.compliance  : '';
+  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _7_STEP_FRAMEWORK + _voiceRules + sD + _AB_ARCH + sE + sF + sG + _phaseGuard + _compliance;
 }
 
 // ── Governance compiler functions ─────────────────────────────────────────────
@@ -629,6 +630,85 @@ function _compilePhoneRuleBlock() {
   } catch(e) {
     Logger.log('[_compilePhoneRuleBlock] fallback: ' + e.message);
     return null;
+  }
+}
+
+function _compileComplianceBlock(themeData) {
+  try {
+    const claims    = getBrandDoctrine('APPROVED_CLAIMS_001');
+    const noTestim  = getBrandDoctrine('NO_INVENTED_TESTIMONIALS_001');
+    const shame     = getBrandDoctrine('SHAME_LANGUAGE_001');
+    const themeFood = getBrandDoctrine('THEME_FOOD_RULE_001');
+    const gender    = getBrandDoctrine('IMAGE_GENDER_RULE_001');
+
+    const lines = [];
+
+    if (claims && claims.active) {
+      const c = claims.conditions;
+      lines.push('COMPLIANCE — APPROVED CLAIMS (hard rule):');
+      lines.push('Use ONLY these exact figures. Never round. Never invent.');
+      if (c.approved && Array.isArray(c.approved)) {
+        c.approved.forEach(function(item) {
+          lines.push('  • ' + item.label + ': "' + item.exact_wording + '"');
+        });
+      }
+      if (c.forbidden && Array.isArray(c.forbidden)) {
+        lines.push('NEVER write: ' + c.forbidden.join(' · '));
+      }
+      lines.push('');
+    }
+
+    if (noTestim && noTestim.active) {
+      const c = noTestim.conditions;
+      lines.push('COMPLIANCE — NO INVENTED TESTIMONIALS (hard rule):');
+      lines.push('Never write fictional names, locations, or attributed quotes.');
+      if (c.forbidden_patterns && Array.isArray(c.forbidden_patterns)) {
+        lines.push('Forbidden patterns: ' + c.forbidden_patterns.join(' · '));
+      }
+      lines.push('Allowed: aggregate claims only — e.g. "2,400+ families on the waitlist".');
+      lines.push('');
+    }
+
+    if (shame && shame.active) {
+      const c = shame.conditions;
+      lines.push('COMPLIANCE — NO SHAME LANGUAGE (hard rule):');
+      lines.push('The system is broken. It is never her fault. Never blame the person.');
+      if (c.forbidden_words && Array.isArray(c.forbidden_words)) {
+        lines.push('Never write: ' + c.forbidden_words.join(', '));
+      }
+      if (c.reframe) {
+        lines.push('Always reframe as: ' + c.reframe);
+      }
+      lines.push('');
+    }
+
+    if (themeFood && themeFood.active && themeData) {
+      const c = themeFood.conditions;
+      const food = themeData.food_type || 'theme food';
+      lines.push('COMPLIANCE — THEME FOOD RULE (hard rule):');
+      lines.push('Campaign theme food: ' + food);
+      lines.push('From Post ' + (c.appears_from_post || 4) + ' onward — this food MUST appear visibly in every image brief.');
+      lines.push('Posts 1-3 are exempt.');
+      lines.push('');
+    }
+
+    if (gender && gender.active) {
+      const c = gender.conditions;
+      lines.push('COMPLIANCE — IMAGE GENDER RULE (hard rule):');
+      lines.push('If copy describes a woman, image subject must be a woman. Always.');
+      if (c.subject_word_position) {
+        lines.push('Gender must appear in first ' + c.subject_word_position + ' words of every image brief SUBJECT line.');
+      }
+      lines.push('');
+    }
+
+    return lines.length > 0
+      ? '=== COMPLIANCE RULES (NON-NEGOTIABLE) ===\n' + lines.join('\n')
+      : '';
+
+  } catch(e) {
+    Logger.log('[_compileComplianceBlock] Error: ' + e.message);
+    return '';
   }
 }
 
@@ -741,7 +821,8 @@ function getMasterSystemPrompt(type, context) {
     emotionalArc:  _compileEmotionalArcBlock(),
     stageEmotions: _compileStageEmotionsMap(),
     phoneRule:     _compilePhoneRuleBlock(),
-    phaseGuard:    _compilePhaseGuardBlock()
+    phaseGuard:    _compilePhaseGuardBlock(),
+    compliance:    _compileComplianceBlock(context.themeData || null)
   };
 
   // Design brief types — art direction only, no copy machinery needed

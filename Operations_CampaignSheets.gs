@@ -3215,21 +3215,21 @@ function _seedBrandDoctrine(sheet) {
     ['VOICE_REQUIRED_001', 'voice_control', 'soft', true,
       '{"product_name":"easyChef Pro","required_phrases":["easyChef Pro","Built by first responders"],"approved_savings":"$1,336/year","approved_waste":"69.5%","approved_time":"30 minutes","approved_founding_discount":"60% off","monthly_savings_note":"$111 requires word average in body copy"}'],
     ['APPROVED_CLAIMS_001', 'compliance', 'hard', true,
-      '{"approved":{"annual_savings":"$1,336/year","monthly_savings":"$111/month average — word average required","food_waste":"69.5%","fridge_to_table":"30 minutes","technologies":"9 patent-pending technologies","database":"800,000 products","recipes":"10,000 recipe pages at launch","dietitians":"registered dietitians","profiles":"validated across 10,000 household profiles","founding_discount":"60% off","founding_price":"$7.99/month","standard_price":"$19.99/month","annual_price":"$191.88/year"},"banned_figures":["$1,500","$1500","$112","70%","50% off"],"monthly_savings_note":"$111 is approved but requires word average — not a guarantee"}'],
+      '{"approved":[{"label":"Annual savings","exact_wording":"$1,336/year"},{"label":"Food waste reduction","exact_wording":"69.5%"},{"label":"Fridge to table","exact_wording":"30 minutes"},{"label":"Technologies","exact_wording":"9 patent-pending technologies"},{"label":"Database","exact_wording":"250,000 products pre-loaded"},{"label":"Profiles validated","exact_wording":"10,000 household profiles"},{"label":"Founding discount","exact_wording":"60% off"},{"label":"Origin","exact_wording":"Built by firefighters and paramedics"},{"label":"Registered dietitians","exact_wording":"registered dietitians"}],"forbidden":["$1,500","70%","9 patents","50% off","clinical"]}'],
     ['DL_ID_FORMAT_001', 'technical', 'hard', true,
       '{"format":"DL-[PREFIX]-[4-digit]","utm_content_rule":"DL_ID always first","prefixes":["EM","FB","IG","TK","PT","ND","YT","X","LP","AFF"],"example":"DL-EM-0001_SEQ-1_cta"}'],
     ['NO_INVENTED_TESTIMONIALS_001', 'compliance', 'hard', true,
-      '{"banned_names":["Sarah","Lisa","Jennifer","Denver","Maria"],"banned_patterns":["[name] from [city]","[name] started using","[name] said"],"rule":"Never invent testimonials. Never create fake names. Never attribute quotes to invented people."}'],
+      '{"forbidden_patterns":["Sarah from Denver","Lisa started using","[name] tried easyChef Pro","one mom told us","a family in [city]"]}'],
     ['SHAME_LANGUAGE_001', 'voice_control', 'hard', true,
-      '{"rule":"System is broken — not her fault. Never blame the person.","banned_frames":["you failed","you forgot","you wasted","why didn\'t you","you should have"],"approved_frame":"The system never closed the loop. Not because of you."}'],
+      '{"forbidden_words":["lazy","disorganized","careless","failing","bad mom","should have"],"reframe":"The system is broken. It is never her fault."}'],
     ['SINGLE_CTA_001', 'structural', 'hard', true,
       '{"max_ctas":1,"rule":"One CTA per asset. One action. One destination. Never offer multiple options.","banned":["multiple buttons","secondary CTA","or you can also"]}'],
     ['MAKE_NOT_ZAPIER_001', 'technical', 'hard', true,
       '{"approved":"Make.com","banned":"Zapier","rule":"All automation references say Make.com. Never Zapier. Applies to all copy, specs, and code comments."}'],
     ['THEME_FOOD_RULE_001', 'visual_progression', 'hard', true,
-      '{"rule":"Theme food must appear in images from Post 4 onward","applies_from_post":4,"examples":{"taco-tuesday":"tacos · crispy shells · salsa · lime · on a plate","meal-prep-sunday":"meal prep containers · grains · proteins · vegetables portioned","game-night":"finger foods · nachos · sliders · shareable dishes"}}'],
+      '{"appears_from_post":4,"posts_exempt":[1,2,3]}'],
     ['IMAGE_GENDER_RULE_001', 'visual_progression', 'hard', true,
-      '{"rule":"Post describes a woman — image shows a woman. Always.","gender_must_be":"first 3 words of image prompt","enforcement":"hard — no exceptions"}']
+      '{"subject_word_position":3,"rule":"If copy describes a woman, image subject must be a woman. Gender word must appear in first 3 words of SUBJECT line in image brief."}']
   ].forEach(function(row) {
     if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
   });
