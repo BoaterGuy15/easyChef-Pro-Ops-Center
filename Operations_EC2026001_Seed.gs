@@ -1959,6 +1959,200 @@ function upgradeEC2026001DesignBriefs() {
   }
 }
 
+// ── GPT-4o Creative Brief Generator ──────────────────────────────────────────
+// Sends each post to GPT-4o via UrlFetchApp.fetchAll (parallel).
+// Writes cinematic hook_a, hook_b, scene_direction, what_not_to_show,
+// caption_opening + platform extras (TikTok: scene_sequence/audio;
+// YouTube: story_arc/opening_hook; Email: subject/preview/header_image)
+// into design_brief JSON. Processes batchSize posts per run.
+// Run via doPost: { "action": "generate_ec2026001_gpt_briefs",
+//   "start_offset": 0, "batch_size": 40 }
+
+function _gptSysMsg() {
+  return 'You are an elite creative director writing cinematic social campaigns for consumer apps. ' +
+    'You write with the precision of Wieden+Kennedy — emotionally true, specific, never generic. ' +
+    'You know that the best creative makes someone feel seen before it sells anything.\n\n' +
+    'CAMPAIGN: easyChef Pro — EC-2026-001 "Pre-Launch Arc — The Invisible Leak"\n' +
+    'PRODUCT: easyChef Pro closes the full kitchen loop: ' +
+    'TRACK pantry → PLAN meals → OPTIMIZE nutrition → COOK → SHOP. ' +
+    'Core truth: The average family loses $111/month ($1,336/year) to grocery waste and food delivery.\n\n' +
+    'TWO ICPs:\n' +
+    '  super_mom_money: Female 28-44 · household CFO · feels guilty about grocery waste · motivated by savings\n' +
+    '  super_mom_time:  Female 28-44 · mental load carrier · 5-10 hrs/week on dinner decisions · motivated by time relief and founding family identity\n\n' +
+    'BRAND RULES:\n' +
+    '  · Empathetic tone — the system is broken, not her\n' +
+    '  · Always specific: $111/month · $1,336/year · 30 minutes · 69.5% less waste\n' +
+    '  · Warm kitchen realism — no staged perfection, no shame language\n' +
+    '  · Phone reveal: NO PHONE in hook/problem stages · FIRST REVEAL in solve · VISIBLE from value onwards\n' +
+    '  · NEVER "sign up" · NEVER invented testimonials · NEVER real names\n' +
+    '  · Forbidden colors/look: blue · navy · gradient · orange · staged perfection\n\n' +
+    'Return ONLY valid JSON — no markdown code fences, no explanation.';
+}
+
+function _gptPostPrompt(platform, feature, existing) {
+  var stage    = existing.funnel_stage    || 'hook';
+  var day      = existing.day             || 1;
+  var phoneStr = existing.phone_visibility ? 'VISIBLE in frame' : 'NO PHONE in frame';
+  var draftA   = existing.hook_a ? 'Draft hook A (improve or rewrite): ' + existing.hook_a + '\n' : '';
+  var draftB   = existing.hook_b ? 'Draft hook B (improve or rewrite): ' + existing.hook_b + '\n' : '';
+
+  var extraFields = '';
+  if (platform === 'TikTok') {
+    extraFields = ',\n  "scene_sequence": ["4-6 beat descriptions — each beat is one visual action"],\n' +
+      '  "audio_direction": "specific audio and music direction for this TikTok"';
+  } else if (platform === 'YouTube') {
+    extraFields = ',\n  "story_arc": ["exactly 4 beat descriptions for the narrative arc"],\n' +
+      '  "opening_hook": "what the viewer sees and hears in the first 3 seconds"';
+  } else if (platform === 'Email') {
+    extraFields = ',\n  "subject_line": "max 8 words — emotionally precise, not clickbait",\n' +
+      '  "preview_text": "max 12 words — creates a curiosity gap",\n' +
+      '  "header_image_direction": "hero image scene direction for email — who, where, light, mood"';
+  }
+
+  return 'Create a cinematic creative brief for this social post.\n\n' +
+    'Platform: ' + platform + '\n' +
+    'Day: ' + day + ' of 35 (campaign May 27 – Jun 30, 2026)\n' +
+    'Funnel Stage: ' + stage + '\n' +
+    'Feature / Theme: ' + feature + '\n' +
+    'Phone: ' + phoneStr + '\n' +
+    draftA + draftB +
+    '\nReturn this JSON:\n{\n' +
+    '  "hook_a": "Hook for super_mom_money — savings/efficiency angle. ' +
+      'Emotionally specific. Max 15 words.",\n' +
+    '  "hook_b": "Hook for super_mom_time — time relief + founding family angle. Max 15 words.",\n' +
+    '  "scene_direction": "2-3 sentences of cinematic art direction: ' +
+      'who is in frame, exact time of day, specific room, light quality, ' +
+      'visible objects that tell the story, emotional state shown through environment. ' +
+      'No app UI if phone is not in frame.",\n' +
+    '  "what_not_to_show": ["4-6 specific visual or tonal things to avoid in this exact post"],\n' +
+    '  "caption_opening": "Scroll-stopping first line of caption. Emotionally true. Max 12 words."' +
+    extraFields + '\n}';
+}
+
+function generateEC2026001GPTBriefs(startOffset, batchSize) {
+  try {
+    startOffset = Number(startOffset) || 0;
+    batchSize   = Number(batchSize)   || 40;
+
+    var apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+    if (!apiKey) return { ok: false, error: 'OPENAI_API_KEY not in Script Properties' };
+
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var lastRow = spSheet.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'SocialPosts empty' };
+
+    var allRows = spSheet.getRange(2, 1, lastRow - 1, 16).getValues();
+    var ec001   = [];
+    for (var i = 0; i < allRows.length; i++) {
+      if (String(allRows[i][1]) === 'EC-2026-001') ec001.push({ ri: i, row: allRows[i] });
+    }
+
+    var total    = ec001.length;
+    var endIdx   = Math.min(startOffset + batchSize, total);
+    var batch    = ec001.slice(startOffset, endIdx);
+
+    if (!batch.length) {
+      return { ok: true, processed: 0, total: total, done: true,
+               message: 'All posts already processed' };
+    }
+
+    var sysMsg = _gptSysMsg();
+
+    // Build parallel fetch requests
+    var requests = batch.map(function(item) {
+      var row      = item.row;
+      var platform = String(row[2]);
+      var feature  = String(row[3]);
+      var existing = {};
+      try { existing = JSON.parse(String(row[15])); } catch(e) {}
+      return {
+        url:    'https://api.openai.com/v1/chat/completions',
+        method: 'post',
+        headers: {
+          'Authorization': 'Bearer ' + apiKey,
+          'Content-Type':  'application/json'
+        },
+        payload: JSON.stringify({
+          model:           'gpt-4o',
+          temperature:     0.72,
+          max_tokens:      700,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: sysMsg },
+            { role: 'user',   content: _gptPostPrompt(platform, feature, existing) }
+          ]
+        }),
+        muteHttpExceptions: true
+      };
+    });
+
+    var responses = UrlFetchApp.fetchAll(requests);
+    var processed = 0;
+    var errors    = 0;
+    var now       = new Date().toISOString();
+
+    for (var j = 0; j < responses.length; j++) {
+      var resp = responses[j];
+      var item = batch[j];
+      var row  = item.row;
+      var existing = {};
+      try { existing = JSON.parse(String(row[15])); } catch(e) {}
+
+      if (resp.getResponseCode() !== 200) {
+        Logger.log('[GPTBriefs] row ' + item.ri + ' HTTP ' + resp.getResponseCode() +
+                   ': ' + resp.getContentText().slice(0, 200));
+        errors++;
+        continue;
+      }
+
+      var gpt = {};
+      try {
+        var body = JSON.parse(resp.getContentText());
+        gpt = JSON.parse(body.choices[0].message.content);
+      } catch(pe) {
+        Logger.log('[GPTBriefs] row ' + item.ri + ' parse: ' + pe.message);
+        errors++;
+        continue;
+      }
+
+      // Merge GPT creative copy into existing UCBS brief (schema fields preserved)
+      var merge = {};
+      for (var k in existing) { merge[k] = existing[k]; }
+      var copyFields = ['hook_a','hook_b','scene_direction','what_not_to_show',
+                        'caption_opening','subject_line','preview_text',
+                        'header_image_direction','scene_sequence','story_arc',
+                        'opening_hook','audio_direction'];
+      for (var f = 0; f < copyFields.length; f++) {
+        if (gpt[copyFields[f]] !== undefined) merge[copyFields[f]] = gpt[copyFields[f]];
+      }
+      merge.gpt_model = 'gpt-4o';
+      merge.gpt_at    = now;
+
+      spSheet.getRange(item.ri + 2, 16).setValue(JSON.stringify(merge));
+      processed++;
+    }
+
+    var done = (endIdx >= total);
+    Logger.log('[generateEC2026001GPTBriefs] batch done — processed:' + processed +
+               ' errors:' + errors + ' next:' + endIdx + ' done:' + done);
+    return {
+      ok:          true,
+      processed:   processed,
+      errors:      errors,
+      total:       total,
+      next_offset: endIdx,
+      done:        done,
+      message:     done
+        ? 'All ' + total + ' posts done'
+        : 'Continue with start_offset: ' + endIdx
+    };
+
+  } catch(e) {
+    Logger.log('[generateEC2026001GPTBriefs] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── FIX EC-2026-001 Email Sequences ──────────────────────────────────────────
 // FIX 1: Delete DL-EM-0020..0043 from DeepLinkRegistry
 // FIX 2+3: Clear and re-seed 26 rows with correct seq/email numbering, days, DL IDs

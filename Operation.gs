@@ -833,6 +833,10 @@ function doPost(e) {
       var _upgradeResult = upgradeEC2026001DesignBriefs();
       return respond({ ok:_upgradeResult.ok, result:_upgradeResult, log: Logger.getLog() });
     }
+    if(body.action === 'generate_ec2026001_gpt_briefs') {
+      var _gptResult = generateEC2026001GPTBriefs(body.start_offset, body.batch_size);
+      return respond({ ok:_gptResult.ok, result:_gptResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
