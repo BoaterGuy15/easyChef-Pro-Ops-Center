@@ -29632,8 +29632,9 @@ function _campaignsRenderInner(root){
         '</div>'+
       '</div>'+
       // ── Flow banner + tab bar + panel ──────────────────────────────────────
+      '<style>#cc-tab-bar::-webkit-scrollbar{display:none}</style>'+
       '<div id="cc-flow-banner" style="margin-top:8px"></div>'+
-      '<div style="display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;">'+tabBar+'</div>'+
+      '<div id="cc-tab-bar" style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none">'+tabBar+'</div>'+
       '<div id="cc-panel"></div>'+
     '</div>';
   var _pr=document.getElementById('cc-progress-rail');
