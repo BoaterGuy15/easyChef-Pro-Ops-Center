@@ -781,6 +781,10 @@ function doPost(e) {
       var _govResult = seedGovernanceTabs();
       return respond({ ok:true, result: _govResult, log: Logger.getLog() });
     }
+    if(body.action === 'seed_approved_claims') {
+      var _claimsResult = seedApprovedClaims();
+      return respond({ ok:true, result: _claimsResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });

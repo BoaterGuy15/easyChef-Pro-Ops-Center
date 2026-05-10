@@ -3406,6 +3406,14 @@ function getCampaignStrategy(strategyId) {
 
 // ── One-time seed trigger ─────────────────────────────────────────────────────
 
+function seedApprovedClaims() {
+  var ss = _getCampaignSpreadsheet();
+  var sheet = ss.getSheetByName(_CC_TAB.CLAIMS);
+  if (!sheet) { sheet = ss.insertSheet(_CC_TAB.CLAIMS); _ccHdrStyle(sheet, _CC_HDR.ApprovedClaims); }
+  _seedApprovedClaims(sheet);
+  return { ok: true, message: 'ApprovedClaims seeded — ' + (sheet.getLastRow() - 1) + ' rows' };
+}
+
 function seedGovernanceTabs() {
   var ss = _getCampaignSpreadsheet();
   [_CC_TAB.BRAND_DOCTRINE, _CC_TAB.CAMP_STRATEGY].forEach(function(name) {
