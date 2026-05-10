@@ -3303,8 +3303,10 @@ function _seedEC2026001Brief() {
 
 function _seedBrandDoctrine(sheet) {
   if (!sheet) return;
-  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
-  [
+  _ccHdrStyle(sheet, _CC_HDR.BrandDoctrine);
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
+  var rows = [
     ['PHONE_VISIBILITY_001', 'visual_progression', 'hard', true,
       '{"posts_1_3":{"phone_visible":false},"post_4":{"phone_visible":true,"mode":"first_reveal"},"posts_5_7":{"phone_visible":true}}'],
     ['LOOP_STRUCTURE_001', 'system_truth', 'hard', true,
@@ -3320,7 +3322,7 @@ function _seedBrandDoctrine(sheet) {
     ['VOICE_REQUIRED_001', 'voice_control', 'soft', true,
       '{"product_name":"easyChef Pro","required_phrases":["easyChef Pro","Built by first responders"],"approved_savings":"$1,336/year","approved_waste":"69.5%","approved_time":"30 minutes","approved_founding_discount":"60% off","monthly_savings_note":"$111 requires word average in body copy"}'],
     ['APPROVED_CLAIMS_001', 'compliance', 'hard', true,
-      '{"approved":[{"label":"Annual savings","exact_wording":"$1,336/year"},{"label":"Food waste reduction","exact_wording":"69.5%"},{"label":"Fridge to table","exact_wording":"30 minutes"},{"label":"Technologies","exact_wording":"9 patent-pending technologies"},{"label":"Database","exact_wording":"250,000 products pre-loaded"},{"label":"Profiles validated","exact_wording":"10,000 household profiles"},{"label":"Founding discount","exact_wording":"60% off"},{"label":"Origin","exact_wording":"Built by firefighters and paramedics"},{"label":"Registered dietitians","exact_wording":"registered dietitians"}],"forbidden":["$1,500","70%","9 patents","50% off","clinical"]}'],
+      '{"forbidden":["$1,500","70%","9 patents","50% off","clinical"]}'],
     ['DL_ID_FORMAT_001', 'technical', 'hard', true,
       '{"format":"DL-[PREFIX]-[4-digit]","utm_content_rule":"DL_ID always first","prefixes":["EM","FB","IG","TK","PT","ND","YT","X","LP","AFF"],"example":"DL-EM-0001_SEQ-1_cta"}'],
     ['NO_INVENTED_TESTIMONIALS_001', 'compliance', 'hard', true,
@@ -3335,10 +3337,9 @@ function _seedBrandDoctrine(sheet) {
       '{"appears_from_post":4,"posts_exempt":[1,2,3]}'],
     ['IMAGE_GENDER_RULE_001', 'visual_progression', 'hard', true,
       '{"subject_word_position":3,"rule":"If copy describes a woman, image subject must be a woman. Gender word must appear in first 3 words of SUBJECT line in image brief."}']
-  ].forEach(function(row) {
-    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
-  });
-  Logger.log('[_seedBrandDoctrine] Seeded 15 rules');
+  ];
+  if (rows.length > 0) sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  Logger.log('[_seedBrandDoctrine] Seeded ' + rows.length + ' rules');
 }
 
 function _seedCampaignStrategy(sheet) {
