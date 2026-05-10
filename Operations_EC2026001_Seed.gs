@@ -2455,8 +2455,9 @@ function getCampaignCalendar(campaignId) {
       days[dk].posts.sort(function(a, b) { return a.platform.localeCompare(b.platform); });
     });
 
+    var driveFolders = { 'EC-2026-001': 'https://drive.google.com/drive/folders/1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl' };
     Logger.log('[getCampaignCalendar] ' + Object.keys(days).length + ' days');
-    return { ok: true, campaign: campaignId, days: days, sheet_id: sheetId, sheet_gid: sheetGid };
+    return { ok: true, campaign: campaignId, days: days, sheet_id: sheetId, sheet_gid: sheetGid, drive_folder_url: driveFolders[campaignId] || null };
   } catch(e) {
     Logger.log('[getCampaignCalendar] ERROR: ' + e.message);
     return { ok: false, error: e.message };

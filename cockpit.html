@@ -312,7 +312,7 @@
     var dashData=null, calData=null, activeTab='dash';
     var FILTERS={platform:{},status:{},emotion:{},funnel:{},week:{}};
     var POST_REGISTRY={};  // keyed by asset_id for fast modal lookup
-    var SHEET_ID='', SHEET_GID='';
+    var SHEET_ID='', SHEET_GID='', DRIVE_FOLDER_URL='';
 
     // ── Filter helpers ────────────────────────────────────────────────────────
     function activeCount(){return Object.keys(FILTERS.platform).length+Object.keys(FILTERS.status).length+Object.keys(FILTERS.emotion).length+Object.keys(FILTERS.funnel).length+Object.keys(FILTERS.week).length;}
@@ -627,7 +627,7 @@
       rows+='<div class="pm-links">'+
         pmLink('Figma', null)+
         pmLink('Google Sheet Row', sheetUrl)+
-        pmLink('Drive Folder', null)+
+        pmLink('Drive Folder', DRIVE_FOLDER_URL||null)+
         pmLink('Brief Doc', null)+
       '</div>';
 
@@ -659,7 +659,7 @@
     }
     function loadCalendar(){
       google.script.run
-        .withSuccessHandler(function(r){if(r&&r.ok){calData=r;if(r.sheet_id)SHEET_ID=r.sheet_id;if(r.sheet_gid!==undefined)SHEET_GID=String(r.sheet_gid);applyAndRender();}})
+        .withSuccessHandler(function(r){if(r&&r.ok){calData=r;if(r.sheet_id)SHEET_ID=r.sheet_id;if(r.sheet_gid!==undefined)SHEET_GID=String(r.sheet_gid);if(r.drive_folder_url)DRIVE_FOLDER_URL=r.drive_folder_url;applyAndRender();}})
         .withFailureHandler(function(){})
         .getCampaignCalendar('EC-2026-001');
     }
