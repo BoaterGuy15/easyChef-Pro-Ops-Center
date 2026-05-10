@@ -23172,6 +23172,7 @@ function _ccRenderBrief(){
         '<button id="cc-save-draft-btn" onclick="_ccSaveDraft()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;font-weight:400;cursor:pointer;font-family:\'DM Mono\',monospace">Save Draft</button>'+
         _ccBtn('Save &amp; Generate UTMs →','_ccSaveBrief(true)',true)+
         '<button id="cc-drive-export-btn" onclick="_ccExportCampaignToDrive()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;font-weight:400;cursor:pointer;font-family:\'DM Mono\',monospace">📁 Export to Drive</button>'+
+        '<button id="cc-sync-convert-btn" onclick="_ccSyncConvertData()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;font-size:11px;font-weight:400;cursor:pointer;font-family:\'DM Mono\',monospace">📊 Sync Convert Data</button>'+
         '<button id="cc-gen-btn" onclick="_ccGenerateCampaign()" style="background:#000;border:none;color:#fff;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;display:flex;align-items:center;gap:6px;margin-left:auto">✦ Generate Campaign Copy</button>'+
       '</div>'+
       '<div id="cc-save-status" style="margin-top:8px;font-size:11px;font-family:\'DM Mono\',monospace"></div>'+
@@ -23408,6 +23409,30 @@ function _ccExportCampaignToDrive(){
     .catch(function(e){
       if(btn){btn.disabled=false;btn.textContent='📁 Export to Drive';}
       _showToast('Drive export failed: '+e.message,3000);
+    });
+}
+
+function _ccSyncConvertData(){
+  if(!CONFIG.sheetsUrl) return;
+  var btn=document.getElementById('cc-sync-convert-btn');
+  if(btn){btn.disabled=true;btn.textContent='Syncing…';}
+  var campaignId=(_campBrief&&_campBrief.id)||'';
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'sync_convert_data',campaignId:campaignId})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(btn){btn.disabled=false;btn.textContent='📊 Sync Convert Data';}
+      if(!d.ok){_showToast('Convert sync failed: '+(d.error||'Unknown error'),4000);return;}
+      var r=d.result||{};
+      var msg='Convert synced — '+
+        (r.synced||0)+' updated · '+
+        (r.skipped||0)+' skipped'+
+        (r.errors&&r.errors.length?' · '+r.errors.length+' errors':'')+
+        (r.flagged&&r.flagged.length?' · '+r.flagged.length+' complete':'');
+      _showToast('<span style="font-size:12px">📊 '+msg+'</span>',5000);
+    })
+    .catch(function(e){
+      if(btn){btn.disabled=false;btn.textContent='📊 Sync Convert Data';}
+      _showToast('Convert sync failed: '+e.message,3000);
     });
 }
 

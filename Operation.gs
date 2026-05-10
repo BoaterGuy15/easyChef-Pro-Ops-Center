@@ -768,6 +768,11 @@ function doPost(e) {
     }
     if(body.action === 'test_email_cal_row')      { testEmailCalendarRow();   return respond({ ok:true, log: Logger.getLog() }); }
     if(body.action === 'test_social_hashtag_row') { testSocialHashtagRow();   return respond({ ok:true, log: Logger.getLog() }); }
+    if(body.action === 'test_new_columns')        { testNewColumns();         return respond({ ok:true, log: Logger.getLog() }); }
+    if(body.action === 'sync_convert_data') {
+      var _cvtResult = syncConvertToSheet(body.campaignId || '');
+      return respond({ ok:true, result: _cvtResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
