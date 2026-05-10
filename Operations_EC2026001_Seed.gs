@@ -1767,6 +1767,286 @@ function generateEC2026001BriefDoc() {
   }
 }
 
+// ── Figma Export — flat JSON + sheet tab for designer handoff ────────────────
+// Writes all 218 EC-2026-001 posts to:
+//   (A) FigmaExport tab in Campaign Center (Google Sheets sync plugins)
+//   (B) JSON file in campaign Drive folder (Content Reel / Data Populator plugins)
+// Overwrites any previous export. Run via doPost: { "action": "export_ec2026001_figma_json" }
+
+function exportEC2026001FigmaJSON() {
+  try {
+    var CAMPAIGN_FOLDER_ID = '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl';
+
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var lastRow = spSheet.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'SocialPosts empty' };
+
+    var allRows = spSheet.getRange(2, 1, lastRow - 1, 16).getValues();
+
+    var HEADERS = [
+      'post_id','platform','day','week','funnel_stage','icp_target',
+      'phone_in_frame','dl_id','utm_url','cta',
+      'hook_a','hook_b','scene_direction','what_not_to_show','caption_opening',
+      'scene_sq_1','scene_sq_2','scene_sq_3','scene_sq_4','scene_sq_5','scene_sq_6',
+      'audio_direction',
+      'story_arc_1','story_arc_2','story_arc_3','story_arc_4',
+      'opening_hook',
+      'subject_line','preview_text','header_image_direction'
+    ];
+
+    var posts      = [];
+    var sheetRows  = [HEADERS];
+
+    for (var i = 0; i < allRows.length; i++) {
+      var row = allRows[i];
+      if (String(row[1]) !== 'EC-2026-001') continue;
+
+      var b = {};
+      try { b = JSON.parse(String(row[15])); } catch(e) {}
+
+      var day  = Number(b.day) || 0;
+      var week = day ? Math.ceil(day / 7) : '';
+      var seq  = Array.isArray(b.scene_sequence) ? b.scene_sequence : [];
+      var arc  = Array.isArray(b.story_arc)      ? b.story_arc      : [];
+      var wn   = Array.isArray(b.what_not_to_show)
+                 ? b.what_not_to_show.join(' | ')
+                 : String(b.what_not_to_show || '');
+
+      var obj = {
+        post_id:                String(row[0]  || b.post_id || ''),
+        platform:               String(row[2]  || b.platform || ''),
+        day:                    day,
+        week:                   week,
+        funnel_stage:           String(b.funnel_stage  || ''),
+        icp_target:             String(b.icp_target    || ''),
+        phone_in_frame:         b.phone_visibility ? 'YES' : 'NO',
+        dl_id:                  String(row[12] || b.dl_id   || ''),
+        utm_url:                String(row[13] || b.utm_url || ''),
+        cta:                    String(b.cta             || ''),
+        hook_a:                 String(b.hook_a          || ''),
+        hook_b:                 String(b.hook_b          || ''),
+        scene_direction:        String(b.scene_direction || ''),
+        what_not_to_show:       wn,
+        caption_opening:        String(b.caption_opening || ''),
+        scene_sq_1:             String(seq[0] || ''),
+        scene_sq_2:             String(seq[1] || ''),
+        scene_sq_3:             String(seq[2] || ''),
+        scene_sq_4:             String(seq[3] || ''),
+        scene_sq_5:             String(seq[4] || ''),
+        scene_sq_6:             String(seq[5] || ''),
+        audio_direction:        String(b.audio_direction        || ''),
+        story_arc_1:            String(arc[0] || ''),
+        story_arc_2:            String(arc[1] || ''),
+        story_arc_3:            String(arc[2] || ''),
+        story_arc_4:            String(arc[3] || ''),
+        opening_hook:           String(b.opening_hook           || ''),
+        subject_line:           String(b.subject_line           || ''),
+        preview_text:           String(b.preview_text           || ''),
+        header_image_direction: String(b.header_image_direction || '')
+      };
+
+      posts.push(obj);
+      sheetRows.push(HEADERS.map(function(h) { return obj[h] !== undefined ? obj[h] : ''; }));
+    }
+
+    // ── A: FigmaExport sheet tab ──────────────────────────────────────────────
+    var ss      = spSheet.getParent();
+    var tabName = 'FigmaExport';
+    var fxSheet = ss.getSheetByName(tabName);
+    if (!fxSheet) fxSheet = ss.insertSheet(tabName);
+    fxSheet.clearContents();
+    fxSheet.getRange(1, 1, sheetRows.length, HEADERS.length).setValues(sheetRows);
+    fxSheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
+    fxSheet.setFrozenRows(1);
+    var sheetUrl = 'https://docs.google.com/spreadsheets/d/' + ss.getId() +
+                   '/edit#gid=' + fxSheet.getSheetId();
+
+    // ── B: JSON file to Drive ─────────────────────────────────────────────────
+    var payload  = JSON.stringify({
+      campaign:    'EC-2026-001',
+      exported_at: new Date().toISOString(),
+      total:       posts.length,
+      posts:       posts
+    }, null, 2);
+    var datestamp = Utilities.formatDate(new Date(), 'America/Los_Angeles', 'yyyyMMdd');
+    var fileName  = 'easyChef-Pro_EC2026001_FigmaExport_' + datestamp + '.json';
+    var folder    = DriveApp.getFolderById(CAMPAIGN_FOLDER_ID);
+    var existing  = folder.getFilesByName(fileName);
+    while (existing.hasNext()) existing.next().setTrashed(true);
+    var jsonFile  = folder.createFile(fileName, payload, MimeType.PLAIN_TEXT);
+    jsonFile.setName(fileName); // keep .json in display name
+    var jsonUrl   = jsonFile.getUrl();
+
+    Logger.log('[exportEC2026001FigmaJSON] posts:' + posts.length + ' json:' + jsonUrl + ' sheet:' + sheetUrl);
+    return {
+      ok:        true,
+      total:     posts.length,
+      json_url:  jsonUrl,
+      json_id:   jsonFile.getId(),
+      sheet_url: sheetUrl,
+      sheet_tab: tabName,
+      file_name: fileName
+    };
+
+  } catch(e) {
+    Logger.log('[exportEC2026001FigmaJSON] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Asset Lifecycle — production ops tracking tab ─────────────────────────────
+// Tracks each asset from generated → in_figma → designer_review → approved
+//   → scheduled → published → archived.
+// seed_ec2026001_asset_lifecycle : initial seed (idempotent)
+// update_asset_status            : patch any field on one asset
+// asset_lifecycle_report         : count breakdown by status + platform
+
+var _AL_STATUSES = ['generated','in_figma','designer_review','approved','scheduled','published','archived'];
+
+function seedEC2026001AssetLifecycle() {
+  try {
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spLast  = spSheet.getLastRow();
+    if (spLast < 2) return { ok: false, error: 'SocialPosts empty' };
+    var spRows  = spSheet.getRange(2, 1, spLast - 1, 16).getValues();
+
+    var alSheet  = _getCCSheet(_CC_TAB.ASSET_LIFECYCLE);
+    var headers  = _CC_HDR[_CC_TAB.ASSET_LIFECYCLE]; // 13 columns
+
+    // Write header row if blank
+    if (alSheet.getLastRow() < 1) {
+      alSheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+      alSheet.setFrozenRows(1);
+    }
+
+    // Index existing asset_ids
+    var existing = {};
+    var alLast = alSheet.getLastRow();
+    if (alLast >= 2) {
+      alSheet.getRange(2, 1, alLast - 1, 1).getValues()
+        .forEach(function(r) { if (r[0]) existing[String(r[0])] = true; });
+    }
+
+    var STATUS_COL = headers.indexOf('status') + 1; // 1-based = 8
+    var now        = new Date().toISOString();
+    var newRows    = [];
+
+    for (var i = 0; i < spRows.length; i++) {
+      var row = spRows[i];
+      if (String(row[1]) !== 'EC-2026-001') continue;
+      var assetId = String(row[0]);
+      if (existing[assetId]) continue;
+
+      newRows.push([
+        assetId,        // asset_id
+        'EC-2026-001',  // campaign_id
+        String(row[2]), // platform
+        '',             // figma_file_id
+        '',             // figma_page
+        '',             // figma_frame
+        '',             // designer
+        'generated',    // status
+        '',             // approved_by
+        '',             // export_url
+        '',             // publish_date
+        now,            // created_at
+        now             // updated_at
+      ]);
+    }
+
+    if (newRows.length) {
+      var writeStart = alSheet.getLastRow() + 1;
+      alSheet.getRange(writeStart, 1, newRows.length, headers.length).setValues(newRows);
+      // Status dropdown validation
+      var rule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(_AL_STATUSES, true).setAllowInvalid(false).build();
+      alSheet.getRange(writeStart, STATUS_COL, newRows.length, 1).setDataValidation(rule);
+    }
+
+    var skipped = Object.keys(existing).length;
+    Logger.log('[seedEC2026001AssetLifecycle] seeded:' + newRows.length + ' skipped:' + skipped);
+    return { ok: true, seeded: newRows.length, skipped: skipped };
+
+  } catch(e) {
+    Logger.log('[seedEC2026001AssetLifecycle] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function updateAssetStatus(assetId, fields) {
+  try {
+    if (!assetId) return { ok: false, error: 'asset_id required' };
+    var alSheet = _getCCSheet(_CC_TAB.ASSET_LIFECYCLE);
+    var last    = alSheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'AssetLifecycle empty — seed first' };
+
+    var headers = _CC_HDR[_CC_TAB.ASSET_LIFECYCLE];
+    var data    = alSheet.getRange(2, 1, last - 1, headers.length).getValues();
+
+    var rowIdx = -1;
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][0]) === String(assetId)) { rowIdx = i; break; }
+    }
+    if (rowIdx < 0) return { ok: false, error: 'asset_id not found: ' + assetId };
+
+    var sheetRow = rowIdx + 2; // 1-based, offset for header
+    var now      = new Date().toISOString();
+    var ALLOWED  = ['figma_file_id','figma_page','figma_frame','designer',
+                    'status','approved_by','export_url','publish_date'];
+
+    ALLOWED.forEach(function(col) {
+      if (fields[col] === undefined) return;
+      var colIdx = headers.indexOf(col) + 1; // 1-based
+      if (colIdx < 1) return;
+      alSheet.getRange(sheetRow, colIdx).setValue(fields[col]);
+    });
+    // Always stamp updated_at
+    alSheet.getRange(sheetRow, headers.indexOf('updated_at') + 1).setValue(now);
+
+    Logger.log('[updateAssetStatus] ' + assetId + ' → ' + JSON.stringify(fields));
+    return { ok: true, asset_id: assetId, updated: fields };
+
+  } catch(e) {
+    Logger.log('[updateAssetStatus] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function getAssetLifecycleReport() {
+  try {
+    var alSheet = _getCCSheet(_CC_TAB.ASSET_LIFECYCLE);
+    var last    = alSheet.getLastRow();
+    if (last < 2) return { ok: true, total: 0, by_status: {}, by_platform: {} };
+
+    var headers   = _CC_HDR[_CC_TAB.ASSET_LIFECYCLE];
+    var platCol   = headers.indexOf('platform');
+    var statusCol = headers.indexOf('status');
+    var data      = alSheet.getRange(2, 1, last - 1, headers.length).getValues();
+
+    var byStatus   = {};
+    var byPlatform = {};
+    _AL_STATUSES.forEach(function(s) { byStatus[s] = 0; });
+
+    for (var i = 0; i < data.length; i++) {
+      var platform = String(data[i][platCol]  || '');
+      var status   = String(data[i][statusCol] || 'generated');
+      byStatus[status] = (byStatus[status] || 0) + 1;
+      if (!byPlatform[platform]) {
+        byPlatform[platform] = {};
+        _AL_STATUSES.forEach(function(s) { byPlatform[platform][s] = 0; });
+      }
+      byPlatform[platform][status] = (byPlatform[platform][status] || 0) + 1;
+    }
+
+    Logger.log('[getAssetLifecycleReport] total:' + data.length);
+    return { ok: true, total: data.length, by_status: byStatus, by_platform: byPlatform };
+
+  } catch(e) {
+    Logger.log('[getAssetLifecycleReport] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Upgrade EC-2026-001 Design Briefs to Universal Creative Brief Schema ─────
 // Enriches design_brief JSON for all 218 posts with full UCBS fields.
 // Run via doPost: { "action": "upgrade_ec2026001_design_briefs" }
@@ -2113,8 +2393,8 @@ function qaEC2026001DesignBriefs() {
       for (var bx = 0; bx < BANNED.length; bx++) {
         if (cText.indexOf(BANNED[bx].toLowerCase()) >= 0) bannedHits.push(BANNED[bx]);
       }
-      // "optimize" as a verb is banned; "optimize screen" (the app feature label) is allowed
-      if (/\boptimize\b(?! screen)/i.test(cText)) bannedHits.push('optimize (verb)');
+      // "optimize" as verb is banned; all-caps "OPTIMIZE" (feature label noun) is allowed
+      if (/\b[Oo]ptimiz(e[sd]?|ing|ation)\b/.test(creativeText(b))) bannedHits.push('optimize (verb)');
       if (bannedHits.length) {
         flag('R04_banned_phrases', sheetRow, postId, platform, bannedHits.join(' · '));
         rowViol++;
@@ -2313,8 +2593,9 @@ function fixEC2026001BannedPhrases(startOffset, batchSize) {
       for (var i = 0; i < BANNED_CHECK.length; i++) {
         if (txt.indexOf(BANNED_CHECK[i]) >= 0) return true;
       }
-      // "optimize" as a verb is banned; "optimize screen" (the app feature label) is allowed
-      if (/\boptimize\b(?! screen)/i.test(txt)) return true;
+      // "optimize" as verb is banned; all-caps "OPTIMIZE" (feature label noun) is allowed
+      var rawTxt = parts.filter(Boolean).join(' ');
+      if (/\b[Oo]ptimiz(e[sd]?|ing|ation)\b/.test(rawTxt)) return true;
       // R03: days 1-3 hook copy must not mention phone/app/screen/device
       var day = Number(b.day) || 0;
       if (day >= 1 && day <= 3) {

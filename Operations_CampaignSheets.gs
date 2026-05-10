@@ -29,8 +29,9 @@ var _CC_TAB = {
   LP_INVENTORY:   'LPInventory',
   THEME_LIBRARY:  'ThemeLibrary',
   SETTINGS:       'CcSettings',
-  BRAND_DOCTRINE: 'BrandDoctrine',
-  CAMP_STRATEGY:  'CampaignStrategy'
+  BRAND_DOCTRINE:  'BrandDoctrine',
+  CAMP_STRATEGY:   'CampaignStrategy',
+  ASSET_LIFECYCLE: 'AssetLifecycle'
 };
 
 var _CC_HDR = {
@@ -153,7 +154,13 @@ var _CC_HDR = {
   ],
   CcSettings:       ['section','key','label','extra','active'],
   BrandDoctrine:    ['rule_id','rule_type','enforcement','active','conditions_json'],
-  CampaignStrategy: ['strategy_id','strategy_type','active','value_json']
+  CampaignStrategy: ['strategy_id','strategy_type','active','value_json'],
+  AssetLifecycle: [
+    'asset_id','campaign_id','platform',
+    'figma_file_id','figma_page','figma_frame','designer',
+    'status','approved_by','export_url','publish_date',
+    'created_at','updated_at'
+  ]
 };
 
 // ── Spreadsheet access ────────────────────────────────────────────────────────
