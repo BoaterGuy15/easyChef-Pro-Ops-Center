@@ -3310,5 +3310,5 @@ function seedGovernanceTabs() {
   _seedBrandDoctrine(ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE));
   _seedCampaignStrategy(ss.getSheetByName(_CC_TAB.CAMP_STRATEGY));
   Logger.log('[seedGovernanceTabs] Done');
-  return { ok: true, message: 'BrandDoctrine (7 rules) + CampaignStrategy (2 strategies) seeded' };
+  return { ok: true, message: 'BrandDoctrine (15 rules) + CampaignStrategy (2 strategies) seeded' };
 }
