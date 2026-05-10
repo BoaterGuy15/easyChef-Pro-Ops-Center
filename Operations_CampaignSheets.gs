@@ -28,7 +28,9 @@ var _CC_TAB = {
   SCHEDULED:      'ScheduledPosts',
   LP_INVENTORY:   'LPInventory',
   THEME_LIBRARY:  'ThemeLibrary',
-  SETTINGS:       'CcSettings'
+  SETTINGS:       'CcSettings',
+  BRAND_DOCTRINE: 'BrandDoctrine',
+  CAMP_STRATEGY:  'CampaignStrategy'
 };
 
 var _CC_HDR = {
@@ -149,7 +151,9 @@ var _CC_HDR = {
     'app_feature','app_screen_label','feature_hook','feature_proof',
     'persona_rotation'
   ],
-  CcSettings: ['section','key','label','extra','active']
+  CcSettings:       ['section','key','label','extra','active'],
+  BrandDoctrine:    ['rule_id','rule_type','enforcement','active','conditions_json'],
+  CampaignStrategy: ['strategy_id','strategy_type','active','value_json']
 };
 
 // ── Spreadsheet access ────────────────────────────────────────────────────────
@@ -247,6 +251,15 @@ function _setupCampaignSheets() {
   _seedLPInventory(ss.getSheetByName(_CC_TAB.LP_INVENTORY));
   _seedLandingPages(ss.getSheetByName(_CC_TAB.PAGES));
   _seedCcSettings(ss.getSheetByName(_CC_TAB.SETTINGS));
+
+  // Governance tabs
+  [_CC_TAB.BRAND_DOCTRINE, _CC_TAB.CAMP_STRATEGY].forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) sheet = ss.insertSheet(name);
+    _ccHdrStyle(sheet, _CC_HDR[name]);
+  });
+  _seedBrandDoctrine(ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE));
+  _seedCampaignStrategy(ss.getSheetByName(_CC_TAB.CAMP_STRATEGY));
 
   Logger.log('Campaign Center ready: ' + ss.getUrl());
   try { SpreadsheetApp.getUi().alert('Campaign Center created.\n\n' + ss.getUrl()); } catch(e) {}
@@ -3179,4 +3192,107 @@ function _seedEC2026001Brief() {
 
   Logger.log('[_seedEC2026001Brief] Done — EC-2026-001 brief and copy ready for ⚡ Run Full Campaign');
   try { SpreadsheetApp.getUi().alert('EC-2026-001 seeded. Click ⚡ Run Full Campaign to generate all assets.'); } catch(e) {}
+}
+
+// ── Governance seed functions ─────────────────────────────────────────────────
+
+function _seedBrandDoctrine(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  [
+    ['PHONE_VISIBILITY_001', 'visual_progression', 'hard', true,
+      '{"posts_1_3":{"phone_visible":false},"post_4":{"phone_visible":true,"mode":"first_reveal"},"posts_5_7":{"phone_visible":true}}'],
+    ['LOOP_STRUCTURE_001', 'system_truth', 'hard', true,
+      '{"loop_order":["TRACK","PLAN","OPTIMIZE","COOK","SHOP"],"cook_stage_position":4,"app_count":5}'],
+    ['PHASE_GUARD_001', 'launch_phase', 'hard', true,
+      '{"current_phase":"Blueprint_A_Waitlist","launch_date":"2026-07-01","allowed_ctas":["join_waitlist","founding_member","claim_founding_spot"],"restricted_elements":["full_app_demo","pricing_reveal"]}'],
+    ['COLOR_SYSTEM_001', 'visual_identity', 'hard', true,
+      '{"approved_colors":["#D93025","#111111","#FFFFFF","#F6EFE8","light_gray"],"cta_button":"#FF0000","banned":["blue","navy","gradient","shadow"]}'],
+    ['SCRIPT_ORDER_001', 'technical', 'hard', true,
+      '{"order":["convert.com","clarity","ga4"],"install_location":"head"}'],
+    ['VOICE_FORBIDDEN_001', 'voice_control', 'soft', true,
+      '{"forbidden_words":["revolutionary","game-changing","optimize","seamless","leverage","ecosystem","effortlessly","the app","pain points"],"forbidden_figures":["$1,500","$1500","$112","70%","50% off","Built by parents"],"banned_names":["Sarah","Lisa","Jennifer"]}'],
+    ['VOICE_REQUIRED_001', 'voice_control', 'soft', true,
+      '{"product_name":"easyChef Pro","required_phrases":["easyChef Pro","Built by first responders"],"approved_savings":"$1,336/year","approved_waste":"69.5%","approved_time":"30 minutes","approved_founding_discount":"60% off","monthly_savings_note":"$111 requires word average in body copy"}']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+  Logger.log('[_seedBrandDoctrine] Seeded ' + 7 + ' rules');
+}
+
+function _seedCampaignStrategy(sheet) {
+  if (!sheet) return;
+  var existing = sheet.getDataRange().getValues().slice(1).map(function(r) { return r[0]; });
+  [
+    ['EMOTIONAL_ARC_001', 'emotional_progression', true,
+      '{"stages":[{"stage":"hook","emotion":"exhausted"},{"stage":"problem","emotion":"frustrated"},{"stage":"agitate","emotion":"activated"},{"stage":"solve","emotion":"curious"},{"stage":"value","emotion":"relieved"},{"stage":"proof","emotion":"trusting"},{"stage":"cta","emotion":"happy"}]}'],
+    ['SEQ_EMOTION_001', 'email_emotion_map', true,
+      '{"SEQ-1":{"emotion":"exhausted"},"SEQ-2":{"emotion":"relieved"},"SEQ-3":{"emotion":"activated"},"SEQ-4":{"emotion":"proud_excited","override_note":"NEVER map SEQ-4 to hook or exhausted"}}']
+  ].forEach(function(row) {
+    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+  });
+  Logger.log('[_seedCampaignStrategy] Seeded ' + 2 + ' strategies');
+}
+
+// ── Governance reader functions ───────────────────────────────────────────────
+
+function getBrandDoctrine(ruleId) {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.BRAND_DOCTRINE);
+    var last  = sheet.getLastRow();
+    if (last < 2) return null;
+    var rows = sheet.getRange(2, 1, last - 1, 5).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var active = String(rows[i][3]).toLowerCase();
+      if (active !== 'true' && active !== '1' && active !== 'yes') continue;
+      if (ruleId && String(rows[i][0]) !== ruleId) continue;
+      var cond = {};
+      try { cond = JSON.parse(String(rows[i][4] || '{}')); } catch(e) {}
+      return {
+        rule_id:        String(rows[i][0]),
+        rule_type:      String(rows[i][1]),
+        enforcement:    String(rows[i][2]),
+        active:         true,
+        conditions:     cond
+      };
+    }
+  } catch(e) { Logger.log('[getBrandDoctrine] error: ' + e.message); }
+  return null;
+}
+
+function getCampaignStrategy(strategyId) {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.CAMP_STRATEGY);
+    var last  = sheet.getLastRow();
+    if (last < 2) return null;
+    var rows = sheet.getRange(2, 1, last - 1, 4).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var active = String(rows[i][2]).toLowerCase();
+      if (active !== 'true' && active !== '1' && active !== 'yes') continue;
+      if (strategyId && String(rows[i][0]) !== strategyId) continue;
+      var val = {};
+      try { val = JSON.parse(String(rows[i][3] || '{}')); } catch(e) {}
+      return {
+        strategy_id:   String(rows[i][0]),
+        strategy_type: String(rows[i][1]),
+        active:        true,
+        value:         val
+      };
+    }
+  } catch(e) { Logger.log('[getCampaignStrategy] error: ' + e.message); }
+  return null;
+}
+
+// ── One-time seed trigger ─────────────────────────────────────────────────────
+
+function seedGovernanceTabs() {
+  var ss = _getCampaignSpreadsheet();
+  [_CC_TAB.BRAND_DOCTRINE, _CC_TAB.CAMP_STRATEGY].forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) { sheet = ss.insertSheet(name); _ccHdrStyle(sheet, _CC_HDR[name]); }
+  });
+  _seedBrandDoctrine(ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE));
+  _seedCampaignStrategy(ss.getSheetByName(_CC_TAB.CAMP_STRATEGY));
+  Logger.log('[seedGovernanceTabs] Done');
+  return { ok: true, message: 'BrandDoctrine (7 rules) + CampaignStrategy (2 strategies) seeded' };
 }

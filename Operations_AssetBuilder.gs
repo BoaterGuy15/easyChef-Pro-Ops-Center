@@ -382,8 +382,9 @@ function _getApprovedClaimsRows() {
   return results;
 }
 
-function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl, angle, claims) {
+function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl, angle, claims, governance) {
   var ctx = context || {};
+  var gov = governance || {};
 
   // Role
   var role;
@@ -402,7 +403,7 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
   // Section D: Emotional Arc (social + email only)
   var sD = '';
   if (type.indexOf('social_post') === 0 || type === 'email_full' || type === 'email') {
-    sD = _EMOTIONAL_ARC_COPY;
+    sD = gov.emotionalArc || _EMOTIONAL_ARC_COPY;
   }
 
   // Section E: Claims + Brand Plug + Proof Bar
@@ -528,7 +529,182 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
     default: sG = '';
   }
 
-  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _7_STEP_FRAMEWORK + _BRAND_VOICE_RULES + sD + _AB_ARCH + sE + sF + sG;
+  var _voiceRules   = gov.voiceRules  || _BRAND_VOICE_RULES;
+  var _phaseGuard   = gov.phaseGuard  ? gov.phaseGuard  : '';
+  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _7_STEP_FRAMEWORK + _voiceRules + sD + _AB_ARCH + sE + sF + sG + _phaseGuard;
+}
+
+// ── Governance compiler functions ─────────────────────────────────────────────
+
+function _compileVoiceRulesBlock() {
+  try {
+    var rule = getBrandDoctrine('VOICE_FORBIDDEN_001');
+    if (!rule || !rule.conditions) return _BRAND_VOICE_RULES;
+    var c = rule.conditions;
+    var out = '=== BRAND VOICE — NON-NEGOTIABLE RULES ===\n';
+    if (Array.isArray(c.forbidden_words) && c.forbidden_words.length) {
+      out += 'FORBIDDEN WORDS — never write any of these:\n';
+      c.forbidden_words.forEach(function(w) { out += '  × ' + w + '\n'; });
+      out += '\n';
+    }
+    if (Array.isArray(c.forbidden_figures) && c.forbidden_figures.length) {
+      out += 'FORBIDDEN FIGURES/PHRASES — never use:\n';
+      c.forbidden_figures.forEach(function(f) { out += '  × ' + f + '\n'; });
+      out += '\n';
+    }
+    if (Array.isArray(c.banned_names) && c.banned_names.length) {
+      out += 'BANNED NAMES — never use:\n';
+      c.banned_names.forEach(function(n) { out += '  × ' + n + '\n'; });
+      out += '\n';
+    }
+    var req = getBrandDoctrine('VOICE_REQUIRED_001');
+    if (req && req.conditions) {
+      var r = req.conditions;
+      out += 'REQUIRED:\n';
+      if (r.product_name)              out += '  ✓ Always write "' + r.product_name + '" — never "the app"\n';
+      if (r.approved_savings)          out += '  ✓ Approved savings figure: ' + r.approved_savings + '\n';
+      if (r.approved_waste)            out += '  ✓ Approved waste figure: ' + r.approved_waste + '\n';
+      if (r.approved_time)             out += '  ✓ Approved speed figure: ' + r.approved_time + '\n';
+      if (r.approved_founding_discount) out += '  ✓ Founding discount: ' + r.approved_founding_discount + ' — never 50% off\n';
+      if (r.monthly_savings_note)      out += '  ✓ ' + r.monthly_savings_note + '\n';
+      if (Array.isArray(r.required_phrases)) {
+        r.required_phrases.forEach(function(p) { out += '  ✓ Use exact phrase: "' + p + '"\n'; });
+      }
+      out += '\n';
+    }
+    return out;
+  } catch(e) {
+    Logger.log('[_compileVoiceRulesBlock] fallback: ' + e.message);
+    return _BRAND_VOICE_RULES;
+  }
+}
+
+function _compileEmotionalArcBlock() {
+  try {
+    var strat = getCampaignStrategy('EMOTIONAL_ARC_001');
+    if (!strat || !strat.value || !Array.isArray(strat.value.stages)) return _EMOTIONAL_ARC_COPY;
+    var out = '=== EMOTIONAL ARC — MATCH THE EXACT STAGE EMOTION IN YOUR COPY ===\n';
+    var labels = { hook:'Post 1 — HOOK', problem:'Post 2 — PROBLEM', agitate:'Post 3 — AGITATE',
+                   solve:'Post 4 — SOLVE', value:'Post 5 — VALUE', proof:'Post 6 — PROOF', cta:'Post 7 — CTA' };
+    strat.value.stages.forEach(function(s) {
+      var label = labels[s.stage] || s.stage.toUpperCase();
+      out += label + ': She is ' + s.emotion.toUpperCase().replace('_', ' ') + '.\n';
+    });
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileEmotionalArcBlock] fallback: ' + e.message);
+    return _EMOTIONAL_ARC_COPY;
+  }
+}
+
+function _compileStageEmotionsMap() {
+  try {
+    var strat = getCampaignStrategy('EMOTIONAL_ARC_001');
+    if (!strat || !strat.value || !Array.isArray(strat.value.stages)) return _STAGE_EMOTIONS;
+    var map = {};
+    strat.value.stages.forEach(function(s) { map[s.stage] = s.emotion; });
+    return map;
+  } catch(e) {
+    Logger.log('[_compileStageEmotionsMap] fallback: ' + e.message);
+    return _STAGE_EMOTIONS;
+  }
+}
+
+function _compilePhoneRuleBlock() {
+  try {
+    var rule = getBrandDoctrine('PHONE_VISIBILITY_001');
+    if (!rule || !rule.conditions) return null;
+    var c = rule.conditions;
+    var out = '=== PHONE REVEAL RULE (NON-NEGOTIABLE) ===\n';
+    if (c.posts_1_3 && c.posts_1_3.phone_visible === false) {
+      out += 'Posts 1-3 (Hook · Problem · Agitate): NO PHONE — the problem must feel real before the solution appears.\n';
+    }
+    if (c.post_4 && c.post_4.phone_visible === true) {
+      out += 'Post 4 (Solve): PHONE APPEARS — first reveal. Phone shows app solving the exact problem from Post 3.\n';
+    }
+    if (c.posts_5_7 && c.posts_5_7.phone_visible === true) {
+      out += 'Posts 5-7 (Value · Proof · CTA): PHONE VISIBLE — phone present but not the hero. Show outcomes.\n';
+    }
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compilePhoneRuleBlock] fallback: ' + e.message);
+    return null;
+  }
+}
+
+function _compilePhaseGuardBlock() {
+  try {
+    var rule = getBrandDoctrine('PHASE_GUARD_001');
+    if (!rule || !rule.conditions) return null;
+    var c = rule.conditions;
+    var out = '=== PHASE GUARD — LAUNCH PHASE: ' + (c.current_phase || '') + ' ===\n';
+    if (c.launch_date) out += 'Launch date: ' + c.launch_date + '\n';
+    if (Array.isArray(c.allowed_ctas) && c.allowed_ctas.length) {
+      out += 'Allowed CTAs: ' + c.allowed_ctas.join(' · ') + '\n';
+    }
+    if (Array.isArray(c.restricted_elements) && c.restricted_elements.length) {
+      out += 'Restricted (do not include): ' + c.restricted_elements.join(' · ') + '\n';
+    }
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compilePhaseGuardBlock] fallback: ' + e.message);
+    return null;
+  }
+}
+
+// ── Content validator ─────────────────────────────────────────────────────────
+
+function validateGeneratedContent(asset, brief) {
+  if (!asset) return { valid: true, violations: [] };
+  var violations = [];
+  var assetText = JSON.stringify(asset).toLowerCase();
+
+  // VOICE_FORBIDDEN_001
+  try {
+    var voiceRule = getBrandDoctrine('VOICE_FORBIDDEN_001');
+    if (voiceRule && voiceRule.conditions) {
+      var c = voiceRule.conditions;
+      (c.forbidden_words || []).forEach(function(w) {
+        if (assetText.indexOf(w.toLowerCase()) > -1) {
+          violations.push({ rule_id: 'VOICE_FORBIDDEN_001', found: w, location: 'generated_text' });
+        }
+      });
+      (c.forbidden_figures || []).forEach(function(f) {
+        if (assetText.indexOf(f.toLowerCase()) > -1) {
+          violations.push({ rule_id: 'VOICE_FORBIDDEN_001', found: f, location: 'generated_text' });
+        }
+      });
+      (c.banned_names || []).forEach(function(n) {
+        if (assetText.indexOf(n.toLowerCase()) > -1) {
+          violations.push({ rule_id: 'VOICE_FORBIDDEN_001', found: n, location: 'generated_text' });
+        }
+      });
+    }
+  } catch(e) { Logger.log('[validateGeneratedContent] VOICE_FORBIDDEN_001 check error: ' + e.message); }
+
+  // Phone visibility for social posts
+  if (brief && (brief.channel === 'Instagram' || brief.channel === 'Pinterest' ||
+      brief.channel === 'TikTok' || brief.channel === 'Facebook')) {
+    var postNum = brief.post_number || brief.postNum || 0;
+    try {
+      var phoneRule = getBrandDoctrine('PHONE_VISIBILITY_001');
+      if (phoneRule && phoneRule.conditions) {
+        var pc = phoneRule.conditions;
+        if (postNum >= 1 && postNum <= 3 && pc.posts_1_3 && pc.posts_1_3.phone_visible === false) {
+          var imageBrief = String(asset.image_brief || asset.design_brief || '').toLowerCase();
+          if (imageBrief.indexOf('phone') > -1 || imageBrief.indexOf('app screen') > -1) {
+            violations.push({ rule_id: 'PHONE_VISIBILITY_001', found: 'phone reference in posts 1-3', location: 'image_brief' });
+          }
+        }
+      }
+    } catch(e) { Logger.log('[validateGeneratedContent] PHONE_VISIBILITY_001 check error: ' + e.message); }
+  }
+
+  var valid = violations.length === 0;
+  if (!valid) {
+    Logger.log('[validateGeneratedContent] ' + violations.length + ' violation(s): ' + JSON.stringify(violations));
+  }
+  return { valid: valid, violations: violations };
 }
 
 /**
@@ -559,9 +735,18 @@ function getMasterSystemPrompt(type, context) {
   var icp       = _getIcpRow(context.icp_code || context.icp || '');
   var theme     = _getThemeRow(context.theme_id || context.theme || '');
 
+  // Compile governance blocks from tabs (fall back to hardcoded constants if tabs unavailable)
+  var governance = {
+    voiceRules:    _compileVoiceRulesBlock(),
+    emotionalArc:  _compileEmotionalArcBlock(),
+    stageEmotions: _compileStageEmotionsMap(),
+    phoneRule:     _compilePhoneRuleBlock(),
+    phaseGuard:    _compilePhaseGuardBlock()
+  };
+
   // Design brief types — art direction only, no copy machinery needed
   if (type === 'post_brief' || type === 'email_brief' || type === 'lp_brief') {
-    return _buildDesignBriefPrompt(type, context, icp, theme);
+    return _buildDesignBriefPrompt(type, context, icp, theme, governance.phoneRule, null);
   }
 
   var brandPlug = _getCcSetting('BRAND_PLUG');
@@ -570,11 +755,11 @@ function getMasterSystemPrompt(type, context) {
   var angle     = _getCcSetting('CAMPAIGN_ANGLES');
   var claims    = _getApprovedClaimsRows();
 
-  return _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl, angle, claims);
+  return _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl, angle, claims, governance);
 }
 
 // ── Design brief system prompts — art direction for Figma designer ────────────
-function _buildDesignBriefPrompt(type, ctx, icp, theme) {
+function _buildDesignBriefPrompt(type, ctx, icp, theme, govPhoneRule, govBrandRules) {
   var _icpName   = (icp  && (icp.name  || icp.id))  || (ctx.icp_code || ctx.icp || '');
   var _themeName = (theme && (theme.theme_name || theme.name)) || (ctx.theme || '');
   var _themeFood = (theme && theme.food_type)        || (ctx.theme_food || '');
@@ -617,10 +802,12 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
       (_themeFood ? 'Theme food: '  + _themeFood + '\n' : '') +
       (_icpName   ? 'ICP: '         + _icpName   + '\n' : '') + '\n' +
       _BRAND_RULES +
-      '=== PHONE REVEAL RULE (NON-NEGOTIABLE) ===\n' +
-      'Posts 1-3 (Hook · Problem · Agitate): NO PHONE — the problem must feel real before the solution appears.\n' +
-      'Post 4 (Solve): PHONE APPEARS — first reveal. Phone shows app solving the exact problem from Post 3.\n' +
-      'Posts 5-7 (Value · Proof · CTA): PHONE VISIBLE — phone present but not the hero. Show outcomes.\n\n' +
+      (govPhoneRule || (
+        '=== PHONE REVEAL RULE (NON-NEGOTIABLE) ===\n' +
+        'Posts 1-3 (Hook · Problem · Agitate): NO PHONE — the problem must feel real before the solution appears.\n' +
+        'Post 4 (Solve): PHONE APPEARS — first reveal. Phone shows app solving the exact problem from Post 3.\n' +
+        'Posts 5-7 (Value · Proof · CTA): PHONE VISIBLE — phone present but not the hero. Show outcomes.\n\n'
+      )) +
       '=== DESIGN BRIEF FORMAT PER POST ===\n' +
       'STAGE: [funnel stage name]\n' +
       'EMOTION: [exact emotional state — 3-5 words]\n' +
@@ -664,10 +851,11 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme) {
       (_themeFood ? 'Food: '     + _themeFood + '\n' : '') +
       (_icpName   ? 'ICP: '      + _icpName   + '\n' : '') + '\n' +
       _BRAND_RULES +
-      '9. LP PHONE RULE (non-negotiable):\n' +
-      '   Hero section: phone NOT visible — no app in the hero image.\n' +
-      '   Solve section: phone APPEARS for the first time — shows app solving the problem.\n' +
-      '   Value · Proof · CTA sections: phone VISIBLE — present but not the hero element.\n\n' +
+      (govPhoneRule ? govPhoneRule.replace('=== PHONE REVEAL RULE', '9. PHONE RULE') :
+        '9. LP PHONE RULE (non-negotiable):\n' +
+        '   Hero section: phone NOT visible — no app in the hero image.\n' +
+        '   Solve section: phone APPEARS for the first time — shows app solving the problem.\n' +
+        '   Value · Proof · CTA sections: phone VISIBLE — present but not the hero element.\n\n') +
       '=== LP DESIGN BRIEF FORMAT ===\n' +
       'hero_visual: [what appears above the fold — scene direction, NO phone, NO app UI]\n' +
       'section_visuals: [one line per section — Problem · Agitate · Solve (phone first appears) · Value · Proof]\n' +

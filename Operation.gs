@@ -777,6 +777,10 @@ function doPost(e) {
       updateConvertExperimentId();
       return respond({ ok:true, message: 'Convert ID updated to 100140422' });
     }
+    if(body.action === 'seed_governance_tabs') {
+      var _govResult = seedGovernanceTabs();
+      return respond({ ok:true, result: _govResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
