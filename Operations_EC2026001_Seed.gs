@@ -2450,6 +2450,7 @@ function getCampaignCalendar(campaignId) {
       var calId    = String(r[H.calendar_id]       || '');
       var dlId     = String(r[H.dl_id]             || '');
       var figmaUrl    = String(r[H.figma_export_url] || '');
+      var notes       = String(r[H.notes]           || '');
       var pubTime     = String(r[H.publish_time]    || '');
       var day         = Number(r[H.day]             || 0);
       var week        = Number(r[H.week]            || 0);
@@ -2466,7 +2467,7 @@ function getCampaignCalendar(campaignId) {
         emotional_stage: emotion, funnel_stage: funnel, publish_time: pubTime,
         blocked: isBlocked, blocked_reason: blockedReason,
         figma_url: figmaUrl, brief_doc_url: briefDocUrl,
-        sheet_row: sheetRow
+        notes: notes, sheet_row: sheetRow
       });
       days[dateKey].total++;
       if (status === 'published')  days[dateKey].published++;

@@ -802,6 +802,10 @@ function doPost(e) {
       var _ucfResult = updateContentCalField(body.asset_id||'', body.field||'', body.value||'');
       return respond({ ok:_ucfResult.ok, result:_ucfResult, log: Logger.getLog() });
     }
+    if(body.action === 'append_content_cal_note') {
+      var _noteResult = appendContentCalNote(body.asset_id||'', body.text||'', body.author||'');
+      return respond({ ok:_noteResult.ok, result:_noteResult, log: Logger.getLog() });
+    }
     if(body.action === 'add_lp_variant_purpose_settings') {
       addLpVariantPurposeSettings();
       return respond({ ok:true, log: Logger.getLog() });

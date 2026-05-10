@@ -219,6 +219,19 @@
     .pm-pick.current.as-approved   { background: rgba(10,90,26,0.3); }
     .pm-pick.current.as-rejected   { background: rgba(90,10,10,0.3); }
     .pm-save-msg { font-size: 11px; margin-top: 6px; min-height: 16px; color: #32d74b; }
+    /* Notes */
+    .pm-notes-feed { max-height: 180px; overflow-y: auto; margin-bottom: 10px; }
+    .pm-note-entry { padding: 8px 10px; background: #0e0e10; border-radius: 8px; margin-bottom: 6px; border-left: 2px solid #2a2a2e; }
+    .pm-note-meta { font-size: 9px; color: #444; margin-bottom: 4px; letter-spacing: 0.3px; }
+    .pm-note-text { font-size: 12px; color: #ccc; white-space: pre-wrap; line-height: 1.5; }
+    .pm-note-empty { font-size: 11px; color: #333; font-style: italic; padding: 6px 0; }
+    .pm-note-input { width: 100%; background: #0e0e10; border: 1px solid #2a2a2e; border-radius: 8px; color: #ccc; font-family: inherit; font-size: 12px; padding: 9px 11px; resize: none; outline: none; transition: border-color 0.12s; box-sizing: border-box; }
+    .pm-note-input:focus { border-color: #0a84ff; }
+    .pm-note-row { display: flex; gap: 8px; margin-top: 8px; align-items: flex-end; }
+    .pm-note-author { background: #0e0e10; border: 1px solid #2a2a2e; border-radius: 8px; color: #ccc; font-family: inherit; font-size: 11px; padding: 7px 10px; outline: none; width: 110px; flex-shrink: 0; }
+    .pm-note-author:focus { border-color: #0a84ff; }
+    .pm-note-btn { background: #0a84ff; border: none; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
+    .pm-note-btn:disabled { background: #1a1a1e; color: #444; cursor: default; }
     .post-row { cursor: pointer; transition: background 0.1s; border-radius: 4px; }
     .post-row:hover { background: #1e1e22; }
     .post-row-sm { cursor: pointer; transition: background 0.1s; border-radius: 4px; padding-left: 4px; padding-right: 4px; }
@@ -345,7 +358,7 @@
       Object.keys(calData.days).forEach(function(dk){
         var day=calData.days[dk];
         day.posts.forEach(function(p){
-          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',dl_id:p.dl_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,figma_url:p.figma_url||'',brief_doc_url:p.brief_doc_url||'',date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
+          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',dl_id:p.dl_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,figma_url:p.figma_url||'',brief_doc_url:p.brief_doc_url||'',notes:p.notes||'',date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
           posts.push(post);
           POST_REGISTRY[p.asset_id]=post;
         });
@@ -650,6 +663,25 @@
       rows+='</div>';
       rows+='<div class="pm-save-msg" id="pm-save-msg"></div>';
 
+      // Notes
+      var noteEntries='';
+      if(p.notes){
+        noteEntries=p.notes.split('\n\n---\n\n').map(function(entry){
+          var lines=entry.split('\n');
+          var meta=lines[0]||'';
+          var body=lines.slice(1).join('\n');
+          return '<div class="pm-note-entry"><div class="pm-note-meta">'+meta+'</div><div class="pm-note-text">'+body+'</div></div>';
+        }).join('');
+      }
+      rows+='<div class="pm-section">Notes</div>';
+      rows+='<div class="pm-notes-feed" id="pm-notes-feed">'+(noteEntries||'<div class="pm-note-empty">No notes yet — be the first.</div>')+'</div>';
+      rows+='<textarea class="pm-note-input" id="pm-note-input" rows="2" placeholder="Add a note, question, or update…"></textarea>';
+      rows+='<div class="pm-note-row">'+
+        '<input class="pm-note-author" id="pm-note-author" placeholder="Your name" value="'+(_getAuthor())+'">'+
+        '<button class="pm-note-btn" id="pm-note-btn" onclick="submitNote(\''+p.asset_id+'\')">Add Note</button>'+
+      '</div>';
+      rows+='<div class="pm-save-msg" id="pm-note-msg" style="margin-top:6px"></div>';
+
       // Links
       var sheetUrl=null;
       if(SHEET_ID&&SHEET_GID&&p.sheet_row){
@@ -681,6 +713,42 @@
     function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}
 
     function closePostModal(){document.getElementById('pm-overlay').className='pm-overlay';}
+
+    // ── Notes ─────────────────────────────────────────────────────────────────
+    function _getAuthor(){try{return localStorage.getItem('cockpit_author')||'';}catch(e){return '';}}
+    function _saveAuthor(n){try{if(n)localStorage.setItem('cockpit_author',n);}catch(e){}}
+
+    function submitNote(assetId){
+      var input=document.getElementById('pm-note-input');
+      var authorEl=document.getElementById('pm-note-author');
+      var msg=document.getElementById('pm-note-msg');
+      var btn=document.getElementById('pm-note-btn');
+      var text=(input&&input.value||'').trim();
+      var author=(authorEl&&authorEl.value||'').trim();
+      if(!text){if(msg){msg.style.color='#ff453a';msg.textContent='Please enter a note.';}return;}
+      _saveAuthor(author);
+      if(btn) btn.disabled=true;
+      if(msg){msg.style.color='#666';msg.textContent='Saving…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok){
+            if(POST_REGISTRY[assetId]) POST_REGISTRY[assetId].notes=r.result.notes;
+            openPostModal(assetId);
+            var m=document.getElementById('pm-note-msg');
+            if(m){m.style.color='#32d74b';m.textContent='✓ Note added';}
+          } else {
+            if(btn) btn.disabled=false;
+            var m=document.getElementById('pm-note-msg');
+            if(m){m.style.color='#ff453a';m.textContent='Error: '+(r&&r.result&&r.result.error?r.result.error:'unknown');}
+          }
+        })
+        .withFailureHandler(function(){
+          if(btn) btn.disabled=false;
+          var m=document.getElementById('pm-note-msg');
+          if(m){m.style.color='#ff453a';m.textContent='Connection error';}
+        })
+        .appendContentCalNote(assetId, text, author);
+    }
 
     // ── Status update ─────────────────────────────────────────────────────────
     var CS_OPTS=[{v:'generated',l:'Generated'},{v:'in_figma',l:'In Figma'},{v:'designer_review',l:'Designer Review'},{v:'approved',l:'Approved'}];

@@ -2423,6 +2423,45 @@ function updateContentCalField(assetId, field, value) {
   }
 }
 
+// appendContentCalNote — prepends a timestamped note to ContentCalendar.notes for one asset.
+function appendContentCalNote(assetId, text, author) {
+  if (!assetId) return { ok: false, error: 'assetId required' };
+  if (!text || !String(text).trim()) return { ok: false, error: 'note text required' };
+  try {
+    var sheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = sheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'ContentCalendar empty' };
+
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+
+    var assetCol   = H.asset_id   + 1;
+    var notesCol   = H.notes      + 1;
+    var updatedCol = H.updated_at + 1;
+
+    var ids = sheet.getRange(2, assetCol, last - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === String(assetId)) {
+        var row      = i + 2;
+        var existing = String(sheet.getRange(row, notesCol).getValue() || '');
+        var ts       = Utilities.formatDate(new Date(), 'America/Los_Angeles', 'MMM d, h:mm a');
+        var byLine   = author ? ts + ' · ' + author : ts;
+        var entry    = '[' + byLine + ']\n' + String(text).trim();
+        var updated  = existing ? entry + '\n\n---\n\n' + existing : entry;
+        sheet.getRange(row, notesCol).setValue(updated);
+        sheet.getRange(row, updatedCol).setValue(new Date());
+        Logger.log('[appendContentCalNote] ' + assetId + ' by ' + (author||'anon'));
+        return { ok: true, asset_id: assetId, notes: updated };
+      }
+    }
+    return { ok: false, error: 'asset not found: ' + assetId };
+  } catch(e) {
+    Logger.log('[appendContentCalNote] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 function _calRowToObj(r) {
   return {
     calendar_id:      String(r[0]  || ''),
