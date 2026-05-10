@@ -119,8 +119,10 @@ function _ec001_briefJson(stage, feature, day, hA, hB) {
 }
 
 function _ec001_date(day) {
-  return new Date(new Date('2026-05-27T00:00:00').getTime() + (day - 1) * 86400000)
-    .toISOString().split('T')[0];
+  // Day 1 = May 27, Day 35 = June 30 → Day 36 = July 1
+  // Use Date.UTC so no server timezone can shift the result
+  var d = new Date(Date.UTC(2026, 4, 27) + (day - 1) * 86400000);
+  return Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd');
 }
 
 // ── Main seed function ────────────────────────────────────────────────────────
@@ -260,7 +262,7 @@ function seedEC2026001() {
       exclusivity_angle:  'founding-family',
       exclusivity_line:   'You are not just joining an app. You are founding the kitchen of the future.',
       meta_title:         'Stop the Invisible Grocery Leak · easyChef Pro',
-      meta_description:   'Stop wasting $111/month on groceries that expire. easyChef Pro closes the loop — TRACK → PLAN → COOK → SHOP. Free to join.',
+      meta_description:   'Stop wasting $111/month on groceries that expire. easyChef Pro closes the loop — TRACK → PLAN → OPTIMIZE → COOK → SHOP. Free to join.',
       og_title:           'Stop the Invisible Grocery Leak · easyChef Pro',
       og_description:     '$1,336/year back. 30 minutes fridge to table. 69.5% less food waste. Join free.',
       canonical_url:      'https://easychefpro.com/lp/waitlist-a',
@@ -1238,7 +1240,13 @@ function generateLPFigmaDoc() {
 
     // ── LP A ──────────────────────────────────────────────────────────────────
     body.appendParagraph('LP A — /lp/waitlist-a').setHeading(H1);
-    body.appendParagraph('ICP: super_mom_money · Angle: savings · Convert: Variant A · 50% traffic');
+    body.appendParagraph('Variant A — Money · ICP: super_mom_money · Angle: savings · Convert: Variant A · 50% traffic');
+
+    body.appendParagraph('STEP 1 · HOOK').setHeading(H2);
+    body.appendParagraph(
+      'Headline:    "Stop the mealtime madness."   [Proza Libre Bold · 52px · #000000]\n' +
+      'Subheadline: "$180 in groceries. $47 in DoorDash. And tomorrow you\'ll do it again."   [Inter Regular · 22px · #333333]'
+    );
 
     body.appendParagraph('HERO (#FFFFFF background)').setHeading(H2);
     body.appendParagraph(
@@ -1307,7 +1315,13 @@ function generateLPFigmaDoc() {
 
     // ── LP B ──────────────────────────────────────────────────────────────────
     body.appendParagraph('LP B — /lp/waitlist-b').setHeading(H1);
-    body.appendParagraph('ICP: super_mom_time · Angle: time_relief + founding_family · Convert: Variant B · 50% traffic');
+    body.appendParagraph('Variant B — Time + Founding Family · ICP: super_mom_time · Angle: time_relief + founding_family · Convert: Variant B · 50% traffic');
+
+    body.appendParagraph('STEP 1 · HOOK').setHeading(H2);
+    body.appendParagraph(
+      'Headline:    "Daily Dinner Figured Out."   [Proza Libre Bold · 52px · #000000]\n' +
+      'Subheadline: "What if dinner was decided before you opened the fridge?"   [Inter Regular · 22px · #333333]'
+    );
 
     body.appendParagraph('HERO (#FFFFFF background)').setHeading(H2);
     body.appendParagraph(
@@ -1353,6 +1367,34 @@ function generateLPFigmaDoc() {
       'CTA:    "Get early access — July 1"   [#FF0000 button · full width mobile]\n' +
       'Trial:  "Try easyChef Pro free for 7 days — no credit card"\n' +
       'Legal:  minimal · 11px · Inter · #999999'
+    );
+
+    body.appendParagraph('SECTION 04 · DESIGN BRIEF — LP B (Time + Founding Family)').setHeading(H2);
+    body.appendParagraph(
+      'ANGLE: Time + Founding Family — dinner decided before she opens the fridge · founding identity resonates\n' +
+      'ICP:   super_mom_time · Female 28–44 · household logistics manager · food delivery user · mental-load carrier\n\n' +
+      'HERO VISUAL DIRECTION:\n' +
+      '  Scene:    Woman in kitchen · calm · unhurried energy · late-afternoon amber light\n' +
+      '  Subject:  28–44 · confident not harried · she has found the solution · phone in hand (PLAN screen)\n' +
+      '  Kids:     Soft in background · settled · the chaos resolved · not demanding attention\n' +
+      '  Mood:     Relief not joy. Mental load lifted. The 6:30 PM wall — gone.\n' +
+      '  Lighting: Warm amber · kitchen window · natural light favored · no harsh overhead\n' +
+      '  FORBID:   No shame · no defeat · no food delivery bags · no grocery receipts in hero frame\n\n' +
+      'PROBLEM SECTION VISUAL:\n' +
+      '  Clock at 6:30 PM · capable woman mid-decision · quiet frustration · no shame\n' +
+      '  System is broken not her fault — art direction must reflect that\n\n' +
+      'FOUNDING SECTION VISUAL:\n' +
+      '  Woman on couch post-dinner · kitchen clean behind her · kids settled · peace\n' +
+      '  Phone in hand showing app · founding family energy — she found it first\n' +
+      '  Dark section (#000000) · white copy · #FF0000 CTA · no additional imagery needed\n\n' +
+      'TYPOGRAPHY RULES (LP B specific):\n' +
+      '  Hook headline:        Proza Libre Bold · 52px · commanding but calm\n' +
+      '  Founding family badge: Inter Regular · #FF0000 · UPPERCASE · letter-spacing 3px\n' +
+      '  Body:                 Inter Regular · 18px · #333333 · line-height 1.6\n\n' +
+      'WHAT NOT TO SHOW:\n' +
+      '  Receipts · grocery math · dollar amounts in hero (time angle — not money angle)\n' +
+      '  Overly joyful or celebratory energy (relief · not party)\n' +
+      '  Staged perfect-produce kitchen scenes'
     );
     body.appendHorizontalRule();
 
@@ -1779,6 +1821,84 @@ function fixEC2026001Emails() {
 
   } catch(e) {
     Logger.log('[fixEC2026001Emails] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Fix EC-2026-001 dates ─────────────────────────────────────────────────────
+// Corrects all 218 SocialPosts · ContentCalendar milestones · CampaignBriefs launch_date
+// Day 1 = May 27 2026 · Day N = May 27 + (N-1) days
+// Run via doPost: { "action": "fix_ec2026001_dates" }
+
+function fixEC2026001Dates() {
+  try {
+    var results  = [];
+
+    // ── 1. SocialPosts — batch rewrite scheduled_date from design_brief.day ──
+    var spSheet   = _getCCSheet(_CC_TAB.SOCIAL);
+    var spLastRow = spSheet.getLastRow();
+    var spFixed   = 0;
+    var spFirst5  = [];
+    var spAllFixed = [];
+
+    if (spLastRow >= 2) {
+      var spRows    = spSheet.getRange(2, 1, spLastRow - 1, 16).getValues();
+      var spNewDates = spRows.map(function(row) {
+        if (String(row[1]) !== 'EC-2026-001') return [row[9]];
+        var dayNum = 0;
+        try { dayNum = JSON.parse(String(row[15])).day || 0; } catch(pe) {}
+        if (!dayNum) return [row[9]];
+        var d       = new Date(Date.UTC(2026, 4, 27) + (dayNum - 1) * 86400000);
+        var dateStr = Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd');
+        spFixed++;
+        if (spFirst5.length < 5) spFirst5.push('day' + dayNum + '→' + dateStr);
+        spAllFixed.push('day' + dayNum + '→' + dateStr);
+        return [dateStr];
+      });
+      spSheet.getRange(2, 10, spNewDates.length, 1).setValues(spNewDates);
+    }
+    results.push('SocialPosts: ' + spFixed + ' rows fixed');
+    results.push('First 5: ' + spFirst5.join(' | '));
+    results.push('Last 3: ' + spAllFixed.slice(-3).join(' | '));
+
+    // ── 2. ContentCalendar — batch rewrite from day_number col ───────────────
+    var ccSheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var ccLastRow = ccSheet.getLastRow();
+    var ccFixed   = 0;
+
+    if (ccLastRow >= 2) {
+      var ccRows     = ccSheet.getRange(2, 1, ccLastRow - 1, 4).getValues();
+      var ccNewDates = ccRows.map(function(row) {
+        if (String(row[1]) !== 'EC-2026-001') return [row[3]];
+        var dayN = Number(row[2]);
+        if (!dayN) return [row[3]];
+        var d = new Date(Date.UTC(2026, 4, 27) + (dayN - 1) * 86400000);
+        ccFixed++;
+        return [Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd')];
+      });
+      ccSheet.getRange(2, 4, ccNewDates.length, 1).setValues(ccNewDates);
+    }
+    results.push('ContentCalendar: ' + ccFixed + ' rows fixed');
+
+    // ── 3. CampaignBriefs — set launch_date to 2026-05-27 ────────────────────
+    var cbSheet   = _getCCSheet(_CC_TAB.BRIEFS);
+    var cbLastRow = cbSheet.getLastRow();
+    if (cbLastRow >= 2) {
+      var cbIds = cbSheet.getRange(2, 1, cbLastRow - 1, 1).getValues();
+      for (var i = 0; i < cbIds.length; i++) {
+        if (String(cbIds[i][0]) === 'EC-2026-001') {
+          cbSheet.getRange(i + 2, 8).setValue('2026-05-27');
+          results.push('CampaignBriefs: launch_date → 2026-05-27');
+          break;
+        }
+      }
+    }
+
+    Logger.log('[fixEC2026001Dates] ' + results.join(' | '));
+    return { ok: true, results: results, social_fixed: spFixed, cc_fixed: ccFixed };
+
+  } catch(e) {
+    Logger.log('[fixEC2026001Dates] ERROR: ' + e.message + '\n' + e.stack);
     return { ok: false, error: e.message };
   }
 }

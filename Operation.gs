@@ -817,6 +817,14 @@ function doPost(e) {
       var _complResult = seedEC2026001Complete();
       return respond({ ok:_complResult.ok, result:_complResult, log: Logger.getLog() });
     }
+    if(body.action === 'fix_ec2026001_emails') {
+      var _fixResult = fixEC2026001Emails();
+      return respond({ ok:_fixResult.ok, result:_fixResult, log: Logger.getLog() });
+    }
+    if(body.action === 'fix_ec2026001_dates') {
+      var _datesResult = fixEC2026001Dates();
+      return respond({ ok:_datesResult.ok, result:_datesResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
