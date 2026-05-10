@@ -172,6 +172,38 @@
     .plat-def { background: #1e1e22; color: #888; }
     .status-dot-lg { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; flex-shrink: 0; }
 
+    /* Post detail modal */
+    .pm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 40; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .pm-overlay.open { display: flex; }
+    .pm-card { background: #1a1a1e; border: 1px solid #2a2a2e; border-radius: 16px; width: 100%; max-width: 480px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.7); }
+    .pm-head { padding: 16px 18px 12px; border-bottom: 1px solid #2a2a2e; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .pm-title { flex: 1; min-width: 0; }
+    .pm-asset-id { font-size: 16px; font-weight: 700; color: #f0f0f0; letter-spacing: -0.2px; }
+    .pm-asset-sub { font-size: 11px; color: #555; margin-top: 2px; }
+    .pm-close { background: #2a2a2e; border: none; color: #888; width: 28px; height: 28px; border-radius: 50%; font-size: 13px; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+    .pm-body { overflow-y: auto; padding: 14px 18px 20px; flex: 1; }
+    .pm-section { font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; color: #444; font-weight: 600; margin: 14px 0 8px; }
+    .pm-section:first-child { margin-top: 0; }
+    .pm-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; border-bottom: 1px solid #1e1e22; }
+    .pm-row:last-child { border-bottom: none; }
+    .pm-lbl { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.6px; width: 108px; flex-shrink: 0; }
+    .pm-val { font-size: 12px; color: #ccc; flex: 1; min-width: 0; word-break: break-word; }
+    .pm-val.hi { color: #f0f0f0; font-weight: 600; }
+    .pm-val.red { color: #ff453a; }
+    .pm-val.green { color: #32d74b; }
+    .pm-val.yellow { color: #ffd60a; }
+    .pm-val.blue { color: #0a84ff; }
+    .pm-val.purple { color: #bf5af2; }
+    .pm-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .pm-link { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border-radius: 8px; border: 1px solid #2a2a2e; background: #0e0e10; font-size: 11px; font-weight: 600; font-family: inherit; cursor: default; color: #444; text-decoration: none; transition: all 0.12s; }
+    .pm-link.ready { border-color: #0a84ff; color: #0a84ff; cursor: pointer; background: rgba(10,132,255,0.08); }
+    .pm-link.ready:hover { background: rgba(10,132,255,0.16); }
+    .pm-link .pm-link-tag { font-size: 8px; color: #333; text-transform: uppercase; letter-spacing: 0.6px; margin-left: 4px; }
+    .post-row { cursor: pointer; transition: background 0.1s; border-radius: 4px; }
+    .post-row:hover { background: #1e1e22; }
+    .post-row-sm { cursor: pointer; transition: background 0.1s; border-radius: 4px; padding-left: 4px; padding-right: 4px; }
+    .post-row-sm:hover { background: #1e1e22; }
+
     @media (max-width: 720px) {
       .cockpit-layout { flex-direction: column; }
       .sidebar { width: 100%; position: static; }
@@ -234,6 +266,21 @@
     </div>
   </div>
 
+  <!-- Post detail modal -->
+  <div class="pm-overlay" id="pm-overlay" onclick="if(event.target===this)closePostModal()">
+    <div class="pm-card">
+      <div class="pm-head">
+        <span id="pm-plat-chip" class="plat-chip plat-def"></span>
+        <div class="pm-title">
+          <div class="pm-asset-id" id="pm-asset-id">—</div>
+          <div class="pm-asset-sub" id="pm-asset-sub"></div>
+        </div>
+        <button class="pm-close" onclick="closePostModal()">✕</button>
+      </div>
+      <div class="pm-body" id="pm-body"></div>
+    </div>
+  </div>
+
   <div class="sheet-overlay" id="sheet-overlay" onclick="closeSheet()"></div>
   <div class="day-sheet" id="day-sheet">
     <div class="sheet-handle-wrap"><div class="sheet-handle"></div></div>
@@ -264,6 +311,7 @@
 
     var dashData=null, calData=null, activeTab='dash';
     var FILTERS={platform:{},status:{},emotion:{},funnel:{},week:{}};
+    var POST_REGISTRY={};  // keyed by asset_id for fast modal lookup
 
     // ── Filter helpers ────────────────────────────────────────────────────────
     function activeCount(){return Object.keys(FILTERS.platform).length+Object.keys(FILTERS.status).length+Object.keys(FILTERS.emotion).length+Object.keys(FILTERS.funnel).length+Object.keys(FILTERS.week).length;}
@@ -272,10 +320,13 @@
     function getAllPosts(){
       if(!calData||!calData.days) return [];
       var posts=[];
+      POST_REGISTRY={};
       Object.keys(calData.days).forEach(function(dk){
         var day=calData.days[dk];
         day.posts.forEach(function(p){
-          posts.push({asset_id:p.asset_id,platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,blocked:p.blocked,blocked_reason:p.blocked_reason,date:dk,day:day.day,week:day.week});
+          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,date:dk,day:day.day,week:day.week};
+          posts.push(post);
+          POST_REGISTRY[p.asset_id]=post;
         });
       });
       return posts;
@@ -441,7 +492,7 @@
       if(hasFilters()&&filteredPosts&&filteredPosts.length){
         var rows=filteredPosts.slice(0,100).map(function(p){
           var dotColor=p.blocked?'#ff453a':(STATUS_DOT_COLOR[p.status]||'#3a3a3a');
-          return '<div class="post-row-sm">' +
+          return '<div class="post-row-sm" onclick="openPostModal(\''+p.asset_id+'\')">' +
             '<span class="plat-chip '+platformClass(p.platform)+'">'+platformLabel(p.platform)+'</span>' +
             '<span class="status-dot-lg" style="background:'+dotColor+'"></span>' +
             '<span class="post-sm-id">'+p.asset_id+'</span>' +
@@ -522,12 +573,77 @@
         var st=(STATUS_LABEL[p.status]||p.status)+(p.approval_status==='approved'?' · Approved':'');
         var bl=p.blocked&&p.blocked_reason?'<div class="post-blocked">⚠ '+p.blocked_reason+'</div>':'';
         var em=p.emotional_stage?'<div class="post-emotion">'+p.emotional_stage+(p.funnel_stage?' · '+p.funnel_stage:'')+'</div>':'';
-        return '<div class="post-row"><span class="plat-chip '+platformClass(p.platform)+'">'+platformLabel(p.platform)+'</span><div class="post-info"><div class="post-status-line"><span class="status-dot-lg" style="background:'+dc+'"></span>'+st+'</div>'+em+bl+'</div><div class="post-id">'+p.asset_id+'</div></div>';
+        return '<div class="post-row" onclick="closeSheet();setTimeout(function(){openPostModal(\''+p.asset_id+'\')},220)"><span class="plat-chip '+platformClass(p.platform)+'">'+platformLabel(p.platform)+'</span><div class="post-info"><div class="post-status-line"><span class="status-dot-lg" style="background:'+dc+'"></span>'+st+'</div>'+em+bl+'</div><div class="post-id">'+p.asset_id+'</div></div>';
       }).join('')||'<div style="color:#555;padding:12px 0">No posts match current filters.</div>';
       document.getElementById('sheet-overlay').className='sheet-overlay open';
       document.getElementById('day-sheet').className='day-sheet open';
     }
     function closeSheet(){document.getElementById('sheet-overlay').className='sheet-overlay';document.getElementById('day-sheet').className='day-sheet';}
+
+    // ── Post detail modal ─────────────────────────────────────────────────────
+    function openPostModal(assetId){
+      var p=POST_REGISTRY[assetId]; if(!p) return;
+      var dc=p.blocked?'#ff453a':(STATUS_DOT_COLOR[p.status]||'#3a3a3a');
+      var statusLabel=(STATUS_LABEL[p.status]||p.status||'—');
+
+      document.getElementById('pm-plat-chip').className='plat-chip '+platformClass(p.platform);
+      document.getElementById('pm-plat-chip').textContent=platformLabel(p.platform);
+      document.getElementById('pm-asset-id').textContent=p.asset_id||'—';
+      document.getElementById('pm-asset-sub').innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dc+';margin-right:5px;vertical-align:middle"></span>'+statusLabel+(p.blocked?' &nbsp;·&nbsp; <span style="color:#ff453a">Blocked</span>':'');
+
+      var rows='';
+
+      // Core fields
+      rows+='<div class="pm-section">Post Details</div>';
+      rows+=pmRow('Platform',  _fmtPlatform(p.platform));
+      rows+=pmRow('Status',    '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dc+';margin-right:6px;vertical-align:middle"></span>'+statusLabel, p.blocked?'red':'');
+      rows+=pmRow('Creative',  p.creative_status||'—');
+      rows+=pmRow('Approval',  p.approval_status||'—', p.approval_status==='approved'?'green':(p.approval_status==='rejected'?'red':''));
+      rows+=pmRow('Publish Date', _fmtDate(p.date,p.publish_time));
+      rows+=pmRow('Campaign',  'Day '+p.day+' · Week '+p.week);
+
+      if(p.calendar_id) rows+=pmRow('Calendar ID', p.calendar_id);
+
+      // Emotional / funnel
+      if(p.emotional_stage||p.funnel_stage){
+        rows+='<div class="pm-section">Targeting</div>';
+        if(p.emotional_stage) rows+=pmRow('Emotional Stage', p.emotional_stage, 'purple');
+        if(p.funnel_stage)    rows+=pmRow('Funnel Stage',    p.funnel_stage,    'blue');
+      }
+
+      // Blocked
+      if(p.blocked){
+        rows+='<div class="pm-section">Blocker</div>';
+        rows+=pmRow('Reason', p.blocked_reason||'No reason recorded', 'red');
+      }
+
+      // Links — placeholders wired for future hookup
+      rows+='<div class="pm-section">Linked Assets</div>';
+      rows+='<div class="pm-links">'+
+        pmLink('Figma', null)+
+        pmLink('Google Sheet Row', null)+
+        pmLink('Drive Folder', null)+
+        pmLink('Brief Doc', null)+
+      '</div>';
+
+      document.getElementById('pm-body').innerHTML=rows;
+      document.getElementById('pm-overlay').className='pm-overlay open';
+    }
+
+    function pmRow(label, value, cls){
+      return '<div class="pm-row"><div class="pm-lbl">'+label+'</div><div class="pm-val'+(cls?' '+cls:'')+'">'+value+'</div></div>';
+    }
+    function pmLink(label, url){
+      var ready=!!url;
+      var tag='<span class="pm-link-tag">'+(ready?'':'soon')+'</span>';
+      return ready
+        ? '<a class="pm-link ready" href="'+url+'" target="_blank">↗ '+label+tag+'</a>'
+        : '<span class="pm-link">↗ '+label+tag+'</span>';
+    }
+    function _fmtPlatform(p){var m={instagram:'Instagram',tiktok:'TikTok',pinterest:'Pinterest',facebook:'Facebook',email:'Email'};return m[(p||'').toLowerCase()]||p||'—';}
+    function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}
+
+    function closePostModal(){document.getElementById('pm-overlay').className='pm-overlay';}
 
     // ── Load ──────────────────────────────────────────────────────────────────
     function loadDashboard(){
