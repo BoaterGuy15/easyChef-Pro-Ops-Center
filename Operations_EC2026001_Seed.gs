@@ -1959,6 +1959,469 @@ function upgradeEC2026001DesignBriefs() {
   }
 }
 
+// ── Governance QA Pass — EC-2026-001 SocialPosts Design Briefs ───────────────
+// Checks all 218 design_brief JSON records against 10 rules.
+// Read-only — no writes, no regeneration.
+// Run via doPost: { "action": "qa_ec2026001_design_briefs" }
+
+function qaEC2026001DesignBriefs() {
+  try {
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var lastRow = spSheet.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'SocialPosts empty' };
+
+    var allRows = spSheet.getRange(2, 1, lastRow - 1, 16).getValues();
+
+    var REQUIRED = [
+      'asset_type','platform','campaign_id','funnel_stage',
+      'emotional_state','objective','hook_a','hook_b',
+      'scene_direction','visual_tone','camera_style','layout_direction',
+      'phone_visibility','cta','what_not_to_show','caption_opening',
+      'platform_specs','brand_rules'
+    ];
+
+    var BANNED = [
+      '$111','$112','$1500','70%','revolutionary','game-changing',
+      'seamless','leverage','ecosystem','pain points',
+      'the app','effortlessly','Built by parents'
+    ];
+
+    // Phone-adjacent terms banned from scene_direction on days 1-3
+    var PHONE_TERMS_RE = /\b(phone|iphone|android|smartphone|screen|device|ui|app)\b/i;
+
+    var report = {
+      total_checked:    0,
+      total_valid:      0,
+      total_violations: 0,
+      violations_by_rule: {
+        R01_invalid_json:   { count:0, rows:[] },
+        R02_missing_fields: { count:0, rows:[] },
+        R03_phone_rule:     { count:0, rows:[] },
+        R04_banned_phrases: { count:0, rows:[] },
+        R05_cta:            { count:0, rows:[] },
+        R06_dl_id:          { count:0, rows:[] },
+        R07_platform_specs: { count:0, rows:[] },
+        R08_tiktok_fields:  { count:0, rows:[] },
+        R09_youtube_fields: { count:0, rows:[] },
+        R10_email_fields:   { count:0, rows:[] }
+      },
+      rows_needing_fix: []
+    };
+
+    function flag(ruleId, sheetRow, postId, platform, detail) {
+      var r = report.violations_by_rule[ruleId];
+      r.count++;
+      r.rows.push({ sheet_row: sheetRow, post_id: postId, platform: platform, detail: detail });
+      report.total_violations++;
+      if (report.rows_needing_fix.indexOf(sheetRow) < 0)
+        report.rows_needing_fix.push(sheetRow);
+    }
+
+    // Gather creative copy fields only (not schema/brand_rules/specs)
+    function creativeText(b) {
+      var parts = [
+        b.hook_a, b.hook_b, b.scene_direction, b.caption_opening,
+        b.subject_line, b.preview_text, b.header_image_direction,
+        b.opening_hook, b.audio_direction, b.motion_direction
+      ];
+      if (Array.isArray(b.scene_sequence)) b.scene_sequence.forEach(function(s){ parts.push(s); });
+      if (Array.isArray(b.story_arc))      b.story_arc.forEach(function(s){ parts.push(s); });
+      return parts.filter(Boolean).join(' ');
+    }
+
+    for (var i = 0; i < allRows.length; i++) {
+      var row = allRows[i];
+      if (String(row[1]) !== 'EC-2026-001') continue;
+
+      var sheetRow = i + 2;
+      var postId   = String(row[0]);
+      var platform = String(row[2]);
+      var dlId     = String(row[12]);
+      var rowViol  = 0;
+      report.total_checked++;
+
+      // ── R01: Valid JSON ────────────────────────────────────────────────────
+      var b = null;
+      try {
+        b = JSON.parse(String(row[15]));
+        if (typeof b !== 'object' || b === null) throw new Error('not object');
+      } catch(je) {
+        flag('R01_invalid_json', sheetRow, postId, platform, je.message);
+        rowViol++;
+        report.total_violations += rowViol; // already counted in flag
+        // can't check further without valid JSON
+        continue;
+      }
+
+      // ── R02: Missing required fields ───────────────────────────────────────
+      var missing = [];
+      for (var rf = 0; rf < REQUIRED.length; rf++) {
+        var fld = REQUIRED[rf];
+        var v   = b[fld];
+        if (v === undefined || v === null || v === '') {
+          missing.push(fld);
+        } else if (Array.isArray(v) && v.length === 0) {
+          missing.push(fld + '[]');
+        } else if (fld === 'platform_specs' && typeof v === 'object' && Object.keys(v).length === 0) {
+          missing.push('platform_specs{}');
+        }
+      }
+      if (missing.length) {
+        flag('R02_missing_fields', sheetRow, postId, platform, missing.join(', '));
+        rowViol++;
+      }
+
+      // ── R03: Phone rule ────────────────────────────────────────────────────
+      var day = Number(b.day) || 0;
+      if (day >= 1 && day <= 3) {
+        if (b.phone_visibility === true) {
+          flag('R03_phone_rule', sheetRow, postId, platform,
+            'Day ' + day + ': phone_visibility=true (must be false days 1-3)');
+          rowViol++;
+        }
+        var sceneCheck = String(b.scene_direction || '');
+        if (PHONE_TERMS_RE.test(sceneCheck)) {
+          var found3 = [];
+          ['phone','iphone','android','smartphone','screen','device','ui','app'].forEach(function(t){
+            if (new RegExp('\\b' + t + '\\b','i').test(sceneCheck)) found3.push(t);
+          });
+          if (found3.length) {
+            flag('R03_phone_rule', sheetRow, postId, platform,
+              'Day ' + day + ': scene_direction has banned terms [' + found3.join(', ') + ']');
+            rowViol++;
+          }
+        }
+        // Also check hook_a and hook_b
+        var hookText3 = (String(b.hook_a||'') + ' ' + String(b.hook_b||'')).toLowerCase();
+        if (/\b(phone|screen|device|app)\b/.test(hookText3)) {
+          flag('R03_phone_rule', sheetRow, postId, platform,
+            'Day ' + day + ': hook copy contains phone/screen/device/app');
+          rowViol++;
+        }
+      }
+      if (day === 4) {
+        if (b.phone_visibility !== true) {
+          flag('R03_phone_rule', sheetRow, postId, platform,
+            'Day 4 (first reveal): phone_visibility should be true');
+          rowViol++;
+        }
+      }
+
+      // ── R04: Banned phrases ────────────────────────────────────────────────
+      var cText = creativeText(b).toLowerCase();
+      var bannedHits = [];
+      for (var bx = 0; bx < BANNED.length; bx++) {
+        if (cText.indexOf(BANNED[bx].toLowerCase()) >= 0) bannedHits.push(BANNED[bx]);
+      }
+      // "optimize" as a verb is banned; "optimize screen" (the app feature label) is allowed
+      if (/\boptimize\b(?! screen)/i.test(cText)) bannedHits.push('optimize (verb)');
+      if (bannedHits.length) {
+        flag('R04_banned_phrases', sheetRow, postId, platform, bannedHits.join(' · '));
+        rowViol++;
+      }
+
+      // ── R05: CTA consistency ───────────────────────────────────────────────
+      var cta = String(b.cta || '');
+      if (!cta) {
+        flag('R05_cta', sheetRow, postId, platform, 'cta field empty');
+        rowViol++;
+      } else {
+        if (cta.toLowerCase().indexOf('easychefpro.com') < 0) {
+          flag('R05_cta', sheetRow, postId, platform,
+            'CTA missing easychefpro.com domain: "' + cta.slice(0,80) + '"');
+          rowViol++;
+        }
+        if (/\bsign up\b/i.test(cta)) {
+          flag('R05_cta', sheetRow, postId, platform, 'CTA contains banned phrase "sign up"');
+          rowViol++;
+        }
+      }
+
+      // ── R06: DL_ID presence ───────────────────────────────────────────────
+      if (!dlId || dlId === '—' || dlId === 'undefined' || dlId.trim() === '') {
+        flag('R06_dl_id', sheetRow, postId, platform, 'DL_ID missing or blank');
+        rowViol++;
+      }
+
+      // ── R07: Platform specs ───────────────────────────────────────────────
+      var specs = b.platform_specs || {};
+      var specsOk = (platform === 'Email')
+        ? !!specs.width
+        : !!(specs.size && specs.ratio);
+      if (!specsOk) {
+        flag('R07_platform_specs', sheetRow, postId, platform,
+          'platform_specs missing size+ratio (or width for Email). Has: ' + JSON.stringify(specs).slice(0,60));
+        rowViol++;
+      }
+
+      // ── R08: TikTok required fields ───────────────────────────────────────
+      if (platform === 'TikTok') {
+        if (!Array.isArray(b.scene_sequence) || b.scene_sequence.length < 3) {
+          flag('R08_tiktok_fields', sheetRow, postId, platform,
+            'scene_sequence missing or < 3 beats (has ' + (Array.isArray(b.scene_sequence) ? b.scene_sequence.length : 0) + ')');
+          rowViol++;
+        }
+        if (!b.audio_direction || String(b.audio_direction).trim() === '') {
+          flag('R08_tiktok_fields', sheetRow, postId, platform, 'audio_direction missing');
+          rowViol++;
+        }
+      }
+
+      // ── R09: YouTube required fields ──────────────────────────────────────
+      if (platform === 'YouTube') {
+        if (!Array.isArray(b.story_arc) || b.story_arc.length < 3) {
+          flag('R09_youtube_fields', sheetRow, postId, platform,
+            'story_arc missing or < 3 beats (has ' + (Array.isArray(b.story_arc) ? b.story_arc.length : 0) + ')');
+          rowViol++;
+        }
+        if (!b.opening_hook || String(b.opening_hook).trim() === '') {
+          flag('R09_youtube_fields', sheetRow, postId, platform, 'opening_hook missing');
+          rowViol++;
+        }
+      }
+
+      // ── R10: Email required fields ────────────────────────────────────────
+      if (platform === 'Email') {
+        var emMissing = [];
+        if (!b.subject_line)           emMissing.push('subject_line');
+        if (!b.preview_text)           emMissing.push('preview_text');
+        if (!b.header_image_direction) emMissing.push('header_image_direction');
+        if (emMissing.length) {
+          flag('R10_email_fields', sheetRow, postId, platform, emMissing.join(', '));
+          rowViol++;
+        }
+      }
+
+      if (rowViol === 0) report.total_valid++;
+    }
+
+    report.rows_needing_fix.sort(function(a, b) { return a - b; });
+    Logger.log('[qaEC2026001DesignBriefs] checked:' + report.total_checked +
+               ' valid:' + report.total_valid + ' violations:' + report.total_violations);
+    return { ok: true, report: report };
+
+  } catch(e) {
+    Logger.log('[qaEC2026001DesignBriefs] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── QA Fix A — Data issues (no GPT) ──────────────────────────────────────────
+// 1. Day 4 posts: phone_visibility → true (first reveal rule)
+// 2. "Built by parents" → "Built by first responders" (factual error)
+// Run via doPost: { "action": "fix_ec2026001_data_issues" }
+
+function fixEC2026001DataIssues() {
+  try {
+    var results  = [];
+    var spSheet  = _getCCSheet(_CC_TAB.SOCIAL);
+    var lastRow  = spSheet.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'SocialPosts empty' };
+
+    var rows = spSheet.getRange(2, 1, lastRow - 1, 16).getValues();
+    var day4Fixed = 0, parentsFixed = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][1]) !== 'EC-2026-001') continue;
+      var raw = String(rows[i][15]);
+      var b   = {};
+      try { b = JSON.parse(raw); } catch(e) { continue; }
+      var changed = false;
+
+      // Fix 1: Day 4 first reveal — phone_visibility must be true
+      if (Number(b.day) === 4 && b.phone_visibility !== true) {
+        b.phone_visibility = true;
+        // Also set scene_direction to indicate first reveal if it doesn't already
+        day4Fixed++;
+        changed = true;
+      }
+
+      // Fix 2: Factual error — "Built by parents" → "Built by first responders"
+      var serialized = changed ? JSON.stringify(b) : raw;
+      if (serialized.indexOf('Built by parents') >= 0 ||
+          serialized.indexOf('built by parents') >= 0) {
+        serialized = serialized.replace(/Built by parents/gi, 'Built by first responders');
+        parentsFixed++;
+        changed = true;
+      }
+
+      if (changed) {
+        spSheet.getRange(i + 2, 16).setValue(changed && serialized !== raw ? serialized : JSON.stringify(b));
+      }
+    }
+
+    results.push('Day 4 phone_visibility→true: ' + day4Fixed + ' posts fixed');
+    results.push('"Built by parents" corrected: ' + parentsFixed + ' posts fixed');
+    Logger.log('[fixEC2026001DataIssues] ' + results.join(' | '));
+    return { ok: true, results: results, day4_fixed: day4Fixed, parents_fixed: parentsFixed };
+
+  } catch(e) {
+    Logger.log('[fixEC2026001DataIssues] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── QA Fix B — Banned phrases (GPT re-pass on flagged posts only) ─────────────
+// Detects posts with R03 or R04 violations inline, sends ONLY those to GPT-4o
+// with a strict system message that forbids the entire banned list.
+// Run via doPost: { "action": "fix_ec2026001_banned_phrases",
+//   "start_offset": 0, "batch_size": 40 }
+
+function _gptSysMsgStrict() {
+  return _gptSysMsg() +
+    '\n\nHARD RULES — NEVER APPEAR IN ANY OUTPUT:\n' +
+    '  BANNED NUMBERS: $111 · $112 · $1500 · 70%\n' +
+    '    (If a stat is needed, use "$1,336 per year" or "69.5% less food waste" only)\n' +
+    '  BANNED WORDS: effortlessly · seamlessly · seamless · game-changing · revolutionary\n' +
+    '    · leverage · ecosystem · optimize (as a verb — the feature label OPTIMIZE is ok as a noun)\n' +
+    '  BANNED PHRASES: "the app" (say easyChef Pro by name) · "pain points" · "Built by parents"\n' +
+    '  PHONE RULE DAYS 1-3: hook_a and hook_b must not mention phone, app, screen, or device\n' +
+    '    (you may mention "five apps that don\'t talk to each other" only in scene_direction, not in hooks)\n' +
+    '  STAT PLACEMENT: dollar amounts and percentages belong in proof stage (days 22-28) only.\n' +
+    '    Hook and problem stage hooks must lead with emotional recognition, not numbers.';
+}
+
+function _gptFixPrompt(platform, feature, existing) {
+  return _gptPostPrompt(platform, feature, existing) +
+    '\n\nFIX PASS: A previous version of this brief contained banned phrases. ' +
+    'Rewrite all creative copy fields from scratch. ' +
+    'Respect every hard rule in your system instructions — especially: no $111, ' +
+    'no effortlessly, no seamless, no "the app", no money stat in hook/problem stages.';
+}
+
+function fixEC2026001BannedPhrases(startOffset, batchSize) {
+  try {
+    startOffset = Number(startOffset) || 0;
+    batchSize   = Number(batchSize)   || 40;
+
+    var apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+    if (!apiKey) return { ok: false, error: 'OPENAI_API_KEY not in Script Properties' };
+
+    var BANNED_CHECK = [
+      '$111','$112','$1500','70%','revolutionary','game-changing',
+      'seamless','leverage','ecosystem','pain points',
+      'the app','effortlessly','built by parents'
+    ];
+
+    function hasViolation(b) {
+      var parts = [b.hook_a, b.hook_b, b.scene_direction, b.caption_opening,
+                   b.subject_line, b.preview_text, b.header_image_direction,
+                   b.opening_hook, b.audio_direction];
+      if (Array.isArray(b.scene_sequence)) b.scene_sequence.forEach(function(s){ parts.push(s); });
+      if (Array.isArray(b.story_arc))      b.story_arc.forEach(function(s){ parts.push(s); });
+      var txt = parts.filter(Boolean).join(' ').toLowerCase();
+      for (var i = 0; i < BANNED_CHECK.length; i++) {
+        if (txt.indexOf(BANNED_CHECK[i]) >= 0) return true;
+      }
+      // "optimize" as a verb is banned; "optimize screen" (the app feature label) is allowed
+      if (/\boptimize\b(?! screen)/i.test(txt)) return true;
+      // R03: days 1-3 hook copy must not mention phone/app/screen/device
+      var day = Number(b.day) || 0;
+      if (day >= 1 && day <= 3) {
+        var hookTxt = (String(b.hook_a || '') + ' ' + String(b.hook_b || '')).toLowerCase();
+        if (/\b(phone|screen|device|app)\b/.test(hookTxt)) return true;
+      }
+      return false;
+    }
+
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var lastRow = spSheet.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'SocialPosts empty' };
+
+    var allRows = spSheet.getRange(2, 1, lastRow - 1, 16).getValues();
+    var flagged = [];
+    for (var i = 0; i < allRows.length; i++) {
+      if (String(allRows[i][1]) !== 'EC-2026-001') continue;
+      var b = {};
+      try { b = JSON.parse(String(allRows[i][15])); } catch(e) { continue; }
+      if (hasViolation(b)) flagged.push({ ri: i, row: allRows[i], brief: b });
+    }
+
+    var total  = flagged.length;
+    var endIdx = Math.min(startOffset + batchSize, total);
+    var batch  = flagged.slice(startOffset, endIdx);
+
+    if (!batch.length) {
+      return { ok: true, processed: 0, total: total, done: true,
+               message: 'All ' + total + ' violations cleared' };
+    }
+
+    var sysMsg = _gptSysMsgStrict();
+
+    var requests = batch.map(function(item) {
+      var row = item.row;
+      return {
+        url:    'https://api.openai.com/v1/chat/completions',
+        method: 'post',
+        headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+        payload: JSON.stringify({
+          model:           'gpt-4o',
+          temperature:     0.65,
+          max_tokens:      700,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: sysMsg },
+            { role: 'user',   content: _gptFixPrompt(String(row[2]), String(row[3]), item.brief) }
+          ]
+        }),
+        muteHttpExceptions: true
+      };
+    });
+
+    var responses = UrlFetchApp.fetchAll(requests);
+    var processed = 0, errors = 0;
+    var now = new Date().toISOString();
+
+    for (var j = 0; j < responses.length; j++) {
+      var resp = responses[j];
+      var item = batch[j];
+      if (resp.getResponseCode() !== 200) {
+        Logger.log('[fixBanned] row ' + item.ri + ' HTTP ' + resp.getResponseCode() + ': ' +
+                   resp.getContentText().slice(0, 120));
+        errors++;
+        continue;
+      }
+      var gpt = {};
+      try {
+        var body = JSON.parse(resp.getContentText());
+        gpt = JSON.parse(body.choices[0].message.content);
+      } catch(pe) { errors++; continue; }
+
+      var merge = {};
+      for (var k in item.brief) { merge[k] = item.brief[k]; }
+      var copyFields = ['hook_a','hook_b','scene_direction','what_not_to_show',
+                        'caption_opening','subject_line','preview_text',
+                        'header_image_direction','scene_sequence','story_arc',
+                        'opening_hook','audio_direction'];
+      for (var f = 0; f < copyFields.length; f++) {
+        if (gpt[copyFields[f]] !== undefined) merge[copyFields[f]] = gpt[copyFields[f]];
+      }
+      merge.gpt_model  = 'gpt-4o';
+      merge.gpt_fix_at = now;
+
+      spSheet.getRange(item.ri + 2, 16).setValue(JSON.stringify(merge));
+      processed++;
+    }
+
+    var done = (endIdx >= total);
+    Logger.log('[fixEC2026001BannedPhrases] processed:' + processed + ' errors:' + errors +
+               ' flagged_total:' + total + ' next:' + endIdx + ' done:' + done);
+    return {
+      ok:          true,
+      processed:   processed,
+      errors:      errors,
+      total:       total,
+      next_offset: endIdx,
+      done:        done,
+      message:     done ? 'All ' + total + ' flagged posts fixed' : 'Next: start_offset=' + endIdx
+    };
+
+  } catch(e) {
+    Logger.log('[fixEC2026001BannedPhrases] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── GPT-4o Creative Brief Generator ──────────────────────────────────────────
 // Sends each post to GPT-4o via UrlFetchApp.fetchAll (parallel).
 // Writes cinematic hook_a, hook_b, scene_direction, what_not_to_show,
@@ -2615,6 +3078,131 @@ function fixEC2026001Dates() {
   } catch(e) {
     Logger.log('[fixEC2026001Dates] ERROR: ' + e.message + '\n' + e.stack);
     return { ok: false, error: e.message };
+  }
+}
+
+// ── Assign DL_IDs to EC-2026-001 SocialPosts ─────────────────────────────────
+// Reads all 218 EC-2026-001 posts, generates sequential DL_IDs per platform,
+// writes dl_id (col 13) and utm_url (col 14) back to SocialPosts,
+// and appends matching rows to DeepLinkRegistry.
+// Safe to re-run — skips any post that already has a dl_id.
+// Run via doPost: { "action": "assign_ec2026001_dl_ids" }
+
+function assignEC2026001DLIDs() {
+  try {
+    var now = new Date().toISOString();
+
+    var PREFIX = {
+      'Facebook':'FB','Instagram':'IG','Pinterest':'PT',
+      'Nextdoor':'ND','X':'X','TikTok':'TK','YouTube':'YT','Email':'EM'
+    };
+    var UTM_P = {
+      'Facebook':  { source:'facebook',  medium:'social' },
+      'Instagram': { source:'instagram', medium:'social' },
+      'Pinterest': { source:'pinterest', medium:'social' },
+      'Nextdoor':  { source:'nextdoor',  medium:'social' },
+      'X':         { source:'twitter',   medium:'social' },
+      'TikTok':    { source:'tiktok',    medium:'social' },
+      'YouTube':   { source:'youtube',   medium:'video'  },
+      'Email':     { source:'email',     medium:'email'  }
+    };
+    var _slugify = function(s) {
+      return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+    };
+
+    // ── Load DeepLinkRegistry — find max DL number per prefix ────────────────
+    var dlSheet = _getCCSheet(_CC_TAB.DL);
+    var dlData  = dlSheet.getDataRange().getValues();
+    var dlHdrs  = dlData[0].map(function(h){ return String(h).trim(); });
+    var dlIdCol = dlHdrs.indexOf('dl_id');
+    var maxN    = { FB:0, IG:0, PT:0, ND:0, X:0, TK:0, YT:0, EM:0 };
+
+    for (var di = 1; di < dlData.length; di++) {
+      var existId = String(dlData[di][dlIdCol] || '');
+      var m = existId.match(/^DL-(FB|IG|PT|ND|X|TK|YT|EM)-(\d+)$/);
+      if (m) {
+        var n = parseInt(m[2], 10);
+        if (maxN.hasOwnProperty(m[1]) && n > maxN[m[1]]) maxN[m[1]] = n;
+      }
+    }
+
+    var ctr = {};
+    for (var k in maxN) { ctr[k] = maxN[k]; }
+    var _nextDl = function(prefix) {
+      if (!ctr.hasOwnProperty(prefix)) ctr[prefix] = 0;
+      ctr[prefix]++;
+      return 'DL-' + prefix + '-' + ('000' + ctr[prefix]).slice(-4);
+    };
+
+    // ── Load SocialPosts ──────────────────────────────────────────────────────
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var lastRow = spSheet.getLastRow();
+    if (lastRow < 2) return { ok:false, error:'SocialPosts empty' };
+
+    var allRows = spSheet.getRange(2, 1, lastRow - 1, 16).getValues();
+    var dlIds   = [];
+    var utmUrls = [];
+    var newDlRows = [];
+    var assigned = 0, skipped = 0;
+
+    for (var ri = 0; ri < allRows.length; ri++) {
+      var row     = allRows[ri];
+      var existDl = String(row[12] || '').trim();
+      var existUt = String(row[13] || '').trim();
+
+      if (String(row[1]) !== 'EC-2026-001' || existDl) {
+        dlIds.push([existDl]);
+        utmUrls.push([existUt]);
+        skipped++;
+        continue;
+      }
+
+      var platform = String(row[2]  || 'Facebook');
+      var hook     = String(row[3]  || '');
+      var prefix   = PREFIX[platform] || 'FB';
+      var utmP     = UTM_P[platform]  || UTM_P['Facebook'];
+
+      var dlId     = _nextDl(prefix);
+      var slug     = _slugify(hook);
+      var utmContent = dlId + '|' + slug;
+      var utmUrl   = 'https://easychefpro.com/lp/waitlist-a' +
+                     '?utm_source='   + utmP.source +
+                     '&utm_medium='   + utmP.medium +
+                     '&utm_campaign=ec-2026-001' +
+                     '&utm_content='  + encodeURIComponent(utmContent);
+
+      dlIds.push([dlId]);
+      utmUrls.push([utmUrl]);
+
+      newDlRows.push([
+        dlId, utmContent, 'EC-2026-001', platform,
+        'https://easychefpro.com/lp/waitlist-a',
+        utmP.source, utmP.medium, 'ec-2026-001',
+        'active', now, now, 'assignEC2026001DLIDs',
+        String(row[0])
+      ]);
+      assigned++;
+    }
+
+    // ── Batch-write SocialPosts dl_id (col 13) and utm_url (col 14) ──────────
+    if (allRows.length) {
+      spSheet.getRange(2, 13, allRows.length, 1).setValues(dlIds);
+      spSheet.getRange(2, 14, allRows.length, 1).setValues(utmUrls);
+    }
+
+    // ── Batch-write DeepLinkRegistry entries ──────────────────────────────────
+    if (newDlRows.length) {
+      var dlWriteStart = dlSheet.getLastRow() + 1;
+      dlSheet.getRange(dlWriteStart, 1, newDlRows.length, 13).setValues(newDlRows);
+    }
+
+    var msg = 'Assigned ' + assigned + ' DL_IDs | ' + newDlRows.length + ' DL registry entries added | ' + skipped + ' rows skipped';
+    Logger.log('[assignEC2026001DLIDs] ' + msg);
+    return { ok:true, assigned:assigned, dl_entries_added:newDlRows.length, skipped:skipped, message:msg };
+
+  } catch(e) {
+    Logger.log('[assignEC2026001DLIDs] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok:false, error:e.message };
   }
 }
 

@@ -837,6 +837,22 @@ function doPost(e) {
       var _gptResult = generateEC2026001GPTBriefs(body.start_offset, body.batch_size);
       return respond({ ok:_gptResult.ok, result:_gptResult, log: Logger.getLog() });
     }
+    if(body.action === 'qa_ec2026001_design_briefs') {
+      var _qaResult = qaEC2026001DesignBriefs();
+      return respond({ ok:_qaResult.ok, result:_qaResult, log: Logger.getLog() });
+    }
+    if(body.action === 'fix_ec2026001_data_issues') {
+      var _dataFixResult = fixEC2026001DataIssues();
+      return respond({ ok:_dataFixResult.ok, result:_dataFixResult, log: Logger.getLog() });
+    }
+    if(body.action === 'fix_ec2026001_banned_phrases') {
+      var _banResult = fixEC2026001BannedPhrases(body.start_offset, body.batch_size);
+      return respond({ ok:_banResult.ok, result:_banResult, log: Logger.getLog() });
+    }
+    if(body.action === 'assign_ec2026001_dl_ids') {
+      var _dlResult = assignEC2026001DLIDs();
+      return respond({ ok:_dlResult.ok, result:_dlResult, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });
