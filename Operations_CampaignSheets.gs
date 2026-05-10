@@ -3213,11 +3213,27 @@ function _seedBrandDoctrine(sheet) {
     ['VOICE_FORBIDDEN_001', 'voice_control', 'soft', true,
       '{"forbidden_words":["revolutionary","game-changing","optimize","seamless","leverage","ecosystem","effortlessly","the app","pain points"],"forbidden_figures":["$1,500","$1500","$112","70%","50% off","Built by parents"],"banned_names":["Sarah","Lisa","Jennifer"]}'],
     ['VOICE_REQUIRED_001', 'voice_control', 'soft', true,
-      '{"product_name":"easyChef Pro","required_phrases":["easyChef Pro","Built by first responders"],"approved_savings":"$1,336/year","approved_waste":"69.5%","approved_time":"30 minutes","approved_founding_discount":"60% off","monthly_savings_note":"$111 requires word average in body copy"}']
+      '{"product_name":"easyChef Pro","required_phrases":["easyChef Pro","Built by first responders"],"approved_savings":"$1,336/year","approved_waste":"69.5%","approved_time":"30 minutes","approved_founding_discount":"60% off","monthly_savings_note":"$111 requires word average in body copy"}'],
+    ['APPROVED_CLAIMS_001', 'compliance', 'hard', true,
+      '{"approved":{"annual_savings":"$1,336/year","monthly_savings":"$111/month average — word average required","food_waste":"69.5%","fridge_to_table":"30 minutes","technologies":"9 patent-pending technologies","database":"800,000 products","recipes":"10,000 recipe pages at launch","dietitians":"registered dietitians","profiles":"validated across 10,000 household profiles","founding_discount":"60% off","founding_price":"$7.99/month","standard_price":"$19.99/month","annual_price":"$191.88/year"},"banned_figures":["$1,500","$1500","$112","70%","50% off"],"monthly_savings_note":"$111 is approved but requires word average — not a guarantee"}'],
+    ['DL_ID_FORMAT_001', 'technical', 'hard', true,
+      '{"format":"DL-[PREFIX]-[4-digit]","utm_content_rule":"DL_ID always first","prefixes":["EM","FB","IG","TK","PT","ND","YT","X","LP","AFF"],"example":"DL-EM-0001_SEQ-1_cta"}'],
+    ['NO_INVENTED_TESTIMONIALS_001', 'compliance', 'hard', true,
+      '{"banned_names":["Sarah","Lisa","Jennifer","Denver","Maria"],"banned_patterns":["[name] from [city]","[name] started using","[name] said"],"rule":"Never invent testimonials. Never create fake names. Never attribute quotes to invented people."}'],
+    ['SHAME_LANGUAGE_001', 'voice_control', 'hard', true,
+      '{"rule":"System is broken — not her fault. Never blame the person.","banned_frames":["you failed","you forgot","you wasted","why didn\'t you","you should have"],"approved_frame":"The system never closed the loop. Not because of you."}'],
+    ['SINGLE_CTA_001', 'structural', 'hard', true,
+      '{"max_ctas":1,"rule":"One CTA per asset. One action. One destination. Never offer multiple options.","banned":["multiple buttons","secondary CTA","or you can also"]}'],
+    ['MAKE_NOT_ZAPIER_001', 'technical', 'hard', true,
+      '{"approved":"Make.com","banned":"Zapier","rule":"All automation references say Make.com. Never Zapier. Applies to all copy, specs, and code comments."}'],
+    ['THEME_FOOD_RULE_001', 'visual_progression', 'hard', true,
+      '{"rule":"Theme food must appear in images from Post 4 onward","applies_from_post":4,"examples":{"taco-tuesday":"tacos · crispy shells · salsa · lime · on a plate","meal-prep-sunday":"meal prep containers · grains · proteins · vegetables portioned","game-night":"finger foods · nachos · sliders · shareable dishes"}}'],
+    ['IMAGE_GENDER_RULE_001', 'visual_progression', 'hard', true,
+      '{"rule":"Post describes a woman — image shows a woman. Always.","gender_must_be":"first 3 words of image prompt","enforcement":"hard — no exceptions"}']
   ].forEach(function(row) {
     if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
   });
-  Logger.log('[_seedBrandDoctrine] Seeded ' + 7 + ' rules');
+  Logger.log('[_seedBrandDoctrine] Seeded 15 rules');
 }
 
 function _seedCampaignStrategy(sheet) {
