@@ -162,6 +162,26 @@ var _CATEGORY_POSITIONING =
   'Never position against a specific competitor. Position against the broken status quo.\n' +
   'The enemy is not another app. The enemy is the 6:30 PM panic. The expired spinach. The $1,336 thrown away."\n\n';
 
+// ── 5-app replacement arc — locked rules for every post ──────────────────────
+var _5_APP_REPLACEMENT =
+  '=== 5-APP REPLACEMENT (LOCKED) ===\n' +
+  'easyChef Pro replaces five apps. Never "integrates with" — always "replaces".\n\n' +
+  'App replaced          → easyChef Pro feature:\n' +
+  'NoWaste               → TRACK    (Pantry Intelligence — scans receipts · tracks expiry)\n' +
+  'Mealime               → PLAN     (Meal Planning Engine — builds week from what you already have)\n' +
+  'MyFitnessPal          → OPTIMIZE (Nutrition Scoring — 6 dimensions · FDA-grade · registered dietitians)\n' +
+  'Recipe/Pinterest      → COOK     (Recipe Engine — 30 minutes fridge to table · 10,000 recipes)\n' +
+  'Shopping list apps    → SHOP     (1-click shopping — list builds from pantry · only what is missing)\n\n' +
+  'SHOP RULE: Always "1-click shopping". Never: "Instacart" · "Walmart cart" · "Walmart" · any store or third-party app name.\n' +
+  '  Always: "1-click shopping" · "the list builds itself" · "one click to your cart"\n\n' +
+  'OPTIMIZE RULE: Without OPTIMIZE the 5-app story is incomplete. Always include it when describing the full loop.\n' +
+  '  OPTIMIZE scores every meal COOK produces — 6 nutrition dimensions · FDA-grade data · registered dietitians.\n\n' +
+  'NAME APPS IN PROBLEM SECTION ONLY — never in SOLVE, VALUE, or CTA.\n\n' +
+  'PHONE RULE IN COPY:\n' +
+  '  Posts/emails 1-3: NO mention of the app being open or visible\n' +
+  '  Post/email 4:     First reveal — phone appears with easyChef Pro open\n' +
+  '  Posts/emails 5+:  Phone visible · app in use · outcomes not features\n\n';
+
 // ── 7-step copy framework — what works, what kills each step ──────────────────
 var _7_STEP_FRAMEWORK =
   '=== 7-STEP COPY FRAMEWORK — EVERY PIECE OF COPY FOLLOWS THIS EXACTLY ===\n' +
@@ -532,7 +552,7 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
   var _voiceRules   = gov.voiceRules  || _BRAND_VOICE_RULES;
   var _phaseGuard   = gov.phaseGuard  ? gov.phaseGuard  : '';
   var _compliance   = gov.compliance  ? gov.compliance  : '';
-  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _7_STEP_FRAMEWORK + _voiceRules + sD + _AB_ARCH + sE + sF + sG + _phaseGuard + _compliance;
+  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _5_APP_REPLACEMENT + _7_STEP_FRAMEWORK + _voiceRules + sD + _AB_ARCH + sE + sF + sG + _phaseGuard + _compliance;
 }
 
 // ── Governance compiler functions ─────────────────────────────────────────────
