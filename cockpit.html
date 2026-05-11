@@ -960,13 +960,13 @@
           var btn2=document.getElementById('cal-sync-btn');
           if(btn2){btn2.disabled=false;btn2.textContent='↻ Sync';}
           if(r&&r.ok){
-            var msg='✓ Seeded '+((r.result&&r.result.seeded)||0)+' posts';
+            var msg='✓ Seeded '+(r.total_seeded||0)+' posts';
             var flash=document.getElementById('cal-sync-msg');
             if(flash){flash.textContent=msg;flash.style.color='#32d74b';setTimeout(function(){flash.textContent='';},4000);}
             loadCalendar();
           } else {
             var flash2=document.getElementById('cal-sync-msg');
-            if(flash2){flash2.textContent='Error: '+((r&&r.result&&r.result.error)||'unknown');flash2.style.color='#ff453a';}
+            if(flash2){flash2.textContent='Error: '+((r&&r.error)||'unknown');flash2.style.color='#ff453a';}
             loadCalendar();
           }
         })
@@ -977,7 +977,7 @@
           if(flash3){flash3.textContent='Connection error';flash3.style.color='#ff453a';}
           loadCalendar();
         })
-        .seedEC2026001ContentCalendar(_activeCampaign);
+        .seedAllCampaignsContentCalendar();
     }
 
     // ── Figma token expiry banner ────────────────────────────────────
