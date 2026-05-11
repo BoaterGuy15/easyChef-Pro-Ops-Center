@@ -111,7 +111,12 @@ var _CC_HDR = {
     'urgency_type','urgency_line','urgency_placement',
     'exclusivity_angle','exclusivity_line',
     'meta_title','meta_description','og_title','og_description','canonical_url','focus_keyword',
-    'page_type','thank_you_url'
+    'page_type','thank_you_url',
+    'hero_subheadline',
+    'section_problem','section_agitate','section_solve','section_value','section_proof','section_cta',
+    'tracking_convert_id','tracking_clarity_id','tracking_ga4_id',
+    'qa_passed','pushed_to_production',
+    'convert_experiment_id','shared_by_campaigns','last_traffic_date'
   ],
   Channels: [
     'name','slug_code','utm_medium','utm_source','dl_prefix','status','notes',
@@ -3159,7 +3164,22 @@ function _lpInvRowToObj(r) {
     canonical_url:        String(r[31] || ''),
     focus_keyword:        String(r[32] || ''),
     page_type:            String(r[33] || 'waitlist_lp'),
-    thank_you_url:        String(r[34] || '')
+    thank_you_url:        String(r[34] || ''),
+    hero_subheadline:     String(r[35] || ''),
+    section_problem:      String(r[36] || ''),
+    section_agitate:      String(r[37] || ''),
+    section_solve:        String(r[38] || ''),
+    section_value:        String(r[39] || ''),
+    section_proof:        String(r[40] || ''),
+    section_cta:          String(r[41] || ''),
+    tracking_convert_id:  String(r[42] || ''),
+    tracking_clarity_id:  String(r[43] || ''),
+    tracking_ga4_id:      String(r[44] || ''),
+    qa_passed:            r[45] === true || String(r[45]).toLowerCase() === 'true',
+    pushed_to_production: r[46] === true || String(r[46]).toLowerCase() === 'true',
+    convert_experiment_id: String(r[47] || ''),
+    shared_by_campaigns:  String(r[48] || ''),
+    last_traffic_date:    _ccFmtDate(r[49])
   };
 }
 
@@ -3400,8 +3420,23 @@ function setLPInventoryEntry(item) {
     item.og_description     !== undefined ? item.og_description     : (ex ? ex[30] : ''),
     item.canonical_url      !== undefined ? item.canonical_url      : (ex ? ex[31] : ''),
     item.focus_keyword      !== undefined ? item.focus_keyword      : (ex ? ex[32] : ''),
-    item.page_type          !== undefined ? item.page_type          : (ex ? ex[33] : 'waitlist_lp'),
-    item.thank_you_url      !== undefined ? item.thank_you_url      : (ex ? ex[34] : '')
+    item.page_type            !== undefined ? item.page_type            : (ex ? ex[33] : 'waitlist_lp'),
+    item.thank_you_url        !== undefined ? item.thank_you_url        : (ex ? ex[34] : ''),
+    item.hero_subheadline     !== undefined ? item.hero_subheadline     : (ex ? ex[35] : ''),
+    item.section_problem      !== undefined ? item.section_problem      : (ex ? ex[36] : ''),
+    item.section_agitate      !== undefined ? item.section_agitate      : (ex ? ex[37] : ''),
+    item.section_solve        !== undefined ? item.section_solve        : (ex ? ex[38] : ''),
+    item.section_value        !== undefined ? item.section_value        : (ex ? ex[39] : ''),
+    item.section_proof        !== undefined ? item.section_proof        : (ex ? ex[40] : ''),
+    item.section_cta          !== undefined ? item.section_cta          : (ex ? ex[41] : ''),
+    item.tracking_convert_id  !== undefined ? item.tracking_convert_id  : (ex ? ex[42] : ''),
+    item.tracking_clarity_id  !== undefined ? item.tracking_clarity_id  : (ex ? ex[43] : ''),
+    item.tracking_ga4_id      !== undefined ? item.tracking_ga4_id      : (ex ? ex[44] : ''),
+    item.qa_passed            !== undefined ? item.qa_passed            : (ex ? ex[45] : false),
+    item.pushed_to_production !== undefined ? item.pushed_to_production : (ex ? ex[46] : false),
+    item.convert_experiment_id !== undefined ? item.convert_experiment_id : (ex ? ex[47] : ''),
+    item.shared_by_campaigns  !== undefined ? item.shared_by_campaigns  : (ex ? ex[48] : ''),
+    item.last_traffic_date    !== undefined ? item.last_traffic_date    : (ex ? ex[49] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
