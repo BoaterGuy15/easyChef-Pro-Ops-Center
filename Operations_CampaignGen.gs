@@ -356,7 +356,7 @@ function fcGenerateUtmAndSave(campaignId) {
           '&utm_content='  + encodeURIComponent(_utmC);
         _emNewRows.push([_dlId, _utmC, brief.id, 'Email', _lpBaseEmail,
           _emUtmSrc, _emUtmMed, sd.code, 'ACTIVE', _emNow, _emNow,
-          'fcGenerateUtmAndSave', 'Email · ' + sd.seq]);
+          'fcGenerateUtmAndSave', 'Email · ' + sd.seq, brief.icp || '', 'email', '']);
         _emBySeq[sd.seq] = { dl_id: _dlId, utm_source: _emUtmSrc, utm_medium: _emUtmMed,
           destination_url: _lpBaseEmail, utm_content: _utmC, full_url: _fullUrl };
       });
@@ -461,7 +461,8 @@ function fcGenerateUtmAndSave(campaignId) {
           _abRows.push([_dlId, _utmC, brief.id, 'LP-' + vt.variant, _baseUrl,
             _abLpCh.utm_source || 'direct', _abLpCh.utm_medium || 'referral',
             brief.id, 'ACTIVE', _abNow, _abNow, 'fcGenerateUtmAndSave',
-            'LP Variant ' + vt.variant + ' — ab_experiment_id=' + (brief.ab_experiment_id || '100140422')]);
+            'LP Variant ' + vt.variant + ' — ab_experiment_id=' + (brief.ab_experiment_id || '100140422'),
+            brief.icp || '', vt.variant, '']);
           _abUTMs.push({ dl_id: _dlId, utm_content: _utmC, channel: 'LP-' + vt.variant,
             destination_url: _baseUrl, utm_source: _abLpCh.utm_source,
             utm_medium: _abLpCh.utm_medium, full_url: _fullUrl, status: 'ACTIVE' });
