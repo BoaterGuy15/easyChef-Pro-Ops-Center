@@ -3178,9 +3178,11 @@ function getLPInventory(statusFilter) {
 function getCampaignFunnel(campaignId) {
   if (!campaignId) return { ok: false, error: 'campaign_id required' };
 
-  // 1. LP pages — all types
-  var allLPs    = getLPInventory();
-  var pages     = { coming_soon: [], waitlist_lp: [], thank_you: [], other: [] };
+  // 1. LP pages — filtered to this campaign, grouped by type
+  var allLPs = getLPInventory().filter(function(lp) {
+    return lp.campaigns_using && lp.campaigns_using.indexOf(campaignId) !== -1;
+  });
+  var pages = { coming_soon: [], waitlist_lp: [], thank_you: [], other: [] };
   allLPs.forEach(function(lp) {
     var t = lp.page_type || 'waitlist_lp';
     if (pages[t]) pages[t].push(lp); else pages.other.push(lp);
@@ -3276,8 +3278,7 @@ function getCampaignFunnel(campaignId) {
     description: 'Paid social + organic posts drive traffic via deep-linked UTM URLs',
     channels: Object.keys(dlByChannel).filter(function(c) { return c !== 'Email'; }),
     deep_links: Object.keys(dlByChannel).filter(function(c) { return c !== 'Email'; })
-      .reduce(function(acc, ch) { acc[ch] = (dlByChannel[ch] || []).length + ' DL_IDs'; return acc; }, {}),
-    post_counts: postSummary
+      .reduce(function(acc, ch) { acc[ch] = (dlByChannel[ch] || []).length + ' DL_IDs'; return acc; }, {})
   });
 
   // Step B: Coming soon (pre-launch gate if /coming-soon is LIVE)

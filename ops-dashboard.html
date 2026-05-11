@@ -29731,6 +29731,10 @@ function _campaignsAddModal(){ _campSwitchTab('brief'); }
 // ── Run Campaign panel ──────────────────────────────────────────────────────
 var _ccRunLog = [];
 
+function _ccEC2026002Brief() {
+  return { id:'EC-2026-002', name:'ICP-Governed Pre-Launch Arc 2026 — The Kitchen That Evolves', icp_code:'ALL-22', blueprint:'BLUEPRINT-A', channel:'Multi', goal:'5000 waitlist signups · July 1 2026 · $7.99/mo founding price', slug:'lp/waitlist-a', launch_date:'2026-07-01', status:'active', created_by:'Taylor', notes:'ICP governance: 22 emotional arcs · Brand position: The app that evolves with your life · 2 LP variants: waitlist-a + waitlist-b' };
+}
+
 function _ccRunAction(action, label, extraBody) {
   var logEl = document.getElementById('cc-run-log');
   var btnEl = document.getElementById('cc-run-btn-' + action);
@@ -29790,16 +29794,16 @@ function _ccRenderRunCampaign() {
   var steps = [
     { action:'patch_cc_settings_002',    label:'1 · Sync all settings to sheet',    desc:'Replaces CcSettings with EC-2026-002 governance data — 22 ICP journey types · new brand plug · new campaign angles · waitlist-a/b LP variants · updated urgency + exclusivity lines' },
     { action:'export_campaign_snapshot', label:'2 · Snapshot EC-2026-001 to Drive', desc:'Creates a permanent Google Sheet in the campaign Drive folder — filtered to EC-2026-001 rows only · never overwritten · team can always open it', extra:{campaign_id:'EC-2026-001'} },
-    { action:'seed_ec2026002',           label:'3 · Seed EC-2026-002 campaign',     desc:'Adds EC-2026-002 brief alongside existing campaigns — sheets are multi-campaign · nothing deleted · ICP-governed · 22 arcs · 2 LP variants' },
+    { action:'campaign_brief_write',      label:'3 · Seed EC-2026-002 campaign',     desc:'Adds EC-2026-002 brief alongside existing campaigns — sheets are multi-campaign · nothing deleted · ICP-governed · 22 arcs · 2 LP variants', onclick:"_ccRunAction('campaign_brief_write','3 · Seed EC-2026-002 campaign',{brief:_ccEC2026002Brief()})" },
     { action:'seed_ec2026001_campaign_strategies', label:'4 · Confirm 22 ICP emotional arcs', desc:'Seeds or confirms EMOTIONAL_ARC_001–022 in CampaignStrategy · one arc per life stage ICP · safe to re-run' },
     { action:'seed_icp_landing_pages',   label:'5 · Seed ICP LP Inventory',         desc:'22 LP records — one per ICP · lp_variant: waitlist-a (founding price angle) + waitlist-b (life-change angle) · 7-section framework' },
     { action:'patch_dl_registry_schema', label:'6 · Upgrade DL Registry schema',    desc:'Adds icp_code · lp_variant · emotional_arc_id columns to sheet header · extracts lp_variant from existing destination URLs · updates old-claim notes' }
   ];
 
   var stepsHtml = steps.map(function(s) {
-    var onclick = s.extra
+    var onclick = s.onclick || (s.extra
       ? '_ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\',' + JSON.stringify(s.extra) + ')'
-      : '_ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\')';
+      : '_ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\')');
     return '<div style="display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--border)">' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:11px;font-weight:700;color:var(--text)">' + s.label + '</div>' +
@@ -29816,7 +29820,7 @@ function _ccRenderRunCampaign() {
         '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">ICP-Governed Pre-Launch Arc 2026 — The Kitchen That Evolves</div>' +
         '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Campaign EC-2026-002 · runs alongside EC-2026-001 · content calendar supports 10+ concurrent campaigns · nothing deleted · snapshot to Drive on step 1</div>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-          '<button onclick="_ccRunAction(\'patch_cc_settings_002\',\'Sync settings\');setTimeout(function(){_ccRunAction(\'export_campaign_snapshot\',\'Snapshot EC-2026-001\',{campaign_id:\'EC-2026-001\'});setTimeout(function(){_ccRunAction(\'seed_ec2026002\',\'Seed EC-2026-002\');},8000);},6000);" style="' + IS + 'background:var(--gold);color:#000;padding:9px 22px;font-size:12px;font-weight:700">Sync Settings + Snapshot 001 + Launch 002</button>' +
+          '<button onclick="_ccRunAction(\'patch_cc_settings_002\',\'Sync settings\');setTimeout(function(){_ccRunAction(\'export_campaign_snapshot\',\'Snapshot EC-2026-001\',{campaign_id:\'EC-2026-001\'});setTimeout(function(){_ccRunAction(\'campaign_brief_write\',\'Seed EC-2026-002\',{brief:_ccEC2026002Brief()});},8000);},6000);" style="' + IS + 'background:var(--gold);color:#000;padding:9px 22px;font-size:12px;font-weight:700">Sync Settings + Snapshot 001 + Launch 002</button>' +
         '</div>' +
       '</div>' +
       stepsHtml +
