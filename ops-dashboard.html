@@ -24836,7 +24836,7 @@ function _ccKsLpSearch(icp, sortAngle, variant){
     .then(function(d){
       var mf='font-family:\'DM Mono\',monospace;';
       var _tgtVariant=variant; // capture outer variant param for closures
-      var _buildBtn=_tgtVariant==='B'?'':('<button onclick="_ccShowBuildLpForm()" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'letter-spacing:0.04em">+ Build New LP</button>');
+      var _buildBtn='<button onclick="_ccShowBuildLpForm(\''+_tgtVariant+'\')" style="background:transparent;border:1px solid '+_CC_RED+';color:'+_CC_RED+';padding:7px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'letter-spacing:0.04em">+ Build New LP'+((_tgtVariant==='B')?' (Variant B)':'')+'</button>';
       if(!d.ok||!d.pages||!d.pages.length){
         res.innerHTML=
           '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;'+mf+'">No existing landing pages found for <strong style="color:var(--text)">'+icp+'</strong>.'+(variant==='A'?' Create a new one from the selected theme.':'')+'</div>'+
@@ -24989,7 +24989,7 @@ function _ccSaveLpDraft(){
 // ── Build New LP form ────────────────────────────────────────────────────────
 var _ccBuildLpCtx = {}; // icp, themeSlug stored here for slug preview updates
 
-function _ccShowBuildLpForm() {
+function _ccShowBuildLpForm(forVariant) {
   var out = document.getElementById('cc-ks-lp-output');
   if(!out) return;
   var mf  = 'font-family:\'DM Mono\',monospace;';
@@ -25002,8 +25002,9 @@ function _ccShowBuildLpForm() {
   var angle     = t.campaign_angle || _campBrief.campaign_angle || '';
   var feature   = t.app_feature   || '';
   var headline  = (_campLastLp && _campLastLp.hero_headline) || '';
-  _ccBuildLpCtx = { icp:icp, themeSlug:themeSlug };
-  var slugPreview = 'lp/'+icp+'/'+themeSlug+'/a';
+  var _preVariant = (forVariant||'A').toLowerCase();
+  _ccBuildLpCtx = { icp:icp, themeSlug:themeSlug, forVariant: _preVariant };
+  var slugPreview = 'lp/'+icp+'/'+themeSlug+'/'+_preVariant;
   out.innerHTML =
     '<div style="margin-top:14px;padding:18px;background:var(--surface);border:1px solid var(--border);border-radius:8px;border-top:3px solid '+_CC_RED+'">'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">'+
@@ -25132,6 +25133,12 @@ function _ccShowBuildLpForm() {
       '<div id="cc-blp-status" style="font-size:11px;color:var(--muted);'+mf+'"></div>'+
     '</div>'+
     '</div>';
+  if(_preVariant && _preVariant !== 'a') {
+    setTimeout(function() {
+      var sel = document.getElementById('cc-blp-variant');
+      if(sel) { sel.value = _preVariant; _ccBuildLpUpdateSlug(); }
+    }, 0);
+  }
 }
 
 function _ccBuildLpUpdateSlug() {
