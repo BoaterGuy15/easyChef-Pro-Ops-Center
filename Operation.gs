@@ -1015,6 +1015,22 @@ function doPost(e) {
       var _apc = approveAllPendingClaims();
       return respond({ ok:_apc.ok, result:_apc, log: Logger.getLog() });
     }
+    if(body.action === 'patch_dl_registry_schema') {
+      var _pdr = patchDLRegistrySchema();
+      return respond({ ok:_pdr.ok, result:_pdr, log: Logger.getLog() });
+    }
+    if(body.action === 'debug_dl_registry') {
+      var _dlSheet = _getCCSheet(_CC_TAB.DL);
+      var _dlData  = _dlSheet.getDataRange().getValues().slice(1).filter(function(r){return r[0];});
+      var _dlDist  = { status:{}, channel:{}, has_url:0, no_url:0 };
+      _dlData.forEach(function(r){
+        var s=String(r[8]); _dlDist.status[s]=(_dlDist.status[s]||0)+1;
+        var c=String(r[3]); _dlDist.channel[c]=(_dlDist.channel[c]||0)+1;
+        if(String(r[4]).trim()) _dlDist.has_url++; else _dlDist.no_url++;
+      });
+      return respond({ ok:true, total:_dlData.length, distribution:_dlDist,
+        sample: _dlData.slice(0,5).map(function(r){return {id:r[0],channel:r[3],url:r[4],status:r[8],notes:r[12]};}) });
+    }
     if(body.action === 'rewrite_all_claims') {
       var _rwc = rewriteAllClaims();
       return respond({ ok:_rwc.ok, result:_rwc, log: Logger.getLog() });

@@ -66,7 +66,8 @@ var _CC_HDR = {
   DeepLinkRegistry: [
     'dl_id','utm_content','campaign_id','channel','destination_url',
     'utm_source','utm_medium','utm_campaign','status',
-    'created_at','activated_at','created_by','notes'
+    'created_at','activated_at','created_by','notes',
+    'icp_code','lp_variant','emotional_arc_id'
   ],
   EmailSequences: [
     'id','campaign_id','sequence_code','email_number','subject_line',
@@ -1261,7 +1262,8 @@ function _dlRowToObj(r) {
     destination_url: r[4], utm_source: r[5], utm_medium: r[6],
     utm_campaign: r[7], status: r[8],
     created_at: _ccFmtDate(r[9]), activated_at: _ccFmtDate(r[10]),
-    created_by: r[11], notes: r[12]
+    created_by: r[11], notes: r[12],
+    icp_code: r[13] || '', lp_variant: r[14] || '', emotional_arc_id: r[15] || ''
   };
 }
 
@@ -1274,6 +1276,84 @@ function getDlRegistry(campaignId) {
     .map(_dlRowToObj);
   if (!campaignId) return rows;
   return rows.filter(function(r) { return r.campaign_id === campaignId; });
+}
+
+function patchDLRegistrySchema() {
+  var sheet   = _getCCSheet(_CC_TAB.DL);
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  var newCols = ['icp_code', 'lp_variant', 'emotional_arc_id'];
+  var added   = 0;
+
+  // Read existing header row to avoid duplicates
+  var hdrRow  = lastCol >= 1 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  newCols.forEach(function(col) {
+    if (hdrRow.indexOf(col) === -1) {
+      lastCol++;
+      sheet.getRange(1, lastCol).setValue(col);
+      added++;
+    }
+  });
+
+  // Column indices (1-based) for the three new fields
+  var icpCol = hdrRow.indexOf('icp_code')  === -1 ? lastCol - newCols.length + 1 + added - 3
+             : hdrRow.indexOf('icp_code')  + 1;
+  // Re-read header now that we've written
+  var hdrFull = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var icpIdx  = hdrFull.indexOf('icp_code')       + 1;   // 1-based col
+  var lpIdx   = hdrFull.indexOf('lp_variant')      + 1;
+  var arcIdx  = hdrFull.indexOf('emotional_arc_id')+ 1;
+  var urlIdx  = hdrFull.indexOf('destination_url') + 1;   // for lp_variant extraction
+  var notesIdx= hdrFull.indexOf('notes')           + 1;
+
+  if (lastRow < 2) {
+    Logger.log('[patchDLRegistrySchema] No data rows — schema headers added only');
+    return { ok: true, headers_added: added, rows_patched: 0 };
+  }
+
+  var dataRows  = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var patched   = 0;
+  var noteFixed = 0;
+
+  dataRows.forEach(function(row, i) {
+    var rowNum = i + 2;
+    var changed = false;
+
+    // lp_variant: extract from destination_url if column is blank
+    if (lpIdx > 0 && !String(row[lpIdx - 1] || '').trim()) {
+      var url    = String(row[urlIdx - 1] || '');
+      var lpMatch = url.match(/lp\/([a-z0-9_-]+)/i);
+      var variant = lpMatch ? lpMatch[1] : '';
+      if (variant) {
+        sheet.getRange(rowNum, lpIdx).setValue(variant);
+        changed = true;
+      }
+    }
+
+    // icp_code and emotional_arc_id: leave blank — will be mapped per ICP campaign
+    // (no reliable way to infer from existing data)
+
+    // notes: replace old-claim-wording records with governance-aligned format
+    if (notesIdx > 0) {
+      var note     = String(row[notesIdx - 1] || '');
+      var oldClues = ['invisible leak', 'a month', '$111', 'dollar a month', 'grocery'];
+      var isOld    = oldClues.some(function(c) { return note.toLowerCase().indexOf(c) !== -1; });
+      if (isOld) {
+        var channel  = String(row[hdrFull.indexOf('channel')] || 'Unknown');
+        var campaign = String(row[hdrFull.indexOf('campaign_id')] || 'EC-2026-001');
+        var status   = String(row[hdrFull.indexOf('status')] || 'active');
+        var newNote  = campaign.toUpperCase() + ' · ' + channel + ' · ' + status + ' · ICP unassigned';
+        sheet.getRange(rowNum, notesIdx).setValue(newNote);
+        noteFixed++;
+        changed = true;
+      }
+    }
+
+    if (changed) patched++;
+  });
+
+  Logger.log('[patchDLRegistrySchema] headers_added=' + added + ' rows_patched=' + patched + ' notes_fixed=' + noteFixed);
+  return { ok: true, headers_added: added, rows_patched: patched, notes_fixed: noteFixed };
 }
 
 function setDlRegistryEntry(item) {
@@ -1302,7 +1382,10 @@ function setDlRegistryEntry(item) {
     ex ? ex[9] : (item.created_at || now),
     item.activated_at    !== undefined ? item.activated_at    : (ex ? ex[10] : ''),
     ex ? ex[11] : (item.created_by || ''),
-    item.notes           !== undefined ? item.notes           : (ex ? ex[12] : '')
+    item.notes           !== undefined ? item.notes           : (ex ? ex[12] : ''),
+    item.icp_code        !== undefined ? item.icp_code        : (ex ? ex[13] : ''),
+    item.lp_variant      !== undefined ? item.lp_variant      : (ex ? ex[14] : ''),
+    item.emotional_arc_id !== undefined ? item.emotional_arc_id : (ex ? ex[15] : '')
   ];
   _ccUpsert(sheet, headers, item.dl_id, row);
 }
@@ -1337,9 +1420,12 @@ function registerDraftDl(brief) {
     utm_source:      chData.utm_source,
     utm_medium:      chData.utm_medium,
     utm_campaign:    brief.id     || '',
-    status:          'draft',
-    created_at:      _ccNow(),
-    created_by:      'campaignGen'
+    status:           'draft',
+    created_at:       _ccNow(),
+    created_by:       'campaignGen',
+    icp_code:         brief.icp_code        || '',
+    lp_variant:       brief.lp_variant       || (slug ? slug.replace(/^lp\//, '') : ''),
+    emotional_arc_id: brief.emotional_arc_id || ''
   });
   return dlId;
 }
