@@ -1019,13 +1019,10 @@ function doPost(e) {
       var _pdr = patchDLRegistrySchema();
       return respond({ ok:_pdr.ok, result:_pdr, log: Logger.getLog() });
     }
-    if(body.action === 'archive_ec2026001') {
-      var _arch = archiveEC2026001Content();
-      return respond({ ok:_arch.ok, result:_arch, log: Logger.getLog() });
-    }
-    if(body.action === 'purge_all_campaign_content') {
-      var _purg = purgeAllCampaignContent();
-      return respond({ ok:_purg.ok, result:_purg, log: Logger.getLog() });
+    if(body.action === 'export_campaign_snapshot') {
+      var _cid = body.campaign_id || 'EC-2026-001';
+      var _snap = exportCampaignSnapshotToDrive(_cid);
+      return respond({ ok:_snap.ok, result:_snap, log: Logger.getLog() });
     }
     if(body.action === 'seed_ec2026002') {
       var _ec2 = seedEC2026002();

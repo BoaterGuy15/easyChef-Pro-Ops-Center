@@ -5545,51 +5545,69 @@ function seedEC2026001CampaignStrategies() {
 }
 
 // ── EC-2026-002 Transition ────────────────────────────────────────────────────
+// Campaigns coexist in the live sheets by campaign_id.
+// exportCampaignSnapshotToDrive() creates a permanent read-only copy in Drive —
+// the team can always open it; it is never overwritten.
 
-function archiveEC2026001Content() {
-  var ss       = _getCampaignSpreadsheet();
-  var archived = 0;
-  var targets  = [
-    { src: _CC_TAB.SOCIAL, dest: 'Archive_SocialPosts' },
-    { src: _CC_TAB.EMAIL,  dest: 'Archive_EmailSeq'   }
+var _SNAPSHOT_FOLDER_ID = '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl'; // EC Campaign Drive folder
+
+function exportCampaignSnapshotToDrive(campaignId) {
+  if (!campaignId) return { ok: false, error: 'campaign_id required' };
+
+  var srcSS   = _getCampaignSpreadsheet();
+  var folder  = DriveApp.getFolderById(_SNAPSHOT_FOLDER_ID);
+  var today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var snapName = campaignId.toUpperCase() + ' — Campaign Snapshot ' + today;
+
+  // Create new spreadsheet and move to campaign folder
+  var newSS   = SpreadsheetApp.create(snapName);
+  var newFile = DriveApp.getFileById(newSS.getId());
+  folder.addFile(newFile);
+  DriveApp.getRootFolder().removeFile(newFile);
+
+  // Tabs to snapshot — campaign_id filtered where column exists
+  var tabs = [
+    _CC_TAB.BRIEFS, _CC_TAB.SOCIAL, _CC_TAB.EMAIL, _CC_TAB.DL,
+    _CC_TAB.CONTENT_CAL, _CC_TAB.PAGES, _CC_TAB.LP_INVENTORY,
+    _CC_TAB.METRICS, _CC_TAB.SCHEDULED
   ];
-  targets.forEach(function(t) {
-    var srcSheet = ss.getSheetByName(t.src);
+
+  var sheetIdx = 0;
+  var copied   = 0;
+  tabs.forEach(function(tabName) {
+    var srcSheet = srcSS.getSheetByName(tabName);
     if (!srcSheet || srcSheet.getLastRow() < 1) return;
-    var archSheet = ss.getSheetByName(t.dest);
-    if (!archSheet) {
-      archSheet = ss.insertSheet(t.dest);
-    } else {
-      archSheet.clearContents();
-    }
-    var data = srcSheet.getDataRange().getValues();
-    if (data.length > 0) {
-      archSheet.getRange(1, 1, data.length, data[0].length).setValues(data);
-      archived += Math.max(0, data.length - 1);
-    }
-    Logger.log('[archiveEC2026001Content] ' + t.src + ' → ' + t.dest + ' (' + (data.length - 1) + ' rows)');
-  });
-  return { ok: true, archived_rows: archived };
-}
 
-function purgeAllCampaignContent() {
-  var ss     = _getCampaignSpreadsheet();
-  var purged = {};
-  var tabs   = [
-    _CC_TAB.SOCIAL, _CC_TAB.EMAIL, _CC_TAB.DL, _CC_TAB.CONTENT_CAL,
-    _CC_TAB.ASSET_LIFECYCLE, _CC_TAB.BRIEFS, _CC_TAB.COPY,
-    _CC_TAB.PUSH_NOTIFS, _CC_TAB.METRICS, _CC_TAB.SCHEDULED,
-    _CC_TAB.PAGES, _CC_TAB.LP_INVENTORY, _CC_TAB.VIDEO_PRODUCTION
-  ];
-  tabs.forEach(function(name) {
-    var sheet = ss.getSheetByName(name);
-    if (!sheet) { purged[name] = 'missing'; return; }
-    var dataRows = Math.max(0, sheet.getLastRow() - 1);
-    if (dataRows > 0) sheet.deleteRows(2, dataRows);
-    purged[name] = dataRows;
+    var allData = srcSheet.getDataRange().getValues();
+    var headers = allData[0];
+    var cidIdx  = headers.indexOf('campaign_id');
+    var rows;
+
+    if (cidIdx >= 0) {
+      rows = [headers].concat(allData.slice(1).filter(function(r) {
+        return String(r[cidIdx]).toUpperCase() === campaignId.toUpperCase();
+      }));
+    } else {
+      rows = allData;
+    }
+
+    if (rows.length < 2) return; // no data rows for this campaign — skip tab
+
+    var destSheet;
+    if (sheetIdx === 0) {
+      destSheet = newSS.getSheets()[0];
+      destSheet.setName(tabName);
+    } else {
+      destSheet = newSS.insertSheet(tabName);
+    }
+    destSheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+    sheetIdx++;
+    copied++;
   });
-  Logger.log('[purgeAllCampaignContent] ' + JSON.stringify(purged));
-  return { ok: true, purged: purged };
+
+  var url = newSS.getUrl();
+  Logger.log('[exportCampaignSnapshotToDrive] ' + campaignId + ' → ' + url + ' (' + copied + ' tabs)');
+  return { ok: true, campaign_id: campaignId, snapshot_name: snapName, url: url, tabs_copied: copied };
 }
 
 function seedEC2026002() {
