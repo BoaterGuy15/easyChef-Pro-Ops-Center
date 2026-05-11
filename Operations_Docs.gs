@@ -309,6 +309,83 @@ function migrateDocFolders() {
   }
 }
 
+/**
+ * Scans the Team Documents Drive folder recursively and imports any files that
+ * are not already tracked in the Documents Sheet.
+ * Category = name of the first-level subfolder under Team Documents (e.g. 'DNI EcoSystem').
+ * Returns { ok, imported, skipped }.
+ */
+function syncTeamDocsFromDrive() {
+  try {
+    var root       = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
+    var tdIter     = root.getFoldersByName('Team Documents');
+    if (!tdIter.hasNext()) return { ok: false, error: 'Team Documents folder not found' };
+    var tdRoot     = tdIter.next();
+
+    // Build set of driveFileIds already in Sheet
+    var sheet      = _getDocsSheet();
+    var data       = sheet.getDataRange().getValues();
+    var headers    = data[0].map(function(h) { return String(h).trim(); });
+    var iFile      = headers.indexOf('driveFileId');
+    var existing   = {};
+    for (var i = 1; i < data.length; i++) {
+      var fid = iFile >= 0 ? String(data[i][iFile] || '') : '';
+      if (fid) existing[fid] = true;
+    }
+
+    var imported = 0; var skipped = 0;
+    var now = new Date().toISOString();
+
+    // Walk Team Documents one level deep for category names, then recurse for files
+    function _scanFolder(folder, category) {
+      // Files directly in this folder
+      var fileIter = folder.getFiles();
+      while (fileIter.hasNext()) {
+        var f = fileIter.next();
+        var fid = f.getId();
+        if (existing[fid]) { skipped++; continue; }
+        var doc = {
+          id:           'doc-sync-' + fid.substring(0, 8),
+          taskId:       '',
+          agendaId:     '',
+          name:         f.getName(),
+          url:          'https://drive.google.com/file/d/' + fid + '/view',
+          previewUrl:   'https://drive.google.com/file/d/' + fid + '/preview',
+          driveFileId:  fid,
+          mimeType:     f.getMimeType() || '',
+          reviewNeeded: 'false',
+          addedBy:      'sync',
+          addedAt:      now,
+          folderUrl:    folder.getUrl(),
+          category:     category
+        };
+        addDocument(doc);
+        existing[fid] = true;
+        imported++;
+        Logger.log('[syncTeamDocs] imported: ' + f.getName() + ' → ' + category);
+      }
+      // Recurse into subfolders (keep same category — first level sets the tag)
+      var subIter = folder.getFolders();
+      while (subIter.hasNext()) {
+        _scanFolder(subIter.next(), category);
+      }
+    }
+
+    // Iterate first-level subfolders of Team Documents (each becomes a category)
+    var catIter = tdRoot.getFolders();
+    while (catIter.hasNext()) {
+      var catFolder = catIter.next();
+      var catName   = catFolder.getName();
+      _scanFolder(catFolder, catName);
+    }
+
+    return { ok: true, imported: imported, skipped: skipped };
+  } catch(e) {
+    Logger.log('[syncTeamDocs] FATAL: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 function _deleteDocRow(id) {
   if (!id) return;
   var sheet   = _getDocsSheet();
