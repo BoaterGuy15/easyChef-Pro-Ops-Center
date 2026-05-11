@@ -29825,11 +29825,113 @@ function _ccRenderRunCampaign() {
       '</div>' +
       stepsHtml +
     '</div>' +
-    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">' +
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px">' +
       _ccSecHdr('Run Log') +
       '<div id="cc-run-log" style="padding:12px 16px;font-family:\'DM Mono\',monospace;max-height:320px;overflow-y:auto"><div style="color:var(--muted);font-size:11px">No actions run yet.</div></div>' +
     '</div>' +
+    _ccRenderConvertPanel() +
   '</div>';
+}
+
+// ── Convert A/B Setup Panel ─────────────────────────────────────────────────
+var _ccConvertPayload = null;
+
+function _ccRenderConvertPanel() {
+  var IS = 'border:none;border-radius:6px;padding:7px 18px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;letter-spacing:0.04em;';
+  return '<div style="width:100%">' +
+    _ccSecHdr('📊 Convert.com A/B Setup') +
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px">' +
+      '<div style="padding:14px 20px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.04)">' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">Account 10019256 · Experience 100140422 · 50/50 split</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Builds the A/B experiment payload from LP Inventory — 2 pages, 1 goal, formatted for Convert API</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<button onclick="_ccLoadConvertPayload()" id="cc-convert-load-btn" style="' + IS + 'background:var(--surface);color:var(--text);border:1px solid var(--border)">Load LP + Funnel</button>' +
+          '<button onclick="_ccPushConvertPayload()" id="cc-convert-push-btn" style="' + IS + 'background:#0a84ff;color:#fff" disabled>Push to Convert</button>' +
+        '</div>' +
+      '</div>' +
+      '<div id="cc-convert-preview" style="padding:14px 20px;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted)">Click Load LP + Funnel to preview the A/B payload.</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function _ccLoadConvertPayload() {
+  var btn = document.getElementById('cc-convert-load-btn');
+  var preview = document.getElementById('cc-convert-preview');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  if (preview) preview.innerHTML = '<div style="color:var(--muted)">Fetching LP data from sheet…</div>';
+  var cid = (_campBrief && _campBrief.id) || 'EC-2026-001';
+  fetch(CONFIG.sheetsUrl, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({action:'build_convert_payload', campaign_id: cid}) })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Load LP + Funnel'; }
+      if (!d.ok || !d.result || !d.result.payload) {
+        if (preview) preview.innerHTML = '<div style="color:#ef4444">Error: ' + (d.error || (d.result && d.result.error) || 'Unknown') + '</div>';
+        return;
+      }
+      _ccConvertPayload = d.result.payload;
+      var p = _ccConvertPayload;
+      var html = '';
+
+      // Funnel steps
+      html += '<div style="margin-bottom:14px">';
+      html += '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Funnel Flow</div>';
+      (p.funnel || []).forEach(function(s) {
+        html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+          '<span style="color:var(--gold);font-weight:700;min-width:16px">' + s.step + '</span>' +
+          '<div><div style="color:var(--text);font-size:11px">' + s.label + '</div>' +
+          '<div style="color:var(--muted);font-size:10px">' + s.url + (s.headline ? ' — <em>' + s.headline + '</em>' : '') + '</div></div>' +
+        '</div>';
+      });
+      html += '</div>';
+
+      // LP comparison
+      html += '<div style="margin-bottom:14px">';
+      html += '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">A/B Variants</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+      (p.variations || []).forEach(function(v) {
+        var accent = v.is_control ? 'var(--gold)' : '#0a84ff';
+        html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px">' +
+          '<div style="font-size:10px;font-weight:700;color:' + accent + ';margin-bottom:6px">' + v.name + '</div>' +
+          '<div style="font-size:11px;color:var(--text);margin-bottom:3px">' + (v.headline || '') + '</div>' +
+          '<div style="font-size:10px;color:var(--muted);margin-bottom:3px">angle: ' + (v.angle || '') + '</div>' +
+          '<div style="font-size:10px;color:var(--muted);margin-bottom:3px">cta: ' + (v.cta || '') + '</div>' +
+          '<div style="font-size:9px;color:var(--muted);margin-top:5px">' + v.redirect_url + '</div>' +
+          '<div style="font-size:9px;color:var(--muted)">traffic: ' + v.traffic_percentage + '%</div>' +
+        '</div>';
+      });
+      html += '</div></div>';
+
+      // Goal
+      (p.goals || []).forEach(function(g) {
+        html += '<div style="font-size:10px;color:var(--muted);padding:6px 0;border-top:1px solid var(--border)">Goal: ' + g.name + ' · ' + g.goal_type + ' · <span style="color:var(--text)">' + g.trigger_url + '</span></div>';
+      });
+
+      // JSON preview
+      html += '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">' +
+        '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">Raw Payload</div>' +
+        '<pre style="font-size:10px;color:var(--muted);white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;background:var(--bg);padding:10px;border-radius:6px;border:1px solid var(--border)">' +
+        JSON.stringify(p, null, 2) + '</pre>' +
+        '<button onclick="_ccCopyConvertPayload()" style="margin-top:6px;background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;border-radius:6px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">📋 Copy JSON</button>' +
+      '</div>';
+
+      if (preview) preview.innerHTML = html;
+      var pushBtn = document.getElementById('cc-convert-push-btn');
+      if (pushBtn) pushBtn.disabled = false;
+    })
+    .catch(function(e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Load LP + Funnel'; }
+      if (preview) preview.innerHTML = '<div style="color:#ef4444">Error: ' + e.message + '</div>';
+    });
+}
+
+function _ccCopyConvertPayload() {
+  if (!_ccConvertPayload) return;
+  try { navigator.clipboard.writeText(JSON.stringify(_ccConvertPayload, null, 2)); _showToast('Payload copied to clipboard', 2000); } catch(e) {}
+}
+
+function _ccPushConvertPayload() {
+  if (!_ccConvertPayload) return;
+  _showToast('<span style="color:var(--gold)">⚠ Push to Convert must be done via GAS editor — copy the JSON and use the Convert dashboard API tester, or add your API keys to CcSettings first.</span>', 5000);
 }
 
 // ── SEO Manager ────────────────────────────────────────────────────────────

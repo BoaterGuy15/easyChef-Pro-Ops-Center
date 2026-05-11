@@ -782,6 +782,10 @@ function doPost(e) {
       updateConvertExperimentId();
       return respond({ ok:true, message: 'Convert ID updated to 100140422' });
     }
+    if(body.action === 'build_convert_payload') {
+      var _cvpResult = buildConvertExperimentPayload(body.campaign_id || 'EC-2026-001');
+      return respond({ ok:_cvpResult.ok, result:_cvpResult, log: Logger.getLog() });
+    }
     if(body.action === 'seed_governance_tabs') {
       var _govResult = seedGovernanceTabs();
       return respond({ ok:true, result: _govResult, log: Logger.getLog() });

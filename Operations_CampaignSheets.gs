@@ -3178,13 +3178,25 @@ function getLPInventory(statusFilter) {
 function getCampaignFunnel(campaignId) {
   if (!campaignId) return { ok: false, error: 'campaign_id required' };
 
-  // 1. LP pages — filtered to this campaign, grouped by type
+  // 1. LP pages — filtered to this campaign
+  // waitlist_lp: only primary A/B variants (not ICP-specific pages)
+  // coming_soon / thank_you: all for this campaign, thank_you deduped by URL
   var allLPs = getLPInventory().filter(function(lp) {
-    return lp.campaigns_using && lp.campaigns_using.indexOf(campaignId) !== -1;
+    if (!(lp.campaigns_using && lp.campaigns_using.indexOf(campaignId) !== -1)) return false;
+    var t = lp.page_type || 'waitlist_lp';
+    if (t === 'coming_soon' || t === 'thank_you') return true;
+    var v = String(lp.lp_variant || '').toLowerCase();
+    return v === 'a' || v === 'b' || v === 'waitlist-a' || v === 'waitlist-b';
   });
   var pages = { coming_soon: [], waitlist_lp: [], thank_you: [], other: [] };
+  var _tyUrls = {};
   allLPs.forEach(function(lp) {
     var t = lp.page_type || 'waitlist_lp';
+    if (t === 'thank_you') {
+      var u = lp.full_url || '';
+      if (_tyUrls[u]) return; // deduplicate by URL
+      _tyUrls[u] = true;
+    }
     if (pages[t]) pages[t].push(lp); else pages.other.push(lp);
   });
 

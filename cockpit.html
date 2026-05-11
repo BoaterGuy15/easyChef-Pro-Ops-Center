@@ -163,6 +163,8 @@
     .post-status-line { font-size: 12px; color: #888; }
     .post-emotion { font-size: 11px; color: #666; margin-top: 1px; }
     .post-id { font-size: 10px; color: #444; white-space: nowrap; }
+    .post-figma-link { font-size: 10px; color: #a78bfa; text-decoration: none; white-space: nowrap; padding: 2px 6px; border: 1px solid #3b2f6e; border-radius: 4px; flex-shrink: 0; }
+    .post-figma-link:hover { background: #1e1533; color: #c4b5fd; }
     .post-blocked { font-size: 11px; color: #ff453a; margin-top: 2px; }
     .plat-ig  { background: #2a0a18; color: #e1306c; }
     .plat-tt  { background: #1a1a1a; color: #aaa; }
@@ -250,7 +252,13 @@
 <body>
   <header>
     <h1>Campaign Cockpit</h1>
-    <div class="tagline" id="tagline">EC-2026-001 · Loading<span class="dot-anim"></span></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <select id="campaign-select" onchange="switchCampaign(this.value)" style="background:#1a1a1e;border:1px solid #333;color:#ccc;padding:5px 10px;border-radius:7px;font-size:11px;font-family:inherit;cursor:pointer">
+        <option value="EC-2026-001">EC-2026-001</option>
+        <option value="EC-2026-002">EC-2026-002</option>
+      </select>
+      <div class="tagline" id="tagline">Loading<span class="dot-anim"></span></div>
+    </div>
   </header>
 
   <div class="cockpit-layout">
@@ -341,6 +349,14 @@
 
     var DOW=['Su','Mo','Tu','We','Th','Fr','Sa'];
     var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    var _activeCampaign = 'EC-2026-001';
+    function switchCampaign(id) {
+      _activeCampaign = id;
+      dashData = null; calData = null;
+      clearFilters();
+      load();
+    }
 
     var dashData=null, calData=null, activeTab='dash';
     var FILTERS={platform:{},status:{},emotion:{},funnel:{},week:{}};
@@ -462,7 +478,7 @@
     function renderDash(d, filteredPosts){
       var total=d.total_assets||0,blocked=d.blocked_count||0,aq=d.approval_queue_count||0,late=d.late_count||0;
       var now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-      document.getElementById('tagline').innerHTML='EC-2026-001 &nbsp;·&nbsp; '+total+' assets'+(hasFilters()?' <span style="color:#0a84ff">(filtered)</span>':'')+' &nbsp;·&nbsp; '+now;
+      document.getElementById('tagline').innerHTML=_activeCampaign+' &nbsp;·&nbsp; '+total+' assets'+(hasFilters()?' <span style="color:#0a84ff">(filtered)</span>':'')+' &nbsp;·&nbsp; '+now;
 
       // KPIs
       var kpis='<div class="kpi"><div class="kpi-label">Total Assets</div><div class="kpi-val">'+total+'</div></div>'+
@@ -560,7 +576,93 @@
           '</div>'+
         '</div>'+
         postsPanel+
+        '<div class="card" style="margin-top:10px"><div class="card-title" style="display:flex;align-items:center;justify-content:space-between">Campaign Funnel Map <button class="btn" style="font-size:10px;padding:3px 10px" onclick="loadFunnelMap()">Load Funnel</button></div><div id="funnel-map-body" style="color:#444;font-size:11px;padding:4px 0">Click Load Funnel to see the complete deep link flow.</div></div>'+
         '<button class="btn" onclick="load()">&#8635; Refresh</button>';
+    }
+
+    // ── Funnel Map ────────────────────────────────────────────────────────────
+    var _funnelLoaded = false;
+    function loadFunnelMap() {
+      document.getElementById('funnel-map-body').innerHTML = '<span style="color:#555">Loading funnel…</span>';
+      google.script.run
+        .withSuccessHandler(function(r) {
+          if (!r || !r.ok) {
+            document.getElementById('funnel-map-body').innerHTML = '<span style="color:#ff453a">Error loading funnel.</span>';
+            return;
+          }
+          var f = r;
+          var html = '';
+
+          // Step rows
+          var stepIcons = ['📡','🚪','🎯','📧','✅'];
+          (f.funnel_flow || []).forEach(function(step, i) {
+            html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #1a1a1e">';
+            html += '<div style="font-size:18px;line-height:1;flex-shrink:0">' + (stepIcons[i] || '→') + '</div>';
+            html += '<div style="flex:1;min-width:0">';
+            html += '<div style="font-size:12px;font-weight:700;color:#e8e8e0;margin-bottom:2px">Step ' + step.step + ' — ' + step.label + '</div>';
+            html += '<div style="font-size:11px;color:#777;margin-bottom:4px">' + (step.description || '') + '</div>';
+
+            // Pages
+            if (step.pages && step.pages.length) {
+              step.pages.forEach(function(pg) {
+                var statusColor = pg.status === 'LIVE' ? '#30d158' : '#ff9f0a';
+                html += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px">';
+                html += '<span style="width:6px;height:6px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;display:inline-block"></span>';
+                html += '<span style="font-size:11px;color:#aaa">' + (pg.url || pg.slug || pg.id || '') + '</span>';
+                if (pg.variant) html += '<span style="font-size:9px;background:#1e1e2a;color:#a78bfa;padding:1px 5px;border-radius:3px">Variant ' + pg.variant + '</span>';
+                html += '<span style="font-size:9px;color:#555">' + (pg.status || '') + '</span>';
+                if (pg.thank_you_url) html += '<span style="font-size:9px;color:#444;margin-left:4px">→ ' + pg.thank_you_url + '</span>';
+                html += '</div>';
+              });
+            }
+
+            // DL IDs snippet
+            if (step.deep_links && Object.keys(step.deep_links).length) {
+              html += '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">';
+              Object.keys(step.deep_links).forEach(function(ch) {
+                html += '<span style="font-size:9px;background:#1a1a1e;color:#666;padding:1px 6px;border-radius:3px">' + ch + ': ' + step.deep_links[ch] + '</span>';
+              });
+              html += '</div>';
+            }
+
+            // Email sequences
+            if (step.sequences && step.sequences.length) {
+              step.sequences.forEach(function(seq) {
+                html += '<div style="font-size:11px;color:#666;margin-top:3px">' + seq.code + ' · ' + seq.email_count + ' emails</div>';
+              });
+            }
+
+            // Post counts
+            if (step.post_counts && Object.keys(step.post_counts).length) {
+              html += '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">';
+              Object.keys(step.post_counts).forEach(function(pl) {
+                var pc = step.post_counts[pl];
+                html += '<span style="font-size:9px;background:#1a1a1e;color:#888;padding:1px 6px;border-radius:3px">' + pl + ': ' + pc.total + ' posts</span>';
+              });
+              html += '</div>';
+            }
+
+            html += '</div></div>';
+          });
+
+          // DL summary footer
+          if (f.deep_link_summary) {
+            html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #1a1a1e;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+            html += '<span style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:1px">Deep Links</span>';
+            html += '<span style="font-size:11px;color:#aaa">Total: <strong style="color:#e8e8e0">' + (f.deep_link_summary.total || 0) + '</strong></span>';
+            var byC = f.deep_link_summary.by_channel || {};
+            Object.keys(byC).forEach(function(ch) {
+              html += '<span style="font-size:9px;background:#1a1a1e;color:#666;padding:1px 6px;border-radius:3px">' + ch + ': ' + byC[ch] + '</span>';
+            });
+            html += '</div>';
+          }
+
+          document.getElementById('funnel-map-body').innerHTML = html || '<span style="color:#555">No funnel data yet — run the seed first.</span>';
+        })
+        .withFailureHandler(function() {
+          document.getElementById('funnel-map-body').innerHTML = '<span style="color:#ff453a">Request failed.</span>';
+        })
+        .getCampaignFunnel(_activeCampaign);
     }
 
     // ── Calendar ──────────────────────────────────────────────────────────────
@@ -607,7 +709,8 @@
         var st=(STATUS_LABEL[p.status]||p.status)+(p.approval_status==='approved'?' · Approved':'');
         var bl=p.blocked&&p.blocked_reason?'<div class="post-blocked">⚠ '+p.blocked_reason+'</div>':'';
         var em=p.emotional_stage?'<div class="post-emotion">'+p.emotional_stage+(p.funnel_stage?' · '+p.funnel_stage:'')+'</div>':'';
-        return '<div class="post-row" onclick="closeSheet();setTimeout(function(){openPostModal(\''+p.asset_id+'\')},220)"><span class="plat-chip '+platformClass(p.platform)+'">'+platformLabel(p.platform)+'</span><div class="post-info"><div class="post-status-line"><span class="status-dot-lg" style="background:'+dc+'"></span>'+st+'</div>'+em+bl+'</div><div class="post-id">'+p.asset_id+'</div></div>';
+        var figmaBtn=p.figma_url?'<a class="post-figma-link" href="'+p.figma_url+'" target="_blank" onclick="event.stopPropagation()">↗ Figma</a>':'';
+        return '<div class="post-row" onclick="closeSheet();setTimeout(function(){openPostModal(\''+p.asset_id+'\')},220)"><span class="plat-chip '+platformClass(p.platform)+'">'+platformLabel(p.platform)+'</span><div class="post-info"><div class="post-status-line"><span class="status-dot-lg" style="background:'+dc+'"></span>'+st+'</div>'+em+bl+'</div><div class="post-id">'+p.asset_id+'</div>'+figmaBtn+'</div>';
       }).join('')||'<div style="color:#555;padding:12px 0">No posts match current filters.</div>';
       document.getElementById('sheet-overlay').className='sheet-overlay open';
       document.getElementById('day-sheet').className='day-sheet open';
@@ -800,21 +903,47 @@
       google.script.run
         .withSuccessHandler(function(r){if(r&&r.ok){dashData=r;if(!hasFilters()){var all=getAllPosts();renderDash(r,all);}}else{document.getElementById('panel-dash').innerHTML='<div class="loading">Error.</div><button class="btn" onclick="load()" style="margin-top:12px">&#8635; Retry</button>';} })
         .withFailureHandler(function(){document.getElementById('panel-dash').innerHTML='<div class="loading">Connection error.</div><button class="btn" onclick="load()" style="margin-top:12px">&#8635; Retry</button>';})
-        .getCampaignDashboard('EC-2026-001');
+        .getCampaignDashboard(_activeCampaign);
     }
     function loadCalendar(){
       google.script.run
         .withSuccessHandler(function(r){if(r&&r.ok){calData=r;if(r.sheet_id)SHEET_ID=r.sheet_id;if(r.sheet_gid!==undefined)SHEET_GID=String(r.sheet_gid);if(r.drive_folder_url)DRIVE_FOLDER_URL=r.drive_folder_url;applyAndRender();}})
         .withFailureHandler(function(){})
-        .getCampaignCalendar('EC-2026-001');
+        .getCampaignCalendar(_activeCampaign);
     }
     function load(){
-      document.getElementById('tagline').innerHTML='EC-2026-001 &nbsp;·&nbsp; Refreshing<span class="dot-anim"></span>';
+      document.getElementById('tagline').innerHTML=_activeCampaign+' &nbsp;·&nbsp; Refreshing<span class="dot-anim"></span>';
       loadDashboard();loadCalendar();
+    }
+
+    // ── Figma token expiry banner ────────────────────────────────────
+    function checkFigmaToken(){
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(!r||!r.set) return;
+          var days=r.days_left;
+          if(days>14) return;
+          var msg = days<=0
+            ? 'Figma API token has EXPIRED — Figma comments are offline. Rotate it in Script Properties and run figmaRecordTokenExpiry().'
+            : 'Figma API token expires in '+days+' day'+(days!==1?'s':'')+'. Rotate it soon to keep Figma comments working.';
+          var bar=document.createElement('div');
+          bar.id='figma-token-bar';
+          bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:'+(days<=0?'#c0392b':'#e67e22')+';color:#fff;font:600 13px/1 system-ui;padding:9px 48px 9px 16px;text-align:center;';
+          bar.textContent=msg;
+          var x=document.createElement('span');
+          x.textContent='✕';
+          x.style.cssText='position:absolute;right:14px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;';
+          x.onclick=function(){bar.remove();};
+          bar.appendChild(x);
+          document.body.prepend(bar);
+        })
+        .withFailureHandler(function(){})
+        .figmaTokenStatus();
     }
 
     renderSidebar();
     load();
+    checkFigmaToken();
     setInterval(load,60000);
   </script>
 </body>

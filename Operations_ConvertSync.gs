@@ -303,6 +303,116 @@ function updateConvertExperimentId() {
   return { ok: true, updated: updated };
 }
 
+// ── FUNCTION 5 — buildConvertExperimentPayload ───────────────────────────────
+/**
+ * Reads the campaign brief + LP inventory (A/B variants only) and formats
+ * a Convert.com API payload ready to POST to /experiences or preview in the dashboard.
+ */
+function buildConvertExperimentPayload(campaignId) {
+  if (!campaignId) campaignId = 'EC-2026-001';
+
+  // Brief
+  var brief = null;
+  try {
+    var bSh = _getCCSheet(_CC_TAB.BRIEFS);
+    var bLast = bSh.getLastRow();
+    if (bLast >= 2) {
+      var bHdrs = _CC_HDR.CampaignBriefs;
+      var bRows = bSh.getRange(2, 1, bLast - 1, bHdrs.length).getValues();
+      for (var i = 0; i < bRows.length; i++) {
+        if (String(bRows[i][0]) === campaignId) {
+          brief = {};
+          bHdrs.forEach(function(h, j) { brief[h] = bRows[i][j]; });
+          break;
+        }
+      }
+    }
+  } catch(e) { Logger.log('[buildConvertPayload] brief error: ' + e.message); }
+
+  // LP inventory — primary A/B variants only for this campaign
+  var lps = getLPInventory().filter(function(lp) {
+    if (!(lp.campaigns_using && lp.campaigns_using.indexOf(campaignId) !== -1)) return false;
+    var v = String(lp.lp_variant || '').toLowerCase();
+    return v === 'a' || v === 'b' || v === 'waitlist-a' || v === 'waitlist-b';
+  });
+
+  var lpA = lps.filter(function(lp) {
+    var v = String(lp.lp_variant || '').toLowerCase();
+    return v === 'a' || v === 'waitlist-a';
+  })[0] || null;
+  var lpB = lps.filter(function(lp) {
+    var v = String(lp.lp_variant || '').toLowerCase();
+    return v === 'b' || v === 'waitlist-b';
+  })[0] || null;
+
+  if (!lpA && !lpB) {
+    return { ok: false, error: 'No A/B LP variants found for ' + campaignId };
+  }
+
+  // Thank-you URL
+  var thankYouUrl = (lpA && lpA.thank_you_url) || (lpB && lpB.thank_you_url) || 'https://easychefpro.com/thank-you';
+  var expId   = (brief && brief.ab_experiment_id) || '100140422';
+  var abSplit = (brief && brief.ab_split) || '50/50';
+  var splitParts = abSplit.toString().split('/');
+  var splitA  = Number(splitParts[0]) || 50;
+  var splitB  = Number(splitParts[1] || splitParts[0]) || 50;
+
+  var variations = [];
+  if (lpA) variations.push({
+    name:               'Original — Variant A · ' + (lpA.campaign_angle || 'founding-price'),
+    is_control:         true,
+    traffic_percentage: splitA,
+    redirect_url:       lpA.full_url,
+    include_query_params: true,
+    headline:           lpA.headline,
+    angle:              lpA.campaign_angle,
+    cta:                lpA.cta_primary,
+    urgency:            lpA.urgency_line,
+    slug:               lpA.slug,
+    status:             lpA.status
+  });
+  if (lpB) variations.push({
+    name:               'Variation B · ' + (lpB.campaign_angle || 'life-change'),
+    is_control:         false,
+    traffic_percentage: splitB,
+    redirect_url:       lpB.full_url,
+    include_query_params: true,
+    headline:           lpB.headline,
+    angle:              lpB.campaign_angle,
+    cta:                lpB.cta_primary,
+    urgency:            lpB.urgency_line,
+    slug:               lpB.slug,
+    status:             lpB.status
+  });
+
+  var payload = {
+    account_id:           _CONVERT_ACCOUNT_ID,
+    experience_id:        expId,
+    campaign_id:          campaignId,
+    name:                 (brief && brief.name ? brief.name : campaignId) + ' — A/B Test',
+    type:                 'a_b',
+    status:               'active',
+    traffic_percentage:   100,
+    site_area: {
+      conditions: [{ match_type: 'contains', condition_type: 'url', value: 'easychefpro.com/lp/' }]
+    },
+    variations:           variations,
+    goals: [
+      { name: 'Waitlist Signup', goal_type: 'pageview', trigger_url: thankYouUrl, match_type: 'contains' }
+    ],
+    funnel: [
+      { step: 1, label: 'Entry — UTM Traffic',  url: 'easychefpro.com/lp/' },
+      { step: 2, label: 'Coming Soon Gate',      url: 'https://easychefpro.com/coming-soon' },
+      { step: 3, label: 'LP A ('+splitA+'%)',    url: lpA ? lpA.full_url : '—', headline: lpA ? lpA.headline : '' },
+      { step: 4, label: 'LP B ('+splitB+'%)',    url: lpB ? lpB.full_url : '—', headline: lpB ? lpB.headline : '' },
+      { step: 5, label: 'Thank-You / Convert',   url: thankYouUrl }
+    ]
+  };
+
+  Logger.log('[buildConvertPayload] campaign:' + campaignId + ' exp:' + expId + ' variants:' + variations.length);
+  return { ok: true, payload: payload };
+}
+
 // ── FUNCTION 4 — scheduledConvertSync ────────────────────────────────────────
 /**
  * Daily time-trigger entry point — syncs all active experiments across all campaigns.
