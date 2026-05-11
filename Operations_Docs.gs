@@ -236,6 +236,79 @@ function _appendDocRow(doc) {
   ]]);
 }
 
+/**
+ * Moves every misrouted Drive file to its correct folder and updates folderUrl in the Sheet.
+ * Routing rules mirror uploadFileToDrive:
+ *   taskId set      → RACI-WorkFlow / RACI Task Docs / <taskId> /
+ *   category set    → Team Documents / <category> /
+ *   neither         → skipped (agenda-type, no change)
+ * Returns { ok, moved, skipped, errors[] }.
+ */
+function migrateDocFolders() {
+  try {
+    var root     = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
+    var sheet    = _getDocsSheet();
+    var data     = sheet.getDataRange().getValues();
+    if (data.length < 2) return { ok: true, moved: 0, skipped: 0, errors: [] };
+
+    // Read by actual header row so it works regardless of column order changes
+    var headers   = data[0].map(function(h) { return String(h).trim(); });
+    var iId       = headers.indexOf('id');
+    var iFile     = headers.indexOf('driveFileId');
+    var iFolder   = headers.indexOf('folderUrl');
+    var iTask     = headers.indexOf('taskId');
+    var iCat      = headers.indexOf('category');
+
+    // Pre-build parent folders once
+    var raciWf   = _getOrCreateFolder(root, 'RACI-WorkFlow');
+    var taskDocs = _getOrCreateFolder(raciWf, 'RACI Task Docs');
+    var tdRoot   = _getOrCreateFolder(root, 'Team Documents');
+
+    var moved = 0; var skipped = 0; var errors = [];
+
+    for (var i = 1; i < data.length; i++) {
+      var row      = data[i];
+      var fileId   = iFile   >= 0 ? String(row[iFile]   || '') : '';
+      var taskId   = iTask   >= 0 ? String(row[iTask]   || '') : '';
+      var category = iCat    >= 0 ? String(row[iCat]    || '') : '';
+      var curFolder= iFolder >= 0 ? String(row[iFolder] || '') : '';
+
+      if (!fileId) { skipped++; continue; }
+
+      var targetFolder = null;
+      if (taskId) {
+        if (curFolder.indexOf('RACI Task Docs') !== -1) { skipped++; continue; }
+        targetFolder = _getOrCreateFolder(taskDocs, taskId);
+      } else if (category) {
+        if (curFolder.indexOf('Team Documents') !== -1) { skipped++; continue; }
+        targetFolder = _getOrCreateFolder(tdRoot, category);
+      } else {
+        skipped++; continue;
+      }
+
+      try {
+        var file    = DriveApp.getFileById(fileId);
+        var parents = file.getParents();
+        targetFolder.addFile(file);
+        var oldParents = [];
+        while (parents.hasNext()) { oldParents.push(parents.next()); }
+        oldParents.forEach(function(p) { if (p.getId() !== targetFolder.getId()) try { p.removeFile(file); } catch(re) {} });
+        if (iFolder >= 0) sheet.getRange(i + 1, iFolder + 1).setValue(targetFolder.getUrl());
+        moved++;
+        Logger.log('[migrateDocFolders] Moved ' + fileId + ' → ' + targetFolder.getName());
+      } catch(fe) {
+        errors.push('row ' + (i + 1) + ': ' + fe.message);
+        Logger.log('[migrateDocFolders] ERROR row ' + (i + 1) + ': ' + fe.message);
+      }
+    }
+
+    return { ok: true, moved: moved, skipped: skipped, errors: errors };
+  } catch(e) {
+    Logger.log('[migrateDocFolders] FATAL: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 function _deleteDocRow(id) {
   if (!id) return;
   var sheet   = _getDocsSheet();
