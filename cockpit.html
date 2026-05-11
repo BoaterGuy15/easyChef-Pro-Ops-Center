@@ -303,10 +303,6 @@
         <button class="tab"        id="tab-cal"  onclick="switchTab('cal')">Calendar</button>
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
-      <div id="cal-toolbar" style="display:none;align-items:center;gap:10px;padding:8px 0 4px;flex-wrap:wrap">
-        <button id="cal-sync-btn" onclick="syncCalendar()" style="background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:5px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600">&#8635; Sync</button>
-        <span id="cal-sync-msg" style="font-size:10px;color:#32d74b"></span>
-      </div>
       <div id="panel-cal" style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
     </div>
   </div>
@@ -451,8 +447,6 @@
       document.getElementById('tab-cal').className='tab'+(tab==='cal'?' active':'');
       document.getElementById('panel-dash').style.display=tab==='dash'?'':'none';
       document.getElementById('panel-cal').style.display=tab==='cal'?'':'none';
-      var tb=document.getElementById('cal-toolbar');
-      if(tb) tb.style.display=tab==='cal'?'flex':'none';
       if(tab==='cal') applyAndRender();
     }
 
