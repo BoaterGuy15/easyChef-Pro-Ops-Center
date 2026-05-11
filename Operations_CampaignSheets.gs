@@ -2175,6 +2175,112 @@ function addLpVariantPurposeSettings() {
   Logger.log('addLpVariantPurposeSettings: added ' + rows.length + ' rows.');
 }
 
+// ── EC-2026-002 settings patch — full replacement of CcSettings ──────────────
+// Replaces ALL existing CcSettings rows with governance-aligned EC-2026-002 data.
+// 22 ICP journey types · new brand plug · new campaign angles · updated urgency/exclusivity.
+function patchCcSettings002() {
+  var sheet    = _getCCSheet(_CC_TAB.SETTINGS);
+  var lastRow  = sheet.getLastRow();
+  if (lastRow >= 2) sheet.deleteRows(2, lastRow - 1);
+
+  var rows = [
+    // THEME_CATEGORIES
+    ['THEME_CATEGORIES','life-stage',       'Life Stage',          '',true],
+    ['THEME_CATEGORIES','invisible-cost',   'Invisible Cost',      '',true],
+    ['THEME_CATEGORIES','habit-memory',     'Habit Memory',        '',true],
+    ['THEME_CATEGORIES','kitchen-evolution','Kitchen Evolution',   '',true],
+    ['THEME_CATEGORIES','time-reclaim',     'Time Reclaim',        '',true],
+    ['THEME_CATEGORIES','smart-nutrition',  'Smart Nutrition',     '',true],
+    ['THEME_CATEGORIES','family-budget',    'Family Budget',       '',true],
+    ['THEME_CATEGORIES','founder',          'Founder',             '',true],
+
+    // JOURNEY_TYPES — key=icp_code, label=ICP name, extra=primary app feature
+    ['JOURNEY_TYPES','super_mom',           'Super Mom',                        'PLAN',    true],
+    ['JOURNEY_TYPES','super_mom_money',     'Super Mom — Money Angle',          'TRACK',   true],
+    ['JOURNEY_TYPES','super_mom_time',      'Super Mom — Time + Founding',      'PLAN',    true],
+    ['JOURNEY_TYPES','budget_family',       'Budget Family',                    'TRACK',   true],
+    ['JOURNEY_TYPES','health_optimizer',    'Health Optimizer',                 'OPTIMIZE',true],
+    ['JOURNEY_TYPES','professional',        'Working Professional',              'COOK',    true],
+    ['JOURNEY_TYPES','alpha_recruit',       'Alpha Recruit',                    '',        true],
+    ['JOURNEY_TYPES','single_parent',       'Single Parent',                    'PLAN',    true],
+    ['JOURNEY_TYPES','empty_nester',        'Empty Nester',                     'PLAN',    true],
+    ['JOURNEY_TYPES','newlywed',            'Newlywed Couple',                  'COOK',    true],
+    ['JOURNEY_TYPES','busy_dad',            'Busy Dad',                         'COOK',    true],
+    ['JOURNEY_TYPES','large_family',        'Large Family',                     'SHOP',    true],
+    ['JOURNEY_TYPES','walmart_shopper',     'Walmart Shopper Alpha',            'SHOP',    true],
+    ['JOURNEY_TYPES','fitness_mom',         'Fitness Mom',                      'OPTIMIZE',true],
+    ['JOURNEY_TYPES','millennial_couple',   'Millennial Couple',                'COOK',    true],
+    ['JOURNEY_TYPES','meal_prep_enthusiast','Meal Prep Enthusiast',             'PLAN',    true],
+    ['JOURNEY_TYPES','food_waste_fighter',  'Food Waste Fighter',               'TRACK',   true],
+    ['JOURNEY_TYPES','date_night_planner',  'Date Night Planner',               'COOK',    true],
+    ['JOURNEY_TYPES','grandparent_cook',    'Grandparent Cook',                 'COOK',    true],
+    ['JOURNEY_TYPES','beta_tester',         'Beta Tester',                      '',        true],
+    ['JOURNEY_TYPES','pre_launch_visitor',  'Pre-Launch Visitor',               '',        true],
+    ['JOURNEY_TYPES','founder_family',      'Founding Family',                  '',        true],
+
+    // APP_FEATURES — key=code, label=AI context description, extra=screen label
+    ['APP_FEATURES','TRACK',    'Pantry Intelligence — scans, tracks expiry, stops waste before it starts',                             'Pantry view',         true],
+    ['APP_FEATURES','PLAN',     'Meal Planning Engine — builds dinners from what you own before you shop',                              'Meal Plan view',      true],
+    ['APP_FEATURES','OPTIMIZE', 'Digital Nutrition Intelligence™ — 6-dimension scoring, FDA-grade data, registered dietitians',         'Nutrition score view',true],
+    ['APP_FEATURES','COOK',     'Recipe Engine — 30 minutes, real food, step-by-step from what is already in the fridge',              'Recipe page',         true],
+    ['APP_FEATURES','SHOP',     'Smart Shopping List — builds itself, real-time updates, 800k Walmart products, 1-click to cart',       'Shopping List view',  true],
+
+    // CAMPAIGN_ANGLES
+    ['CAMPAIGN_ANGLES','life-stage',       'Life Stage — your kitchen evolves with you',                      '',true],
+    ['CAMPAIGN_ANGLES','invisible-cost',   'Invisible Cost — $111/month leak, $1,336/year',                   '',true],
+    ['CAMPAIGN_ANGLES','habit-memory',     'Habit Memory — still cooking for six, cooking for the life you have now', '',true],
+    ['CAMPAIGN_ANGLES','founding-family',  'Founding Family — first 5,000, $7.99 forever',                    '',true],
+    ['CAMPAIGN_ANGLES','time-liberation',  'Time Liberation — 30 minutes, mental load lifts',                  '',true],
+    ['CAMPAIGN_ANGLES','smart-nutrition',  'Smart Nutrition — Digital Nutrition Intelligence™, dietitians, FDA-grade', '',true],
+    ['CAMPAIGN_ANGLES','community-trust',  'Community Trust — built by first responders, real families',       '',true],
+    ['CAMPAIGN_ANGLES','date-night',       'Date Night — cooking for the person you love',                     '',true],
+
+    // URGENCY_TYPES — key=slug, label=display, extra=auto-suggest urgency line
+    ['URGENCY_TYPES','founding-price',      'Founding Price — forever',    'First 5,000 families lock in $7.99/month forever. The rest pay $19.99.',              true],
+    ['URGENCY_TYPES','spots-closing',       'Spots Closing Fast',          '[X] of 5,000 founding spots claimed. Yours is not locked yet.',                       true],
+    ['URGENCY_TYPES','launch-countdown',    'Launch Countdown',            '[X] days until The Kitchen That Evolves goes live — July 1.',                          true],
+    ['URGENCY_TYPES','life-change-window',  'Life-Change Window',          'This is the moment your kitchen evolves. It starts July 1.',                           true],
+    ['URGENCY_TYPES','custom',              'Custom',                      '',                                                                                      true],
+
+    // EXCLUSIVITY_ANGLES — key=slug, label=display, extra=auto-fill exclusivity line
+    ['EXCLUSIVITY_ANGLES','founding-family', 'Founding Family',     'You are not just joining an app. You are founding the kitchen that evolves.',         true],
+    ['EXCLUSIVITY_ANGLES','early-discovery', 'Early Discovery',     'You found this before the world did. That is not an accident.',                        true],
+    ['EXCLUSIVITY_ANGLES','life-stage-fit',  'Life Stage Fit',      'This was built for exactly where your life is right now.',                             true],
+    ['EXCLUSIVITY_ANGLES','alpha-founder',   'Alpha Founder',       'You were chosen. Help us build this for every household.',                             true],
+    ['EXCLUSIVITY_ANGLES','personal-invite', 'Personal Invite',     'This invitation is for you personally. From the founder.',                             true],
+
+    // BRAND_PLUG — tagline · origin · 8 proof claims
+    ['BRAND_PLUG','tagline',   'The app that evolves with your life.',                                 '',true],
+    ['BRAND_PLUG','origin',    'Built by first responders. For the families who never stop.',           '',true],
+    ['BRAND_PLUG','proof_001', '$1,336. Back in your account. Every year.',                            '',true],
+    ['BRAND_PLUG','proof_002', '69.5% less food waste. Measured. Not estimated.',                      '',true],
+    ['BRAND_PLUG','proof_003', 'Dinner in 30 minutes from what you already have.',                    '',true],
+    ['BRAND_PLUG','proof_004', '9 patent-pending technologies.',                                       '',true],
+    ['BRAND_PLUG','proof_005', 'Clinical grade nutrition data, verified by registered dietitians.',    '',true],
+    ['BRAND_PLUG','proof_006', 'Built on 10,000 real household profiles. Not crowdsourced.',           '',true],
+    ['BRAND_PLUG','proof_007', 'Built by first responders. Tested by the families who needed it most.','',true],
+    ['BRAND_PLUG','proof_008', 'Powered by Digital Nutrition Intelligence™',                           '',true],
+
+    // LP_VARIANTS
+    ['LP_VARIANTS','waitlist-a','A — Founding Price (founding price angle, $7.99/month forever)','',true],
+    ['LP_VARIANTS','waitlist-b','B — Life Change (life stage angle, kitchen evolves with you)', '',true],
+    ['LP_VARIANTS','custom',    'Custom',                                                        '',true],
+
+    // LP_PURPOSES
+    ['LP_PURPOSES','Waitlist',   'Waitlist',   '',true],
+    ['LP_PURPOSES','Alpha',      'Alpha',      '',true],
+    ['LP_PURPOSES','Beta',       'Beta',       '',true],
+    ['LP_PURPOSES','Launch Day', 'Launch Day', '',true],
+    ['LP_PURPOSES','Affiliate',  'Affiliate',  '',true],
+    ['LP_PURPOSES','Custom',     'Custom',     '',true]
+  ];
+
+  sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  Logger.log('[patchCcSettings002] ' + rows.length + ' rows written');
+  return { ok: true, rows: rows.length };
+}
+
 // Look up a single LPInventory record by slug — used by LP Builder to reload SEO data.
 function getLPInventoryBySlug(slug) {
   if (!slug) return null;
