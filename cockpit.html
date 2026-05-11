@@ -254,8 +254,7 @@
     <h1>Campaign Cockpit</h1>
     <div style="display:flex;align-items:center;gap:10px">
       <select id="campaign-select" onchange="switchCampaign(this.value)" style="background:#1a1a1e;border:1px solid #333;color:#ccc;padding:5px 10px;border-radius:7px;font-size:11px;font-family:inherit;cursor:pointer">
-        <option value="EC-2026-001">EC-2026-001</option>
-        <option value="EC-2026-002">EC-2026-002</option>
+        <option value="all">All Campaigns</option>
       </select>
       <div class="tagline" id="tagline">Loading<span class="dot-anim"></span></div>
     </div>
@@ -350,12 +349,24 @@
     var DOW=['Su','Mo','Tu','We','Th','Fr','Sa'];
     var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    var _activeCampaign = 'EC-2026-001';
+    var _activeCampaign = 'all';
     function switchCampaign(id) {
       _activeCampaign = id;
       dashData = null; calData = null;
       clearFilters();
       load();
+    }
+    function _populateCampaignSelect(campaignIds) {
+      var sel = document.getElementById('campaign-select');
+      if (!sel) return;
+      var cur = sel.value;
+      sel.innerHTML = '<option value="all">All Campaigns</option>';
+      (campaignIds || []).forEach(function(cid) {
+        var opt = document.createElement('option');
+        opt.value = cid; opt.textContent = cid;
+        sel.appendChild(opt);
+      });
+      sel.value = cur || _activeCampaign;
     }
 
     var dashData=null, calData=null, activeTab='dash';
@@ -920,7 +931,16 @@
     }
     function loadCalendar(){
       google.script.run
-        .withSuccessHandler(function(r){if(r&&r.ok){calData=r;if(r.sheet_id)SHEET_ID=r.sheet_id;if(r.sheet_gid!==undefined)SHEET_GID=String(r.sheet_gid);if(r.drive_folder_url)DRIVE_FOLDER_URL=r.drive_folder_url;applyAndRender();}})
+        .withSuccessHandler(function(r){
+          if(r&&r.ok){
+            calData=r;
+            if(r.sheet_id)SHEET_ID=r.sheet_id;
+            if(r.sheet_gid!==undefined)SHEET_GID=String(r.sheet_gid);
+            if(r.drive_folder_url)DRIVE_FOLDER_URL=r.drive_folder_url;
+            if(r.campaign_ids) _populateCampaignSelect(r.campaign_ids);
+            applyAndRender();
+          }
+        })
         .withFailureHandler(function(){})
         .getCampaignCalendar(_activeCampaign);
     }
