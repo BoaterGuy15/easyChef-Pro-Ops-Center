@@ -176,7 +176,7 @@ function saveCampaignDraft(body) {
             var _dlId = 'DL-' + pfx + '-' + String(_suppMaxPfx[pfx]).padStart(4, '0');
             var _utmC = _dlId + '_' + pd.seq[1];
             var _fu   = _suppBase + '?utm_source=' + encodeURIComponent(pd.chD.utm_source) + '&utm_medium=' + encodeURIComponent(pd.chD.utm_medium) + '&utm_campaign=' + encodeURIComponent(pd.seq[1]) + '&utm_content=' + encodeURIComponent(_utmC);
-            _suppRows.push([_dlId, _utmC, brief.id, pd.ch, _suppBase, pd.chD.utm_source, pd.chD.utm_medium, pd.seq[1], 'ACTIVE', _suppNow, _suppNow, 'saveCampaignDraft', pd.seq[0]]);
+            _suppRows.push([_dlId, _utmC, brief.id, pd.ch, _suppBase, pd.chD.utm_source, pd.chD.utm_medium, pd.seq[1], 'ACTIVE', _suppNow, _suppNow, 'saveCampaignDraft', pd.seq[0], brief.icp||'', '', '']);
             utms.push({ dl_id:_dlId, utm_content:_utmC, channel:pd.ch, utm_campaign:pd.seq[1], destination_url:_suppBase, utm_source:pd.chD.utm_source, utm_medium:pd.chD.utm_medium, asset_name:pd.seq[0], full_url:_fu, status:'ACTIVE' });
             Logger.log('[CampaignSave] supplement queued: ' + _dlId + ' · ' + pd.seq[0]);
           });
@@ -256,7 +256,7 @@ function saveCampaignDraft(body) {
             '&utm_medium='   + encodeURIComponent(pd.chData.utm_medium) +
             '&utm_campaign=' + encodeURIComponent(pd.utmCode) +
             '&utm_content='  + encodeURIComponent(utmContent);
-          _newRows.push([dlId, utmContent, brief.id, pd.channelName, _baseUrl, pd.chData.utm_source, pd.chData.utm_medium, pd.utmCode, 'ACTIVE', _genNow, _genNow, 'saveCampaignDraft', pd.asset.asset_name || '']);
+          _newRows.push([dlId, utmContent, brief.id, pd.channelName, _baseUrl, pd.chData.utm_source, pd.chData.utm_medium, pd.utmCode, 'ACTIVE', _genNow, _genNow, 'saveCampaignDraft', pd.asset.asset_name || '', brief.icp||'', '', '']);
           utms.push({ dl_id:dlId, utm_content:utmContent, channel:pd.channelName, utm_campaign:pd.utmCode, destination_url:_baseUrl, utm_source:pd.chData.utm_source, utm_medium:pd.chData.utm_medium, asset_name:pd.asset.asset_name, full_url:fullUrl, status:'ACTIVE' });
         });
         if (_newRows.length) {
