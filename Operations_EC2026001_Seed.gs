@@ -1901,7 +1901,7 @@ function exportEC2026001FigmaJSON() {
 // update_asset_status            : patch any field on one asset
 // asset_lifecycle_report         : count breakdown by status + platform
 
-var _AL_STATUSES = ['generated','in_figma','designer_review','approved','scheduled','published','archived'];
+var _AL_STATUSES = ['generated','in_figma','in_production','designer_review','approved','scheduled','published','archived'];
 
 function seedEC2026001AssetLifecycle() {
   try {
@@ -2056,7 +2056,7 @@ function getAssetLifecycleReport() {
 // Campaign window: May 27 – Jun 30, 2026 (35 days). Day 1 = May 27.
 // Posting times are Pacific defaults; override via account-level settings later.
 
-var _CAL_STATUSES    = ['generated','in_figma','designer_review','approved','scheduled','published','reported'];
+var _CAL_STATUSES    = ['generated','in_figma','in_production','designer_review','approved','scheduled','published','reported'];
 var _CAL_APPROVAL    = ['pending','approved','rejected'];
 var _CAL_POST_TIMES  = {
   'Facebook':  '09:00', 'Instagram': '11:00', 'Pinterest': '20:00',
@@ -2198,7 +2198,8 @@ function seedEC2026001ContentCalendar() {
         '',                                   // experiment_id
         blockedBy,                            // blocked_by
         now,                                  // created_at
-        now                                   // updated_at
+        now,                                  // updated_at
+        String(b.brief_doc_url || '')         // brief_doc_url
       ]);
     }
 
@@ -4076,5 +4077,1469 @@ function seedEC2026001Complete() {
   } catch(e) {
     Logger.log('[seedEC2026001Complete] ERROR: ' + e.message);
     return { ok: false, error: e.message, log: log };
+  }
+}
+
+// ── Seed LP Inventory — coming-soon, thank-you pages, patch lp-001/002 ────────
+// Adds lp-007 (coming-soon · LIVE), lp-008 (thank-you variant A · PENDING_DEV),
+// lp-009 (thank-you variant B · PENDING_DEV).
+// Patches lp-001 and lp-002 with page_type + thank_you_url if not already set.
+// Safe to re-run — setLPInventoryEntry is an upsert.
+// Run via doPost: { "action": "seed_ec2026001_lp_pages" }
+
+// ── Seed LandingPages tab — link existing rows to EC-2026-001, add new pages ──
+// Patches lp-001..lp-006 with campaign_id (preserves all existing copy).
+// Adds lp-007 (coming-soon), lp-008 (thank-you A), lp-009 (thank-you B).
+// Safe to re-run — setLandingPage is an upsert.
+// Run via doPost: { "action": "seed_ec2026001_landing_pages" }
+
+function seedEC2026001LandingPages() {
+  try {
+    var results = [];
+
+    // ── Patch existing LPs with campaign_id ───────────────────────────────────
+    var existing = [
+      { id: 'lp-001', icp: 'super_mom_money', variant: 'A' },
+      { id: 'lp-002', icp: 'super_mom_time',  variant: 'B' },
+      { id: 'lp-003', icp: 'super_mom_money', variant: 'A' },
+      { id: 'lp-004', icp: 'super_mom_money', variant: 'A' },
+      { id: 'lp-005', icp: 'super_mom_time',  variant: 'B' },
+      { id: 'lp-006', icp: 'super_mom_time',  variant: 'B' }
+    ];
+    existing.forEach(function(e) {
+      setLandingPage({
+        id:                   e.id,
+        campaign_id:          'EC-2026-001',
+        icp_code:             e.icp,
+        campaign_type:        'Waitlist',
+        blueprint_code:       'A-Waitlist',
+        icp_codes:            e.icp,
+        theme:                'invisible-leak',
+        ab_test_variant:      e.variant,
+        convert_experiment_id:'100140422'
+      });
+    });
+    results.push('✓ ' + existing.length + ' existing LandingPages linked to EC-2026-001');
+
+    // ── lp-007 · Coming Soon ─────────────────────────────────────────────────
+    setLandingPage({
+      id:                   'lp-007',
+      campaign_id:          'EC-2026-001',
+      icp_code:             'super_mom_money',
+      slug:                 'coming-soon',
+      full_url:             'https://easychefpro.com/coming-soon',
+      title_tag:            'Something Big is Coming · easyChef Pro',
+      meta_description:     'easyChef Pro — TRACK → PLAN → OPTIMIZE → COOK → SHOP. Early access July 1.',
+      og_title:             'Something Big is Coming to Your Kitchen · easyChef Pro',
+      og_description:       'Stop the invisible grocery leak. Join the waitlist — early access July 1.',
+      hero_headline:        'Something big is coming to your kitchen.',
+      hero_subheadline:     'First 5,000 families lock in $7.99/month forever. The rest pay $19.99.',
+      section_problem:      'You spend $111/month on groceries that expire before they become dinner.',
+      section_agitate:      'Five apps. None of them talk to each other. The leak runs in the gap.',
+      section_solve:        'easyChef Pro closes the loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP.',
+      section_value:        '$1,336/year average savings · 30 minutes fridge to table · 69.5% less food waste',
+      section_proof:        'Validated across 10,000 households · 9 patent-pending technologies · Built by first responders',
+      section_cta:          'Join the waitlist — early access July 1',
+      status:               'live',
+      dev_built:            true,
+      qa_passed:            false,
+      pushed_to_production: true,
+      campaign_type:        'PreLaunch',
+      blueprint_code:       'A-Waitlist',
+      icp_codes:            'super_mom_money · super_mom_time',
+      theme:                'invisible-leak',
+      ab_test_variant:      'none',
+      convert_experiment_id:'100140422',
+      total_signups:        0
+    });
+    results.push('✓ lp-007 added: /coming-soon');
+
+    // ── lp-008 · Thank You — Variant A ───────────────────────────────────────
+    setLandingPage({
+      id:                   'lp-008',
+      campaign_id:          'EC-2026-001',
+      icp_code:             'super_mom_money',
+      slug:                 'thank-you',
+      full_url:             'https://easychefpro.com/thank-you',
+      title_tag:            'You\'re In · easyChef Pro',
+      meta_description:     'Welcome to the founding family. Your $7.99/month founding price is locked forever.',
+      og_title:             'I Just Joined the easyChef Pro Founding Family',
+      og_description:       'Early access July 1. $7.99/month locked forever. First 5,000 only.',
+      hero_headline:        'You\'re in. Welcome to the founding family.',
+      hero_subheadline:     'Your $7.99/month founding price is locked. You got here first.',
+      section_problem:      '',
+      section_agitate:      '',
+      section_solve:        'You closed the loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP. July 1.',
+      section_value:        '$1,336/year average savings locked in. $7.99/month. Forever.',
+      section_proof:        'You are founding member #[N]. That number is yours forever.',
+      section_cta:          'Share with a friend who needs this',
+      status:               'PENDING_DEV',
+      dev_built:            false,
+      qa_passed:            false,
+      pushed_to_production: false,
+      campaign_type:        'Confirmation',
+      blueprint_code:       'A-Waitlist',
+      icp_codes:            'super_mom_money',
+      theme:                'invisible-leak',
+      ab_test_variant:      'A',
+      convert_experiment_id:'100140422',
+      total_signups:        0
+    });
+    results.push('✓ lp-008 added: /thank-you Variant A');
+
+    // ── lp-009 · Thank You — Variant B ───────────────────────────────────────
+    setLandingPage({
+      id:                   'lp-009',
+      campaign_id:          'EC-2026-001',
+      icp_code:             'super_mom_time',
+      slug:                 'thank-you',
+      full_url:             'https://easychefpro.com/thank-you',
+      title_tag:            'You\'re In · easyChef Pro',
+      meta_description:     'Welcome to the founding family. Dinner figured out. Early access July 1.',
+      og_title:             'I Just Joined the easyChef Pro Founding Family',
+      og_description:       'Dinner decided before I open the fridge. Early access July 1. First 5,000 only.',
+      hero_headline:        'Dinner is figured out. Welcome to the founding family.',
+      hero_subheadline:     'You found this before it was everywhere. That is what founding members do.',
+      section_problem:      '',
+      section_agitate:      '',
+      section_solve:        'The 6:30 PM wall is gone. Dinner decided before you open the fridge.',
+      section_value:        'Founding price locked. Early access July 1. Kitchen in command.',
+      section_proof:        'You are founding member #[N]. That number is yours forever.',
+      section_cta:          'Share with a mom who deserves this',
+      status:               'PENDING_DEV',
+      dev_built:            false,
+      qa_passed:            false,
+      pushed_to_production: false,
+      campaign_type:        'Confirmation',
+      blueprint_code:       'A-Waitlist',
+      icp_codes:            'super_mom_time',
+      theme:                'invisible-leak',
+      ab_test_variant:      'B',
+      convert_experiment_id:'100140422',
+      total_signups:        0
+    });
+    results.push('✓ lp-009 added: /thank-you Variant B');
+
+    Logger.log('[seedEC2026001LandingPages] ' + results.join(' | '));
+    return { ok: true, results: results };
+
+  } catch(e) {
+    Logger.log('[seedEC2026001LandingPages] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+function seedEC2026001LPPages() {
+  try {
+    var results = [];
+    var now = _ccNow();
+
+    // ── Patch all known waitlist LPs with page_type + thank_you_url ─────────
+    var _lpPatches = [
+      { id: 'lp-001',        ty: 'https://easychefpro.com/thank-you?src=waitlist-a' },
+      { id: 'lp-waitlist-a', ty: 'https://easychefpro.com/thank-you?src=waitlist-a' },
+      { id: 'lp-002',        ty: 'https://easychefpro.com/thank-you?src=waitlist-b' },
+      { id: 'lp-waitlist-b', ty: 'https://easychefpro.com/thank-you?src=waitlist-b' },
+      { id: 'lp-003',        ty: 'https://easychefpro.com/thank-you?src=alpha'      },
+      { id: 'lp-004',        ty: 'https://easychefpro.com/thank-you?src=social-fb'  },
+      { id: 'lp-005',        ty: 'https://easychefpro.com/thank-you?src=social-ig'  },
+      { id: 'lp-006',        ty: 'https://easychefpro.com/thank-you?src=630pm'      },
+      { id: 'lp-moxpzy58',   ty: 'https://easychefpro.com/thank-you?src=founder'    },
+      { id: 'lp-moxr1gz7',   ty: 'https://easychefpro.com/thank-you?src=prelaunch'  },
+      { id: 'lp-mozb7flm',   ty: 'https://easychefpro.com/thank-you?src=budget'     }
+    ];
+    _lpPatches.forEach(function(p) {
+      setLPInventoryEntry({ id: p.id, page_type: 'waitlist_lp', thank_you_url: p.ty });
+    });
+    results.push('✓ ' + _lpPatches.length + ' waitlist LPs patched: page_type + thank_you_url');
+
+    // ── lp-007 · Coming Soon ─────────────────────────────────────────────────
+    setLPInventoryEntry({
+      id:                 'lp-007',
+      slug:               'coming-soon',
+      full_url:           'https://easychefpro.com/coming-soon',
+      campaign_type:      'PreLaunch',
+      blueprint_code:     'A-Waitlist',
+      icp_codes:          'super_mom_money · super_mom_time',
+      campaign_angle:     'savings',
+      lp_variant:         '',
+      headline:           'Something big is coming to your kitchen.',
+      cta_primary:        'Join the waitlist — early access July 1',
+      proof_bar:          '$1,336/year average savings · 30 minutes fridge to table · 69.5% less food waste',
+      status:             'LIVE',
+      dev_built:          true,
+      convert_installed:  false,
+      clarity_installed:  false,
+      ga4_installed:      false,
+      campaigns_using:    'EC-2026-001',
+      total_signups:      0,
+      notes:              'Root easychefpro.com 302 → /coming-soon via Cloudflare · pre-launch intent capture',
+      urgency_type:       'founding-price',
+      urgency_line:       'First 5,000 families lock in $7.99/month forever.',
+      urgency_placement:  'below-hero',
+      exclusivity_angle:  'founding-family',
+      exclusivity_line:   'You found this before everyone else.',
+      meta_title:         'Something Big is Coming · easyChef Pro',
+      meta_description:   'easyChef Pro — the meal management system that closes the loop. TRACK → PLAN → OPTIMIZE → COOK → SHOP. Early access July 1.',
+      og_title:           'Something Big is Coming to Your Kitchen · easyChef Pro',
+      og_description:     'Stop the invisible grocery leak. Join the waitlist — early access July 1.',
+      canonical_url:      'https://easychefpro.com/coming-soon',
+      focus_keyword:      'meal planning app early access',
+      page_type:          'coming_soon',
+      thank_you_url:      'https://easychefpro.com/thank-you?src=coming-soon'
+    });
+    results.push('✓ lp-007 seeded: /coming-soon · LIVE');
+
+    // ── lp-008 · Thank You — Variant A (src=waitlist-a) ─────────────────────
+    setLPInventoryEntry({
+      id:                 'lp-008',
+      slug:               'thank-you',
+      full_url:           'https://easychefpro.com/thank-you',
+      campaign_type:      'Confirmation',
+      blueprint_code:     'A-Waitlist',
+      icp_codes:          'super_mom_money',
+      campaign_angle:     'savings',
+      lp_variant:         'A',
+      headline:           'You\'re in. Welcome to the founding family.',
+      cta_primary:        'Share with a friend who needs this',
+      proof_bar:          '$1,336/year average savings · $7.99/month founding price locked · Early access July 1',
+      status:             'PENDING_DEV',
+      dev_built:          false,
+      convert_installed:  false,
+      clarity_installed:  false,
+      ga4_installed:      false,
+      campaigns_using:    'EC-2026-001',
+      total_signups:      0,
+      notes:              'Variant A · src=waitlist-a · ICP: super_mom_money · angle: savings · share mechanic + referral CTA',
+      urgency_type:       'founding-price',
+      urgency_line:       'Your founding price is locked. Tell someone who should have it too.',
+      urgency_placement:  'below-hero',
+      exclusivity_angle:  'founding-family',
+      exclusivity_line:   'You are founding member #[N]. That number is yours forever.',
+      meta_title:         'You\'re In · easyChef Pro',
+      meta_description:   'Welcome to the founding family. Your $7.99/month founding price is locked forever.',
+      og_title:           'I Just Joined the easyChef Pro Founding Family',
+      og_description:     'Early access July 1. $7.99/month locked forever. First 5,000 only.',
+      canonical_url:      'https://easychefpro.com/thank-you',
+      focus_keyword:      'easychef pro founding family waitlist',
+      page_type:          'thank_you',
+      thank_you_url:      ''
+    });
+    results.push('✓ lp-008 seeded: /thank-you?src=waitlist-a · Variant A');
+
+    // ── lp-009 · Thank You — Variant B (src=waitlist-b) ─────────────────────
+    setLPInventoryEntry({
+      id:                 'lp-009',
+      slug:               'thank-you',
+      full_url:           'https://easychefpro.com/thank-you',
+      campaign_type:      'Confirmation',
+      blueprint_code:     'A-Waitlist',
+      icp_codes:          'super_mom_time',
+      campaign_angle:     'time_relief',
+      lp_variant:         'B',
+      headline:           'Dinner is figured out. Welcome to the founding family.',
+      cta_primary:        'Share with a mom who deserves this',
+      proof_bar:          'Dinner decided before you open the fridge · Founding price locked · Early access July 1',
+      status:             'PENDING_DEV',
+      dev_built:          false,
+      convert_installed:  false,
+      clarity_installed:  false,
+      ga4_installed:      false,
+      campaigns_using:    'EC-2026-001',
+      total_signups:      0,
+      notes:              'Variant B · src=waitlist-b · ICP: super_mom_time · angle: time_relief · founding family identity + share mechanic',
+      urgency_type:       'founding-price',
+      urgency_line:       'Your founding price is locked. Share it with someone who needs it.',
+      urgency_placement:  'below-hero',
+      exclusivity_angle:  'founding-family',
+      exclusivity_line:   'You found this before it was everywhere. That is what founding members do.',
+      meta_title:         'You\'re In · easyChef Pro',
+      meta_description:   'Welcome to the founding family. Dinner figured out. Early access July 1.',
+      og_title:           'I Just Joined the easyChef Pro Founding Family',
+      og_description:     'Dinner decided before I open the fridge. Early access July 1. First 5,000 only.',
+      canonical_url:      'https://easychefpro.com/thank-you',
+      focus_keyword:      'easychef pro founding family waitlist',
+      page_type:          'thank_you',
+      thank_you_url:      ''
+    });
+    results.push('✓ lp-009 seeded: /thank-you?src=waitlist-b · Variant B');
+
+    Logger.log('[seedEC2026001LPPages] ' + results.join(' | '));
+    return { ok: true, results: results };
+
+  } catch(e) {
+    Logger.log('[seedEC2026001LPPages] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── ICP UTM + LP Variant patch for EC-2026-001 active ICPs ───────────────────
+function seedEC2026001IcpUtmLp() {
+  var patches = [
+    {
+      id: 'single_parent',
+      utm_campaign_codes: 'fb_super_mom · ig_health · seq1_welcome · seq2_nurture · seq3_urgency · seq4_launch_day',
+      lp_variants: '/lp/waitlist-a · /lp/waitlist-b (folds into Super Mom funnel · same copy arc)'
+    },
+    {
+      id: 'large_family',
+      utm_campaign_codes: 'fb_super_mom · ig_health · seq1_welcome · seq2_nurture · seq3_urgency · seq4_launch_day',
+      lp_variants: '/lp/waitlist-a · /lp/waitlist-b (folds into Super Mom funnel initially · savings angle scales with family size)'
+    },
+    {
+      id: 'busy_dad',
+      utm_campaign_codes: 'fb_super_mom · ig_health · seq1_welcome · seq2_nurture · seq3_urgency · seq4_launch_day',
+      lp_variants: '/lp/waitlist-a · /lp/waitlist-b (secondary persona within family ICP · dinner hero angle)'
+    },
+    {
+      id: 'walmart_shopper',
+      utm_campaign_codes: 'fb_super_mom · ig_health · seq1_welcome · seq2_nurture · seq3_urgency · seq4_launch_day',
+      lp_variants: '/lp/waitlist-a (Money Hook — 800K Walmart products) · /lp/alpha (?src=alpha · Alpha Wave 1 primary)'
+    },
+    {
+      id: 'alpha_recruit',
+      utm_campaign_codes: 'dl_dir_alpha · seq3_urgency · seq4_launch_day',
+      lp_variants: '/lp/alpha (?src=alpha · personal invite from founder · DL-DIR format)'
+    },
+    {
+      id: 'pre_launch_visitor',
+      utm_campaign_codes: 'organic · referral · coming_soon',
+      lp_variants: '/coming-soon (lp-007 · page_type: coming_soon · 302 from root domain)'
+    },
+    {
+      id: 'founder_family',
+      utm_campaign_codes: 'seq3_urgency · seq4_launch_day',
+      lp_variants: '/lp/waitlist-a · /lp/waitlist-b (email conversion · founding member price confirmation · thank-you pages)'
+    }
+  ];
+
+  var results = [];
+  patches.forEach(function(p) {
+    try {
+      setIcpProfile(p);
+      results.push('✓ ' + p.id);
+    } catch(e) {
+      results.push('✗ ' + p.id + ': ' + e.message);
+    }
+  });
+  Logger.log('[seedEC2026001IcpUtmLp] ' + results.join(' | '));
+  return { ok: true, patched: results };
+}
+
+// ── Repair all status dropdowns across AssetLifecycle + ContentCalendar ───────
+function repairAllStatusDropdowns() {
+  var mkRule = function(list) {
+    return SpreadsheetApp.newDataValidation()
+      .requireValueInList(list, true).setAllowInvalid(false).build();
+  };
+  var results = [];
+
+  // ── AssetLifecycle: status (col 8) ──────────────────────────────────────────
+  (function() {
+    var sheet = _getCCSheet(_CC_TAB.ASSET_LIFECYCLE);
+    var last  = sheet.getLastRow();
+    if (last < 2) { results.push('AssetLifecycle: empty'); return; }
+    var col = _CC_HDR.AssetLifecycle.indexOf('status') + 1;
+    sheet.getRange(2, col, last - 1, 1).setDataValidation(mkRule(_AL_STATUSES));
+    results.push('AssetLifecycle: ' + (last - 1) + ' rows · ' + _AL_STATUSES.join(', '));
+  })();
+
+  // ── ContentCalendar: status (col 9), approval_status (col 10), creative_status (col 11) ──
+  (function() {
+    var sheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last  = sheet.getLastRow();
+    if (last < 2) { results.push('ContentCalendar: empty'); return; }
+    var hdr       = _CC_HDR.ContentCalendar;
+    var statusCol  = hdr.indexOf('status')          + 1;
+    var approvalCol= hdr.indexOf('approval_status') + 1;
+    var creativeCol= hdr.indexOf('creative_status') + 1;
+    var rows = last - 1;
+    sheet.getRange(2, statusCol,   rows, 1).setDataValidation(mkRule(_CAL_STATUSES));
+    sheet.getRange(2, approvalCol, rows, 1).setDataValidation(mkRule(_CAL_APPROVAL));
+    sheet.getRange(2, creativeCol, rows, 1).setDataValidation(mkRule(_CAL_STATUSES));
+    results.push('ContentCalendar: ' + rows + ' rows · status+approval+creative · ' + _CAL_STATUSES.join(', '));
+  })();
+
+  Logger.log('[repairAllStatusDropdowns] ' + results.join(' | '));
+  return { ok: true, results: results };
+}
+
+// Keep old name wired for backwards compat
+function repairAssetLifecycleDropdowns() {
+  return repairAllStatusDropdowns();
+}
+
+// ── VideoProduction seed — TikTok + YouTube from SocialPosts ─────────────────
+var _VP_SCRIPT_STATUSES      = ['draft','approved'];
+var _VP_STORYBOARD_STATUSES  = ['not_started','in_figma','approved'];
+var _VP_AI_GEN_STATUSES      = ['not_started','generating','generated','failed'];
+var _VP_EDIT_STATUSES        = ['not_started','in_review','approved'];
+var _VP_THUMB_STATUSES       = ['not_started','in_figma','approved'];
+var _VP_AI_TOOLS             = ['Runway','Pika','Sora','Kling','Luma','Other'];
+
+function seedEC2026001VideoProduction() {
+  try {
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spLast  = spSheet.getLastRow();
+    if (spLast < 2) return { ok: false, error: 'SocialPosts empty' };
+    var spRows  = spSheet.getRange(2, 1, spLast - 1, 16).getValues();
+
+    var vpSheet = _getCCSheet(_CC_TAB.VIDEO_PRODUCTION);
+    var headers = _CC_HDR.VideoProduction; // 20 columns
+
+    // Always rewrite header to keep schema current
+    vpSheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    vpSheet.setFrozenRows(1);
+
+    var existing = {};
+    var vpLast = vpSheet.getLastRow();
+    if (vpLast >= 2) {
+      vpSheet.getRange(2, 1, vpLast - 1, 1).getValues()
+        .forEach(function(r) { if (r[0]) existing[String(r[0])] = true; });
+    }
+
+    var now     = new Date().toISOString().split('T')[0];
+    var newRows = [];
+
+    for (var i = 0; i < spRows.length; i++) {
+      var row      = spRows[i];
+      var platform = String(row[2]);
+      if (String(row[1]) !== 'EC-2026-001') continue;
+      if (platform !== 'TikTok' && platform !== 'YouTube') continue;
+      var assetId = String(row[0]);
+      if (existing[assetId]) continue;
+
+      newRows.push([
+        assetId,                                              // asset_id
+        'EC-2026-001',                                        // campaign_id
+        platform,                                             // platform
+        platform === 'TikTok' ? 'short_form' : 'long_form',  // video_type
+        platform === 'TikTok' ? '15-30s'     : '60s',        // duration_target
+        String(row[3]  || ''),                                // hook
+        'draft',                                              // script_status
+        'not_started',                                        // storyboard_status
+        '',                                                   // storyboard_url
+        '',                                                   // ai_tool
+        'not_started',                                        // ai_gen_status
+        '',                                                   // video_url
+        'not_started',                                        // edit_status
+        'not_started',                                        // thumbnail_status
+        String(row[15] || ''),                                // brief (design_brief)
+        String(row[9]  || ''),                                // publish_date
+        '',                                                   // published_url
+        '',                                                   // notes
+        now,                                                  // created_at
+        now                                                   // updated_at
+      ]);
+    }
+
+    if (newRows.length) {
+      var writeStart = vpSheet.getLastRow() + 1;
+      var rng = vpSheet.getRange(writeStart, 1, newRows.length, headers.length);
+      rng.setNumberFormat('@').setValues(newRows);
+
+      var mkRule = function(list) {
+        return SpreadsheetApp.newDataValidation().requireValueInList(list, true).setAllowInvalid(false).build();
+      };
+      vpSheet.getRange(writeStart, headers.indexOf('script_status')     + 1, newRows.length, 1).setDataValidation(mkRule(_VP_SCRIPT_STATUSES));
+      vpSheet.getRange(writeStart, headers.indexOf('storyboard_status') + 1, newRows.length, 1).setDataValidation(mkRule(_VP_STORYBOARD_STATUSES));
+      vpSheet.getRange(writeStart, headers.indexOf('ai_tool')           + 1, newRows.length, 1).setDataValidation(mkRule(_VP_AI_TOOLS));
+      vpSheet.getRange(writeStart, headers.indexOf('ai_gen_status')     + 1, newRows.length, 1).setDataValidation(mkRule(_VP_AI_GEN_STATUSES));
+      vpSheet.getRange(writeStart, headers.indexOf('edit_status')       + 1, newRows.length, 1).setDataValidation(mkRule(_VP_EDIT_STATUSES));
+      vpSheet.getRange(writeStart, headers.indexOf('thumbnail_status')  + 1, newRows.length, 1).setDataValidation(mkRule(_VP_THUMB_STATUSES));
+    }
+
+    Logger.log('[seedEC2026001VideoProduction] seeded:' + newRows.length + ' skipped:' + Object.keys(existing).length);
+    return { ok: true, seeded: newRows.length, skipped: Object.keys(existing).length };
+
+  } catch(e) {
+    Logger.log('[seedEC2026001VideoProduction] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// Clears VideoProduction data rows and re-seeds from SocialPosts
+function resetVideoProduction() {
+  try {
+    var vpSheet = _getCCSheet(_CC_TAB.VIDEO_PRODUCTION);
+    var last    = vpSheet.getLastRow();
+    if (last >= 2) vpSheet.getRange(2, 1, last - 1, _CC_HDR.VideoProduction.length).clearContent();
+    return seedEC2026001VideoProduction();
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── VideoIdeaBank seed ────────────────────────────────────────────────────────
+var _VIB_STATUSES = ['idea','approved','in_storyboard','in_production','published','archived'];
+
+function seedVideoIdeaBank() {
+  try {
+    var sheet   = _getCCSheet(_CC_TAB.VIDEO_IDEA_BANK);
+    var headers = _CC_HDR.VideoIdeaBank; // 32 cols
+    var now     = new Date().toISOString().split('T')[0];
+
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+
+    var existing = {};
+    var last = sheet.getLastRow();
+    if (last >= 2) {
+      sheet.getRange(2, 1, last - 1, 1).getValues()
+        .forEach(function(r) { if (r[0]) existing[String(r[0])] = true; });
+    }
+
+    // col order: idea_id, campaign_id, title, feature, icp_target, pain_mapped,
+    //            emotional_state, comedy_style, visual_metaphor, comedy_premise,
+    //            sq_1-6, comedy_peak, hold_beat_note,
+    //            arc_1-4, opening_hook, cta_line, audio_direction,
+    //            platform, duration_target, status, video_asset_id, notes, created_at, updated_at
+
+    var ideas = [
+
+      // ── TikTok ──────────────────────────────────────────────────────────────
+
+      ['VIB-TK-001','EC-2026-001','Peanut Butter Mountain',
+       'Pantry Tracking','super_mom',
+       'Buying duplicates because she has no pantry visibility — the $1,336 leak made visual and funny',
+       'Self-inflicted chaos — she did everything right and it still went wrong',
+       'Relatable absurdity — the situation escalates with zero effort',
+       'Five peanut butter jars lined up in the pantry — the sixth in her hand',
+       'She confidently buys what she is sure she is out of. The pantry has been keeping score.',
+       'She walks in from the grocery store, bag in hand, big confident smile',
+       'Opens pantry cabinet, reaches to place new peanut butter on the shelf',
+       'SLOW PAN across five existing peanut butter jars — different sizes, different brands, different ages',
+       'Her face. She is holding the sixth jar. One beat too long.',
+       'easyChef Pro pantry screen — all five jars listed, quantities, expiry dates',
+       '"Your pantry knew. You did not." — CTA card',
+       'The slow pan across five jars while she holds the sixth and her expression processes',
+       'Hold the pan one full second longer than feels comfortable — that is the laugh',
+       'Confidence — she is doing the responsible thing, grocery shopping like an adult',
+       'Discovery — the pantry has been tracking what she has not',
+       'Recognition — every viewer has a version of this jar in their life',
+       'Relief — the app would have caught this before she left the house',
+       'When you KNOW you are out of peanut butter',
+       'Your pantry has been lying to you. easyChef Pro. Free to try.',
+       'Upbeat grocery store music builds — comedic tuba sting on the jar reveal — light resolution out',
+       'TikTok','15-30s','approved','','',now,now],
+
+      ['VIB-TK-002','EC-2026-001','Spoiled Food with Guests',
+       'Expiry Alerts','super_mom',
+       '6:30 PM wall made visual — guests arriving, the star ingredient is green and fuzzy',
+       'Confidence collapses into crisis in real time — stakes are maximum because people are watching',
+       'Slow-burn horror — every beat builds the anticipation before the terrible reveal',
+       'Spoiled food held at arm length in front of a full open fridge while guests are 20 minutes away',
+       'She was confident she had everything. She did not check. The fridge kept the secret.',
+       'Doorbell rings. Text overlay: Guests arrive in 20 minutes. She smiles, heads to the fridge.',
+       'Opens fridge — everything looks fine — she reaches for the main ingredient with full confidence',
+       'Pulls it out. It is bad. Very bad. She holds it at arm length.',
+       'She looks at the camera. Frozen. One full beat.',
+       'easyChef Pro — expiry alert that should have fired three days ago — alternative dinner from what is fresh',
+       'Dinner on the table. Different dish. Guests happy. She glances at camera knowing.',
+       'The moment she holds the spoiled food and looks directly at camera — completely still',
+       'She does not move for one full beat — the viewer is laughing at her and with her at the same time',
+       'Confidence — she has this dinner handled, guests are going to love it',
+       'Exposure — the fridge has been keeping a secret from her',
+       'Crisis — 20 minutes, no plan, the primary ingredient is gone',
+       'Recovery — the app builds a new dinner from what is actually safe',
+       'When you are SURE you have everything for dinner',
+       'easyChef Pro sends expiry alerts before this happens. Free to try.',
+       'Building anticipation music — horror sting on the spoiled reveal — warm resolution as dinner lands',
+       'TikTok','15-30s','approved','','',now,now],
+
+      ['VIB-TK-003','EC-2026-001','Diet Robot',
+       'AI Meal Planner — Nutrition Scoring','health_optimizer · fitness_mom',
+       'She is disciplined and doing everything right but the same meal every night has made food feel like a punishment',
+       'The comedy of perfect compliance — she is winning and losing simultaneously',
+       'Deadpan repetition — the humor comes from watching someone become a machine through discipline',
+       'The same plate on the same table three nights in a row — her expression draining across each day',
+       'She earned this monotony through discipline. The app had forty-seven other options the entire time.',
+       'Text: Monday. Same plate. She looks at it with genuine hope.',
+       'Text: Tuesday. Same plate. Noticeably less hope.',
+       'Text: Wednesday. Same plate. Dead eyes. Fork moves mechanically. She is not home anymore.',
+       'She opens easyChef Pro AI meal planner. Scrolls. Forty-seven healthy recipes matching her macros.',
+       'New dinner. Different. She looks at it before eating. Her face remembers what food is for.',
+       'Text: Day 47 looked different. easyChef Pro AI meal planner. CTA card.',
+       'Wednesday — dead eyes, robotic fork, she has left the building',
+       'Hold the Wednesday scene one full beat past comfortable — the viewer needs to recognize themselves in it',
+       'Hope — she has a plan, she is being disciplined, this is good',
+       'Monotony — the plan is working but something important is being lost',
+       'The machine — she has stopped tasting, she is only executing the protocol',
+       'Discovery — there were forty-seven other compliant options the entire time',
+       'POV: Day 47 of your diet',
+       'Eat healthy. Not the same thing every night. easyChef Pro AI meal planner. Free.',
+       'Groundhog Day loop music that repeats and repeats — brightens to something new when the app appears',
+       'TikTok','15-30s','approved','','',now,now],
+
+      ['VIB-TK-004','EC-2026-001','Shopping Without a List',
+       'Grocery List + Meal Planning','budget_family · super_mom',
+       'She goes in without a plan, fills the cart with total confidence, gets home, cannot make a single meal',
+       'The comedy of confidence without a system — every decision felt right, none of them connect',
+       'Inventory comedy — objects that do not know each other arranged like a crime scene',
+       'Random cart of groceries spread across the kitchen counter — nothing makes a meal together',
+       'She bought everything she wanted. She cannot feed anyone tonight.',
+       'She walks into the grocery store. No list. Text: I will remember.',
+       'Cart filling — she is decisive — random items land with full conviction',
+       'At home, everything spread on the counter. She surveys the chaos.',
+       'She holds up a jar of artichoke hearts. She has no memory of deciding to buy this.',
+       'easyChef Pro — meal plan generates a grocery list before she goes — every item maps to something',
+       'Cart at the store — every item has a purpose — she knows exactly what tonight is',
+       'The artichoke hearts moment — she is holding them with no memory or explanation',
+       'The artichoke hearts — hold it — she bought them with such certainty and now has no idea why',
+       'Confidence — she has shopped for years, she does not need a list',
+       'The chaos of good intentions without a system behind them',
+       'Confrontation — the counter full of items that have never met each other',
+       'The system — the app does the thinking before she leaves the house',
+       'Shopping without a list be like',
+       'easyChef Pro builds your grocery list from your meal plan. Nothing random. Free.',
+       'Upbeat confident music going in — descending confusion notes at the counter — resolved and purposeful',
+       'TikTok','15-30s','idea','','',now,now],
+
+      ['VIB-TK-005','EC-2026-001','Full Fridge Empty Mind',
+       '30-Minute Meals from What You Have','super_mom · professional',
+       'Full fridge, opens it twice, closes it twice, orders DoorDash for $34',
+       'Decision paralysis in a place of abundance — the comedy of having everything and still choosing nothing',
+       'The closed fridge — she walks away from a full refrigerator to spend $34 on delivery',
+       'Full fridge door closes — DoorDash notification — $34.99 total on screen',
+       'The fridge was full. She ordered anyway. The app would have found three dinners in there.',
+       'She opens the fridge. It is completely full.',
+       'She stares into it. Nothing announces itself. She closes the door and walks away.',
+       'She comes back. Opens it again. Same full fridge. Still nothing speaks to her.',
+       'She orders DoorDash. Total on screen: $34.99. She holds the phone.',
+       'easyChef Pro scans the fridge — three complete dinners appear — all under 30 minutes',
+       'She is eating. From her fridge. The $34 moment plays in her memory.',
+       'The DoorDash total: $34.99 — she looks at it for one beat with full awareness',
+       'The number sits one beat longer — $34 when the full fridge was right there waiting',
+       'Abundance — the fridge is completely full, this should be effortless',
+       'Paralysis — too many unnamed options is the same as no options without a plan',
+       'The exit — $34 later the immediate problem is solved but nothing changed',
+       'The reveal — dinner was in there the whole time, it only needed the plan',
+       'When your fridge is full and you are still opening DoorDash',
+       'The fridge was full the whole time. easyChef Pro. Free to try.',
+       'Hopeful open — slow tension builds through the staring — DoorDash notification sting — warm resolution',
+       'TikTok','15-30s','idea','','',now,now],
+
+      // ── YouTube ─────────────────────────────────────────────────────────────
+
+      ['VIB-YT-001','EC-2026-001','The $1,336 Reveal',
+       'Food Waste Tracking + Savings','budget_family · super_mom_money',
+       'A year in review of everything wasted — the math lands at $1,336 and it is completely silent',
+       'Quiet financial awakening — not comedy, the number is the entire performance',
+       'Sobering documentary — the receipt pile grows, the number builds, silence does the work',
+       'A year of grocery receipts on a kitchen counter — the pile is large and the math is quiet',
+       'The average family does not know this number. Seeing it changes something.',
+       'A year of grocery receipts arranged on the counter — the pile is real and large',
+       'Slow walk through the fridge — items close to expiry, some already gone, waste made visible',
+       'Calculator on screen — she adds up what got thrown away this month alone: $111',
+       'Text on screen: That is $1,336 a year. For most families. Possibly more for yours.',
+       'easyChef Pro — expiry alerts, pantry tracking, meal planning — the system that closes the loop',
+       'One year later — receipts smaller, waste down 69.5 percent, the savings are banked not spent',
+       'The calculator moment — $111 per month — she looks at it and says nothing — the silence lands',
+       'Let the $1,336 number sit on screen in complete silence for two full seconds — do not fill it',
+       'Normalcy — this is just how grocery shopping goes, everyone loses a little food',
+       'Recognition — the number is real and larger than she expected',
+       'The math — $111 a month is a utility bill, a car payment, two weeks of lunches',
+       'The system — one app that pays for itself before the first month ends',
+       'How much food does your family actually throw away every year?',
+       'The average family loses $1,336 a year to food waste. easyChef Pro closes the loop. Free to start.',
+       'Quiet documentary underscore — no comedy — let the $1,336 number do everything',
+       'YouTube','60s','idea','','',now,now],
+
+      ['VIB-YT-002','EC-2026-001','The 6:30 PM Wall — Full Story',
+       '30-Minute Meals from What You Have','super_mom',
+       'The complete arc — the wall she hits every night, the decision fatigue, the discovery, the exhale',
+       'Emotional documentary — one evening in her life treated with the weight it actually carries',
+       'The cinematic exhale — she sits at a table where dinner happened and the relief is physical',
+       'She is sitting at the dinner table — kids eating — she sits down — the exhale — she is not running',
+       'Every night she hits this wall. Tonight she did not. That is the whole story.',
+       'She gets home from school pickup. Kids circle the kitchen. Clock reads 6:30.',
+       'She stares into the fridge. Nothing organizes itself for her.',
+       'She is calculating — does she have what she needs? She is not sure. The math is too much.',
+       'She makes the call she did not want — cereal night — again — she carries the guilt quietly',
+       'easyChef Pro — opens the app — it sees her fridge — a dinner plan appears — 28 minutes',
+       'Dinner on the table. Kids eating. She sits down. She exhales. She is here.',
+       'Her face when she sits and exhales — the full physical relief of not running anymore',
+       'Hold the exhale — let it breathe — that is what the whole product is trying to give her',
+       'The daily chaos — 6:30 hits the same way every night and she never has a plan ready for it',
+       'Decision fatigue — too many variables, too little time, too much on the line',
+       'The removal — the app takes the deciding away, she only executes',
+       'Presence — dinner happened and she is at the table for it, not in her head',
+       'Every night at 6:30 PM she hits the same wall',
+       'easyChef Pro. Dinner decided before you open the fridge. Free to try.',
+       'Ambient kitchen sounds only — no score until the resolution — then something warm and very quiet',
+       'YouTube','60s','idea','','',now,now],
+
+      ['VIB-YT-003','EC-2026-001','Recipe Scaling — Feeding the Team',
+       'Recipe Scaling — Large Household','large_family',
+       'She has fed six people for twenty years and every recipe still assumes she is cooking for four',
+       'The comedy of a competent person asked to do unnecessary math while hungry kids circle',
+       'The fraction problem — she is multiplying two-thirds of a cup times six and the kitchen is not patient',
+       'A recipe on her phone that says Serves 4 — she has six people — the math begins visibly',
+       'The recipe was not built for her life. It never is. The app rescales everything before she starts.',
+       'She opens a recipe on her phone. Serves: 4. She has six people at this table.',
+       'She starts doing the scaling math in her head — fractions of fractions — it gets complicated',
+       'A kid asks what is for dinner. She looks at him like he just asked her to solve a proof.',
+       'easyChef Pro — she enters six servings — every ingredient rescales — grocery list adjusts to match',
+       'She sets the table for six. Everything is exactly right. The math did itself.',
+       'Six plates. Right amounts. No math needed. easyChef Pro. CTA card.',
+       'Her face when the kid asks what is for dinner while she is mid-fraction — pure relatable overwhelm',
+       'Just hold her face — every parent in that situation recognizes that exact expression immediately',
+       'The math — a simple recipe becomes a calculation problem when the household is not four people',
+       'Overwhelm — the recipe is supposed to simplify dinner, not add arithmetic',
+       'The system — let the app do the multiplication so she can just cook',
+       'Dinner — six plates, correct amounts, no ingredient short, no guessing on leftovers',
+       'Cooking for a family of six when every recipe still serves four',
+       'easyChef Pro scales any recipe to your household size. Automatically. Free.',
+       'Warm busy kitchen ambience throughout — slight comedic timing on the math moment — family dinner sounds at close',
+       'YouTube','60s','idea','','',now,now]
+
+    ];
+
+    var newRows = [];
+    ideas.forEach(function(idea) {
+      if (!existing[idea[0]]) newRows.push(idea);
+    });
+
+    if (newRows.length) {
+      var writeStart = sheet.getLastRow() + 1;
+      var rng = sheet.getRange(writeStart, 1, newRows.length, headers.length);
+      rng.setNumberFormat('@').setValues(newRows);
+      var statusCol = headers.indexOf('status') + 1;
+      var rule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(_VIB_STATUSES, true).setAllowInvalid(false).build();
+      sheet.getRange(writeStart, statusCol, newRows.length, 1).setDataValidation(rule);
+    }
+
+    Logger.log('[seedVideoIdeaBank] seeded:' + newRows.length + ' skipped:' + Object.keys(existing).length);
+    return { ok: true, seeded: newRows.length, skipped: Object.keys(existing).length, total: ideas.length };
+
+  } catch(e) {
+    Logger.log('[seedVideoIdeaBank] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── VIB-TK-006 refinement — Still Cooking for Six (habit memory reframe) ─────
+function updateVibTk006() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.VIDEO_IDEA_BANK);
+    var data  = sheet.getDataRange().getValues();
+    var rowIdx = -1;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === 'VIB-TK-006') { rowIdx = i + 1; break; }
+    }
+    if (rowIdx < 0) return { ok: false, error: 'VIB-TK-006 not found' };
+
+    var now = new Date().toISOString().split('T')[0];
+    // cols 1-based: title=3, feature=4, icp_target=5, pain_mapped=6,
+    //   emotional_state=7, comedy_style=8, visual_metaphor=9, comedy_premise=10,
+    //   sq_1..sq_6=11-16, comedy_peak=17, hold_beat_note=18,
+    //   arc_1..arc_4=19-22, opening_hook=23, cta_line=24, audio_direction=25,
+    //   updated_at=32
+    var updates = [
+      [3,  'Still Cooking for Six'],
+      [4,  'Recipe Scaling — Meal Planning for One or Two'],
+      [5,  'empty_nester'],
+      [6,  'Her hands still cook for six because that is what they learned to do. The recipes never got the message.'],
+      [7,  'Habit memory — deeply human — the emotional trigger is not recipe scaling, it is what her hands remember'],
+      [8,  'Silent recognition — no jokes, no punchlines — just the truth of the moment landing in real time'],
+      [9,  'Four plates set by force of habit — the family that is not coming — food that expires untouched'],
+      [10, 'Muscle memory for a life that has moved on — her hands do not know the house is quiet now'],
+      [11, 'Large family-sized dinner cooking. Big pot. Too much pasta. Too many plates. Warm nostalgic lighting.'],
+      [12, 'She instinctively sets four plates, extra forks, the full table — then stops. Long pause.'],
+      [13, 'She sits alone at the giant table. Silence. Massive amount of leftovers surrounding one place setting.'],
+      [14, 'The fridge days later — the food has expired. She throws it away quietly.'],
+      [15, 'easyChef Pro — recipes scaled for 1 or 2, smart leftovers, meal planning from what you already have.'],
+      [16, 'A smaller, beautiful meal. Peaceful. Intentional. She is not sad anymore.'],
+      [17, 'She sets the fourth plate automatically — then stops — the muscle memory caught mid-act in silence'],
+      [18, 'Hold the pause after she stops — no music, no cut — let the room be empty for one full beat'],
+      [19, 'Habit memory — her hands cook for six because that was her life and they do not know it changed'],
+      [20, 'The recognition — she set a table for people who are not coming and the silence confirmed everything'],
+      [21, 'The cost — food expires untouched because the portions never adapted to a new chapter'],
+      [22, 'Evolution — the kitchen can catch up with her life — scaled, intentional, not defined by what was'],
+      [23, 'Still Cooking for Six.'],
+      [24, 'Your kitchen can evolve with your life. easyChef Pro.'],
+      [25, 'No score in scenes 1-4 — silence does the work — warm resolved music enters only at the meal in scene 6'],
+      [32, now]
+    ];
+
+    updates.forEach(function(u) {
+      sheet.getRange(rowIdx, u[0]).setNumberFormat('@').setValue(u[1]);
+    });
+
+    Logger.log('[updateVibTk006] updated row ' + rowIdx);
+    return { ok: true, updated: 'VIB-TK-006', row: rowIdx };
+  } catch(e) {
+    Logger.log('[updateVibTk006] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── VIB-TK-006 Scene 6 patch — alone → at peace ──────────────────────────────
+function patchVibTk006Scene6() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.VIDEO_IDEA_BANK);
+    var data  = sheet.getDataRange().getValues();
+    var rowIdx = -1;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === 'VIB-TK-006') { rowIdx = i + 1; break; }
+    }
+    if (rowIdx < 0) return { ok: false, error: 'VIB-TK-006 not found' };
+
+    var now = new Date().toISOString().split('T')[0];
+    var updates = [
+      [16, 'One candle. One good plate. Fresh food. Calm light. The table is small on purpose — not because she has to, but because this is hers now.'],
+      [22, 'At peace — not alone, not defined by the empty chairs — this is her table now and it was set with intention'],
+      [32, now]
+    ];
+    updates.forEach(function(u) {
+      sheet.getRange(rowIdx, u[0]).setNumberFormat('@').setValue(u[1]);
+    });
+
+    Logger.log('[patchVibTk006Scene6] patched row ' + rowIdx);
+    return { ok: true, patched: 'VIB-TK-006', fields: ['sq_6','arc_4','updated_at'] };
+  } catch(e) {
+    Logger.log('[patchVibTk006Scene6] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── VideoIdeaBank Batch 2 — Empty Nester + Date Night Disaster ────────────────
+function seedVideoIdeaBankBatch2() {
+  try {
+    var sheet   = _getCCSheet(_CC_TAB.VIDEO_IDEA_BANK);
+    var headers = _CC_HDR.VideoIdeaBank; // 32 cols
+    var last    = sheet.getLastRow();
+    var existing = {};
+    if (last >= 2) {
+      sheet.getRange(2, 1, last - 1, 1).getValues()
+        .forEach(function(r) { if (r[0]) existing[String(r[0])] = true; });
+    }
+
+    var now = new Date().toISOString().split('T')[0];
+
+    var ideas = [
+
+      // ── VIB-TK-006 — Empty Nester, Table for One ────────────────────────────
+      ['VIB-TK-006','EC-2026-001','Cooking for Six, Eating Alone',
+       'Recipe Scaling — Meal Planning','empty_nester',
+       'She cooked for a family of six for decades. The recipes never updated. She still makes four pounds of pasta.',
+       'Nostalgic comedy — the portion sizes belong to a family that moved out',
+       'Physical comedy — the pot is enormous, the table is set for one',
+       'A single place setting at the end of a long dining table — surrounded by enough food for six',
+       'Muscle memory for feeding six when there is only one mouth left to feed',
+       'She pulls a 12-quart pot from the cabinet. Force of habit. She does not question it.',
+       'She fills the pot. She starts cooking. The kitchen smells the way it always did.',
+       'Dish after dish comes out. A salad. A main. Two sides. Bread.',
+       'She carries everything to the dining table. One chair is pulled out. The rest are tucked.',
+       'She sits down at the head of the table — surrounded by enough food for six — and looks at it.',
+       'easyChef Pro — meals for one that actually feel like enough — portion scaled, nothing wasted.',
+       'The long shot — one person, one plate, seventeen servings of pasta, and a very quiet house',
+       'Let her look at the spread — the beat between habit and reality — do not rush past it',
+       'Memory — she has been cooking for six for twenty years and her hands still know how',
+       'The reveal — the table is full, the house is empty, and nothing about this changed',
+       'The recognition — this is muscle memory dressed as a routine she never updated',
+       'The shift — one serving, her nutrition goals, her schedule — this time just for her',
+       'She is cooking for one. The pot disagrees.',
+       'Portions for one. Meals worth making. easyChef Pro. Free to try.',
+       'Warm domestic ambience — faint echo of activity that no longer fills the house — gentle wistful resolution',
+       'TikTok','15-30s','idea','','',now,now],
+
+      // ── VIB-TK-007 — Date Night Disaster ────────────────────────────────────
+      ['VIB-TK-007','EC-2026-001','Date Night Disaster',
+       'AI Recipe Recommendations — Smart Meal Planning','professional · young_couple',
+       'He wanted to impress her. He had no plan. She is looking at what is on the plate and trying to stay positive.',
+       'Romantic ambition meeting cold reality — the comedy lives in the gap between intent and execution',
+       'Dry situational comedy — the food is the problem but the commitment is completely sincere',
+       'Candles lit, table set perfectly, a plate that does not match the occasion at all',
+       'Every element of the date night was prepared except the one that matters — the food',
+       'He sets the scene: candles, good plates, a playlist. He checks himself in the mirror. He is ready.',
+       'In the kitchen — he opens the fridge — the confidence slightly softens — he improvises.',
+       'Something is served. The camera shows the plate. It is unclear what it is. The candles are still lit.',
+       'She sits across from him. She looks at the plate. She takes a bite. Her face stays neutral. She is trying.',
+       'He watches her. He knows. He looks at his own plate. He also knows.',
+       'easyChef Pro — recipes that match the occasion and what is already in the fridge — date night, nailed.',
+       'Her face — she is a completely supportive person and the food asked too much of her',
+       'Hold on his face watching her — he can read the room — this is the beat — let it breathe',
+       'Ambition — the intention was perfect, the effort was real, the vision was clear',
+       'The gap — execution met a pantry with no plan and produced something unrecognizable',
+       'Mutual awareness — they both know and neither is saying it and that is the whole joke',
+       'The fix — right recipe for what you have and who you are cooking for',
+       'He planned the perfect date night. The fridge had other ideas.',
+       'Right recipe. Right night. easyChef Pro. Free to try.',
+       'Romantic strings for the setup — a single descending note when the plate arrives — warm forgiving resolution',
+       'TikTok','15-30s','idea','','',now,now]
+
+    ];
+
+    var newRows = [];
+    ideas.forEach(function(row) {
+      if (!existing[row[0]]) newRows.push(row);
+    });
+
+    if (newRows.length) {
+      var writeStart = sheet.getLastRow() + 1;
+      sheet.getRange(writeStart, 1, newRows.length, headers.length).setNumberFormat('@').setValues(newRows);
+      var statusCol = headers.indexOf('status') + 1;
+      if (statusCol > 0) {
+        var rule = SpreadsheetApp.newDataValidation()
+          .requireValueInList(_VIB_STATUSES, true).setAllowInvalid(false).build();
+        sheet.getRange(writeStart, statusCol, newRows.length, 1).setDataValidation(rule);
+      }
+    }
+
+    Logger.log('[seedVideoIdeaBankBatch2] seeded:' + newRows.length + ' skipped:' + (ideas.length - newRows.length));
+    return { ok: true, seeded: newRows.length, skipped: ideas.length - newRows.length, total: ideas.length };
+
+  } catch(e) {
+    Logger.log('[seedVideoIdeaBankBatch2] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── ICP Landing Pages — one emotional-arc-governed LP per ICP ────────────────
+function seedIcpLandingPages() {
+  try {
+    var sheet   = _getCCSheet(_CC_TAB.LP_INVENTORY);
+    var headers = _CC_HDR.LPInventory; // 35 cols
+    var last    = sheet.getLastRow();
+    var existing = {};
+    if (last >= 2) {
+      sheet.getRange(2, 1, last - 1, 1).getValues()
+        .forEach(function(r) { if (r[0]) existing[String(r[0])] = true; });
+    }
+
+    var now   = new Date().toISOString().split('T')[0];
+    var proof = '$1,336/year saved|69.5% less food waste|30 min fridge to table';
+    var cta   = 'The app that evolves with your life.';
+    var urg   = 'First 5,000 families only. $7.99/month locked forever.';
+    var excl  = 'Founding member pricing — locked for life.';
+    var ty    = 'https://easychefpro.com/thank-you';
+
+    var lps = [
+      { code:'super_mom',         headline:'It is 6:30 PM and you are out of ideas again.',
+        angle:'Exhaustion and decision fatigue at the dinner wall every single night',
+        title:'Dinner Solved for Busy Moms | easyChef Pro',
+        kw:'meal planning for busy moms' },
+      { code:'budget_family',     headline:'You budget everything. The grocery bill still wins.',
+        angle:'The receipt total that keeps coming in over — money stress built into dinner every week',
+        title:'Stop Wasting $1,336 a Year on Food | easyChef Pro',
+        kw:'save money on groceries family' },
+      { code:'meal_prep_athlete', headline:'Three hours on Sunday. Still not enough.',
+        angle:'Prep day that costs the whole weekend and still falls short by Wednesday',
+        title:'Smarter Meal Prep for Athletes | easyChef Pro',
+        kw:'meal prep app for athletes' },
+      { code:'empty_nester',      headline:'Your hands still cook for six.',
+        angle:'Habit memory — the kitchen is still running a household that moved out',
+        title:'Cooking for One or Two | easyChef Pro',
+        kw:'meal planning for empty nesters' },
+      { code:'large_family',      headline:'Six people. Three meals a day. No system that holds.',
+        angle:'Scale without a system — the daily math of feeding a large family without control',
+        title:'Meal Planning for Large Families | easyChef Pro',
+        kw:'meal planning large family' },
+      { code:'professional',      headline:'Faster than delivery. Better than guessing.',
+        angle:'No time to plan, no margin for waste — dinner has to be faster than the alternative',
+        title:'Quick Healthy Meals for Busy Professionals | easyChef Pro',
+        kw:'quick healthy meal planning app' },
+      { code:'newlywed',          headline:'Your first kitchen. Neither of you had a plan.',
+        angle:'First household together — the excitement is real, the system is missing',
+        title:'Meal Planning for Newlyweds | easyChef Pro',
+        kw:'meal planning for newlyweds couples' },
+      { code:'single_parent',     headline:'No margin. No backup. Dinner still has to happen.',
+        angle:'Running on empty with no one to take over — dinner is one more thing that cannot fail',
+        title:'Dinner Solutions for Single Parents | easyChef Pro',
+        kw:'meal planning single parent' },
+      { code:'health_conscious',  headline:'You know what to eat. The system to actually do it is missing.',
+        angle:'Intention without infrastructure — they know the goal, the daily execution keeps breaking',
+        title:'Healthy Eating Made Easy | easyChef Pro',
+        kw:'healthy meal planning app' },
+      { code:'college_student',   headline:'Your budget is real. Your cooking skills are not yet.',
+        angle:'Limited money, zero cooking foundation, and ramen is not a strategy',
+        title:'Affordable Meal Planning for College Students | easyChef Pro',
+        kw:'meal planning app college students' },
+      { code:'retiree',           headline:'More time now. The kitchen should finally work for you.',
+        angle:'Life slowed down but the kitchen did not adapt — more time does not mean easier meals',
+        title:'Simple Meal Planning for Retirees | easyChef Pro',
+        kw:'meal planning for retirees seniors' },
+      { code:'foodie_home_cook',  headline:'You can imagine it. Pulling it off on a Tuesday is the problem.',
+        angle:'The gap between the food she loves to cook and the weeknight version she can actually execute',
+        title:'Smart Meal Planning for Home Cooks | easyChef Pro',
+        kw:'meal planning home cook recipes' },
+      { code:'diabetic_manager',  headline:'Every meal is a calculation. It should not have to be.',
+        angle:'The exhaustion of managing glucose, carbs, and timing alone at every single meal',
+        title:'Diabetic-Friendly Meal Planning | easyChef Pro',
+        kw:'meal planning app diabetes management' },
+      { code:'allergy_parent',    headline:'One wrong ingredient changes the whole night.',
+        angle:'Every meal is a safety check — the anxiety of the thing she cannot let slip',
+        title:'Allergy-Safe Meal Planning for Families | easyChef Pro',
+        kw:'allergy friendly meal planning app' },
+      { code:'fitness_beginner',  headline:'The nutrition math is killing your momentum.',
+        angle:'Starting over — the workout is working but the food side is too complicated to sustain',
+        title:'Nutrition and Meal Planning for Fitness Beginners | easyChef Pro',
+        kw:'meal planning fitness beginners nutrition' },
+      { code:'busy_parent',       headline:'Two jobs. Three kids. No dinner plan. 5:45 PM.',
+        angle:'Both working, everyone hungry, no one had time to plan — the 5:45 PM collision every night',
+        title:'Quick Dinner Planning for Working Parents | easyChef Pro',
+        kw:'dinner planning busy working parents' },
+      { code:'senior_living',     headline:'The portions were never designed for just the two of you.',
+        angle:'Cooking for two after a lifetime of cooking for many — the scale is wrong and the appetite changed',
+        title:'Meal Planning for Seniors | easyChef Pro',
+        kw:'meal planning seniors two people' },
+      { code:'eco_conscious',     headline:'You care about waste. The kitchen keeps proving otherwise.',
+        angle:'Living the values at the store then watching it spoil at home — intention without a system',
+        title:'Zero Waste Meal Planning | easyChef Pro',
+        kw:'zero waste meal planning reduce food waste' },
+      { code:'small_household',   headline:'Nothing portions right. Everything spoils.',
+        angle:'One or two people in a system built for four — waste is built into every recipe',
+        title:'Meal Planning for One or Two People | easyChef Pro',
+        kw:'meal planning small household one two people' },
+      { code:'veggie_curious',    headline:'You want to eat more plants. You need a reason to keep going.',
+        angle:'Wanting to shift but not knowing how to make it satisfying enough to stick',
+        title:'Plant-Based Meal Planning Made Easy | easyChef Pro',
+        kw:'plant based meal planning app' },
+      { code:'cultural_cook',     headline:'You cook from memory. The weeknights need a system.',
+        angle:'Deep cooking knowledge with no infrastructure to translate it to weeknight reality',
+        title:'Culturally Inclusive Meal Planning | easyChef Pro',
+        kw:'cultural recipe meal planning app' },
+      { code:'weight_loss_focus', headline:'You know the diet. Meal execution is where it falls apart.',
+        angle:'The plan is clear but the daily meals keep breaking it — execution not willpower',
+        title:'Meal Planning for Weight Loss | easyChef Pro',
+        kw:'meal planning app weight loss' }
+    ];
+
+    var newRows = [];
+    lps.forEach(function(lp) {
+      var id   = 'lp-icp-' + lp.code;
+      if (existing[id]) return;
+      var slug = 'lp/' + lp.code.replace(/_/g, '-');
+      var url  = 'https://easychefpro.com/' + slug;
+      var desc = 'Your life changes. Your kitchen should change with it. easyChef Pro — the app that evolves with your life. Free to try.';
+      newRows.push([
+        id, slug, url,
+        'Waitlist', 'bp-001', lp.code,
+        lp.angle,
+        'icp_' + lp.code,
+        lp.headline,
+        cta, proof,
+        'draft', false, false, false, false,
+        'EC-2026-001', 0, '',
+        now, now,
+        'Emotional progression LP — governed by EMOTIONAL_ARC_' + lp.code.toUpperCase(),
+        'founding_member', urg, 'hero',
+        'founding_member', excl,
+        lp.title, desc, lp.title, desc,
+        url, lp.kw,
+        'waitlist_lp', ty
+      ]);
+    });
+
+    if (newRows.length) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, headers.length)
+        .setNumberFormat('@').setValues(newRows);
+    }
+
+    Logger.log('[seedIcpLandingPages] added:' + newRows.length + ' skipped:' + (lps.length - newRows.length));
+    return { ok: true, added: newRows.length, skipped: lps.length - newRows.length, total: lps.length };
+  } catch(e) {
+    Logger.log('[seedIcpLandingPages] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── LP Framework seed — 7-section structure + 5-stage loop ───────────────────
+function seedLpFramework001() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.CAMP_STRATEGY);
+    var last  = sheet.getLastRow();
+    var existing = {};
+    if (last >= 2) {
+      sheet.getRange(2, 1, last - 1, 1).getValues()
+        .forEach(function(r) { if (r[0]) existing[String(r[0])] = true; });
+    }
+    if (existing['LP_FRAMEWORK_001']) {
+      Logger.log('[seedLpFramework001] already exists — skipped');
+      return { ok: true, added: 0, skipped: 1 };
+    }
+
+    var value = {
+      framework_name: 'ICP Emotional Progression LP',
+      description: 'Fixed 7-section structure. Brand position and 5-stage loop stay locked. Only ICP-specific content changes.',
+      locked_elements: [
+        'brand position and tagline',
+        'approved claims and stats',
+        '5-stage product loop (TRACK → PLAN → OPTIMIZE → COOK → SHOP)',
+        'phone reveal rule',
+        'proof bar content',
+        'CTA button style and color',
+        'UTM and deep link structure',
+        'section order'
+      ],
+      variable_by_icp: [
+        'entry moment and headline',
+        'emotional arc and primary trigger',
+        'visual scene and setting',
+        'loss aversion framing',
+        'value promise language',
+        'CTA framing',
+        'story examples and social proof quotes'
+      ],
+      sections: [
+        {
+          id: 'hook',
+          label: 'Section 1 — Hook',
+          purpose: 'Mirror the ICP life-stage moment exactly. Zero product mention. Pure recognition.',
+          instruction: 'Open with the exact emotional trigger from EMOTIONAL_ARC_{ICP_CODE} stage:hook. One or two lines maximum. The reader must feel seen before they read anything else.'
+        },
+        {
+          id: 'problem',
+          label: 'Section 2 — Problem',
+          purpose: 'Name what is broken in their kitchen at this life stage.',
+          instruction: 'Describe the specific dysfunction that belongs to this life stage. Not a generic complaint — the exact friction this ICP lives with daily.'
+        },
+        {
+          id: 'agitate',
+          label: 'Section 3 — Agitate',
+          purpose: 'Make the cost visible — emotionally and practically.',
+          instruction: 'Use loss aversion. What does this problem actually cost — money, time, identity, energy? Reference the $1,336/year stat or the emotional toll as appropriate for this ICP.'
+        },
+        {
+          id: 'solve',
+          label: 'Section 4 — Solve',
+          purpose: 'easyChef Pro closes the loop — expressed through the 5-stage loop adapted to this ICP.',
+          instruction: 'Show all five stages adapted to this life situation: TRACK what you have → PLAN for [ICP stage] → OPTIMIZE for [ICP goals] → COOK with [ICP context] → SHOP with one real list. Each stage is one line. The loop is the product. This section is non-negotiable in structure.',
+          loop: ['TRACK', 'PLAN', 'OPTIMIZE', 'COOK', 'SHOP']
+        },
+        {
+          id: 'value',
+          label: 'Section 5 — Value',
+          purpose: 'What life looks like after. Stage-specific vision of resolution.',
+          instruction: 'Paint the after state for this ICP. Not feature benefits — the emotional experience of a kitchen that finally works for this chapter of their life. Connects to EMOTIONAL_ARC stage:value.'
+        },
+        {
+          id: 'proof',
+          label: 'Section 6 — Proof',
+          purpose: 'Shared product truth — same across all ICP LPs.',
+          instruction: 'Use approved stats: $1,336/year saved, 69.5% less food waste, 30 min fridge to table. Pull one quote from social proof that fits this ICP. Proof bar is locked — do not invent new stats.'
+        },
+        {
+          id: 'cta',
+          label: 'Section 7 — CTA',
+          purpose: 'Stage-specific action framed by the brand tagline.',
+          instruction: 'CTA button: [Start Free — It Adapts to You]. Below it: "The app that evolves with your life." Urgency line: "First 5,000 families only. $7.99/month locked forever." CTA framing can use ICP-specific language above the button but the button text and tagline are locked.'
+        }
+      ]
+    };
+
+    var row = ['LP_FRAMEWORK_001', 'lp_structure', true, JSON.stringify(value)];
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length).setNumberFormat('@').setValues([row]);
+    Logger.log('[seedLpFramework001] added LP_FRAMEWORK_001');
+    return { ok: true, added: 1, skipped: 0 };
+  } catch(e) {
+    Logger.log('[seedLpFramework001] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Brand position seed — master governing frame above all ICP arcs ───────────
+function seedBrandPosition001() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.CAMP_STRATEGY);
+    var last  = sheet.getLastRow();
+    var existing = {};
+    if (last >= 2) {
+      sheet.getRange(2, 1, last - 1, 1).getValues()
+        .forEach(function(r) { if (r[0]) existing[String(r[0])] = true; });
+    }
+
+    if (existing['BRAND_POSITION_001']) {
+      Logger.log('[seedBrandPosition001] already exists — skipped');
+      return { ok: true, added: 0, skipped: 1 };
+    }
+
+    var value = {
+      tagline:     'The app that evolves with your life.',
+      brand_truth: 'Your life changes. Your kitchen should change with it.',
+      position:    'adaptive household infrastructure — not recipe software',
+      contrast:    'Most food apps assume one static person forever. easyChef Pro does not.',
+      life_stage_sequence: [
+        'newlywed','young_family','super_mom','single_parent',
+        'busy_professional','fitness_phase','empty_nester','grandparent'
+      ],
+      copy_rules: [
+        '✓ Lead with life stage, not feature — the feature serves the stage, not the reverse',
+        '✓ ICP-specific emotion leads every piece — the tagline resolves it',
+        '✓ Brand truth is the emotional bridge — use it when copy needs the why behind the tagline',
+        '✗ Never position as recipe software — easyChef Pro is infrastructure that follows your life'
+      ]
+    };
+
+    var row = ['BRAND_POSITION_001', 'brand_positioning', true, JSON.stringify(value)];
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length).setNumberFormat('@').setValues([row]);
+
+    Logger.log('[seedBrandPosition001] added BRAND_POSITION_001');
+    return { ok: true, added: 1, skipped: 0 };
+  } catch(e) {
+    Logger.log('[seedBrandPosition001] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── ICP Emotional Arc strategy seed — one governed arc per ICP ────────────────
+function seedEC2026001CampaignStrategies() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.CAMP_STRATEGY);
+    var last  = sheet.getLastRow();
+    var existing = {};
+    if (last >= 2) {
+      sheet.getRange(2, 1, last - 1, 1).getValues()
+        .forEach(function(r) { if (r[0]) existing[String(r[0])] = true; });
+    }
+
+    var arc = function(icp_code, icp_name, primary_trigger, stages) {
+      return ['EMOTIONAL_ARC_' + icp_code.toUpperCase(), 'emotional_progression', true,
+        JSON.stringify({ icp_code: icp_code, icp_name: icp_name, primary_trigger: primary_trigger, stages: stages })];
+    };
+    var s = function(stage, emotion, trigger_note) {
+      return { stage: stage, emotion: emotion, trigger_note: trigger_note };
+    };
+
+    var strategies = [
+
+      arc('super_mom', 'Super Mom', '6:30 PM wall — exhaustion and decision fatigue every single night', [
+        s('hook',    'exhausted',  '6:30 PM staring into a full fridge with hungry kids circling'),
+        s('problem', 'frustrated', 'Reactive grocery runs, food goes to waste, no plan ever works'),
+        s('agitate', 'activated',  'This happens EVERY night — the guilt of serving cereal sits on her'),
+        s('solve',   'curious',    'What if dinner was decided before she opened the fridge?'),
+        s('value',   'relieved',   '30 minutes, real food, from what she already has'),
+        s('proof',   'trusting',   '10,000 families, $1,336/year savings validated'),
+        s('cta',     'happy',      'Founding family — she found this at exactly the right time')
+      ]),
+
+      arc('super_mom_money', 'Super Mom — Money Angle', 'The invisible $111/month leak — financial loss aversion drives action', [
+        s('hook',    'stressed',    'Grocery receipt in hand — she knows she spent too much again'),
+        s('problem', 'frustrated',  '$111/month in groceries that expire before they become dinner'),
+        s('agitate', 'alarmed',     '$1,336/year — she calculated it — that is a real number for her family'),
+        s('solve',   'curious',     '$7.99/month to stop a $111/month leak — the math is immediate'),
+        s('value',   'calculating', 'The ROI lands in one line — she sees it before she feels it'),
+        s('proof',   'confident',   '10,000 households validated — this is not a promise, it is a result'),
+        s('cta',     'determined',  'She is making the financially responsible call — this is who she is')
+      ]),
+
+      arc('super_mom_time', 'Super Mom — Time + Founding Family', 'Mental load never stops — dinner is the one decision she cannot escape', [
+        s('hook',    'overwhelmed', 'The mental load of household food decisions runs every hour of every day'),
+        s('problem', 'exhausted',   '5-10 hours a week deciding what to eat — none of it connected'),
+        s('agitate', 'resentful',   'Her evenings belong to decision fatigue, not her family'),
+        s('solve',   'intrigued',   'Dinner decided before she opens the fridge — what does that even feel like?'),
+        s('value',   'relieved',    'The mental load lifts — she is present instead of planning'),
+        s('proof',   'belonging',   'Founding families found this first — she is one of them'),
+        s('cta',     'proud',       'She found this early — founding family identity is hers')
+      ]),
+
+      arc('budget_family', 'Budget Family', 'Every grocery trip is a math problem — every wasted item is a bill not paid', [
+        s('hook',    'stressed',   '$400/month grocery budget and it still feels impossible'),
+        s('problem', 'ashamed',    'Buys on sale without a plan — fridge full, dinner still costs $30 in delivery'),
+        s('agitate', 'anxious',    'Every expired item is a bill her family needed — the guilt is financial'),
+        s('solve',   'skeptical',  'She has heard promises before — but the math here is undeniable'),
+        s('value',   'calculating','$111/month back — that is two utility bills — that is real for this budget'),
+        s('proof',   'relieved',   '800,000 Walmart products — finally an app that knows her actual store'),
+        s('cta',     'hopeful',    'Free to start — no risk — she has nothing to lose and $111 to gain')
+      ]),
+
+      arc('health_optimizer', 'Health Optimizer', 'No tool connects pantry to meal plan to nutrition score — she has tried everything', [
+        s('hook',    'frustrated', 'Reads every label, tracks everything manually — the data exists but nothing connects it'),
+        s('problem', 'overwhelmed','Five apps open at once — nutrition, pantry, recipes, grocery — none talk to each other'),
+        s('agitate', 'defeated',   'Hours of manual tracking every week for a system that still fails her'),
+        s('solve',   'intrigued',  '6-dimension nutrition scoring from what is already in her fridge?'),
+        s('value',   'excited',    'FDA-grade data, registered dietitians — this is the tool she has been building herself'),
+        s('proof',   'confident',  '10,000 recipe pages validated — the data depth is real'),
+        s('cta',     'committed',  'She found the tool that finally closes the loop she has been trying to close for years')
+      ]),
+
+      arc('professional', 'Working Professional', '$400/month on delivery — he knows it is irrational and cannot stop it', [
+        s('hook',    'guilty',      '$400/month on delivery — he knows the fridge is full — he orders anyway'),
+        s('problem', 'paralyzed',   '8 PM, exhausted, fridge full, no plan — the calculation always ends in DoorDash'),
+        s('agitate', 'wasteful',    'Groceries expire while he orders delivery on top of them — he sees it happening'),
+        s('solve',   'curious',     '30 minutes fridge to table — no recipe hunting, the app does the thinking'),
+        s('value',   'capable',     'He can actually cook — he just needed someone to remove the deciding'),
+        s('proof',   'confident',   'Real outcomes — $400/month recovered — the habit is actually breakable'),
+        s('cta',     'liberated',   'The DoorDash habit ends tonight — free to try, no risk')
+      ]),
+
+      arc('alpha_recruit', 'Alpha Recruit', 'She was chosen — personal invite from founder — DL-DIR format only', [
+        s('hook',    'anticipating','She is on the waitlist — she signed up — she is ready — the app is not live yet'),
+        s('problem', 'impatient',   'The 6:30 PM wall keeps hitting while she waits for something she already joined'),
+        s('agitate', 'urgent',      'Founding price ends at 5,000 families — she needs to confirm her place'),
+        s('solve',   'chosen',      'Personal invite from the founder — she was specifically selected'),
+        s('value',   'insider',     'She shapes the app before it reaches the public — her feedback matters'),
+        s('proof',   'committed',   '$7.99 locked forever — the founding price is guaranteed for life'),
+        s('cta',     'proud',       'Founding family identity is locked — she was first and she will always know it')
+      ]),
+
+      arc('single_parent', 'Single Parent', 'One person doing the job of two — zero margin for error or waste', [
+        s('hook',    'alone',      'No partner to share the food load — every decision is hers alone'),
+        s('problem', 'overwhelmed','One person, three kids, dinner at 6 PM after work and school pickup'),
+        s('agitate', 'exhausted',  'The mental and physical load of being sole provider of all meals with no backup'),
+        s('solve',   'supported',  'Finally something that carries part of the load she has been carrying alone'),
+        s('value',   'capable',    'Plan the whole week in minutes — every grocery item gets used'),
+        s('proof',   'trusting',   '$1,336 back in a budget that needs every single dollar'),
+        s('cta',     'relieved',   'She should not have to do this alone — now she does not have to')
+      ]),
+
+      arc('empty_nester', 'Empty Nester', 'Cooking habits built for a full house — suddenly cooking for one or two', [
+        s('hook',    'confused',   'The kids left — the muscle memory stayed — she still buys for six'),
+        s('problem', 'wasteful',   'Half of every purchase goes to waste — recipes written for 4-6 every time'),
+        s('agitate', 'frustrated', 'She knows how to cook — she just does not know how to cook for this version of her life'),
+        s('solve',   'curious',    'Scales every recipe automatically — meal plans for 1-2 — grocery list matches exactly'),
+        s('value',   'liberated',  'Food is for her now — nutrition for herself — recipes she actually wants to eat'),
+        s('proof',   'confident',  'Recipe scaling works perfectly — the math does itself'),
+        s('cta',     'renewed',    'The kitchen adapts to her life as it is now — not as it was')
+      ]),
+
+      arc('newlywed', 'Newlywed Couple', 'Cooking is a shared project — but two preferences and no system creates friction', [
+        s('hook',    'excited',      'Building a home together — cooking should be part of that — it keeps not being'),
+        s('problem', 'friction',     'Two different food preferences, no shared system, groceries bought independently'),
+        s('agitate', 'silly_guilt',  'They know it is fixable — $400/month on delivery before they even start a family'),
+        s('solve',   'curious',      'One shared pantry, one shared meal plan, both preferences accounted for?'),
+        s('value',   'together',     'Dinner without the nightly negotiation — cooking becomes the shared project it was meant to be'),
+        s('proof',   'smart',        'Stopping the delivery habit now — before it grows with the family'),
+        s('cta',     'invested',     'Building good habits from the start — this is who they want to be together')
+      ]),
+
+      arc('busy_dad', 'Busy Dad', 'He knows she carries the food load — he wants to step up but has no system', [
+        s('hook',    'wanting_to_help','He knows his partner carries the entire food operation — he wants to change that'),
+        s('problem', 'helpless',       'Opens the fridge, no plan, sees ingredients with no connection — defaults to pizza'),
+        s('agitate', 'guilty',         'Every pizza order is another night she does the whole load herself'),
+        s('solve',   'capable',        'The app tells him exactly what to do — open fridge, get recipe, execute'),
+        s('value',   'hero',           'Dinner is done before she gets home — she walks in and it is handled'),
+        s('proof',   'simple',         'Step by step, 30 minutes, real food — he actually did it'),
+        s('cta',     'proud',          'He stepped up — she noticed — that is worth more than the app')
+      ]),
+
+      arc('large_family', 'Large Family', 'Feeding 6 every night on a real budget — waste hits double, every unplanned dinner is $60', [
+        s('hook',    'stretched',  'Feeding six people every night is a full-time job on top of her full-time job'),
+        s('problem', 'overwhelmed','Bulk buying does not match meal plans — the waste is enormous at scale'),
+        s('agitate', 'alarmed',    'At 6 people $1,336 in waste becomes $2,000+ — every unplanned dinner is $60 in delivery'),
+        s('solve',   'curious',    'Meal plan scaled for exactly 6 — grocery list sized correctly every single week?'),
+        s('value',   'efficient',  'Every item in the cart maps to a meal — nothing bought without a purpose'),
+        s('proof',   'relieved',   'The math finally works at scale — six plates, right amounts, no guessing'),
+        s('cta',     'confident',  'She has a system that was actually built for a family her size')
+      ]),
+
+      arc('walmart_shopper', 'Walmart Shopper Alpha', 'No app has ever understood what is actually in a Walmart shopper\'s fridge', [
+        s('hook',    'skeptical',         'She has deleted every recipe app that suggested ingredients she cannot find at Walmart'),
+        s('problem', 'rejected',          'Suggestions for Whole Foods brands, specialty stores — her actual store does not exist to these apps'),
+        s('agitate', 'loyal_frustrated',  'She is not changing her store — the app needs to be built for her life, not someone else\'s'),
+        s('solve',   'surprised',         '800,000 Walmart products in the database — her exact brands, her exact store'),
+        s('value',   'belonging',         'The app finally knows her fridge because it knows her store'),
+        s('proof',   'confident',         'Shopping list goes directly to Walmart cart — seamless from plan to purchase'),
+        s('cta',     'committed',         'This is the first app ever built for the way she actually shops')
+      ]),
+
+      arc('fitness_mom', 'Fitness Mom', 'Food is health — tracking macros for a family requires hours she cannot sustain', [
+        s('hook',    'driven',     'Food is health — she reads every label, tracks every macro — it matters to her'),
+        s('problem', 'frustrated', 'Healthy cooking for a family requires hours of planning she cannot keep up every week'),
+        s('agitate', 'defeated',   'Kids do not eat the healthy food — expensive ingredients expire — the plan keeps breaking'),
+        s('solve',   'intrigued',  '6-dimension nutrition scoring on every meal, from what is already in her fridge?'),
+        s('value',   'empowered',  'Healthy dinner in 30 minutes, macros calculated automatically, ingredients she has'),
+        s('proof',   'trusting',   'Registered dietitians validated every recipe — FDA-grade data — she can trust the numbers'),
+        s('cta',     'committed',  'This is the tool that makes her health goals work for the whole family, not just her')
+      ]),
+
+      arc('millennial_couple', 'Millennial Couple', 'Great income, great kitchen, terrible food habits — and they know it', [
+        s('hook',    'self_aware',  '$500/month on delivery — they know it is irrational — they do it anyway'),
+        s('problem', 'irrational', 'Groceries sit unused — they order DoorDash on top of a full fridge — the pattern is locked'),
+        s('agitate', 'wasteful',   '$6,000/year on habits they want to break — they have talked about it and nothing changes'),
+        s('solve',   'intrigued',  'Turns groceries already bought into restaurant-quality dinner in 30 minutes?'),
+        s('value',   'capable',    'They can cook — the kitchen is there — they just needed someone to remove the friction'),
+        s('proof',   'confident',  'Real savings, real meals — the delivery habit is actually breakable'),
+        s('cta',     'liberated',  'The $6,000/year habit ends here — free to try, no commitment required')
+      ]),
+
+      arc('meal_prep_enthusiast', 'Meal Prep Enthusiast', 'Sunday prep ritual undermined by waste and poor ingredient planning every week', [
+        s('hook',    'proud',       'Sunday prep is a ritual — 3 hours, disciplined, she has a system'),
+        s('problem', 'disappointed','30% goes to waste by Wednesday — the ritual keeps failing at mid-week'),
+        s('agitate', 'frustrated',  '3 hours of Sunday work undone by Thursday — the discipline is there, the system is broken'),
+        s('solve',   'curious',     'Meal plan built from the pantry — nothing expires mid-week because everything has a place?'),
+        s('value',   'efficient',   'Zero waste week — the Sunday prep holds all the way to Sunday again'),
+        s('proof',   'confident',   '69.5% waste reduction — the Sunday ritual finally works the way it was always supposed to'),
+        s('cta',     'committed',   'She will never waste a prep week again — the system is finally complete')
+      ]),
+
+      arc('food_waste_fighter', 'Food Waste Fighter', 'Waste is moral for her — financial AND environmental — and every solution has failed', [
+        s('hook',    'principled', 'Every expired item is both a financial failure and an environmental one — she carries both'),
+        s('problem', 'guilty',     'Despite best intentions she throws away $1,336/year — she knows the number exactly'),
+        s('agitate', 'failing',    'She has tried everything — composting, meal planning, discipline — the waste keeps happening'),
+        s('solve',   'hopeful',    'Expiry alerts before food goes bad — 69.5% waste reduction — the loop finally closes'),
+        s('value',   'aligned',    'She lives her values now — the pantry is tracked, nothing expires without a plan'),
+        s('proof',   'trusting',   'Real data, validated reduction — this is not a promise, it is a measured result'),
+        s('cta',     'committed',  'This is how she actually fixes what she has been trying to fix for years')
+      ]),
+
+      arc('date_night_planner', 'Date Night Planner', 'Wants to cook for the person they love — keeps panicking and ordering delivery instead', [
+        s('hook',    'romantic',     'Cooking at home for someone you love is more intimate than any restaurant'),
+        s('problem', 'failing',      'Great intentions, opens the fridge at 7 PM, no plan, panics — DoorDash again'),
+        s('agitate', 'disappointed', 'Every failed date night at home is a restaurant bill anyway plus the feeling of failing'),
+        s('solve',   'intrigued',    'Date Night theme — what is in the fridge becomes a real restaurant-quality meal in 45 minutes?'),
+        s('value',   'capable',      'They cook together — 45 minutes, better than a reservation, more meaningful than delivery'),
+        s('proof',   'confident',    'Step-by-step, real ingredients, real meal — the intention finally becomes the outcome'),
+        s('cta',     'invested',     'They cook together — that is the whole point — and now they actually will')
+      ]),
+
+      arc('grandparent_cook', 'Grandparent Cook', 'Cooking for grandchildren is love language — mixed ages, preferences, and expiry gaps between visits', [
+        s('hook',    'loving',      'Cooking for grandchildren is how she shows love — it matters more than anything in that kitchen'),
+        s('problem', 'guessing',    'Different ages, different preferences — constant guesswork and waste between visits'),
+        s('agitate', 'heartbroken', 'Every visit with a failed dinner is a memory she cannot get back'),
+        s('solve',   'curious',     'Recipes built for mixed ages, pantry tracking so nothing expires between visits, simple step-by-step?'),
+        s('value',   'confident',   'She cooks with certainty — the right amounts, the right ingredients, the grandchildren actually eat it'),
+        s('proof',   'trusting',    'Simple, real food — the system does not require technology skills, it just works'),
+        s('cta',     'grateful',    'Every visit she cooks with confidence — they feel the love because the food is right')
+      ]),
+
+      arc('beta_tester', 'Beta Tester', 'Fresh recruit — has not seen the alpha build — founding price still available through July 1', [
+        s('hook',    'fresh',      'She just joined — she has not seen the build yet — she is coming in with fresh eyes'),
+        s('problem', 'same',       'The 6:30 PM wall is still hitting — unresolved because she only just arrived'),
+        s('agitate', 'urgent',     'Founding price ends July 1 — she found this at the right time but the window is closing'),
+        s('solve',   'tested',     'Real families shaped this before she got here — it was built and fixed for her'),
+        s('value',   'ready',      'She gets a finished product — tested, iterated, improved — not a rough first version'),
+        s('proof',   'founding',   'Founding price still available — $7.99 forever — she is still inside the window'),
+        s('cta',     'excited',    'July 1 — she launches with it — fresh experience, founding price, perfect timing')
+      ]),
+
+      arc('pre_launch_visitor', 'Pre-Launch Visitor', 'Found it before it was everywhere — discovery energy — one friction moment and she is gone', [
+        s('hook',    'curious',    'She found this before it was public — that does not happen by accident'),
+        s('problem', 'uncertain',  'Not on the waitlist yet — she is interested but has not committed — one friction moment ends it'),
+        s('agitate', 'urgent',     'Founding price ends at 5,000 families — she found it early, she should act on that advantage'),
+        s('solve',   'exclusive',  'Free to join, early access July 1 — this feels like she got somewhere before the crowd'),
+        s('value',   'early',      'She was early — that means something — founding members are a different category'),
+        s('proof',   'scarce',     'First 5,000 families only — the window is real and she is inside it right now'),
+        s('cta',     'belonging',  'She joins — founding member before the crowd arrives — that identity is hers')
+      ]),
+
+      arc('founder_family', 'Founding Family', 'Already in — price locked — waiting for July 1 with pride and slight anticipation', [
+        s('hook',    'proud',               'She is in — she was there first — founding family is not a label, it is an identity'),
+        s('problem', 'waiting',             'July 1 is coming — the anticipation is real — she wants to know it is actually happening'),
+        s('agitate', 'reassurance_needed',  'Did she make the right call joining early? The wait has created a small window of doubt'),
+        s('solve',   'confirmed',           '$7.99 locked forever — the price is real — her decision was right'),
+        s('value',   'insider',             'She was part of the family that built this — her early join shaped what others get'),
+        s('proof',   'committed',           'July 1 app download — first access confirmed — she goes before everyone else'),
+        s('cta',     'excited',             'She launches with the product — founding family — she was always going to be here')
+      ])
+
+    ];
+
+    var added = 0;
+    strategies.forEach(function(row) {
+      if (!existing[row[0]]) {
+        sheet.appendRow(row);
+        added++;
+      }
+    });
+
+    Logger.log('[seedEC2026001CampaignStrategies] added:' + added + ' skipped:' + (strategies.length - added));
+    return { ok: true, added: added, skipped: strategies.length - added, total: strategies.length };
+
+  } catch(e) {
+    Logger.log('[seedEC2026001CampaignStrategies] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
   }
 }

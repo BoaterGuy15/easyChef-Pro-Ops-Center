@@ -31,7 +31,9 @@ var _CC_TAB = {
   SETTINGS:       'CcSettings',
   BRAND_DOCTRINE:  'BrandDoctrine',
   CAMP_STRATEGY:   'CampaignStrategy',
-  ASSET_LIFECYCLE: 'AssetLifecycle'
+  ASSET_LIFECYCLE:   'AssetLifecycle',
+  VIDEO_PRODUCTION:  'VideoProduction',
+  VIDEO_IDEA_BANK:   'VideoIdeaBank'
 };
 
 var _CC_HDR = {
@@ -107,7 +109,8 @@ var _CC_HDR = {
     'created_at','last_updated','notes',
     'urgency_type','urgency_line','urgency_placement',
     'exclusivity_angle','exclusivity_line',
-    'meta_title','meta_description','og_title','og_description','canonical_url','focus_keyword'
+    'meta_title','meta_description','og_title','og_description','canonical_url','focus_keyword',
+    'page_type','thank_you_url'
   ],
   Channels: [
     'name','slug_code','utm_medium','utm_source','dl_prefix','status','notes',
@@ -165,6 +168,27 @@ var _CC_HDR = {
     'figma_file_id','figma_page','figma_frame','designer',
     'status','approved_by','export_url','publish_date',
     'created_at','updated_at'
+  ],
+  VideoProduction: [
+    'asset_id','campaign_id','platform','video_type','duration_target',
+    'hook','script_status',
+    'storyboard_status','storyboard_url',
+    'ai_tool','ai_gen_status','video_url',
+    'edit_status','thumbnail_status',
+    'brief','publish_date','published_url','notes',
+    'created_at','updated_at'
+  ],
+  VideoIdeaBank: [
+    'idea_id','campaign_id','title','feature','icp_target','pain_mapped',
+    'emotional_state','comedy_style','visual_metaphor',
+    'comedy_premise',
+    'sq_1','sq_2','sq_3','sq_4','sq_5','sq_6',
+    'comedy_peak','hold_beat_note',
+    'arc_1','arc_2','arc_3','arc_4',
+    'opening_hook','cta_line','audio_direction',
+    'platform','duration_target',
+    'status','video_asset_id','notes',
+    'created_at','updated_at'
   ]
 };
 
@@ -204,12 +228,122 @@ function _ccHdrStyle(sheet, headers) {
   for (var i = 1; i <= headers.length; i++) sheet.setColumnWidth(i, 150);
 }
 
+// ── Purge orphan rows — removes rows with blank campaign_id ──────────────────
+// Targets SocialPosts, EmailSequences, DeepLinkRegistry.
+// Keeps any row that has a non-blank campaign_id value.
+// Safe to run — only deletes rows the seed never claims.
+function purgeOrphanRows() {
+  return purgeForeignCampaignData('EC-2026-001');
+}
+
+// ── Remove all rows not belonging to keepCampaignId from every tab ────────────
+// Skips config/reference tabs (no campaign_id column). Safe to re-run.
+function purgeForeignCampaignData(keepCampaignId) {
+  if (!keepCampaignId) return { ok: false, error: 'keepCampaignId required' };
+
+  // Tabs that store campaign-specific rows keyed by campaign_id
+  var targets = [
+    { name: _CC_TAB.SOCIAL,      hdr: _CC_HDR.SocialPosts        },
+    { name: _CC_TAB.EMAIL,       hdr: _CC_HDR.EmailSequences      },
+    { name: _CC_TAB.DL,          hdr: _CC_HDR.DeepLinkRegistry    },
+    { name: _CC_TAB.CONTENT_CAL, hdr: _CC_HDR.ContentCalendar     },
+    { name: _CC_TAB.ASSET_LIFECYCLE, hdr: _CC_HDR.AssetLifecycle  },
+    { name: _CC_TAB.BRIEFS,      hdr: _CC_HDR.CampaignBriefs      },
+    { name: _CC_TAB.COPY,        hdr: _CC_HDR.GeneratedCopy       },
+    { name: _CC_TAB.PUSH_NOTIFS, hdr: _CC_HDR.PushNotifications   },
+    { name: _CC_TAB.METRICS,     hdr: _CC_HDR.CampaignMetrics     },
+    { name: _CC_TAB.SCHEDULED,   hdr: _CC_HDR.ScheduledPosts      },
+    { name: _CC_TAB.PAGES,       hdr: _CC_HDR.LandingPages        }
+  ];
+
+  var summary = [];
+
+  targets.forEach(function(t) {
+    try {
+      var sheet   = _getCCSheet(t.name);
+      var lastRow = sheet.getLastRow();
+      if (lastRow < 2) { summary.push(t.name + ': empty — skipped'); return; }
+
+      var cidIdx = t.hdr.indexOf('campaign_id');
+      if (cidIdx < 0) { summary.push(t.name + ': no campaign_id col — skipped'); return; }
+
+      var colCount = sheet.getLastColumn();
+      var readCols = Math.max(t.hdr.length, colCount);
+      var data     = sheet.getRange(2, 1, lastRow - 1, readCols).getValues();
+      var hdrRow   = sheet.getRange(1, 1, 1, readCols).getValues()[0];
+
+      var kept    = [hdrRow];
+      var removed = 0;
+
+      data.forEach(function(row) {
+        var cid = String(row[cidIdx] || '').trim();
+        // Keep if matches target campaign OR if campaign_id is blank (config row)
+        if (cid === keepCampaignId || cid === '') {
+          kept.push(row);
+        } else {
+          removed++;
+        }
+      });
+
+      if (removed === 0) {
+        summary.push(t.name + ': nothing to remove');
+        return;
+      }
+
+      sheet.clearContents();
+      sheet.getRange(1, 1, kept.length, readCols).setValues(kept);
+      summary.push(t.name + ': removed ' + removed + ' · kept ' + (kept.length - 1));
+    } catch(e) {
+      summary.push(t.name + ': ERROR — ' + e.message);
+    }
+  });
+
+  Logger.log('[purgeForeignCampaignData] keep=' + keepCampaignId + ' · ' + summary.join(' | '));
+  return { ok: true, kept_campaign: keepCampaignId, summary: summary };
+}
+
+// ── Repair header rows for existing tabs — safe to run at any time ────────────
+// Rewrites row 1 of each tab to match the current _CC_HDR definition.
+// Does NOT touch data rows. Adds blank columns if new fields were added.
+// Pass tabs:["LPInventory","ContentCalendar"] to target specific tabs,
+// or omit to repair all tabs in _CC_HDR.
+function repairSheetHeaders(tabs) {
+  var ss      = _getCampaignSpreadsheet();
+  var targets = tabs && tabs.length ? tabs : Object.keys(_CC_HDR);
+  var results = [];
+  var errors  = [];
+
+  targets.forEach(function(tabName) {
+    var headers = _CC_HDR[tabName];
+    if (!headers || !headers.length) { errors.push(tabName + ': no header defined'); return; }
+
+    var sheet = ss.getSheetByName(tabName);
+    if (!sheet) { errors.push(tabName + ': tab not found in sheet'); return; }
+
+    var existingHdrCount = sheet.getLastColumn();
+    var newHdrCount      = headers.length;
+
+    // Write the full header row (overwrites existing header)
+    _ccHdrStyle(sheet, headers);
+
+    // If we added columns, fill the new header cells for existing data rows
+    // (data is already there from upserts — just the label row needed fixing)
+    results.push(tabName + ': ' + newHdrCount + ' columns' +
+      (newHdrCount > existingHdrCount ? ' (+' + (newHdrCount - existingHdrCount) + ' new)' : ' (no change)'));
+  });
+
+  Logger.log('[repairSheetHeaders] ' + results.concat(errors).join(' | '));
+  return { ok: true, repaired: results, errors: errors };
+}
+
 function _ccNow() { return new Date().toISOString(); }
 
 function _ccFmtDate(v) {
   if (!v) return '';
   if (v instanceof Date) return Utilities.formatDate(v, 'UTC', 'yyyy-MM-dd');
-  return String(v);
+  var s = String(v);
+  if (s.indexOf('T') !== -1) return s.split('T')[0]; // strip time from ISO timestamps
+  return s;
 }
 
 function _ccUpsert(sheet, headers, id, rowValues) {
@@ -798,7 +932,9 @@ function _icpRowToObj(r) {
     value_trigger: r[8], loss_aversion: r[9],
     channel_affinity: r[10], message_hierarchy: r[11],
     conversion_triggers: r[12], utm_campaign_codes: r[13],
-    lp_variants: r[14], validated: r[15], validation_notes: r[16],
+    lp_variants: r[14],
+    validated: r[15] === true || String(r[15]).toUpperCase() === 'TRUE',
+    validation_notes: r[16],
     created_at: _ccFmtDate(r[17]), updated_at: _ccFmtDate(r[18])
   };
 }
@@ -860,6 +996,44 @@ function setIcpProfile(item) {
     now
   ];
   _ccUpsert(sheet, headers, item.id, row);
+}
+
+function repairIcpDates() {
+  var sheet  = _getCCSheet(_CC_TAB.ICP);
+  var last   = sheet.getLastRow();
+  if (last < 2) return { ok: true, repaired: 0, total: 0 };
+  var hdrLen = _CC_HDR.ICPProfiles.length;
+  var data   = sheet.getRange(2, 1, last - 1, hdrLen).getValues();
+  var repaired = 0;
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0]) continue;
+    var changed = false;
+    [17, 18].forEach(function(col) {
+      var v = row[col];
+      var norm;
+      if (v instanceof Date) {
+        norm = Utilities.formatDate(v, 'UTC', 'yyyy-MM-dd');
+        changed = true;
+      } else {
+        var s = String(v || '');
+        norm = s.indexOf('T') !== -1 ? s.split('T')[0] : s;
+        if (norm !== s) changed = true;
+      }
+      row[col] = norm;
+    });
+    // also normalize validated to boolean string
+    var valRaw = row[15];
+    var valBool = valRaw === true || String(valRaw).toUpperCase() === 'TRUE';
+    if (String(row[15]) !== String(valBool)) { row[15] = valBool; changed = true; }
+    if (changed) {
+      var rng = sheet.getRange(i + 2, 1, 1, hdrLen);
+      rng.setNumberFormat('@');
+      rng.setValues([row]);
+      repaired++;
+    }
+  }
+  return { ok: true, repaired: repaired, total: data.filter(function(r){ return r[0]; }).length };
 }
 
 // ── ApprovedClaims ────────────────────────────────────────────────────────────
@@ -2791,7 +2965,9 @@ function _lpInvRowToObj(r) {
     og_title:             String(r[29] || ''),
     og_description:       String(r[30] || ''),
     canonical_url:        String(r[31] || ''),
-    focus_keyword:        String(r[32] || '')
+    focus_keyword:        String(r[32] || ''),
+    page_type:            String(r[33] || 'waitlist_lp'),
+    thank_you_url:        String(r[34] || '')
   };
 }
 
@@ -2804,6 +2980,172 @@ function getLPInventory(statusFilter) {
     .map(_lpInvRowToObj);
   if (!statusFilter) return rows;
   return rows.filter(function(r) { return r.status === statusFilter; });
+}
+
+// ── Full funnel map for a campaign — used by cockpit + team reference ─────────
+function getCampaignFunnel(campaignId) {
+  if (!campaignId) return { ok: false, error: 'campaign_id required' };
+
+  // 1. LP pages — all types
+  var allLPs    = getLPInventory();
+  var pages     = { coming_soon: [], waitlist_lp: [], thank_you: [], other: [] };
+  allLPs.forEach(function(lp) {
+    var t = lp.page_type || 'waitlist_lp';
+    if (pages[t]) pages[t].push(lp); else pages.other.push(lp);
+  });
+
+  // 2. Deep links for this campaign
+  var dlSheet  = _getCCSheet(_CC_TAB.DL);
+  var dlLast   = dlSheet.getLastRow();
+  var dlRows   = dlLast < 2 ? [] : dlSheet.getRange(2, 1, dlLast - 1, _CC_HDR.DeepLinkRegistry.length).getValues();
+  var dlHdrs   = _CC_HDR.DeepLinkRegistry;
+  var cidIdx   = dlHdrs.indexOf('campaign_id');
+  var deepLinks = dlRows
+    .filter(function(r) { return String(r[cidIdx] || '') === campaignId; })
+    .map(function(r) {
+      var obj = {};
+      dlHdrs.forEach(function(h, i) { obj[h] = r[i]; });
+      return obj;
+    });
+
+  // Group deep links by channel
+  var dlByChannel = {};
+  deepLinks.forEach(function(dl) {
+    var ch = dl.channel || 'Unknown';
+    if (!dlByChannel[ch]) dlByChannel[ch] = [];
+    dlByChannel[ch].push({ dl_id: dl.dl_id, utm_content: dl.utm_content,
+      destination_url: dl.destination_url, status: dl.status, notes: dl.notes });
+  });
+
+  // 3. Email sequences summary
+  var emSheet  = _getCCSheet(_CC_TAB.EMAIL);
+  var emLast   = emSheet.getLastRow();
+  var emRows   = emLast < 2 ? [] : emSheet.getRange(2, 1, emLast - 1, _CC_HDR.EmailSequences.length).getValues();
+  var emHdrs   = _CC_HDR.EmailSequences;
+  var emCidIdx = emHdrs.indexOf('campaign_id');
+  var emailSeqs = emRows
+    .filter(function(r) { return String(r[emCidIdx] || '') === campaignId; })
+    .reduce(function(acc, r) {
+      var seq = String(r[emHdrs.indexOf('sequence_code')] || 'SEQ-?');
+      if (!acc[seq]) acc[seq] = { sequence_code: seq, emails: [] };
+      acc[seq].emails.push({
+        email_number:  r[emHdrs.indexOf('email_number')],
+        subject_line:  r[emHdrs.indexOf('subject_line')],
+        send_day:      r[emHdrs.indexOf('send_day')],
+        funnel_stage:  r[emHdrs.indexOf('funnel_stage')],
+        dl_id:         r[emHdrs.indexOf('dl_id') >= 0 ? emHdrs.indexOf('dl_id') : -1] || ''
+      });
+      return acc;
+    }, {});
+
+  // 4. Social post count by platform + stage
+  var spSheet  = _getCCSheet(_CC_TAB.SOCIAL);
+  var spLast   = spSheet.getLastRow();
+  var spRows   = spLast < 2 ? [] : spSheet.getRange(2, 1, spLast - 1, _CC_HDR.SocialPosts.length).getValues();
+  var spHdrs   = _CC_HDR.SocialPosts;
+  var spCidIdx = spHdrs.indexOf('campaign_id');
+  var spPlIdx  = spHdrs.indexOf('platform');
+  var spStIdx  = spHdrs.indexOf('status');
+  var postSummary = {};
+  spRows.filter(function(r) { return String(r[spCidIdx] || '') === campaignId; })
+    .forEach(function(r) {
+      var pl = String(r[spPlIdx] || 'Unknown');
+      if (!postSummary[pl]) postSummary[pl] = { total: 0, draft: 0, approved: 0 };
+      postSummary[pl].total++;
+      var st = String(r[spStIdx] || 'draft').toLowerCase();
+      if (st === 'approved') postSummary[pl].approved++;
+      else postSummary[pl].draft++;
+    });
+
+  // 5. Brief + A/B config
+  var brief = null;
+  try {
+    var briefs = _getCCSheet(_CC_TAB.BRIEFS);
+    var bLast  = briefs.getLastRow();
+    if (bLast >= 2) {
+      var bRows = briefs.getRange(2, 1, bLast - 1, _CC_HDR.CampaignBriefs.length).getValues();
+      var bHdrs = _CC_HDR.CampaignBriefs;
+      for (var bi = 0; bi < bRows.length; bi++) {
+        if (String(bRows[bi][0]) === campaignId) {
+          brief = {};
+          bHdrs.forEach(function(h, i) { brief[h] = bRows[bi][i]; });
+          break;
+        }
+      }
+    }
+  } catch(e) {}
+
+  // 6. Build the funnel flow steps
+  var funnelFlow = [];
+
+  // Step A: Entry — ad/social/email drives traffic
+  funnelFlow.push({
+    step: 1, label: 'Entry Points',
+    description: 'Paid social + organic posts drive traffic via deep-linked UTM URLs',
+    channels: Object.keys(dlByChannel).filter(function(c) { return c !== 'Email'; }),
+    deep_links: Object.keys(dlByChannel).filter(function(c) { return c !== 'Email'; })
+      .reduce(function(acc, ch) { acc[ch] = (dlByChannel[ch] || []).length + ' DL_IDs'; return acc; }, {}),
+    post_counts: postSummary
+  });
+
+  // Step B: Coming soon (pre-launch gate if /coming-soon is LIVE)
+  if (pages.coming_soon.length) {
+    funnelFlow.push({
+      step: 2, label: 'Coming Soon Gate',
+      description: 'Root easychefpro.com 302 → /coming-soon · captures early intent',
+      pages: pages.coming_soon.map(function(p) { return { id: p.id, url: p.full_url, status: p.status }; })
+    });
+  }
+
+  // Step C: Landing pages — A/B split
+  funnelFlow.push({
+    step: 3, label: 'Landing Pages (A/B)',
+    description: brief && brief.ab_test ? 'A/B split · ' + (brief.ab_split || '50/50') + ' · experiment: ' + (brief.ab_experiment_id || '') : 'Single LP',
+    pages: pages.waitlist_lp.map(function(p) {
+      return { id: p.id, slug: p.slug, url: p.full_url, variant: p.lp_variant,
+               icp: p.icp_codes, angle: p.campaign_angle, status: p.status,
+               thank_you_url: p.thank_you_url };
+    }),
+    dl_ids: (dlByChannel['Facebook'] || []).concat(dlByChannel['Instagram'] || [])
+      .slice(0, 3).map(function(d) { return d.dl_id; })
+  });
+
+  // Step D: Email sequences
+  funnelFlow.push({
+    step: 4, label: 'Email Sequences',
+    description: 'Post-signup nurture sequences trigger on Klaviyo · ' + Object.keys(emailSeqs).length + ' sequences',
+    sequences: Object.values(emailSeqs).map(function(s) {
+      return { code: s.sequence_code, email_count: s.emails.length,
+               dl_ids: (dlByChannel['Email'] || []).map(function(d) { return d.dl_id; }) };
+    })
+  });
+
+  // Step E: Thank-you pages
+  funnelFlow.push({
+    step: 5, label: 'Thank-You Pages',
+    description: 'Post-conversion confirmation · query param routes A vs B variant',
+    pages: pages.thank_you.map(function(p) {
+      return { id: p.id, url: p.full_url, variant: p.lp_variant || p.notes, status: p.status };
+    })
+  });
+
+  return {
+    ok:          true,
+    campaign_id: campaignId,
+    brief:       brief ? { name: brief.name, launch_date: brief.launch_date,
+                           ab_test: brief.ab_test, ab_experiment_id: brief.ab_experiment_id,
+                           channels: brief.channels } : null,
+    funnel_flow: funnelFlow,
+    pages:       pages,
+    deep_link_summary: {
+      total:      deepLinks.length,
+      by_channel: Object.keys(dlByChannel).reduce(function(acc, ch) {
+                    acc[ch] = dlByChannel[ch].length; return acc; }, {})
+    },
+    post_summary:  postSummary,
+    email_sequences: emailSeqs,
+    generated_at: _ccNow()
+  };
 }
 
 function setLPInventoryEntry(item) {
@@ -2852,7 +3194,9 @@ function setLPInventoryEntry(item) {
     item.og_title           !== undefined ? item.og_title           : (ex ? ex[29] : ''),
     item.og_description     !== undefined ? item.og_description     : (ex ? ex[30] : ''),
     item.canonical_url      !== undefined ? item.canonical_url      : (ex ? ex[31] : ''),
-    item.focus_keyword      !== undefined ? item.focus_keyword      : (ex ? ex[32] : '')
+    item.focus_keyword      !== undefined ? item.focus_keyword      : (ex ? ex[32] : ''),
+    item.page_type          !== undefined ? item.page_type          : (ex ? ex[33] : 'waitlist_lp'),
+    item.thank_you_url      !== undefined ? item.thank_you_url      : (ex ? ex[34] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -3591,6 +3935,302 @@ function seedApprovedClaims() {
   if (!sheet) { sheet = ss.insertSheet(_CC_TAB.CLAIMS); _ccHdrStyle(sheet, _CC_HDR.ApprovedClaims); }
   _seedApprovedClaims(sheet);
   return { ok: true, message: 'ApprovedClaims seeded — ' + (sheet.getLastRow() - 1) + ' rows' };
+}
+
+// ── Full claims rewrite — human, visual, implied emotion ─────────────────────
+function rewriteAllClaims() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.CLAIMS);
+    var data  = sheet.getDataRange().getValues();
+    var rowMap = {};
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0]) rowMap[String(data[i][0])] = i + 1;
+    }
+
+    // id → new exact_wording
+    var rewrites = {
+      // SAVINGS
+      'annual_savings':          'The average family saves $1,336 a year. That is $111 back every single month.',
+      'monthly_savings':         '$111 a month back in your pocket. Every month. Just from not throwing food away.',
+      'roi_standard':            'The app costs $20 a month. The average family saves $111. Do that math once and you never think about the price again.',
+      'roi_founding':            'Eight dollars a month. A hundred and eleven dollars back. That is not a subscription. That is a return.',
+      'waste_equals_money':      '$111 in groceries thrown away every month. Not because you forgot to shop. Because there was no system.',
+      'grocery_bill':            'Your shopping list only includes what you actually need. Nothing else makes the list.',
+      'no_overbuy':              'No more buying a third jar of something you already have two of.',
+      // WASTE
+      'food_waste':              'The food in your fridge gets used. 69.5% less of it ends up in the trash.',
+      'spoilage_prevention':     'The spinach at the back of your fridge is three days from going bad. easyChef Pro already planned dinner around it.',
+      'nothing_forgotten':       'Nothing hides at the back of the fridge anymore.',
+      'use_what_you_have':       'Dinner starts with what you already have. The shopping list fills in the gaps.',
+      'fridge_awareness':        'You open the fridge knowing exactly what is in there. Because easyChef Pro already knows.',
+      // SPEED
+      'fridge_to_table':         'Fridge to table. Thirty minutes.',
+      'dinner_decided':          'The fridge opens. Dinner is already decided. That is a different feeling.',
+      'no_decision_wall':        'No more standing at an open fridge at 6:30 PM with nothing decided.',
+      'faster_than_takeout':     'Dinner is on the table before the delivery driver finds parking.',
+      'sunday_reset':            'One Sunday hour. Seven nights sorted.',
+      // POSITIONING
+      'kitchen_in_command':      'Your kitchen. Finally in command.',
+      'one_app':                 'Five apps open on your phone. One does what all five should.',
+      'full_loop':               'TRACK. PLAN. OPTIMIZE. COOK. SHOP. The loop closes every week. Nothing left open.',
+      'only_app':                'One app. Everything your kitchen needs. Nothing it does not.',
+      'outcomes_not_dashboards': 'No charts. No dashboards. Just tonight\'s dinner.',
+      'not_a_meal_planner':      'A meal planner tells you what to cook. easyChef Pro runs your kitchen.',
+      'not_a_calorie_tracker':   'A calorie tracker watches what you already ate. easyChef Pro decides what you cook next.',
+      'closes_the_loop':         'Every other food app stops at one step. This one closes the whole loop.',
+      'no_tracking':             'You cooked. easyChef Pro already knows. Nothing to log. Nothing to count.',
+      // PRODUCT
+      'grocery_scanning_free':   'Scan your groceries in. Your pantry updates. Free. No subscription to get started.',
+      'photo_recognition':       'Take a photo of anything in your kitchen. easyChef Pro finds it and tells you exactly what to do with it.',
+      'receipt_scan':            'Scan the receipt. Your pantry is already updated.',
+      'auto_pantry_update':      'You cook. You shop. Your pantry keeps up on its own.',
+      'expiry_tracking':         'Everything in your fridge has a clock on it. easyChef Pro is watching it for you.',
+      'knows_your_kitchen':      'You never have to open the fridge twice to remember what is in there.',
+      'no_food_logging':         'No daily logging. No tracking what you ate. Your kitchen just knows.',
+      'three_ingredients':       'Three things in your fridge. Tonight\'s dinner decided.',
+      'setup_time':              'Ten minutes. Your kitchen is running.',
+      'weekly_meal_plan':        'A full week of dinners. Built from what is already in your kitchen.',
+      'pantry_first_planning':   'The meal plan starts with what you already have. The shopping list fills in the gaps.',
+      'schedule_aware':          'Tuesday is your long night. easyChef Pro already planned something quick.',
+      'adaptive_planning':       'Your week changes. Your meal plan changes with it.',
+      'no_repeat_meals':         'No one has to say we just had this again.',
+      'comfort_food':            'Pizza night is still on the plan. easyChef Pro does not pretend life is always healthy.',
+      'quick_meals':             'Some nights you have twenty minutes. The plan already knows.',
+      'six_nutrition_dimensions':'Six dimensions of nutrition. Not just calories. Everything that actually matters about what you are eating.',
+      'verified_nutrition':      'Every food in our database was verified by a registered dietitian. Not crowdsourced. Not guessed.',
+      'nutrition_you_can_trust': 'The nutrition numbers are right. Verified. Not estimated. Right.',
+      'deterministic_data':      'The same apple gives the same answer every time. No variation. No guessing.',
+      'health_conditions':       'Tell easyChef Pro about your health needs once. It never asks again.',
+      'family_memory':           'You told us once. Every meal since then already knows.',
+      'allergy_safe':            'Every meal suggestion is already safe for your family. You told us what to avoid. We never forgot.',
+      'sodium_tracking':         'Your doctor said watch the sodium. Your meal plan already knows.',
+      'macro_tracking':          'Protein, carbs, fat — tracked across every meal. Without you having to think about it.',
+      'calorie_accuracy':        'Calorie counts verified against 800,000 products. Numbers you can actually trust.',
+      'no_generic_advice':       'Not generic nutrition advice. Built around your family\'s actual health needs.',
+      'nutrition_steers':        'Healthier choices appear in the plan naturally. You did not have to overhaul how you cook.',
+      'picky_eater':             'The picky one in your house? easyChef Pro already knows what they will not eat.',
+      'fridge_to_recipe':        'What is already in your fridge becomes tonight\'s dinner. Thirty minutes.',
+      'recipe_from_what_you_have':'Every recipe starts with ingredients you already own. Not a list of things to go buy.',
+      'step_by_step':            'First chop to last plate. Every step is there when you need it.',
+      'cook_mode':               'Your hands are busy cooking. The instructions follow along. Hands-free.',
+      'verified_recipes':        'Every recipe is built on verified nutrition data. The numbers are always right.',
+      'recipe_to_cart':          'One tap. Every ingredient from the recipe is already on your list.',
+      'shopping_list_auto':      'Your shopping list builds itself. What you already have stays off it.',
+      'pantry_first_shopping':   'Your pantry is checked before your list is built. You only buy what you actually need.',
+      'one_click_checkout':      'One tap checkout at Walmart. More stores coming.',
+      'grocery_stores_growing':  'Walmart today. More stores every month.',
+      'shared_grocery_list':     'Share the list. It updates in real time. Everyone sees the same thing.',
+      'family_shopping':         'One list. The whole family. Everyone sees it update the moment something changes.',
+      'no_duplicate_buying':     'No more buying something you already have two of. The list knows your kitchen.',
+      'list_quantity':           'Exact quantities. No guessing at the store.',
+      'less_trips':              'One trip. The whole week covered.',
+      'whole_family':            'Everyone\'s preferences. Everyone\'s restrictions. One app that holds it all.',
+      'works_on_phone':          'iPhone and Android.',
+      // BRAND
+      'no_ads':                  'No ads. Not now. Not ever.',
+      'command_structure':       'Thirty years running systems under pressure. Now running yours.',
+      'modern_design':           'Built from scratch in 2026. Not a 2016 app with a fresh coat of paint.',
+      'encouraging_voice':       'What you had for dinner yesterday is not a problem to solve.',
+      // OUTCOMES
+      'peaceful_evenings':       'Walk into the evening already knowing what is for dinner.',
+      'less_stress':             'Running a kitchen should not feel like a second job.',
+      'back_to_cooking':         'Spend less time coordinating dinner. More time actually making it.',
+      'proud_table':             'Sit down. The table is set. You made this happen.',
+      'decision_free':           'You already made a hundred decisions today. Dinner should not be another one.',
+      // PRICING
+      'founding_price':          '$7.99 a month. Locked forever.',
+      'founding_discount':       '60% off the standard price.',
+      'standard_price':          '$19.99 a month after founding.',
+      'founding_scarcity':       'The first 5,000 families lock in at $7.99 forever. After that the price goes to $19.99.',
+      // TRIAL
+      'no_credit_card':          'Seven days. Full access. No credit card.',
+      'seven_day_trial':         'Seven days. Every feature. No credit card. Your first night is already different.',
+      'trial_full_access':       'The trial runs the full loop. TRACK. PLAN. OPTIMIZE. COOK. SHOP. Everything on from night one.',
+      'trial_converts':          'By Day 7 you have planned meals, used the shopping list, and watched food stop going to waste. The decision makes itself.',
+      'founding_trial':          'Start free. Lock in $7.99 before the 5,000 spots are gone.',
+      // CREDIBILITY
+      'profiles':                'Tested across 10,000 real households before a single family paid for it.',
+      'database':                '800,000 products. Verified. Ready when you are.',
+      'built_right':             'Three years. Nine patent-pending technologies filed with the USPTO. We got it right before we shipped it.',
+      'no_hallucination':        'Every nutrition number comes from a verified source. easyChef Pro does not guess.'
+    };
+
+    var count = 0;
+    Object.keys(rewrites).forEach(function(id) {
+      var rowIdx = rowMap[id];
+      if (!rowIdx) { Logger.log('[rewriteAllClaims] not found: ' + id); return; }
+      sheet.getRange(rowIdx, 3).setNumberFormat('@').setValue(rewrites[id]);
+      count++;
+    });
+
+    Logger.log('[rewriteAllClaims] rewritten:' + count);
+    return { ok: true, rewritten: count };
+  } catch(e) {
+    Logger.log('[rewriteAllClaims] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Bulk approve all PENDING claims — LEGAL_REVIEW and BUILD_NEEDED untouched ─
+function approveAllPendingClaims() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.CLAIMS);
+    var data  = sheet.getDataRange().getValues();
+    var now   = new Date().toISOString().split('T')[0];
+    var count = 0;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][3]).toUpperCase() === 'PENDING') {
+        sheet.getRange(i + 1, 4).setValue('ACTIVE');
+        sheet.getRange(i + 1, 5).setValue('Taylor');
+        sheet.getRange(i + 1, 6).setValue(now);
+        count++;
+      }
+    }
+    Logger.log('[approveAllPendingClaims] approved:' + count);
+    return { ok: true, approved: count };
+  } catch(e) {
+    Logger.log('[approveAllPendingClaims] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Approved Claims patch — factual corrections + new DNI claims ──────────────
+function patchApprovedClaimsV2() {
+  try {
+    var sheet   = _getCCSheet(_CC_TAB.CLAIMS);
+    var data    = sheet.getDataRange().getValues();
+    var now     = new Date().toISOString().split('T')[0];
+    var updated = 0;
+
+    // Build ID → row index map (1-based)
+    var rowMap = {};
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0]) rowMap[String(data[i][0])] = i + 1;
+    }
+
+    // Updates: [id, col(1-based), newValue]
+    var updates = [
+      // no_tracking — rewrite: OPTIMIZE does track; distinction is automatic not manual
+      ['no_tracking',        3, 'easyChef Pro does not ask you to log what you ate. It already knows what you cooked.'],
+      // built_right — inventions → patent-pending technologies
+      ['built_right',        3, 'Three years in development — nine patent-pending technologies filed with the USPTO before a single family used it.'],
+      // fda_grade → clinical grade anchored to DNI
+      ['fda_grade',          2, 'credibility'],
+      ['fda_grade',          3, 'Powered by Digital Nutrition Intelligence™ — clinical grade nutrition data, the same standard used in medical and dietitian practice.'],
+      // shared_grocery_list — PENDING → ACTIVE
+      ['shared_grocery_list',4, 'ACTIVE'],
+      ['shared_grocery_list',5, 'Taylor'],
+      ['shared_grocery_list',6, now]
+    ];
+
+    updates.forEach(function(u) {
+      var rowIdx = rowMap[u[0]];
+      if (!rowIdx) { Logger.log('[patchApprovedClaimsV2] not found: ' + u[0]); return; }
+      sheet.getRange(rowIdx, u[1]).setNumberFormat('@').setValue(u[2]);
+      updated++;
+    });
+
+    // New claims to add
+    var existingIds = Object.keys(rowMap);
+    var newClaims = [
+      ['digital_nutrition_intelligence', 'credibility',
+       'Powered by Digital Nutrition Intelligence™ — clinical grade nutrition data, verified by registered dietitians, never crowdsourced.',
+       'ACTIVE', 'Taylor', now, 'Trademark — exact casing and ™ always required'],
+      ['not_crowdsourced', 'credibility',
+       'Clinical grade nutrition data, verified by registered dietitians, never crowdsourced.',
+       'ACTIVE', 'Taylor', now, 'Standalone proof section version of DNI claim']
+    ];
+
+    var toAdd = newClaims.filter(function(r) { return existingIds.indexOf(r[0]) < 0; });
+    if (toAdd.length) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, toAdd.length, toAdd[0].length)
+        .setNumberFormat('@').setValues(toAdd);
+    }
+
+    Logger.log('[patchApprovedClaimsV2] updated:' + updated + ' added:' + toAdd.length);
+    return { ok: true, updated: updated, added: toAdd.length };
+  } catch(e) {
+    Logger.log('[patchApprovedClaimsV2] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Claim quality rules + back_to_cooking fix + clinical unblock ──────────────
+function seedClaimQuality001() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.BRAND_DOCTRINE);
+    var data  = sheet.getDataRange().getValues();
+    var existing = {};
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0]) existing[String(data[i][0])] = i + 1;
+    }
+
+    // Fix APPROVED_CLAIMS_001 — remove 'clinical' from forbidden (clinical grade is now approved)
+    if (existing['APPROVED_CLAIMS_001']) {
+      sheet.getRange(existing['APPROVED_CLAIMS_001'], 5)
+        .setValue('{"forbidden":["$1,500","70%","9 patents","50% off"],"note":"clinical grade nutrition is approved — standalone clinical without grade context is not"}');
+    }
+
+    // Add CLAIM_QUALITY_001 if not present
+    if (!existing['CLAIM_QUALITY_001']) {
+      var value = {
+        formula: 'Recognition → emotional tension → human outcome. NOT: feature → benefit.',
+        the_test: 'Could a real exhausted human say this out loud? If not, rewrite it.',
+        emotion_approach: 'Implied emotion, not direct emotion. Create the emotional experience — do not label it.',
+        strong_claim_rules: [
+          'emotionally visual — the reader can picture it',
+          'human language — sounds spoken, not marketed',
+          'recognizable life moment — she has been here before',
+          'implies transformation without stating it',
+          'avoids startup jargon and SaaS language',
+          'avoids feature-stuffing — one clear human truth per claim',
+          'shows the experience instead of labeling the emotion'
+        ],
+        reject_if: [
+          'sounds corporate, app-store-ish, or SaaS-y',
+          'uses feature → benefit structure',
+          'labels the emotion instead of creating it',
+          'sounds like someone is marketing software',
+          'tells instead of shows',
+          'could have been written by any food app'
+        ],
+        examples: [
+          { weak: 'No more daily food decisions',
+            strong: 'You already made a hundred decisions today. Dinner should not be another one.',
+            why: 'visual, emotionally specific, feels real, sounds human' },
+          { weak: 'Dinner handled before you walk in the door',
+            strong: 'Walk into the evening already knowing what is for dinner.',
+            why: 'present tense, sensory — you can feel it' },
+          { weak: 'The mental load of running a kitchen — gone',
+            strong: 'Running a kitchen should not feel like a second job.',
+            why: 'recognizable human observation, not a product claim' },
+          { weak: 'easyChef Pro handles the logistics — you handle the cooking',
+            strong: 'Spend less time coordinating dinner. More time actually making it.',
+            why: 'implied emotion, human contrast, no product mention needed' },
+          { weak: 'Less stress',
+            strong: 'No more staring into the fridge hoping dinner appears.',
+            why: 'implied emotion creates experience — direct emotion label creates nothing' }
+        ]
+      };
+      sheet.appendRow(['CLAIM_QUALITY_001', 'claim_quality', 'soft', true, JSON.stringify(value)]);
+    }
+
+    // Fix back_to_cooking claim in ApprovedClaims
+    var claimsSheet = _getCCSheet(_CC_TAB.CLAIMS);
+    var claimsData  = claimsSheet.getDataRange().getValues();
+    for (var j = 1; j < claimsData.length; j++) {
+      if (String(claimsData[j][0]) === 'back_to_cooking') {
+        claimsSheet.getRange(j + 1, 3).setValue('Spend less time coordinating dinner. More time actually making it.');
+        break;
+      }
+    }
+
+    Logger.log('[seedClaimQuality001] done');
+    return { ok: true };
+  } catch(e) {
+    Logger.log('[seedClaimQuality001] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
 }
 
 function seedGovernanceTabs() {

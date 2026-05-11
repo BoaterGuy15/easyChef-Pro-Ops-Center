@@ -818,6 +818,47 @@ function doPost(e) {
       var _figResult = figmaPostComment(body.figma_url||'', body.comment||'');
       return respond({ ok:_figResult.ok, result:_figResult, log: Logger.getLog() });
     }
+    if(body.action === 'figma_record_expiry') {
+      var _freResult = figmaRecordTokenExpiry(body.days_valid||90);
+      return respond({ ok:_freResult.ok, result:_freResult, log: Logger.getLog() });
+    }
+    if(body.action === 'check_figma_token') {
+      return respond(figmaTokenStatus());
+    }
+    if(body.action === 'get_figma_export_json') {
+      return respond(getFigmaExportJson(body.campaign_id || 'EC-2026-001'));
+    }
+    if(body.action === 'update_asset_status') {
+      return respond(updateAssetStatus(body));
+    }
+    if(body.action === 'debug_figma_export_tab') {
+      try {
+        var _ss = _getCampaignSpreadsheet();
+        var _sheets = _ss.getSheets().map(function(s){ return s.getName(); });
+        var _fe = _ss.getSheetByName('FigmaExport');
+        var _feInfo = _fe ? { rows: _fe.getLastRow(), cols: _fe.getLastColumn(), headers: _fe.getLastRow()>0?_fe.getRange(1,1,1,Math.min(_fe.getLastColumn(),30)).getValues()[0]:[] } : null;
+        return respond({ ok:true, all_sheets:_sheets, figma_export_tab: _feInfo });
+      } catch(e) { return respond({ ok:false, error:e.message }); }
+    }
+    if(body.action === 'figma_test') {
+      var _ftResult = (function(){
+        try {
+          var props = PropertiesService.getScriptProperties().getProperties();
+          var keys = Object.keys(props);
+          var token = props['FIGMA_ACCESS_TOKEN'] || null;
+          if(!token) return { ok:false, error:'FIGMA_ACCESS_TOKEN not set', all_keys:keys };
+          var preview = token.slice(0,6)+'…('+token.length+' chars)';
+          var resp = UrlFetchApp.fetch('https://api.figma.com/v1/me', {
+            method:'GET', headers:{'X-Figma-Token':token.trim()}, muteHttpExceptions:true
+          });
+          var code = resp.getResponseCode();
+          var data = JSON.parse(resp.getContentText());
+          if(code===200) return { ok:true, handle:data.handle, email:data.email, token_preview:preview };
+          return { ok:false, error:'HTTP '+code, body:resp.getContentText().slice(0,300), token_preview:preview };
+        } catch(e){ return { ok:false, error:e.message }; }
+      })();
+      return respond({ ok:_ftResult.ok, result:_ftResult, log: Logger.getLog() });
+    }
     if(body.action === 'add_lp_variant_purpose_settings') {
       addLpVariantPurposeSettings();
       return respond({ ok:true, log: Logger.getLog() });
@@ -901,6 +942,125 @@ function doPost(e) {
     if(body.action === 'seed_ec2026001_content_calendar') {
       var _ccSeed = seedEC2026001ContentCalendar();
       return respond({ ok:_ccSeed.ok, result:_ccSeed, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_ec2026001_lp_pages') {
+      var _lpPg = seedEC2026001LPPages();
+      return respond({ ok:_lpPg.ok, result:_lpPg, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_ec2026001_landing_pages') {
+      var _lpLand = seedEC2026001LandingPages();
+      return respond({ ok:_lpLand.ok, result:_lpLand, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_sheet_headers') {
+      var _rsh = repairSheetHeaders(body.tabs || null);
+      return respond({ ok:_rsh.ok, result:_rsh, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_icp_dates') {
+      var _rid = repairIcpDates();
+      return respond({ ok:_rid.ok, result:_rid, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_ec2026001_icp_utm_lp') {
+      var _iul = seedEC2026001IcpUtmLp();
+      return respond({ ok:_iul.ok, result:_iul, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_asset_lifecycle_dropdowns' || body.action === 'repair_all_status_dropdowns') {
+      var _ald = repairAllStatusDropdowns();
+      return respond({ ok:_ald.ok, result:_ald, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_video_production') {
+      var _svp = seedEC2026001VideoProduction();
+      return respond({ ok:_svp.ok, result:_svp, log: Logger.getLog() });
+    }
+    if(body.action === 'reset_video_production') {
+      var _rvp = resetVideoProduction();
+      return respond({ ok:_rvp.ok, result:_rvp, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_video_idea_bank') {
+      var _vib = seedVideoIdeaBank();
+      return respond({ ok:_vib.ok, result:_vib, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_ec2026001_campaign_strategies') {
+      var _cs = seedEC2026001CampaignStrategies();
+      return respond({ ok:_cs.ok, result:_cs, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_video_idea_bank_batch2') {
+      var _vib2 = seedVideoIdeaBankBatch2();
+      return respond({ ok:_vib2.ok, result:_vib2, log: Logger.getLog() });
+    }
+    if(body.action === 'update_vib_tk_006') {
+      var _v6 = updateVibTk006();
+      return respond({ ok:_v6.ok, result:_v6, log: Logger.getLog() });
+    }
+    if(body.action === 'patch_vib_tk_006_scene6') {
+      var _p6 = patchVibTk006Scene6();
+      return respond({ ok:_p6.ok, result:_p6, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_brand_position_001') {
+      var _bp = seedBrandPosition001();
+      return respond({ ok:_bp.ok, result:_bp, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_icp_landing_pages') {
+      var _ilp = seedIcpLandingPages();
+      return respond({ ok:_ilp.ok, result:_ilp, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_lp_framework_001') {
+      var _lpf = seedLpFramework001();
+      return respond({ ok:_lpf.ok, result:_lpf, log: Logger.getLog() });
+    }
+    if(body.action === 'patch_approved_claims_v2') {
+      var _pac = patchApprovedClaimsV2();
+      return respond({ ok:_pac.ok, result:_pac, log: Logger.getLog() });
+    }
+    if(body.action === 'approve_all_pending_claims') {
+      var _apc = approveAllPendingClaims();
+      return respond({ ok:_apc.ok, result:_apc, log: Logger.getLog() });
+    }
+    if(body.action === 'rewrite_all_claims') {
+      var _rwc = rewriteAllClaims();
+      return respond({ ok:_rwc.ok, result:_rwc, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_claim_quality_001') {
+      var _cq = seedClaimQuality001();
+      return respond({ ok:_cq.ok, result:_cq, log: Logger.getLog() });
+    }
+    if(body.action === 'debug_claims_statuses') {
+      var _sheet = _getCCSheet(_CC_TAB.CLAIMS);
+      var _d = _sheet.getDataRange().getValues().slice(1).filter(function(r){return r[0];});
+      var _dist = {};
+      _d.forEach(function(r){ var s=String(r[3]); _dist[s]=(_dist[s]||0)+1; });
+      return respond({ ok:true, total:_d.length, distribution:_dist, sample: _d.slice(0,3).map(function(r){return {id:r[0],status:r[3]};}) });
+    }
+    if(body.action === 'purge_orphan_rows') {
+      var _por = purgeOrphanRows();
+      return respond({ ok:_por.ok, result:_por, log: Logger.getLog() });
+    }
+    if(body.action === 'debug_campaign_ids') {
+      var _dci = {};
+      [[_CC_TAB.SOCIAL,_CC_HDR.SocialPosts],[_CC_TAB.EMAIL,_CC_HDR.EmailSequences],[_CC_TAB.DL,_CC_HDR.DeepLinkRegistry]].forEach(function(pair){
+        var s=_getCCSheet(pair[0]); var last=s.getLastRow(); if(last<2)return;
+        var cidIdx=pair[1].indexOf('campaign_id');
+        var counts={};
+        s.getRange(2,1,last-1,Math.min(pair[1].length,cidIdx+1)).getValues().forEach(function(r){
+          var cid=String(r[cidIdx]||'(blank)').trim(); counts[cid]=(counts[cid]||0)+1;
+        });
+        _dci[pair[0]]=counts;
+      });
+      return respond({ ok:true, campaign_id_counts: _dci });
+    }
+    if(body.action === 'sheet_row_audit') {
+      var _ss = _getCampaignSpreadsheet();
+      var _tabs = Object.keys(_CC_TAB).map(function(k){ return _CC_TAB[k]; });
+      var _audit = _tabs.map(function(name){
+        var s = _ss.getSheetByName(name);
+        if (!s) return { tab: name, exists: false, rows: 0, cols: 0 };
+        return { tab: name, exists: true, rows: Math.max(0, s.getLastRow() - 1), cols: s.getLastColumn() };
+      });
+      return respond({ ok:true, audit: _audit });
+    }
+    if(body.action === 'get_campaign_funnel') {
+      var _funnelCid = body.campaign_id || 'EC-2026-001';
+      var _funnel = getCampaignFunnel(_funnelCid);
+      return respond({ ok:_funnel.ok, result:_funnel, log: Logger.getLog() });
     }
     if(body.action === 'get_approval_queue') {
       var _aq = getApprovalQueue();

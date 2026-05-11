@@ -162,6 +162,46 @@ var _CATEGORY_POSITIONING =
   'Never position against a specific competitor. Position against the broken status quo.\n' +
   'The enemy is not another app. The enemy is the 6:30 PM panic. The expired spinach. The $1,336 thrown away."\n\n';
 
+// ── Claim quality rules — every claim must pass this standard ─────────────────
+var _CLAIM_QUALITY_COPY =
+  '=== CLAIM QUALITY RULES — EVERY CLAIM MUST PASS THIS STANDARD ===\n' +
+  'Formula: Recognition → emotional tension → human outcome. NOT: feature → benefit.\n' +
+  'Test: Could a real exhausted human say this out loud? If not, rewrite it.\n' +
+  'Emotion approach: Implied emotion, not direct emotion. Create the experience — do not label it.\n' +
+  'Strong claims are:\n' +
+  '  ✓ emotionally visual — the reader can picture it\n' +
+  '  ✓ human language — sounds spoken, not marketed\n' +
+  '  ✓ recognizable life moment — she has been here before\n' +
+  '  ✓ implies transformation without stating it\n' +
+  '  ✓ shows the experience instead of labeling the emotion\n' +
+  'Reject if the claim:\n' +
+  '  ✗ sounds corporate, app-store-ish, or SaaS-y\n' +
+  '  ✗ uses feature → benefit structure\n' +
+  '  ✗ labels the emotion instead of creating it\n' +
+  '  ✗ could have been written by any food app\n' +
+  'Examples:\n' +
+  '  Weak:   No more daily food decisions\n' +
+  '  Strong: You already made a hundred decisions today. Dinner should not be another one.\n' +
+  '  Weak:   Less stress\n' +
+  '  Strong: No more staring into the fridge hoping dinner appears.\n' +
+  '  Weak:   easyChef Pro handles the logistics — you handle the cooking\n' +
+  '  Strong: Spend less time coordinating dinner. More time actually making it.\n\n';
+
+// ── Brand position — governing frame above all ICP arcs ──────────────────────
+var _BRAND_POSITION_COPY =
+  '=== BRAND POSITION — GOVERNING FRAME. EVERY PIECE OF COPY ANSWERS TO THIS. ===\n' +
+  'Tagline:     "The app that evolves with your life."\n' +
+  'Brand Truth: "Your life changes. Your kitchen should change with it."\n' +
+  'Position:    Adaptive household infrastructure — not recipe software.\n' +
+  'Contrast:    Most food apps assume one static person forever. easyChef Pro does not.\n' +
+  'Life stages this product serves:\n' +
+  '  newlywed → young_family → super_mom / single_parent → busy_professional / fitness_phase → empty_nester → grandparent\n' +
+  'Copy rules:\n' +
+  '  ✓ Lead with life stage, not feature — the feature serves the stage, not the reverse\n' +
+  '  ✓ ICP-specific emotion leads every piece — the tagline resolves it\n' +
+  '  ✓ The brand truth is the emotional bridge — use it when copy needs the why behind the tagline\n' +
+  '  ✗ Never position as recipe software — easyChef Pro is infrastructure that follows your life\n\n';
+
 // ── 5-app replacement arc — locked rules for every post ──────────────────────
 var _5_APP_REPLACEMENT =
   '=== 5-APP REPLACEMENT (LOCKED) ===\n' +
@@ -561,10 +601,12 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
     default: sG = '';
   }
 
-  var _voiceRules   = gov.voiceRules  || _BRAND_VOICE_RULES;
-  var _phaseGuard   = gov.phaseGuard  ? gov.phaseGuard  : '';
-  var _compliance   = gov.compliance  ? gov.compliance  : '';
-  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _5_APP_REPLACEMENT + _7_STEP_FRAMEWORK + _voiceRules + _PRECISION_RULES + sD + _AB_ARCH + sE + sF + sG + _phaseGuard + _compliance;
+  var _claimQuality  = gov.claimQuality || _CLAIM_QUALITY_COPY;
+  var _brandPosition = gov.brandPosition || _BRAND_POSITION_COPY;
+  var _voiceRules    = gov.voiceRules   || _BRAND_VOICE_RULES;
+  var _phaseGuard    = gov.phaseGuard   ? gov.phaseGuard  : '';
+  var _compliance    = gov.compliance   ? gov.compliance  : '';
+  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _brandPosition + _5_APP_REPLACEMENT + _7_STEP_FRAMEWORK + _claimQuality + _voiceRules + _PRECISION_RULES + sD + _AB_ARCH + sE + sF + sG + _phaseGuard + _compliance;
 }
 
 // ── Governance compiler functions ─────────────────────────────────────────────
@@ -612,16 +654,25 @@ function _compileVoiceRulesBlock() {
   }
 }
 
-function _compileEmotionalArcBlock() {
+function _compileEmotionalArcBlock(icpCode) {
   try {
-    var strat = getCampaignStrategy('EMOTIONAL_ARC_001');
+    var stratId = (icpCode && icpCode !== '')
+      ? 'EMOTIONAL_ARC_' + icpCode.toUpperCase()
+      : 'EMOTIONAL_ARC_001';
+    var strat = getCampaignStrategy(stratId);
+    if (!strat || !strat.value || !Array.isArray(strat.value.stages)) {
+      strat = getCampaignStrategy('EMOTIONAL_ARC_001');
+    }
     if (!strat || !strat.value || !Array.isArray(strat.value.stages)) return _EMOTIONAL_ARC_COPY;
+    var v   = strat.value;
     var out = '=== EMOTIONAL ARC — MATCH THE EXACT STAGE EMOTION IN YOUR COPY ===\n';
+    if (v.icp_name)        out += 'ICP: ' + v.icp_name + '\n';
+    if (v.primary_trigger) out += 'Entry trigger: ' + v.primary_trigger + '\n';
     var labels = { hook:'Post 1 — HOOK', problem:'Post 2 — PROBLEM', agitate:'Post 3 — AGITATE',
                    solve:'Post 4 — SOLVE', value:'Post 5 — VALUE', proof:'Post 6 — PROOF', cta:'Post 7 — CTA' };
-    strat.value.stages.forEach(function(s) {
+    v.stages.forEach(function(s) {
       var label = labels[s.stage] || s.stage.toUpperCase();
-      out += label + ': She is ' + s.emotion.toUpperCase().replace('_', ' ') + '.\n';
+      out += label + ': ' + s.emotion.toUpperCase().replace(/_/g, ' ') + ' — ' + (s.trigger_note || '') + '\n';
     });
     return out + '\n';
   } catch(e) {
@@ -630,9 +681,70 @@ function _compileEmotionalArcBlock() {
   }
 }
 
-function _compileStageEmotionsMap() {
+function _compileClaimQualityBlock() {
   try {
-    var strat = getCampaignStrategy('EMOTIONAL_ARC_001');
+    var rule = getBrandDoctrine('CLAIM_QUALITY_001');
+    if (!rule || !rule.conditions) return _CLAIM_QUALITY_COPY;
+    var c   = rule.conditions;
+    var out = '=== CLAIM QUALITY RULES — EVERY CLAIM MUST PASS THIS STANDARD ===\n';
+    if (c.formula)          out += 'Formula: ' + c.formula + '\n';
+    if (c.the_test)         out += 'Test: ' + c.the_test + '\n';
+    if (c.emotion_approach) out += 'Emotion approach: ' + c.emotion_approach + '\n';
+    if (Array.isArray(c.strong_claim_rules) && c.strong_claim_rules.length) {
+      out += 'Strong claims are:\n';
+      c.strong_claim_rules.forEach(function(r) { out += '  ✓ ' + r + '\n'; });
+    }
+    if (Array.isArray(c.reject_if) && c.reject_if.length) {
+      out += 'Reject if the claim:\n';
+      c.reject_if.forEach(function(r) { out += '  ✗ ' + r + '\n'; });
+    }
+    if (Array.isArray(c.examples) && c.examples.length) {
+      out += 'Examples:\n';
+      c.examples.forEach(function(e) {
+        out += '  Weak:   ' + e.weak + '\n';
+        out += '  Strong: ' + e.strong + '\n';
+      });
+    }
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileClaimQualityBlock] fallback: ' + e.message);
+    return _CLAIM_QUALITY_COPY;
+  }
+}
+
+function _compileBrandPositionBlock() {
+  try {
+    var strat = getCampaignStrategy('BRAND_POSITION_001');
+    if (!strat || !strat.value) return _BRAND_POSITION_COPY;
+    var v = strat.value;
+    var out = '=== BRAND POSITION — GOVERNING FRAME. EVERY PIECE OF COPY ANSWERS TO THIS. ===\n';
+    if (v.tagline)      out += 'Tagline:     "' + v.tagline + '"\n';
+    if (v.brand_truth)  out += 'Brand Truth: "' + v.brand_truth + '"\n';
+    if (v.position)     out += 'Position:    ' + v.position + '\n';
+    if (v.contrast)     out += 'Contrast:    ' + v.contrast + '\n';
+    if (Array.isArray(v.life_stage_sequence) && v.life_stage_sequence.length) {
+      out += 'Life stages this product serves:\n  ' + v.life_stage_sequence.join(' → ') + '\n';
+    }
+    if (Array.isArray(v.copy_rules) && v.copy_rules.length) {
+      out += 'Copy rules:\n';
+      v.copy_rules.forEach(function(r) { out += '  ' + r + '\n'; });
+    }
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileBrandPositionBlock] fallback: ' + e.message);
+    return _BRAND_POSITION_COPY;
+  }
+}
+
+function _compileStageEmotionsMap(icpCode) {
+  try {
+    var stratId = (icpCode && icpCode !== '')
+      ? 'EMOTIONAL_ARC_' + icpCode.toUpperCase()
+      : 'EMOTIONAL_ARC_001';
+    var strat = getCampaignStrategy(stratId);
+    if (!strat || !strat.value || !Array.isArray(strat.value.stages)) {
+      strat = getCampaignStrategy('EMOTIONAL_ARC_001');
+    }
     if (!strat || !strat.value || !Array.isArray(strat.value.stages)) return _STAGE_EMOTIONS;
     var map = {};
     strat.value.stages.forEach(function(s) { map[s.stage] = s.emotion; });
@@ -847,10 +959,13 @@ function getMasterSystemPrompt(type, context) {
   var theme     = _getThemeRow(context.theme_id || context.theme || '');
 
   // Compile governance blocks from tabs (fall back to hardcoded constants if tabs unavailable)
+  var _icpCode = context.icp_code || context.icp || '';
   var governance = {
+    claimQuality:  _compileClaimQualityBlock(),
+    brandPosition: _compileBrandPositionBlock(),
     voiceRules:    _compileVoiceRulesBlock(),
-    emotionalArc:  _compileEmotionalArcBlock(),
-    stageEmotions: _compileStageEmotionsMap(),
+    emotionalArc:  _compileEmotionalArcBlock(_icpCode),
+    stageEmotions: _compileStageEmotionsMap(_icpCode),
     phoneRule:     _compilePhoneRuleBlock(),
     phaseGuard:    _compilePhaseGuardBlock(),
     compliance:    _compileComplianceBlock(context.themeData || null)
@@ -858,7 +973,7 @@ function getMasterSystemPrompt(type, context) {
 
   // Design brief types — art direction only, no copy machinery needed
   if (type === 'post_brief' || type === 'email_brief' || type === 'lp_brief') {
-    return _buildDesignBriefPrompt(type, context, icp, theme, governance.phoneRule, null);
+    return _buildDesignBriefPrompt(type, context, icp, theme, governance.phoneRule, governance);
   }
 
   var brandPlug = _getCcSetting('BRAND_PLUG');
@@ -984,24 +1099,44 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme, govPhoneRule, govBrandRu
   }
 
   if (type === 'lp_brief') {
+    var _gov        = govBrandRules || {};
+    var _brandPos   = _gov.brandPosition || _BRAND_POSITION_COPY;
+    var _arcBlock   = _gov.emotionalArc  || _EMOTIONAL_ARC_COPY;
     return 'You are the art director for easyChef Pro landing pages. Generate a design brief for the Figma designer.\n\n' +
       '=== CAMPAIGN ===\n' +
       (_campaign  ? 'Campaign: ' + _campaign  + '\n' : '') +
       (_themeName ? 'Theme: '    + _themeName + '\n' : '') +
       (_themeFood ? 'Food: '     + _themeFood + '\n' : '') +
-      (_icpName   ? 'ICP: '      + _icpName   + '\n' : '') + '\n' +
+      (_icpName   ? 'ICP: '      + _icpName   + '\n\n' : '\n') +
+      _brandPos +
+      _arcBlock +
       _BRAND_RULES +
       (govPhoneRule ? govPhoneRule.replace('=== PHONE REVEAL RULE', '9. PHONE RULE') :
         '9. LP PHONE RULE (non-negotiable):\n' +
         '   Hero section: phone NOT visible — no app in the hero image.\n' +
         '   Solve section: phone APPEARS for the first time — shows app solving the problem.\n' +
         '   Value · Proof · CTA sections: phone VISIBLE — present but not the hero element.\n\n') +
+      '=== LP SECTION STRUCTURE — FIXED ORDER, LOCKED ===\n' +
+      'All 7 sections appear on every ICP LP. Only ICP-specific content changes.\n\n' +
+      'Section 1 — HOOK: Mirror the ICP life-stage moment. Zero product mention. One or two lines. The reader must feel seen.\n' +
+      'Section 2 — PROBLEM: Name what is broken in their kitchen at this life stage. Specific, not generic.\n' +
+      'Section 3 — AGITATE: Make the cost visible — emotional and practical. Use approved stats where appropriate.\n' +
+      'Section 4 — SOLVE: easyChef Pro closes the loop. Show the 5-stage loop adapted to this ICP:\n' +
+      '  TRACK — what they have right now at this life stage\n' +
+      '  PLAN — meals that fit this chapter, not a generic week\n' +
+      '  OPTIMIZE — for the goals and constraints of this life stage\n' +
+      '  COOK — with the confidence this life stage needs\n' +
+      '  SHOP — one real list, nothing wasted\n' +
+      '  Phone FIRST APPEARS in this section.\n' +
+      'Section 5 — VALUE: Life after. Stage-specific vision of resolution. Emotional close.\n' +
+      'Section 6 — PROOF: Locked proof bar — $1,336/year saved · 69.5% less food waste · 30 min fridge to table. One ICP-appropriate quote.\n' +
+      'Section 7 — CTA: Button text locked: [Start Free — It Adapts to You]. Below: "The app that evolves with your life." Urgency: "First 5,000 families only. $7.99/month locked forever."\n\n' +
       '=== LP DESIGN BRIEF FORMAT ===\n' +
-      'hero_visual: [what appears above the fold — scene direction, NO phone, NO app UI]\n' +
-      'section_visuals: [one line per section — Problem · Agitate · Solve (phone first appears) · Value · Proof]\n' +
-      'loop_diagram: [TRACK -> PLAN -> OPTIMIZE -> COOK -> SHOP — describe how this icon row looks in the Solve section]\n' +
-      'social_proof_bar: [layout and style for the 3-stat proof bar using ONLY approved claims: $1,336/year · 69.5% less food waste · 30 min fridge to table]\n' +
-      'cta_button_style: [always #FF0000 red · full width on mobile · copy direction · placement]\n\n' +
+      'hero_visual: [above-the-fold scene direction — ICP life-stage moment — NO phone, NO app UI]\n' +
+      'section_visuals: [one line per section — Hook · Problem · Agitate · Solve (phone first appears) · Value · Proof · CTA]\n' +
+      'loop_diagram: [TRACK → PLAN → OPTIMIZE → COOK → SHOP — icon row in Solve section, ICP-adapted labels below each stage]\n' +
+      'social_proof_bar: [layout and style — approved stats only, no invented claims]\n' +
+      'cta_button_style: [#FF0000 red · full width on mobile · placement · tagline position]\n\n' +
       'Return ONLY a JSON object with keys: hero_visual, section_visuals, loop_diagram, social_proof_bar, cta_button_style. No explanation. No markdown.';
   }
 
