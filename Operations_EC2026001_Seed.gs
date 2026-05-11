@@ -5716,3 +5716,90 @@ function seedEC2026002() {
   Logger.log('[seedEC2026002] EC-2026-002 campaign brief created');
   return { ok: true, campaign_id: 'EC-2026-002' };
 }
+
+// ── Full pre-flight seed for EC-2026-002 — run once before ⚡ Run Full Campaign ─
+function seedEC2026002Full() {
+  var results = [];
+  var now = _ccNow();
+
+  // ── 1. Campaign Brief ──────────────────────────────────────────────────────
+  setCampaignBrief({
+    id:               'EC-2026-002',
+    name:             'ICP-Governed Pre-Launch Arc 2026 — The Kitchen That Evolves',
+    icp_code:         'super_mom',
+    blueprint:        'A-Waitlist',
+    launch_date:      '2026-07-01',
+    start_date:       '2026-05-27',
+    status:           'active',
+    post_count:       35,
+    post_frequency:   'daily',
+    email_sequences:  4,
+    theme:            'invisible-leak',
+    publish_day:      'daily',
+    channels:         ['Facebook','Instagram','TikTok','Pinterest','Nextdoor','YouTube','Email'],
+    goal:             'waitlist_signup_completed',
+    slug:             'lp/waitlist-a',
+    lp_slug_a:        'lp/waitlist-a',
+    lp_slug_b:        'lp/waitlist-b',
+    campaign_angle:   'savings',
+    ab_test:          true,
+    ab_tool:          'convert.com',
+    ab_split:         '50/50',
+    ab_experiment_id: '100140422',
+    ml_approved:      true,
+    created_by:       'Taylor',
+    notes:            JSON.stringify({
+      campaign_angle_a:  'savings — $1,336/year · ICP: super_mom_money',
+      campaign_angle_b:  'time_relief — Daily Dinner Figured Out · ICP: super_mom_time',
+      urgency_trigger:   'First 5,000 families lock in $7.99/month forever',
+      founding_offer:    '$7.99/month · 60% off forever',
+      campaign_duration: 35,
+      lp_a:              'lp/waitlist-a · money angle · founding price hook',
+      lp_b:              'lp/waitlist-b · time angle · founding family hook',
+      thank_you:         '/thank-you?src=waitlist-a + /thank-you?src=waitlist-b'
+    })
+  });
+  results.push('✓ Campaign brief seeded: EC-2026-002');
+
+  // ── 2. Generated Copy ──────────────────────────────────────────────────────
+  var existingCopy = getGeneratedCopy('EC-2026-002');
+  if (!existingCopy || !existingCopy.length) {
+    addGeneratedCopy({
+      id:              'copy-ec2026002-seed',
+      campaign_id:     'EC-2026-002',
+      icp_code:        'super_mom',
+      channel:         'Multi',
+      headline:        'The app that evolves with your life.',
+      subheadline:     'Your kitchen should know who you are today. Not who you were five years ago.',
+      email_subject_a: 'You are still cooking for the life you used to have',
+      email_subject_b: 'Your kitchen never got the memo',
+      lp_hero:         'The app that evolves with your life.',
+      proof_bar:       '$1,336/year saved · 30 min fridge to table · 69.5% less food waste',
+      cta_primary:     'Join the founding family — $7.99/month forever',
+      social_hook:     'Your kitchen is still set up for the life you had five years ago.',
+      share_mechanic:  'Invite a friend — get 2 months free',
+      generated_at:    new Date().toISOString(),
+      approved:        true
+    });
+    results.push('✓ Generated copy seeded: EC-2026-002');
+  } else {
+    results.push('— Generated copy already exists: EC-2026-002');
+  }
+
+  // ── 3. Link LPs to EC-2026-002 ─────────────────────────────────────────────
+  ['lp-waitlist-a', 'lp-waitlist-b'].forEach(function(lpId) {
+    var allLPs = getLPInventory();
+    var lp = allLPs.filter(function(r) { return r.id === lpId; })[0];
+    if (!lp) { results.push('✗ ' + lpId + ' not found — run Restore Waitlist LPs first'); return; }
+    var using = lp.campaigns_using || '';
+    if (using.indexOf('EC-2026-002') !== -1) {
+      results.push('— ' + lpId + ' already linked to EC-2026-002');
+      return;
+    }
+    setLPInventoryEntry({ id: lpId, campaigns_using: (using ? using + ',EC-2026-002' : 'EC-2026-002') });
+    results.push('✓ ' + lpId + ' linked to EC-2026-002');
+  });
+
+  Logger.log('[seedEC2026002Full] ' + results.join(' | '));
+  return { ok: true, results: results };
+}

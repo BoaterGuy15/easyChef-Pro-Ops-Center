@@ -967,6 +967,10 @@ function doPost(e) {
       var _rlw = restoreLpWaitlistAB();
       return respond({ ok:_rlw.ok, result:_rlw, log: Logger.getLog() });
     }
+    if(body.action === 'seed_ec2026002_full') {
+      var _s2f = seedEC2026002Full();
+      return respond({ ok:_s2f.ok, result:_s2f, log: Logger.getLog() });
+    }
     if(body.action === 'repair_icp_dates') {
       var _rid = repairIcpDates();
       return respond({ ok:_rid.ok, result:_rid, log: Logger.getLog() });
