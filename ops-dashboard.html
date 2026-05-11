@@ -29555,7 +29555,7 @@ function _campaignsRenderInner(root){
           '<div style="font-size:12px;color:var(--muted);margin-top:2px">Theme → LP → Kickstart → Brief → Assets → Calendar</div>'+
         '</div>'+
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-          '<button id="cc-run-full-btn" onclick="_ccRunFullCampaign(\'EC-2026-001\')" style="background:var(--gold);border:none;color:#000;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">⚡ Run Full Campaign — EC-2026-001</button>'+
+          '<button id="cc-run-full-btn" onclick="_ccRunFullCampaign(\'EC-2026-002\')" style="background:var(--gold);border:none;color:#000;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">⚡ Run Full Campaign — EC-2026-002</button>'+
           '<button onclick="_ccRunFrontendTests()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🧪 Run Tests</button>'+
           '<button onclick="_ccEnsureBriefColumns()" id="cc-fix-cols-btn" style="background:transparent;border:1px solid #6b7280;color:#9ca3af;padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">🔧 Fix Sheet Columns</button>'+
         '</div>'+
@@ -29564,17 +29564,17 @@ function _campaignsRenderInner(root){
       (window.location.search.indexOf('debug=true')>=0 ?
         '<div id="cc-debug-bar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:14px">'+
           '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-family:\'DM Mono\',monospace">DEBUG</span>'+
-          '<button onclick="_ccDebugTest(\'ping\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Ping GAS</button>'+
-          '<button onclick="_ccDebugTest(\'generate_utm_and_save\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 3 Only</button>'+
-          '<button onclick="_ccDebugTest(\'export_campaign_to_drive\',\'EC-2026-001\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 4 Only</button>'+
-          '<button onclick="_ccClearCampaignData(\'EC-2026-001\')" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🗑 Clear Campaign Data</button>'+
+          '<button onclick="_ccDebugTest(\'ping\',\'EC-2026-002\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Ping GAS</button>'+
+          '<button onclick="_ccDebugTest(\'generate_utm_and_save\',\'EC-2026-002\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 3 Only</button>'+
+          '<button onclick="_ccDebugTest(\'export_campaign_to_drive\',\'EC-2026-002\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 4 Only</button>'+
+          '<button onclick="_ccClearCampaignData(\'EC-2026-002\')" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🗑 Clear Campaign Data</button>'+
         '</div>'+
         '<div id="cc-debug-panel" style="display:none;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:14px 16px;margin-bottom:14px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:1.7;color:#c9a84c;white-space:pre-wrap;max-height:260px;overflow:auto"></div>'
       : '')+
       // ── Full Campaign Progress Panel ────────────────────────────────────────
       '<div id="cc-full-run-panel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">'+
         '<div style="padding:10px 16px;background:rgba(201,168,76,0.07);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'+
-          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);font-family:\'DM Mono\',monospace">⚡ Full Campaign Pipeline — EC-2026-001</span>'+
+          '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);font-family:\'DM Mono\',monospace">⚡ Full Campaign Pipeline — EC-2026-002</span>'+
           '<button onclick="document.getElementById(\'cc-full-run-panel\').style.display=\'none\'" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px">✕</button>'+
         '</div>'+
         '<div id="cc-full-run-steps" style="padding:14px 16px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:2"></div>'+
@@ -29775,20 +29775,16 @@ function _ccRenderRunCampaign() {
   };
 
   var steps = [
-    { action:'seed_ec_2026_001',              label:'1 · Seed campaign data',        desc:'CampaignBrief · ThemeLibrary · ICP Profiles · LP Inventory · 51 social posts' },
-    { action:'update_ec2026001_post_details', label:'2 · Assign DL IDs + UTM URLs',  desc:'Locks image briefs · hashtags · DL-FB/EM/TK/YT IDs · UTM URLs to all 51 posts' },
-    { action:'fix_ec2026001_emails',           label:'3 · Seed email sequences',       desc:'SEQ-1(E1-E3 days 0,3,6) · SEQ-2(E1-E5 days 8-21) · SEQ-3(E1-E4 days 22-29) · SEQ-4(E1 day35) · 26 rows' },
-    { action:'fill_ec2026001_social_body',    label:'4 · Fill social body copy',      desc:'Facebook captions · TikTok scripts · YouTube descriptions · email calendar notes' },
-    { action:'generate_lp_figma_doc',         label:'5 · Generate LP Figma spec',     desc:'Full design spec for /lp/waitlist-a and /lp/waitlist-b in campaign Drive folder' },
-    { action:'generate_brief_docs',           label:'6 · Generate brief docs',        desc:'One Google Doc per social post — design brief for each asset' }
+    { action:'archive_ec2026001',              label:'1 · Archive EC-2026-001',           desc:'Copies email sequences + social posts to Archive tabs — preserves old content before reset' },
+    { action:'purge_all_campaign_content',     label:'2 · Clear all content sheets',       desc:'Deletes all rows from SocialPosts · EmailSeq · DLRegistry · ContentCalendar · LandingPages · LPInventory + 7 more · keeps headers + governance tabs' },
+    { action:'seed_ec2026002',                 label:'3 · Seed EC-2026-002 campaign',      desc:'Creates EC-2026-002 campaign brief · ICP-governed · 22 emotional arcs · 2 LP variants · brand position + claim quality baked in' },
+    { action:'seed_ec2026001_campaign_strategies', label:'4 · Confirm 22 ICP emotional arcs', desc:'Seeds or confirms EMOTIONAL_ARC_001–022 in CampaignStrategy · one arc per life stage ICP' },
+    { action:'seed_icp_landing_pages',         label:'5 · Seed ICP LP records',            desc:'22 LP records in LPInventory — one per ICP · lp_variant: waitlist-a (founding price) + waitlist-b (life-change) · 7-section framework' },
+    { action:'patch_dl_registry_schema',       label:'6 · Upgrade DL Registry schema',     desc:'Adds icp_code · lp_variant · emotional_arc_id columns · extracts lp_variant from existing URLs · cleans old-claim notes' }
   ];
 
   var stepsHtml = steps.map(function(s) {
-    var extraBody = s.action === 'generate_brief_docs' ? ', function(){ _ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\',{campaign_id:\'EC-2026-001\'}) }' : '';
-    var isDoc = s.action === 'generate_brief_docs';
-    var onclick = isDoc
-      ? '_ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\',{campaign_id:\'EC-2026-001\'})'
-      : '_ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\')';
+    var onclick = '_ccRunAction(\'' + s.action + '\',\'' + s.label.replace(/'/g,"\\'") + '\')';
     return '<div style="display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--border)">' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:11px;font-weight:700;color:var(--text)">' + s.label + '</div>' +
@@ -29799,14 +29795,13 @@ function _ccRenderRunCampaign() {
   }).join('');
 
   return '<div style="width:100%">' +
-    _ccSecHdr('🚀 Run Full Campaign — EC-2026-001') +
+    _ccSecHdr('🚀 Run Full Campaign — EC-2026-002') +
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px">' +
       '<div style="padding:16px 20px;border-bottom:1px solid var(--border);background:rgba(201,168,76,0.04)">' +
-        '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Pre-Launch Arc 2026 — The Invisible Leak</div>' +
-        '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Campaign EC-2026-001 · May 27 – Jul 1 2026 · A/B split: money angle → waitlist-a · time/founding → waitlist-b</div>' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">ICP-Governed Pre-Launch Arc 2026 — The Kitchen That Evolves</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Campaign EC-2026-002 · 22 ICP emotional arcs · Brand position: The app that evolves with your life · 94 approved claims · July 1 2026 · A/B: founding price → waitlist-a · life-change → waitlist-b</div>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-          '<button onclick="_ccRunAction(\'seed_ec2026001_complete\',\'Run Everything (emails + social body + Figma doc)\')" style="' + IS + 'background:' + _CC_RED + ';color:#fff;padding:9px 22px;font-size:12px">Run Everything</button>' +
-          '<button onclick="_ccRunAction(\'seed_ec_2026_001\',\'Seed campaign data\');setTimeout(function(){_ccRunAction(\'update_ec2026001_post_details\',\'Assign DL IDs + UTM URLs\');},8000);" style="' + IS + 'background:var(--surface);color:var(--text);border:1px solid var(--border)">Re-seed + DL IDs</button>' +
+          '<button onclick="_ccRunAction(\'archive_ec2026001\',\'Archive EC-2026-001\');setTimeout(function(){_ccRunAction(\'purge_all_campaign_content\',\'Clear all content sheets\');setTimeout(function(){_ccRunAction(\'seed_ec2026002\',\'Seed EC-2026-002 campaign\');},6000);},6000);" style="' + IS + 'background:' + _CC_RED + ';color:#fff;padding:9px 22px;font-size:12px">Reset + Launch EC-2026-002</button>' +
         '</div>' +
       '</div>' +
       stepsHtml +

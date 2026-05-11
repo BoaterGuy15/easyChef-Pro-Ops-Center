@@ -1019,6 +1019,18 @@ function doPost(e) {
       var _pdr = patchDLRegistrySchema();
       return respond({ ok:_pdr.ok, result:_pdr, log: Logger.getLog() });
     }
+    if(body.action === 'archive_ec2026001') {
+      var _arch = archiveEC2026001Content();
+      return respond({ ok:_arch.ok, result:_arch, log: Logger.getLog() });
+    }
+    if(body.action === 'purge_all_campaign_content') {
+      var _purg = purgeAllCampaignContent();
+      return respond({ ok:_purg.ok, result:_purg, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_ec2026002') {
+      var _ec2 = seedEC2026002();
+      return respond({ ok:_ec2.ok, result:_ec2, log: Logger.getLog() });
+    }
     if(body.action === 'debug_dl_registry') {
       var _dlSheet = _getCCSheet(_CC_TAB.DL);
       var _dlData  = _dlSheet.getDataRange().getValues().slice(1).filter(function(r){return r[0];});

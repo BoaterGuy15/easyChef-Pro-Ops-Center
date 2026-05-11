@@ -5543,3 +5543,77 @@ function seedEC2026001CampaignStrategies() {
     return { ok: false, error: e.message };
   }
 }
+
+// ── EC-2026-002 Transition ────────────────────────────────────────────────────
+
+function archiveEC2026001Content() {
+  var ss       = _getCampaignSpreadsheet();
+  var archived = 0;
+  var targets  = [
+    { src: _CC_TAB.SOCIAL, dest: 'Archive_SocialPosts' },
+    { src: _CC_TAB.EMAIL,  dest: 'Archive_EmailSeq'   }
+  ];
+  targets.forEach(function(t) {
+    var srcSheet = ss.getSheetByName(t.src);
+    if (!srcSheet || srcSheet.getLastRow() < 1) return;
+    var archSheet = ss.getSheetByName(t.dest);
+    if (!archSheet) {
+      archSheet = ss.insertSheet(t.dest);
+    } else {
+      archSheet.clearContents();
+    }
+    var data = srcSheet.getDataRange().getValues();
+    if (data.length > 0) {
+      archSheet.getRange(1, 1, data.length, data[0].length).setValues(data);
+      archived += Math.max(0, data.length - 1);
+    }
+    Logger.log('[archiveEC2026001Content] ' + t.src + ' → ' + t.dest + ' (' + (data.length - 1) + ' rows)');
+  });
+  return { ok: true, archived_rows: archived };
+}
+
+function purgeAllCampaignContent() {
+  var ss     = _getCampaignSpreadsheet();
+  var purged = {};
+  var tabs   = [
+    _CC_TAB.SOCIAL, _CC_TAB.EMAIL, _CC_TAB.DL, _CC_TAB.CONTENT_CAL,
+    _CC_TAB.ASSET_LIFECYCLE, _CC_TAB.BRIEFS, _CC_TAB.COPY,
+    _CC_TAB.PUSH_NOTIFS, _CC_TAB.METRICS, _CC_TAB.SCHEDULED,
+    _CC_TAB.PAGES, _CC_TAB.LP_INVENTORY, _CC_TAB.VIDEO_PRODUCTION
+  ];
+  tabs.forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) { purged[name] = 'missing'; return; }
+    var dataRows = Math.max(0, sheet.getLastRow() - 1);
+    if (dataRows > 0) sheet.deleteRows(2, dataRows);
+    purged[name] = dataRows;
+  });
+  Logger.log('[purgeAllCampaignContent] ' + JSON.stringify(purged));
+  return { ok: true, purged: purged };
+}
+
+function seedEC2026002() {
+  var now   = _ccNow();
+  var sheet = _getCCSheet(_CC_TAB.BRIEFS);
+  var hdrs  = _CC_HDR.CampaignBriefs;
+  var row   = new Array(hdrs.length).fill('');
+  var map   = {
+    'id':          'EC-2026-002',
+    'name':        'ICP-Governed Pre-Launch Arc 2026 — The Kitchen That Evolves',
+    'icp_code':    'ALL-22',
+    'blueprint':   'BLUEPRINT-A',
+    'channel':     'Multi',
+    'goal':        '5000 waitlist signups · July 1 2026 · $7.99/mo founding price',
+    'slug':        'lp/waitlist-a',
+    'launch_date': '2026-07-01',
+    'status':      'active',
+    'created_by':  'Taylor',
+    'created_at':  now,
+    'updated_at':  now,
+    'notes':       'ICP governance: 22 emotional arcs · Brand position: The app that evolves with your life · Claim quality v1 · 94 approved claims · 2 LP variants: waitlist-a (founding price angle) + waitlist-b (life-change angle) · LP Framework 7-section + TRACK→PLAN→OPTIMIZE→COOK→SHOP loop · UTM content ICP-aware from creation'
+  };
+  hdrs.forEach(function(h, i) { if (map[h] !== undefined) row[i] = map[h]; });
+  _ccUpsert(sheet, hdrs, 'EC-2026-002', row);
+  Logger.log('[seedEC2026002] EC-2026-002 campaign brief created');
+  return { ok: true, campaign_id: 'EC-2026-002' };
+}
