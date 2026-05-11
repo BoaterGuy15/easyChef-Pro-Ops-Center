@@ -304,8 +304,8 @@
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
       <div id="cal-toolbar" style="display:none;align-items:center;gap:10px;padding:8px 0 4px;flex-wrap:wrap">
-        <button id="cal-sync-btn" onclick="syncCalendar()" style="background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:5px 14px;border-radius:6px;font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;font-weight:600">↻ Sync</button>
-        <span id="cal-sync-msg" style="font-family:'DM Mono',monospace;font-size:10px;color:#32d74b"></span>
+        <button id="cal-sync-btn" onclick="syncCalendar()" style="background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:5px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600">&#8635; Sync</button>
+        <span id="cal-sync-msg" style="font-size:10px;color:#32d74b"></span>
       </div>
       <div id="panel-cal" style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
     </div>
@@ -675,7 +675,20 @@
     function isoDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 
     function renderCal(data){
-      if(!data||!data.days){document.getElementById('panel-cal').innerHTML='<div class="loading" style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0">No calendar data — posts have not been synced yet.<button onclick="syncCalendar()" style="background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:7px 20px;border-radius:7px;font-size:12px;font-family:\'DM Mono\',monospace;cursor:pointer;font-weight:600">↻ Sync Posts → Calendar</button></div>';return;}
+      if(!data||!data.days){
+        var emptyDiv=document.createElement('div');
+        emptyDiv.className='loading';
+        emptyDiv.style.cssText='display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0';
+        emptyDiv.appendChild(document.createTextNode('No calendar data. Click Sync to pull posts in.'));
+        var syncBtn=document.createElement('button');
+        syncBtn.textContent='Sync Posts to Calendar';
+        syncBtn.style.cssText='background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:7px 20px;border-radius:7px;font-size:12px;cursor:pointer';
+        syncBtn.onclick=syncCalendar;
+        emptyDiv.appendChild(syncBtn);
+        var pc=document.getElementById('panel-cal');
+        if(pc){pc.innerHTML='';pc.appendChild(emptyDiv);}
+        return;
+      }
       var days=data.days,today=isoDate(new Date()),allDays=calData?calData.days:{};
       var dowHtml=DOW.map(function(d){return '<div class="cal-dow-cell">'+d+'</div>';}).join('');
       var cells='',cur=new Date(2026,4,24),end=new Date(2026,6,4);
