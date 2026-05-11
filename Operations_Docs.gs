@@ -111,30 +111,63 @@ function _getOrCreateFolder(parent, name) {
 }
 
 /**
- * Uploads a base64-encoded file to Drive under:
- *   SHARED_DRIVE_FOLDER_ID / Tasks|Agenda / <sourceName|sourceId> /
- * Sets "Anyone with link can view" sharing.
+ * Uploads a base64-encoded file to Drive.
+ * Routing by sourceType:
+ *   task     → RACI-WorkFlow / RACI Task Docs / <id> — <name> /
+ *   shared   → Team Documents / <category> /
+ *   agenda   → Agenda / <label> /
+ *   profile  → Profiles / <label> /
+ *   request  → Requests / <label> /
+ *   other    → Other / <label> /
+ * If customFolderDriveId is provided it overrides routing and writes directly there.
  * Returns { id, url, previewUrl, folderUrl }.
  */
-function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName) {
+function uploadFileToDrive(filename, mimeType, base64data, sourceType, sourceId, sourceName, category, customFolderDriveId) {
   var root = DriveApp.getFolderById(SHARED_DRIVE_FOLDER_ID);
 
-  // Top-level bucket: Tasks or Agenda
-  var bucket = _getOrCreateFolder(root, sourceType === 'task' ? 'Tasks' : 'Agenda');
+  function _safe(s, fb) {
+    return (String(s || '').replace(/[\/\\:*?"<>|]/g, '').trim().substring(0, 80)) || fb || 'Unknown';
+  }
 
-  // Per-task/agenda subfolder — use name if provided, fall back to id
-  var label = (sourceName || sourceId || 'Unknown')
-    .replace(/[\/\\:*?"<>|]/g, '')
-    .trim()
-    .substring(0, 80) || sourceId;
-  var subfolder = _getOrCreateFolder(bucket, label);
+  var subfolder;
 
-  // Decode and create file
+  if (customFolderDriveId) {
+    try { subfolder = DriveApp.getFolderById(customFolderDriveId); } catch(e) {}
+  }
+
+  if (!subfolder) {
+    var label = _safe(sourceName || sourceId, sourceId);
+
+    if (sourceType === 'task') {
+      // RACI-WorkFlow / RACI Task Docs / T-XXX — Task Name /
+      var raciWf   = _getOrCreateFolder(root, 'RACI-WorkFlow');
+      var taskDocs = _getOrCreateFolder(raciWf, 'RACI Task Docs');
+      var taskLabel = sourceId ? _safe(sourceId + ' — ' + (sourceName || sourceId), sourceId) : label;
+      subfolder = _getOrCreateFolder(taskDocs, taskLabel);
+    } else if (sourceType === 'shared') {
+      // Team Documents / <category> /
+      var tdRoot  = _getOrCreateFolder(root, 'Team Documents');
+      var catLabel = _safe(category || label, 'General');
+      subfolder = _getOrCreateFolder(tdRoot, catLabel);
+    } else if (sourceType === 'agenda') {
+      // Agenda / <label> /
+      subfolder = _getOrCreateFolder(_getOrCreateFolder(root, 'Agenda'), label);
+    } else if (sourceType === 'profile') {
+      // Profiles / <label> /
+      subfolder = _getOrCreateFolder(_getOrCreateFolder(root, 'Profiles'), label);
+    } else if (sourceType === 'request') {
+      // Requests / <label> /
+      subfolder = _getOrCreateFolder(_getOrCreateFolder(root, 'Requests'), label);
+    } else {
+      // Other / <label> /
+      subfolder = _getOrCreateFolder(_getOrCreateFolder(root, 'Other'), label);
+    }
+  }
+
   var bytes = Utilities.base64Decode(base64data);
   var blob  = Utilities.newBlob(bytes, mimeType || 'application/octet-stream', filename);
   var file  = subfolder.createFile(blob);
 
-  // Share with anyone who has the link (view only) — skipped silently on Shared Drives
   try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(se) { Logger.log('[Docs] setSharing skipped: ' + se.message); }
 
   var fileId = file.getId();
