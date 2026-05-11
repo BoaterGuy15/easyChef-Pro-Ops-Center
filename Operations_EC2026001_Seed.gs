@@ -4426,6 +4426,87 @@ function seedEC2026001IcpUtmLp() {
   return { ok: true, patched: results };
 }
 
+// ── Restore lp-waitlist-a and lp-waitlist-b after header-repair wipe ─────────
+function restoreLpWaitlistAB() {
+  var results = [];
+  try {
+    setLPInventoryEntry({
+      id:                 'lp-waitlist-a',
+      slug:               'lp/waitlist-a',
+      full_url:           'https://easychefpro.com/lp/waitlist-a',
+      campaign_type:      'Waitlist',
+      blueprint_code:     'A-Waitlist',
+      icp_codes:          'super_mom_money',
+      campaign_angle:     'savings',
+      lp_variant:         'A',
+      headline:           'Stop the mealtime madness.',
+      cta_primary:        'Join the waitlist — early access July 1',
+      proof_bar:          '$1,336/year average savings · 30 minutes fridge to table · 69.5% less food waste',
+      status:             'PENDING_DEV',
+      dev_built:          false,
+      convert_installed:  false,
+      clarity_installed:  false,
+      ga4_installed:      false,
+      campaigns_using:    'EC-2026-001',
+      total_signups:      0,
+      notes:              'ICP: super_mom_money · theme: invisible-leak · ab: 100140422 · thank-you: /thank-you?src=waitlist-a',
+      urgency_type:       'founding-price',
+      urgency_line:       'First 5,000 families lock in $7.99/month forever. The rest pay $19.99.',
+      urgency_placement:  'below-hero',
+      exclusivity_angle:  'founding-family',
+      exclusivity_line:   'You are not just joining an app. You are founding the kitchen of the future.',
+      meta_title:         'Stop the Invisible Grocery Leak · easyChef Pro',
+      meta_description:   'Stop wasting $111/month on groceries that expire. easyChef Pro closes the loop — TRACK → PLAN → OPTIMIZE → COOK → SHOP. Free to join.',
+      og_title:           'Stop the Invisible Grocery Leak · easyChef Pro',
+      og_description:     '$1,336/year back. 30 minutes fridge to table. 69.5% less food waste. Join free.',
+      canonical_url:      'https://easychefpro.com/lp/waitlist-a',
+      focus_keyword:      'meal planning app save money groceries',
+      page_type:          'waitlist_lp',
+      thank_you_url:      'https://easychefpro.com/thank-you?src=waitlist-a'
+    });
+    results.push('✓ lp-waitlist-a restored');
+  } catch(e) { results.push('✗ lp-waitlist-a: ' + e.message); }
+  try {
+    setLPInventoryEntry({
+      id:                 'lp-waitlist-b',
+      slug:               'lp/waitlist-b',
+      full_url:           'https://easychefpro.com/lp/waitlist-b',
+      campaign_type:      'Waitlist',
+      blueprint_code:     'A-Waitlist',
+      icp_codes:          'super_mom_time',
+      campaign_angle:     'time_relief',
+      lp_variant:         'B',
+      headline:           'Daily Dinner Figured Out.',
+      cta_primary:        'Get Early Access',
+      proof_bar:          '$1,336/year average savings · 30 minutes fridge to table · 69.5% less food waste',
+      status:             'PENDING_DEV',
+      dev_built:          false,
+      convert_installed:  false,
+      clarity_installed:  false,
+      ga4_installed:      false,
+      campaigns_using:    'EC-2026-001',
+      total_signups:      0,
+      notes:              'ICP: super_mom_time · theme: invisible-leak · ab: 100140422 · thank-you: /thank-you?src=waitlist-b · BLOCKER — build by May 27',
+      urgency_type:       'founding-price',
+      urgency_line:       'First 5,000 founding families. The founding price closes when spots fill.',
+      urgency_placement:  'below-hero',
+      exclusivity_angle:  'founding-family',
+      exclusivity_line:   'You found this before everyone else. That means something.',
+      meta_title:         'Daily Dinner Figured Out · easyChef Pro',
+      meta_description:   'Dinner decided before you open the fridge. easyChef Pro — the meal management system for working families. Get early access.',
+      og_title:           'Daily Dinner Figured Out · easyChef Pro',
+      og_description:     'Dinner decided. Groceries planned. Kitchen in command. Join the founding family.',
+      canonical_url:      'https://easychefpro.com/lp/waitlist-b',
+      focus_keyword:      'meal planning app family dinner ideas',
+      page_type:          'waitlist_lp',
+      thank_you_url:      'https://easychefpro.com/thank-you?src=waitlist-b'
+    });
+    results.push('✓ lp-waitlist-b restored');
+  } catch(e) { results.push('✗ lp-waitlist-b: ' + e.message); }
+  Logger.log('[restoreLpWaitlistAB] ' + results.join(' | '));
+  return { ok: true, results: results };
+}
+
 // ── Repair all status dropdowns across AssetLifecycle + ContentCalendar ───────
 function repairAllStatusDropdowns() {
   var mkRule = function(list) {

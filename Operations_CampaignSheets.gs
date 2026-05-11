@@ -3406,6 +3406,39 @@ function setLPInventoryEntry(item) {
   _ccUpsert(sheet, headers, item.id, row);
 }
 
+// ── Clean LP Inventory — removes legacy lpi-* rows, rewrites all rows through setLPInventoryEntry ──
+function cleanLPInventory() {
+  var sheet   = _getCCSheet(_CC_TAB.LP_INVENTORY);
+  var headers = _CC_HDR.LPInventory;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true, deleted: 0, rewritten: 0 };
+
+  // Read all data rows
+  var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues()
+    .filter(function(r) { return r[0]; });
+
+  // Identify legacy lpi-* row indices (1-based sheet row) — delete bottom-up
+  var toDelete = [];
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]).match(/^lpi-/)) toDelete.push(i + 2);
+  }
+  for (var d = toDelete.length - 1; d >= 0; d--) {
+    sheet.deleteRow(toDelete[d]);
+  }
+
+  // Re-read after deletions and rewrite each row through setLPInventoryEntry
+  var lastRow2 = sheet.getLastRow();
+  var kept = lastRow2 < 2 ? [] :
+    sheet.getRange(2, 1, lastRow2 - 1, headers.length).getValues()
+      .filter(function(r) { return r[0]; })
+      .map(_lpInvRowToObj);
+
+  kept.forEach(function(obj) { setLPInventoryEntry(obj); });
+
+  Logger.log('[cleanLPInventory] deleted=' + toDelete.length + ' rewritten=' + kept.length);
+  return { ok: true, deleted: toDelete.length, rewritten: kept.length };
+}
+
 // ── Create LP from wizard — writes LPInventory + DeepLinkRegistry atomically ──
 // Called by the Build New LP form in Step 2 of the Campaign Center wizard.
 function createLpInventoryEntry(p) {

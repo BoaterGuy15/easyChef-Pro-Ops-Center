@@ -959,6 +959,14 @@ function doPost(e) {
       var _rsh = repairSheetHeaders(body.tabs || null);
       return respond({ ok:_rsh.ok, result:_rsh, log: Logger.getLog() });
     }
+    if(body.action === 'clean_lp_inventory') {
+      var _cli = cleanLPInventory();
+      return respond({ ok:_cli.ok, result:_cli, log: Logger.getLog() });
+    }
+    if(body.action === 'restore_lp_waitlist_ab') {
+      var _rlw = restoreLpWaitlistAB();
+      return respond({ ok:_rlw.ok, result:_rlw, log: Logger.getLog() });
+    }
     if(body.action === 'repair_icp_dates') {
       var _rid = repairIcpDates();
       return respond({ ok:_rid.ok, result:_rid, log: Logger.getLog() });
