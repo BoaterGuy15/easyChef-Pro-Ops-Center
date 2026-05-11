@@ -303,6 +303,10 @@
         <button class="tab"        id="tab-cal"  onclick="switchTab('cal')">Calendar</button>
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
+      <div id="cal-toolbar" style="display:none;align-items:center;gap:10px;padding:8px 0 4px;flex-wrap:wrap">
+        <button id="cal-sync-btn" onclick="syncCalendar()" style="background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:5px 14px;border-radius:6px;font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;font-weight:600">↻ Sync</button>
+        <span id="cal-sync-msg" style="font-family:'DM Mono',monospace;font-size:10px;color:#32d74b"></span>
+      </div>
       <div id="panel-cal" style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
     </div>
   </div>
@@ -447,6 +451,8 @@
       document.getElementById('tab-cal').className='tab'+(tab==='cal'?' active':'');
       document.getElementById('panel-dash').style.display=tab==='dash'?'':'none';
       document.getElementById('panel-cal').style.display=tab==='cal'?'':'none';
+      var tb=document.getElementById('cal-toolbar');
+      if(tb) tb.style.display=tab==='cal'?'flex':'none';
       if(tab==='cal') applyAndRender();
     }
 
@@ -669,7 +675,7 @@
     function isoDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 
     function renderCal(data){
-      if(!data||!data.days){document.getElementById('panel-cal').innerHTML='<div class="loading">No calendar data.</div>';return;}
+      if(!data||!data.days){document.getElementById('panel-cal').innerHTML='<div class="loading" style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0">No calendar data — posts have not been synced yet.<button onclick="syncCalendar()" style="background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:7px 20px;border-radius:7px;font-size:12px;font-family:\'DM Mono\',monospace;cursor:pointer;font-weight:600">↻ Sync Posts → Calendar</button></div>';return;}
       var days=data.days,today=isoDate(new Date()),allDays=calData?calData.days:{};
       var dowHtml=DOW.map(function(d){return '<div class="cal-dow-cell">'+d+'</div>';}).join('');
       var cells='',cur=new Date(2026,4,24),end=new Date(2026,6,4);
@@ -914,6 +920,37 @@
     function load(){
       document.getElementById('tagline').innerHTML=_activeCampaign+' &nbsp;·&nbsp; Refreshing<span class="dot-anim"></span>';
       loadDashboard();loadCalendar();
+    }
+
+    // ── Sync posts → ContentCalendar ──────────────────────────────────────────
+    function syncCalendar(){
+      var panel=document.getElementById('panel-cal');
+      if(panel) panel.innerHTML='<div class="loading">Syncing posts → calendar<span class="dot-anim"></span></div>';
+      var btn=document.getElementById('cal-sync-btn');
+      if(btn){btn.disabled=true;btn.textContent='⏳ Syncing…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          var btn2=document.getElementById('cal-sync-btn');
+          if(btn2){btn2.disabled=false;btn2.textContent='↻ Sync';}
+          if(r&&r.ok){
+            var msg='✓ Seeded '+((r.result&&r.result.seeded)||0)+' posts';
+            var flash=document.getElementById('cal-sync-msg');
+            if(flash){flash.textContent=msg;flash.style.color='#32d74b';setTimeout(function(){flash.textContent='';},4000);}
+            loadCalendar();
+          } else {
+            var flash2=document.getElementById('cal-sync-msg');
+            if(flash2){flash2.textContent='Error: '+((r&&r.result&&r.result.error)||'unknown');flash2.style.color='#ff453a';}
+            loadCalendar();
+          }
+        })
+        .withFailureHandler(function(e){
+          var btn3=document.getElementById('cal-sync-btn');
+          if(btn3){btn3.disabled=false;btn3.textContent='↻ Sync';}
+          var flash3=document.getElementById('cal-sync-msg');
+          if(flash3){flash3.textContent='Connection error';flash3.style.color='#ff453a';}
+          loadCalendar();
+        })
+        .seedEC2026001ContentCalendar(_activeCampaign);
     }
 
     // ── Figma token expiry banner ────────────────────────────────────

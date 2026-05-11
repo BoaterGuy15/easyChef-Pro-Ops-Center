@@ -20,7 +20,8 @@ const TEAM_DOCS_CATEGORY_IDS = {
   'Product Docs':        '1k21edP2f_ocaaGv6-F5z7kAEnat_ZQJx',
   'Brand Assets':        '16S9rAuZ4fKpnFxm_e90C0s3JWXwbV0nj',
   'Screenshots':         '1nNBP7NmFl9W1FqGOLgsc7-NUssUjemlN',
-  'Slack Archive':       '1hrbndh6a3XrxTvVsXkqzeKz3dq91BQDe'
+  'Slack Archive':       '1hrbndh6a3XrxTvVsXkqzeKz3dq91BQDe',
+  'DNI EcoSystem':       '1fS6hDkfztuQJg3z8iUI10q1N8YZj_a3m'
 };
 const VIDEOS_FOLDER_ID = '1VYIT0JWoDaZ4mf151Dpmf2g8f-7p6gYe'; // Ops.DGL.dev/Videos
 const VIDEOS_CATEGORY_IDS = {

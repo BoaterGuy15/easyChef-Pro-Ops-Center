@@ -2101,8 +2101,9 @@ function _computeBlockedReason(r, H) {
   return reasons.join(' · ');
 }
 
-function seedEC2026001ContentCalendar() {
+function seedEC2026001ContentCalendar(campaignId) {
   try {
+    campaignId = campaignId || 'EC-2026-001';
     var CAMPAIGN_START = new Date(2026, 4, 27); // May 27, 2026 (month 0-indexed)
 
     var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
@@ -2133,7 +2134,7 @@ function seedEC2026001ContentCalendar() {
 
     for (var i = 0; i < spRows.length; i++) {
       var row = spRows[i];
-      if (String(row[1]) !== 'EC-2026-001') continue;
+      if (String(row[1]) !== campaignId) continue;
 
       var assetId = String(row[0]);
       if (existingByAsset[assetId]) continue; // idempotent
@@ -2141,12 +2142,25 @@ function seedEC2026001ContentCalendar() {
       var b = {};
       try { b = JSON.parse(String(row[15])); } catch(e) {}
 
-      var day = Number(b.day) || 0;
+      var day = 0;
       var pubDate = '';
-      if (day > 0) {
-        var d = new Date(CAMPAIGN_START.getTime());
-        d.setDate(d.getDate() + (day - 1));
-        pubDate = Utilities.formatDate(d, _CAL_TZ, 'yyyy-MM-dd');
+      if (Number(b.day) > 0) {
+        // Legacy path: JSON in design_brief (original seeded data)
+        day = Number(b.day);
+        var dOff = new Date(CAMPAIGN_START.getTime());
+        dOff.setDate(dOff.getDate() + (day - 1));
+        pubDate = Utilities.formatDate(dOff, _CAL_TZ, 'yyyy-MM-dd');
+      } else if (row[9]) {
+        // Pipeline path: use scheduled_date column directly
+        try {
+          var sdRaw = row[9];
+          var sd = (sdRaw instanceof Date) ? sdRaw : new Date(String(sdRaw));
+          if (!isNaN(sd.getTime())) {
+            pubDate = Utilities.formatDate(sd, _CAL_TZ, 'yyyy-MM-dd');
+            var diffMs = sd.getTime() - CAMPAIGN_START.getTime();
+            day = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
+          }
+        } catch(de) {}
       }
 
       var platform    = String(row[2]);
@@ -2171,7 +2185,7 @@ function seedEC2026001ContentCalendar() {
       newRows.push([
         calId,                                // calendar_id
         assetId,                              // asset_id
-        'EC-2026-001',                        // campaign_id
+        campaignId,                           // campaign_id
         platform,                             // platform
         '',                                   // account
         pubDate,                              // publish_date

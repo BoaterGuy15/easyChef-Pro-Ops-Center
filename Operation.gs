@@ -946,8 +946,12 @@ function doPost(e) {
       return respond({ ok:_rpResult.ok, result:_rpResult, log: Logger.getLog() });
     }
     if(body.action === 'seed_ec2026001_content_calendar') {
-      var _ccSeed = seedEC2026001ContentCalendar();
+      var _ccSeed = seedEC2026001ContentCalendar(body.campaignId || body.campaign_id || 'EC-2026-001');
       return respond({ ok:_ccSeed.ok, result:_ccSeed, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_content_calendar') {
+      var _ccSeed2 = seedEC2026001ContentCalendar(body.campaignId || body.campaign_id || 'EC-2026-001');
+      return respond({ ok:_ccSeed2.ok, result:_ccSeed2, log: Logger.getLog() });
     }
     if(body.action === 'seed_ec2026001_lp_pages') {
       var _lpPg = seedEC2026001LPPages();
