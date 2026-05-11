@@ -3017,7 +3017,7 @@ function _renderRaciChannelPicker(taskId){
   const chs=_mergedChannelList();
   const linked=_getTaskSlackLink(taskId);
   const savedChannelId=linked.channelId||'';
-  console.log('[DGL] Building channel dropdown for',taskId,'saved:',savedChannelId);
+  _dglLog('[DGL] Building channel dropdown for',taskId,'saved:',savedChannelId);
   const chName=linked.channelName||linked.channelId||'Not linked';
   const canEdit=['taylor','steve','adam','hammad','searah'].includes(window._DGL_USER);
   const unlocked=_isChannelUnlocked(taskId);
@@ -3233,7 +3233,7 @@ function loadTaskChannelLinks(){
       Object.values(d.map||{}).forEach(e=>{
         if(e.taskId&&e.channelId) _slackLinksCache['dgl_task_slack_'+e.taskId]={channelId:e.channelId,channelName:e.channelName};
       });
-      console.log('[DGL] Task channels loaded:',Object.keys(_slackLinksCache).filter(k=>k.startsWith('dgl_task_slack_')).length);
+      _dglLog('[DGL] Task channels loaded:',Object.keys(_slackLinksCache).filter(k=>k.startsWith('dgl_task_slack_')).length);
     }).catch(()=>{ _channelLinksLoaded=true; });
 }
 function _autoLinkTaskChannels(){
@@ -3278,7 +3278,7 @@ function _autoLinkTaskChannels(){
     const fallback=_slackChannelsCache.find(c=>(c.name||'').toLowerCase().includes('launch-ops'));
     if(fallback){ _slackLinksCache[key]={channelId:fallback.id,channelName:'#'+fallback.name}; agCount++; }
   }
-  if(taskCount||agCount) console.log('[DGL] Auto-linked',taskCount,'tasks and',agCount,'agenda items to Slack channels');
+  if(taskCount||agCount) _dglLog('[DGL] Auto-linked',taskCount,'tasks and',agCount,'agenda items to Slack channels');
 }
 function _jumpToTask(taskId){
   showPage('raci');
@@ -3291,7 +3291,7 @@ function _jumpToTask(taskId){
 const _DGL_TEAM_NAMES=Object.values(_USER_RACI_MAP); // ['Taylor','Steve','Adam','Mary','JR','Hammad','Searah','Sadee']
 
 function _openMarkCompleteModal(taskId){
-  console.log('[DGL] Opening mark complete modal for',taskId);
+  _dglLog('[DGL] Opening mark complete modal for',taskId);
   const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
   if(!t) return;
   let modal=document.getElementById('mark-complete-modal');
@@ -4039,7 +4039,7 @@ function _renderDocsList(sourceType,sourceId){
   const key=sourceType+'_'+sourceId;
   const docs=_docsCache[key]||[];
   const el=document.getElementById('docs-list-'+sourceType+'-'+sourceId);
-  console.log('[DGL] renderDocsList container:',el?el.id:'NOT FOUND','docs:',docs.length);
+  _dglLog('[DGL] renderDocsList container:',el?el.id:'NOT FOUND','docs:',docs.length);
   if(!el) return;
   const folderBtn=document.getElementById('docs-folder-btn-'+sourceType+'-'+sourceId);
   if(folderBtn){ const fu=(docs.find(d=>d.folderUrl)||{}).folderUrl; if(fu){ folderBtn.href=fu; folderBtn.style.display='inline-block'; } else { folderBtn.style.display='none'; } }
@@ -4162,7 +4162,7 @@ async function _chunkUploadToDrive(file,dz,ctx){
     body:JSON.stringify({action:'docs_write',...doc})}).catch(()=>{});
 }
 function _handleDocUpload(files,sourceType,sourceId,sourceName){
-  console.log('[DGL] Doc upload sourceName:',sourceName,'sourceType:',sourceType,'sourceId:',sourceId);
+  _dglLog('[DGL] Doc upload sourceName:',sourceName,'sourceType:',sourceType,'sourceId:',sourceId);
   if(!files||!files.length) return;
   const dz=document.getElementById('docs-dz-'+sourceType+'-'+sourceId);
   const fileArr=Array.from(files);
@@ -4205,7 +4205,7 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       _startTimer();
       const b64=ev.target.result.split(',')[1];
       const _sn=sourceName||(sourceType==='task'?(DASHBOARD_DATA.tasks.find(t=>t.id===sourceId)||{}).name||'':(AGENDA_DATA.find(a=>a.id===sourceId)||{}).title||'');
-      console.log('[DGL] Resolved _sn:',_sn,'(param was:',sourceName,')');
+      _dglLog('[DGL] Resolved _sn:',_sn,'(param was:',sourceName,')');
       const _activeFolder=(sourceType==='shared'&&_sharedDocsFilter!=='All'&&_sharedDocsFilter!=='Linked Files')?_sharedDocsFilter:'';
       const _activeCF=_activeFolder?(_customDriveFolders||[]).find(f=>f.name===_activeFolder):null;
       const payload={action:'file_upload',filename:file.name,mimeType:file.type,base64data:b64,
@@ -4218,11 +4218,11 @@ function _handleDocUpload(files,sourceType,sourceId,sourceName){
       fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload),signal:_abortCtrl.signal})
         .then(r=>r.json()).then(data=>{
           clearTimeout(_abortTimer); _stopCrawl(); _setPct(100);
-          console.log('[DGL] Doc upload full response:', data);
+          _dglLog('[DGL] Doc upload full response:', data);
           const _d=data.doc||data;
           const _driveFileId=_d.driveFileId||_d.id||data.id||'';
           const _url=_d.url||data.url||'';
-          console.log('[DGL] Doc saved to Drive:',{name:file.name,driveFileId:_driveFileId,url:_url});
+          _dglLog('[DGL] Doc saved to Drive:',{name:file.name,driveFileId:_driveFileId,url:_url});
           if(data.ok===false){
             const _errMsg=data.error||'Apps Script error';
             _dzSetLabel(dz,'❌ Upload failed: '+_errMsg,'var(--red)'); setTimeout(()=>_dzResetLabel(dz),6000);
@@ -4244,7 +4244,7 @@ function deleteDoc(docId,sourceType,sourceId){
   if(!confirm('Remove this document?')) return;
   const key=sourceType+'_'+sourceId;
   if(_docsCache[key]) _docsCache[key]=_docsCache[key].filter(d=>d.id!==docId);
-  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).then(r=>r.json()).then(d=>{console.log('[DGL] Doc deleted:',docId,'result:',d.ok);}).catch(()=>{});
+  if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'docs_delete',id:docId})}).then(r=>r.json()).then(d=>{_dglLog('[DGL] Doc deleted:',docId,'result:',d.ok);}).catch(()=>{});
   _renderDocsList(sourceType,sourceId);
 }
 // ── Shared Team Documents (📁 Docs tab) ─────────────────────
@@ -5409,7 +5409,7 @@ function _raciExpandLoadSlackFeed(taskId,channelId){
   fetch(CONFIG.sheetsUrl+'?action=slack_messages&channel='+encodeURIComponent(channelId)+'&limit=50')
     .then(r=>r.json())
     .then(data=>{
-      console.log('[DGL] slack_messages response for',taskId,channelId,data);
+      _dglLog('[DGL] slack_messages response for',taskId,channelId,data);
       const el=document.getElementById('raci-expand-slack-feed-'+taskId);
       if(!el) return;
       const msgs=data.messages||[];
@@ -6143,7 +6143,7 @@ function _renderGanttMilestoneLines(opts){
   hdrLinesOverlay.id=pfx+'-ms-lines-hdr';
   hdrLinesOverlay.style.cssText=`position:absolute;top:0;left:0;width:${totalTrackW}px;height:52px;pointer-events:none;z-index:4;overflow:visible`;
 
-  //console.log('[DGL] Rendering milestone lines:',items.length);
+  //_dglLog('[DGL] Rendering milestone lines:',items.length);
   items.forEach(m=>{
     const off=_ganttDayOff(m.date);
     if(off>=_GANTT_DAYS){ console.warn('[DGL] Milestone out of range:',m.title,m.date); return; }
@@ -6151,7 +6151,7 @@ function _renderGanttMilestoneLines(opts){
     const isDone=m.status==='Complete'||m.status==='Done';
     const color=isDone?'#22c55e':_resolveColor(m.color);
     const marker=isDone?'✓':'◆';
-    //console.log('[DGL] Milestone:',m.title,'day:',off.toFixed(1),'x:',x+'px');
+    //_dglLog('[DGL] Milestone:',m.title,'day:',off.toFixed(1),'x:',x+'px');
 
     const line=document.createElement('div');
     line.style.cssText=`position:absolute;left:${x}px;top:0;width:2px;height:100%;border-left:2px solid ${color};opacity:0.5;pointer-events:auto;cursor:default`;
@@ -6789,8 +6789,8 @@ function _showGanttMoveConfirm(taskId,oldSd,oldEd,newSd,newEd){
   confirmBtn.textContent='✅ Confirm';
   confirmBtn.style.cssText='background:transparent;color:var(--green);border:1px solid var(--green);border-radius:5px;font-family:\'DM Mono\',monospace;font-size:10px;padding:4px 12px;cursor:pointer';
   confirmBtn.onclick=()=>{
-    console.log('[DGL] Confirming move '+taskId+' newSd:'+newSd+' newEd:'+newEd);
-    console.log('[DGL] _sheetsLoaded:',window._sheetsLoaded);
+    _dglLog('[DGL] Confirming move '+taskId+' newSd:'+newSd+' newEd:'+newEd);
+    _dglLog('[DGL] _sheetsLoaded:',window._sheetsLoaded);
     const t=DASHBOARD_DATA.tasks.find(x=>x.id===taskId);
     if(t){t.sd=newSd;t.ed=newEd;t.lastStatusChange=new Date().toISOString();}
     _saveTasksNow();
@@ -7283,7 +7283,7 @@ function loadActionPlansFromSheets(){
           if(!_actionPlansCache[p.sourceId]||p.createdAt>_actionPlansCache[p.sourceId].createdAt) _actionPlansCache[p.sourceId]=p;
         }
       });
-      console.log('[DGL] Action plans loaded: '+Object.keys(_actionPlansCache).length+' active, '+Object.keys(window._completedPlansCache).length+' completed');
+      _dglLog('[DGL] Action plans loaded: '+Object.keys(_actionPlansCache).length+' active, '+Object.keys(window._completedPlansCache).length+' completed');
       // Refresh any task panels that are already open and rendered without a plan
       Object.keys(_actionPlansCache).forEach(function(sid){
         const statusDiv=document.getElementById('ap-status-task-'+sid);
@@ -7411,10 +7411,10 @@ function saveAgendaItemToSheets(item){
   clearTimeout(_agendaSaveTimers[item.id]);
   _agendaSaveTimers[item.id]=setTimeout(()=>{
     const payload=JSON.stringify({action:'agenda_write',id:item.id||'',title:item.title||'',detail:item.detail||'',decision:item.decision||'',checked:String(!!item.checked),owner:item.owner||'',deadline:item.deadline||'',category:item.category||'Manual',taskId:item.taskId||'',flag:item.flag||'',taskPlan:item.taskPlan||'',taskPlans:item.taskPlans||[]});
-    console.log('[DGL] agenda_write payload:', payload);
+    _dglLog('[DGL] agenda_write payload:', payload);
     fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload})
       .then(r=>r.json())
-      .then(d=>{ console.log('[DGL] agenda_write response:', d); if(!d.ok) console.error('[DGL] agenda_write failed:', d); })
+      .then(d=>{ _dglLog('[DGL] agenda_write response:', d); if(!d.ok) console.error('[DGL] agenda_write failed:', d); })
       .catch(e=>console.error('[DGL] agenda_write error:', e));
     if(item.taskId) _autoLink('agenda',item.id,'task',item.taskId);
   },1500);
@@ -8331,7 +8331,7 @@ function _stripMarkdown(text){
 async function _buildDocContext(id, type){
   const srcType=(type==='raci'||type==='task')?'task':'agenda';
   const cacheKey=srcType+'_'+id;
-  console.log('[DGL] buildDocContext cache key:',cacheKey,'docs:',_docsCache[cacheKey]?.length);
+  _dglLog('[DGL] buildDocContext cache key:',cacheKey,'docs:',_docsCache[cacheKey]?.length);
   if(_docsCache[cacheKey]===undefined){
     await new Promise(resolve=>loadDocsForSource(srcType,id,resolve));
   }
@@ -8430,7 +8430,7 @@ function _buildTaskBreadcrumb(taskId, maxEvents){
   return (maxEvents?lines.slice(-maxEvents):lines).join('\n')||'No breadcrumb data.';
 }
 async function runSuperAi(id, type, btn){
-  console.log('[DGL] runSuperAi called', id, type);
+  _dglLog('[DGL] runSuperAi called', id, type);
   if(!CONFIG.sheetsUrl) return;
   btn.textContent='⚡ Generating action plan…'; btn.disabled=true;
   const resultEl=document.getElementById('super-ai-result-'+id);
@@ -8821,7 +8821,7 @@ function _renderTaskPlanCardsHtml(plans,sourceId,sourceType){
   return `<div>${cards}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${genBtn}${regenBtn}${bulkBtn}${agendaBtn}${actionsBtn}</div></div>`;
 }
 function _generateTaskPlans(id,type){
-  console.log('[DGL] _generateTaskPlans fired',id,type);
+  _dglLog('[DGL] _generateTaskPlans fired',id,type);
   const _normType=(type==='raci'?'task':type)||'task';
   const src=_normType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src) return;
@@ -8841,7 +8841,7 @@ function _toggleTaskPlan(id,type,idx,done){
   if(type==='task') saveToLocal(); else saveAgendaItemToSheets(src);
 }
 function _addTaskPlanToRaci(id,type,idx,btn){
-  console.log('[DGL] _addTaskPlanToRaci fired',id,type,idx);
+  _dglLog('[DGL] _addTaskPlanToRaci fired',id,type,idx);
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src||!src.taskPlans||!src.taskPlans[idx]) return;
   const p=src.taskPlans[idx];
@@ -8939,7 +8939,7 @@ function _bcpUpdateCount(){
   const btn=document.getElementById('bcp-create-btn'); if(btn) btn.textContent='✦ Create Selected ('+n+')';
 }
 function _showBulkCreateModal(id,type){
-  console.log('[DGL] _showBulkCreateModal fired',id,type);
+  _dglLog('[DGL] _showBulkCreateModal fired',id,type);
   const src=type==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===id):AGENDA_DATA.find(a=>a.id===id);
   if(!src||!src.taskPlans||!src.taskPlans.length){ alert('No task plans to create. Click "✦ Generate Task Plans from AI" first.'); return; }
   const selected=src.taskPlans.filter(p=>p.selected!==false);
@@ -9049,11 +9049,11 @@ function _bulkCreateTasks(){
     const breadcrumb='\n[From: '+srcId+' action plan, created '+todayStr+']';
     newTasks.push({id:tid,name,cat:srcCat,pri,status:'Not Started',owner,deps,notes:(p.description||'')+breadcrumb,actionPlan:'',taskPlan:'',sd:todayStr,ed,flag:_flagMap[p.section]||'',flagColor:'',slackChannel:'',lastStatusChange:new Date().toISOString().slice(0,16),...raciCols,_rowIdx:i});
     createdIds.push(tid); prevTaskId=tid; collectCount++;
-    console.log('[DGL] bulk create staged: '+tid+' ('+name+')');
+    _dglLog('[DGL] bulk create staged: '+tid+' ('+name+')');
   }
   // Push all at once — single DASHBOARD_DATA mutation, no mid-loop renders
   newTasks.forEach(t=>{ const rowIdx=t._rowIdx; delete t._rowIdx; DASHBOARD_DATA.tasks.push(t); const res=document.getElementById('bcp-result-'+rowIdx); if(res) res.textContent='✦ '+t.id; });
-  console.log('[DGL] bulk create: pushed '+newTasks.length+' tasks (cat='+srcCat+') to DASHBOARD_DATA');
+  _dglLog('[DGL] bulk create: pushed '+newTasks.length+' tasks (cat='+srcCat+') to DASHBOARD_DATA');
   // Auto-link new tasks to Slack channels based on category
   _autoLinkTaskChannels();
   const _catMap=_getCategoryChannelMap();
@@ -9086,7 +9086,7 @@ function _bulkCreateTasks(){
   setTimeout(()=>{ const ov=document.getElementById('bulk-create-overlay'); if(ov) ov.remove(); },5000);
 }
 function _bulkAddToAgenda(sourceId,sourceType){
-  console.log('[DGL] _bulkAddToAgenda fired',sourceId,sourceType);
+  _dglLog('[DGL] _bulkAddToAgenda fired',sourceId,sourceType);
   const src=sourceType==='task'?DASHBOARD_DATA.tasks.find(t=>t.id===sourceId):AGENDA_DATA.find(a=>a.id===sourceId);
   if(!src||!src.taskPlans||!src.taskPlans.length){ alert('No task plans to add. Click "✦ Generate Task Plans from AI" first.'); return; }
   const selected=src.taskPlans.filter(p=>p.selected!==false);
@@ -9594,7 +9594,7 @@ function _buildMilestonesHtml(canEditControls){
   return html;
 }
 function buildMilestones(){
-  //console.log('[DGL] buildMilestones called');
+  //_dglLog('[DGL] buildMilestones called');
   const commandEl=document.getElementById('milestone-list');
   const roadmapEl=document.getElementById('roadmap-milestone-list');
   const lpEl=document.getElementById('lp-milestone-list');
@@ -9609,7 +9609,7 @@ function buildMilestones(){
   if(document.getElementById('ac-gantt-canvas')) requestAnimationFrame(()=>_renderGanttMilestoneLines({canvasId:'ac-gantt-canvas',hdrCanvasId:'ac-gantt-hdr-canvas',prefix:'ac-gantt',dayPx:_acGanttDayPx}));
 }
 function _openMilestoneEditModal(milestoneId){
-  console.log('[DGL] Opening milestone edit:', milestoneId);
+  _dglLog('[DGL] Opening milestone edit:', milestoneId);
   const items=DASHBOARD_DATA.meta.milestoneItems||[];
   const idx=items.findIndex(m=>m.id===milestoneId);
   if(idx<0){ console.warn('[DGL] Milestone not found:', milestoneId); return; }
@@ -9662,7 +9662,7 @@ function _saveMilestoneEditModal(){
   item.description=(g('ms-edit-desc').value||'').trim();
   item.color=g('ms-edit-color').value||'';
   _saveMilestoneToSheets(item);
-  console.log('[DGL] Milestone updated:', item.title);
+  _dglLog('[DGL] Milestone updated:', item.title);
   g('ms-edit-modal').style.display='none';
   _debouncedBuildMilestones();
   buildMilestoneHistory();
@@ -9703,7 +9703,7 @@ function _saveMilestoneModal(){
   if(!DASHBOARD_DATA.meta.milestoneItems) DASHBOARD_DATA.meta.milestoneItems=[];
   DASHBOARD_DATA.meta.milestoneItems.push(item);
   _saveMilestoneToSheets(item);
-  console.log('[DGL] Milestone saved:', item.title, 'total:', DASHBOARD_DATA.meta.milestoneItems.length);
+  _dglLog('[DGL] Milestone saved:', item.title, 'total:', DASHBOARD_DATA.meta.milestoneItems.length);
   g('ms-add-modal').style.display='none';
   _debouncedBuildMilestones();
   buildMilestoneHistory();
@@ -9786,7 +9786,7 @@ function loadProfilesFromSheets(){
 }
 function saveProfileToSheets(userKey,profileData){
   if(!CONFIG.sheetsUrl) return;
-  console.log('[DGL] saveProfileToSheets called, userKey:',userKey,'data:',JSON.stringify(profileData));
+  _dglLog('[DGL] saveProfileToSheets called, userKey:',userKey,'data:',JSON.stringify(profileData));
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',userKey,...profileData})}).catch(()=>{});
 }
 function _getMemberInfo(userKey){
@@ -9863,18 +9863,18 @@ function _onPhotoInputChange(inp,userKey){
   reader.onload=async function(ev){
     const b64=ev.target.result.split(',')[1];
     if(!CONFIG.sheetsUrl){_showToast('No Sheets URL configured',2000);return;}
-    console.log('[DGL] Photo upload starting for:',userKey);
+    _dglLog('[DGL] Photo upload starting for:',userKey);
     try{
       const resp=await fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'file_upload',sourceType:'profile',userKey,docName:'photo-'+userKey+'.jpg',filename:file.name,mimeType:file.type,base64data:b64,taskId:'profile-'+userKey,sourceName:userKey,addedBy:window._DGL_USER||userKey})});
       const d=await resp.json();
-      console.log('[DGL] Upload response:',JSON.stringify(d));
-      console.log('[DGL] Photo URL:',d.url);
+      _dglLog('[DGL] Upload response:',JSON.stringify(d));
+      _dglLog('[DGL] Photo URL:',d.url);
       if(d.ok&&d.url){
         if(!_hrProfilesCache[userKey]) _hrProfilesCache[userKey]={};
         _hrProfilesCache[userKey].photo=d.url;
         const profile={..._hrProfilesCache[userKey],photo:d.url,userKey};
         fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'hr_profiles_write',...profile})})
-          .then(r=>r.json()).then(r=>console.log('[DGL] Photo saved to Sheets:',r.ok));
+          .then(r=>r.json()).then(r=>_dglLog('[DGL] Photo saved to Sheets:',r.ok));
         const _finalUrl=_driveImgUrl(d.url)||d.url;
         const imgEl=document.getElementById('tmm-avatar')||document.getElementById('profile-modal-avatar')||document.getElementById('profile-photo-'+userKey)||document.querySelector('[data-photo-user="'+userKey+'"]');
         if(imgEl){if(imgEl.tagName==='IMG'){imgEl.src=_finalUrl;}else{const ni=document.createElement('img');ni.id=imgEl.id;ni.src=_finalUrl;ni.style.cssText=imgEl.style.cssText+'object-fit:cover';imgEl.parentNode.replaceChild(ni,imgEl);}}
@@ -10336,7 +10336,7 @@ async function saveDefaultTeamMember(user){
   const channels=(document.getElementById('tmm-channels')?.value||'').trim();
   const github=(document.getElementById('tmm-github')?.value||'').trim();
   const timezone=(document.getElementById('tmm-timezone')?.value||'').trim();
-  console.log('[DGL] saveDefaultTeamMember called, user:',window._DGL_USER,'data:',{phone,slack,timezone});
+  _dglLog('[DGL] saveDefaultTeamMember called, user:',window._DGL_USER,'data:',{phone,slack,timezone});
   if(!name||!role||!email){ alert('Name, role, and email are required.'); return; }
   const edits=_getDefaultTeamEdits();
   const existing=edits[user]||{};
@@ -10352,7 +10352,7 @@ async function saveDefaultTeamMember(user){
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_hrPayload)}).catch(()=>{});
   if(update.passwordHash) _hrProfilesCache[user]={...(_hrProfilesCache[user]||{}),passwordHash:update.passwordHash};
   if(pw&&user===window._DGL_USER){ window._dglPwHash=update.passwordHash; sessionStorage.setItem('dgl_pw_hash',update.passwordHash); }
-  console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload));
+  _dglLog('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload));
   if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='✅ Password saved'; await new Promise(r=>setTimeout(r,1200)); } }
   closeTeamMemberModal();
   buildTeamGrid();
@@ -10459,7 +10459,7 @@ async function saveTeamMember(idx){
   if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_hrPayload2)}).catch(()=>{});
   _hrProfilesCache[user]={...(_hrProfilesCache[user]||{}),passwordHash};
   if(pw&&user===window._DGL_USER){ window._dglPwHash=passwordHash; sessionStorage.setItem('dgl_pw_hash',passwordHash); }
-  console.log('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload2));
+  _dglLog('[DGL] Profile saved to Sheets for:',user,JSON.stringify(_hrPayload2));
   if(pw){ const btn=document.querySelector('#tmm-modal-body .btn-primary'); if(btn){ btn.textContent='✅ Password saved'; await new Promise(r=>setTimeout(r,1200)); } }
   USER_RACI_COL[user]=raciKey;
   USER_DISPLAY[user]=raciKey;
@@ -12264,16 +12264,16 @@ function _mailboxBadgeUpdate(){
 }
 async function _loadUserNotifications(userKey){
   if(!CONFIG.sheetsUrl||!userKey||userKey==='view') return;
-  console.log('[DGL] Fetching notifications for:', userKey);
+  _dglLog('[DGL] Fetching notifications for:', userKey);
   try{
     const r=await fetch(CONFIG.sheetsUrl+'?action=notifications_read');
     const d=await r.json();
     const all=Array.isArray(d)?d:(d.notifications||[]);
-    console.log('[DGL] All notifications:', all.length);
+    _dglLog('[DGL] All notifications:', all.length);
     const _delSet=new Set(JSON.parse(localStorage.getItem('dgl_del_'+(userKey||''))||'[]'));
     const mine=all.filter(n=>(n.toUser===userKey||n.toUser===''||!n.toUser)&&!_delSet.has(n.id));
-    console.log('[DGL] Filtered for user:', mine.length);
-    if(mine.length) console.log('[DGL] First notification:', JSON.stringify(mine[0]));
+    _dglLog('[DGL] Filtered for user:', mine.length);
+    if(mine.length) _dglLog('[DGL] First notification:', JSON.stringify(mine[0]));
     window._userNotifications=mine.sort((a,b)=>new Date(b.sentAt||b.ts||0)-new Date(a.sentAt||a.ts||0));
     _mailboxBadgeUpdate();
     // Always re-render if panel is open, regardless of which tab is active
@@ -12478,11 +12478,11 @@ function _refreshDMThread(personKey){
 }
 function _renderAlertsTab(){
   const el=document.getElementById('mb-alerts-list');
-  console.log('[DGL] Alerts container found:', !!el);
+  _dglLog('[DGL] Alerts container found:', !!el);
   if(!el) return;
   const _parseNotifTs=v=>{ if(!v) return 0; const d=new Date(String(v).replace(/,\s*/,' ').replace(/\s+a\.m\./,' AM').replace(/\s+p\.m\./,' PM')); return isNaN(d)?0:d.getTime(); };
   const notifs=(window._userNotifications||[]).slice().sort((a,b)=>_parseNotifTs(b.sentAt||b.ts)-_parseNotifTs(a.sentAt||a.ts));
-  console.log('[DGL] Rendering', notifs.length, 'alerts into #mb-alerts-list');
+  _dglLog('[DGL] Rendering', notifs.length, 'alerts into #mb-alerts-list');
   if(!notifs.length){ el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);padding:32px 20px;text-align:center">No notifications yet.</div>'; return; }
   const read=_readNotifIds();
   el.innerHTML='';
@@ -14420,7 +14420,7 @@ function _doSave(){
   setTimeout(()=>{ _sheetsSyncLock=false; },8000);
   const _tPayload=DASHBOARD_DATA.tasks.map(({actionPlan,...r})=>({...r,sd:r.sd?(_toYMD(r.sd)||r.sd):r.sd,ed:r.ed?(_toYMD(r.ed)||r.ed):r.ed}));
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_tPayload)})
-    .then(r=>r.json()).then(d=>{ if(d.ok){ updateSyncStatus('ok'); console.log('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); } else { updateSyncStatus('fail'); console.error('[DGL] Save failed:',d.error); } })
+    .then(r=>r.json()).then(d=>{ if(d.ok){ updateSyncStatus('ok'); _dglLog('[DGL] Tasks saved to Sheets ('+DASHBOARD_DATA.tasks.length+' tasks)'); } else { updateSyncStatus('fail'); console.error('[DGL] Save failed:',d.error); } })
     .catch(()=>{ updateSyncStatus('fail'); console.error('[DGL] Task save to Sheets failed'); });
 }
 let _saveTasksDebounce=null;
@@ -14450,7 +14450,7 @@ function _saveTasksNow(){
   if(!window._sheetsLoaded){ console.warn('[DGL] Blocked premature task save'); return; }
   if(!CONFIG.sheetsUrl) return;
   _lpRefreshBarStatuses();
-  console.log('[DGL] Saving '+DASHBOARD_DATA.tasks.length+' tasks to Sheets');
+  _dglLog('[DGL] Saving '+DASHBOARD_DATA.tasks.length+' tasks to Sheets');
   clearTimeout(_saveTasksDebounce);
   clearTimeout(_sheetsDebounce);
   _saveTasksDebounce=setTimeout(()=>{
@@ -14513,10 +14513,10 @@ function _saveMilestoneToSheets(item){
     taskIds:item.taskIds||'',
     achievedDate:item.achievedDate||''
   };
-  console.log('[DGL] Saving milestone to Sheets:', _msPayload.title, _msPayload.id);
+  _dglLog('[DGL] Saving milestone to Sheets:', _msPayload.title, _msPayload.id);
   fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(_msPayload)})
     .then(r=>r.json())
-    .then(d=>{ if(d.ok) console.log('[DGL] Milestone saved OK:', _msPayload.title); else console.error('[DGL] Milestone save FAILED:', d.error, d); })
+    .then(d=>{ if(d.ok) _dglLog('[DGL] Milestone saved OK:', _msPayload.title); else console.error('[DGL] Milestone save FAILED:', d.error, d); })
     .catch(e=>console.error('[DGL] Milestone save network error:', e.message));
 }
 function _deleteMilestoneFromSheets(id){
@@ -15452,7 +15452,7 @@ function _slackOAuthUrl(){
 // }
 function _slackConnectPopup(){
   const url=_slackOAuthUrl();
-  console.log('[DGL] Slack OAuth URL being opened for user='+window._DGL_USER+':', url);
+  _dglLog('[DGL] Slack OAuth URL being opened for user='+window._DGL_USER+':', url);
   const popup=window.open(url,'slack_oauth','width=600,height=700,left=200,top=100');
   if(!popup){ window.open(url,'_blank'); return; }
   const poll=setInterval(()=>{ try{ if(popup.closed){ clearInterval(poll); setTimeout(_slackCheckToken,500); } }catch(e){ clearInterval(poll); } },800);
@@ -16157,7 +16157,7 @@ function _renderSettingsCats(container){
         const idx=_settingsCache.categories.findIndex(c=>c.name===existing.name);
         if(idx>=0) _settingsCache.categories[idx]=newCat;
         const meta=JSON.stringify({color:col,channelId:newCat.channelId,channelName:newCat.channelName});
-        if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).then(r=>r.json()).then(d=>{if(d.ok)console.log('[DGL] Category updated:',nm);else console.warn('[DGL] settings_write failed:',d.error);}).catch(e=>console.warn('[DGL] settings_write error:',e));
+        if(CONFIG.sheetsUrl) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).then(r=>r.json()).then(d=>{if(d.ok)_dglLog('[DGL] Category updated:',nm);else console.warn('[DGL] settings_write failed:',d.error);}).catch(e=>console.warn('[DGL] settings_write error:',e));
       } else {
         // New: assign channel from dropdown
         const liveChs2=_slackChannelsCache||[];
@@ -16167,7 +16167,7 @@ function _renderSettingsCats(container){
         _settingsCache.categories.push(newCat);
         const meta=JSON.stringify({color:col,channelId:newCat.channelId,channelName:newCat.channelName});
         if(CONFIG.sheetsUrl){
-          fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).then(r=>r.json()).then(d=>{if(d.ok)console.log('[DGL] Category saved:',nm);else console.warn('[DGL] settings_write failed:',d.error);}).catch(e=>console.warn('[DGL] settings_write error:',e));
+          fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'settings_write',type:'category',key:nm,value:lb,meta})}).then(r=>r.json()).then(d=>{if(d.ok)_dglLog('[DGL] Category saved:',nm);else console.warn('[DGL] settings_write failed:',d.error);}).catch(e=>console.warn('[DGL] settings_write error:',e));
           if(ch) fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'channel_maps_write',mapType:'category',key:nm,channelId:ch.id,channelName:'#'+ch.name,changedBy:window._DGL_USER||'system'})}).catch(()=>{});
         }
         _categoryChannelMapOverrides[nm]=ch?ch.name:'';
@@ -16892,10 +16892,10 @@ function loadLaunchPlan(){
     const rows=Array.isArray(data)?data:(data.items||[]);
     if(rows.length>0){
       _lpCache=rows; // fully replace — no merge with defaults
-      console.log('[DGL] loadLaunchPlan: loaded',rows.length,'rows from Sheets; ids=',(rows.slice(0,3).map(r=>r.id).join(',')));
+      _dglLog('[DGL] loadLaunchPlan: loaded',rows.length,'rows from Sheets; ids=',(rows.slice(0,3).map(r=>r.id).join(',')));
     } else {
       _lpCache=_LP_DEFAULTS.map(x=>({...x}));
-      console.log('[DGL] loadLaunchPlan: Sheets returned 0 rows — seeding defaults to Sheets...');
+      _dglLog('[DGL] loadLaunchPlan: Sheets returned 0 rows — seeding defaults to Sheets...');
       if(CONFIG.sheetsUrl) _lpSyncAll(true);
     }
     buildLaunchPlan();
@@ -16932,7 +16932,7 @@ function _lpSaveBar(item){
       // Adopt the real Sheets ID so the write targets the correct row
       resolvedItem={..._lpCache[nameIdx],...item,id:_lpCache[nameIdx].id};
       idx=nameIdx;
-      console.log('[DGL] _lpSaveBar: resolved stale id',item.id,'→',resolvedItem.id,'via name match');
+      _dglLog('[DGL] _lpSaveBar: resolved stale id',item.id,'→',resolvedItem.id,'via name match');
     }
   }
   const _prevEntry=idx>=0?_lpCache[idx]:null;
@@ -19758,14 +19758,14 @@ function _saveLink(){
   document.getElementById('add-link-modal-overlay')?.remove();
   _buildAndRenderLinks();
   if(CONFIG.sheetsUrl)fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'link_write',...link})})
-    .then(r=>r.json()).then(d=>console.log('[DGL] link_write:',d)).catch(e=>console.error('[DGL] link_write error:',e));
+    .then(r=>r.json()).then(d=>_dglLog('[DGL] link_write:',d)).catch(e=>console.error('[DGL] link_write error:',e));
 }
 function _deleteLink(id){
   if(!confirm('Remove this link?'))return;
   if(_linksCache)_linksCache=_linksCache.filter(lk=>lk.id!==id);
   _buildAndRenderLinks();
   if(CONFIG.sheetsUrl)fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'link_delete',id})})
-    .then(r=>r.json()).then(d=>console.log('[DGL] link_delete:',d)).catch(e=>console.error('[DGL] link_delete error:',e));
+    .then(r=>r.json()).then(d=>_dglLog('[DGL] link_delete:',d)).catch(e=>console.error('[DGL] link_delete error:',e));
 }
 
 // ── DGL Test Suite ──────────────────────────────────────────
@@ -20108,7 +20108,7 @@ function _coFetch(){
   fetch(CONFIG.sheetsUrl+'?action=callouts_read&user='+encodeURIComponent(window._DGL_USER||''))
     .then(r=>r.json())
     .then(data=>{
-      console.log('[DGL] callouts fetched:', data.callouts?.length);
+      _dglLog('[DGL] callouts fetched:', data.callouts?.length);
       _coCache=Array.isArray(data.callouts)?data.callouts:[];
       // If Sheet is empty, push the hardcoded defaults once
       if(!_coCache.length){ _coMigrateDefaults(); return; }
@@ -21868,6 +21868,8 @@ var _campKickstartCopy=null;
 var _campLastLp=null;
 var _campSlugStatus=''; // '' unchecked, 'ok' available, 'taken' conflict
 var _campDraftSaved=false;
+var _DGL_DEBUG = window.location.search.indexOf('debug=true') >= 0;
+function _dglLog(){if(_DGL_DEBUG) console.log.apply(console, arguments);}
 var _CC_RED='#FF0000';
 var _CC_BEIGE='#F6EFE8';
 var _CC_ICPS=['Super Mom','Budget Family','Health Optimizer','Professional','Alpha Recruit'];
@@ -24084,6 +24086,8 @@ function _ccRunFullCampaign(campaignId){
   if(panel){panel.style.display='block';}
   if(stepsEl){stepsEl.innerHTML='';}
   if(summEl){summEl.style.display='none';summEl.innerHTML='';}
+  var resumeBar=document.getElementById('cc-full-run-resume');
+  if(resumeBar){resumeBar.style.display='none';}
 
   var base=CONFIG.campaignUrl;
   var brief=null;var copy={};var seqRes={};var saveRes={};
@@ -24098,6 +24102,8 @@ function _ccRunFullCampaign(campaignId){
     if(!stepsEl) return;
     stepsEl.innerHTML+='<div style="color:#ef4444;'+mf+'">✗ '+msg+'</div>';
     if(summEl){summEl.style.display='block';summEl.style.color='#ef4444';summEl.innerHTML='Pipeline stopped — see error above.';}
+    var resumeEl=document.getElementById('cc-full-run-resume');
+    if(resumeEl){resumeEl.style.display='flex';}
     if(btn){btn.disabled=false;btn.textContent='⚡ Run Full Campaign — '+campaignId;}
   }
   function done(total,driveUrl){
@@ -24185,6 +24191,111 @@ function _ccRunFullCampaign(campaignId){
     })
     .then(function(r){
       var total=(saveRes.posts||seqRes.postCount||0)+(saveRes.emails||seqRes.emailCount||0);
+      if(r&&r.ok&&r.folder_url){
+        step('Campaign files exported to Drive',true);
+        done(total,r.folder_url);
+      } else {
+        step('⚠ Drive export failed — UTMs and copy are saved. Run Export to Drive manually from the Assets panel.');
+        done(total,'');
+      }
+    })
+
+    .catch(function(e){fail(e.message);});
+}
+
+// Resume pipeline from a specific step — always re-loads brief+copy (fast reads), skips generation steps already done
+function _ccResumeFromStep(campaignId, fromStep){
+  if(!CONFIG.campaignUrl){_showToast('<div style="color:var(--muted)">No campaign backend URL configured.</div>',2500);return;}
+  var panel=document.getElementById('cc-full-run-panel');
+  var stepsEl=document.getElementById('cc-full-run-steps');
+  var summEl=document.getElementById('cc-full-run-summary');
+  var resumeEl=document.getElementById('cc-full-run-resume');
+  var mf="font-family:'DM Mono',monospace;";
+  var stepLabels={4:'Email Step',5:'UTM / DL_ID Step',6:'Drive Export'};
+
+  if(panel){panel.style.display='block';}
+  if(stepsEl){stepsEl.innerHTML='';}
+  if(summEl){summEl.style.display='none';summEl.innerHTML='';}
+  if(resumeEl){resumeEl.style.display='none';}
+
+  var base=CONFIG.campaignUrl;
+  var brief=null;var seqRes={};var saveRes={};
+
+  function step(msg,done){
+    if(!stepsEl) return;
+    var color=done?'#22c55e':'var(--muted)';
+    var icon=done?'✓':'⏳';
+    stepsEl.innerHTML+='<div style="color:'+color+';'+mf+'">'+icon+' '+msg+'</div>';
+  }
+  function fail(msg){
+    if(!stepsEl) return;
+    stepsEl.innerHTML+='<div style="color:#ef4444;'+mf+'">✗ '+msg+'</div>';
+    if(summEl){summEl.style.display='block';summEl.style.color='#ef4444';summEl.innerHTML='Pipeline stopped — see error above.';}
+    if(resumeEl){resumeEl.style.display='flex';}
+  }
+  function done(total,driveUrl){
+    if(summEl){
+      summEl.style.display='block';summEl.style.color='#22c55e';
+      summEl.innerHTML='✅ Campaign ready — '+total+' assets generated'+(driveUrl?' &nbsp;·&nbsp; <a href="'+driveUrl+'" target="_blank" style="color:var(--gold)">Open Drive folder</a>':'');
+    }
+  }
+  function _post(action,body){
+    return fetch(base,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify(Object.assign({action:action},body||{}))}).then(function(r){return r.json();});
+  }
+
+  step('▶ Resuming from '+stepLabels[fromStep]+'…');
+
+  Promise.resolve()
+
+    // Always re-load brief + copy (fast reads, no side effects)
+    .then(function(){
+      return _post('campaign_brief_read',{id:campaignId});
+    })
+    .then(function(r){
+      if(!r.briefs) throw new Error('Brief not found — run the wizard first to create '+campaignId);
+      brief=r.briefs;
+      step('Brief confirmed — '+brief.name,true);
+    })
+    .then(function(){
+      return _post('generated_copy_read',{campaign_id:campaignId});
+    })
+    .then(function(r){
+      var rows=r.copy||[];
+      step('Copy confirmed'+(rows.length?' — "'+((rows[rows.length-1]||{}).headline||'').slice(0,40)+'…"':''),true);
+    })
+
+    // Step 4 — Email generation (skip if resuming from step 5+)
+    .then(function(){
+      if(fromStep>4) return;
+      step('Generating email sequence (1–2 min — Claude API)…');
+      return _post('generate_emails',{campaign_id:campaignId}).then(function(r){
+        if(!r.ok) throw new Error('Email generation failed: '+(r.error||'unknown'));
+        seqRes.emailCount=r.emails||0;
+        step(seqRes.emailCount+' emails saved to sheet',true);
+      });
+    })
+
+    // Step 5 — UTMs + DL_IDs (skip if resuming from step 6+)
+    .then(function(){
+      if(fromStep>5) return;
+      step('Generating UTMs + DL_IDs…');
+      return _post('generate_utm_and_save',{campaign_id:campaignId}).then(function(r){
+        if(!r.ok) throw new Error('UTM step failed: '+(r.error||'unknown'));
+        saveRes=r;
+        step((r.dl_count||0)+' DL_IDs registered',true);
+      });
+    })
+
+    // Step 6 — Drive export
+    .then(function(){
+      step('Exporting to Drive (2–4 min — builds 5 branded campaign files)…');
+      return _post('export_campaign_to_drive',{campaign_id:campaignId}).catch(function(){
+        return {ok:false,partial:true,error:'network timeout'};
+      });
+    })
+    .then(function(r){
+      var total=(saveRes.posts||0)+(saveRes.emails||seqRes.emailCount||0);
       if(r&&r.ok&&r.folder_url){
         step('Campaign files exported to Drive',true);
         done(total,r.folder_url);
@@ -29602,6 +29713,12 @@ function _campaignsRenderInner(root){
           '<button onclick="document.getElementById(\'cc-full-run-panel\').style.display=\'none\'" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px">✕</button>'+
         '</div>'+
         '<div id="cc-full-run-steps" style="padding:14px 16px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:2"></div>'+
+        '<div id="cc-full-run-resume" style="display:none;padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+          '<span style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:0.06em">Resume from:</span>'+
+          '<button onclick="_ccResumeFromStep(\'EC-2026-002\',4)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">▶ Emails</button>'+
+          '<button onclick="_ccResumeFromStep(\'EC-2026-002\',5)" style="background:transparent;border:1px solid var(--gold);color:var(--gold);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">▶ UTM / DL_IDs</button>'+
+          '<button onclick="_ccResumeFromStep(\'EC-2026-002\',6)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">▶ Drive Export</button>'+
+        '</div>'+
         '<div id="cc-full-run-summary" style="padding:10px 16px;border-top:1px solid var(--border);font-family:\'DM Mono\',monospace;font-size:12px;font-weight:700;display:none"></div>'+
       '</div>'+
       // ── Wizard step bar ────────────────────────────────────────────────────
