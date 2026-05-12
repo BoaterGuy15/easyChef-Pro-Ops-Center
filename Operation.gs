@@ -1252,6 +1252,10 @@ function doPost(e) {
       var _calr = getCampaignCalendar(body.campaign_id);
       return respond({ ok:_calr.ok, result:_calr, log: Logger.getLog() });
     }
+    if(body.action === 'get_cockpit_filter_defs') {
+      var _fd = getCockpitFilterDefs();
+      return respond({ ok:_fd.ok, result:_fd, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });

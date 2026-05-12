@@ -172,6 +172,13 @@
     .plat-fb  { background: #0a1528; color: #4a9eff; }
     .plat-em  { background: #0a1528; color: #0a84ff; }
     .plat-def { background: #1e1e22; color: #888; }
+    .plat-x   { background: #0e0e0e; color: #e0e0e0; }
+    .plat-prog-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .plat-prog-name { font-size: 10px; color: #888; width: 70px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .plat-prog-bar { flex: 1; background: #222; border-radius: 4px; height: 8px; overflow: hidden; }
+    .plat-prog-fill { height: 100%; background: #32d74b; border-radius: 4px; transition: width 0.4s ease; }
+    .plat-prog-stat { font-size: 10px; color: #555; white-space: nowrap; }
+    .blocked-progress-hdr { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #555; font-weight: 600; margin: 10px 0 6px; }
     .status-dot-lg { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; flex-shrink: 0; }
 
     /* Post detail modal */
@@ -338,13 +345,26 @@
     var STATUS_DOT_COLOR = {generated:'#3a3a3a',in_figma:'#3a7aff',designer_review:'#ffd60a',approved:'#30c05a',scheduled:'#0a84ff',published:'#32d74b',reported:'#bf5af2'};
     var STATUS_LABEL = {generated:'Generated',in_figma:'In Figma',designer_review:'Designer Review',approved:'Approved',scheduled:'Scheduled',published:'Published',reported:'Reported'};
 
-    var FILTER_DEFS = {
-      platform:[{v:'instagram',l:'Instagram'},{v:'tiktok',l:'TikTok'},{v:'pinterest',l:'Pinterest'},{v:'facebook',l:'Facebook'},{v:'email',l:'Email'}],
-      status:[{v:'generated',l:'Generated'},{v:'in_figma',l:'In Figma'},{v:'designer_review',l:'Designer Review'},{v:'approved',l:'Approved'},{v:'scheduled',l:'Scheduled'},{v:'published',l:'Published'}],
-      emotion:[{v:'exhausted',l:'Exhausted'},{v:'frustrated',l:'Frustrated'},{v:'activated',l:'Activated'},{v:'curious',l:'Curious'},{v:'relieved',l:'Relieved'},{v:'trusting',l:'Trusting'},{v:'hopeful',l:'Hopeful'}],
-      funnel:[{v:'hook',l:'Hook'},{v:'problem',l:'Problem'},{v:'agitate',l:'Agitate'},{v:'solve',l:'Solve'},{v:'value',l:'Value'},{v:'proof',l:'Proof'},{v:'cta',l:'CTA'}],
-      week:[{v:'1',l:'Week 1'},{v:'2',l:'Week 2'},{v:'3',l:'Week 3'},{v:'4',l:'Week 4'},{v:'5',l:'Week 5'}]
-    };
+    var FILTER_DEFS = {platform:[],status:[],emotion:[],funnel:[],week:[]};
+
+    function toLabel(type,v){
+      if(type==='status')return STATUS_LABEL[v]||v;
+      if(type==='week')return 'Week '+v;
+      if((v||'').length<=2)return (v||'').toUpperCase();
+      return (v||'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
+    }
+    function loadFilterDefs(){
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(!r||!r.ok)return;
+          ['platform','status','emotion','funnel','week'].forEach(function(k){
+            FILTER_DEFS[k]=(r[k]||[]).map(function(v){return{v:v,l:toLabel(k,v)};});
+          });
+          renderSidebar();
+        })
+        .withFailureHandler(function(){})
+        .getCockpitFilterDefs();
+    }
 
     var DOW=['Su','Mo','Tu','We','Th','Fr','Sa'];
     var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -406,18 +426,20 @@
 
     function computeDashFromPosts(posts){
       var pipe={generated:0,in_figma:0,designer_review:0,approved:0,scheduled:0,published:0,reported:0};
-      var byP={},byF={},byE={},byW={},aq=[],bc=0;
+      var byP={},byF={},byE={},byW={},br={},bpp={},aq=[],bc=0;
       posts.forEach(function(p){
         var st=p.status||'generated',ap=p.approval_status||'pending',pl=p.platform||'',fn=p.funnel_stage||'',em=p.emotional_stage||'',wk=p.week||0;
         pipe[st]=(pipe[st]||0)+1;
         if(!byP[pl]){byP[pl]={generated:0,in_figma:0,designer_review:0,approved:0,scheduled:0,published:0,reported:0};}
         byP[pl][st]++;
+        if(!bpp[pl])bpp[pl]={total:0,blocked:0};
+        bpp[pl].total++;
         if(fn) byF[fn]=(byF[fn]||0)+1;
         if(em) byE[em]=(byE[em]||0)+1;
-        if(wk){var w='week_'+wk;if(!byW[w])byW[w]={total:0,published:0,approved:0,blocked:0};byW[w].total++;if(st==='published')byW[w].published++;if(ap==='approved')byW[w].approved++;if(p.blocked){byW[w].blocked++;bc++;}}else if(p.blocked){bc++;}
+        if(wk){var w='week_'+wk;if(!byW[w])byW[w]={total:0,published:0,approved:0,blocked:0};byW[w].total++;if(st==='published')byW[w].published++;if(ap==='approved')byW[w].approved++;if(p.blocked){byW[w].blocked++;bc++;var rsn=(p.blocked_reason||'Unknown').trim();br[rsn]=(br[rsn]||0)+1;bpp[pl].blocked++;}}else if(p.blocked){bc++;var rsn=(p.blocked_reason||'Unknown').trim();br[rsn]=(br[rsn]||0)+1;bpp[pl].blocked++;}
         if(p.creative_status==='approved'&&ap==='pending')aq.push({asset_id:p.asset_id,platform:pl,publish_date:p.date,day:p.day});
       });
-      return {ok:true,total_assets:posts.length,pipeline:pipe,by_platform:byP,by_funnel_stage:byF,by_emotional_stage:byE,by_week:byW,blocked_count:bc,approval_queue_count:aq.length,approval_queue:aq,ready_to_schedule_count:0,ready_to_schedule:[],late_count:0,late_assets:[]};
+      return {ok:true,total_assets:posts.length,pipeline:pipe,by_platform:byP,by_funnel_stage:byF,by_emotional_stage:byE,by_week:byW,blocked_count:bc,blocked_reasons:br,blocked_by_platform:bpp,approval_queue_count:aq.length,approval_queue:aq,ready_to_schedule_count:0,ready_to_schedule:[],late_count:0,late_assets:[]};
     }
 
     function makeFilteredCalData(posts){
@@ -430,6 +452,7 @@
     function renderSidebar(){
       ['platform','status','emotion','funnel','week'].forEach(function(type){
         var el=document.getElementById('fp-'+type); if(!el) return;
+        if(!FILTER_DEFS[type].length){el.innerHTML='<span style="color:#555;font-size:11px">Loading…</span>';return;}
         el.innerHTML=FILTER_DEFS[type].map(function(def){
           var on=FILTERS[type][def.v];
           var cls='fp'+(on?(type==='emotion'?' on-em':' on'):'');
@@ -483,8 +506,8 @@
         '<div class="pipeline-count">'+fmt(n)+'</div></div>';
     }
 
-    function platformClass(p){var m={instagram:'plat-ig',tiktok:'plat-tt',pinterest:'plat-pin',facebook:'plat-fb',email:'plat-em'};return m[(p||'').toLowerCase()]||'plat-def';}
-    function platformLabel(p){var m={instagram:'IG',tiktok:'TT',pinterest:'PIN',facebook:'FB',email:'EMAIL'};return m[(p||'').toLowerCase()]||(p||'').toUpperCase().slice(0,4);}
+    function platformClass(p){var m={instagram:'plat-ig',tiktok:'plat-tt',pinterest:'plat-pin',facebook:'plat-fb',email:'plat-em',x:'plat-x'};return m[(p||'').toLowerCase()]||'plat-def';}
+    function platformLabel(p){var m={instagram:'IG',tiktok:'TT',pinterest:'PIN',facebook:'FB',email:'EMAIL',x:'X'};return m[(p||'').toLowerCase()]||(p||'').toUpperCase().slice(0,5)||'?';}
 
     function renderDash(d, filteredPosts){
       var total=d.total_assets||0,blocked=d.blocked_count||0,aq=d.approval_queue_count||0,late=d.late_count||0;
@@ -540,9 +563,16 @@
         return '<div class="queue-item"><div class="item-id">'+item.asset_id+' · '+item.platform+'</div><div class="item-main yellow">Publish: '+(item.publish_date||'—')+'</div></div>';
       }).join('')||'<div style="color:#555;font-size:12px;padding:4px 0">No items awaiting approval.</div>';
 
-      var blItems=blocked>0
-        ?'<div class="blocked-item"><div class="item-id">All '+blocked+' assets</div><div class="item-main red">Waiting for Figma — not yet assigned</div><div class="item-meta">Set creative_status = in_figma to unblock</div></div>'
-        :'<div style="color:#32d74b;font-size:12px;padding:4px 0">No blocked assets.</div>';
+      var blItems;
+      if(blocked>0){
+        var brKeys=Object.keys(d.blocked_reasons||{}).sort();
+        var reasonLines=brKeys.map(function(r){var cnt=(d.blocked_reasons||{})[r];return '<div class="blocked-item"><div class="item-id">'+cnt+' asset'+(cnt!==1?'s':'')+'</div><div class="item-main red">'+r+'</div></div>';}).join('');
+        var bppKeys=Object.keys(d.blocked_by_platform||{}).sort();
+        var platProgLines=bppKeys.map(function(pl){var pp=(d.blocked_by_platform||{})[pl];var unb=pp.total-pp.blocked;var pct=pp.total?Math.round(unb/pp.total*100):0;return '<div class="plat-prog-row"><span class="plat-prog-name">'+pl+'</span><div class="plat-prog-bar"><div class="plat-prog-fill" style="width:'+pct+'%"></div></div><span class="plat-prog-stat">'+unb+'/'+pp.total+'</span></div>';}).join('');
+        blItems=(brKeys.length?reasonLines:'')+(bppKeys.length?'<div class="blocked-progress-hdr">Platform Progress</div>'+platProgLines:'');
+      }else{
+        blItems='<div style="color:#32d74b;font-size:12px;padding:4px 0">No blocked assets.</div>';
+      }
 
       var lateCard=late>0
         ?'<div class="card"><div class="card-title red">Late ('+late+')</div>'+(d.late_assets||[]).slice(0,3).map(function(a){return '<div class="late-item"><div class="item-id">'+a.asset_id+' · '+a.platform+'</div><div class="item-main red">Due: '+a.publish_date+'</div></div>';}).join('')+'</div>'
@@ -1006,6 +1036,7 @@
     }
 
     renderSidebar();
+    loadFilterDefs();
     load();
     checkFigmaToken();
     setInterval(load,60000);
