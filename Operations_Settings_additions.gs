@@ -139,7 +139,7 @@ function createAIReferenceTab() {
     ['github_repo',           'https://github.com/BoaterGuy15/easyChef-Pro-Ops-Center',         today, 'Source of truth for all GAS and dashboard code'],
     ['sheet_id',              sheetId,                                                           today, 'This spreadsheet ID — used to open directly from any session'],
     ['sheet_url',             ss.getUrl(),                                                       today, 'Direct URL to Campaign Center Sheet'],
-    ['master_reference_url',  'PASTE_V4_DOC_URL_HERE',                                          today, 'v4.0 master reference doc — single source of truth for brand + governance rules'],
+    ['master_reference_url',  'https://docs.google.com/document/d/1kIq1_bkWD4TJlSidPspqF2wc_EXFO0YHqb2BNiOiFZI/edit', today, 'v4.0 master reference doc — single source of truth for brand + governance rules'],
     ['deploy_date',           today,                                                             today, 'Date of last GAS deployment'],
     ['governance_status',     'All 7 governance blocks wired to sheet. Hardcoded fallbacks active until BrandDoctrine/CampaignStrategy rows are added.', today, 'See BrandDoctrine and CampaignStrategy tabs for required rows'],
     ['last_governance_gap',   'CLOSED 2026-05-11 — _MASTER_STORY, _CATEGORY_POSITIONING, _5_APP_REPLACEMENT, _7_STEP_FRAMEWORK, _PRECISION_RULES, _AB_ARCH, _BRAND_RULES all wired to sheet compilers', today, 'All rules now editable from sheet with zero code deployment']
@@ -162,4 +162,69 @@ function createAIReferenceTab() {
   Logger.log('AIReference tab created. Sheet ID: ' + sheetId);
   Logger.log('Remember to update master_reference_url with the v4.0 doc URL.');
   return { ok: true, sheet_id: sheetId, rows_written: rows.length };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// archiveOldReferenceDocs()
+// Run once from Apps Script editor to move all v3.x AI Campaign Assistant
+// Reference docs to a "Reference Doc Archive" folder in My Drive.
+// Safe: only touches files whose title matches the old naming pattern.
+// The v4.0 Master Reference doc uses a different title and is never touched.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function archiveOldReferenceDocs() {
+  var OLD_PATTERN   = 'AI Campaign Assistant Reference';
+  var ARCHIVE_NAME  = 'Reference Doc Archive';
+  var moved         = [];
+  var skipped       = [];
+
+  // Find or create the Archive folder in My Drive root
+  var archiveFolder;
+  var folderIter = DriveApp.getFoldersByName(ARCHIVE_NAME);
+  if (folderIter.hasNext()) {
+    archiveFolder = folderIter.next();
+    Logger.log('Using existing archive folder: ' + archiveFolder.getId());
+  } else {
+    archiveFolder = DriveApp.createFolder(ARCHIVE_NAME);
+    Logger.log('Created archive folder: ' + archiveFolder.getId());
+  }
+
+  // Search for all old reference docs by title pattern
+  var query  = 'title contains \'' + OLD_PATTERN + '\' and mimeType = \'application/vnd.google-apps.document\'';
+  var files  = DriveApp.searchFiles(query);
+
+  while (files.hasNext()) {
+    var file  = files.next();
+    var title = file.getName();
+    var id    = file.getId();
+
+    // Skip if the file is already in the archive folder
+    var parents = file.getParents();
+    var alreadyArchived = false;
+    while (parents.hasNext()) {
+      if (parents.next().getId() === archiveFolder.getId()) {
+        alreadyArchived = true;
+        break;
+      }
+    }
+    if (alreadyArchived) {
+      skipped.push(title + ' (already archived)');
+      continue;
+    }
+
+    file.moveTo(archiveFolder);
+    moved.push(title);
+    Logger.log('Archived: ' + title + ' (' + id + ')');
+  }
+
+  Logger.log('Done. Moved: ' + moved.length + ', Skipped: ' + skipped.length);
+  Logger.log('Archive folder: https://drive.google.com/drive/folders/' + archiveFolder.getId());
+
+  return {
+    ok:             true,
+    archive_folder: archiveFolder.getId(),
+    archive_url:    'https://drive.google.com/drive/folders/' + archiveFolder.getId(),
+    moved:          moved,
+    skipped:        skipped
+  };
 }
