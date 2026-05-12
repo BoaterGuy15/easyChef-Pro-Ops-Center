@@ -1309,6 +1309,9 @@ function doPost(e) {
     if(body.action === 'cleanup_asset_lifecycle')    return respond(cleanupAssetLifecycle());
     if(body.action === 'cleanup_deep_link_registry') return respond(cleanupDeepLinkRegistry());
 
+    // ── LP Doctrine governance ────────────────────────────────────────────────────
+    if(body.action === 'seed_lp_doctrine') return respond(seedLpDoctrine());
+
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });
     if(body.action === 'social_posts_write')     { setSocialPost(body.post); return respond({ ok:true }); }

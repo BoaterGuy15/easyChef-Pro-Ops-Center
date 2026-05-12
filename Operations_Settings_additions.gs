@@ -1406,3 +1406,212 @@ function cleanupDeepLinkRegistry() {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Master LP Generation Doctrine — governance seed ───────────────────────────
+// Upserts 4 CampaignStrategy rows + 4 BrandDoctrine rows.
+// Safe to re-run: existing rows are overwritten, nothing is duplicated.
+
+function seedLpDoctrine() {
+  try {
+    var ss        = _getCampaignSpreadsheet();
+    var csSheet   = ss.getSheetByName(_CC_TAB.CAMP_STRATEGY);
+    var bdSheet   = ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+    var csHdr     = _CC_HDR.CampaignStrategy; // ['strategy_id','strategy_type','active','value_json']
+    var bdHdr     = _CC_HDR.BrandDoctrine;    // ['rule_id','rule_type','enforcement','active','conditions_json']
+
+    // ── CampaignStrategy rows ────────────────────────────────────────────────
+
+    var strategyRows = [
+
+      // LP_DOCTRINE_001 — canonical 8-section arc, 7 persuasion laws, emotional state map
+      ['LP_DOCTRINE_001', 'lp_structure', 'true', JSON.stringify({
+        sections: ['hook','problem','agitate','solve','value','proof','cta','urgency'],
+        laws: [
+          'loss_aversion_beats_gain_framing',
+          'social_proof_must_precede_feature_claims',
+          'specificity_beats_generality_in_every_line',
+          'hook_must_match_the_ad_creative_that_sent_traffic',
+          'cta_must_name_the_exact_outcome_not_the_action',
+          'every_section_must_advance_the_emotional_state',
+          'icp_voice_and_vocabulary_must_stay_consistent_throughout'
+        ],
+        emotional_map: {
+          hook:    { entry: 'frustrated_or_resigned',  exit: 'curious_and_seen'      },
+          problem: { entry: 'curious_and_seen',        exit: 'validated_and_named'    },
+          agitate: { entry: 'validated_and_named',     exit: 'urgent_and_motivated'   },
+          solve:   { entry: 'urgent_and_motivated',    exit: 'hopeful_and_curious'    },
+          value:   { entry: 'hopeful_and_curious',     exit: 'excited_and_ready'      },
+          proof:   { entry: 'excited_and_ready',       exit: 'convinced_and_trusting' },
+          cta:     { entry: 'convinced_and_trusting',  exit: 'committed_and_decisive' },
+          urgency: { entry: 'committed_and_decisive',  exit: 'acting_now'             }
+        },
+        section_word_targets: {
+          hook: 30, problem: 60, agitate: 80, solve: 60,
+          value: 120, proof: 100, cta: 40, urgency: 30
+        }
+      })],
+
+      // LP_SPINE_SCHEMA_001 — JSON schema for lp_campaign_spine_json in CampaignBriefs
+      ['LP_SPINE_SCHEMA_001', 'lp_spine_schema', 'true', JSON.stringify({
+        description: 'Schema for LP spine written to CampaignBriefs.lp_campaign_spine_json. Required before any asset generation.',
+        root_fields: ['campaign_id','icp_code','lp_variant','generated_at','spine_version'],
+        per_section_required: ['headline','subheadline','body_copy','emotional_beat','approved_claims'],
+        per_section_optional: ['cta_button','urgency_line','proof_items','image_direction'],
+        spine_sections: [
+          { section: 'hook',    headline_type: 'h1', has_subheadline: true,  has_cta: false, has_urgency: false },
+          { section: 'problem', headline_type: 'h2', has_subheadline: true,  has_cta: false, has_urgency: false },
+          { section: 'agitate', headline_type: 'h2', has_subheadline: false, has_cta: false, has_urgency: false },
+          { section: 'solve',   headline_type: 'h2', has_subheadline: true,  has_cta: false, has_urgency: false },
+          { section: 'value',   headline_type: 'h2', has_subheadline: true,  has_cta: false, has_urgency: false },
+          { section: 'proof',   headline_type: 'h2', has_subheadline: false, has_cta: false, has_urgency: false },
+          { section: 'cta',     headline_type: 'h2', has_subheadline: true,  has_cta: true,  has_urgency: false },
+          { section: 'urgency', headline_type: 'h3', has_subheadline: false, has_cta: true,  has_urgency: true  }
+        ],
+        validation_rule: 'All 8 sections must be present and non-empty before spine is marked valid'
+      })],
+
+      // LOOP_COPY_SCHEMA_001 — schema for social loop copy variants
+      ['LOOP_COPY_SCHEMA_001', 'loop_copy_schema', 'true', JSON.stringify({
+        description: 'Social post loop copy: 3 variants per post, each rooted in a specific LP section',
+        variants_per_post: [
+          { variant: 'a', angle: 'pain_direct',    description: 'Opens directly on ICP pain point → LP section' },
+          { variant: 'b', angle: 'social_proof',   description: 'Opens with social proof or outcome → LP section' },
+          { variant: 'c', angle: 'curiosity_tease', description: 'Opens with curiosity hook → LP section' }
+        ],
+        per_variant_fields: [
+          'hook', 'body_copy', 'cta',
+          'lp_section_source', 'lp_headline_connection',
+          'emotional_state', 'emotional_destination', 'loop_stage'
+        ],
+        loop_stages: ['awareness', 'consideration', 'decision', 'retention'],
+        day_to_section: {
+          '1_5':   'hook',
+          '6_10':  'problem',
+          '11_15': 'agitate',
+          '16_20': 'solve',
+          '21_25': 'value',
+          '26_30': 'proof',
+          '31_35': 'cta'
+        },
+        section_to_loop_stage: {
+          hook: 'awareness', problem: 'awareness',
+          agitate: 'consideration', solve: 'consideration', value: 'consideration',
+          proof: 'decision', cta: 'decision', urgency: 'decision'
+        }
+      })],
+
+      // CLAIM_SCOPING_001 — ApprovedClaims types permitted per LP section
+      ['CLAIM_SCOPING_001', 'claim_scoping', 'true', JSON.stringify({
+        description: 'Maps LP sections to permitted ApprovedClaims claim_type values. Claims outside scope are blocked.',
+        section_claim_map: {
+          hook:    ['outcome', 'social_proof', 'benefit'],
+          problem: ['problem_validation', 'pain_stat', 'loss_aversion'],
+          agitate: ['pain_stat', 'loss_aversion'],
+          solve:   ['feature_claim', 'benefit', 'outcome'],
+          value:   ['feature_claim', 'benefit', 'outcome', 'time_saving'],
+          proof:   ['social_proof', 'outcome', 'stat'],
+          cta:     ['outcome', 'benefit'],
+          urgency: ['urgency', 'social_proof', 'outcome']
+        },
+        enforcement: 'Claims used in assets must have claim_type matching the target section. Mismatched claims are flagged in validate_asset_lp_alignment.'
+      })]
+    ];
+
+    // ── BrandDoctrine rows ────────────────────────────────────────────────────
+
+    var doctrineRows = [
+
+      // SOCIAL_DERIVATION_001 — every social post must root in an LP section
+      ['SOCIAL_DERIVATION_001', 'social_derivation', 'hard', 'true', JSON.stringify({
+        rule: 'Every social post must be derived from a specific LP section. lp_section_source is required.',
+        required_asset_fields: ['lp_section_source', 'lp_headline_connection'],
+        enforcement_gate: 'generate_lp_spine must complete before any social post generation for the campaign',
+        blocker: 'LP_SPINE_MISSING error returned by getMasterSystemPrompt if spine absent',
+        day_to_section: {
+          '1_5':   'hook',
+          '6_10':  'problem',
+          '11_15': 'agitate',
+          '16_20': 'solve',
+          '21_25': 'value',
+          '26_30': 'proof',
+          '31_35': 'cta'
+        }
+      })],
+
+      // EMAIL_DERIVATION_001 — email sequences follow LP arc in order
+      ['EMAIL_DERIVATION_001', 'email_derivation', 'hard', 'true', JSON.stringify({
+        rule: 'Email sequences must follow the LP arc in order. lp_section_source is required per email.',
+        required_asset_fields: ['lp_section_source', 'emotional_stage'],
+        enforcement_gate: 'LP spine must exist before email generation',
+        sequence_to_section: {
+          'SEQ-1': 'hook_and_problem',
+          'SEQ-2': 'agitate_and_solve',
+          'SEQ-3': 'value_and_proof',
+          'SEQ-4': 'cta_and_urgency',
+          'SEQ-5': 'value'
+        },
+        email_number_to_section: {
+          '1': 'hook',    '2': 'problem',
+          '3': 'agitate', '4': 'solve',
+          '5': 'value',   '6': 'proof',
+          '7': 'cta',     '8': 'urgency'
+        }
+      })],
+
+      // VIDEO_DERIVATION_001 — videos need a recognition moment tied to LP
+      ['VIDEO_DERIVATION_001', 'video_derivation', 'hard', 'true', JSON.stringify({
+        rule: 'Every video brief must identify an LP recognition moment. lp_section_source and recognition_moment are required.',
+        required_asset_fields: ['lp_section_source', 'recognition_moment'],
+        enforcement_gate: 'LP spine must exist before video production brief is generated',
+        recognition_moment_types: [
+          'pain_recognition',
+          'solution_recognition',
+          'proof_recognition',
+          'cta_recognition'
+        ],
+        section_to_recognition: {
+          hook:    'pain_recognition',
+          problem: 'pain_recognition',
+          agitate: 'pain_recognition',
+          solve:   'solution_recognition',
+          value:   'solution_recognition',
+          proof:   'proof_recognition',
+          cta:     'cta_recognition',
+          urgency: 'cta_recognition'
+        }
+      })],
+
+      // ASSET_VALIDATION_001 — validation gates before status advances past draft
+      ['ASSET_VALIDATION_001', 'asset_validation', 'required', 'true', JSON.stringify({
+        rule: 'All assets must pass LP alignment validation before status can advance past draft.',
+        gates: [
+          { field: 'lp_section_source',     check: 'not_empty',         message: 'LP section source is required for all assets' },
+          { field: 'lp_headline_connection', check: 'not_empty',         message: 'LP headline connection required (social and email)' },
+          { field: 'claim_set',              check: 'scoped_to_section',  message: 'Claims must match permitted types for target LP section' },
+          { field: 'cta',                    check: 'matches_lp_cta',    message: 'CTA must align with LP CTA section wording' },
+          { field: 'emotional_state',        check: 'matches_section_map', message: 'Emotional state must match LP section emotional map entry' }
+        ],
+        bypass_statuses: ['draft'],
+        hard_block_on_advance: ['approved', 'scheduled', 'published']
+      })]
+    ];
+
+    // ── Write rows ────────────────────────────────────────────────────────────
+    strategyRows.forEach(function(row) { _ccUpsert(csSheet, csHdr, row[0], row); });
+    doctrineRows.forEach(function(row)  { _ccUpsert(bdSheet, bdHdr, row[0], row); });
+
+    var csAfter = csSheet.getLastRow() - 1;
+    var bdAfter = bdSheet.getLastRow() - 1;
+    Logger.log('[seedLpDoctrine] CampaignStrategy rows=' + csAfter + ' BrandDoctrine rows=' + bdAfter);
+    return {
+      ok: true,
+      campaign_strategy_total: csAfter,
+      brand_doctrine_total:    bdAfter,
+      seeded: { strategy: strategyRows.length, doctrine: doctrineRows.length }
+    };
+
+  } catch(e) {
+    Logger.log('[seedLpDoctrine] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
