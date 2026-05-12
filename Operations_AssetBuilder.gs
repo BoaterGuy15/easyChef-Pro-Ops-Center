@@ -601,12 +601,18 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
     default: sG = '';
   }
 
-  var _claimQuality  = gov.claimQuality || _CLAIM_QUALITY_COPY;
-  var _brandPosition = gov.brandPosition || _BRAND_POSITION_COPY;
-  var _voiceRules    = gov.voiceRules   || _BRAND_VOICE_RULES;
-  var _phaseGuard    = gov.phaseGuard   ? gov.phaseGuard  : '';
-  var _compliance    = gov.compliance   ? gov.compliance  : '';
-  return role + '\n\n' + _MASTER_STORY + _CATEGORY_POSITIONING + _brandPosition + _5_APP_REPLACEMENT + _7_STEP_FRAMEWORK + _claimQuality + _voiceRules + _PRECISION_RULES + sD + _AB_ARCH + sE + sF + sG + _phaseGuard + _compliance;
+  var _claimQuality   = gov.claimQuality   || _CLAIM_QUALITY_COPY;
+  var _brandPosition  = gov.brandPosition  || _BRAND_POSITION_COPY;
+  var _voiceRules     = gov.voiceRules     || _BRAND_VOICE_RULES;
+  var _phaseGuard     = gov.phaseGuard     || '';
+  var _compliance     = gov.compliance     || '';
+  var _masterStory    = gov.masterStory    || _MASTER_STORY;
+  var _categoryPos    = gov.categoryPos    || _CATEGORY_POSITIONING;
+  var _fiveApp        = gov.fiveApp        || _5_APP_REPLACEMENT;
+  var _sevenStep      = gov.sevenStep      || _7_STEP_FRAMEWORK;
+  var _precisionRules = gov.precisionRules || _PRECISION_RULES;
+  var _arch           = gov.arch           || _AB_ARCH;
+  return role + '\n\n' + _masterStory + _categoryPos + _brandPosition + _fiveApp + _sevenStep + _claimQuality + _voiceRules + _precisionRules + sD + _arch + sE + sF + sG + _phaseGuard + _compliance;
 }
 
 // ── Governance compiler functions ─────────────────────────────────────────────
@@ -875,6 +881,139 @@ function _compilePhaseGuardBlock() {
   }
 }
 
+// ── NEW governance compilers — previously hardcoded constants ─────────────────
+// Each reads from BrandDoctrine or CampaignStrategy; falls back to the hardcoded
+// constant so nothing breaks before sheet rows are added.
+
+function _compileMasterStoryBlock() {
+  try {
+    var strat = getCampaignStrategy('MASTER_STORY_001');
+    if (!strat || !strat.value) return _MASTER_STORY;
+    var v = strat.value;
+    var out = '=== MASTER STORY — READ THIS FIRST. EVERY WORD YOU WRITE CONNECTS BACK TO THIS. ===\n';
+    if (v.story)           out += '"' + v.story + '"\n';
+    if (v.narrative_spine) out += v.narrative_spine + '\n';
+    if (v.instruction)     out += v.instruction + '\n';
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileMasterStoryBlock] fallback: ' + e.message);
+    return _MASTER_STORY;
+  }
+}
+
+function _compileCategoryPositionBlock() {
+  try {
+    var strat = getCampaignStrategy('CATEGORY_POSITION_001');
+    if (!strat || !strat.value) return _CATEGORY_POSITIONING;
+    var v = strat.value;
+    var out = '=== CATEGORY POSITIONING — HOW TO FRAME easyChef Pro ===\n';
+    if (v.headline)   out += '"' + v.headline + '\n';
+    if (v.contrast)   out += v.contrast + '\n';
+    if (v.enemy)      out += v.enemy + '\n';
+    if (v.never_rule) out += 'Never: ' + v.never_rule + '\n';
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileCategoryPositionBlock] fallback: ' + e.message);
+    return _CATEGORY_POSITIONING;
+  }
+}
+
+function _compileFiveAppBlock() {
+  try {
+    var rule = getBrandDoctrine('FIVE_APP_REPLACEMENT_001');
+    if (!rule || !rule.conditions) return _5_APP_REPLACEMENT;
+    var c = rule.conditions;
+    var out = '=== 5-APP REPLACEMENT (LOCKED) ===\n';
+    out += 'easyChef Pro replaces five apps. Never "integrates with" — always "replaces".\n\n';
+    if (Array.isArray(c.apps) && c.apps.length) {
+      out += 'App replaced          → easyChef Pro feature:\n';
+      c.apps.forEach(function(a) { out += a.app_name + '               → ' + a.feature_label + '\n'; });
+      out += '\n';
+    }
+    if (c.shop_rule)     out += 'SHOP RULE: ' + c.shop_rule + '\n\n';
+    if (c.optimize_rule) out += 'OPTIMIZE RULE: ' + c.optimize_rule + '\n\n';
+    if (c.naming_rule)   out += c.naming_rule + '\n\n';
+    if (c.phone_rule)    out += 'PHONE RULE IN COPY:\n' + c.phone_rule + '\n\n';
+    return out;
+  } catch(e) {
+    Logger.log('[_compileFiveAppBlock] fallback: ' + e.message);
+    return _5_APP_REPLACEMENT;
+  }
+}
+
+function _compileSevenStepBlock() {
+  try {
+    var strat = getCampaignStrategy('SEVEN_STEP_FRAMEWORK_001');
+    if (!strat || !strat.value || !Array.isArray(strat.value.steps)) return _7_STEP_FRAMEWORK;
+    var v = strat.value;
+    var out = '=== 7-STEP COPY FRAMEWORK — EVERY PIECE OF COPY FOLLOWS THIS EXACTLY ===\n';
+    v.steps.forEach(function(s, i) {
+      out += 'Step ' + (i + 1) + ' — ' + s.name.toUpperCase() + ': ' + s.description + '\n';
+      if (s.kills) out += '  KILLS: ' + s.kills + '\n';
+      if (s.works) out += '  WORKS: ' + s.works + '\n\n';
+    });
+    return out;
+  } catch(e) {
+    Logger.log('[_compileSevenStepBlock] fallback: ' + e.message);
+    return _7_STEP_FRAMEWORK;
+  }
+}
+
+function _compilePrecisionRulesBlock() {
+  try {
+    var rule = getBrandDoctrine('PRECISION_RULES_001');
+    if (!rule || !rule.conditions) return _PRECISION_RULES;
+    var c = rule.conditions;
+    var out = '=== PRECISION RULES (LOCKED) ===\n';
+    out += 'Use exact figures only — no rounding, no approximating, no softening:\n\n';
+    if (Array.isArray(c.figures) && c.figures.length) {
+      c.figures.forEach(function(f) {
+        out += f.label + ': "' + f.exact + '"' + (f.never ? ' — NEVER ' + f.never : '') + '\n';
+      });
+      out += '\n';
+    }
+    if (c.cta_rule) out += 'CTA RULE: ' + c.cta_rule + '\n\n';
+    return out;
+  } catch(e) {
+    Logger.log('[_compilePrecisionRulesBlock] fallback: ' + e.message);
+    return _PRECISION_RULES;
+  }
+}
+
+function _compileArchBlock() {
+  try {
+    var rule = getBrandDoctrine('ARCHITECTURE_001');
+    if (!rule || !rule.conditions) return _AB_ARCH;
+    var c = rule.conditions;
+    var out = '=== ARCHITECTURE ===\n';
+    if (Array.isArray(c.rules) && c.rules.length) {
+      c.rules.forEach(function(r) { out += r + '\n'; });
+    }
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileArchBlock] fallback: ' + e.message);
+    return _AB_ARCH;
+  }
+}
+
+function _compileDesignBriefRulesBlock() {
+  try {
+    var rule = getBrandDoctrine('DESIGN_BRIEF_RULES_001');
+    if (!rule || !rule.conditions) return null;
+    var c = rule.conditions;
+    var out = '=== BRAND RULES — NON-NEGOTIABLE ===\n';
+    if (Array.isArray(c.rules) && c.rules.length) {
+      c.rules.forEach(function(r, i) {
+        out += (i + 1) + '. ' + r.label + ': ' + r.detail + '\n\n';
+      });
+    }
+    return out;
+  } catch(e) {
+    Logger.log('[_compileDesignBriefRulesBlock] fallback: ' + e.message);
+    return null;
+  }
+}
+
 // ── Content validator ─────────────────────────────────────────────────────────
 
 function validateGeneratedContent(asset, brief) {
@@ -961,14 +1100,21 @@ function getMasterSystemPrompt(type, context) {
   // Compile governance blocks from tabs (fall back to hardcoded constants if tabs unavailable)
   var _icpCode = context.icp_code || context.icp || '';
   var governance = {
-    claimQuality:  _compileClaimQualityBlock(),
-    brandPosition: _compileBrandPositionBlock(),
-    voiceRules:    _compileVoiceRulesBlock(),
-    emotionalArc:  _compileEmotionalArcBlock(_icpCode),
-    stageEmotions: _compileStageEmotionsMap(_icpCode),
-    phoneRule:     _compilePhoneRuleBlock(),
-    phaseGuard:    _compilePhaseGuardBlock(),
-    compliance:    _compileComplianceBlock(context.themeData || null)
+    claimQuality:    _compileClaimQualityBlock(),
+    brandPosition:   _compileBrandPositionBlock(),
+    voiceRules:      _compileVoiceRulesBlock(),
+    emotionalArc:    _compileEmotionalArcBlock(_icpCode),
+    stageEmotions:   _compileStageEmotionsMap(_icpCode),
+    phoneRule:       _compilePhoneRuleBlock(),
+    phaseGuard:      _compilePhaseGuardBlock(),
+    compliance:      _compileComplianceBlock(context.themeData || null),
+    masterStory:     _compileMasterStoryBlock(),
+    categoryPos:     _compileCategoryPositionBlock(),
+    fiveApp:         _compileFiveAppBlock(),
+    sevenStep:       _compileSevenStepBlock(),
+    precisionRules:  _compilePrecisionRulesBlock(),
+    arch:            _compileArchBlock(),
+    designBriefRules:_compileDesignBriefRulesBlock()
   };
 
   // Design brief types — art direction only, no copy machinery needed
@@ -992,8 +1138,8 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme, govPhoneRule, govBrandRu
   var _themeFood = (theme && theme.food_type)        || (ctx.theme_food || '');
   var _campaign  = ctx.campaign_name || '';
 
-  // Locked brand rules — injected into every brief prompt, non-negotiable
-  var _BRAND_RULES =
+  // Brand rules — compiled from BrandDoctrine DESIGN_BRIEF_RULES_001 if available, else hardcoded fallback
+  var _BRAND_RULES = (govBrandRules && govBrandRules.designBriefRules) || (
     '=== BRAND RULES — NON-NEGOTIABLE ===\n' +
     '1. CTA BUTTON COLOR: ALWAYS #FF0000 red. Never orange. Never coral. Never any other color.\n' +
     '   Brand palette: #FF0000 (red) · #F6EFE8 (beige) · #000000 (black) · #FFFFFF (white)\n\n' +
@@ -1019,7 +1165,8 @@ function _buildDesignBriefPrompt(type, ctx, icp, theme, govPhoneRule, govBrandRu
     '   Any invented location in copy → banned\n\n' +
     '8. BANNED FORMATS:\n' +
     '   Before/after testimonial format → banned\n' +
-    '   Invented testimonial quotes with names → banned\n\n';
+    '   Invented testimonial quotes with names → banned\n\n'
+  );
 
   if (type === 'post_brief') {
     return 'You are the art director for easyChef Pro. You are not generating graphics. You are generating emotional states through visual systems.\n\n' +
