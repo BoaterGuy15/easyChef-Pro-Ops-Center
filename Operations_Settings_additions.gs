@@ -967,8 +967,13 @@ function clearCampaignDataTabs() {
       if (!sh) { results.push({ tab: tabName, status: 'not_found' }); return; }
       var lastRow = sh.getLastRow();
       if (lastRow <= 1) { results.push({ tab: tabName, status: 'already_empty', rows_deleted: 0 }); return; }
-      var rowCount = lastRow - 1;  // rows below header
-      sh.deleteRows(2, rowCount);
+      var rowCount = lastRow - 1;
+      var numCols = sh.getLastColumn() || 1;
+      try {
+        sh.deleteRows(2, rowCount);
+      } catch(e2) {
+        sh.getRange(2, 1, rowCount, numCols).clearContent();
+      }
       results.push({ tab: tabName, status: 'cleared', rows_deleted: rowCount });
     });
 
