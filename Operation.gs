@@ -853,6 +853,10 @@ function doPost(e) {
       var _gdaResult = generateDesignForAsset(body.asset_id || '');
       return respond({ ok: _gdaResult.ok, result: _gdaResult, log: Logger.getLog() });
     }
+    if(body.action === 'get_design_html') {
+      var _gdhResult = getDesignHtml(body.asset_id || '');
+      return respond({ ok: _gdhResult.ok, result: _gdhResult, log: Logger.getLog() });
+    }
     if(body.action === 'ensure_content_cal_columns') {
       return respond(ensureContentCalColumns());
     }

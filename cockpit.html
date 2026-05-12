@@ -863,14 +863,22 @@
       var _genBtn='<button class="pm-link generate" id="pm-gen-btn-'+_safeId+'" onclick="generateDesign(\''+_safeId+'\')">✦ Generate Design<span class="pm-link-tag">ai</span></button>';
       var _viewDesignLink=p.claude_design_url?'<a class="pm-link generate" href="'+p.claude_design_url+'" target="_blank">↗ View Design<span class="pm-link-tag">open</span></a>':'';
       var _regenBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-gen-btn-'+_safeId+'" onclick="generateDesign(\''+_safeId+'\')">↺ Regen<span class="pm-link-tag">ai</span></button>':'';
+      var _copyHtmlBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-cphtml-btn-'+_safeId+'" onclick="copyDesignHtml(\''+_safeId+'\')">⎘ Copy HTML<span class="pm-link-tag">claude</span></button>':'';
       rows+='<div class="pm-links">'+
         pmLink('Brief Doc', p.brief_doc_url||null)+
-        (p.claude_design_url?_viewDesignLink+_regenBtn:_genBtn)+
+        (p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn:_genBtn)+
         pmLink('Figma', p.figma_url||null)+
         pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', _driveFolderUrl)+
       '</div>';
       rows+='<div class="pm-save-msg" id="pm-gen-msg-'+_safeId+'" style="margin-top:4px;font-size:10px"></div>';
+      if(p.claude_design_url){
+        rows+='<div class="pm-html-drop"><button class="pm-html-toggle" onclick="togglePasteBack(\''+_safeId+'\')">▸ Paste refined HTML back</button>';
+        rows+='<div class="pm-html-area" id="pm-pb-area-'+_safeId+'">';
+        rows+='<textarea id="pm-pb-ta-'+_safeId+'" placeholder="Paste Claude-refined HTML here to overwrite the saved design…"></textarea>';
+        rows+='<div style="display:flex;gap:8px;margin-top:6px"><button class="pm-note-btn" id="pm-pb-btn-'+_safeId+'" onclick="pasteBackHtml(\''+_safeId+'\')">Save to Drive</button>';
+        rows+='<span class="pm-save-msg" id="pm-pb-msg-'+_safeId+'" style="font-size:10px;line-height:32px"></span></div></div></div>';
+      }
 
       document.getElementById('pm-body').innerHTML=rows;
       document.getElementById('pm-overlay').className='pm-overlay open';
@@ -908,6 +916,70 @@
           if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
         })
         .generateDesignForAsset(assetId);
+    }
+    function copyDesignHtml(assetId){
+      var btn=document.getElementById('pm-cphtml-btn-'+assetId);
+      var msg=document.getElementById('pm-gen-msg-'+assetId);
+      if(btn){btn.disabled=true;btn.innerHTML='⏳ Reading…<span class="pm-link-tag">claude</span>';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(btn){btn.disabled=false;btn.innerHTML='⎘ Copy HTML<span class="pm-link-tag">claude</span>';}
+          if(r&&r.html){
+            var text=r.html;
+            if(navigator.clipboard&&navigator.clipboard.writeText){
+              navigator.clipboard.writeText(text).then(function(){
+                if(btn)btn.innerHTML='✓ Copied!<span class="pm-link-tag">claude</span>';
+                if(msg){msg.style.color='#32d74b';msg.textContent='HTML copied — paste into Claude.ai to refine';}
+                setTimeout(function(){if(btn)btn.innerHTML='⎘ Copy HTML<span class="pm-link-tag">claude</span>';},2500);
+              }).catch(function(){
+                _fbCopy(text);
+                if(msg){msg.style.color='#32d74b';msg.textContent='HTML copied — paste into Claude.ai to refine';}
+              });
+            } else { _fbCopy(text); if(msg){msg.style.color='#32d74b';msg.textContent='HTML copied';} }
+          } else {
+            if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+((r&&r.error)||'unknown');}
+          }
+        })
+        .withFailureHandler(function(err){
+          if(btn){btn.disabled=false;btn.innerHTML='⎘ Copy HTML<span class="pm-link-tag">claude</span>';}
+          if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+(err&&err.message?err.message:String(err));}
+        })
+        .getDesignHtml(assetId);
+    }
+    function _fbCopy(text){
+      var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';
+      document.body.appendChild(ta);ta.focus();ta.select();
+      try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);
+    }
+    function togglePasteBack(assetId){
+      var el=document.getElementById('pm-pb-area-'+assetId);
+      if(!el)return;
+      var open=el.classList.toggle('open');
+      var btn=el.previousElementSibling;
+      if(btn)btn.textContent=(open?'▾':'▸')+' Paste refined HTML back';
+    }
+    function pasteBackHtml(assetId){
+      var ta=document.getElementById('pm-pb-ta-'+assetId);
+      var btn=document.getElementById('pm-pb-btn-'+assetId);
+      var msg=document.getElementById('pm-pb-msg-'+assetId);
+      var html=(ta&&ta.value||'').trim();
+      if(!html){if(msg){msg.style.color='#ff453a';msg.textContent='Paste HTML first.';}return;}
+      if(btn)btn.disabled=true;
+      if(msg){msg.style.color='#666';msg.textContent='Saving…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok&&r.url){
+            if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].claude_design_url=r.url;
+            if(msg){msg.style.color='#32d74b';msg.textContent='✓ Saved';}
+            if(btn)btn.disabled=false;
+            setTimeout(function(){openPostModal(assetId);},600);
+          } else {
+            if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+((r&&r.error)||'unknown');}
+            if(btn)btn.disabled=false;
+          }
+        })
+        .withFailureHandler(function(){if(btn)btn.disabled=false;if(msg){msg.style.color='#ff453a';msg.textContent='Connection error';}})
+        .saveDesignToDrive(assetId, html);
     }
     function _fmtPlatform(p){var m={instagram:'Instagram',tiktok:'TikTok',pinterest:'Pinterest',facebook:'Facebook',email:'Email'};return m[(p||'').toLowerCase()]||p||'—';}
     function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}

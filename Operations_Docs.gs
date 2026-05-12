@@ -1170,18 +1170,33 @@ function generateDesignForAsset(assetId) {
     }
     if (!ccRow) return { ok: false, error: 'Asset not found: ' + assetId };
 
-    var platform    = String(ccRow[CH.platform]    || '');
-    var funnel      = String(ccRow[CH.funnel_stage] || '');
-    var postNum     = parseInt(ccRow[CH.post_num])  || 0;
-    var icp         = String(ccRow[CH.icp]          || '');
-    var emotion     = String(ccRow[CH.emotion]      || '');
-    var spLpSection = String(ccRow[CH.lp_section]   || '');
-    var campaignId  = String(ccRow[CH.campaign_id]  || '');
+    var platform    = String(ccRow[CH.platform]      || '');
+    var funnel      = String(ccRow[CH.funnel_stage]  || '');
+    var icp         = String(ccRow[CH.icp_target]    || '');
+    var emotion     = String(ccRow[CH.emotional_stage]|| '');
+    var campaignId  = String(ccRow[CH.campaign_id]   || '');
+    var ccCaption   = String(ccRow[CH.caption]        || '');
+    var ccDay       = String(ccRow[CH.day]            || '');
     var existingUrl = String((CH.claude_design_url !== undefined ? ccRow[CH.claude_design_url] : '') || '');
 
-    // ── 2. SocialPosts copy ───────────────────────────────────────────────────
+    // Phone rule: derive from funnel stage (no post_num column in ContentCalendar)
+    var phoneRule = '';
+    if (funnel === 'hook' || funnel === 'problem' || funnel === 'awareness') {
+      phoneRule = 'NO PHONE — ' + funnel + ' stage. Show problem world only. App not revealed yet.';
+    } else if (funnel === 'agitate') {
+      phoneRule = 'NO PHONE — agitate stage. Intensify the pain. App still hidden.';
+    } else if (funnel === 'solve') {
+      phoneRule = 'PHONE APPEARS — solve stage. First reveal. App solving the exact problem from agitate.';
+    } else if (funnel === 'value' || funnel === 'proof' || funnel === 'cta') {
+      phoneRule = 'PHONE VISIBLE — ' + funnel + ' stage. Show outcomes, not the interface.';
+    } else {
+      phoneRule = 'Funnel stage "' + funnel + '": apply brand phone reveal rules. When in doubt, no phone.';
+    }
+
+    // ── 2. SocialPosts copy (uses 'id' col, not asset_id) ────────────────────
     var spHook='', spBody='', spCta='', spHashtags='', spImageBrief='', spDesignBrief='';
-    var spEmotionIn='', spEmotionOut='';
+    var spEmotionIn='', spEmotionOut='', spLpSection='';
+    var foundInSocial = false;
     try {
       var spSheet = _getCCSheet(_CC_TAB.SOCIAL_POSTS);
       var spLast  = spSheet.getLastRow();
@@ -1190,20 +1205,51 @@ function generateDesignForAsset(assetId) {
       if (spLast >= 2) {
         var spData = spSheet.getRange(2, 1, spLast - 1, spHdrs.length).getValues();
         for (var j = 0; j < spData.length; j++) {
-          if (String(spData[j][SH.asset_id] || '') === assetId) {
-            spHook        = String(spData[j][SH.hook]         || '');
-            spBody        = String(spData[j][SH.body]         || '');
-            spCta         = String(spData[j][SH.cta]          || '');
-            spHashtags    = String(spData[j][SH.hashtags]     || '');
-            spImageBrief  = String(spData[j][SH.image_brief]  || '');
-            spDesignBrief = String(spData[j][SH.design_brief] || '');
-            spEmotionIn   = String(spData[j][SH.emotion_in]   || '');
-            spEmotionOut  = String(spData[j][SH.emotion_out]  || '');
+          if (String(spData[j][SH.id] || '') === assetId) {
+            spHook        = String(spData[j][SH.hook]                 || '');
+            spBody        = String(spData[j][SH.body_copy]            || '');
+            spCta         = String(spData[j][SH.cta]                  || '');
+            spHashtags    = String(spData[j][SH.hashtags]             || '');
+            spImageBrief  = String(spData[j][SH.image_brief]          || '');
+            spDesignBrief = String(spData[j][SH.design_brief]         || '');
+            spEmotionIn   = String(spData[j][SH.emotional_state]      || '');
+            spEmotionOut  = String(spData[j][SH.emotional_destination] || '');
+            spLpSection   = String(spData[j][SH.lp_section_source]    || '');
+            foundInSocial = true;
             break;
           }
         }
       }
     } catch(se) {}
+
+    // ── 2b. EmailSequences fallback (emails use same id→asset_id pattern) ────
+    if (!foundInSocial) {
+      try {
+        var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+        var emLast  = emSheet.getLastRow();
+        var emHdrs  = _CC_HDR.EmailSequences;
+        var EH = {}; emHdrs.forEach(function(h, i) { EH[h] = i; });
+        if (emLast >= 2) {
+          var emData = emSheet.getRange(2, 1, emLast - 1, emHdrs.length).getValues();
+          for (var ej = 0; ej < emData.length; ej++) {
+            if (String(emData[ej][EH.id] || '') === assetId) {
+              spHook        = String(emData[ej][EH.subject_line]    || '');
+              spBody        = String(emData[ej][EH.body_hook]       || '') +
+                              (emData[ej][EH.body_problem] ? '\n\n' + emData[ej][EH.body_problem] : '') +
+                              (emData[ej][EH.body_agitate] ? '\n\n' + emData[ej][EH.body_agitate] : '');
+              spCta         = String(emData[ej][EH.body_cta]        || '');
+              spEmotionIn   = String(emData[ej][EH.emotional_stage] || '');
+              spDesignBrief = String(emData[ej][EH.design_brief]    || '');
+              spLpSection   = String(emData[ej][EH.lp_section_source]|| '');
+              break;
+            }
+          }
+        }
+      } catch(ee) {}
+    }
+
+    // Caption from ContentCalendar as last-resort copy fallback
+    if (!spHook && ccCaption) spHook = ccCaption;
 
     // ── 3. Brand tokens ───────────────────────────────────────────────────────
     var BT = { primary_red:'#FF0000', beige:'#F6EFE8', black:'#000000', white:'#FFFFFF',
@@ -1264,16 +1310,6 @@ function generateDesignForAsset(assetId) {
       }
     } catch(ce) {}
 
-    // ── 7. Phone rule ─────────────────────────────────────────────────────────
-    var phoneRule = 'Posts 1–3: NO PHONE. Problem world only.';
-    try {
-      var pr = checkPhoneRule(postNum, spImageBrief, 'social');
-      if      (pr.warning)         phoneRule = '⚠ ' + pr.warning;
-      else if (postNum >= 1 && postNum <= 3) phoneRule = 'NO PHONE — show problem world only. App not revealed yet.';
-      else if (postNum === 4)      phoneRule = 'PHONE APPEARS — first reveal. App solving the exact problem from post 3.';
-      else if (postNum > 4)        phoneRule = 'PHONE VISIBLE — show outcomes, not the interface.';
-    } catch(pe) {}
-
     // ── 8. Build Claude prompts ───────────────────────────────────────────────
     var systemPrompt = [
       'You are a world-class UI/visual designer building social media post mockups as self-contained HTML pages.',
@@ -1311,7 +1347,7 @@ function generateDesignForAsset(assetId) {
       'Platform:     ' + platform.toUpperCase(),
       'Campaign:     ' + campaignId,
       'Funnel stage: ' + (funnel  || '—'),
-      'Post #:       ' + (postNum || '—'),
+      (ccDay ? 'Day:          ' + ccDay : ''),
       'Canvas:       ' + canvasW + ' × ' + canvasH + 'px',
       '',
       '═══ COPY ═════════════════════════════════════════',
@@ -1402,6 +1438,36 @@ function generateDesignForAsset(assetId) {
 
   } catch(e) {
     Logger.log('[generateDesignForAsset] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Get raw HTML for a design (for Copy-to-Claude workflow) ──────────────────
+// getDesignHtml(assetId) — reads claude_design_url from ContentCalendar,
+// extracts file_id, returns the raw HTML string so the cockpit can copy it.
+
+function getDesignHtml(assetId) {
+  if (!assetId) return { ok: false, error: 'assetId required' };
+  try {
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var ccLast  = ccSheet.getLastRow();
+    var ccHdrs  = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var CH = {}; ccHdrs.forEach(function(h, i) { CH[h] = i; });
+    var safeCC  = Math.min(ccHdrs.length, ccSheet.getLastColumn());
+    var ccData  = ccSheet.getRange(2, 1, ccLast - 1, safeCC).getValues();
+    for (var i = 0; i < ccData.length; i++) {
+      if (String(ccData[i][CH.asset_id] || '') === assetId) {
+        var storedUrl = String(ccData[i][CH.claude_design_url] || '');
+        if (!storedUrl) return { ok: false, error: 'No design URL for this asset' };
+        // Support both GAS serve URL (?file_id=...) and raw Drive URL (/file/d/ID/view)
+        var fileIdMatch = storedUrl.match(/file_id=([^&]+)/) || storedUrl.match(/\/file\/d\/([-\w]+)/);
+        if (!fileIdMatch) return { ok: false, error: 'Cannot parse file ID from URL: ' + storedUrl };
+        var html = DriveApp.getFileById(fileIdMatch[1]).getBlob().getDataAsString();
+        return { ok: true, html: html, asset_id: assetId };
+      }
+    }
+    return { ok: false, error: 'Asset not found: ' + assetId };
+  } catch(e) {
     return { ok: false, error: e.message };
   }
 }
