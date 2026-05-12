@@ -750,6 +750,142 @@ function diagFigmaCta() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// backfillDeepLinkFields  —  icp_code + emotional_arc_id for DeepLinkRegistry
+//   icp_code:        campaign_id → CampaignBriefs.icp_code
+//                    fallback: utm_campaign (uppercase) → CampaignBriefs.id → icp_code
+//   emotional_arc_id: icp_code → CampaignStrategy value_json.emotional_arc_id
+// ─────────────────────────────────────────────────────────────────────────────
+
+function backfillDeepLinkFields() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    function sheetAsMap(tabName, keyCol) {
+      var sh = ss.getSheetByName(tabName);
+      if (!sh || sh.getLastRow() < 2) return { hdrs: [], map: {} };
+      var all  = sh.getDataRange().getValues();
+      var hdrs = all[0].map(function(h){ return String(h).trim(); });
+      var ki   = hdrs.indexOf(keyCol);
+      if (ki < 0) return { hdrs: hdrs, map: {} };
+      var map = {};
+      all.slice(1).forEach(function(r){ var k = String(r[ki] || '').trim(); if (k) map[k] = r; });
+      return { hdrs: hdrs, map: map };
+    }
+
+    var cbData  = sheetAsMap('CampaignBriefs', 'id');       // campaign_id → row
+    var csData  = sheetAsMap('CampaignStrategy', 'strategy_id'); // strategy_id → row
+
+    var cbHdrs = cbData.hdrs, csHdrs = csData.hdrs;
+    function hi(hdrs, name){ return hdrs.indexOf(name); }
+
+    // Build icp_code → emotional_arc_id map from CampaignStrategy
+    var icpToArcId = {};
+    Object.keys(csData.map).forEach(function(sid) {
+      var csRow = csData.map[sid];
+      try {
+        var valJson = String(csRow[hi(csHdrs, 'value_json')] || '');
+        var val = JSON.parse(valJson);
+        if (val && val.icp_code && val.emotional_arc_id) {
+          icpToArcId[val.icp_code] = val.emotional_arc_id;
+        }
+      } catch(e2) {}
+    });
+
+    // FigmaExport utm_url also seeds icp→arc lookup via campaign
+    // Primary source: any strategy_type === 'EMOTIONAL_ARC' or similar
+    // Also try: CampaignBriefs icp_code + strategy_type prefix
+    // Fallback: construct arc ID as icp_code + '-ARC-001' if no match found
+
+    // DeepLinkRegistry sheet
+    var dlSheet = ss.getSheetByName('DeepLinkRegistry');
+    if (!dlSheet || dlSheet.getLastRow() < 2) return { ok: false, error: 'DeepLinkRegistry tab empty' };
+    var dlData2  = dlSheet.getDataRange().getValues();
+    var dlHdrs   = dlData2[0].map(function(h){ return String(h).trim(); });
+
+    var dlCampIdx  = hi(dlHdrs, 'campaign_id');
+    var dlUtmIdx   = hi(dlHdrs, 'utm_campaign');
+    var dlIcpIdx   = hi(dlHdrs, 'icp_code');
+    var dlArcIdx   = hi(dlHdrs, 'emotional_arc_id');
+
+    if (dlIcpIdx < 0 || dlArcIdx < 0) return { ok: false, error: 'icp_code or emotional_arc_id column missing in DeepLinkRegistry' };
+
+    var icpWritten = 0, arcWritten = 0, icpMiss = 0, arcMiss = 0;
+    var rows = dlData2.slice(1);
+
+    rows.forEach(function(row, i) {
+      var sheetRow = i + 2;
+      var currentIcp = String(row[dlIcpIdx] || '').trim();
+      var currentArc = String(row[dlArcIdx] || '').trim();
+
+      // ── icp_code ───────────────────────────────────────────────────────────
+      var icpCode = currentIcp;
+      if (!icpCode) {
+        // Try campaign_id column first
+        var campId  = dlCampIdx >= 0 ? String(row[dlCampIdx] || '').trim() : '';
+        var cbRow   = campId ? cbData.map[campId] : null;
+        // Try uppercase of utm_campaign as fallback
+        if (!cbRow && dlUtmIdx >= 0) {
+          var utmCamp = String(row[dlUtmIdx] || '').trim().toUpperCase().replace(/-/g, '-');
+          cbRow = cbData.map[utmCamp] || cbData.map[utmCamp.toLowerCase().replace(/-/g,'-')] || null;
+          // also try the raw utm_campaign value
+          if (!cbRow) {
+            var raw = String(row[dlUtmIdx] || '').trim();
+            cbRow = cbData.map[raw] || null;
+          }
+        }
+        icpCode = cbRow ? String(cbRow[hi(cbHdrs, 'icp_code')] || '').trim() : '';
+        if (icpCode) {
+          dlSheet.getRange(sheetRow, dlIcpIdx + 1).setValue(icpCode);
+          icpWritten++;
+        } else {
+          icpMiss++;
+        }
+      }
+
+      // ── emotional_arc_id ───────────────────────────────────────────────────
+      if (!currentArc && icpCode) {
+        var arcId = icpToArcId[icpCode] || '';
+        if (!arcId) {
+          // Fallback: search CampaignStrategy for strategy_type containing 'EMOTIONAL_ARC' and matching icp_code
+          Object.keys(csData.map).forEach(function(sid) {
+            if (arcId) return;
+            var csRow = csData.map[sid];
+            var sType = String(csRow[hi(csHdrs, 'strategy_type')] || '');
+            if (sType.indexOf('EMOTIONAL') >= 0 || sType.indexOf('ARC') >= 0) {
+              try {
+                var v = JSON.parse(String(csRow[hi(csHdrs, 'value_json')] || '{}'));
+                if (v && (v.icp_code === icpCode || !v.icp_code)) {
+                  arcId = sid;
+                }
+              } catch(e3) {}
+            }
+          });
+        }
+        if (arcId) {
+          dlSheet.getRange(sheetRow, dlArcIdx + 1).setValue(arcId);
+          arcWritten++;
+        } else {
+          arcMiss++;
+        }
+      }
+    });
+
+    return {
+      ok:          true,
+      total:       rows.length,
+      icp_written: icpWritten,
+      icp_miss:    icpMiss,
+      arc_written: arcWritten,
+      arc_miss:    arcMiss,
+      icp_to_arc_map: icpToArcId
+    };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // auditSheetData  —  read-only census of 5 tabs, no writes
 // ─────────────────────────────────────────────────────────────────────────────
 

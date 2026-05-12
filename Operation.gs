@@ -1420,6 +1420,10 @@ function doPost(e) {
       var _dfc = diagFigmaCta();
       return respond({ ok:_dfc.ok, result:_dfc, log: Logger.getLog() });
     }
+    if(body.action === 'backfill_deep_link_fields') {
+      var _bdlf = backfillDeepLinkFields();
+      return respond({ ok:_bdlf.ok, result:_bdlf, log: Logger.getLog() });
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');
