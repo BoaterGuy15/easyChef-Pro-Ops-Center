@@ -407,7 +407,7 @@
       Object.keys(calData.days).forEach(function(dk){
         var day=calData.days[dk];
         day.posts.forEach(function(p){
-          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',dl_id:p.dl_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,figma_url:p.figma_url||'',brief_doc_url:p.brief_doc_url||'',claude_design_url:p.claude_design_url||'',notes:p.notes||'',date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
+          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',dl_id:p.dl_id||'',platform:p.platform,campaign_id:p.campaign_id||'',status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,figma_url:p.figma_url||'',brief_doc_url:p.brief_doc_url||'',claude_design_url:p.claude_design_url||'',notes:p.notes||'',date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
           posts.push(post);
           POST_REGISTRY[p.asset_id]=post;
         });
@@ -849,12 +849,14 @@
       rows+='<div class="pm-section">Linked Assets</div>';
       var _isVideo=(['tiktok','youtube'].indexOf((p.platform||'').toLowerCase())>-1);
       var _cdLabel=_isVideo?'Storyboard':'Claude Design';
+      var _folderMap={'EC-2026-001':'https://drive.google.com/drive/folders/1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl','EC-2026-002':'https://drive.google.com/drive/folders/1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl'};
+      var _driveFolderUrl=_folderMap[p.campaign_id]||DRIVE_FOLDER_URL||null;
       rows+='<div class="pm-links">'+
         pmLink('Brief Doc', p.brief_doc_url||null)+
         pmGenBtn(_cdLabel, p.asset_id, p.claude_design_url||null)+
         pmLink('Figma', p.figma_url||null)+
         pmLink('Google Sheet Row', sheetUrl)+
-        pmLink('Drive Folder', DRIVE_FOLDER_URL||null)+
+        pmLink('Drive Folder', _driveFolderUrl)+
       '</div>';
 
       document.getElementById('pm-body').innerHTML=rows;

@@ -2595,6 +2595,7 @@ function getCampaignCalendar(campaignId) {
       }
       days[dateKey].posts.push({
         asset_id: assetId, calendar_id: calId, dl_id: dlId, platform: platform,
+        campaign_id: String(r[H.campaign_id] || ''),
         status: status, creative_status: creative, approval_status: approval,
         emotional_stage: emotion, funnel_stage: funnel, publish_time: pubTime,
         blocked: isBlocked, blocked_reason: blockedReason,
