@@ -13,6 +13,38 @@
 
 var _FE_TAB_NAME = 'FigmaExport';
 
+// ── _getFigmaTextFields ───────────────────────────────────────────────────────
+// Reads FIGMA / FIGMA_TEXT_FIELDS_001 from CcSettings.
+// Auto-seeds the row on first call if missing.
+function _getFigmaTextFields() {
+  var defaults = ['hook_a','hook_b','caption_opening','cta','scene_direction','dl_id','utm_url',
+                  'subject_line','preview_text','opening_hook','audio_direction','what_not_to_show'];
+  try {
+    var sheet = _getCampaignSpreadsheet().getSheetByName('CcSettings');
+    if (!sheet) return defaults;
+    var last = sheet.getLastRow();
+    if (last >= 2) {
+      var rows = sheet.getRange(2, 1, last - 1, 5).getValues();
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        if (String(r[0]).toUpperCase() === 'FIGMA' && String(r[1]) === 'FIGMA_TEXT_FIELDS_001') {
+          var active = r[4] === true || String(r[4]).toLowerCase() === 'true';
+          if (!active) return defaults;
+          try { return JSON.parse(String(r[3])); } catch(ep) { return defaults; }
+        }
+      }
+    }
+    // Row not found — auto-seed it so the user can edit it from the sheet
+    sheet.appendRow(['FIGMA', 'FIGMA_TEXT_FIELDS_001', 'Figma text layer field names', JSON.stringify(defaults), true]);
+    try { CacheService.getScriptCache().remove('cc_settings_v1'); } catch(ec) {}
+    Logger.log('[_getFigmaTextFields] seeded FIGMA_TEXT_FIELDS_001 to CcSettings');
+    return defaults;
+  } catch(e) {
+    Logger.log('[_getFigmaTextFields] ' + e.message);
+    return defaults;
+  }
+}
+
 function _readSheetAsMap(sheet, keyCol) {
   var last = sheet.getLastRow();
   if (last < 2) return { headers: [], map: {} };
@@ -98,6 +130,7 @@ function getFigmaExportJson(campaignId) {
 
       assets.push({
         asset_id:              postId,
+        campaign_id:           campaignId,
         platform:              fe_('platform')       || cc_('platform'),
         day:                   Number(feRow[feH.day] || ccRow[ccH.day] || 0),
         week:                  Number(feRow[feH.week]|| ccRow[ccH.week]|| 0),
@@ -145,10 +178,15 @@ function getFigmaExportJson(campaignId) {
       return (a.day - b.day) || a.platform.localeCompare(b.platform);
     });
 
+    var metaCols = {'post_id':1,'campaign_id':1,'day':1,'week':1,'platform':1};
+    var exportedFields = fe.headers.filter(function(h){ return h && !metaCols[h]; });
+
     Logger.log('[getFigmaExportJson] ' + assets.length + ' assets for ' + campaignId);
     return {
       ok:                  true,
       campaign_id:         campaignId,
+      fields:              exportedFields,
+      text_fields:         _getFigmaTextFields(),
       export_generated_at: new Date().toISOString(),
       total_assets:        assets.length,
       assets:              assets

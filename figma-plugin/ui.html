@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Inter, -apple-system, sans-serif; font-size: 12px; background: #1a1a1a; color: #e0e0e0; }
+
+/* Nav */
+.nav { display: flex; border-bottom: 1px solid #2a2a2a; }
+.nav-btn { flex: 1; padding: 10px; background: none; border: none; color: #666; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; cursor: pointer; transition: color .15s, border-bottom .15s; border-bottom: 2px solid transparent; }
+.nav-btn.active { color: #a78bfa; border-bottom-color: #a78bfa; }
+.nav-btn:hover:not(.active) { color: #bbb; }
+
+.panel { padding: 16px; }
+h3 { font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 14px; }
+label { display: block; font-size: 10px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+input, select {
+  width: 100%; padding: 8px 10px; border: 1px solid #333; border-radius: 5px;
+  background: #242424; color: #e0e0e0; font-size: 12px; margin-bottom: 12px; outline: none;
+}
+input:focus, select:focus { border-color: #7c3aed; }
+input::placeholder { color: #444; }
+
+.btn { width: 100%; padding: 10px; border: none; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-primary { background: #7c3aed; color: #fff; }
+.btn-primary:hover { background: #6d28d9; }
+.btn-primary:disabled { background: #2a2a2a; color: #444; cursor: not-allowed; }
+.btn-ghost { background: #242424; color: #777; border: 1px solid #333; margin-top: 8px; }
+.btn-ghost:hover { color: #ccc; }
+.btn-green { background: #15803d; color: #fff; }
+.btn-green:hover { background: #166534; }
+
+.card { background: #222; border: 1px solid #2e2e2e; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 11px; color: #999; line-height: 1.6; }
+.card strong { color: #ddd; }
+.card code { background: #161616; padding: 1px 5px; border-radius: 3px; font-family: monospace; font-size: 10px; color: #c4b5fd; }
+
+.progress-bar { background: #222; border-radius: 3px; height: 5px; margin-bottom: 8px; overflow: hidden; }
+.progress-fill { height: 100%; background: #7c3aed; transition: width .25s ease; border-radius: 3px; }
+.progress-label { font-size: 11px; color: #666; text-align: center; margin-bottom: 10px; }
+
+.log { height: 190px; overflow-y: auto; background: #0f0f0f; border-radius: 5px; padding: 8px 10px; font-family: 'Courier New', monospace; font-size: 10px; color: #555; }
+.log-ok   { color: #4ade80; }
+.log-skip { color: #fb923c; }
+.log-err  { color: #f87171; }
+
+.stat-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.stat { flex: 1; background: #222; border: 1px solid #2e2e2e; border-radius: 6px; padding: 10px 8px; text-align: center; }
+.stat-n { font-size: 24px; font-weight: 700; line-height: 1; color: #fff; }
+.stat-n.g { color: #4ade80; } .stat-n.o { color: #fb923c; } .stat-n.r { color: #f87171; }
+.stat-l { font-size: 10px; color: #555; margin-top: 3px; text-transform: uppercase; letter-spacing: .4px; }
+
+.badge { display: inline-block; background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 3px; padding: 2px 6px; font-size: 10px; color: #777; margin: 2px 2px 0 0; }
+
+.step { display: none; }
+.step.active { display: block; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* Setup specific */
+.layer-list { margin: 8px 0 0; }
+.layer-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #1e1e1e; }
+.layer-name { font-family: monospace; font-size: 11px; color: #c4b5fd; flex: 1; }
+.layer-desc { font-size: 10px; color: #555; }
+.required-dot { width: 6px; height: 6px; border-radius: 50%; background: #7c3aed; flex-shrink: 0; }
+.optional-dot { width: 6px; height: 6px; border-radius: 50%; background: #333; flex-shrink: 0; }
+.success-box { background: #14532d; border: 1px solid #166534; border-radius: 6px; padding: 12px; color: #86efac; font-size: 11px; margin-bottom: 12px; }
+.err-box { background: #450a0a; border: 1px solid #7f1d1d; border-radius: 6px; padding: 10px 12px; color: #fca5a5; font-size: 11px; margin-bottom: 10px; display: none; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav">
+  <button class="nav-btn active" id="nav-populate" onclick="switchView('populate')">Populate</button>
+  <button class="nav-btn"        id="nav-setup"    onclick="switchView('setup')">Setup Templates</button>
+</div>
+
+<!-- ═══════════════════ POPULATE VIEW ═══════════════════ -->
+<div class="view active" id="view-populate">
+<div class="panel">
+
+  <!-- Step 1: Configure -->
+  <div class="step active" id="step-configure">
+    <h3>Campaign Populator</h3>
+
+    <label>Campaign Center Endpoint</label>
+    <input id="endpoint" type="text" value="https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec">
+
+    <label>Campaign ID</label>
+    <input id="campaign-id" type="text" placeholder="EC-2026-001" value="">
+
+    <label>Platform</label>
+    <select id="platform">
+      <option value="All">All Platforms</option>
+      <option value="Instagram" selected>Instagram</option>
+      <option value="Facebook">Facebook</option>
+      <option value="Pinterest">Pinterest</option>
+      <option value="Nextdoor">Nextdoor</option>
+      <option value="X">X</option>
+      <option value="TikTok">TikTok</option>
+      <option value="YouTube">YouTube</option>
+      <option value="Email">Email</option>
+    </select>
+
+    <div class="card">
+      Templates must be on the current page named<br>
+      <code>TEMPLATE/Instagram</code> &nbsp; <code>TEMPLATE/Email</code> etc.<br>
+      Use the <strong>Setup Templates</strong> tab to create them.
+    </div>
+
+    <button class="btn btn-primary" id="btn-fetch">Fetch Assets</button>
+    <div class="err-box" id="fetch-err"></div>
+  </div>
+
+  <!-- Step 2: Preview -->
+  <div class="step" id="step-preview">
+    <h3>Ready</h3>
+    <div class="card" id="preview-card"></div>
+    <div class="card" id="platform-breakdown" style="margin-top:-4px;"></div>
+    <button class="btn btn-primary" id="btn-populate">Populate Frames</button>
+    <button class="btn btn-ghost"   id="btn-back">← Back</button>
+  </div>
+
+  <!-- Step 3: Progress -->
+  <div class="step" id="step-progress">
+    <h3>Populating…</h3>
+    <div class="progress-bar"><div class="progress-fill" id="pfill" style="width:0%"></div></div>
+    <div class="progress-label" id="plabel">Starting…</div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- Step 4: Done -->
+  <div class="step" id="step-done">
+    <h3>Done</h3>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-n g" id="stat-ok">0</div><div class="stat-l">Frames</div></div>
+      <div class="stat"><div class="stat-n o" id="stat-skip">0</div><div class="stat-l">Skipped</div></div>
+      <div class="stat"><div class="stat-n r" id="stat-err">0</div><div class="stat-l">Errors</div></div>
+    </div>
+    <div class="card" id="done-card"></div>
+    <div id="wb-status" style="font-size:11px;color:#666;text-align:center;margin-bottom:10px;"></div>
+    <button class="btn btn-primary" id="btn-done">Close Plugin</button>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══════════════════ SETUP VIEW ═══════════════════ -->
+<div class="view" id="view-setup">
+<div class="panel">
+
+  <div id="setup-default">
+    <h3>Create Template Frame</h3>
+
+    <div class="card">
+      Creates <code>TEMPLATE/Instagram</code> on the current page with all
+      required text layers pre-named. Style it however you like —
+      the layer <em>names</em> are what the plugin uses, not the design.
+    </div>
+
+    <div class="card">
+      <strong>Layers created:</strong>
+      <div class="layer-list">
+        <div class="layer-row"><span class="required-dot"></span><span class="layer-name">hook_a</span><span class="layer-desc">Primary hook — large</span></div>
+        <div class="layer-row"><span class="required-dot"></span><span class="layer-name">hook_b</span><span class="layer-desc">Secondary hook</span></div>
+        <div class="layer-row"><span class="required-dot"></span><span class="layer-name">caption_opening</span><span class="layer-desc">First caption line</span></div>
+        <div class="layer-row"><span class="required-dot"></span><span class="layer-name">cta</span><span class="layer-desc">Call to action — red</span></div>
+        <div class="layer-row"><span class="optional-dot"></span><span class="layer-name">scene_direction</span><span class="layer-desc">Creative brief (ref only)</span></div>
+        <div class="layer-row"><span class="optional-dot"></span><span class="layer-name">dl_id</span><span class="layer-desc">Deep link ID (ref only)</span></div>
+      </div>
+    </div>
+
+    <div class="err-box" id="setup-err"></div>
+
+    <button class="btn btn-green" id="btn-create">Create TEMPLATE/Instagram</button>
+    <div style="font-size:10px;color:#444;text-align:center;margin-top:8px;">
+      Will be placed at origin (0, 0) on the current page
+    </div>
+  </div>
+
+  <div id="setup-success" style="display:none;">
+    <div class="success-box" id="setup-success-msg"></div>
+    <div class="card">
+      <strong>Next steps:</strong><br>
+      1. Style the frame — adjust colors, fonts, layout<br>
+      2. Keep the text layer names exactly as created<br>
+      3. Switch to <strong>Populate</strong> tab and fetch assets<br>
+      4. Run population — each asset gets its own duplicate frame
+    </div>
+    <button class="btn btn-primary" onclick="switchView('populate')">Go to Populate →</button>
+    <button class="btn btn-ghost" id="btn-create-another" style="margin-top:8px;">Create Another</button>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ── View / step routing ───────────────────────────────────────────────────────
+function switchView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  document.getElementById('nav-' + v).classList.add('active');
+}
+function showStep(id) {
+  document.querySelectorAll('#view-populate .step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showErr(elId, msg) { const el = document.getElementById(elId); el.textContent = msg; el.style.display = 'block'; }
+function hideErr(elId)      { document.getElementById(elId).style.display = 'none'; }
+
+function appendLog(msg, cls) {
+  const log = document.getElementById('log');
+  const d   = document.createElement('div');
+  d.className = cls || '';
+  d.textContent = msg;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allAssets = [], filteredAssets = [], endpoint = '', platform = 'Instagram',
+    textFields = null, campaignIdUsed = '';
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+document.getElementById('btn-fetch').onclick = async function() {
+  endpoint = (document.getElementById('endpoint').value || '').trim();
+  platform = document.getElementById('platform').value;
+  const campaignId = (document.getElementById('campaign-id').value || '').trim() || 'EC-2026-001';
+  if (!endpoint) { showErr('fetch-err', 'Paste the endpoint URL first.'); return; }
+  hideErr('fetch-err');
+
+  const btn = this;
+  btn.disabled = true; btn.textContent = 'Fetching…';
+
+  try {
+    const r    = await fetch(endpoint, { method: 'POST', body: JSON.stringify({ action: 'get_figma_export_json', campaign_id: campaignId }), headers: { 'Content-Type': 'text/plain' } });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'ok:false');
+
+    allAssets      = data.assets || [];
+    filteredAssets = platform === 'All' ? allAssets : allAssets.filter(a => a.platform === platform);
+    textFields     = Array.isArray(data.text_fields) && data.text_fields.length ? data.text_fields : null;
+    campaignIdUsed = data.campaign_id || campaignId;
+
+    const counts = {};
+    allAssets.forEach(a => { counts[a.platform] = (counts[a.platform] || 0) + 1; });
+
+    document.getElementById('preview-card').innerHTML =
+      '<strong>' + filteredAssets.length + ' assets</strong> selected' +
+      (platform !== 'All' ? ' — platform: <strong>' + platform + '</strong>' : ' — all platforms') +
+      ' · <strong>' + data.campaign_id + '</strong>';
+
+    const schemaFields = data.fields || [];
+    const activeFields = textFields || [];
+    const missing = activeFields.filter(f => !schemaFields.includes(f));
+    const schemaHtml = schemaFields.length
+      ? '<div style="margin-top:6px"><strong>Sheet fields (' + schemaFields.length + '):</strong> ' +
+        schemaFields.map(f => '<span class="badge" style="' + (activeFields.includes(f) ? 'border-color:#7c3aed;color:#c4b5fd' : '') + '">' + f + '</span>').join('') + '</div>' +
+        (missing.length ? '<div style="margin-top:5px;color:#fb923c;font-size:10px">⚠ TEXT_FIELDS entries not in sheet: ' + missing.join(', ') + '</div>' : '')
+      : '';
+
+    document.getElementById('platform-breakdown').innerHTML =
+      '<strong>All platforms:</strong><br><div style="margin-top:5px">' +
+      Object.entries(counts).sort((a,b) => b[1]-a[1]).map(([p,n]) => '<span class="badge">' + p + ' ' + n + '</span>').join('') + '</div>' +
+      schemaHtml;
+
+    showStep('step-preview');
+  } catch(e) {
+    showErr('fetch-err', 'Fetch failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Fetch Assets';
+  }
+};
+
+document.getElementById('btn-back').onclick     = () => showStep('step-configure');
+document.getElementById('btn-populate').onclick  = function() {
+  if (!filteredAssets.length) { showStep('step-configure'); return; }
+  showStep('step-progress');
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('pfill').style.width = '0%';
+  document.getElementById('plabel').textContent = '0 / ' + filteredAssets.length;
+  parent.postMessage({ pluginMessage: { type: 'populate', assets: filteredAssets, platform, campaign_id: campaignIdUsed, text_fields: textFields } }, '*');
+};
+
+// ── Messages from code.js ─────────────────────────────────────────────────────
+window.onmessage = async function(e) {
+  const msg = e.data && e.data.pluginMessage;
+  if (!msg) return;
+
+  if (msg.type === 'progress') {
+    const pct = Math.round((msg.processed / msg.total) * 100);
+    document.getElementById('pfill').style.width = pct + '%';
+    document.getElementById('plabel').textContent = msg.processed + ' / ' + msg.total + ' — ' + msg.asset_id;
+    if (msg.status === 'ok')      appendLog('✓ ' + msg.asset_id + '  (' + (msg.layers || 0) + ' layers)', 'log-ok');
+    else if (msg.status === 'skipped') appendLog('○ ' + msg.asset_id + ' — ' + (msg.message || ''), 'log-skip');
+    else                               appendLog('✗ ' + msg.asset_id + ' — ' + (msg.message || ''), 'log-err');
+    return;
+  }
+
+  if (msg.type === 'done') {
+    document.getElementById('stat-ok').textContent   = msg.populated;
+    document.getElementById('stat-skip').textContent = msg.skipped;
+    document.getElementById('stat-err').textContent  = msg.errors;
+    document.getElementById('done-card').innerHTML   =
+      (msg.figma_file_id ? 'File: <strong>' + msg.figma_file_id + '</strong><br>' : '') +
+      'Page: <strong>' + (msg.figma_page || '—') + '</strong>';
+    showStep('step-done');
+
+    // Write back frame IDs
+    const populated = (msg.results || []).filter(r => r.status === 'in_figma');
+    if (populated.length && endpoint) {
+      document.getElementById('wb-status').textContent = 'Writing frame IDs to Campaign Center…';
+      try {
+        await writeBack(msg.results, msg.figma_file_id, msg.figma_page);
+        document.getElementById('wb-status').textContent = populated.length + ' frame IDs written ✓';
+      } catch(e) {
+        document.getElementById('wb-status').textContent = 'Writeback error: ' + e.message;
+      }
+    }
+    return;
+  }
+
+  if (msg.type === 'setup_done') {
+    document.getElementById('setup-default').style.display = 'none';
+    const el = document.getElementById('setup-success');
+    el.style.display = 'block';
+    document.getElementById('setup-success-msg').textContent =
+      'TEMPLATE/Instagram created on the current page. Style it — keep the layer names intact.';
+    return;
+  }
+
+  if (msg.type === 'setup_error') {
+    showErr('setup-err', msg.message);
+    document.getElementById('btn-create').disabled = false;
+    document.getElementById('btn-create').textContent = 'Create TEMPLATE/Instagram';
+    return;
+  }
+};
+
+async function writeBack(results, fileId, pageName) {
+  const populated = results.filter(r => r.status === 'in_figma');
+  for (const r of populated) {
+    try {
+      await fetch(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'update_asset_status', asset_id: r.asset_id, status: 'in_figma', figma_file_id: fileId || '', figma_page: pageName || '', figma_frame_id: r.figma_frame_id || '' }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    } catch(_) {}
+  }
+}
+
+// ── Setup tab ─────────────────────────────────────────────────────────────────
+document.getElementById('btn-create').onclick = function() {
+  hideErr('setup-err');
+  this.disabled = true;
+  this.textContent = 'Creating…';
+  parent.postMessage({ pluginMessage: { type: 'create_template' } }, '*');
+};
+
+document.getElementById('btn-create-another').onclick = function() {
+  document.getElementById('setup-default').style.display = 'block';
+  document.getElementById('setup-success').style.display = 'none';
+  const btn = document.getElementById('btn-create');
+  btn.disabled = false; btn.textContent = 'Create TEMPLATE/Instagram';
+};
+
+document.getElementById('btn-done').onclick = function() {
+  parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+};
+</script>
+</body>
+</html>
