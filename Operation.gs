@@ -1387,6 +1387,15 @@ function doPost(e) {
       var _sgr = seedGovernanceRows();
       return respond({ ok:_sgr.ok, result:_sgr, log: Logger.getLog() });
     }
+    if(body.action === 'update_master_reference') {
+      var _umr = updateMasterReference({
+        old_deploy:  body.old_deploy  || null,
+        new_deploy:  body.new_deploy  || null,
+        mark_done:   body.mark_done   || null,
+        session_log: body.session_log || null
+      });
+      return respond({ ok:_umr.ok, result:_umr, log: Logger.getLog() });
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');

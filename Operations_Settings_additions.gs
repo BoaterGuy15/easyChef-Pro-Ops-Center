@@ -173,6 +173,85 @@ function createAIReferenceTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
+// updateMasterReference()
+// Updates the Master Reference v4.0 Google Doc via the Docs API.
+// Triggered via: node run-gas.js '{"action":"update_master_reference",...}'
+//
+// Supported params (all optional, combine freely):
+//   old_deploy    {string}   e.g. "@529" — text to find and replace
+//   new_deploy    {string}   e.g. "@530"
+//   mark_done     {string[]} exact text of items to prefix with "✅ DONE — "
+//   session_log   {object}   { date, deploy_range, changes: string[] }
+//                            appended as a formatted block at the end of the doc
+// ─────────────────────────────────────────────────────────────────────────────
+
+function updateMasterReference(params) {
+  var DOC_ID = '1kIq1_bkWD4TJlSidPspqF2wc_EXFO0YHqb2BNiOiFZI';
+  var p      = params || {};
+  var ops    = [];
+
+  try {
+    var doc  = DocumentApp.openById(DOC_ID);
+    var body = doc.getBody();
+
+    // 1. Replace deploy version everywhere it appears
+    if (p.old_deploy && p.new_deploy && p.old_deploy !== p.new_deploy) {
+      body.replaceText(p.old_deploy.replace(/[@]/g, '\\$&'), p.new_deploy);
+      ops.push('deploy: ' + p.old_deploy + ' → ' + p.new_deploy);
+    }
+
+    // 2. Mark items done — prepend ✅ DONE to matched text
+    if (Array.isArray(p.mark_done)) {
+      p.mark_done.forEach(function(item) {
+        if (!item) return;
+        // Escape regex special chars in the item text
+        var escaped = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Only mark if not already marked
+        var alreadyDone = body.getText().indexOf('✅ DONE — ' + item) > -1;
+        if (!alreadyDone) {
+          body.replaceText(escaped, '✅ DONE — ' + item);
+          ops.push('marked done: ' + item);
+        } else {
+          ops.push('already done (skipped): ' + item);
+        }
+      });
+    }
+
+    // 3. Append session log as formatted paragraph block
+    if (p.session_log) {
+      var sl   = p.session_log;
+      var date = sl.date || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      body.appendParagraph('').setSpacingBefore(12);
+      var divider = body.appendParagraph('────────────────────────────────────────');
+      divider.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+      var header = body.appendParagraph('SESSION LOG — ' + date + ' · Deploy range: ' + (sl.deploy_range || ''));
+      header.setBold(true);
+      if (Array.isArray(sl.changes) && sl.changes.length) {
+        sl.changes.forEach(function(c) { body.appendParagraph('  • ' + c); });
+      }
+      body.appendParagraph('────────────────────────────────────────');
+      ops.push('session log appended (' + ((sl.changes || []).length) + ' changes)');
+    }
+
+    if (ops.length === 0) {
+      return { ok: false, error: 'No update params provided (pass old_deploy/new_deploy, mark_done, or session_log)' };
+    }
+
+    Logger.log('[updateMasterReference] ' + ops.length + ' operation(s): ' + ops.join(' | '));
+    return {
+      ok:          true,
+      ops:         ops,
+      doc_id:      DOC_ID,
+      doc_url:     'https://docs.google.com/document/d/' + DOC_ID + '/edit'
+    };
+
+  } catch(e) {
+    Logger.log('[updateMasterReference] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // seedGovernanceRows()
 // Adds the 7 governance rows that close the last hardcoded-constant gap.
 // Safe upsert — skips any row whose ID already exists in the tab.

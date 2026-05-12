@@ -2,6 +2,30 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Session Start Protocol
+
+Before writing or changing any code:
+
+1. Read the AIReference tab in the Campaign Center Sheet
+   Sheet ID: `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE`
+
+2. Open the Master Reference doc linked in AIReference
+   Current: https://docs.google.com/document/d/1kIq1_bkWD4TJlSidPspqF2wc_EXFO0YHqb2BNiOiFZI/edit
+
+3. Confirm before touching code:
+   - Current deploy version
+   - Sheet ID
+   - GitHub branch (always `main`)
+   - Governance state (all 7 blocks wired to sheet as of 2026-05-11)
+
+4. Treat the Campaign Center Sheet as source of truth for all governance rules — not memory, not old docs.
+
+5. If AIReference points to a newer Master Reference doc, load that one instead. The tab is always current.
+
+6. Do not write code until orientation is confirmed.
+
+Current state: deploy @529 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+
 ## Project Overview
 
 **DGL easyChef Pro Ops Center** — an internal operations dashboard for Digital Galactica Labs tracking the easyChef Pro product launch (target: July 1, 2026). It consolidates RACI workflow, 10-week launch roadmap, team responsibilities, budget and burn rate, and spend logging in a single browser-based interface.
