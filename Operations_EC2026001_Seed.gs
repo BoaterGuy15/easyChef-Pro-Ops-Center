@@ -6199,3 +6199,29 @@ function repairEC2026002SocialPosts() {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Backup campaign rows to BackupLog tab before destructive operations ────────
+// Snapshots SocialPosts + DeepLinkRegistry rows for campaignId.
+// BackupLog tab: timestamp | campaign_id | json_data (3 columns)
+function backupCampaignData(campaignId) {
+  try {
+    var ss  = _getCampaignSpreadsheet();
+    var log = ss.getSheetByName('BackupLog');
+    if (!log) {
+      log = ss.insertSheet('BackupLog');
+      log.getRange(1, 1, 1, 3).setValues([['timestamp', 'campaign_id', 'json_data']]);
+    }
+    var snapshot = {
+      social_posts:    getSocialPosts(campaignId)   || [],
+      dl_registry:     getDlRegistry(campaignId)    || [],
+      content_calendar: getContentCalendar(campaignId) || []
+    };
+    var ts = new Date().toISOString();
+    log.appendRow([ts, campaignId, JSON.stringify(snapshot)]);
+    Logger.log('[backupCampaignData] ' + campaignId + ' backed up at ' + ts);
+    return { ok: true, ts: ts, rows: snapshot.social_posts.length };
+  } catch(e) {
+    Logger.log('[backupCampaignData] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

@@ -52,12 +52,13 @@ var _BRAND_BODY  = '#333333';
  * saves drive_url back to CampaignBriefs sheet.
  * Returns { ok, folder_url, doc_urls }
  */
-function exportCampaignToDrive(brief, copy, posts, lp, emails) {
+function exportCampaignToDrive(brief, copy, posts, lp, emails, opt) {
   try {
     copy   = copy   || {};
     posts  = Array.isArray(posts)  ? posts  : [];
     emails = Array.isArray(emails) ? emails : [];
     lp     = lp || {};
+    var _skipAi = (opt && opt.skipAi) ? true : false;
 
     // ── 1. Build folder path ────────────────────────────────────────────────
     var now      = new Date();
@@ -88,7 +89,7 @@ function exportCampaignToDrive(brief, copy, posts, lp, emails) {
     var _apiKey = '';
     try { _apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY') || ''; } catch(ke) {}
     var _briefs = { postBriefs: {}, emailBriefs: {}, lpBrief: {} };
-    if (_apiKey && (posts.length > 0 || emails.length > 0)) {
+    if (!_skipAi && _apiKey && (posts.length > 0 || emails.length > 0)) {
       try { _briefs = _generateDesignBriefs(brief, posts, emails, lp, _apiKey); }
       catch(be) { Logger.log('[DriveExport] design briefs error (non-fatal): ' + be.message); }
     }
@@ -1032,18 +1033,17 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate, lpBrief)
   var slug     = String(lp.slug || brief.slug || 'waitlist-a').replace(/^lp\//, '');
   var canonUrl = _buildLpUrl(slug);
   var lpUrl    = canonUrl.replace('https://', '');
-  var icp      = lp.icp  || brief.icp  || '';
+  // icp_codes is the LPInventory field name; lp.icp is a legacy alias
+  var icp = lp.icp_codes || lp.icp || brief.icp || '';
 
-  // Fix 4 (DL_IDs): collect from posts/emails AND query DeepLinkRegistry for ACTIVE entries
-  var dlIdMap = {};
-  (Array.isArray(posts)  ? posts  : []).forEach(function(p) { if (p.dl_id) dlIdMap[p.dl_id] = 1; });
-  (Array.isArray(emails) ? emails : []).forEach(function(e) { if (e.dl_id) dlIdMap[e.dl_id] = 1; });
+  // DL_IDs: pull ONLY from DeepLinkRegistry for this campaign — never from post/email fields
+  // (post dl_ids may belong to a different campaign if DLs weren't re-generated)
+  var dlIds = '—';
   try {
     var regRows = getDlRegistry(brief.id || '');
-    regRows.filter(function(r){ return (r.status||'').toUpperCase() === 'ACTIVE'; })
-           .forEach(function(r){ if (r.dl_id) dlIdMap[r.dl_id] = 1; });
+    var regActive = regRows.filter(function(r) { return (r.status||'').toUpperCase() === 'ACTIVE'; });
+    if (regActive.length) dlIds = regActive.map(function(r) { return r.dl_id; }).sort().join(' · ');
   } catch(re) {}
-  var dlIds = Object.keys(dlIdMap).sort().join(' · ') || '—';
 
   // Proof bar — use lp.proof_items or approved-claims default
   var proofBar = Array.isArray(lp.proof_items)
@@ -1133,7 +1133,10 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate, lpBrief)
   var mdLen     = ' <span class="char-count">(' + metaDesc.length  + ' chars)</span>';
 
   var blueprint = _h(brief.funnel || 'Blueprint A-Waitlist');
-  var variant   = _h(lp.variant   || 'A &mdash; Money Funnel');
+  // Use ab_variant from lpBrief when this is an A/B export; fall back to lp.variant for single-LP exports
+  var variant = lpBrief.ab_variant === 'B'
+    ? 'B &mdash; Time / Founding Family'
+    : (lpBrief.ab_variant === 'A' ? 'A &mdash; Money Funnel' : _h(lp.variant || 'A'));
 
   var css = '<style>\n'
   + '  * { margin:0; padding:0; box-sizing:border-box; }\n'

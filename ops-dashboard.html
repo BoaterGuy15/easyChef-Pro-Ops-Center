@@ -24007,6 +24007,18 @@ function _ccCopyFallback(text,confirm){
   document.body.removeChild(el);
 }
 
+// ── Dev Mode toggle — hides destructive debug buttons behind a switch ─────────
+var _ccDevModeOn = false;
+function _ccToggleDevMode() {
+  _ccDevModeOn = !_ccDevModeOn;
+  var btn = document.getElementById('cc-dev-mode-toggle');
+  var sec = document.getElementById('cc-dev-actions');
+  if (btn) btn.textContent = _ccDevModeOn ? '🔐 Dev Mode ON' : '🔓 Dev Mode OFF';
+  if (btn) btn.style.borderColor = _ccDevModeOn ? '#ef4444' : '#f59e0b';
+  if (btn) btn.style.color       = _ccDevModeOn ? '#ef4444' : '#f59e0b';
+  if (sec) sec.style.display     = _ccDevModeOn ? 'contents' : 'none';
+}
+
 // ── Debug test helper — runs a single GAS action and shows raw result ────────
 function _ccDebugTest(action, campaignId) {
   var panel = document.getElementById('cc-debug-panel');
@@ -24040,16 +24052,32 @@ function _ccDebugTest(action, campaignId) {
   });
 }
 
-// ── Clear campaign data — deletes generated rows, keeps brief + copy ─────────
+// ── Clear campaign data — backs up then deletes generated rows ────────────────
 function _ccClearCampaignData(campaignId) {
   var confirmed = confirm(
-    'This will delete all generated rows for\n' +
-    campaignId + ' from SocialPosts, EmailSequences,\n' +
-    'DeepLinkRegistry, and VideoScripts tabs.\n' +
-    'Campaign Brief and GeneratedCopy are kept.\n' +
-    'Cannot be undone. Continue?'
+    'DESTRUCTIVE ACTION\n\n' +
+    'This will delete all generated rows for ' + campaignId + '\n' +
+    'from SocialPosts, EmailSequences, DeepLinkRegistry.\n' +
+    'Campaign Brief and GeneratedCopy are kept.\n\n' +
+    'A backup will be saved to the BackupLog tab first.\n\n' +
+    'Continue?'
   );
   if (!confirmed) return;
+  var panel = document.getElementById('cc-debug-panel');
+  if (panel) { panel.style.display = 'block'; panel.textContent = '[backup] saving snapshot before clear…'; }
+  var _url = (CONFIG && CONFIG.campaignUrl) || CONFIG.sheetsUrl;
+  fetch(_url, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'backup_campaign_data',campaign_id:campaignId}) })
+    .then(function(r){ return r.json(); })
+    .then(function(bk) {
+      if (panel) panel.textContent = '[backup] ' + (bk.ok ? 'saved ' + bk.rows + ' rows at ' + bk.ts : 'backup failed: ' + bk.error) + '\n[clear] proceeding…';
+      _doClearCampaignData(campaignId);
+    })
+    .catch(function() {
+      if (panel) panel.textContent = '[backup] backup call failed — clear cancelled for safety.';
+    });
+}
+
+function _doClearCampaignData(campaignId) {
   var panel = document.getElementById('cc-debug-panel');
   if (panel) { panel.style.display = 'block'; panel.textContent = '[clear_campaign_data] sending…'; }
   var _url = (CONFIG && CONFIG.campaignUrl) || CONFIG.sheetsUrl;
@@ -29726,16 +29754,19 @@ function _campaignsRenderInner(root){
         '<div id="cc-debug-bar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:14px">'+
           '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-family:\'DM Mono\',monospace">DEBUG</span>'+
           '<button onclick="_ccDebugTest(\'ping\',\'EC-2026-002\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Ping GAS</button>'+
-          '<button onclick="_ccDebugTest(\'generate_utm_and_save\',\'EC-2026-002\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 3 Only</button>'+
-          '<button onclick="_ccDebugTest(\'export_campaign_to_drive\',\'EC-2026-002\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 4 Only</button>'+
-          '<button onclick="_ccRunAction(\'repair_sheet_headers\',\'Repair All Headers\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔧 Repair Headers</button>'+
-          '<button onclick="_ccDebugTest(\'clean_lp_inventory\',\'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🧹 Clean LP Inventory</button>'+
-          '<button onclick="_ccDebugTest(\'restore_lp_waitlist_ab\',\'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔁 Restore Waitlist LPs</button>'+
-          '<button onclick="_ccDebugTest(\'seed_content_calendar\',_campBrief&&_campBrief.id||\'EC-2026-001\')" style="background:transparent;border:1px solid #0ea5e9;color:#0ea5e9;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🗓 Seed Calendar</button>'+
-          '<button onclick="_ccDebugTest(\'seed_ec2026002_full\',\'EC-2026-002\')" style="background:transparent;border:1px solid #f59e0b;color:#f59e0b;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">⚡ Pre-Flight EC-2026-002</button>'+
           '<button onclick="_ccDebugTest(\'migrate_doc_folders\',\'\')" style="background:transparent;border:1px solid #6366f1;color:#6366f1;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">📁 Migrate Doc Folders</button>'+
           '<button onclick="_ccDebugTest(\'sync_team_docs_from_drive\',\'\')" style="background:transparent;border:1px solid #10b981;color:#10b981;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔄 Sync Drive → Docs</button>'+
-          '<button onclick="_ccClearCampaignData(\'EC-2026-002\')" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🗑 Clear Campaign Data</button>'+
+          '<button id="cc-dev-mode-toggle" onclick="_ccToggleDevMode()" style="background:transparent;border:1px solid #f59e0b;color:#f59e0b;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace;margin-left:8px">🔓 Dev Mode OFF</button>'+
+          '<span id="cc-dev-actions" style="display:none;display:contents">'+
+            '<button onclick="if(!confirm(\'Repair all sheet headers? This rewrites header rows.\')){return;}_ccRunAction(\'repair_sheet_headers\',\'Repair All Headers\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔧 Repair Headers</button>'+
+            '<button onclick="if(!confirm(\'Clean LP Inventory? This removes duplicate/invalid LP rows.\')){return;}_ccDebugTest(\'clean_lp_inventory\',\'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🧹 Clean LP Inventory</button>'+
+            '<button onclick="if(!confirm(\'Restore Waitlist A/B LP rows? This overwrites existing waitlist entries.\')){return;}_ccDebugTest(\'restore_lp_waitlist_ab\',\'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔁 Restore Waitlist LPs</button>'+
+            '<button onclick="if(!confirm(\'Seed ContentCalendar for \'+(_campBrief&&_campBrief.id||\'EC-2026-001\')+\'? This clears and rewrites all calendar rows for this campaign.\')){return;}_ccDebugTest(\'seed_content_calendar\',_campBrief&&_campBrief.id||\'EC-2026-001\')" style="background:transparent;border:1px solid #0ea5e9;color:#0ea5e9;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🗓 Seed Calendar</button>'+
+            '<button onclick="if(!confirm(\'Run Pre-Flight for EC-2026-002? This regenerates all sequence data and seeds the campaign.\')){return;}_ccDebugTest(\'seed_ec2026002_full\',\'EC-2026-002\')" style="background:transparent;border:1px solid #f59e0b;color:#f59e0b;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">⚡ Pre-Flight EC-2026-002</button>'+
+            '<button onclick="_ccDebugTest(\'generate_utm_and_save\',\'EC-2026-002\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 3</button>'+
+            '<button onclick="_ccDebugTest(\'export_campaign_to_drive\',\'EC-2026-002\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🔍 Test Step 4</button>'+
+            '<button onclick="_ccClearCampaignData(\'EC-2026-002\')" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;font-family:\'DM Mono\',monospace">🗑 Clear Campaign Data</button>'+
+          '</span>'+
         '</div>'+
         '<div id="cc-debug-panel" style="display:none;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:14px 16px;margin-bottom:14px;font-family:\'DM Mono\',monospace;font-size:11px;line-height:1.7;color:#c9a84c;white-space:pre-wrap;max-height:260px;overflow:auto"></div>'
       : '')+
