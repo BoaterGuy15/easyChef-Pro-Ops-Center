@@ -25,9 +25,11 @@ Before writing or changing any code:
 
 6. **LP first. Always.** The landing page spine is the source of truth for every social post, email, and video in a campaign. No asset generation before `generate_lp_spine` succeeds. No asset can advance past draft without `validate_asset_lp_alignment` passing. getMasterSystemPrompt returns `LP_SPINE_MISSING:<campaign_id>` if the spine is absent — that is a hard gate, not a warning.
 
-7. Do not write code until orientation is confirmed.
+7. **Playbook first. Always.** Before generating any content (social, email, video, LP copy), read the Campaign Creation Playbook. Doc ID: `1i34M_7FDJ6qy7SMjfWfFMPs3rTKL_AogoCM3egX1a_I`. Retrieve via `_getCcSetting('PLAYBOOK_DOC_ID')` — the label column holds the doc ID. The playbook is the source of truth for master story, So What architecture, claim scoping, and phone rules. Do not generate without it.
 
-Current state: deploy @567 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+8. Do not write code until orientation is confirmed.
+
+Current state: deploy @569 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
 
 ## Project Overview
 

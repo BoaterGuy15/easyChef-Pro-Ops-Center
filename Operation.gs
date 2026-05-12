@@ -1316,6 +1316,7 @@ function doPost(e) {
     if(body.action === 'generate_loop_copy')           return respond(generateLoopCopy(body.campaign_id, body.post_id, { lp_variant: body.lp_variant || 'a', icp_code: body.icp_code || '', platform: body.platform || '' }));
     if(body.action === 'backfill_lp_doctrine_columns')  return respond(backfillLPDoctrineColumns());
     if(body.action === 'validate_asset_lp_alignment')   return respond(validateAssetLPAlignment(body.campaign_id, { post_id: body.post_id||'', full_report: body.full_report||false }));
+    if(body.action === 'seed_playbook_wiring')           return respond(seedPlaybookWiring());
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });

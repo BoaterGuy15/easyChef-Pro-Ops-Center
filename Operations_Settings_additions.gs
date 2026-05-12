@@ -1867,3 +1867,117 @@ function seedLpDoctrine() {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Playbook Wiring — wire Campaign Creation Playbook into governance ──────────
+// Tasks 1-5: CcSettings PLAYBOOK_DOC_ID, MASTER_STORY_001, SO_WHAT_ARCHITECTURE_001,
+//            PHONE_RULE_LP_001, CLAIM_SCOPING_001 (14-type map)
+function seedPlaybookWiring() {
+  try {
+    var ss      = _getCampaignSpreadsheet();
+    var csSheet = ss.getSheetByName(_CC_TAB.CAMP_STRATEGY);
+    var csHdr   = _CC_HDR.CampaignStrategy; // strategy_id, strategy_type, active, value_json
+    var bdSheet = ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+    var bdHdr   = _CC_HDR.BrandDoctrine;    // rule_id, rule_type, enforcement, active, conditions_json
+
+    // TASK 1 — Register playbook doc ID in CcSettings ─────────────────────────
+    appendSettingRow(
+      'DOCS',
+      'PLAYBOOK_DOC_ID',
+      '1i34M_7FDJ6qy7SMjfWfFMPs3rTKL_AogoCM3egX1a_I',
+      'Campaign Creation Playbook — Claude Code reads before any generation'
+    );
+
+    // TASK 2 — Retire old master story; install new one (CampaignStrategy) ─────
+    _ccUpsert(csSheet, csHdr, 'MASTER_STORY_001', [
+      'MASTER_STORY_001',
+      'master_story',
+      'true',
+      JSON.stringify({
+        story: 'The problem was never you. The system was disconnected. easyChef Pro closes the gaps.',
+        narrative_spine: 'Recognition → Realization → Emotional consequence → So what → easyChef Pro closes the gap → Life feels lighter',
+        instruction: 'Lead with recognition, not blame. The hero is the user who spotted the gap. easyChef Pro is the bridge, not the savior.',
+        retired: 'Your kitchen is broken. Not because of you. Because no tool ever closed the loop.'
+      })
+    ]);
+
+    // TASK 3 — SO_WHAT_ARCHITECTURE_001 (BrandDoctrine) ───────────────────────
+    _ccUpsert(bdSheet, bdHdr, 'SO_WHAT_ARCHITECTURE_001', [
+      'SO_WHAT_ARCHITECTURE_001',
+      'so_what_architecture',
+      'required',
+      'true',
+      JSON.stringify({
+        rule: 'Every piece of content must follow the So What emotional flow.',
+        flow: ['Recognition','Realization','Emotional consequence','So what','easyChef Pro closes the gap','Life feels lighter'],
+        instruction: 'Do not skip stages. The "So what" moment is the pivot — it converts frustration into desire.',
+        applies_to: ['social','email','lp','video'],
+        example: {
+          recognition: 'You meal plan every week. You still waste food.',
+          realization: 'Because the plan lives in one app, the fridge in another, and dinner somewhere in between.',
+          emotional_consequence: 'That gap costs you money, time, and the feeling that you are failing at something you work hard at.',
+          so_what: 'What if those gaps were closed automatically?',
+          bridge: 'easyChef Pro is the first platform that closes the loop — from plan to purchase to prep.',
+          resolution: 'Dinner feels lighter when the system actually works.'
+        }
+      })
+    ]);
+
+    // TASK 4 — PHONE_RULE_LP_001 — LP exempt from phone restriction (BrandDoctrine)
+    _ccUpsert(bdSheet, bdHdr, 'PHONE_RULE_LP_001', [
+      'PHONE_RULE_LP_001',
+      'phone_cta_rule',
+      'required',
+      'true',
+      JSON.stringify({
+        rule: 'Phone number capture is restricted by channel. LP is exempt — no phone restriction on landing pages.',
+        channel_rules: {
+          social: 'Never ask for phone in social copy or CTAs.',
+          email:  'Never ask for phone in email CTAs.',
+          video:  'Never direct viewers to enter phone number.',
+          lp:     'Phone capture permitted on landing pages. No restriction.'
+        },
+        reason: 'Social and email audiences are in awareness/consideration stage. Phone capture adds friction and reduces conversion. LP audiences have demonstrated intent — phone capture is acceptable.'
+      })
+    ]);
+
+    // TASK 5 — CLAIM_SCOPING_001: 14-type section_claim_map (CampaignStrategy) ─
+    var allClaims = ['savings','roi','waste','speed','product','credibility','validation',
+                     'positioning','nutrition','outcome','trial','brand','pricing','problem_validation'];
+    _ccUpsert(csSheet, csHdr, 'CLAIM_SCOPING_001', [
+      'CLAIM_SCOPING_001',
+      'claim_scoping',
+      'true',
+      JSON.stringify({
+        section_claim_map: {
+          hook:              [],
+          problem:           ['speed','outcome'],
+          agitate_money:     ['savings','roi','waste'],
+          agitate_time:      ['speed','outcome'],
+          agitate_nutrition: ['nutrition','credibility'],
+          solve:             ['product','positioning','speed'],
+          value:             ['outcome','product'],
+          lifecycle:         [],
+          proof:             allClaims,
+          cta:               ['pricing','trial','outcome','positioning']
+        },
+        claim_types: allClaims,
+        note: 'Empty array = no restriction for that section. Matches 14 types in ApprovedClaims tab.'
+      })
+    ]);
+
+    var csAfter = csSheet.getLastRow() - 1;
+    var bdAfter = bdSheet.getLastRow() - 1;
+    Logger.log('[seedPlaybookWiring] done — CS rows=' + csAfter + ' BD rows=' + bdAfter);
+    return {
+      ok:                     true,
+      tasks_completed:        5,
+      campaign_strategy_total: csAfter,
+      brand_doctrine_total:   bdAfter,
+      note:                   'TASK 6 (CLAUDE.md) wired in code'
+    };
+
+  } catch(e) {
+    Logger.log('[seedPlaybookWiring] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
