@@ -1407,6 +1407,119 @@ function cleanupDeepLinkRegistry() {
   }
 }
 
+// ── STEP 8 — validate_asset_lp_alignment ────────────────────────────────────
+// Validates LP alignment for all assets in a campaign (or a single post_id).
+// Gates: lp_section_source, lp_headline_connection, claim_set scoping, CTA match.
+// Returns: { ok, campaign_id, checked, passed, failed, report[] }
+
+function validateAssetLPAlignment(campaignId, options) {
+  if (!campaignId) return { ok: false, error: 'campaign_id required' };
+  options = options || {};
+  var postIdFilter = options.post_id || '';
+
+  try {
+    var report  = [];
+    var passed  = 0;
+    var failed  = 0;
+
+    // Load LP spine (variant A for gate reference)
+    var brief = getCampaignBriefs(campaignId);
+    var spineRaw  = (brief && brief.lp_campaign_spine_json) || '';
+    var spineData = {};
+    try { spineData = JSON.parse(spineRaw); } catch(e) {}
+    var spineA = spineData.a || spineData || {};
+    var hasSpine = !!(spineA.hook && spineA.hook.headline);
+    var ctaHeadline = (spineA.cta && spineA.cta.headline) || '';
+    var ctaButton   = (spineA.cta && spineA.cta.cta_button) || '';
+
+    // Load claim scoping rules
+    var scoping = getCampaignStrategy('CLAIM_SCOPING_001');
+    var sectionClaimMap = (scoping && scoping.value && scoping.value.section_claim_map) || {};
+
+    // ── Validate SocialPosts ────────────────────────────────────────────────
+    var posts = getSocialPosts(campaignId);
+    posts.forEach(function(p) {
+      if (postIdFilter && p.id !== postIdFilter) return;
+      var violations = [];
+      // Gate 1: LP spine must exist
+      if (!hasSpine) violations.push('LP_SPINE_MISSING — run generate_lp_spine first');
+      // Gate 2: lp_section_source required
+      if (!p.lp_section_source) violations.push('lp_section_source is blank');
+      // Gate 3: lp_headline_connection required (for non-draft posts)
+      if (p.status !== 'draft' && !p.lp_headline_connection) {
+        violations.push('lp_headline_connection required before advancing past draft');
+      }
+      // Gate 4: CTA must be outcome-framed (not "sign up" or "click here")
+      var cta = String(p.cta || '').toLowerCase();
+      if (cta === 'sign up' || cta === 'click here' || cta === 'click') {
+        violations.push('CTA must be outcome-framed, not action-framed: "' + p.cta + '"');
+      }
+      // Gate 5: Status gate — hard block if approved/scheduled/published with missing spine
+      if (!hasSpine && (p.status === 'approved' || p.status === 'scheduled' || p.status === 'published')) {
+        violations.push('HARD_BLOCK: asset status is "' + p.status + '" but LP spine is missing');
+      }
+      var entry = {
+        id: p.id, asset_type: 'social_post', status: p.status,
+        lp_section_source: p.lp_section_source || '',
+        loop_stage: p.loop_stage || '',
+        violations: violations,
+        pass: violations.length === 0
+      };
+      violations.length === 0 ? passed++ : failed++;
+      report.push(entry);
+    });
+
+    // ── Validate EmailSequences ─────────────────────────────────────────────
+    var emails = getEmailSequences(campaignId);
+    emails.forEach(function(e) {
+      if (postIdFilter) return; // post_id filter doesn't apply to emails
+      var violations = [];
+      if (!hasSpine) violations.push('LP_SPINE_MISSING');
+      if (!e.lp_section_source) violations.push('lp_section_source is blank');
+      if (!hasSpine && (e.status === 'approved')) {
+        violations.push('HARD_BLOCK: email approved but LP spine is missing');
+      }
+      var entry = {
+        id: e.id, asset_type: 'email', status: e.status,
+        lp_section_source: e.lp_section_source || '',
+        violations: violations,
+        pass: violations.length === 0
+      };
+      violations.length === 0 ? passed++ : failed++;
+      report.push(entry);
+    });
+
+    var checked = report.length;
+    Logger.log('[validateAssetLPAlignment] campaign=' + campaignId +
+               ' checked=' + checked + ' passed=' + passed + ' failed=' + failed);
+
+    // Summary by gate
+    var gateFailCounts = {};
+    report.forEach(function(r) {
+      r.violations.forEach(function(v) {
+        var gate = v.split(':')[0].trim().split(' ')[0];
+        gateFailCounts[gate] = (gateFailCounts[gate] || 0) + 1;
+      });
+    });
+
+    return {
+      ok:          true,
+      campaign_id: campaignId,
+      has_spine:   hasSpine,
+      checked:     checked,
+      passed:      passed,
+      failed:      failed,
+      pass_rate:   checked ? Math.round(passed / checked * 100) + '%' : 'n/a',
+      gate_fails:  gateFailCounts,
+      report:      options.full_report ? report : report.filter(function(r) { return !r.pass; })
+    };
+
+  } catch(e) {
+    Logger.log('[validateAssetLPAlignment] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── STEP 7 — Backfill LP Doctrine columns on existing rows ───────────────────
 // SocialPosts:     lp_section_source (from day), loop_stage (from design_brief funnel_stage)
 // EmailSequences:  lp_section_source (from sequence_code)
