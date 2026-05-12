@@ -1412,6 +1412,14 @@ function doPost(e) {
       var _bsbc = backfillSocialBodyCopy();
       return respond({ ok:_bsbc.ok, result:_bsbc, log: Logger.getLog() });
     }
+    if(body.action === 'backfill_figma_export_fields') {
+      var _bfef = backfillFigmaExportFields();
+      return respond({ ok:_bfef.ok, result:_bfef, log: Logger.getLog() });
+    }
+    if(body.action === 'diag_figma_cta') {
+      var _dfc = diagFigmaCta();
+      return respond({ ok:_dfc.ok, result:_dfc, log: Logger.getLog() });
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');

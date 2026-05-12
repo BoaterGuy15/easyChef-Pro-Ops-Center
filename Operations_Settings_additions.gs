@@ -590,6 +590,166 @@ function backfillSocialBodyCopy() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// backfillFigmaExportFields  —  icp_target + cta for 218 blank rows
+//   icp_target: post_id → SocialPosts.id → campaign_id → CampaignBriefs.icp_code
+//   cta:        dl_id   → DeepLinkRegistry.destination_url → LPInventory.cta_primary
+// ─────────────────────────────────────────────────────────────────────────────
+
+function backfillFigmaExportFields() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    function sheetMap(tabName, keyCol) {
+      var sh = ss.getSheetByName(tabName);
+      if (!sh || sh.getLastRow() < 2) return { hdrs: [], map: {} };
+      var all  = sh.getDataRange().getValues();
+      var hdrs = all[0].map(function(h){ return String(h).trim(); });
+      var ki   = hdrs.indexOf(keyCol);
+      if (ki < 0) return { hdrs: hdrs, map: {} };
+      var map = {};
+      all.slice(1).forEach(function(r){ var k = String(r[ki] || '').trim(); if (k) map[k] = r; });
+      return { hdrs: hdrs, map: map };
+    }
+
+    // Load lookup tables
+    var spData  = sheetMap('SocialPosts', 'id');           // post_id → row
+    var cbData  = sheetMap('CampaignBriefs', 'id');        // campaign_id → row
+    var dlData  = sheetMap('DeepLinkRegistry', 'dl_id');   // dl_id → row
+    var lpData  = sheetMap('LPInventory', 'slug');          // slug → row
+
+    var spHdrs = spData.hdrs, cbHdrs = cbData.hdrs, dlHdrs = dlData.hdrs, lpHdrs = lpData.hdrs;
+
+    function idx(hdrs, name){ return hdrs.indexOf(name); }
+
+    // FigmaExport sheet
+    var feSheet = ss.getSheetByName('FigmaExport');
+    if (!feSheet || feSheet.getLastRow() < 2) return { ok: false, error: 'FigmaExport tab empty' };
+    var feData  = feSheet.getDataRange().getValues();
+    var feHdrs  = feData[0].map(function(h){ return String(h).trim(); });
+
+    var fePostIdx = idx(feHdrs, 'post_id');
+    var feDlIdx   = idx(feHdrs, 'dl_id');
+    var feIcpIdx  = idx(feHdrs, 'icp_target');
+    var feCtaIdx  = idx(feHdrs, 'cta');
+    var feUtmIdx  = idx(feHdrs, 'utm_url');
+
+    if (feIcpIdx < 0 || feCtaIdx < 0) return { ok: false, error: 'icp_target or cta column missing in FigmaExport' };
+
+    var icpWritten = 0, ctaWritten = 0, icpMiss = 0, ctaMiss = 0;
+    var rows = feData.slice(1);
+
+    rows.forEach(function(row, i) {
+      var sheetRow = i + 2;  // 1-based, +1 for header
+      var postId = String(row[fePostIdx] || '').trim();
+      var dlId   = String(feDlIdx >= 0 ? (row[feDlIdx] || '') : '').trim();
+      var utmUrl = String(feUtmIdx >= 0 ? (row[feUtmIdx] || '') : '').trim();
+
+      // ── icp_target ─────────────────────────────────────────────────────────
+      var currentIcp = String(row[feIcpIdx] || '').trim();
+      if (!currentIcp && postId) {
+        var spRow    = spData.map[postId];
+        var campId   = spRow ? String(spRow[idx(spHdrs, 'campaign_id')] || '').trim() : '';
+        var cbRow    = campId ? cbData.map[campId] : null;
+        var icpCode  = cbRow ? String(cbRow[idx(cbHdrs, 'icp_code')] || '').trim() : '';
+        if (icpCode) {
+          feSheet.getRange(sheetRow, feIcpIdx + 1).setValue(icpCode);
+          icpWritten++;
+        } else {
+          icpMiss++;
+        }
+      }
+
+      // ── cta ────────────────────────────────────────────────────────────────
+      var currentCta = String(row[feCtaIdx] || '').trim();
+      if (!currentCta) {
+        var ctaText = '';
+        // Try: dl_id → DeepLinkRegistry.destination_url → slug → LPInventory.cta_primary
+        if (dlId) {
+          var dlRow = dlData.map[dlId];
+          var destUrl = dlRow ? String(dlRow[idx(dlHdrs, 'destination_url')] || '').trim() : '';
+          if (destUrl) {
+            // Extract path after domain, strip leading slash → matches LPInventory slug (e.g. "lp/waitlist-a")
+            var pathSlug = (destUrl.split('?')[0].replace(/^https?:\/\/[^\/]+/, '') || '').replace(/^\//, '');
+            var lpRow = pathSlug ? lpData.map[pathSlug] : null;
+            if (lpRow) ctaText = String(lpRow[idx(lpHdrs, 'cta_primary')] || '').trim();
+          }
+        }
+        // Fallback: try utm_url path slug
+        if (!ctaText && utmUrl) {
+          var pathSlug2 = (utmUrl.split('?')[0].replace(/^https?:\/\/[^\/]+/, '') || '').replace(/^\//, '');
+          var lpRow2 = pathSlug2 ? lpData.map[pathSlug2] : null;
+          if (lpRow2) ctaText = String(lpRow2[idx(lpHdrs, 'cta_primary')] || '').trim();
+        }
+        if (ctaText) {
+          feSheet.getRange(sheetRow, feCtaIdx + 1).setValue(ctaText);
+          ctaWritten++;
+        } else {
+          ctaMiss++;
+        }
+      }
+    });
+
+    return {
+      ok:           true,
+      total:        rows.length,
+      icp_written:  icpWritten,
+      icp_miss:     icpMiss,
+      cta_written:  ctaWritten,
+      cta_miss:     ctaMiss
+    };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// diagFigmaCta  —  read-only: sample dl_id + utm_url from FigmaExport + LPInventory slugs
+// ─────────────────────────────────────────────────────────────────────────────
+
+function diagFigmaCta() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    function sample(tabName, colNames, limit) {
+      var sh = ss.getSheetByName(tabName);
+      if (!sh || sh.getLastRow() < 2) return { headers: [], rows: [] };
+      var all  = sh.getDataRange().getValues();
+      var hdrs = all[0].map(function(h){ return String(h).trim(); });
+      var rows = all.slice(1, limit + 1);
+      var out  = rows.map(function(r){
+        var obj = {};
+        colNames.forEach(function(c){
+          var i = hdrs.indexOf(c);
+          obj[c] = i >= 0 ? String(r[i] || '').trim() : 'col_missing';
+        });
+        return obj;
+      });
+      return { headers: hdrs, rows: out };
+    }
+
+    var feSample = sample('FigmaExport', ['post_id','dl_id','utm_url'], 5);
+    var dlSample = sample('DeepLinkRegistry', ['dl_id','destination_url','icp_code'], 5);
+    var lpSlugs  = (function(){
+      var sh = ss.getSheetByName('LPInventory');
+      if (!sh || sh.getLastRow() < 2) return [];
+      var all  = sh.getDataRange().getValues();
+      var hdrs = all[0].map(function(h){ return String(h).trim(); });
+      var si   = hdrs.indexOf('slug');
+      var ci   = hdrs.indexOf('cta_primary');
+      return all.slice(1, 10).map(function(r){
+        return { slug: si >= 0 ? String(r[si]||'') : '', cta_primary: ci >= 0 ? String(r[ci]||'') : '' };
+      });
+    })();
+
+    return { ok: true, figma_sample: feSample.rows, dl_sample: dlSample.rows, lp_slugs: lpSlugs };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // auditSheetData  —  read-only census of 5 tabs, no writes
 // ─────────────────────────────────────────────────────────────────────────────
 
