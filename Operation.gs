@@ -769,6 +769,18 @@ function doPost(e) {
     if(body.action === 'campaign_brief_write')   { setCampaignBrief(body.brief); return respond({ ok:true }); }
     if(body.action === 'campaign_save_draft') return respond(saveCampaignDraft(body));
     if(body.action === 'export_to_drive')    return respond(exportCampaignToDrive(body.brief||{}, body.copy||{}, body.posts||[], body.lp||null, body.emails||[]));
+    if(body.action === 'run_drive_export') {
+      var _rdeCid = (body.campaign_id || '').trim();
+      if (!_rdeCid) return respond({ ok:false, error:'campaign_id required' });
+      var _rdeBriefs = getCampaignBriefs(_rdeCid);
+      if (!_rdeBriefs || !_rdeBriefs.length) return respond({ ok:false, error:'No brief found for campaign: ' + _rdeCid });
+      var _rdeBrief  = _rdeBriefs[0];
+      var _rdeCopy   = (getGeneratedCopy(_rdeCid) || [])[0] || {};
+      var _rdePosts  = getSocialPosts(_rdeCid)    || [];
+      var _rdeEmails = getEmailSequences(_rdeCid) || [];
+      Logger.log('[run_drive_export] campaign=' + _rdeCid + ' posts=' + _rdePosts.length + ' emails=' + _rdeEmails.length + ' copy_id=' + (_rdeCopy.id||'none'));
+      return respond(exportCampaignToDrive(_rdeBrief, _rdeCopy, _rdePosts, null, _rdeEmails));
+    }
     if(body.action === 'ensure_brief_columns') {
       PropertiesService.getScriptProperties().deleteProperty('brief_cols_ensured'); // force re-check
       return respond(ensureCampaignBriefColumns());
@@ -952,6 +964,95 @@ function doPost(e) {
     if(body.action === 'seed_content_calendar') {
       var _ccSeed2 = seedEC2026001ContentCalendar(body.campaignId || body.campaign_id || 'EC-2026-001');
       return respond({ ok:_ccSeed2.ok, result:_ccSeed2, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_campaign_center') {
+      var _rpCid = body.campaignId || body.campaign_id || 'EC-2026-001';
+      var _rpLog = [];
+      // 1. Seed ContentCalendar
+      var _rpCC = seedEC2026001ContentCalendar(_rpCid);
+      _rpLog.push('ContentCalendar: ' + (_rpCC.ok ? 'seeded ' + _rpCC.seeded + ' rows' : 'ERROR — ' + _rpCC.error));
+      // 2. Re-seed invisible-leak theme
+      try {
+        var _rpSS = _getCampaignSpreadsheet();
+        var _rpTL = _rpSS.getSheetByName('ThemeLibrary');
+        var _rpTLLast = _rpTL ? _rpTL.getLastRow() : 0;
+        setThemeLibraryRow({
+          id:'invisible-leak', icp_code:'super_mom', theme_name:'The Invisible Leak', theme_slug:'invisible-leak',
+          category:'pre-launch', emotional_entry:'recognition — she knows the leak exists, she just has not named it',
+          emotional_payoff:'relief — the leak is closed in dollars and evenings',
+          hook_angle:'You have an invisible leak. It costs $111 a month. Five apps were never going to fix it.',
+          problem_angle:'Five apps. None of them talk to each other. The leak runs in the gap between them.',
+          agitate_angle:'The spinach. The ground beef. The yogurt. $111 gone. Every month. No system.',
+          food_type:'whatever is already in your fridge — expiring produce · ground beef · yogurt · the groceries that never became dinner',
+          publish_day:'daily', post_count:35, blueprint_code:'A-Waitlist', campaign_angle:'savings',
+          urgency_trigger:'First 5,000 families lock in $7.99/month forever',
+          image_mood_hook:'Warm kitchen 6:30 PM · groceries on counter · five apps open on phone · clock visible · recognition not defeat',
+          image_mood_cta:'Woman on couch after dinner · kitchen clean behind her · kids settled · peace · phone in hand',
+          active:true, notes:'EC-2026-001 · May 27–Jul 1 2026 · replaces taco-tuesday',
+          app_feature:'TRACK → PLAN → OPTIMIZE → COOK → SHOP',
+          app_screen_label:'Wk2: Pantry · Wk3: Meal plan + Nutrition score · Wk4: Recipe + 1-click shopping',
+          feature_hook:'Five apps never closed the loop. One does. TRACK → PLAN → OPTIMIZE → COOK → SHOP.',
+          feature_proof:'$1,336/year average savings · 69.5% less food waste · 30 minutes fridge to table · validated across 10,000 household profiles',
+          persona_rotation:'super_mom_money · super_mom_time'
+        });
+        _rpLog.push('ThemeLibrary: invisible-leak upserted (was ' + (_rpTLLast - 1) + ' rows)');
+      } catch(_rpTE) { _rpLog.push('ThemeLibrary: ERROR — ' + _rpTE.message); }
+      // 3. Regenerate FigmaExport from SocialPosts
+      var _rpFX = exportEC2026001FigmaJSON();
+      _rpLog.push('FigmaExport: ' + (_rpFX.ok ? 'regenerated ' + (_rpFX.total||0) + ' posts' : 'ERROR — ' + (_rpFX.error||'unknown')));
+      return respond({ ok:_rpCC.ok, log_steps:_rpLog, content_calendar:_rpCC, figma_export:_rpFX, gas_log:Logger.getLog() });
+    }
+    if(body.action === 'seed_all_campaigns_content_calendar') {
+      var _sacResult = seedAllCampaignsContentCalendar();
+      return respond({ ok:_sacResult.ok, total_seeded:_sacResult.total_seeded, by_campaign:_sacResult.by_campaign, error:_sacResult.error||null, log:Logger.getLog() });
+    }
+    if(body.action === 'repair_ec2026002_social_posts') {
+      var _r2 = repairEC2026002SocialPosts();
+      if (!_r2.ok) return respond({ ok:false, error:_r2.error, log:Logger.getLog() });
+      // Auto-resync ContentCalendar so cockpit shows corrected IDs and dates
+      var _r2sync = seedAllCampaignsContentCalendar();
+      return respond({ ok:true, fixed:_r2.fixed, dl_seeded:_r2.dl_seeded, cal_seeded:_r2sync.total_seeded, cal_ok:_r2sync.ok, log:Logger.getLog() });
+    }
+    if(body.action === 'rebuild_social_posts_from_figma') {
+      var _rbCid = body.campaignId || body.campaign_id || 'EC-2026-001';
+      var _rbResult = rebuildSocialPostsFromFigmaExport(_rbCid);
+      if(_rbResult.ok) {
+        // Auto-seed ContentCalendar after rebuild
+        var _rbSeed = seedEC2026001ContentCalendar(_rbCid);
+        return respond({ ok:true, rebuilt:_rbResult.rebuilt, seeded:_rbSeed.seeded, seed_ok:_rbSeed.ok, seed_error:_rbSeed.error||null, log:Logger.getLog() });
+      }
+      return respond({ ok:false, error:_rbResult.error, log:Logger.getLog() });
+    }
+    if(body.action === 'debug_social_posts') {
+      var _dbCampaignId = body.campaignId || body.campaign_id || 'EC-2026-001';
+      var _dbSs = _getCampaignSpreadsheet();
+      // List all tabs in the Campaign Center SS
+      var _dbAllTabs = _dbSs.getSheets().map(function(s){ return s.getName() + '(' + Math.max(0,s.getLastRow()-1) + ' rows)'; });
+      var _dbResult = { spreadsheet_name: _dbSs.getName(), all_tabs: _dbAllTabs, looking_for: _dbCampaignId };
+      var _dbSp = _dbSs.getSheetByName('SocialPosts');
+      if(!_dbSp) {
+        _dbResult.social_posts = 'TAB MISSING';
+      } else {
+        var _dbLast = _dbSp.getLastRow();
+        _dbResult.social_posts = { total_rows: _dbLast - 1, matches: 0, sample_ids: [], distinct_campaign_ids: {} };
+        if(_dbLast >= 2) {
+          var _dbRows = _dbSp.getRange(2, 1, _dbLast - 1, 2).getValues();
+          _dbRows.forEach(function(r) {
+            var cid = String(r[1]).trim();
+            _dbResult.social_posts.distinct_campaign_ids[cid] = (_dbResult.social_posts.distinct_campaign_ids[cid]||0)+1;
+            if(cid === _dbCampaignId) {
+              _dbResult.social_posts.matches++;
+              if(_dbResult.social_posts.sample_ids.length < 5) _dbResult.social_posts.sample_ids.push(String(r[0]));
+            }
+          });
+        }
+      }
+      var _dbCc = _dbSs.getSheetByName('ContentCalendar');
+      _dbResult.content_calendar_rows = _dbCc ? Math.max(0, _dbCc.getLastRow()-1) : 'TAB MISSING';
+      // Check FigmaExport tab
+      var _dbFe = _dbSs.getSheetByName('FigmaExport');
+      _dbResult.figma_export_rows = _dbFe ? Math.max(0, _dbFe.getLastRow()-1) : 'TAB MISSING';
+      return respond({ok:true, result:_dbResult});
     }
     if(body.action === 'seed_ec2026001_lp_pages') {
       var _lpPg = seedEC2026001LPPages();

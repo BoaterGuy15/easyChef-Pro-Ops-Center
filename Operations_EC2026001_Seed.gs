@@ -2243,6 +2243,113 @@ function seedEC2026001ContentCalendar(campaignId) {
   }
 }
 
+// ── Rebuild SocialPosts from FigmaExport ──────────────────────────────────────
+// Use when SocialPosts is missing or corrupt. FigmaExport is the source of truth
+// for all 218 EC-2026-001 posts. Reconstructs SocialPosts headers + design_brief JSON.
+function rebuildSocialPostsFromFigmaExport(campaignId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+    var CAMPAIGN_START_MS = Date.UTC(2026, 4, 27); // May 27 2026 00:00 UTC
+
+    var ss       = _getCampaignSpreadsheet();
+    var feSheet  = ss.getSheetByName('FigmaExport');
+    if (!feSheet || feSheet.getLastRow() < 2) return { ok: false, error: 'FigmaExport tab missing or empty' };
+
+    var feData = feSheet.getDataRange().getValues();
+    var feHdrs = feData[0].map(function(h) { return String(h).trim(); });
+    var H = {};
+    feHdrs.forEach(function(h, i) { H[h] = i; });
+
+    var required = ['post_id','platform','day','funnel_stage'];
+    for (var ri = 0; ri < required.length; ri++) {
+      if (H[required[ri]] === undefined) return { ok: false, error: 'FigmaExport missing column: ' + required[ri] };
+    }
+
+    var spHdrs = _CC_HDR.SocialPosts; // 16 columns
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+
+    // Clear existing rows (preserve header)
+    if (spSheet.getLastRow() > 1) {
+      spSheet.getRange(2, 1, spSheet.getLastRow() - 1, spHdrs.length).clearContent();
+    }
+
+    var newRows = [];
+    for (var i = 1; i < feData.length; i++) {
+      var r = feData[i];
+      var postId   = String(r[H['post_id']]   || '').trim();
+      if (!postId) continue;
+
+      var platform = String(r[H['platform']]  || '').trim();
+      var day      = Number(r[H['day']])       || 0;
+      var week     = day ? Math.ceil(day / 7) : 0;
+      var funnel   = String(r[H['funnel_stage']] || '').trim();
+      var icpTgt   = String(r[H['icp_target']]   || '').trim();
+      var phoneIn  = String(r[H['phone_in_frame']]|| '').trim() === 'YES';
+      var dlId     = String(r[H['dl_id']]         || '').trim();
+      var utmUrl   = String(r[H['utm_url']]        || '').trim();
+      var cta      = String(r[H['cta']]            || '').trim();
+      var hookA    = String(r[H['hook_a']]          || '').trim();
+      var hookB    = String(r[H['hook_b']]          || '').trim();
+      var sceneDir = String(r[H['scene_direction']] || '').trim();
+      var capOpen  = String(r[H['caption_opening']] || '').trim();
+
+      // Compute scheduled_date from day
+      var schedDate = '';
+      if (day > 0) {
+        var d = new Date(CAMPAIGN_START_MS + (day - 1) * 86400000);
+        schedDate = Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd');
+      }
+
+      // Reconstruct design_brief JSON
+      var brief = JSON.stringify({
+        funnel_stage:      funnel,
+        day:               day,
+        week:              week,
+        icp_target:        icpTgt,
+        phone_visibility:  phoneIn,
+        caption_opening:   capOpen,
+        hook_a:            hookA,
+        hook_b:            hookB,
+        scene_direction:   sceneDir,
+        dl_id:             dlId,
+        utm_url:           utmUrl,
+        cta:               cta,
+        campaign_id:       campaignId
+      });
+
+      // Map to SocialPosts schema: id,campaign_id,platform,hook,body_copy,cta,hashtags,image_brief,image_url,scheduled_date,scheduled_time,status,dl_id,utm_url,posted_url,design_brief
+      newRows.push([
+        postId,      // id
+        campaignId,  // campaign_id
+        platform,    // platform
+        hookA,       // hook
+        '',          // body_copy
+        cta,         // cta
+        '',          // hashtags
+        sceneDir,    // image_brief
+        '',          // image_url
+        schedDate,   // scheduled_date
+        '',          // scheduled_time
+        'generated', // status
+        dlId,        // dl_id
+        utmUrl,      // utm_url
+        '',          // posted_url
+        brief        // design_brief
+      ]);
+    }
+
+    if (!newRows.length) return { ok: false, error: 'No rows found in FigmaExport' };
+
+    spSheet.getRange(2, 1, newRows.length, spHdrs.length).setValues(newRows);
+    Logger.log('[rebuildSocialPostsFromFigmaExport] wrote ' + newRows.length + ' rows');
+    return { ok: true, rebuilt: newRows.length };
+
+  } catch(e) {
+    Logger.log('[rebuildSocialPostsFromFigmaExport] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Cockpit: blocked assets + campaign dashboard ──────────────────────────────
 
 function getBlockedAssets(campaignId) {
@@ -2294,7 +2401,8 @@ function getBlockedAssets(campaignId) {
 
 function getCampaignDashboard(campaignId) {
   try {
-    campaignId = campaignId || 'EC-2026-001';
+    var allCampaigns = (!campaignId || campaignId === 'all');
+    campaignId = allCampaigns ? 'all' : campaignId;
     var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
     var last    = ccSheet.getLastRow();
     if (last < 2) return { ok: true, campaign: campaignId, total_assets: 0 };
@@ -2320,7 +2428,7 @@ function getCampaignDashboard(campaignId) {
 
     for (var i = 0; i < data.length; i++) {
       var r = data[i];
-      if (!r[0] || String(r[H.campaign_id]) !== campaignId) continue;
+      if (!r[0] || (!allCampaigns && String(r[H.campaign_id]) !== campaignId)) continue;
       total++;
 
       var status   = String(r[H.status]          || 'generated');
@@ -2408,10 +2516,11 @@ function getCampaignDashboard(campaignId) {
 
 function getCampaignCalendar(campaignId) {
   try {
-    campaignId = campaignId || 'EC-2026-001';
+    var allCampaigns = (!campaignId || campaignId === 'all');
+    campaignId = allCampaigns ? 'all' : campaignId;
     var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
     var last    = ccSheet.getLastRow();
-    if (last < 2) return { ok: true, campaign: campaignId, days: {} };
+    if (last < 2) return { ok: true, campaign: campaignId, days: {}, campaign_ids: [] };
 
     var sheetId  = ccSheet.getParent().getId();
     var sheetGid = ccSheet.getSheetId();
@@ -2443,7 +2552,7 @@ function getCampaignCalendar(campaignId) {
     for (var i = 0; i < data.length; i++) {
       var r = data[i];
       var sheetRow = i + 2;
-      if (!r[0] || String(r[H.campaign_id]) !== campaignId) continue;
+      if (!r[0] || (!allCampaigns && String(r[H.campaign_id]) !== campaignId)) continue;
 
       var pubDate = r[H.publish_date];
       var dateKey = '';
@@ -2495,8 +2604,12 @@ function getCampaignCalendar(campaignId) {
     });
 
     var driveFolders = { 'EC-2026-001': 'https://drive.google.com/drive/folders/1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl' };
-    Logger.log('[getCampaignCalendar] ' + Object.keys(days).length + ' days');
-    return { ok: true, campaign: campaignId, days: days, sheet_id: sheetId, sheet_gid: sheetGid, drive_folder_url: driveFolders[campaignId] || null };
+    // Collect distinct campaign_ids for selector population
+    var cidSet = {};
+    data.forEach(function(r) { if(r[0]) cidSet[String(r[H.campaign_id]||'')] = true; });
+    var campaignIds = Object.keys(cidSet).filter(function(c){ return c; }).sort();
+    Logger.log('[getCampaignCalendar] ' + Object.keys(days).length + ' days, campaigns: ' + campaignIds.join(','));
+    return { ok: true, campaign: campaignId, days: days, sheet_id: sheetId, sheet_gid: sheetGid, drive_folder_url: driveFolders[campaignId] || null, campaign_ids: campaignIds };
   } catch(e) {
     Logger.log('[getCampaignCalendar] ERROR: ' + e.message);
     return { ok: false, error: e.message };
@@ -5816,4 +5929,273 @@ function seedEC2026002Full() {
 
   Logger.log('[seedEC2026002Full] ' + results.join(' | '));
   return { ok: true, results: results };
+}
+
+// ── Seed ALL campaigns into ContentCalendar (one-shot, single clear) ──────────
+// Called by the "Sync Cockpit" button in Campaign Center.
+// Reads every row in SocialPosts regardless of campaign_id,
+// groups by campaign_id, clears ContentCalendar ONCE, then writes all rows.
+function seedAllCampaignsContentCalendar() {
+  try {
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spLast  = spSheet.getLastRow();
+    if (spLast < 2) return { ok: false, error: 'SocialPosts empty' };
+    var spRows  = spSheet.getRange(2, 1, spLast - 1, 16).getValues();
+
+    var ccSheet  = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var headers  = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var STATUS_COL   = headers.indexOf('status')          + 1;
+    var APPROVAL_COL = headers.indexOf('approval_status') + 1;
+    var CREATIVE_COL = headers.indexOf('creative_status') + 1;
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+
+    // Campaign start dates — add new campaigns here as they are created
+    var CAMPAIGN_STARTS = {
+      'EC-2026-001': new Date(2026, 4, 27), // May 27, 2026
+      'EC-2026-002': new Date(2026, 4, 27)  // May 27, 2026 (update when known)
+    };
+    var DEFAULT_START = new Date(2026, 4, 27);
+
+    // Clear once — all campaigns written in a single pass
+    ccSheet.clearContents();
+    ccSheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    ccSheet.setFrozenRows(1);
+    ccSheet.setFrozenColumns(2);
+
+    var now      = new Date().toISOString();
+    var newRows  = [];
+    var byCampaign = {};
+
+    for (var i = 0; i < spRows.length; i++) {
+      var row = spRows[i];
+      var assetId    = String(row[0]).trim();
+      var campaignId = String(row[1]).trim();
+      if (!assetId || !campaignId) continue;
+
+      var CAMPAIGN_START = CAMPAIGN_STARTS[campaignId] || DEFAULT_START;
+
+      var b = {};
+      try { b = JSON.parse(String(row[15])); } catch(e) {}
+
+      var day = 0;
+      var pubDate = '';
+      if (Number(b.day) > 0) {
+        day = Number(b.day);
+        var dOff = new Date(CAMPAIGN_START.getTime());
+        dOff.setDate(dOff.getDate() + (day - 1));
+        pubDate = Utilities.formatDate(dOff, _CAL_TZ, 'yyyy-MM-dd');
+      } else if (row[9]) {
+        try {
+          var sdRaw = row[9];
+          var sd = (sdRaw instanceof Date) ? sdRaw : new Date(String(sdRaw));
+          if (!isNaN(sd.getTime())) {
+            pubDate = Utilities.formatDate(sd, _CAL_TZ, 'yyyy-MM-dd');
+            var diffMs = sd.getTime() - CAMPAIGN_START.getTime();
+            day = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
+          }
+        } catch(de) {}
+      }
+
+      var platform    = String(row[2]);
+      var calId       = 'cc-' + assetId;
+      var funnelStage = String(b.funnel_stage || '');
+      var emotion     = _EMOTIONAL_ARC[funnelStage] || '';
+      var week        = day ? Math.ceil(day / 7) : '';
+      var dlId        = String(row[12] || b.dl_id   || '');
+      var utmUrl      = String(row[13] || b.utm_url || '');
+
+      var syntheticRow = [];
+      syntheticRow[H.status]          = 'generated';
+      syntheticRow[H.approval_status] = 'pending';
+      syntheticRow[H.creative_status] = 'generated';
+      syntheticRow[H.figma_file_id]   = '';
+      syntheticRow[H.final_asset_url] = '';
+      syntheticRow[H.dl_id]           = dlId;
+      syntheticRow[H.publish_date]    = pubDate;
+      var blockedBy = _computeBlockedReason(syntheticRow, H);
+
+      newRows.push([
+        calId, assetId, campaignId, platform, '',
+        pubDate, _CAL_POST_TIMES[platform] || '10:00', _CAL_TZ,
+        'generated', 'pending', 'generated',
+        String(b.caption_opening || ''), '',
+        dlId, utmUrl, '', '', '', '', '', '',
+        day, week, funnelStage, emotion,
+        String(b.icp_target || ''), '', blockedBy,
+        now, now, String(b.brief_doc_url || '')
+      ]);
+
+      byCampaign[campaignId] = (byCampaign[campaignId] || 0) + 1;
+    }
+
+    if (newRows.length) {
+      var writeStart = ccSheet.getLastRow() + 1;
+      ccSheet.getRange(writeStart, 1, newRows.length, headers.length).setValues(newRows);
+      var statusRule   = SpreadsheetApp.newDataValidation()
+        .requireValueInList(_CAL_STATUSES, true).setAllowInvalid(false).build();
+      var approvalRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(_CAL_APPROVAL, true).setAllowInvalid(false).build();
+      ccSheet.getRange(writeStart, STATUS_COL,   newRows.length, 1).setDataValidation(statusRule);
+      ccSheet.getRange(writeStart, APPROVAL_COL, newRows.length, 1).setDataValidation(approvalRule);
+      ccSheet.getRange(writeStart, CREATIVE_COL, newRows.length, 1).setDataValidation(statusRule);
+    }
+
+    Logger.log('[seedAllCampaignsContentCalendar] total:' + newRows.length + ' campaigns:' + JSON.stringify(byCampaign));
+    return { ok: true, total_seeded: newRows.length, by_campaign: byCampaign };
+
+  } catch(e) {
+    Logger.log('[seedAllCampaignsContentCalendar] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── EC-2026-002 SocialPosts repair ────────────────────────────────────────────
+// Fixes asset IDs to ec002-sp-001..034 format, recalculates pre-launch dates
+// (May 27 – Jun 30), seeds EC-2026-002 DL_IDs if absent, and stamps DL_IDs
+// onto each post row.  Call via action 'repair_ec2026002_social_posts'.
+function repairEC2026002SocialPosts() {
+  try {
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var last    = spSheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'SocialPosts empty' };
+
+    var hdrs = _CC_HDR[_CC_TAB.SOCIAL]; // 16 cols
+    var data = spSheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+
+    // Collect EC-2026-002 rows with their 1-based sheet row numbers
+    var ec002 = [];
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][1]).toUpperCase() === 'EC-2026-002') {
+        ec002.push({ sheetRow: i + 2, row: data[i].slice() });
+      }
+    }
+    if (!ec002.length) return { ok: false, error: 'No EC-2026-002 rows found in SocialPosts' };
+
+    // Platform metadata: prefix, utm_source, fixed day offsets (null = spread evenly)
+    var PM = {
+      'Facebook':  { prefix: 'FB', src: 'facebook',  medium: 'social',  days: null },
+      'Instagram': { prefix: 'IG', src: 'instagram', medium: 'social',  days: null },
+      'Nextdoor':  { prefix: 'ND', src: 'nextdoor',  medium: 'social',  days: null },
+      'Pinterest': { prefix: 'PT', src: 'pinterest', medium: 'social',  days: null },
+      'TikTok':    { prefix: 'TK', src: 'tiktok',    medium: 'social',  days: [3,10,17,24,31] },
+      'YouTube':   { prefix: 'YT', src: 'youtube',   medium: 'video',   days: [6] }
+    };
+    var PLAT_ORDER = ['Facebook','Instagram','Nextdoor','Pinterest','TikTok','YouTube'];
+
+    // Group by platform; sort within each group by current id (preserves original arc order)
+    var byPlat = {};
+    ec002.forEach(function(e) {
+      var pl = String(e.row[2]); // platform col
+      if (!byPlat[pl]) byPlat[pl] = [];
+      byPlat[pl].push(e);
+    });
+    PLAT_ORDER.forEach(function(pl) {
+      if (byPlat[pl]) byPlat[pl].sort(function(a, b) {
+        return String(a.row[0]).localeCompare(String(b.row[0]));
+      });
+    });
+
+    // ── Force-reseed DeepLinkRegistry for EC-2026-002 ────────────────────────
+    var dlSeeded  = 0;
+    var dlMap     = {}; // platform → [{dl_id, utm_url}]
+    var dlSheet   = _getCCSheet(_CC_TAB.DL);
+    var dlHdrs    = _CC_HDR[_CC_TAB.DL]; // 16 cols
+    var dlLast    = dlSheet.getLastRow();
+
+    // Remove any existing EC-2026-002 rows so we always start fresh
+    if (dlLast > 1) {
+      var _dlAll  = dlSheet.getRange(2, 1, dlLast - 1, dlHdrs.length).getValues();
+      var _kept   = _dlAll.filter(function(r) {
+        return r[0] && (String(r[2]) || '').toUpperCase() !== 'EC-2026-002';
+      });
+      var _removed = _dlAll.length - _kept.length;
+      dlSheet.getRange(2, 1, dlLast - 1, dlHdrs.length).clearContent();
+      if (_kept.length) dlSheet.getRange(2, 1, _kept.length, dlHdrs.length).setValues(_kept);
+      Logger.log('[repairEC2026002SocialPosts] removed ' + _removed + ' stale EC-2026-002 DL rows');
+    }
+
+    // Build and write fresh DL entries
+    var dlAllRows = [];
+    var now2 = new Date().toISOString();
+
+    PLAT_ORDER.forEach(function(pl) {
+      var posts = byPlat[pl]; if (!posts) return;
+      var pm = PM[pl];        if (!pm)    return;
+      dlMap[pl] = [];
+      posts.forEach(function(_, pi) {
+        var n          = ('000' + (pi + 1)).slice(-3);
+        var dlId       = 'DL-' + pm.prefix + '-EC002-' + n;
+        var utmContent = dlId + '_' + pm.src + '_post' + (pi + 1);
+        var baseUrl    = 'https://easychefpro.com/lp/waitlist-a';
+        var utmUrl     = baseUrl +
+          '?utm_source='   + pm.src +
+          '&utm_medium='   + pm.medium +
+          '&utm_campaign=ec-2026-002' +
+          '&utm_content='  + encodeURIComponent(utmContent);
+        // Row order: dl_id,utm_content,campaign_id,channel,destination_url,
+        //            utm_source,utm_medium,utm_campaign,status,created_at,
+        //            activated_at,created_by,notes,icp_code,lp_variant,emotional_arc_id
+        dlAllRows.push([
+          dlId, utmContent, 'EC-2026-002', pl, baseUrl,
+          pm.src, pm.medium, 'ec-2026-002', 'active', now2,
+          '', 'system', 'EC-2026-002 ' + pl + ' post ' + (pi + 1),
+          '', '', ''
+        ]);
+        dlMap[pl].push({ dl_id: dlId, utm_url: utmUrl });
+      });
+    });
+
+    if (dlAllRows.length) {
+      dlSheet.getRange(dlSheet.getLastRow() + 1, 1, dlAllRows.length, dlHdrs.length)
+             .setValues(dlAllRows);
+      dlSeeded = dlAllRows.length;
+    }
+
+    // ── Assign new IDs, dates, and DL_IDs ────────────────────────────────────
+    var ARC_START = new Date(2026, 4, 27); // May 27 (month 0-indexed)
+    var globalIdx = 0;
+    var fixed     = 0;
+
+    PLAT_ORDER.forEach(function(pl) {
+      var posts = byPlat[pl]; if (!posts) return;
+      var pm    = PM[pl];
+      var plDls = dlMap[pl] || [];
+
+      posts.forEach(function(entry, pi) {
+        var newId = 'ec002-sp-' + ('000' + (globalIdx + 1)).slice(-3);
+        globalIdx++;
+
+        // Date: fixed schedule for TikTok/YouTube, evenly spaced for others
+        var dayOffset;
+        if (pm.days) {
+          dayOffset = pm.days[pi] !== undefined ? pm.days[pi] : pm.days[pm.days.length - 1];
+        } else {
+          var count = posts.length;
+          dayOffset = count > 1 ? Math.floor(pi * 34 / (count - 1)) : 17;
+        }
+        var newDate = new Date(ARC_START.getTime());
+        newDate.setDate(newDate.getDate() + dayOffset);
+        var newDateStr = Utilities.formatDate(newDate, 'America/Los_Angeles', 'yyyy-MM-dd');
+
+        entry.row[0]  = newId;
+        entry.row[9]  = newDateStr;
+        var dlEntry   = plDls[pi];
+        if (dlEntry) {
+          entry.row[12] = dlEntry.dl_id;
+          entry.row[13] = dlEntry.utm_url;
+        }
+
+        spSheet.getRange(entry.sheetRow, 1, 1, hdrs.length).setValues([entry.row]);
+        fixed++;
+      });
+    });
+
+    Logger.log('[repairEC2026002SocialPosts] fixed=' + fixed + ' dl_seeded=' + dlSeeded);
+    return { ok: true, fixed: fixed, dl_seeded: dlSeeded };
+
+  } catch(e) {
+    Logger.log('[repairEC2026002SocialPosts] ERROR: ' + e.message + '\n' + e.stack);
+    return { ok: false, error: e.message };
+  }
 }
