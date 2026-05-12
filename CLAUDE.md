@@ -17,14 +17,17 @@ Before writing or changing any code:
    - Sheet ID
    - GitHub branch (always `main`)
    - Governance state (all 7 blocks wired to sheet as of 2026-05-11)
+   - LP spine state — CampaignBriefs.lp_campaign_spine_json must be populated before any asset generation
 
 4. Treat the Campaign Center Sheet as source of truth for all governance rules — not memory, not old docs.
 
 5. If AIReference points to a newer Master Reference doc, load that one instead. The tab is always current.
 
-6. Do not write code until orientation is confirmed.
+6. **LP first. Always.** The landing page spine is the source of truth for every social post, email, and video in a campaign. No asset generation before `generate_lp_spine` succeeds. No asset can advance past draft without `validate_asset_lp_alignment` passing. getMasterSystemPrompt returns `LP_SPINE_MISSING:<campaign_id>` if the spine is absent — that is a hard gate, not a warning.
 
-Current state: deploy @556 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+7. Do not write code until orientation is confirmed.
+
+Current state: deploy @567 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
 
 ## Project Overview
 
