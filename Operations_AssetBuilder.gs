@@ -2820,7 +2820,8 @@ function getVisualDirectionContext(campaignId, lpSection, postNumber) {
 function callGPT4o(systemPrompt, userPrompt, maxTokens) {
   var apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
   if (!apiKey) return { ok: false, error: 'OPENAI_API_KEY not set in Script Properties' };
-  var model = _getCcSetting('GPT4O_COPY_MODEL') || 'gpt-4o';
+  var _mr = _getCcSetting('GPT4O_COPY_MODEL');
+  var model = (_mr && _mr.length ? _mr[0].label : null) || 'gpt-4o';
   try {
     var resp = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -2875,7 +2876,8 @@ function _logGpt4oCall(systemPrompt, responseContent) {
 }
 
 function _callCopyModel(systemPrompt, userPrompt, maxTokens) {
-  var gptActive = String(_getCcSetting('GPT4O_ACTIVE') || 'false').toLowerCase();
+  var _gar = _getCcSetting('GPT4O_ACTIVE');
+  var gptActive = (_gar && _gar.length ? _gar[0].label : 'false').toLowerCase();
   if (gptActive === 'true') return callGPT4o(systemPrompt, userPrompt, maxTokens);
   var apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
   if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };

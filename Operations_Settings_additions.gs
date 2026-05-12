@@ -3158,6 +3158,12 @@ function buildGPT4oSystemPromptDocs() {
     doc3.getBody().setText(youtube);
     doc4.getBody().setText(email);
 
+    // Persist doc IDs so audit_prompt_schema_drift can locate them
+    _upsertCcSettingLabel('SCHEMA_DOCS', 'LP_DOC_ID',      doc1.getId());
+    _upsertCcSettingLabel('SCHEMA_DOCS', 'TIKTOK_DOC_ID',  doc2.getId());
+    _upsertCcSettingLabel('SCHEMA_DOCS', 'YOUTUBE_DOC_ID', doc3.getId());
+    _upsertCcSettingLabel('SCHEMA_DOCS', 'EMAIL_DOC_ID',   doc4.getId());
+
     Logger.log('[buildGPT4oSystemPromptDocs] LP=' + doc1.getId() + ' TikTok=' + doc2.getId() + ' YT=' + doc3.getId() + ' Email=' + doc4.getId());
 
     return {
@@ -3386,6 +3392,199 @@ function buildSocialMediaSchemaDocs() {
   }
 }
 
+// ── _upsertCcSettingLabel ─────────────────────────────────────────────────────
+// Idempotent write to CcSettings: updates label in-place if section+key exists,
+// appends a new row otherwise. Unlike appendSettingRow, it always updates.
+function _upsertCcSettingLabel(section, key, label) {
+  var sheet = _getCCSheet(_CC_TAB.SETTINGS);
+  var last  = sheet.getLastRow();
+  if (last >= 2) {
+    var vals = sheet.getRange(2, 1, last - 1, 2).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]).toUpperCase() === section.toUpperCase() && String(vals[i][1]) === key) {
+        sheet.getRange(i + 2, 3, 1, 1).setValue(label);
+        CacheService.getScriptCache().remove('cc_settings_v1');
+        return;
+      }
+    }
+  }
+  sheet.appendRow([section.toUpperCase(), key, label, '', true]);
+  CacheService.getScriptCache().remove('cc_settings_v1');
+}
+
+// ── seedBrandVisualTokens ─────────────────────────────────────────────────────
+// Upserts BRAND_VISUAL_TOKENS_001 and updates COLOR_SYSTEM_001 in BrandDoctrine.
+// Source of truth: AI Optimization Roadmap Step 1.
+function seedBrandVisualTokens() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.BRAND_DOCTRINE);
+    var hdrs  = _CC_HDR.BrandDoctrine;
+
+    _ccUpsert(sheet, hdrs, 'BRAND_VISUAL_TOKENS_001', [
+      'BRAND_VISUAL_TOKENS_001', 'visual_identity', 'hard', true,
+      JSON.stringify({
+        primary_red: '#FF0000',
+        beige: '#F6EFE8',
+        black: '#000000',
+        white: '#FFFFFF',
+        body_gray: '#888888',
+        headline_font: 'Proza Libre',
+        headline_weights: 'Regular · Medium · Bold',
+        headline_use: 'Headlines, subheadings, intro paragraphs, pullout text',
+        body_font: 'Inter',
+        body_weights: 'Regular',
+        body_use: 'Body copy, UI text, navigation, captions',
+        cta_button_color: '#FF0000',
+        cta_button_text: '#FFFFFF',
+        secondary_illustrations_only: {
+          teal: '#1DA1A0', yellow: '#F5C800', green: '#00A844', dark_navy: '#1A1A2E',
+          rule: 'Secondary colours are for illustrations and brand expressions ONLY — never UI, CTA buttons, LP backgrounds, or email headers'
+        },
+        forbidden_colors:  ['blue', 'navy', '#D93025', '#ED2024', '#1B4F72', 'any gradient'],
+        forbidden_effects: ['gradient', 'shadow', 'glow', 'blur'],
+        logo_backgrounds:  ['#FFFFFF', '#F6EFE8'],
+        logo_on_dark:      'white version only',
+        logo_min_size:     '50px digital · 20mm print',
+        logo_format:       'horizontal lockup · SVG preferred'
+      })
+    ]);
+
+    _ccUpsert(sheet, hdrs, 'COLOR_SYSTEM_001', [
+      'COLOR_SYSTEM_001', 'visual_identity', 'hard', true,
+      JSON.stringify({
+        approved_colors: ['#FF0000', '#F6EFE8', '#000000', '#FFFFFF'],
+        cta_button:      '#FF0000',
+        banned:          ['blue', 'navy', 'gradient', 'shadow', '#D93025', '#ED2024', '#1B4F72']
+      })
+    ]);
+
+    Logger.log('[seedBrandVisualTokens] BRAND_VISUAL_TOKENS_001 upserted, COLOR_SYSTEM_001 updated');
+    return {
+      ok:   true,
+      note: 'BRAND_VISUAL_TOKENS_001 added to BrandDoctrine. COLOR_SYSTEM_001 updated: primary red → #FF0000, banned list adds #D93025 and #ED2024.'
+    };
+  } catch(e) {
+    Logger.log('[seedBrandVisualTokens] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── auditPromptSchemaDrift ────────────────────────────────────────────────────
+// Reads the 4 GPT-4o system prompt docs (IDs stored in CcSettings SCHEMA_DOCS
+// after build_gpt4o_prompt_docs runs) and checks each doc text against live
+// sheet values. Logs all violations to a SchemaDriftLog tab. Never blocks.
+function auditPromptSchemaDrift() {
+  try {
+    var ss      = _getCampaignSpreadsheet();
+    var bdSheet = ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+    var csSheet = ss.getSheetByName(_CC_TAB.CAMP_STRATEGY);
+
+    function _readBDa(id) {
+      if (!bdSheet || bdSheet.getLastRow() < 2) return {};
+      var rows = bdSheet.getRange(2, 1, bdSheet.getLastRow() - 1, 5).getValues();
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]) === id) { try { return JSON.parse(String(rows[i][4] || '{}')); } catch(e2) { return {}; } }
+      }
+      return {};
+    }
+
+    var bvt       = _readBDa('BRAND_VISUAL_TOKENS_001');
+    var voiceForb = _readBDa('VOICE_FORBIDDEN_001');
+
+    // Read doc IDs from CcSettings SCHEMA_DOCS section
+    var settSheet = _getCCSheet(_CC_TAB.SETTINGS);
+    var settLast  = settSheet.getLastRow();
+    var docIds    = {};
+    if (settLast >= 2) {
+      settSheet.getRange(2, 1, settLast - 1, 3).getValues().forEach(function(r) {
+        if (String(r[0]).toUpperCase() === 'SCHEMA_DOCS') docIds[String(r[1])] = String(r[2]);
+      });
+    }
+
+    var docsToCheck = [
+      { title: 'LP System Prompt',      id: docIds['LP_DOC_ID']      || '' },
+      { title: 'TikTok System Prompt',  id: docIds['TIKTOK_DOC_ID']  || '' },
+      { title: 'YouTube System Prompt', id: docIds['YOUTUBE_DOC_ID'] || '' },
+      { title: 'Email System Prompt',   id: docIds['EMAIL_DOC_ID']   || '' }
+    ].filter(function(d) { return d.id; });
+
+    if (!docsToCheck.length) {
+      return { ok: false, error: 'No doc IDs in CcSettings SCHEMA_DOCS. Run build_gpt4o_prompt_docs first to register them.' };
+    }
+
+    var forbiddenHex   = (bvt.forbidden_colors  || []).filter(function(c) { return String(c).indexOf('#') === 0; });
+    var forbiddenWords = (voiceForb.forbidden_words || []);
+    var violations     = [];
+
+    docsToCheck.forEach(function(docInfo) {
+      try {
+        var text = DocumentApp.openById(docInfo.id).getBody().getText();
+
+        // Forbidden hex colors
+        forbiddenHex.forEach(function(hex) {
+          if (text.indexOf(hex) !== -1)
+            violations.push({ doc: docInfo.title, id: docInfo.id, check: 'WRONG_COLOR', violation: hex + ' found (forbidden)', context: hex });
+        });
+
+        // Retired master story
+        if (text.indexOf('Your kitchen is broken') !== -1)
+          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'RETIRED_STORY', violation: 'Retired master story present — must be removed', context: 'Your kitchen is broken' });
+
+        // Hardcoded prices
+        (text.match(/\$\d+\.\d{2}/g) || []).forEach(function(p) {
+          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'HARDCODED_PRICE', violation: p + ' hardcoded (use ApprovedClaims ref)', context: p });
+        });
+
+        // Forbidden words from VOICE_FORBIDDEN_001
+        forbiddenWords.forEach(function(w) {
+          if (w && text.toLowerCase().indexOf(String(w).toLowerCase()) !== -1)
+            violations.push({ doc: docInfo.title, id: docInfo.id, check: 'FORBIDDEN_WORD', violation: '"' + w + '" is forbidden', context: String(w) });
+        });
+
+        // Forbidden CTA
+        if (text.toLowerCase().indexOf('sign up') !== -1)
+          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'FORBIDDEN_CTA', violation: '"sign up" always forbidden — use "join the waitlist"', context: 'sign up' });
+
+        // Wrong app name
+        if (/\bthe app\b/i.test(text))
+          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'WRONG_APP_NAME', violation: '"the app" should be "easyChef Pro"', context: 'the app' });
+
+        // LP: LIFECYCLE must sit between VALUE and PROOF
+        if (docInfo.title.indexOf('LP') !== -1) {
+          var up   = text.toUpperCase();
+          var vi   = up.indexOf('SECTION: VALUE');
+          var li   = up.indexOf('SECTION: LIFECYCLE');
+          var pi   = up.indexOf('SECTION: PROOF');
+          if (li === -1)
+            violations.push({ doc: docInfo.title, id: docInfo.id, check: 'MISSING_LIFECYCLE', violation: 'LIFECYCLE section absent from LP doc', context: '' });
+          else if (vi !== -1 && pi !== -1 && !(li > vi && li < pi))
+            violations.push({ doc: docInfo.title, id: docInfo.id, check: 'LIFECYCLE_ORDER', violation: 'LIFECYCLE not between VALUE and PROOF', context: '' });
+        }
+
+      } catch(docErr) {
+        violations.push({ doc: docInfo.title, id: docInfo.id, check: 'DOC_ACCESS_ERROR', violation: docErr.message, context: '' });
+      }
+    });
+
+    // Write to SchemaDriftLog tab (create if absent)
+    var logSheet = ss.getSheetByName('SchemaDriftLog');
+    if (!logSheet) {
+      logSheet = ss.insertSheet('SchemaDriftLog');
+      logSheet.appendRow(['timestamp', 'doc_title', 'doc_id', 'check_type', 'violation', 'context']);
+    }
+    var ts = new Date().toISOString();
+    violations.forEach(function(v) {
+      logSheet.appendRow([ts, v.doc, v.id, v.check, v.violation, v.context || '']);
+    });
+
+    Logger.log('[auditPromptSchemaDrift] ' + violations.length + ' violation(s) across ' + docsToCheck.length + ' doc(s)');
+    return { ok: true, docs_checked: docsToCheck.length, violations: violations.length, log: violations };
+  } catch(e) {
+    Logger.log('[auditPromptSchemaDrift] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Campaign Center custom menu ───────────────────────────────────────────────
 // onOpen fires automatically when the Campaign Center Sheet is opened.
 // All menu items call zero-argument wrapper functions below.
@@ -3395,8 +3594,11 @@ function onOpen() {
     SpreadsheetApp.getUi()
       .createMenu('⚡ Campaign Engine')
       .addItem('Seed GPT-4o Settings',        'menu_seedGpt4oSettings')
+      .addItem('Seed Brand Visual Tokens',    'menu_seedBrandVisualTokens')
+      .addSeparator()
       .addItem('Rebuild System Prompt Docs',  'menu_buildGPT4oPromptDocs')
       .addItem('Build Social Media Schemas',  'menu_buildSocialSchemas')
+      .addItem('Audit Schema Drift',          'menu_auditSchemaDrift')
       .addSeparator()
       .addItem('Toggle GPT-4o Active',        'menu_toggleGpt4oActive')
       .addItem('Clear Settings Cache',        'menu_clearSettingsCache')
@@ -3426,7 +3628,8 @@ function menu_buildGPT4oPromptDocs() {
 
 function menu_toggleGpt4oActive() {
   var ui      = SpreadsheetApp.getUi();
-  var current = String(_getCcSetting('GPT4O_ACTIVE') || 'false').toLowerCase();
+  var _cr = _getCcSetting('GPT4O_ACTIVE');
+  var current = (_cr && _cr.length ? _cr[0].label : 'false').toLowerCase();
   var newVal  = current === 'true' ? 'false' : 'true';
   var sheet   = _getCCSheet(_CC_TAB.SETTINGS);
   var last    = sheet.getLastRow();
@@ -3458,5 +3661,21 @@ function menu_buildSocialSchemas() {
   if (!result.ok) { ui.alert('✗ Error: ' + result.error); return; }
   var msg = '✓ ' + result.count + ' social schema docs built from live sheet data:\n\n';
   result.docs.forEach(function(d) { msg += d.channel + ' (' + d.format + ')\nID: ' + d.id + '\n\n'; });
+  ui.alert(msg);
+}
+
+function menu_seedBrandVisualTokens() {
+  var result = seedBrandVisualTokens();
+  SpreadsheetApp.getUi().alert(result.ok ? '✓ ' + result.note : '✗ Error: ' + result.error);
+}
+
+function menu_auditSchemaDrift() {
+  var ui     = SpreadsheetApp.getUi();
+  var result = auditPromptSchemaDrift();
+  if (!result.ok) { ui.alert('✗ Error: ' + result.error); return; }
+  var msg = '✓ Audit complete — ' + result.docs_checked + ' docs checked.\n';
+  msg += result.violations === 0
+    ? '✓ No violations found. All docs are clean.'
+    : '⚠ ' + result.violations + ' violation(s) logged to SchemaDriftLog tab.';
   ui.alert(msg);
 }
