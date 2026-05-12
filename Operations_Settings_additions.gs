@@ -934,6 +934,52 @@ function diagContentCalBriefUrl() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// clearCampaignDataTabs  —  delete all data rows (keep headers) from campaign tabs
+//   Reference tabs preserved: ICPProfiles, ApprovedClaims, Channels, CampaignTypes,
+//   LPInventory, ThemeLibrary, FunnelStages, BlueprintConfig, BrandDoctrine,
+//   CampaignStrategy, CcSettings, AIReference
+// ─────────────────────────────────────────────────────────────────────────────
+
+function clearCampaignDataTabs() {
+  var TABS_TO_CLEAR = [
+    'CampaignBriefs',
+    'SocialPosts',
+    'EmailSequences',
+    'GeneratedCopy',
+    'LandingPages',
+    'DeepLinkRegistry',
+    'ContentCalendar',
+    'AssetLifecycle',
+    'VideoProduction',
+    'VideoIdeaBank',
+    'ScheduledPosts',
+    'PushNotifications',
+    'FigmaExport',
+    'CampaignMetrics'
+  ];
+
+  try {
+    var ss = _getCampaignSpreadsheet();
+    var results = [];
+
+    TABS_TO_CLEAR.forEach(function(tabName) {
+      var sh = ss.getSheetByName(tabName);
+      if (!sh) { results.push({ tab: tabName, status: 'not_found' }); return; }
+      var lastRow = sh.getLastRow();
+      if (lastRow <= 1) { results.push({ tab: tabName, status: 'already_empty', rows_deleted: 0 }); return; }
+      var rowCount = lastRow - 1;  // rows below header
+      sh.deleteRows(2, rowCount);
+      results.push({ tab: tabName, status: 'cleared', rows_deleted: rowCount });
+    });
+
+    return { ok: true, results: results };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // backfillContentCalCaption  —  caption + hashtags per asset_id from SocialPosts
 //   caption:  asset_id → SocialPosts.id → body_copy
 //   hashtags: asset_id → SocialPosts.id → hashtags  (only if ContentCalendar.hashtags is blank)

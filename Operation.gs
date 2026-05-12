@@ -1436,6 +1436,10 @@ function doPost(e) {
       var _bccc = backfillContentCalCaption();
       return respond({ ok:_bccc.ok, result:_bccc, log: Logger.getLog() });
     }
+    if(body.action === 'clear_campaign_data_tabs') {
+      var _ccdt = clearCampaignDataTabs();
+      return respond({ ok:_ccdt.ok, result:_ccdt, log: Logger.getLog() });
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');
