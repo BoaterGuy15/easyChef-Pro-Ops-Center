@@ -886,6 +886,118 @@ function backfillDeepLinkFields() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// diagContentCalBriefUrl  —  read-only: check available URL sources per asset_id
+// ─────────────────────────────────────────────────────────────────────────────
+
+function diagContentCalBriefUrl() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    function sheetSample(tabName, colNames, limit) {
+      var sh = ss.getSheetByName(tabName);
+      if (!sh || sh.getLastRow() < 2) return { headers: [], rows: [], total: 0 };
+      var all  = sh.getDataRange().getValues();
+      var hdrs = all[0].map(function(h){ return String(h).trim(); });
+      var total = all.length - 1;
+      var rows = all.slice(1, limit + 1).map(function(r){
+        var obj = {};
+        colNames.forEach(function(c){
+          var i = hdrs.indexOf(c);
+          obj[c] = i >= 0 ? String(r[i] || '').trim() : 'col_missing';
+        });
+        return obj;
+      });
+      return { headers: hdrs, rows: rows, total: total };
+    }
+
+    var cc  = sheetSample('ContentCalendar', ['calendar_id','asset_id','brief_doc_url'], 5);
+    var alc = sheetSample('AssetLifecycle',  ['asset_id','export_url','figma_file_id','figma_page','figma_frame'], 5);
+
+    // Count how many AssetLifecycle rows have export_url populated
+    var alcSheet = ss.getSheetByName('AssetLifecycle');
+    var alcCount = { total: 0, export_url_pop: 0 };
+    if (alcSheet && alcSheet.getLastRow() >= 2) {
+      var alcAll  = alcSheet.getDataRange().getValues();
+      var alcHdrs = alcAll[0].map(function(h){ return String(h).trim(); });
+      var euIdx   = alcHdrs.indexOf('export_url');
+      alcAll.slice(1).forEach(function(r){
+        alcCount.total++;
+        if (euIdx >= 0 && String(r[euIdx] || '').trim()) alcCount.export_url_pop++;
+      });
+    }
+
+    return { ok: true, content_calendar: cc, asset_lifecycle: alc, alc_counts: alcCount };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// backfillContentCalBriefUrl  —  link brief_doc_url per asset_id from AssetLifecycle.export_url
+// ─────────────────────────────────────────────────────────────────────────────
+
+function backfillContentCalBriefUrl() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    // Build asset_id → export_url map from AssetLifecycle
+    var alcSheet = ss.getSheetByName('AssetLifecycle');
+    var alcMap   = {};
+    if (alcSheet && alcSheet.getLastRow() >= 2) {
+      var alcAll  = alcSheet.getDataRange().getValues();
+      var alcHdrs = alcAll[0].map(function(h){ return String(h).trim(); });
+      var aiIdx   = alcHdrs.indexOf('asset_id');
+      var euIdx   = alcHdrs.indexOf('export_url');
+      if (aiIdx >= 0 && euIdx >= 0) {
+        alcAll.slice(1).forEach(function(r){
+          var aid = String(r[aiIdx] || '').trim();
+          var url = String(r[euIdx] || '').trim();
+          if (aid && url) alcMap[aid] = url;
+        });
+      }
+    }
+
+    // ContentCalendar
+    var ccSheet = ss.getSheetByName('ContentCalendar');
+    if (!ccSheet || ccSheet.getLastRow() < 2) return { ok: false, error: 'ContentCalendar tab empty' };
+    var ccAll   = ccSheet.getDataRange().getValues();
+    var ccHdrs  = ccAll[0].map(function(h){ return String(h).trim(); });
+    var assetIdx = ccHdrs.indexOf('asset_id');
+    var briefIdx = ccHdrs.indexOf('brief_doc_url');
+
+    if (assetIdx < 0 || briefIdx < 0) return { ok: false, error: 'asset_id or brief_doc_url column missing in ContentCalendar' };
+
+    var written = 0, skipped = 0, miss = 0;
+    ccAll.slice(1).forEach(function(row, i) {
+      var sheetRow = i + 2;
+      var current  = String(row[briefIdx] || '').trim();
+      if (current) { skipped++; return; }
+      var assetId  = String(row[assetIdx] || '').trim();
+      var url      = assetId ? (alcMap[assetId] || '') : '';
+      if (url) {
+        ccSheet.getRange(sheetRow, briefIdx + 1).setValue(url);
+        written++;
+      } else {
+        miss++;
+      }
+    });
+
+    return {
+      ok:      true,
+      total:   ccAll.length - 1,
+      written: written,
+      skipped: skipped,
+      miss:    miss,
+      alc_map_size: Object.keys(alcMap).length
+    };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // auditSheetData  —  read-only census of 5 tabs, no writes
 // ─────────────────────────────────────────────────────────────────────────────
 

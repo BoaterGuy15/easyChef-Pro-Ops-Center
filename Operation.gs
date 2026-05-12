@@ -1424,6 +1424,14 @@ function doPost(e) {
       var _bdlf = backfillDeepLinkFields();
       return respond({ ok:_bdlf.ok, result:_bdlf, log: Logger.getLog() });
     }
+    if(body.action === 'diag_content_cal_brief_url') {
+      var _dcbu = diagContentCalBriefUrl();
+      return respond({ ok:_dcbu.ok, result:_dcbu, log: Logger.getLog() });
+    }
+    if(body.action === 'backfill_content_cal_brief_url') {
+      var _bcbu = backfillContentCalBriefUrl();
+      return respond({ ok:_bcbu.ok, result:_bcbu, log: Logger.getLog() });
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');
