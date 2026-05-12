@@ -898,6 +898,117 @@ function _compilePhaseGuardBlock() {
   }
 }
 
+// ── LP Doctrine compile functions ────────────────────────────────────────────
+
+// Reads LP_DOCTRINE_001 from CampaignStrategy. Returns a formatted prompt block
+// with the 8-section arc, 7 persuasion laws, and emotional state map.
+function _compileLPDoctrineBlock() {
+  try {
+    var strat = getCampaignStrategy('LP_DOCTRINE_001');
+    if (!strat || !strat.value) return null;
+    var v = strat.value;
+    var out = '=== LP GENERATION DOCTRINE — THE LANDING PAGE IS THE SOURCE OF TRUTH ===\n';
+    if (Array.isArray(v.sections)) {
+      out += 'LP Sections (in order): ' + v.sections.join(' → ') + '\n';
+    }
+    if (Array.isArray(v.laws)) {
+      out += '\nPersuasion Laws (non-negotiable):\n';
+      v.laws.forEach(function(law, i) {
+        out += (i + 1) + '. ' + String(law).replace(/_/g, ' ') + '\n';
+      });
+    }
+    if (v.emotional_map) {
+      out += '\nEmotional State Map:\n';
+      var sects = v.sections || Object.keys(v.emotional_map);
+      sects.forEach(function(sec) {
+        var em = v.emotional_map[sec];
+        if (em) out += '  ' + sec.toUpperCase() + ': ' + em.entry + ' → ' + em.exit + '\n';
+      });
+    }
+    if (v.section_word_targets) {
+      out += '\nTarget word counts per section: ';
+      out += Object.keys(v.section_word_targets).map(function(k) {
+        return k + '=' + v.section_word_targets[k];
+      }).join(' · ') + '\n';
+    }
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileLPDoctrineBlock] error: ' + e.message);
+    return null;
+  }
+}
+
+// Reads lp_campaign_spine_json from CampaignBriefs for the given campaign.
+// Returns a formatted block with headline + body_copy for each LP section, or
+// the sentinel string 'LP_SPINE_MISSING' if the spine has not been generated yet.
+function _compileLPSpineBlock(campaignId) {
+  try {
+    if (!campaignId) return 'LP_SPINE_MISSING';
+    var brief = getCampaignBriefs(campaignId);
+    if (!brief) return 'LP_SPINE_MISSING';
+    var spineRaw = brief.lp_campaign_spine_json || '';
+    if (!spineRaw) return 'LP_SPINE_MISSING';
+    var spine = {};
+    try { spine = JSON.parse(spineRaw); } catch(e) { return 'LP_SPINE_MISSING'; }
+    var sections = ['hook','problem','agitate','solve','value','proof','cta','urgency'];
+    var hasAll = sections.every(function(s) { return spine[s] && spine[s].headline; });
+    if (!hasAll) return 'LP_SPINE_MISSING';
+    var out = '=== LP SPINE — THIS CAMPAIGN\'S ACTUAL LANDING PAGE CONTENT ===\n';
+    out += 'Campaign: ' + campaignId + '\n\n';
+    sections.forEach(function(sec) {
+      var s = spine[sec];
+      if (!s) return;
+      out += '[' + sec.toUpperCase() + ']\n';
+      if (s.headline)     out += 'Headline: ' + s.headline + '\n';
+      if (s.subheadline)  out += 'Subheadline: ' + s.subheadline + '\n';
+      if (s.body_copy)    out += 'Body: ' + s.body_copy + '\n';
+      if (s.emotional_beat) out += 'Emotional beat: ' + s.emotional_beat + '\n';
+      if (s.cta_button)   out += 'CTA: ' + s.cta_button + '\n';
+      if (s.urgency_line) out += 'Urgency: ' + s.urgency_line + '\n';
+      out += '\n';
+    });
+    return out;
+  } catch(e) {
+    Logger.log('[_compileLPSpineBlock] error: ' + e.message);
+    return 'LP_SPINE_MISSING';
+  }
+}
+
+// Reads CLAIM_SCOPING_001 to get permitted claim types for an LP section, then
+// filters ApprovedClaims to return only claims scoped to that section.
+// Returns a formatted block of approved wording, or empty string if no claims found.
+function _compileClaimScopingBlock(lpSection, icpCode) {
+  try {
+    if (!lpSection) return '';
+    var scoping = getCampaignStrategy('CLAIM_SCOPING_001');
+    var permittedTypes = (scoping && scoping.value && scoping.value.section_claim_map)
+      ? (scoping.value.section_claim_map[lpSection] || [])
+      : [];
+    if (!permittedTypes.length) return '';
+
+    var allClaims = getApprovedClaims ? getApprovedClaims() : [];
+    if (!allClaims || !allClaims.length) return '';
+
+    var scoped = allClaims.filter(function(c) {
+      if (!c.approved) return false;
+      if (permittedTypes.indexOf(c.claim_type) === -1) return false;
+      return true;
+    });
+    if (!scoped.length) return '';
+
+    var out = '=== APPROVED CLAIMS — LP SECTION: ' + lpSection.toUpperCase() + ' ===\n';
+    out += 'Permitted claim types for this section: ' + permittedTypes.join(', ') + '\n';
+    out += 'Use exact wording only. Do not paraphrase.\n\n';
+    scoped.forEach(function(c) {
+      out += '• [' + c.claim_type + '] ' + c.exact_wording + '\n';
+    });
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileClaimScopingBlock] error: ' + e.message);
+    return '';
+  }
+}
+
 // ── NEW governance compilers — previously hardcoded constants ─────────────────
 // Each reads from BrandDoctrine or CampaignStrategy; falls back to the hardcoded
 // constant so nothing breaks before sheet rows are added.
