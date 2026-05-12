@@ -839,6 +839,10 @@ function doPost(e) {
       var _sdResult = saveDesignToDrive(body.asset_id || '', body.html_content || '');
       return respond({ ok: _sdResult.ok, result: _sdResult, log: Logger.getLog() });
     }
+    if(body.action === 'generate_design_for_asset') {
+      var _gdaResult = generateDesignForAsset(body.asset_id || '');
+      return respond({ ok: _gdaResult.ok, result: _gdaResult, log: Logger.getLog() });
+    }
     if(body.action === 'ensure_content_cal_columns') {
       return respond(ensureContentCalColumns());
     }

@@ -1146,3 +1146,257 @@ function saveDesignToDrive(assetId, htmlContent) {
     return { ok: false, error: e.message };
   }
 }
+
+// ── One-button AI Design Generation ──────────────────────────────────────────
+// generateDesignForAsset(assetId)
+// Reads the full brief for a specific asset, calls Claude to generate an HTML
+// design mockup, saves it to Drive, writes the URL back to ContentCalendar, and
+// returns { ok, url, asset_id }.
+
+function generateDesignForAsset(assetId) {
+  if (!assetId) return { ok: false, error: 'assetId required' };
+  try {
+    // ── 1. ContentCalendar row ────────────────────────────────────────────────
+    var ccSheet  = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var ccLast   = ccSheet.getLastRow();
+    var ccHdrs   = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var CH = {};
+    ccHdrs.forEach(function(h, i) { CH[h] = i; });
+    var safeCC = Math.min(ccHdrs.length, ccSheet.getLastColumn());
+    var ccData = ccSheet.getRange(2, 1, ccLast - 1, safeCC).getValues();
+    var ccRow = null, ccRowIndex = -1;
+    for (var i = 0; i < ccData.length; i++) {
+      if (String(ccData[i][CH.asset_id] || '') === assetId) { ccRow = ccData[i]; ccRowIndex = i; break; }
+    }
+    if (!ccRow) return { ok: false, error: 'Asset not found: ' + assetId };
+
+    var platform    = String(ccRow[CH.platform]    || '');
+    var funnel      = String(ccRow[CH.funnel_stage] || '');
+    var postNum     = parseInt(ccRow[CH.post_num])  || 0;
+    var icp         = String(ccRow[CH.icp]          || '');
+    var emotion     = String(ccRow[CH.emotion]      || '');
+    var spLpSection = String(ccRow[CH.lp_section]   || '');
+    var campaignId  = String(ccRow[CH.campaign_id]  || '');
+    var existingUrl = String((CH.claude_design_url !== undefined ? ccRow[CH.claude_design_url] : '') || '');
+
+    // ── 2. SocialPosts copy ───────────────────────────────────────────────────
+    var spHook='', spBody='', spCta='', spHashtags='', spImageBrief='', spDesignBrief='';
+    var spEmotionIn='', spEmotionOut='';
+    try {
+      var spSheet = _getCCSheet(_CC_TAB.SOCIAL_POSTS);
+      var spLast  = spSheet.getLastRow();
+      var spHdrs  = _CC_HDR[_CC_TAB.SOCIAL_POSTS];
+      var SH = {}; spHdrs.forEach(function(h, i) { SH[h] = i; });
+      if (spLast >= 2) {
+        var spData = spSheet.getRange(2, 1, spLast - 1, spHdrs.length).getValues();
+        for (var j = 0; j < spData.length; j++) {
+          if (String(spData[j][SH.asset_id] || '') === assetId) {
+            spHook        = String(spData[j][SH.hook]         || '');
+            spBody        = String(spData[j][SH.body]         || '');
+            spCta         = String(spData[j][SH.cta]          || '');
+            spHashtags    = String(spData[j][SH.hashtags]     || '');
+            spImageBrief  = String(spData[j][SH.image_brief]  || '');
+            spDesignBrief = String(spData[j][SH.design_brief] || '');
+            spEmotionIn   = String(spData[j][SH.emotion_in]   || '');
+            spEmotionOut  = String(spData[j][SH.emotion_out]  || '');
+            break;
+          }
+        }
+      }
+    } catch(se) {}
+
+    // ── 3. Brand tokens ───────────────────────────────────────────────────────
+    var BT = { primary_red:'#FF0000', beige:'#F6EFE8', black:'#000000', white:'#FFFFFF',
+               headline_font:'Proza Libre', body_font:'Inter',
+               cta_button_color:'#FF0000', cta_button_text:'#FFFFFF' };
+    try {
+      var bd = getBrandDoctrine('BRAND_VISUAL_TOKENS_001');
+      if (bd && bd.conditions) { Object.keys(bd.conditions).forEach(function(k) { BT[k] = bd.conditions[k]; }); }
+    } catch(be) {}
+
+    // ── 4. Canvas dimensions from Channels tab ────────────────────────────────
+    var canvasW = 1080, canvasH = 1080;
+    try {
+      var channels = getChannels();
+      for (var ci = 0; ci < channels.length; ci++) {
+        var chSlug = String(channels[ci].slug_code || '').toLowerCase();
+        var chName = String(channels[ci].name      || '').toLowerCase();
+        var plat   = platform.toLowerCase();
+        if (chSlug === plat || chName.indexOf(plat) > -1) {
+          var dimMatch = String(channels[ci].image_dimensions || '').match(/(\d+)\s*[x×]\s*(\d+)/i);
+          if (dimMatch) { canvasW = parseInt(dimMatch[1]); canvasH = parseInt(dimMatch[2]); }
+          break;
+        }
+      }
+    } catch(che) {}
+
+    // ── 5. Theme ──────────────────────────────────────────────────────────────
+    var themeName='', themeCategory='', imageMood='', emotionalEntry='', emotionalPayoff='';
+    try {
+      var themes = getThemeLibrary(icp);
+      if (themes && themes.length) {
+        var th = themes[0];
+        themeName       = String(th.theme_name      || '');
+        themeCategory   = String(th.category        || '');
+        imageMood       = String(th.image_mood_hook  || '');
+        emotionalEntry  = String(th.emotional_entry  || '');
+        emotionalPayoff = String(th.emotional_payoff || '');
+      }
+    } catch(te) {}
+
+    // ── 6. Approved claims for funnel stage ───────────────────────────────────
+    var claimsText = '';
+    try {
+      var scoping   = getCampaignStrategy('CLAIM_SCOPING_001');
+      var secMap    = (scoping && scoping.value && scoping.value.section_claim_map) || {};
+      var allClaims = getApprovedClaims() || [];
+      var permitted = secMap[funnel] || [];
+      if (!permitted.length && funnel === 'agitate') {
+        var ag = {};
+        ['agitate_money','agitate_time','agitate_nutrition'].forEach(function(sub) {
+          (secMap[sub] || []).forEach(function(t) { ag[t] = true; });
+        });
+        permitted = Object.keys(ag);
+      }
+      if (permitted.length) {
+        claimsText = allClaims.filter(function(c) { return permitted.indexOf(c.claim_type) > -1; })
+          .map(function(c) { return c.exact_wording || ''; }).filter(Boolean).slice(0, 3).join(' · ');
+      }
+    } catch(ce) {}
+
+    // ── 7. Phone rule ─────────────────────────────────────────────────────────
+    var phoneRule = 'Posts 1–3: NO PHONE. Problem world only.';
+    try {
+      var pr = checkPhoneRule(postNum, spImageBrief, 'social');
+      if      (pr.warning)         phoneRule = '⚠ ' + pr.warning;
+      else if (postNum >= 1 && postNum <= 3) phoneRule = 'NO PHONE — show problem world only. App not revealed yet.';
+      else if (postNum === 4)      phoneRule = 'PHONE APPEARS — first reveal. App solving the exact problem from post 3.';
+      else if (postNum > 4)        phoneRule = 'PHONE VISIBLE — show outcomes, not the interface.';
+    } catch(pe) {}
+
+    // ── 8. Build Claude prompts ───────────────────────────────────────────────
+    var systemPrompt = [
+      'You are a world-class UI/visual designer building social media post mockups as self-contained HTML pages.',
+      'App: easyChef Pro — smart meal planning that transforms chaotic weeknight cooking into calm, confident kitchen mastery.',
+      '',
+      'CRITICAL OUTPUT RULE: Return ONLY raw HTML. No markdown. No code fences. No explanation.',
+      'Your response must start with < (the opening < of <!DOCTYPE html>) and end with > (the closing > of </html>).',
+      '',
+      'Technical requirements:',
+      '- Self-contained HTML file, all CSS in a <style> block in <head>',
+      '- Load Google Fonts via CDN for: Proza Libre (headlines), Inter (body text)',
+      '- body { margin:0; padding:0; width:' + canvasW + 'px; height:' + canvasH + 'px; overflow:hidden; }',
+      '- The design must fill the entire ' + canvasW + '×' + canvasH + 'px canvas — no white borders or dead space',
+      '',
+      'Brand tokens — use these exact values:',
+      '  Primary red:    ' + BT.primary_red,
+      '  Beige:          ' + BT.beige,
+      '  Black:          ' + BT.black,
+      '  White:          ' + BT.white,
+      '  Headline font:  ' + BT.headline_font,
+      '  Body font:      ' + BT.body_font,
+      '  CTA button:     ' + BT.cta_button_color + ' background, ' + BT.cta_button_text + ' text',
+      '',
+      'Design philosophy: Premium, clean, emotionally resonant. Not generic. Every pixel should earn its place.',
+      '',
+      'Phone rule — enforce strictly:',
+      phoneRule
+    ].join('\n');
+
+    var upLines = [
+      'Generate a social media post design mockup.',
+      '',
+      '═══ ASSET ════════════════════════════════════════',
+      'Asset ID:     ' + assetId,
+      'Platform:     ' + platform.toUpperCase(),
+      'Campaign:     ' + campaignId,
+      'Funnel stage: ' + (funnel  || '—'),
+      'Post #:       ' + (postNum || '—'),
+      'Canvas:       ' + canvasW + ' × ' + canvasH + 'px',
+      '',
+      '═══ COPY ═════════════════════════════════════════',
+      'HOOK (headline):',
+      spHook || '(no hook — design a compelling placeholder for easyChef Pro)',
+      '',
+      'BODY:',
+      spBody || '(no body copy — create a placeholder)',
+      '',
+      'CTA: ' + (spCta || 'See how it works'),
+      (spHashtags ? '\nHashtags: ' + spHashtags : ''),
+      '',
+      '═══ ICP & EMOTIONAL ARC ══════════════════════════',
+      'ICP:         ' + (icp || '—'),
+      'Entry state: ' + (spEmotionIn  || emotionalEntry  || emotion || '—'),
+      'Exit state:  ' + (spEmotionOut || emotionalPayoff || '—'),
+      (themeName     ? 'Theme:       ' + themeName     : ''),
+      (themeCategory ? 'Category:    ' + themeCategory : ''),
+      (imageMood     ? 'Image mood:  ' + imageMood     : '')
+    ];
+    if (claimsText)    { upLines.push('', '═══ APPROVED CLAIMS (exact wording only) ═════════', claimsText); }
+    if (spImageBrief)  { upLines.push('', '═══ IMAGE BRIEF ══════════════════════════════════', spImageBrief); }
+    if (spDesignBrief) { upLines.push('', '═══ DESIGN NOTES ═════════════════════════════════', spDesignBrief); }
+    upLines.push(
+      '',
+      '═══ PHONE RULE ═══════════════════════════════════',
+      phoneRule,
+      '',
+      '═══ OUTPUT INSTRUCTION ═══════════════════════════',
+      'Design a ' + platform.toUpperCase() + ' post at exactly ' + canvasW + '×' + canvasH + 'px.',
+      'Use the exact copy above. Apply brand colors and fonts precisely.',
+      'Return ONLY raw HTML — no markdown, no fences, no explanation.'
+    );
+    var userPrompt = upLines.filter(function(l) { return l !== null && l !== undefined; }).join('\n');
+
+    // ── 9. Call Claude ────────────────────────────────────────────────────────
+    Logger.log('[generateDesignForAsset] calling Claude for ' + assetId);
+    var rawHtml = callAnthropicModel(userPrompt, systemPrompt, 'claude-sonnet-4-20250514', 8192);
+    if (!rawHtml || rawHtml.indexOf('Error:') === 0) {
+      return { ok: false, error: rawHtml || 'Claude returned empty response' };
+    }
+
+    // Strip markdown fences if present despite instructions
+    var html = rawHtml.trim();
+    var fenceMatch = html.match(/^```(?:html)?\r?\n([\s\S]*?)\r?\n```$/i);
+    if (fenceMatch) html = fenceMatch[1].trim();
+    // Wrap bare fragment (no doctype/html tag)
+    if (!html.match(/<!DOCTYPE|<html/i)) {
+      html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>' + assetId + '</title></head><body>' + html + '</body></html>';
+    }
+
+    // ── 10. Save HTML to Drive ────────────────────────────────────────────────
+    var campaignFolderIds = {
+      'EC-2026-001': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl',
+      'EC-2026-002': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl'
+    };
+    var folderId = campaignFolderIds[campaignId] || '';
+    var folder;
+    try { folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder(); }
+    catch(fe) { folder = DriveApp.getRootFolder(); }
+
+    var fileName = 'Design — ' + assetId + ' — ' + platform + ' — ' + funnel + '.html';
+    var file = null;
+    if (existingUrl) {
+      try {
+        var exMatch = existingUrl.match(/[-\w]{25,}/);
+        if (exMatch) { var exFile = DriveApp.getFileById(exMatch[0]); exFile.setContent(html); file = exFile; }
+      } catch(ue) { file = null; }
+    }
+    if (!file) { file = folder.createFile(fileName, html, MimeType.HTML); }
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var fileUrl = 'https://drive.google.com/file/d/' + file.getId() + '/view';
+
+    // ── 11. Write URL back to ContentCalendar ─────────────────────────────────
+    var safeCC2   = Math.min(ccHdrs.length, ccSheet.getLastColumn());
+    var designCol = CH.claude_design_url + 1;
+    var updCol    = CH.updated_at        + 1;
+    if (designCol > 0 && designCol <= safeCC2) ccSheet.getRange(ccRowIndex + 2, designCol).setValue(fileUrl);
+    if (updCol    > 0 && updCol    <= safeCC2) ccSheet.getRange(ccRowIndex + 2, updCol).setValue(new Date());
+
+    Logger.log('[generateDesignForAsset] done → ' + fileUrl);
+    return { ok: true, url: fileUrl, asset_id: assetId, file_name: fileName };
+
+  } catch(e) {
+    Logger.log('[generateDesignForAsset] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
