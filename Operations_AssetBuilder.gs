@@ -2713,3 +2713,122 @@ function generateLpSeo(brief, lpData) {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Manual Mode — section emotional guide for wizard (Task 3) ─────────────────
+// Reads LP_DOCTRINE_001.emotional_map for the given section.
+// Returns emotional_job (entry → exit) and what_kills_it from the section laws.
+function getSectionEmotionalGuide(lpSection) {
+  try {
+    var strat = getCampaignStrategy('LP_DOCTRINE_001');
+    if (!strat || !strat.value) return { ok: false, error: 'LP_DOCTRINE_001 not seeded' };
+    var v    = strat.value;
+    var key  = String(lpSection || '').toLowerCase().trim();
+    var em   = v.emotional_map && v.emotional_map[key];
+    if (!em) {
+      return { ok: false, error: 'No emotional_map entry for section "' + key + '"', available_sections: v.sections || [] };
+    }
+    var wordTarget = (v.section_word_targets && v.section_word_targets[key]) || null;
+
+    // Derive what_kills_it from the LP spine laws (governance rules that name each section)
+    var kills = {
+      hook:     'Product mention · feature name · generic pain',
+      problem:  'Shame language · blaming the person · abstract pain',
+      agitate:  'Multiple vague costs · drama · exaggeration',
+      solve:    'Feature list · product demo · jargon',
+      value:    'Feature specs · statistics · claims',
+      lifecycle:'Generic lifecycle claim · no life stage specificity',
+      proof:    'Invented stats · rounded numbers · paraphrased claims',
+      cta:      'Pressure · "sign up" · feature-based CTA'
+    };
+
+    return {
+      ok:              true,
+      section:         key,
+      emotional_entry: em.entry || '',
+      emotional_exit:  em.exit  || '',
+      emotional_job:   'Recognition — ' + em.entry + ' → ' + em.exit,
+      what_kills_it:   kills[key] || '',
+      word_target:     wordTarget
+    };
+  } catch(e) {
+    Logger.log('[getSectionEmotionalGuide] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Manual Mode — phone rule enforcer for image briefs (Task 4) ──────────────
+// Checks if an image brief text violates the social/video arc phone rule.
+// LP assets are always exempt. Returns {ok, warning, requires_ml_approval}.
+function checkPhoneRule(postNumber, imageBriefText, assetType) {
+  try {
+    var type = String(assetType || '').toLowerCase();
+    if (type === 'lp' || type === 'landing_page') {
+      return { ok: true, warning: null, requires_ml_approval: false, lp_exempt: true };
+    }
+    var pn   = parseInt(postNumber) || 0;
+    var text = String(imageBriefText || '').toLowerCase();
+    var phoneTerms = ['phone', 'app screen', 'app screenshot', 'mobile screen', 'handset'];
+    var violates   = pn >= 1 && pn <= 3 && phoneTerms.some(function(t) { return text.indexOf(t) !== -1; });
+    if (violates) {
+      return {
+        ok:                   true,
+        warning:              'Phone rule — social/video arc only. Phone appears at post 4. Posts 1-3 are problem world only.',
+        requires_ml_approval: true,
+        post_number:          pn,
+        rule_ref:             'PHONE_RULE_LP_001'
+      };
+    }
+    return { ok: true, warning: null, requires_ml_approval: false };
+  } catch(e) {
+    Logger.log('[checkPhoneRule] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Manual Mode — visual direction context for image brief form (Task 5) ──────
+// Auto-populates three read-only context fields above the free-text brief input:
+//   1. ICP emotional context (primary_pain from ICPProfiles)
+//   2. Theme image world (image_mood_hook posts 1-3, image_mood_cta posts 6+)
+//   3. LP section emotional job (from LP_DOCTRINE_001.emotional_map)
+function getVisualDirectionContext(campaignId, lpSection, postNumber) {
+  try {
+    var brief = campaignId ? getCampaignBriefs(campaignId) : null;
+
+    // 1 — ICP emotional context
+    var icpContext = '';
+    if (brief && brief.icp_code) {
+      var icp = getIcpProfile(brief.icp_code);
+      if (icp) icpContext = icp.primary_pain || icp.psychographics || '';
+    }
+
+    // 2 — Theme image world
+    var themeImageWorld = '';
+    if (brief && brief.theme) {
+      var themes = getThemeLibrary();
+      var th = themes.filter(function(t) {
+        return t.theme_slug === brief.theme || t.theme_name === brief.theme || t.id === brief.theme;
+      })[0];
+      if (th) {
+        var pn = parseInt(postNumber) || 1;
+        themeImageWorld = pn <= 3 ? (th.image_mood_hook || th.image_mood_cta || '')
+                                  : (th.image_mood_cta  || th.image_mood_hook || '');
+      }
+    }
+
+    // 3 — LP section emotional job
+    var sectionGuide = lpSection ? getSectionEmotionalGuide(lpSection) : null;
+    var sectionJob   = sectionGuide && sectionGuide.ok
+      ? 'Emotional job: ' + sectionGuide.emotional_job + '. What kills it: ' + sectionGuide.what_kills_it
+      : '';
+
+    return {
+      ok:                    true,
+      icp_emotional_context: icpContext,
+      theme_image_world:     themeImageWorld,
+      section_emotional_job: sectionJob
+    };
+  } catch(e) {
+    Logger.log('[getVisualDirectionContext] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

@@ -1069,6 +1069,68 @@ function getApprovedClaims(approvedOnly) {
   return rows.filter(function(c) { return c.approved; });
 }
 
+// ── Manual Mode — filtered claims for wizard (Task 2) ─────────────────────────
+// Returns ACTIVE claims permitted for lpSection. campaignAngle disambiguates agitate sub-keys.
+function getFilteredClaims(lpSection, campaignAngle) {
+  try {
+    var scoping = getCampaignStrategy('CLAIM_SCOPING_001');
+    if (!scoping || !scoping.value || !scoping.value.section_claim_map) {
+      return { ok: false, error: 'CLAIM_SCOPING_001 not seeded — run seed_playbook_wiring', claims: [] };
+    }
+    var map = scoping.value.section_claim_map;
+
+    // Resolve agitate sub-key from angle
+    var key = String(lpSection || '').toLowerCase().trim();
+    if (key === 'agitate') {
+      var a = String(campaignAngle || '').toLowerCase();
+      if      (a.indexOf('money') !== -1 || a.indexOf('saving') !== -1 || a.indexOf('financial') !== -1) key = 'agitate_money';
+      else if (a.indexOf('time') !== -1  || a.indexOf('decision') !== -1)                                 key = 'agitate_time';
+      else if (a.indexOf('nutrition') !== -1 || a.indexOf('health') !== -1)                               key = 'agitate_nutrition';
+      else key = 'agitate_money';
+    }
+
+    var permittedTypes = Array.isArray(map[key]) ? map[key] : [];
+    var allClaims      = getApprovedClaims(true);
+
+    // Empty permitted = no restriction (hook, value, lifecycle)
+    var noRestriction = permittedTypes.length === 0;
+    var filtered = noRestriction ? allClaims
+      : allClaims.filter(function(c) { return permittedTypes.indexOf(c.claim_type) !== -1; });
+
+    return {
+      ok:              true,
+      section:         key,
+      permitted_types: permittedTypes,
+      no_restriction:  noRestriction,
+      claims:          filtered.map(function(c) {
+        return { id: c.id, claim_type: c.claim_type, exact_wording: c.exact_wording };
+      })
+    };
+  } catch(e) {
+    Logger.log('[getFilteredClaims] ERROR: ' + e.message);
+    return { ok: false, error: e.message, claims: [] };
+  }
+}
+
+// Save-time claim validator — returns {ok, permitted, message} for a single claimType + section.
+function validateClaimForSection(claimType, lpSection, campaignAngle) {
+  try {
+    var result = getFilteredClaims(lpSection, campaignAngle);
+    if (!result.ok) return { ok: false, permitted: false, error: result.error };
+    if (result.no_restriction) return { ok: true, permitted: true, message: 'No restriction for section "' + result.section + '"' };
+    var allowed = result.permitted_types.indexOf(String(claimType)) !== -1;
+    return {
+      ok:       true,
+      permitted: allowed,
+      message:   allowed
+        ? 'Claim type "' + claimType + '" permitted for section "' + result.section + '"'
+        : 'DOCTRINE VIOLATION: "' + claimType + '" not permitted for section "' + result.section + '". Permitted: ' + result.permitted_types.join(', ')
+    };
+  } catch(e) {
+    return { ok: false, permitted: false, error: e.message };
+  }
+}
+
 function setApprovedClaim(item) {
   if (!item || !item.id) return;
   var sheet   = _getCCSheet(_CC_TAB.CLAIMS);

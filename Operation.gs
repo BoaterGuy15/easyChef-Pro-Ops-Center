@@ -1318,6 +1318,15 @@ function doPost(e) {
     if(body.action === 'validate_asset_lp_alignment')   return respond(validateAssetLPAlignment(body.campaign_id, { post_id: body.post_id||'', full_report: body.full_report||false }));
     if(body.action === 'seed_playbook_wiring')           return respond(seedPlaybookWiring());
 
+    // ── Manual Mode Enforcement ───────────────────────────────────────────────────
+    if(body.action === 'seed_manual_mode_enforcement')   return respond(seedManualModeEnforcement());
+    if(body.action === 'get_filtered_claims')            return respond(getFilteredClaims(body.lp_section||'', body.campaign_angle||''));
+    if(body.action === 'validate_claim_for_section')     return respond(validateClaimForSection(body.claim_type||'', body.lp_section||'', body.campaign_angle||''));
+    if(body.action === 'get_section_emotional_guide')    return respond(getSectionEmotionalGuide(body.lp_section||''));
+    if(body.action === 'check_phone_rule')               return respond(checkPhoneRule(body.post_number||0, body.image_brief_text||'', body.asset_type||''));
+    if(body.action === 'get_visual_direction_context')   return respond(getVisualDirectionContext(body.campaign_id||'', body.lp_section||'', body.post_number||1));
+    if(body.action === 'validate_campaign_step1_gates')  return respond(validateCampaignStep1Gates(body.campaign_id||''));
+
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });
     if(body.action === 'social_posts_write')     { setSocialPost(body.post); return respond({ ok:true }); }

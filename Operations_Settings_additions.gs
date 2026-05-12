@@ -1981,3 +1981,133 @@ function seedPlaybookWiring() {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Manual Mode Enforcement — Task 1: seed MANUAL_MODE_GATE_001 ───────────────
+function seedManualModeEnforcement() {
+  try {
+    var ss      = _getCampaignSpreadsheet();
+    var bdSheet = ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+    var bdHdr   = _CC_HDR.BrandDoctrine;
+
+    _ccUpsert(bdSheet, bdHdr, 'MANUAL_MODE_GATE_001', [
+      'MANUAL_MODE_GATE_001',
+      'manual_mode_enforcement',
+      'hard',
+      'true',
+      JSON.stringify({
+        lp_spine_gate:       'LP spine must exist in CampaignBriefs before ANY asset is saved — AI-generated or manually entered',
+        validation_on_save:  'validate_asset_lp_alignment runs on manual saves, not just AI generation',
+        status_gate:         'Asset status cannot advance past draft without passing LP alignment validation',
+        applies_to:          'all assets regardless of creation method'
+      })
+    ]);
+
+    var bdAfter = bdSheet.getLastRow() - 1;
+    Logger.log('[seedManualModeEnforcement] BrandDoctrine rows=' + bdAfter);
+    return { ok: true, brand_doctrine_total: bdAfter };
+
+  } catch(e) {
+    Logger.log('[seedManualModeEnforcement] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Manual Mode — Task 6: pre-campaign 7-gate checklist ──────────────────────
+// Mirrors the Section 16 playbook pre-generation gates for the wizard UI.
+// Returns gate-by-gate pass/fail so the wizard can block Step 1 → Step 2.
+function validateCampaignStep1Gates(campaignId) {
+  try {
+    var gates = [];
+    var brief = getCampaignBriefs(campaignId);
+
+    // Gate 1: ICP selected + primary_pain and psychographics populated
+    var icpOk = false, icpMsg = '';
+    if (brief && brief.icp_code) {
+      var icp = getIcpProfile(brief.icp_code);
+      icpOk  = !!(icp && icp.primary_pain && icp.psychographics);
+      icpMsg = icpOk
+        ? 'ICP "' + brief.icp_code + '" found — primary_pain and psychographics populated'
+        : (!icp ? 'ICP not found in ICPProfiles: ' + brief.icp_code
+                : 'ICP found but primary_pain or psychographics missing');
+    } else {
+      icpMsg = 'No icp_code on campaign brief';
+    }
+    gates.push({ gate: 1, name: 'ICP selected + primary_pain and emotional_state populated', passed: icpOk, message: icpMsg });
+
+    // Gate 2: Theme selected + hook_angle, image_world, food_type confirmed in ThemeLibrary
+    var themeOk = false, themeMsg = '';
+    if (brief && brief.theme) {
+      var themes = getThemeLibrary();
+      var th = null;
+      for (var i = 0; i < themes.length; i++) {
+        if (themes[i].theme_slug === brief.theme || themes[i].theme_name === brief.theme || themes[i].id === brief.theme) {
+          th = themes[i]; break;
+        }
+      }
+      themeOk  = !!(th && th.hook_angle && th.image_mood_hook && th.food_type);
+      themeMsg = themeOk
+        ? 'Theme "' + brief.theme + '" confirmed — hook_angle, image_world, food_type present'
+        : (!th ? 'Theme "' + brief.theme + '" not found in ThemeLibrary'
+               : 'Theme found but hook_angle, image_mood_hook, or food_type missing');
+    } else {
+      themeMsg = 'No theme on campaign brief';
+    }
+    gates.push({ gate: 2, name: 'Theme selected from ThemeLibrary (hook_angle, image_world, food_type confirmed)', passed: themeOk, message: themeMsg });
+
+    // Gate 3: campaign_angle populated on brief
+    var angleOk = !!(brief && brief.campaign_angle);
+    gates.push({ gate: 3, name: 'LP variant defined — angle selected (money / time / nutrition / other)', passed: angleOk,
+      message: angleOk ? 'campaign_angle: ' + brief.campaign_angle : 'campaign_angle missing from brief' });
+
+    // Gate 4: LP spine exists in CampaignBriefs
+    var spineOk = false, spineMsg = '';
+    if (brief && brief.lp_campaign_spine_json) {
+      try {
+        var spineData = JSON.parse(brief.lp_campaign_spine_json);
+        spineOk  = !!(spineData && (spineData.hook || spineData.a || spineData.b));
+        spineMsg = spineOk ? 'LP spine present and parsed'
+                           : 'lp_campaign_spine_json present but spine data is empty';
+      } catch(pe) { spineMsg = 'lp_campaign_spine_json present but not valid JSON'; }
+    } else {
+      spineMsg = 'LP spine missing — run generate_lp_spine before creating assets';
+    }
+    gates.push({ gate: 4, name: 'LP spine exists or will be generated before asset creation', passed: spineOk, message: spineMsg });
+
+    // Gate 5: CLAIM_SCOPING_001 exists with section_claim_map
+    var csOk = false, csMsg = '';
+    var cs = getCampaignStrategy('CLAIM_SCOPING_001');
+    if (cs && cs.value && cs.value.section_claim_map) {
+      csOk  = true;
+      csMsg = 'CLAIM_SCOPING_001 found — ' + Object.keys(cs.value.section_claim_map).length + ' sections mapped';
+    } else {
+      csMsg = 'CLAIM_SCOPING_001 missing — run seed_playbook_wiring';
+    }
+    gates.push({ gate: 5, name: 'Claim scoping confirmed (CLAIM_SCOPING_001 matches campaign angle)', passed: csOk, message: csMsg });
+
+    // Gate 6: DL_IDs registered for this campaign
+    var dls   = getDlRegistry(campaignId);
+    var dlOk  = dls.length > 0;
+    gates.push({ gate: 6, name: 'DL_IDs registered in DeepLinkRegistry before brief is saved', passed: dlOk,
+      message: dlOk ? dls.length + ' DL_ID(s) registered for ' + campaignId
+                    : 'No DL_IDs registered — add entries to DeepLinkRegistry before saving briefs' });
+
+    // Gate 7: ML approved sign-off
+    var mlOk = !!(brief && brief.ml_approved);
+    gates.push({ gate: 7, name: 'ML Approved — Taylor sign-off before distribution', passed: mlOk,
+      message: mlOk ? 'ml_approved: true' : 'ml_approved not set on campaign brief' });
+
+    var allPassed = gates.every(function(g) { return g.passed; });
+    return {
+      ok:          true,
+      campaign_id: campaignId,
+      all_passed:  allPassed,
+      pass_count:  gates.filter(function(g) { return g.passed; }).length,
+      total_gates: 7,
+      gates:       gates
+    };
+
+  } catch(e) {
+    Logger.log('[validateCampaignStep1Gates] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
