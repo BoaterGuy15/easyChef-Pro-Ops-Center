@@ -1407,6 +1407,145 @@ function cleanupDeepLinkRegistry() {
   }
 }
 
+// ── STEP 7 — Backfill LP Doctrine columns on existing rows ───────────────────
+// SocialPosts:     lp_section_source (from day), loop_stage (from design_brief funnel_stage)
+// EmailSequences:  lp_section_source (from sequence_code)
+// VideoProduction: lp_section_source (from hook keyword analysis)
+// Safe to re-run — only writes when the target field is currently blank.
+
+function backfillLPDoctrineColumns() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+    var result = { ok: true, social: 0, email: 0, video: 0, errors: [] };
+
+    // ── SocialPosts backfill ─────────────────────────────────────────────────
+    var spSheet  = ss.getSheetByName(_CC_TAB.SOCIAL);
+    var spHdrs   = _CC_HDR.SocialPosts;
+    var spLast   = spSheet.getLastRow();
+    var spH = {};
+    spHdrs.forEach(function(h, i) { spH[h] = i; });
+
+    var spSectionFromDay = function(day) {
+      if (day <= 5)  return 'hook';
+      if (day <= 10) return 'problem';
+      if (day <= 15) return 'agitate';
+      if (day <= 20) return 'solve';
+      if (day <= 25) return 'value';
+      if (day <= 30) return 'proof';
+      return 'cta';
+    };
+    var loopStageFromSection = function(sec) {
+      var map = { hook:'awareness', problem:'awareness', agitate:'consideration',
+                  solve:'consideration', value:'consideration',
+                  proof:'decision', cta:'decision', urgency:'decision' };
+      return map[sec] || 'awareness';
+    };
+
+    if (spLast >= 2) {
+      var spRows = spSheet.getRange(2, 1, spLast - 1, spHdrs.length).getValues();
+      var spUpdates = [];
+      spRows.forEach(function(r, idx) {
+        if (!r[spH['id']]) return;
+        var currentSection = String(r[spH['lp_section_source']] || '').trim();
+        var currentStage   = String(r[spH['loop_stage']]        || '').trim();
+        if (currentSection && currentStage) return; // already backfilled
+        var db = {};
+        try { db = JSON.parse(String(r[spH['design_brief']] || '{}')); } catch(e) {}
+        var day = parseInt(db.day || db.post_number || 1);
+        var section = spSectionFromDay(day);
+        var stage   = loopStageFromSection(section);
+        // Also pick up funnel_stage if already in design_brief
+        if (db.funnel_stage && loopStageFromSection(db.funnel_stage)) {
+          stage = db.funnel_stage;
+        }
+        if (!currentSection) {
+          spSheet.getRange(idx + 2, spH['lp_section_source'] + 1).setValue(section);
+          result.social++;
+        }
+        if (!currentStage) {
+          spSheet.getRange(idx + 2, spH['loop_stage'] + 1).setValue(stage);
+        }
+      });
+    }
+
+    // ── EmailSequences backfill ───────────────────────────────────────────────
+    var emSheet = ss.getSheetByName(_CC_TAB.EMAIL);
+    var emHdrs  = _CC_HDR.EmailSequences;
+    var emLast  = emSheet.getLastRow();
+    var emH = {};
+    emHdrs.forEach(function(h, i) { emH[h] = i; });
+
+    var seqSectionMap = {
+      'SEQ-1': 'hook',    'SEQ-2': 'agitate',
+      'SEQ-3': 'proof',   'SEQ-4': 'cta',    'SEQ-5': 'value'
+    };
+    // Map by email_number within sequence too
+    var emailNumSectionMap = {
+      '1': 'hook',  '2': 'problem', '3': 'agitate', '4': 'solve',
+      '5': 'value', '6': 'proof',   '7': 'cta',     '8': 'urgency'
+    };
+
+    if (emLast >= 2) {
+      var emRows = emSheet.getRange(2, 1, emLast - 1, emHdrs.length).getValues();
+      emRows.forEach(function(r, idx) {
+        if (!r[emH['id']]) return;
+        var currentSection = String(r[emH['lp_section_source']] || '').trim();
+        if (currentSection) return;
+        var seqCode  = String(r[emH['sequence_code']] || '').trim();
+        var emailNum = String(r[emH['email_number']]  || '').trim();
+        // Use email_number-within-sequence for more precise mapping
+        var section = emailNumSectionMap[emailNum] || seqSectionMap[seqCode] || 'hook';
+        emSheet.getRange(idx + 2, emH['lp_section_source'] + 1).setValue(section);
+        // Set emotional_stage from loop_stage map
+        var emStage = loopStageFromSection(section);
+        if (!String(r[emH['emotional_stage']] || '').trim()) {
+          emSheet.getRange(idx + 2, emH['emotional_stage'] + 1).setValue(emStage);
+        }
+        result.email++;
+      });
+    }
+
+    // ── VideoProduction backfill ──────────────────────────────────────────────
+    var vpSheet = ss.getSheetByName(_CC_TAB.VIDEO_PRODUCTION);
+    var vpHdrs  = _CC_HDR.VideoProduction;
+    var vpLast  = vpSheet.getLastRow();
+    var vpH = {};
+    vpHdrs.forEach(function(h, i) { vpH[h] = i; });
+
+    // Hook keyword → LP section heuristic
+    var hookToSection = function(hook) {
+      var h = String(hook || '').toLowerCase();
+      if (h.indexOf('problem') > -1 || h.indexOf('pain')    > -1) return 'problem';
+      if (h.indexOf('agitat')  > -1 || h.indexOf('cost')    > -1) return 'agitate';
+      if (h.indexOf('solve')   > -1 || h.indexOf('solution')> -1) return 'solve';
+      if (h.indexOf('value')   > -1 || h.indexOf('benefit') > -1) return 'value';
+      if (h.indexOf('proof')   > -1 || h.indexOf('trust')   > -1) return 'proof';
+      if (h.indexOf('cta')     > -1 || h.indexOf('call')    > -1) return 'cta';
+      return 'hook'; // default
+    };
+
+    if (vpLast >= 2) {
+      var vpRows = vpSheet.getRange(2, 1, vpLast - 1, vpHdrs.length).getValues();
+      vpRows.forEach(function(r, idx) {
+        if (!r[vpH['asset_id']]) return;
+        var currentSection = String(r[vpH['lp_section_source']] || '').trim();
+        if (currentSection) return;
+        var section = hookToSection(r[vpH['hook']]);
+        vpSheet.getRange(idx + 2, vpH['lp_section_source'] + 1).setValue(section);
+        result.video++;
+      });
+    }
+
+    Logger.log('[backfillLPDoctrineColumns] social=' + result.social +
+               ' email=' + result.email + ' video=' + result.video);
+    return result;
+
+  } catch(e) {
+    Logger.log('[backfillLPDoctrineColumns] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Master LP Generation Doctrine — governance seed ───────────────────────────
 // Upserts 4 CampaignStrategy rows + 4 BrandDoctrine rows.
 // Safe to re-run: existing rows are overwritten, nothing is duplicated.
