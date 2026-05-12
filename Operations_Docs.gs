@@ -1073,3 +1073,76 @@ function getPostDesignBrief(assetId) {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Save Design Artifact to Drive ─────────────────────────────────────────────
+// saveDesignToDrive(assetId, htmlContent)
+// Saves an HTML design artifact to the campaign Drive folder, writes the file
+// URL back to ContentCalendar.claude_design_url, returns { ok, url, asset_id }.
+
+function saveDesignToDrive(assetId, htmlContent) {
+  if (!assetId)    return { ok: false, error: 'assetId required' };
+  if (!htmlContent) return { ok: false, error: 'htmlContent required' };
+  try {
+    // Look up campaign_id from ContentCalendar
+    var ccSheet  = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var ccLast   = ccSheet.getLastRow();
+    var ccHdrs   = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var CH = {};
+    ccHdrs.forEach(function(h, i) { CH[h] = i; });
+    var ccData = ccSheet.getRange(2, 1, ccLast - 1, Math.min(ccHdrs.length, ccSheet.getLastColumn())).getValues();
+    var ccRow = null, ccRowIndex = -1;
+    for (var i = 0; i < ccData.length; i++) {
+      if (String(ccData[i][CH.asset_id] || '') === assetId) { ccRow = ccData[i]; ccRowIndex = i; break; }
+    }
+    if (!ccRow) return { ok: false, error: 'Asset not found: ' + assetId };
+
+    var campaignId = String(ccRow[CH.campaign_id] || '');
+    var platform   = String(ccRow[CH.platform]    || '');
+    var funnel     = String(ccRow[CH.funnel_stage] || '');
+
+    // Campaign Drive folder
+    var campaignFolderIds = { 'EC-2026-001': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl' };
+    var folderId  = campaignFolderIds[campaignId] || '';
+    var folder;
+    try {
+      folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
+    } catch(fe) { folder = DriveApp.getRootFolder(); }
+
+    // Create or update the design file
+    var fileName = 'Design — ' + assetId + ' — ' + platform + ' — ' + funnel + '.html';
+    var existingUrl = String((CH.claude_design_url !== undefined ? ccRow[CH.claude_design_url] : '') || '');
+
+    var file;
+    // If a file already exists, try to update it in place
+    if (existingUrl) {
+      try {
+        var existingId = existingUrl.match(/[-\w]{25,}/);
+        if (existingId) {
+          var existingFile = DriveApp.getFileById(existingId[0]);
+          existingFile.setContent(htmlContent);
+          file = existingFile;
+        }
+      } catch(ue) { file = null; }
+    }
+    if (!file) {
+      file = folder.createFile(fileName, htmlContent, MimeType.HTML);
+    }
+
+    // Make publicly readable so "View Design" works without auth prompt
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var fileUrl = 'https://drive.google.com/file/d/' + file.getId() + '/view';
+
+    // Write URL back to ContentCalendar
+    var safeColCount = Math.min(ccHdrs.length, ccSheet.getLastColumn());
+    var designCol    = CH.claude_design_url + 1;
+    var updatedCol   = CH.updated_at        + 1;
+    if (designCol  > 0 && designCol  <= safeColCount) ccSheet.getRange(ccRowIndex + 2, designCol).setValue(fileUrl);
+    if (updatedCol > 0 && updatedCol <= safeColCount) ccSheet.getRange(ccRowIndex + 2, updatedCol).setValue(new Date());
+
+    Logger.log('[saveDesignToDrive] ' + assetId + ' → ' + fileUrl);
+    return { ok: true, url: fileUrl, asset_id: assetId, file_name: fileName };
+  } catch(e) {
+    Logger.log('[saveDesignToDrive] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

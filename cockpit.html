@@ -212,6 +212,13 @@
     .pm-design-url { display:flex; gap:8px; margin-top:6px; }
     .pm-design-url input { flex:1; background:#0e0e10; border:1px solid #2a2a2e; border-radius:8px; color:#e0e0e0; font-family:inherit; font-size:11px; padding:6px 10px; height:32px; }
     .pm-design-url input:focus { outline:none; border-color:#8b5cf6; }
+    .pm-html-drop { margin-top:6px; }
+    .pm-html-toggle { background:none; border:none; color:#555; font-size:10px; font-family:inherit; cursor:pointer; padding:2px 0; letter-spacing:0.4px; }
+    .pm-html-toggle:hover { color:#8b5cf6; }
+    .pm-html-area { display:none; margin-top:6px; }
+    .pm-html-area.open { display:block; }
+    .pm-html-area textarea { width:100%; box-sizing:border-box; background:#0e0e10; border:1px solid #2a2a2e; border-radius:8px; color:#e0e0e0; font-family:'DM Mono',monospace; font-size:10px; padding:8px 10px; resize:vertical; min-height:90px; }
+    .pm-html-area textarea:focus { outline:none; border-color:#8b5cf6; }
     .pm-link .pm-link-tag { font-size: 8px; color: #333; text-transform: uppercase; letter-spacing: 0.6px; margin-left: 4px; }
     /* Status pickers */
     .pm-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
@@ -862,8 +869,13 @@
         pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', _driveFolderUrl)+
       '</div>';
-      rows+='<div class="pm-design-url"><input id="pm-du-input-'+_safeId+'" placeholder="Paste Claude design URL to save…" value="'+(p.claude_design_url||'')+'" /><button class="pm-note-btn" id="pm-du-btn-'+_safeId+'" onclick="saveDesignUrl(\''+_safeId+'\')">Save</button></div>';
+      rows+='<div class="pm-design-url"><input id="pm-du-input-'+_safeId+'" placeholder="Paste design URL to link…" value="'+(p.claude_design_url||'')+'" /><button class="pm-note-btn" id="pm-du-btn-'+_safeId+'" onclick="saveDesignUrl(\''+_safeId+'\')">Save URL</button></div>';
       rows+='<div class="pm-save-msg" id="pm-du-msg-'+_safeId+'" style="margin-top:4px;font-size:10px"></div>';
+      rows+='<div class="pm-html-drop"><button class="pm-html-toggle" onclick="toggleHtmlArea(\''+_safeId+'\')">▸ Save HTML artifact to Drive</button>';
+      rows+='<div class="pm-html-area" id="pm-html-area-'+_safeId+'">';
+      rows+='<textarea id="pm-html-ta-'+_safeId+'" placeholder="Paste Claude HTML artifact here — GAS saves it to Drive and links it automatically…"></textarea>';
+      rows+='<div style="display:flex;gap:8px;margin-top:6px"><button class="pm-note-btn" id="pm-html-btn-'+_safeId+'" onclick="saveToDrive(\''+_safeId+'\')">Save to Drive</button>';
+      rows+='<span class="pm-save-msg" id="pm-html-msg-'+_safeId+'" style="font-size:10px;line-height:32px"></span></div></div></div>';
 
       document.getElementById('pm-body').innerHTML=rows;
       document.getElementById('pm-overlay').className='pm-overlay open';
@@ -937,6 +949,39 @@
           if(btn)btn.disabled=false;
         })
         .saveClaudeDesignUrl(assetId, url);
+    }
+    function toggleHtmlArea(assetId){
+      var el=document.getElementById('pm-html-area-'+assetId);
+      var btn=el&&el.previousElementSibling;
+      if(!el)return;
+      var open=el.classList.toggle('open');
+      if(btn)btn.textContent=(open?'▾':'▸')+' Save HTML artifact to Drive';
+    }
+    function saveToDrive(assetId){
+      var ta=document.getElementById('pm-html-ta-'+assetId);
+      var btn=document.getElementById('pm-html-btn-'+assetId);
+      var msg=document.getElementById('pm-html-msg-'+assetId);
+      var html=(ta&&ta.value||'').trim();
+      if(!html){if(msg){msg.style.color='#ff453a';msg.textContent='Paste HTML first.';}return;}
+      if(btn)btn.disabled=true;
+      if(msg){msg.style.color='#666';msg.textContent='Saving to Drive…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok&&r.url){
+            if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].claude_design_url=r.url;
+            if(msg){msg.style.color='#32d74b';msg.textContent='✓ Saved — View Design link active';}
+            if(btn)btn.disabled=false;
+            setTimeout(function(){openPostModal(assetId);},600);
+          } else {
+            if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+((r&&r.result&&r.result.error)||'unknown');}
+            if(btn)btn.disabled=false;
+          }
+        })
+        .withFailureHandler(function(){
+          if(msg){msg.style.color='#ff453a';msg.textContent='Connection error';}
+          if(btn)btn.disabled=false;
+        })
+        .saveDesignToDrive(assetId, html);
     }
     function _fmtPlatform(p){var m={instagram:'Instagram',tiktok:'TikTok',pinterest:'Pinterest',facebook:'Facebook',email:'Email'};return m[(p||'').toLowerCase()]||p||'—';}
     function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}

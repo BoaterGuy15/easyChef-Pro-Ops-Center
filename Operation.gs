@@ -835,6 +835,10 @@ function doPost(e) {
       var _sduResult = saveClaudeDesignUrl(body.asset_id || '', body.url || '');
       return respond({ ok: _sduResult.ok, result: _sduResult, log: Logger.getLog() });
     }
+    if(body.action === 'save_design_to_drive') {
+      var _sdResult = saveDesignToDrive(body.asset_id || '', body.html_content || '');
+      return respond({ ok: _sdResult.ok, result: _sdResult, log: Logger.getLog() });
+    }
     if(body.action === 'ensure_content_cal_columns') {
       return respond(ensureContentCalColumns());
     }
