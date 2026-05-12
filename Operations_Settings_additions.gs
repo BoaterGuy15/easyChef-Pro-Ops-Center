@@ -3159,3 +3159,68 @@ function buildGPT4oSystemPromptDocs() {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Campaign Center custom menu ───────────────────────────────────────────────
+// onOpen fires automatically when the Campaign Center Sheet is opened.
+// All menu items call zero-argument wrapper functions below.
+
+function onOpen() {
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('⚡ Campaign Engine')
+      .addItem('Seed GPT-4o Settings',        'menu_seedGpt4oSettings')
+      .addItem('Rebuild System Prompt Docs',  'menu_buildGPT4oPromptDocs')
+      .addSeparator()
+      .addItem('Toggle GPT-4o Active',        'menu_toggleGpt4oActive')
+      .addItem('Clear Settings Cache',        'menu_clearSettingsCache')
+      .addToUi();
+  } catch(e) {
+    Logger.log('[onOpen] ' + e.message);
+  }
+}
+
+function menu_seedGpt4oSettings() {
+  var result = seedGpt4oSettings();
+  SpreadsheetApp.getUi().alert(
+    result.ok
+      ? '✓ GPT-4o settings seeded.\n\n' + result.note
+      : '✗ Error: ' + result.error
+  );
+}
+
+function menu_buildGPT4oPromptDocs() {
+  var ui     = SpreadsheetApp.getUi();
+  var result = buildGPT4oSystemPromptDocs();
+  if (!result.ok) { ui.alert('✗ Error: ' + result.error); return; }
+  var msg = '✓ 4 system prompt docs built from live sheet data:\n\n';
+  result.docs.forEach(function(d) { msg += d.title + '\nID: ' + d.id + '\n\n'; });
+  ui.alert(msg);
+}
+
+function menu_toggleGpt4oActive() {
+  var ui      = SpreadsheetApp.getUi();
+  var current = String(_getCcSetting('GPT4O_ACTIVE') || 'false').toLowerCase();
+  var newVal  = current === 'true' ? 'false' : 'true';
+  var sheet   = _getCCSheet(_CC_TAB.SETTINGS);
+  var last    = sheet.getLastRow();
+  if (last >= 2) {
+    var vals = sheet.getRange(2, 1, last - 1, 2).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]).toUpperCase() === 'AI_MODELS' && String(vals[i][1]) === 'GPT4O_ACTIVE') {
+        sheet.getRange(i + 2, 3, 1, 1).setValue(newVal);
+        CacheService.getScriptCache().remove('cc_settings_v1');
+        ui.alert(
+          'GPT-4o Active: ' + current + ' → ' + newVal + '\n\n' +
+          'Copy generation now routes to ' + (newVal === 'true' ? 'GPT-4o (OpenAI)' : 'Claude (Anthropic)')
+        );
+        return;
+      }
+    }
+  }
+  ui.alert('GPT4O_ACTIVE row not found in CcSettings.\nRun "Seed GPT-4o Settings" first.');
+}
+
+function menu_clearSettingsCache() {
+  CacheService.getScriptCache().remove('cc_settings_v1');
+  SpreadsheetApp.getUi().alert('✓ CcSettings cache cleared.');
+}
