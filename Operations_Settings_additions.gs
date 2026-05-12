@@ -1982,6 +1982,67 @@ function seedPlaybookWiring() {
   }
 }
 
+// ── LifeStages — create tab, seed 4 founding stages, register in CcSettings ──
+function seedLifeStages() {
+  try {
+    // Ensures the tab is created (auto-creates via _getCCSheet if missing)
+    var sheet = _getCCSheet(_CC_TAB.LIFE_STAGES);
+
+    var stages = [
+      {
+        life_stage_id:          'newlywed',
+        current_chapter:        'Building a kitchen together for the first time — two people, two sets of food preferences, one shared life',
+        next_chapter:           'Young family — a baby changes everything about how the kitchen works',
+        stage_recognition_line: 'You are figuring out what two people actually eat together. And somehow that is harder than it sounds.',
+        next_stage_bridge:      'When the family grows, easyChef Pro scales with it — more people, more preferences, same one loop.',
+        adaptation_copy:        'Right now the kitchen is about figuring out what you eat together. easyChef Pro learns both of you. When the family grows, it grows with you.',
+        active: true
+      },
+      {
+        life_stage_id:          'busy_parent',
+        current_chapter:        'Family running at full speed — kids, school, work, dinner, repeat — the kitchen is infrastructure',
+        next_chapter:           'Empty nester — cooking for two again after years of cooking for five',
+        stage_recognition_line: 'Dinner is not a meal anymore. It is a deadline you hit every night while doing six other things.',
+        next_stage_bridge:      'When the house empties, easyChef Pro scales down automatically — right portions, right quantities, nothing wasted.',
+        adaptation_copy:        'This is the chapter where the kitchen has to run itself. easyChef Pro is built for this pace — the plan is always ready before the deadline hits.',
+        active: true
+      },
+      {
+        life_stage_id:          'meal_prep_phase',
+        current_chapter:        'Optimizing everything — Sunday prep, macro tracking, the kitchen treated like a system to be perfected',
+        next_chapter:           'Life simplifies — the optimization obsession softens and ease becomes the goal',
+        stage_recognition_line: 'You give up your Sunday afternoon every week trying to get ahead of the week. It works until Wednesday.',
+        next_stage_bridge:      'When the obsession with optimization softens, easyChef Pro keeps the efficiency without the effort — the system runs so you do not have to.',
+        adaptation_copy:        'The prep phase is real. easyChef Pro makes Sunday work carry all the way through to Sunday again — every container has a purpose before you start.',
+        active: true
+      },
+      {
+        life_stage_id:          'empty_nester',
+        current_chapter:        'Cooking for two again after years of cooking for five — the muscle memory does not match the reality',
+        next_chapter:           'Grandparent kitchen — cooking as love language, mixed ages, visits to plan around',
+        stage_recognition_line: 'The kids left. You still buy groceries for six. The recipes still serve four.',
+        next_stage_bridge:      'When the grandchildren visit, easyChef Pro scales back up — the right amounts, the right ages, the right food for who is at the table.',
+        adaptation_copy:        'The kitchen you built for five is now for two. easyChef Pro already knows. Portions right. Plan right. Nothing wasted on a household that changed.',
+        active: true
+      }
+    ];
+
+    stages.forEach(function(s) { setLifeStageRow(s); });
+
+    // Register tab name in CcSettings so getMasterSystemPrompt can find it
+    appendSettingRow('DOCS', 'LIFE_STAGES_TAB', 'LifeStages',
+      'Tab name for the LifeStages library — read by getMasterSystemPrompt for lifecycle section generation');
+
+    var total = sheet.getLastRow() - 1;
+    Logger.log('[seedLifeStages] seeded=' + stages.length + ' total_rows=' + total);
+    return { ok: true, seeded: stages.length, total_rows: total };
+
+  } catch(e) {
+    Logger.log('[seedLifeStages] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── ThemeLibrary — seed 19 missing themes ────────────────────────────────────
 function seedThemeLibrary19() {
   try {

@@ -33,7 +33,8 @@ var _CC_TAB = {
   CAMP_STRATEGY:   'CampaignStrategy',
   ASSET_LIFECYCLE:   'AssetLifecycle',
   VIDEO_PRODUCTION:  'VideoProduction',
-  VIDEO_IDEA_BANK:   'VideoIdeaBank'
+  VIDEO_IDEA_BANK:   'VideoIdeaBank',
+  LIFE_STAGES:       'LifeStages'
 };
 
 var _CC_HDR = {
@@ -199,6 +200,10 @@ var _CC_HDR = {
     'platform','duration_target',
     'status','video_asset_id','notes',
     'created_at','updated_at'
+  ],
+  LifeStages: [
+    'life_stage_id','current_chapter','next_chapter',
+    'stage_recognition_line','next_stage_bridge','adaptation_copy','active'
   ]
 };
 
@@ -839,6 +844,49 @@ function setThemeLibraryRow(item) {
   ];
   _ccUpsert(sheet, headers, id, row);
   return id;
+}
+
+// ── LifeStages ────────────────────────────────────────────────────────────────
+
+function getLifeStages(id) {
+  var sheet = _getCCSheet(_CC_TAB.LIFE_STAGES);
+  var last  = sheet.getLastRow();
+  if (last < 2) return id ? null : [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.LifeStages.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(function(r) {
+      return {
+        life_stage_id:         String(r[0] || ''),
+        current_chapter:       String(r[1] || ''),
+        next_chapter:          String(r[2] || ''),
+        stage_recognition_line:String(r[3] || ''),
+        next_stage_bridge:     String(r[4] || ''),
+        adaptation_copy:       String(r[5] || ''),
+        active:                r[6] === true || String(r[6]).toLowerCase() === 'true'
+      };
+    });
+  if (!id) return rows;
+  var _id = String(id).toLowerCase().trim();
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].life_stage_id.toLowerCase() === _id) return rows[i];
+  }
+  return null;
+}
+
+function setLifeStageRow(item) {
+  if (!item || !item.life_stage_id) return;
+  var sheet   = _getCCSheet(_CC_TAB.LIFE_STAGES);
+  var headers = _CC_HDR.LifeStages;
+  var row = [
+    item.life_stage_id,
+    item.current_chapter       || '',
+    item.next_chapter          || '',
+    item.stage_recognition_line|| '',
+    item.next_stage_bridge     || '',
+    item.adaptation_copy       || '',
+    item.active !== undefined ? item.active : true
+  ];
+  _ccUpsert(sheet, headers, item.life_stage_id, row);
 }
 
 function _seedFoundingFamilyTheme() {

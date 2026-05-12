@@ -633,7 +633,8 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
   var _lpDoctrine      = gov.lpDoctrine     || '';
   var _lpSpine         = gov.lpSpine        || '';
   var _lpClaimScoping  = gov.lpClaimScoping || '';
-  return role + '\n\n' + _masterStory + _categoryPos + _brandPosition + _fiveApp + _sevenStep + _claimQuality + _voiceRules + _precisionRules + sD + _arch + sE + sF + sG + _phaseGuard + _compliance + _lpDoctrine + _lpSpine + _lpClaimScoping;
+  var _lifeStage       = gov.lifeStage      || '';
+  return role + '\n\n' + _masterStory + _categoryPos + _brandPosition + _fiveApp + _sevenStep + _claimQuality + _voiceRules + _precisionRules + sD + _arch + sE + sF + sG + _phaseGuard + _compliance + _lifeStage + _lpDoctrine + _lpSpine + _lpClaimScoping;
 }
 
 // ── Governance compiler functions ─────────────────────────────────────────────
@@ -1587,6 +1588,9 @@ function getMasterSystemPrompt(type, context) {
     }
   }
 
+  // LifeStages — resolve for this ICP and inject lifecycle section context
+  var _lifeStageBlock = _compileLifeStageBlock(_icpCode, context.life_stage_id || '');
+
   // Compile governance blocks from tabs (fall back to hardcoded constants if tabs unavailable)
   var governance = {
     claimQuality:    _compileClaimQualityBlock(),
@@ -1606,7 +1610,8 @@ function getMasterSystemPrompt(type, context) {
     designBriefRules:_compileDesignBriefRulesBlock(),
     lpDoctrine:      _lpDoctrineBlock    || '',
     lpSpine:         _lpSpineBlock       || '',
-    lpClaimScoping:  _lpClaimScopingBlock || ''
+    lpClaimScoping:  _lpClaimScopingBlock || '',
+    lifeStage:       _lifeStageBlock      || ''
   };
 
   // Design brief types — art direction only, no copy machinery needed
@@ -2711,6 +2716,40 @@ function generateLpSeo(brief, lpData) {
     }
   } catch(e) {
     return { ok: false, error: e.message };
+  }
+}
+
+// ── LifeStages compiler — injects lifecycle section context into generation ───
+// Maps ICP code to life_stage_id, reads the stage from LifeStages tab,
+// and returns a formatted prompt block. Default: busy_parent.
+function _compileLifeStageBlock(icpCode, lifeStageId) {
+  try {
+    var stageId = String(lifeStageId || '').toLowerCase().trim();
+    if (!stageId && icpCode) {
+      var icp = String(icpCode).toLowerCase();
+      if      (icp.indexOf('newlywed') !== -1)                                        stageId = 'newlywed';
+      else if (icp.indexOf('empty_nest') !== -1)                                      stageId = 'empty_nester';
+      else if (icp.indexOf('meal_prep') !== -1 || icp.indexOf('health') !== -1 ||
+               icp.indexOf('optimizer') !== -1 || icp.indexOf('fitness') !== -1)      stageId = 'meal_prep_phase';
+      else                                                                             stageId = 'busy_parent';
+    }
+    if (!stageId) stageId = 'busy_parent';
+
+    var stage = getLifeStages(stageId);
+    if (!stage) stage = getLifeStages('busy_parent');
+    if (!stage) return '';
+
+    return '=== LIFECYCLE SECTION — LIFE STAGE CONTEXT ===\n' +
+      'Current chapter: ' + stage.current_chapter + '\n' +
+      'Next chapter: '    + stage.next_chapter + '\n' +
+      'Recognition line (what they read and think "that is exactly where I am"):\n' +
+      '  "' + stage.stage_recognition_line + '"\n' +
+      'Next stage bridge: ' + stage.next_stage_bridge + '\n' +
+      'Adaptation copy for the LP lifecycle section:\n' +
+      '  "' + stage.adaptation_copy + '"\n\n';
+  } catch(e) {
+    Logger.log('[_compileLifeStageBlock] error: ' + e.message);
+    return '';
   }
 }
 
