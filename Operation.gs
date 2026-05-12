@@ -1320,6 +1320,7 @@ function doPost(e) {
 
     // ── Manual Mode Enforcement ───────────────────────────────────────────────────
     if(body.action === 'seed_life_stages')               return respond(seedLifeStages());
+    if(body.action === 'seed_onboarding_doctrine')       return respond(seedOnboardingDoctrine());
     if(body.action === 'seed_theme_library_19')          return respond(seedThemeLibrary19());
     if(body.action === 'seed_manual_mode_enforcement')   return respond(seedManualModeEnforcement());
     if(body.action === 'get_filtered_claims')            return respond(getFilteredClaims(body.lp_section||'', body.campaign_angle||''));

@@ -2606,6 +2606,78 @@ function seedThemeLibrary19() {
   }
 }
 
+// ── Brief 3 — Onboarding Doctrine: TIPPING_POINT_001 + OB_SEQUENCE_001 ────────
+function seedOnboardingDoctrine() {
+  try {
+    var ss      = _getCampaignSpreadsheet();
+    var bdSheet = ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+    var bdHdr   = _CC_HDR.BrandDoctrine;
+
+    // TIPPING_POINT_001 — when the paywall fires (all 3 conditions must be met simultaneously)
+    _ccUpsert(bdSheet, bdHdr, 'TIPPING_POINT_001', [
+      'TIPPING_POINT_001',
+      'activation_milestone',
+      'hard',
+      'true',
+      JSON.stringify({
+        definition:   'The moment a user has experienced the full easyChef Pro value loop',
+        conditions: {
+          meals_cooked:   '>=3',
+          spoilage_saves: '>=1',
+          pantry_items:   '>=20'
+        },
+        logic:          'ALL THREE must be met simultaneously — not any two of three',
+        firebase_event: 'tipping_point_reached',
+        trigger:        'Paywall shown immediately on tipping_point_reached event',
+        paywall_rule:   'Paywall is ONLY shown on tipping_point_reached. Never shown before. Never shown on a timer.',
+        post_tipping_point: 'If no conversion within 48 hours, Blueprint G paywall recovery sequence activates (L-10 through L-13)'
+      })
+    ]);
+
+    // OB_SEQUENCE_001 — 7-email onboarding drip, conditional logic per email
+    _ccUpsert(bdSheet, bdHdr, 'OB_SEQUENCE_001', [
+      'OB_SEQUENCE_001',
+      'onboarding_sequence',
+      'hard',
+      'true',
+      JSON.stringify({
+        trigger_event:   'app_install',
+        sequence_name:   'easyChef Pro Onboarding Drip',
+        emails: [
+          { id: 'OB-E1', day: 0,  name: 'Welcome',       condition: 'always — sends to all installs',       tone: 'warm · founder voice · founding family identity' },
+          { id: 'OB-E2', day: 1,  name: 'Pantry Setup',  condition: 'pantry_items < 5',                     tone: 'practical · the pantry is the foundation · three items to start' },
+          { id: 'OB-E3', day: 3,  name: 'First Recipe',  condition: 'meals_cooked = 0',                     tone: 'encouraging · the first recipe is always the hardest · here is yours' },
+          { id: 'OB-E4', day: 5,  name: 'Spoilage Save', condition: 'always — sends to all active installs', tone: 'proof point · you already saved something · here is what that means in dollars' },
+          { id: 'OB-E5', day: 7,  name: 'Plan the Week', condition: 'always — sends to all active installs', tone: 'capability · the full loop is available · here is how to plan the whole week' },
+          { id: 'OB-E6', day: 10, name: 'Check-In',      condition: 'meals_cooked < 2',                     tone: 'Taylor tone · personal · no judgment · one question · how can we help' },
+          {
+            id: 'OB-E7', day: 14, name: 'Tipping Point', condition: 'always',
+            variants: {
+              tipping_point_reached:     'celebrate — you hit it · the loop is closed · what that means for your family',
+              tipping_point_not_reached: 'founding price nudge — $7.99 locks forever · July 1 is coming · one more reason to go all in'
+            },
+            tone: 'milestone or urgency depending on variant'
+          }
+        ],
+        required_firebase_events: [
+          'app_install','pantry_item_added','first_recipe_cooked',
+          'spoilage_save','meal_plan_viewed','meals_cooked_count','tipping_point_reached'
+        ],
+        engineering_deadline: '2026-05-22',
+        note: 'All 7 Firebase events must be live before onboarding drip can be fully activated in Klaviyo'
+      })
+    ]);
+
+    var bdAfter = bdSheet.getLastRow() - 1;
+    Logger.log('[seedOnboardingDoctrine] BrandDoctrine rows=' + bdAfter);
+    return { ok: true, brand_doctrine_total: bdAfter };
+
+  } catch(e) {
+    Logger.log('[seedOnboardingDoctrine] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Manual Mode Enforcement — Task 1: seed MANUAL_MODE_GATE_001 ───────────────
 function seedManualModeEnforcement() {
   try {
