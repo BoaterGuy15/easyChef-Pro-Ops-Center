@@ -1127,8 +1127,9 @@ function getCampaignBriefs(id) {
     .filter(function(r) { return r[0]; })
     .map(_briefRowToObj);
   if (!id) return rows;
+  var _idUpper = String(id).trim().toUpperCase();
   for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i].id) === String(id)) return rows[i];
+    if (String(rows[i].id).trim().toUpperCase() === _idUpper) return rows[i];
   }
   return null;
 }
@@ -1280,7 +1281,8 @@ function getDlRegistry(campaignId) {
     .filter(function(r) { return r[0]; })
     .map(_dlRowToObj);
   if (!campaignId) return rows;
-  return rows.filter(function(r) { return r.campaign_id === campaignId; });
+  var cid = campaignId.toUpperCase();
+  return rows.filter(function(r) { return (r.campaign_id || '').toUpperCase() === cid; });
 }
 
 function patchDLRegistrySchema() {

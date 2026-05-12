@@ -772,9 +772,8 @@ function doPost(e) {
     if(body.action === 'run_drive_export') {
       var _rdeCid = (body.campaign_id || '').trim();
       if (!_rdeCid) return respond({ ok:false, error:'campaign_id required' });
-      var _rdeBriefs = getCampaignBriefs(_rdeCid);
-      if (!_rdeBriefs || !_rdeBriefs.length) return respond({ ok:false, error:'No brief found for campaign: ' + _rdeCid });
-      var _rdeBrief  = _rdeBriefs[0];
+      var _rdeBrief = getCampaignBriefs(_rdeCid);
+      if (!_rdeBrief || !_rdeBrief.id) return respond({ ok:false, error:'No brief found for campaign: ' + _rdeCid });
       var _rdeCopy   = (getGeneratedCopy(_rdeCid) || [])[0] || {};
       var _rdePosts  = getSocialPosts(_rdeCid)    || [];
       var _rdeEmails = getEmailSequences(_rdeCid) || [];
