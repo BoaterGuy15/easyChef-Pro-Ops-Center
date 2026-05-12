@@ -78,7 +78,8 @@ var _CC_HDR = {
     'status','approved','approved_by','built_in_klaviyo','klaviyo_id',
     'funnel_stage','subject_angle','body_theme','role','seq_template_id',
     'design_brief',
-    'lp_section_source','emotional_stage','claim_set','loop_stage','dl_id'
+    'lp_section_source','emotional_stage','claim_set','loop_stage','dl_id',
+    'claude_design_url'
   ],
   CampaignTypes: [
     'id','cta_type','label','cta_text','destination_url','destination_label',
@@ -94,7 +95,8 @@ var _CC_HDR = {
     'id','campaign_id','platform','hook','body_copy','cta','hashtags',
     'image_brief','image_url','scheduled_date','scheduled_time','status','dl_id','utm_url','posted_url',
     'design_brief',
-    'lp_section_source','lp_headline_connection','emotional_state','emotional_destination','loop_stage'
+    'lp_section_source','lp_headline_connection','emotional_state','emotional_destination','loop_stage',
+    'claude_design_url'
   ],
   LandingPages: [
     'id','campaign_id','icp_code','slug','full_url','title_tag','meta_description',
@@ -104,7 +106,7 @@ var _CC_HDR = {
     'tracking_ga4','status','dev_built','qa_passed','pushed_to_production',
     'campaign_type','blueprint_code','icp_codes','theme','publish_day',
     'ab_test_variant','convert_experiment_id','shared_by_campaigns',
-    'last_traffic_date','total_signups'
+    'last_traffic_date','total_signups','claude_design_url'
   ],
   LPInventory: [
     'id','slug','full_url','campaign_type','blueprint_code','icp_codes',
@@ -3047,6 +3049,36 @@ function updateContentCalField(assetId, field, value) {
     return { ok: false, error: 'asset not found: ' + assetId };
   } catch(e) {
     Logger.log('[updateContentCalField] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// saveClaudeDesignUrl — writes a design artifact URL to ContentCalendar.claude_design_url.
+function saveClaudeDesignUrl(assetId, url) {
+  if (!assetId) return { ok: false, error: 'assetId required' };
+  try {
+    var sheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = sheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'ContentCalendar empty' };
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+    var safeColCount = Math.min(headers.length, sheet.getLastColumn());
+    var designCol  = H.claude_design_url + 1;
+    var updatedCol = H.updated_at        + 1;
+    var ids = sheet.getRange(2, H.asset_id + 1, last - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === String(assetId)) {
+        var row = i + 2;
+        if (designCol  <= safeColCount) sheet.getRange(row, designCol).setValue(String(url || ''));
+        if (updatedCol <= safeColCount) sheet.getRange(row, updatedCol).setValue(new Date());
+        Logger.log('[saveClaudeDesignUrl] ' + assetId + ' → ' + url);
+        return { ok: true, asset_id: assetId, url: url };
+      }
+    }
+    return { ok: false, error: 'asset not found: ' + assetId };
+  } catch(e) {
+    Logger.log('[saveClaudeDesignUrl] ERROR: ' + e.message);
     return { ok: false, error: e.message };
   }
 }

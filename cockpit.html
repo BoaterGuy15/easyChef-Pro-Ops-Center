@@ -209,6 +209,9 @@
     .pm-link.ready:hover { background: rgba(10,132,255,0.16); }
     .pm-link.generate { border-color: #8b5cf6; color: #8b5cf6; cursor: pointer; background: rgba(139,92,246,0.08); }
     .pm-link.generate:hover { background: rgba(139,92,246,0.16); }
+    .pm-design-url { display:flex; gap:8px; margin-top:6px; }
+    .pm-design-url input { flex:1; background:#0e0e10; border:1px solid #2a2a2e; border-radius:8px; color:#e0e0e0; font-family:inherit; font-size:11px; padding:6px 10px; height:32px; }
+    .pm-design-url input:focus { outline:none; border-color:#8b5cf6; }
     .pm-link .pm-link-tag { font-size: 8px; color: #333; text-transform: uppercase; letter-spacing: 0.6px; margin-left: 4px; }
     /* Status pickers */
     .pm-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
@@ -847,17 +850,20 @@
         sheetUrl='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid='+SHEET_GID+'&range=A'+p.sheet_row;
       }
       rows+='<div class="pm-section">Linked Assets</div>';
-      var _isVideo=(['tiktok','youtube'].indexOf((p.platform||'').toLowerCase())>-1);
-      var _cdLabel=_isVideo?'Storyboard':'Claude Design';
       var _folderMap={'EC-2026-001':'https://drive.google.com/drive/folders/1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl','EC-2026-002':'https://drive.google.com/drive/folders/1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl'};
       var _driveFolderUrl=_folderMap[p.campaign_id]||DRIVE_FOLDER_URL||null;
+      var _safeId=(p.asset_id||'').replace(/['"]/g,'');
+      var _viewDesignLink=p.claude_design_url?'<a class="pm-link generate" href="'+p.claude_design_url+'" target="_blank">↗ View Design<span class="pm-link-tag">open</span></a>':'';
       rows+='<div class="pm-links">'+
         pmLink('Brief Doc', p.brief_doc_url||null)+
-        pmGenBtn(_cdLabel, p.asset_id, p.claude_design_url||null)+
+        '<button class="pm-link generate" id="pm-copy-btn-'+_safeId+'" onclick="copyDesignBrief(\''+_safeId+'\')">⎘ Copy Design Brief<span class="pm-link-tag">copy</span></button>'+
+        _viewDesignLink+
         pmLink('Figma', p.figma_url||null)+
         pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', _driveFolderUrl)+
       '</div>';
+      rows+='<div class="pm-design-url"><input id="pm-du-input-'+_safeId+'" placeholder="Paste Claude design URL to save…" value="'+(p.claude_design_url||'')+'" /><button class="pm-note-btn" id="pm-du-btn-'+_safeId+'" onclick="saveDesignUrl(\''+_safeId+'\')">Save</button></div>';
+      rows+='<div class="pm-save-msg" id="pm-du-msg-'+_safeId+'" style="margin-top:4px;font-size:10px"></div>';
 
       document.getElementById('pm-body').innerHTML=rows;
       document.getElementById('pm-overlay').className='pm-overlay open';
@@ -873,38 +879,64 @@
         ? '<a class="pm-link ready" href="'+url+'" target="_blank">↗ '+label+tag+'</a>'
         : '<span class="pm-link">↗ '+label+tag+'</span>';
     }
-    function pmGenBtn(label, assetId, url){
-      var safeId=(assetId||'').replace(/['"]/g,'');
-      var tag='<span class="pm-link-tag">'+(url?'open':'new')+'</span>';
-      if(url) return '<a class="pm-link generate" href="'+url+'" target="_blank">↗ '+label+tag+'</a>';
-      return '<button class="pm-link generate" id="pm-cd-btn-'+safeId+'" data-label="'+label+'" onclick="generateClaudeDesign(\''+safeId+'\')">+ '+label+tag+'</button>';
-    }
-    function generateClaudeDesign(assetId){
-      var btn=document.getElementById('pm-cd-btn-'+assetId);
-      var label=(btn&&btn.dataset&&btn.dataset.label)||'Claude Design';
-      if(btn){btn.disabled=true;btn.textContent='⏳ Creating…';}
+    function copyDesignBrief(assetId){
+      var btn=document.getElementById('pm-copy-btn-'+assetId);
+      if(btn){btn.disabled=true;btn.innerHTML='⏳ Building…';}
       google.script.run
         .withSuccessHandler(function(res){
-          if(res&&res.ok&&res.url){
-            window.open(res.url,'_blank');
-            if(POST_REGISTRY[assetId]) POST_REGISTRY[assetId].claude_design_url=res.url;
-            if(btn){
-              var a=document.createElement('a');
-              a.className='pm-link generate';
-              a.href=res.url; a.target='_blank';
-              a.innerHTML='↗ '+label+'<span class="pm-link-tag">open</span>';
-              btn.parentNode.replaceChild(a,btn);
-            }
+          if(res&&res.ok&&res.brief){
+            var text=res.brief;
+            if(navigator.clipboard&&navigator.clipboard.writeText){
+              navigator.clipboard.writeText(text).then(function(){
+                if(btn){btn.disabled=false;btn.innerHTML='✓ Copied!<span class="pm-link-tag">copy</span>';}
+                setTimeout(function(){if(btn){btn.innerHTML='⎘ Copy Design Brief<span class="pm-link-tag">copy</span>';}},2500);
+              }).catch(function(){_fallbackCopy(text,btn);});
+            } else { _fallbackCopy(text,btn); }
           } else {
-            if(btn){btn.disabled=false;btn.textContent='+ '+label;}
+            if(btn){btn.disabled=false;btn.innerHTML='⚠ Error<span class="pm-link-tag">copy</span>';}
             alert('Error: '+((res&&res.error)||'unknown'));
           }
         })
         .withFailureHandler(function(err){
-          if(btn){btn.disabled=false;btn.textContent='+ '+label;}
+          if(btn){btn.disabled=false;btn.innerHTML='⎘ Copy Design Brief<span class="pm-link-tag">copy</span>';}
           alert('Error: '+(err&&err.message?err.message:String(err)));
         })
-        .generateClaudeDesignBrief(assetId);
+        .getPostDesignBrief(assetId);
+    }
+    function _fallbackCopy(text,btn){
+      var ta=document.createElement('textarea');
+      ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try{document.execCommand('copy');}catch(e){}
+      document.body.removeChild(ta);
+      if(btn){btn.disabled=false;btn.innerHTML='✓ Copied!<span class="pm-link-tag">copy</span>';}
+      setTimeout(function(){if(btn){btn.innerHTML='⎘ Copy Design Brief<span class="pm-link-tag">copy</span>';}},2500);
+    }
+    function saveDesignUrl(assetId){
+      var input=document.getElementById('pm-du-input-'+assetId);
+      var btn=document.getElementById('pm-du-btn-'+assetId);
+      var msg=document.getElementById('pm-du-msg-'+assetId);
+      var url=(input&&input.value||'').trim();
+      if(!url){if(msg){msg.style.color='#ff453a';msg.textContent='Paste a URL first.';}return;}
+      if(btn)btn.disabled=true;
+      if(msg){msg.style.color='#666';msg.textContent='Saving…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok){
+            if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].claude_design_url=url;
+            if(msg){msg.style.color='#32d74b';msg.textContent='✓ Design URL saved';}
+            if(btn)btn.disabled=false;
+            setTimeout(function(){openPostModal(assetId);},600);
+          } else {
+            if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+((r&&r.result&&r.result.error)||'unknown');}
+            if(btn)btn.disabled=false;
+          }
+        })
+        .withFailureHandler(function(){
+          if(msg){msg.style.color='#ff453a';msg.textContent='Connection error';}
+          if(btn)btn.disabled=false;
+        })
+        .saveClaudeDesignUrl(assetId, url);
     }
     function _fmtPlatform(p){var m={instagram:'Instagram',tiktok:'TikTok',pinterest:'Pinterest',facebook:'Facebook',email:'Email'};return m[(p||'').toLowerCase()]||p||'—';}
     function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}

@@ -864,3 +864,212 @@ function generateClaudeDesignBrief(assetId) {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Copy-to-Clipboard Design Brief ────────────────────────────────────────────
+// getPostDesignBrief(assetId) — assembles a structured design brief as plain text
+// for clipboard. Called by the cockpit "Copy Design Brief" button.
+
+function getPostDesignBrief(assetId) {
+  if (!assetId) return { ok: false, error: 'assetId required' };
+  try {
+    // ── ContentCalendar row ──────────────────────────────────────────────────
+    var ccSheet  = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var ccLast   = ccSheet.getLastRow();
+    var ccHdrs   = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var CH = {};
+    ccHdrs.forEach(function(h, i) { CH[h] = i; });
+    var ccData = ccSheet.getRange(2, 1, ccLast - 1, Math.min(ccHdrs.length, ccSheet.getLastColumn())).getValues();
+    var ccRow = null;
+    for (var i = 0; i < ccData.length; i++) {
+      if (String(ccData[i][CH.asset_id] || '') === assetId) { ccRow = ccData[i]; break; }
+    }
+    if (!ccRow) return { ok: false, error: 'Asset not found: ' + assetId };
+
+    var platform   = String(ccRow[CH.platform]        || '');
+    var dlId       = String(ccRow[CH.dl_id]           || '');
+    var funnel     = String(ccRow[CH.funnel_stage]    || '');
+    var emotion    = String(ccRow[CH.emotional_stage] || '');
+    var icp        = String(ccRow[CH.icp_target]      || '');
+    var day        = String(ccRow[CH.day]             || '');
+    var week       = String(ccRow[CH.week]            || '');
+    var campaignId = String(ccRow[CH.campaign_id]     || '');
+    var pubDate    = String(ccRow[CH.publish_date]    || '');
+    var postNum    = 0;
+    var nm = assetId.match(/(\d+)$/); if (nm) postNum = parseInt(nm[1]) || 0;
+
+    // ── SocialPosts row ──────────────────────────────────────────────────────
+    var spHook = '', spBody = '', spCta = '', spHashtags = '', spImageBrief = '', spDesignBrief = '';
+    var spEmotionIn = '', spEmotionOut = '', spLpSection = '';
+    try {
+      var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+      var spLast  = spSheet.getLastRow();
+      var spHdrs  = _CC_HDR[_CC_TAB.SOCIAL];
+      var SH = {};
+      spHdrs.forEach(function(h, i) { SH[h] = i; });
+      var spData = spSheet.getRange(2, 1, spLast - 1, spHdrs.length).getValues();
+      for (var j = 0; j < spData.length; j++) {
+        var sr = spData[j];
+        if (String(sr[SH.id] || '') === assetId || (dlId && String(sr[SH.dl_id] || '') === dlId)) {
+          spHook        = String(sr[SH.hook]                 || '');
+          spBody        = String(sr[SH.body_copy]            || '');
+          spCta         = String(sr[SH.cta]                  || '');
+          spHashtags    = String(sr[SH.hashtags]             || '');
+          spImageBrief  = String(sr[SH.image_brief]          || '');
+          spDesignBrief = String(sr[SH.design_brief]         || '');
+          spEmotionIn   = String(sr[SH.emotional_state]      || '');
+          spEmotionOut  = String(sr[SH.emotional_destination]|| '');
+          spLpSection   = String(sr[SH.lp_section_source]    || '');
+          break;
+        }
+      }
+    } catch(se) {}
+
+    // ── ThemeLibrary for ICP ─────────────────────────────────────────────────
+    var themeName = '', themeCategory = '', imageMood = '', emotionalEntry = '', emotionalPayoff = '';
+    try {
+      var themes = getThemeLibrary(icp);
+      if (themes && themes.length) {
+        var th = themes[0];
+        themeName      = String(th.theme_name      || '');
+        themeCategory  = String(th.category        || '');
+        imageMood      = String(th.image_mood_hook || '');
+        emotionalEntry = String(th.emotional_entry || '');
+        emotionalPayoff= String(th.emotional_payoff|| '');
+      }
+    } catch(te) {}
+
+    // ── LP section emotional job from brief spine ────────────────────────────
+    var lpSectionJob = '';
+    try {
+      if (spLpSection && campaignId) {
+        var cbSheet = _getCCSheet(_CC_TAB.BRIEFS);
+        var cbLast  = cbSheet.getLastRow();
+        var cbHdrs  = _CC_HDR.CampaignBriefs;
+        var BH = {};
+        cbHdrs.forEach(function(h, i) { BH[h] = i; });
+        var cbData = cbSheet.getRange(2, 1, cbLast - 1, cbHdrs.length).getValues();
+        for (var k = 0; k < cbData.length; k++) {
+          if (String(cbData[k][0] || '') === campaignId) {
+            var spineJson = String(cbData[k][BH.lp_campaign_spine_json] || '');
+            if (spineJson) {
+              var spine = JSON.parse(spineJson);
+              var sec   = spine[spLpSection] || spine[spLpSection + '_block'] || {};
+              lpSectionJob = String(sec.emotional_job || sec.headline || sec.hook || '');
+            }
+            break;
+          }
+        }
+      }
+    } catch(le) {}
+
+    // ── Approved claims for funnel stage ─────────────────────────────────────
+    var claimsLines = '';
+    try {
+      var scoping   = getCampaignStrategy('CLAIM_SCOPING_001');
+      var secMap    = (scoping && scoping.value && scoping.value.section_claim_map) || {};
+      var allClaims = getApprovedClaims() || [];
+      var permitted = secMap[funnel] || [];
+      if (!permitted.length && funnel === 'agitate') {
+        var ag = {};
+        ['agitate_money','agitate_time','agitate_nutrition'].forEach(function(sub) {
+          (secMap[sub] || []).forEach(function(t) { ag[t] = true; });
+        });
+        permitted = Object.keys(ag);
+      }
+      if (permitted.length) {
+        var claims = allClaims.filter(function(c) { return permitted.indexOf(c.claim_type) > -1; })
+          .map(function(c) { return '  • ' + (c.exact_wording || ''); }).filter(Boolean).slice(0, 4);
+        claimsLines = claims.join('\n');
+      }
+    } catch(ce) {}
+
+    // ── Phone rule ───────────────────────────────────────────────────────────
+    var phoneRuleText = '';
+    try {
+      var pr = checkPhoneRule(postNum, spImageBrief, 'social');
+      if (pr.warning) {
+        phoneRuleText = '⚠ ' + pr.warning;
+      } else if (postNum >= 1 && postNum <= 3) {
+        phoneRuleText = 'Posts 1–3: NO PHONE — problem world only. Phone first appears at post 4.';
+      } else if (postNum === 4) {
+        phoneRuleText = 'Post 4 (Solve): PHONE APPEARS — first reveal. App solving the exact problem from post 3.';
+      } else if (postNum > 4) {
+        phoneRuleText = 'Posts 5+: PHONE VISIBLE — show outcomes, not the interface.';
+      }
+    } catch(pe) {}
+
+    // ── Assemble brief text ──────────────────────────────────────────────────
+    var SEP = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    var L = [];
+    L.push('DESIGN BRIEF — ' + assetId);
+    L.push(platform.toUpperCase() + '  ·  Day ' + day + '  ·  Week ' + week + '  ·  ' + pubDate);
+    L.push(SEP);
+
+    L.push('ASSET');
+    L.push('Campaign:      ' + campaignId);
+    L.push('Platform:      ' + platform);
+    L.push('Funnel Stage:  ' + (funnel  || '—'));
+    L.push('Post #:        ' + (postNum || '—'));
+    if (dlId) L.push('DL ID:         ' + dlId);
+    L.push('');
+
+    L.push('ICP & EMOTIONAL ARC');
+    L.push('ICP:           ' + (icp || '—'));
+    L.push('Entry state:   ' + (spEmotionIn || emotionalEntry || emotion || '—'));
+    L.push('Exit state:    ' + (spEmotionOut || emotionalPayoff || '—'));
+    L.push('');
+
+    if (themeName || themeCategory || imageMood) {
+      L.push('THEME / IMAGE WORLD');
+      if (themeName)     L.push('Theme:         ' + themeName);
+      if (themeCategory) L.push('Category:      ' + themeCategory);
+      if (imageMood)     L.push('Image mood:    ' + imageMood);
+      L.push('');
+    }
+
+    if (spLpSection || lpSectionJob) {
+      L.push('LP SECTION');
+      L.push('Source:        ' + (spLpSection  || '—'));
+      if (lpSectionJob)  L.push('Emotional job: ' + lpSectionJob);
+      L.push('');
+    }
+
+    L.push('COPY');
+    if (spHook)     L.push('Hook:\n' + spHook);
+    if (spBody)     L.push('\nBody:\n' + spBody);
+    if (spCta)      L.push('\nCTA:\n'  + spCta);
+    if (spHashtags) L.push('\nHashtags: ' + spHashtags);
+    L.push('');
+
+    if (phoneRuleText) {
+      L.push('PHONE RULE');
+      L.push(phoneRuleText);
+      L.push('');
+    }
+
+    if (claimsLines) {
+      L.push('APPROVED CLAIMS — exact wording only, never invent numbers');
+      L.push(claimsLines);
+      L.push('');
+    }
+
+    if (spImageBrief) {
+      L.push('IMAGE BRIEF');
+      L.push(spImageBrief);
+      L.push('');
+    }
+
+    if (spDesignBrief) {
+      L.push('DESIGN NOTES');
+      L.push(spDesignBrief);
+      L.push('');
+    }
+
+    var brief = L.join('\n');
+    Logger.log('[getPostDesignBrief] built brief for ' + assetId + ' (' + brief.length + ' chars)');
+    return { ok: true, brief: brief, asset_id: assetId };
+  } catch(e) {
+    Logger.log('[getPostDesignBrief] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

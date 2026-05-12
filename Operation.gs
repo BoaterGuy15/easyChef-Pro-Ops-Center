@@ -827,6 +827,14 @@ function doPost(e) {
       var _cdbResult = generateClaudeDesignBrief(body.asset_id || '');
       return respond({ ok: _cdbResult.ok, result: _cdbResult, log: Logger.getLog() });
     }
+    if(body.action === 'get_post_design_brief') {
+      var _pdbResult = getPostDesignBrief(body.asset_id || '');
+      return respond({ ok: _pdbResult.ok, result: _pdbResult, log: Logger.getLog() });
+    }
+    if(body.action === 'save_claude_design_url') {
+      var _sduResult = saveClaudeDesignUrl(body.asset_id || '', body.url || '');
+      return respond({ ok: _sduResult.ok, result: _sduResult, log: Logger.getLog() });
+    }
     if(body.action === 'ensure_content_cal_columns') {
       return respond(ensureContentCalColumns());
     }
