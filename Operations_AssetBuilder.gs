@@ -1131,6 +1131,92 @@ function getMasterSystemPrompt(type, context) {
   return _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl, angle, claims, governance);
 }
 
+// ── getPromptPreviewForPost ───────────────────────────────────────────────────
+// Diagnostic: returns the exact system prompt that would be sent to Claude API
+// for a given SocialPosts row, without calling the API.
+// post_id: e.g. 'ec001-sp-001'
+// prompt_type: optional override — defaults to 'social_post'
+function getPromptPreviewForPost(postId, promptType) {
+  try {
+    // 1. Find the SocialPosts row
+    var ss      = _getCampaignSpreadsheet();
+    var spSheet = ss.getSheetByName(_CC_TAB.SOCIAL);
+    if (!spSheet) return { ok: false, error: 'SocialPosts tab not found' };
+    var spHdrs = _CC_HDR.SocialPosts;
+    var spH = {};
+    spHdrs.forEach(function(h, i) { spH[h] = i; });
+    var spLast = spSheet.getLastRow();
+    var postRow = null;
+    if (spLast >= 2) {
+      var spRows = spSheet.getRange(2, 1, spLast - 1, spHdrs.length).getValues();
+      for (var i = 0; i < spRows.length; i++) {
+        if (String(spRows[i][spH['id']] || '') === postId) { postRow = spRows[i]; break; }
+      }
+    }
+    if (!postRow) return { ok: false, error: 'Post not found: ' + postId };
+
+    var campaignId = String(postRow[spH['campaign_id']] || 'EC-2026-001');
+    var platform   = String(postRow[spH['platform']] || 'Instagram');
+    var dlId       = String(postRow[spH['dl_id']] || '');
+    var designBriefRaw = String(postRow[spH['design_brief']] || '{}');
+    var designBrief = {};
+    try { designBrief = JSON.parse(designBriefRaw); } catch(ep) {}
+
+    // 2. Get campaign brief from sheet
+    var brief = getCampaignBriefs(campaignId) || {};
+
+    // 3. Get theme row
+    var themeId  = brief.theme || designBrief.theme || 'invisible-leak';
+    var themeRow = _getThemeRow(themeId);
+
+    // 4. Build the context exactly as buildSocialPosts would
+    var briefForCtx = {
+      icp:             brief.icp_code         || designBrief.icp_a || 'super_mom_money',
+      theme:           themeId,
+      themeData:       themeRow,
+      campaign_angle:  brief.campaign_angle   || designBrief.campaign_angle || 'savings',
+      urgency_trigger: brief.urgency_trigger  || 'First 5,000 families lock in $7.99/month forever',
+      blueprint:       brief.blueprint        || 'Waitlist',
+      slug:            brief.lp_slug_a        || 'waitlist'
+    };
+    var ctx = _buildBriefStoryCtx(briefForCtx);
+    ctx.platform     = platform;
+    ctx.stage        = designBrief.funnel_stage || '';
+    ctx.icp_code     = briefForCtx.icp;
+
+    var type = promptType || 'social_post';
+
+    var promptStr = getMasterSystemPrompt(type, ctx);
+
+    // 5. Also show what the user message would be (not AI-generated — just the template)
+    var lpUrl = 'https://easychefpro.com/' + (briefForCtx.slug || 'waitlist');
+    var userMsg = 'Generate 7 social posts for ' + platform + ' for campaign ' + campaignId +
+      '. Return only a JSON object with a "posts" array. Each post: ' +
+      '{ post_num, funnel_stage, hook, body, cta, url }. LP URL: ' + lpUrl;
+
+    Logger.log('[getPromptPreviewForPost] post_id=' + postId + ' type=' + type +
+      ' icp=' + ctx.icp_code + ' theme=' + themeId + ' stage=' + ctx.stage);
+
+    return {
+      ok:            true,
+      post_id:       postId,
+      campaign_id:   campaignId,
+      platform:      platform,
+      prompt_type:   type,
+      icp_code:      ctx.icp_code,
+      theme:         themeId,
+      funnel_stage:  ctx.stage,
+      design_brief:  designBrief,
+      system_prompt: promptStr,
+      user_message:  userMsg,
+      prompt_chars:  promptStr.length
+    };
+  } catch(e) {
+    Logger.log('[getPromptPreviewForPost] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Design brief system prompts — art direction for Figma designer ────────────
 function _buildDesignBriefPrompt(type, ctx, icp, theme, govPhoneRule, govBrandRules) {
   var _icpName   = (icp  && (icp.name  || icp.id))  || (ctx.icp_code || ctx.icp || '');
