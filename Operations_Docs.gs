@@ -680,3 +680,187 @@ function generateContentCalBriefDocs(campaignId) {
     return { ok: false, error: e.message };
   }
 }
+
+// ── Claude Design / Storyboard Briefs ─────────────────────────────────────────
+// generateClaudeDesignBrief(assetId)
+// Creates a Google Doc design brief (or storyboard for TikTok/YouTube) from
+// ContentCalendar + SocialPosts data. Writes URL back to claude_design_url column.
+// Returns { ok, url, asset_id } — or { ok, url, skipped:true } if URL already exists.
+
+function generateClaudeDesignBrief(assetId) {
+  if (!assetId) return { ok: false, error: 'assetId required' };
+  try {
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = ccSheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'ContentCalendar empty' };
+
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, idx) { H[h] = idx; });
+    var colCount = Math.min(headers.length, ccSheet.getLastColumn());
+    var data = ccSheet.getRange(2, 1, last - 1, colCount).getValues();
+
+    var ccRow = null, ccRowIndex = -1;
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][H.asset_id] || '') === assetId) { ccRow = data[i]; ccRowIndex = i; break; }
+    }
+    if (!ccRow) return { ok: false, error: 'Asset not found: ' + assetId };
+
+    var existing = String((H.claude_design_url !== undefined ? ccRow[H.claude_design_url] : '') || '');
+    if (existing) return { ok: true, url: existing, asset_id: assetId, skipped: true };
+
+    var platform   = String(ccRow[H.platform]        || '');
+    var dlId       = String(ccRow[H.dl_id]           || '');
+    var funnel     = String(ccRow[H.funnel_stage]    || '');
+    var emotion    = String(ccRow[H.emotional_stage] || '');
+    var icp        = String(ccRow[H.icp_target]      || '');
+    var pubDate    = String(ccRow[H.publish_date]    || '');
+    var pubTime    = String(ccRow[H.publish_time]    || '');
+    var day        = String(ccRow[H.day]             || '');
+    var week       = String(ccRow[H.week]            || '');
+    var campaignId = String(ccRow[H.campaign_id]     || '');
+
+    // Look up SocialPosts row (join on id = assetId OR dl_id = dlId)
+    var spHook = '', spBody = '', spCta = '', spImageBrief = '', spDesignBrief = '';
+    var spHashtags = '', spLoopStage = '', spEmotionIn = '', spEmotionOut = '', spLpSection = '';
+    try {
+      var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+      var spLast  = spSheet.getLastRow();
+      if (spLast >= 2) {
+        var spHdrs = _CC_HDR[_CC_TAB.SOCIAL];
+        var SH = {};
+        spHdrs.forEach(function(h, idx) { SH[h] = idx; });
+        var spData = spSheet.getRange(2, 1, spLast - 1, spHdrs.length).getValues();
+        for (var j = 0; j < spData.length; j++) {
+          var sr = spData[j];
+          var spId  = String(sr[SH.id]    || '');
+          var spDl  = String(sr[SH.dl_id] || '');
+          if (spId === assetId || (dlId && spDl === dlId)) {
+            spHook        = String(sr[SH.hook]                 || '');
+            spBody        = String(sr[SH.body_copy]            || '');
+            spCta         = String(sr[SH.cta]                  || '');
+            spImageBrief  = String(sr[SH.image_brief]          || '');
+            spDesignBrief = String(sr[SH.design_brief]         || '');
+            spHashtags    = String(sr[SH.hashtags]             || '');
+            spLoopStage   = String(sr[SH.loop_stage]           || '');
+            spEmotionIn   = String(sr[SH.emotional_state]      || '');
+            spEmotionOut  = String(sr[SH.emotional_destination] || '');
+            spLpSection   = String(sr[SH.lp_section_source]    || '');
+            break;
+          }
+        }
+      }
+    } catch(se) { Logger.log('[generateClaudeDesignBrief] spSheet error: ' + se.message); }
+
+    // Approved claims for funnel stage
+    var claimsText = '';
+    try {
+      var scoping   = getCampaignStrategy('CLAIM_SCOPING_001');
+      var secMap    = (scoping && scoping.value && scoping.value.section_claim_map) || {};
+      var allClaims = getApprovedClaims() || [];
+      var permitted = secMap[funnel] || [];
+      if (!permitted.length && funnel === 'agitate') {
+        var ag = {};
+        ['agitate_money','agitate_time','agitate_nutrition'].forEach(function(sub) {
+          (secMap[sub] || []).forEach(function(t) { ag[t] = true; });
+        });
+        permitted = Object.keys(ag);
+      }
+      if (permitted.length) {
+        var claims = allClaims.filter(function(c) { return permitted.indexOf(c.claim_type) > -1; })
+          .map(function(c) { return c.exact_wording; }).filter(Boolean).slice(0, 4);
+        if (claims.length) claimsText = claims.join('\n');
+      }
+    } catch(ce) { Logger.log('[generateClaudeDesignBrief] claims error: ' + ce.message); }
+
+    var isVideo  = (['tiktok','youtube'].indexOf(platform.toLowerCase()) > -1);
+    var docTitle = (isVideo ? 'Storyboard' : 'Design Brief') + ' — ' + assetId + ' — ' + platform;
+    var doc      = DocumentApp.create(docTitle);
+    var body     = doc.getBody();
+    var H1       = DocumentApp.ParagraphHeading.HEADING1;
+    var H2       = DocumentApp.ParagraphHeading.HEADING2;
+
+    body.appendParagraph((isVideo ? 'STORYBOARD BRIEF' : 'CLAUDE DESIGN BRIEF') + ' — ' + assetId).setHeading(H1);
+    body.appendParagraph('Campaign: ' + campaignId + '   ·   Platform: ' + platform + '   ·   Day ' + day + '  ·  Week ' + week);
+    body.appendParagraph(' ');
+
+    body.appendParagraph('Asset Context').setHeading(H2);
+    body.appendParagraph('Asset ID:        ' + assetId);
+    body.appendParagraph('DL ID:           ' + dlId);
+    body.appendParagraph('Funnel Stage:    ' + (funnel      || '—'));
+    body.appendParagraph('Emotional Arc:   ' + (spEmotionIn || emotion || '—') + ' → ' + (spEmotionOut || '—'));
+    body.appendParagraph('ICP Target:      ' + (icp         || '—'));
+    body.appendParagraph('LP Section:      ' + (spLpSection || '—'));
+    body.appendParagraph('Loop Stage:      ' + (spLoopStage || '—'));
+    body.appendParagraph('Publish:         ' + pubDate + (pubTime ? '  ' + pubTime : ''));
+    body.appendParagraph(' ');
+
+    if (spHook || spBody || spCta) {
+      body.appendParagraph('Copy').setHeading(H2);
+      if (spHook)     body.appendParagraph('Hook:\n'       + spHook);
+      if (spBody)     body.appendParagraph('Body Copy:\n'  + spBody);
+      if (spCta)      body.appendParagraph('CTA:\n'        + spCta);
+      if (spHashtags) body.appendParagraph('Hashtags:\n'   + spHashtags);
+      body.appendParagraph(' ');
+    }
+
+    if (isVideo) {
+      body.appendParagraph('Storyboard').setHeading(H2);
+      body.appendParagraph('Hook Engineering (0–3 sec): pattern interrupt · immediate relevance · no preamble');
+      body.appendParagraph(' ');
+      body.appendParagraph('Scene 1 — Hook (0–3s):\n  Visual: \n  VO: ' + (spHook || '[derive from hook above]'));
+      body.appendParagraph('Scene 2 — Problem (3–8s):\n  Visual: \n  VO: ');
+      body.appendParagraph('Scene 3 — Solve (8–18s):\n  Visual: \n  VO: ');
+      body.appendParagraph('Scene 4 — CTA (18–25s):\n  Visual: \n  VO: ' + (spCta || '[CTA]'));
+      body.appendParagraph(' ');
+      body.appendParagraph('Shot List').setHeading(H2);
+      body.appendParagraph('Shot 1: \nShot 2: \nShot 3: \nShot 4: ');
+    } else {
+      body.appendParagraph('Visual Direction').setHeading(H2);
+      if (spImageBrief)  body.appendParagraph('Image Brief:\n'  + spImageBrief);
+      if (spDesignBrief) body.appendParagraph('Design Brief:\n' + spDesignBrief);
+      body.appendParagraph(' ');
+      body.appendParagraph('Brand Specs').setHeading(H2);
+      body.appendParagraph('Primary:   #1A1A2E  (deep navy)');
+      body.appendParagraph('Accent:    #E8C547  (warm gold)');
+      body.appendParagraph('CTA Red:   #FF4444');
+      body.appendParagraph('Font:      Inter — H1 32px bold · Body 16px regular');
+    }
+
+    if (claimsText) {
+      body.appendParagraph(' ');
+      body.appendParagraph('Approved Claims — exact wording only, never invent numbers').setHeading(H2);
+      body.appendParagraph(claimsText);
+    }
+
+    body.appendParagraph(' ');
+    body.appendParagraph('Workflow').setHeading(H2);
+    body.appendParagraph(isVideo
+      ? 'Storyboard → Shot System → Editor / Veo / CapCut → Publish'
+      : 'Claude Design → Figma → Astro Deploy → Publish');
+
+    doc.saveAndClose();
+    var docUrl = 'https://docs.google.com/document/d/' + doc.getId() + '/edit';
+
+    // Move to campaign Drive folder
+    try {
+      var campaignFolderIds = { 'EC-2026-001': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl' };
+      var fId = campaignFolderIds[campaignId] || '';
+      if (fId) {
+        var dFile = DriveApp.getFileById(doc.getId());
+        DriveApp.getFolderById(fId).addFile(dFile);
+        DriveApp.getRootFolder().removeFile(dFile);
+      }
+    } catch(me) {}
+
+    // Write URL back to claude_design_url column
+    var designCol = headers.indexOf('claude_design_url') + 1;
+    if (designCol > 0) ccSheet.getRange(ccRowIndex + 2, designCol).setValue(docUrl);
+
+    Logger.log('[generateClaudeDesignBrief] ' + assetId + ' → ' + docUrl);
+    return { ok: true, url: docUrl, asset_id: assetId };
+  } catch(e) {
+    Logger.log('[generateClaudeDesignBrief] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

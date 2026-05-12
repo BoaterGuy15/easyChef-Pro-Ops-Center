@@ -2584,7 +2584,8 @@ function getCampaignCalendar(campaignId) {
       var pubTime     = String(r[H.publish_time]    || '');
       var day         = Number(r[H.day]             || 0);
       var week        = Number(r[H.week]            || 0);
-      var briefDocUrl = String(r[H.brief_doc_url]   || '') || (dlId ? (spMap[dlId] || '') : '');
+      var briefDocUrl     = String(r[H.brief_doc_url]     || '') || (dlId ? (spMap[dlId] || '') : '');
+      var claudeDesignUrl = String(r[H.claude_design_url] || '');
       var blockedReason = _computeBlockedReason(r, H);
       var isBlocked = !!(blockedReason && blockedReason !== 'in production');
 
@@ -2596,7 +2597,7 @@ function getCampaignCalendar(campaignId) {
         status: status, creative_status: creative, approval_status: approval,
         emotional_stage: emotion, funnel_stage: funnel, publish_time: pubTime,
         blocked: isBlocked, blocked_reason: blockedReason,
-        figma_url: figmaUrl, brief_doc_url: briefDocUrl,
+        figma_url: figmaUrl, brief_doc_url: briefDocUrl, claude_design_url: claudeDesignUrl,
         notes: notes, sheet_row: sheetRow
       });
       days[dateKey].total++;

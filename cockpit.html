@@ -207,6 +207,8 @@
     .pm-link { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border-radius: 8px; border: 1px solid #2a2a2e; background: #0e0e10; font-size: 11px; font-weight: 600; font-family: inherit; cursor: default; color: #444; text-decoration: none; transition: all 0.12s; }
     .pm-link.ready { border-color: #0a84ff; color: #0a84ff; cursor: pointer; background: rgba(10,132,255,0.08); }
     .pm-link.ready:hover { background: rgba(10,132,255,0.16); }
+    .pm-link.generate { border-color: #8b5cf6; color: #8b5cf6; cursor: pointer; background: rgba(139,92,246,0.08); }
+    .pm-link.generate:hover { background: rgba(139,92,246,0.16); }
     .pm-link .pm-link-tag { font-size: 8px; color: #333; text-transform: uppercase; letter-spacing: 0.6px; margin-left: 4px; }
     /* Status pickers */
     .pm-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
@@ -405,7 +407,7 @@
       Object.keys(calData.days).forEach(function(dk){
         var day=calData.days[dk];
         day.posts.forEach(function(p){
-          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',dl_id:p.dl_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,figma_url:p.figma_url||'',brief_doc_url:p.brief_doc_url||'',notes:p.notes||'',date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
+          var post={asset_id:p.asset_id,calendar_id:p.calendar_id||'',dl_id:p.dl_id||'',platform:p.platform,status:p.status,creative_status:p.creative_status,approval_status:p.approval_status,emotional_stage:p.emotional_stage,funnel_stage:p.funnel_stage,publish_time:p.publish_time||'',blocked:p.blocked,blocked_reason:p.blocked_reason,figma_url:p.figma_url||'',brief_doc_url:p.brief_doc_url||'',claude_design_url:p.claude_design_url||'',notes:p.notes||'',date:dk,day:day.day,week:day.week,sheet_row:p.sheet_row||0};
           posts.push(post);
           POST_REGISTRY[p.asset_id]=post;
         });
@@ -845,11 +847,14 @@
         sheetUrl='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid='+SHEET_GID+'&range=A'+p.sheet_row;
       }
       rows+='<div class="pm-section">Linked Assets</div>';
+      var _isVideo=(['tiktok','youtube'].indexOf((p.platform||'').toLowerCase())>-1);
+      var _cdLabel=_isVideo?'Storyboard':'Claude Design';
       rows+='<div class="pm-links">'+
+        pmLink('Brief Doc', p.brief_doc_url||null)+
+        pmGenBtn(_cdLabel, p.asset_id, p.claude_design_url||null)+
         pmLink('Figma', p.figma_url||null)+
         pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', DRIVE_FOLDER_URL||null)+
-        pmLink('Brief Doc', p.brief_doc_url||null)+
       '</div>';
 
       document.getElementById('pm-body').innerHTML=rows;
@@ -865,6 +870,39 @@
       return ready
         ? '<a class="pm-link ready" href="'+url+'" target="_blank">↗ '+label+tag+'</a>'
         : '<span class="pm-link">↗ '+label+tag+'</span>';
+    }
+    function pmGenBtn(label, assetId, url){
+      var safeId=(assetId||'').replace(/['"]/g,'');
+      var tag='<span class="pm-link-tag">'+(url?'open':'new')+'</span>';
+      if(url) return '<a class="pm-link generate" href="'+url+'" target="_blank">↗ '+label+tag+'</a>';
+      return '<button class="pm-link generate" id="pm-cd-btn-'+safeId+'" data-label="'+label+'" onclick="generateClaudeDesign(\''+safeId+'\')">+ '+label+tag+'</button>';
+    }
+    function generateClaudeDesign(assetId){
+      var btn=document.getElementById('pm-cd-btn-'+assetId);
+      var label=(btn&&btn.dataset&&btn.dataset.label)||'Claude Design';
+      if(btn){btn.disabled=true;btn.textContent='⏳ Creating…';}
+      google.script.run
+        .withSuccessHandler(function(res){
+          if(res&&res.ok&&res.url){
+            window.open(res.url,'_blank');
+            if(POST_REGISTRY[assetId]) POST_REGISTRY[assetId].claude_design_url=res.url;
+            if(btn){
+              var a=document.createElement('a');
+              a.className='pm-link generate';
+              a.href=res.url; a.target='_blank';
+              a.innerHTML='↗ '+label+'<span class="pm-link-tag">open</span>';
+              btn.parentNode.replaceChild(a,btn);
+            }
+          } else {
+            if(btn){btn.disabled=false;btn.textContent='+ '+label;}
+            alert('Error: '+((res&&res.error)||'unknown'));
+          }
+        })
+        .withFailureHandler(function(err){
+          if(btn){btn.disabled=false;btn.textContent='+ '+label;}
+          alert('Error: '+(err&&err.message?err.message:String(err)));
+        })
+        .generateClaudeDesignBrief(assetId);
     }
     function _fmtPlatform(p){var m={instagram:'Instagram',tiktok:'TikTok',pinterest:'Pinterest',facebook:'Facebook',email:'Email'};return m[(p||'').toLowerCase()]||p||'—';}
     function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}
