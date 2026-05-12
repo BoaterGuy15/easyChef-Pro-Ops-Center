@@ -893,12 +893,12 @@
       if(msg){msg.style.color='#666';msg.textContent='Calling Claude API — usually 15–30 sec…';}
       google.script.run
         .withSuccessHandler(function(r){
-          if(r&&r.ok&&r.result&&r.result.url){
-            if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].claude_design_url=r.result.url;
+          if(r&&r.ok&&r.url){
+            if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].claude_design_url=r.url;
             if(msg){msg.style.color='#32d74b';msg.textContent='✓ Design generated';}
             setTimeout(function(){openPostModal(assetId);},600);
           } else {
-            var errMsg=(r&&r.result&&r.result.error)||'unknown error';
+            var errMsg=(r&&r.error)||'unknown error';
             if(btn){btn.disabled=false;btn.innerHTML='✦ Generate Design<span class="pm-link-tag">ai</span>';}
             if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+errMsg;}
           }
