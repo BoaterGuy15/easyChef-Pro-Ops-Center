@@ -324,6 +324,16 @@ function doGet(e) {
       try { var _rf=DriveApp.getFileById(e.parameter.fileId||''); return respond({ok:true,name:_rf.getName(),text:_rf.getBlob().getDataAsString()}); }
       catch(err){ return respond({ok:false,error:err.message}); }
     }
+    if(e.parameter.action === 'view_design') {
+      var _vdId = e.parameter.file_id || '';
+      if (!_vdId) return HtmlService.createHtmlOutput('<body style="font:14px sans-serif;padding:40px;background:#0c0c0e;color:#f0f0f0">No file_id provided.</body>');
+      try {
+        var _vdHtml = DriveApp.getFileById(_vdId).getBlob().getDataAsString();
+        return HtmlService.createHtmlOutput(_vdHtml).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+      } catch(_vdErr) {
+        return HtmlService.createHtmlOutput('<body style="font:14px sans-serif;padding:40px;background:#0c0c0e;color:#f0f0f0">Error: ' + _vdErr.message + '</body>');
+      }
+    }
     if(e.parameter.code) return doGetSlackOAuth(e);
     if(e.parameter.action === 'anthropic') return callAnthropic({ prompt: e.parameter.prompt||'', system: e.parameter.system||'' });
     if(e.parameter.action === 'budget_read') return respond({ ok: true, history: getBudgetHistory() });

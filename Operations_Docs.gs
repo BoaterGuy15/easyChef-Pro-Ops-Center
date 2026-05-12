@@ -1383,7 +1383,12 @@ function generateDesignForAsset(assetId) {
     }
     if (!file) { file = folder.createFile(fileName, html, MimeType.HTML); }
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    var fileUrl = 'https://drive.google.com/file/d/' + file.getId() + '/view';
+    // Serve via GAS doGet so the HTML renders — Drive shows source, GAS renders
+    var _gasBase = '';
+    try { _gasBase = ScriptApp.getService().getUrl(); } catch(_su) {}
+    var fileUrl = _gasBase
+      ? _gasBase + '?action=view_design&file_id=' + file.getId()
+      : 'https://drive.google.com/file/d/' + file.getId() + '/view';
 
     // ── 11. Write URL back to ContentCalendar ─────────────────────────────────
     var safeCC2   = Math.min(ccHdrs.length, ccSheet.getLastColumn());
