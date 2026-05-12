@@ -1256,6 +1256,10 @@ function doPost(e) {
       var _fd = getCockpitFilterDefs();
       return respond({ ok:_fd.ok, result:_fd, log: Logger.getLog() });
     }
+    if(body.action === 'upsert_figma_text_fields') {
+      var _utf = upsertFigmaTextFields();
+      return respond({ ok:_utf.ok, result:_utf, log: Logger.getLog() });
+    }
 
     // ── Generated Copy ────────────────────────────────────────────────────────────
     if(body.action === 'generated_copy_read')    return respond({ ok:true, copy: getGeneratedCopy(body.campaign_id||'') });

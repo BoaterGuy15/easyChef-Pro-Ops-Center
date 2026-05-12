@@ -17,8 +17,13 @@ var _FE_TAB_NAME = 'FigmaExport';
 // Reads FIGMA / FIGMA_TEXT_FIELDS_001 from CcSettings.
 // Auto-seeds the row on first call if missing.
 function _getFigmaTextFields() {
-  var defaults = ['hook_a','hook_b','caption_opening','cta','scene_direction','dl_id','utm_url',
-                  'subject_line','preview_text','opening_hook','audio_direction','what_not_to_show'];
+  var defaults = [
+    'hook_a','hook_b','caption_opening','cta','scene_direction','dl_id','utm_url',
+    'subject_line','preview_text','opening_hook','audio_direction','what_not_to_show',
+    'scene_sq_1','scene_sq_2','scene_sq_3','scene_sq_4','scene_sq_5','scene_sq_6',
+    'story_arc_1','story_arc_2','story_arc_3','story_arc_4',
+    'header_image_direction'
+  ];
   try {
     var sheet = _getCampaignSpreadsheet().getSheetByName('CcSettings');
     if (!sheet) return defaults;
@@ -42,6 +47,33 @@ function _getFigmaTextFields() {
   } catch(e) {
     Logger.log('[_getFigmaTextFields] ' + e.message);
     return defaults;
+  }
+}
+
+// ── upsertFigmaTextFields ─────────────────────────────────────────────────────
+// Writes or updates FIGMA_TEXT_FIELDS_001 in CcSettings with the full field list.
+function upsertFigmaTextFields() {
+  try {
+    var fields = _getFigmaTextFields(); // always returns the canonical list
+    var sheet = _getCampaignSpreadsheet().getSheetByName('CcSettings');
+    if (!sheet) return { ok: false, error: 'CcSettings not found' };
+    var last = sheet.getLastRow();
+    if (last >= 2) {
+      var rows = sheet.getRange(2, 1, last - 1, 5).getValues();
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]).toUpperCase() === 'FIGMA' && String(rows[i][1]) === 'FIGMA_TEXT_FIELDS_001') {
+          sheet.getRange(i + 2, 4).setValue(JSON.stringify(fields)); // update extra column
+          try { CacheService.getScriptCache().remove('cc_settings_v1'); } catch(ec) {}
+          return { ok: true, status: 'updated', field_count: fields.length, fields: fields };
+        }
+      }
+    }
+    // Not found — insert
+    sheet.appendRow(['FIGMA', 'FIGMA_TEXT_FIELDS_001', 'Figma text layer field names', JSON.stringify(fields), true]);
+    try { CacheService.getScriptCache().remove('cc_settings_v1'); } catch(ec) {}
+    return { ok: true, status: 'inserted', field_count: fields.length, fields: fields };
+  } catch(e) {
+    return { ok: false, error: e.message };
   }
 }
 
