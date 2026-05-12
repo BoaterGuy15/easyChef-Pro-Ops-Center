@@ -302,6 +302,21 @@ var _EMOTIONAL_ARC_COPY =
  * Builds a story context object from a brief, picking up all theme-injected fields
  * the frontend adds via _ccExtendBriefWithTheme().
  */
+// ── _resolveIcpCode ───────────────────────────────────────────────────────────
+// Resolves a single ICP code from a potentially compound value (e.g. 'icp_a|icp_b').
+// Uses context.lp_variant ('a'/'b') when available; falls back to post_number parity.
+// Odd post → part[0] (ICP-A, money angle); even post → part[1] (ICP-B, time angle).
+function _resolveIcpCode(icpCode, ctx) {
+  if (!icpCode) return '';
+  if (icpCode.indexOf('|') === -1) return icpCode;
+  var parts   = icpCode.split('|');
+  var variant = String((ctx && ctx.lp_variant) || '').toLowerCase();
+  if (variant === 'a') return parts[0];
+  if (variant === 'b') return parts[1] || parts[0];
+  var num = parseInt((ctx && (ctx.post_number || ctx.day)) || 1);
+  return (num % 2 === 1) ? parts[0] : (parts[1] || parts[0]);
+}
+
 function _buildBriefStoryCtx(brief) {
   var t = brief.themeData || {};
   return {
@@ -322,7 +337,9 @@ function _buildBriefStoryCtx(brief) {
     urgency_trigger:  t.urgency_trigger      || brief.urgency_trigger  || '',
     image_mood_hook:  t.image_mood_hook      || '',
     image_mood_cta:   t.image_mood_cta       || '',
-    blueprint:        brief.blueprint        || ''
+    blueprint:        brief.blueprint        || '',
+    lp_variant:       brief.lp_variant       || '',
+    lp_slug:          brief.lp_slug          || brief.slug             || ''
   };
 }
 
@@ -1094,11 +1111,13 @@ function getMasterSystemPrompt(type, context) {
     return _buildStoryContextBlock(context) + _vb;
   }
 
-  var icp       = _getIcpRow(context.icp_code || context.icp || '');
-  var theme     = _getThemeRow(context.theme_id || context.theme || '');
+  // Resolve per-post ICP — handles compound codes like 'super_mom_money|super_mom_time'
+  var _rawIcpCode = context.icp_code || context.icp || '';
+  var _icpCode    = _resolveIcpCode(_rawIcpCode, context);
+  var icp         = _getIcpRow(_icpCode);
+  var theme       = _getThemeRow(context.theme_id || context.theme || '');
 
   // Compile governance blocks from tabs (fall back to hardcoded constants if tabs unavailable)
-  var _icpCode = context.icp_code || context.icp || '';
   var governance = {
     claimQuality:    _compileClaimQualityBlock(),
     brandPosition:   _compileBrandPositionBlock(),
@@ -1165,24 +1184,76 @@ function getPromptPreviewForPost(postId, promptType) {
     // 2. Get campaign brief from sheet
     var brief = getCampaignBriefs(campaignId) || {};
 
-    // 3. Get theme row
+    // 3. Look up DL registry for per-post icp_code + lp_variant (most precise source)
+    var dlIcpCode  = '';
+    var dlVariant  = '';
+    if (dlId) {
+      try {
+        var dlSheet = ss.getSheetByName(_CC_TAB.DL);
+        if (dlSheet) {
+          var dlHdrs = _CC_HDR.DeepLinkRegistry;
+          var dlH = {};
+          dlHdrs.forEach(function(h, i) { dlH[h] = i; });
+          var dlLast = dlSheet.getLastRow();
+          if (dlLast >= 2) {
+            var dlRows = dlSheet.getRange(2, 1, dlLast - 1, dlHdrs.length).getValues();
+            for (var di = 0; di < dlRows.length; di++) {
+              if (String(dlRows[di][dlH['dl_id']] || '') === dlId) {
+                dlIcpCode = String(dlRows[di][dlH['icp_code']]  || '');
+                dlVariant = String(dlRows[di][dlH['lp_variant']] || '');
+                break;
+              }
+            }
+          }
+        }
+      } catch(dlErr) { Logger.log('[getPromptPreviewForPost] DL lookup: ' + dlErr.message); }
+    }
+
+    // 4. Resolve per-post ICP — design_brief.icp_a/icp_b keyed by lp_variant is most specific;
+    //    DL registry icp_code may be generic (campaign-level); design_brief has per-variant codes.
+    var resolvedIcp;
+    if (dlVariant === 'a' && designBrief.icp_a) {
+      resolvedIcp = designBrief.icp_a;
+    } else if (dlVariant === 'b' && designBrief.icp_b) {
+      resolvedIcp = designBrief.icp_b;
+    } else if (dlIcpCode && dlIcpCode.indexOf('_money') > -1 || dlIcpCode && dlIcpCode.indexOf('_time') > -1 || dlIcpCode && dlIcpCode.indexOf('budget') > -1) {
+      // DL registry has a specific (non-generic) code — trust it
+      resolvedIcp = dlIcpCode;
+    } else {
+      // Fall back: day-parity pick from design_brief, then campaign brief
+      var _dayNum = parseInt(designBrief.day || 1);
+      resolvedIcp = (_dayNum % 2 === 1 ? designBrief.icp_a : designBrief.icp_b)
+                    || designBrief.icp_a
+                    || brief.icp_code
+                    || 'super_mom_money';
+    }
+    var resolvedVariant = dlVariant || (designBrief.day && designBrief.day % 2 === 1 ? 'a' : 'b');
+    var resolvedSlug    = (resolvedVariant === 'a')
+      ? (brief.lp_slug_a || 'waitlist-a')
+      : (brief.lp_slug_b || 'waitlist-b');
+
+    // 5. Get theme row
     var themeId  = brief.theme || designBrief.theme || 'invisible-leak';
     var themeRow = _getThemeRow(themeId);
 
-    // 4. Build the context exactly as buildSocialPosts would
+    // 6. Build context with per-post ICP and LP variant
     var briefForCtx = {
-      icp:             brief.icp_code         || designBrief.icp_a || 'super_mom_money',
+      icp:             resolvedIcp,
       theme:           themeId,
       themeData:       themeRow,
       campaign_angle:  brief.campaign_angle   || designBrief.campaign_angle || 'savings',
       urgency_trigger: brief.urgency_trigger  || 'First 5,000 families lock in $7.99/month forever',
       blueprint:       brief.blueprint        || 'Waitlist',
-      slug:            brief.lp_slug_a        || 'waitlist'
+      slug:            resolvedSlug,
+      lp_variant:      resolvedVariant,
+      lp_slug:         resolvedSlug
     };
     var ctx = _buildBriefStoryCtx(briefForCtx);
-    ctx.platform     = platform;
-    ctx.stage        = designBrief.funnel_stage || '';
-    ctx.icp_code     = briefForCtx.icp;
+    ctx.platform    = platform;
+    ctx.stage       = designBrief.funnel_stage || '';
+    ctx.post_number = designBrief.day          || 1;
+    ctx.icp_code    = resolvedIcp;
+    ctx.lp_variant  = resolvedVariant;
 
     var type = promptType || 'social_post';
 
@@ -1195,7 +1266,7 @@ function getPromptPreviewForPost(postId, promptType) {
       '{ post_num, funnel_stage, hook, body, cta, url }. LP URL: ' + lpUrl;
 
     Logger.log('[getPromptPreviewForPost] post_id=' + postId + ' type=' + type +
-      ' icp=' + ctx.icp_code + ' theme=' + themeId + ' stage=' + ctx.stage);
+      ' icp=' + ctx.icp_code + ' lp_variant=' + ctx.lp_variant + ' theme=' + themeId + ' stage=' + ctx.stage);
 
     return {
       ok:            true,
@@ -1204,6 +1275,9 @@ function getPromptPreviewForPost(postId, promptType) {
       platform:      platform,
       prompt_type:   type,
       icp_code:      ctx.icp_code,
+      icp_source:    dlIcpCode ? 'dl_registry' : 'design_brief',
+      lp_variant:    ctx.lp_variant,
+      lp_slug:       resolvedSlug,
       theme:         themeId,
       funnel_stage:  ctx.stage,
       design_brief:  designBrief,

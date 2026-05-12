@@ -700,6 +700,21 @@ function buildSocialCalendar(brief, copy) {
     var _charLimits  = { facebook: 400, instagram: 2200, x: 280, pinterest: 500, nextdoor: 300 };
     var _foodType    = (brief.themeData && brief.themeData.food_type) || brief.theme_food || brief.food_type || '';
 
+    // Pre-resolve per-LP ICP codes from LP inventory (one lookup per campaign, not per post)
+    var _lpAIcp = brief.icp || '';
+    var _lpBIcp = brief.icp || '';
+    if (brief.lp_slug_a || brief.lp_slug_b) {
+      try {
+        var _lpARow = getLPInventoryBySlug(brief.lp_slug_a);
+        if (_lpARow && _lpARow.icp_code) _lpAIcp = _lpARow.icp_code;
+      } catch(e) {}
+      try {
+        var _lpBRow = getLPInventoryBySlug(brief.lp_slug_b);
+        if (_lpBRow && _lpBRow.icp_code) _lpBIcp = _lpBRow.icp_code;
+      } catch(e) {}
+    }
+    Logger.log('[buildSocialCalendar] ICP-A=' + _lpAIcp + ' ICP-B=' + _lpBIcp);
+
     for (var ci = 0; ci < arcChannels.length; ci++) {
       var channel  = arcChannels[ci];
       var chSlug   = channel.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -712,13 +727,24 @@ function buildSocialCalendar(brief, copy) {
         var stage  = sched.theme || _arcThemes[Math.min(pi, _arcThemes.length - 1)] || 'hook';
         var postId = campaignId + '-' + chSlug + '-POST-' + String(pi + 1).padStart(3, '0');
 
+        // A/B LP variant: odd post index (0,2,4,6) → LP-A (money), even (1,3,5) → LP-B (time)
+        var _lpVariant = (pi % 2 === 0) ? 'a' : 'b';
+        var _lpSlug    = (_lpVariant === 'a')
+          ? (brief.lp_slug_a || brief.slug || '')
+          : (brief.lp_slug_b || brief.slug || '');
+
         // Build stage-specific story context
-        var postCtx         = _buildBriefStoryCtx(brief);
+        var _briefForPost   = Object.assign ? Object.assign({}, brief) : JSON.parse(JSON.stringify(brief));
+        _briefForPost.lp_variant = _lpVariant;
+        _briefForPost.lp_slug    = _lpSlug;
+        var postCtx         = _buildBriefStoryCtx(_briefForPost);
         postCtx.platform    = channel;
         postCtx.stage       = stage;
         postCtx.post_number = pi + 1;
         postCtx.theme_id    = brief.theme_id || brief.theme || '';
-        postCtx.icp_code    = brief.icp || '';
+        postCtx.icp_code    = (_lpVariant === 'a') ? _lpAIcp : _lpBIcp;
+        postCtx.lp_variant  = _lpVariant;
+        postCtx.lp_slug     = _lpSlug;
 
         // Theme food rule: Post 4 (SOLVE) onward must name the food by name
         var foodRule = '';
