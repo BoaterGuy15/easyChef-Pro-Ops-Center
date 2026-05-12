@@ -2920,10 +2920,25 @@ function buildGPT4oSystemPromptDocs() {
       lp += '\n';
     }
 
-    if (lpDoc.emotional_map) {
+    if (lpDoc.emotional_map || lifeStages.length) {
       lp += '════════════════════\nSECTION EMOTIONAL JOBS\n════════════════════\n';
       ['hook','problem','agitate','solve','value','lifecycle','proof','cta'].forEach(function(sec) {
-        var em = lpDoc.emotional_map[sec];
+        var em = (lpDoc.emotional_map || {})[sec];
+        if (!em && sec === 'lifecycle') {
+          // LP_DOCTRINE_001.emotional_map.lifecycle absent — build from LifeStages tab
+          lp += '\nSECTION: LIFECYCLE\n';
+          lp += 'Emotional job: Meet her in her current life chapter. Bridge current stage to next.\n';
+          lp += 'Source: LifeStages tab (live from sheet)\n';
+          lifeStages.forEach(function(ls) {
+            lp += '[' + ls.life_stage_id + ']: ' + (ls.current_chapter || '') + '\n';
+            if (ls.next_chapter)           lp += '  → Next: '        + ls.next_chapter           + '\n';
+            if (ls.stage_recognition_line) lp += '  Recognition: '        + ls.stage_recognition_line + '\n';
+            if (ls.next_stage_bridge)      lp += '  Bridge: '             + ls.next_stage_bridge      + '\n';
+          });
+          var permLC = secMap['lifecycle'] || [];
+          if (permLC.length) lp += 'Permitted claim types: ' + permLC.join(', ') + '\n';
+          return;
+        }
         if (!em) return;
         var permitted = secMap[sec] || [];
         lp += '\nSECTION: ' + sec.toUpperCase() + '\n';
@@ -3160,6 +3175,217 @@ function buildGPT4oSystemPromptDocs() {
   }
 }
 
+// ── buildSocialMediaSchemaDocs ────────────────────────────────────────────────
+// Reads live sheet data and creates one Google Doc per active channel.
+// Zero hardcoded values — every spec comes from the Campaign Center Sheet.
+function buildSocialMediaSchemaDocs() {
+  try {
+    var ss      = _getCampaignSpreadsheet();
+    var bdSheet = ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+    var csSheet = ss.getSheetByName(_CC_TAB.CAMP_STRATEGY);
+
+    function _readBD(id) {
+      if (!bdSheet || bdSheet.getLastRow() < 2) return {};
+      var rows = bdSheet.getRange(2, 1, bdSheet.getLastRow() - 1, 5).getValues();
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]) === id) { try { return JSON.parse(String(rows[i][4] || '{}')); } catch(e) { return {}; } }
+      }
+      return {};
+    }
+    function _readCS(id) {
+      if (!csSheet || csSheet.getLastRow() < 2) return {};
+      var rows = csSheet.getRange(2, 1, csSheet.getLastRow() - 1, 4).getValues();
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]) === id) { try { return JSON.parse(String(rows[i][3] || '{}')); } catch(e) { return {}; } }
+      }
+      return {};
+    }
+
+    var channels     = getChannels ? getChannels() : [];
+    var activeClaims = (getApprovedClaims ? getApprovedClaims() : []).filter(function(c) { return c.approved; });
+    var themeHeaders = _CC_HDR.ThemeLibrary || [];
+
+    var phoneVis    = _readBD('PHONE_VISIBILITY_001');
+    var phoneLP     = _readBD('PHONE_RULE_LP_001');
+    var colorSys    = _readBD('COLOR_SYSTEM_001');
+    var voiceForb   = _readBD('VOICE_FORBIDDEN_001');
+    var voiceReq    = _readBD('VOICE_REQUIRED_001');
+    var precision   = _readBD('PRECISION_RULES_001');
+    var emotArc     = _readCS('EMOTIONAL_ARC_001');
+    var socialDeriv = _readCS('SOCIAL_DERIVATION_001');
+    var sevenStep   = _readCS('SEVEN_STEP_FRAMEWORK_001');
+    var claimScope  = _readCS('CLAIM_SCOPING_001');
+    var secMap      = (claimScope && claimScope.section_claim_map) || {};
+
+    // LOCK block shared across all docs
+    var LOCK = '════════════════════════════════════════\nLOCKED BRAND DOCTRINE\n════════════════════════════════════════\n\n';
+    if (activeClaims.length) {
+      LOCK += 'APPROVED CLAIMS — exact wording only, never invent statistics:\n';
+      activeClaims.forEach(function(c) { LOCK += '  • ' + c.exact_wording + '\n'; });
+      LOCK += '\n';
+    }
+    if (voiceForb.forbidden_words && voiceForb.forbidden_words.length) {
+      LOCK += 'FORBIDDEN WORDS:\n';
+      voiceForb.forbidden_words.forEach(function(w) { LOCK += '  × ' + w + '\n'; });
+      LOCK += '\n';
+    }
+    if (voiceReq.required_phrases && voiceReq.required_phrases.length) {
+      LOCK += 'REQUIRED VOICE:\n';
+      voiceReq.required_phrases.forEach(function(p) { LOCK += '  ✓ ' + p + '\n'; });
+      LOCK += '\n';
+    } else if (voiceReq.phrases && voiceReq.phrases.length) {
+      LOCK += 'REQUIRED VOICE:\n';
+      voiceReq.phrases.forEach(function(p) { LOCK += '  ✓ ' + (typeof p === 'string' ? p : JSON.stringify(p)) + '\n'; });
+      LOCK += '\n';
+    }
+    if (precision.figures && precision.figures.length) {
+      LOCK += 'PRECISION RULES — exact figures only, no rounding:\n';
+      precision.figures.forEach(function(f) { LOCK += '  "' + f.exact + '"' + (f.never ? ' — NEVER ' + f.never : '') + '\n'; });
+      LOCK += '\n';
+    }
+    if (colorSys.primary || (colorSys.palette && colorSys.palette.length)) {
+      LOCK += 'COLOR SYSTEM:\n';
+      if (colorSys.primary) LOCK += '  Primary: ' + colorSys.primary + '\n';
+      if (Array.isArray(colorSys.palette)) {
+        colorSys.palette.forEach(function(c) { LOCK += '  ' + (c.name || c.role || '') + ': ' + (c.hex || c.value || '') + '\n'; });
+      }
+      LOCK += '\n';
+    }
+
+    // Shared section blocks
+    var ARC = '';
+    if (emotArc.stages && Array.isArray(emotArc.stages)) {
+      ARC = '════════════════════\nPOST EMOTIONAL ARC (' + emotArc.stages.length + ' posts)\n════════════════════\n';
+      emotArc.stages.forEach(function(s, i) {
+        ARC += 'Post ' + (i + 1) + ' — ' + (s.stage || '').toUpperCase() + ': ' + (s.emotion || '') + '\n';
+        if (s.writer_instruction) ARC += '  ' + s.writer_instruction + '\n';
+      });
+      ARC += '\n';
+    }
+
+    var DERIV = '';
+    var _derivSrc = socialDeriv.rules || socialDeriv.derivation_rules || socialDeriv.principles || null;
+    if (_derivSrc) {
+      DERIV = '════════════════════\nSOCIAL DERIVATION RULES\n════════════════════\n';
+      if (Array.isArray(_derivSrc)) {
+        _derivSrc.forEach(function(r) { DERIV += '  ' + (typeof r === 'string' ? r : (r.rule || r.name || JSON.stringify(r))) + '\n'; });
+      } else {
+        DERIV += String(_derivSrc) + '\n';
+      }
+      DERIV += '\n';
+    }
+
+    var STEPS = '';
+    var _stepSrc = sevenStep.steps || sevenStep.framework || null;
+    if (_stepSrc && Array.isArray(_stepSrc)) {
+      STEPS = '════════════════════\n7-STEP FRAMEWORK\n════════════════════\n';
+      _stepSrc.forEach(function(s, i) {
+        STEPS += (i + 1) + '. ' + (s.name || s.step || '') + ': ' + (s.description || '') + '\n';
+        if (s.signal) STEPS += '   Signal: ' + s.signal + '\n';
+      });
+      STEPS += '\n';
+    }
+
+    var PHONE = '════════════════════\nPHONE VISIBILITY RULE\n════════════════════\n';
+    if (phoneVis.posts_1_3) {
+      PHONE += 'Posts 1-3: NO phone — story is problem world only\n';
+      if (phoneVis.posts_1_3.image_direction) PHONE += '  Image direction: ' + phoneVis.posts_1_3.image_direction + '\n';
+    }
+    if (phoneVis.posts_4_plus) {
+      PHONE += 'Posts 4+: Phone visible, holds easyChef Pro app\n';
+      var screens = phoneVis.posts_4_plus.screen_options;
+      if (screens) PHONE += '  Screen options: ' + (Array.isArray(screens) ? screens.join(', ') : String(screens)) + '\n';
+    }
+    if (phoneLP && phoneLP.rule) PHONE += 'LP rule: ' + phoneLP.rule + '\n';
+    PHONE += '\n';
+
+    var SCOPE = '';
+    if (Object.keys(secMap).length) {
+      SCOPE = '════════════════════\nCLAIM SCOPING PER SECTION\n════════════════════\n';
+      Object.keys(secMap).forEach(function(sec) { SCOPE += sec + ': ' + secMap[sec].join(', ') + '\n'; });
+      SCOPE += '\n';
+    }
+
+    var THEME_FIELDS = '════════════════════\nTHEME LIBRARY FIELDS (ThemeLibrary tab)\n════════════════════\n';
+    themeHeaders.forEach(function(h) { THEME_FIELDS += '  ' + h + '\n'; });
+    THEME_FIELDS += '\n';
+
+    var ts   = new Date().toISOString().split('T')[0];
+    var docs = [];
+
+    channels.forEach(function(ch) {
+      var body  = 'PLATFORM: ' + ch.name + ' (' + ch.slug_code + ')\n';
+      body += 'CONTENT FORMAT: ' + ch.content_format + '\n\n';
+      body += '════════════════════\nPLATFORM SPECIFICATIONS\n════════════════════\n';
+      body += 'UTM Medium: ' + ch.utm_medium + '\n';
+      body += 'UTM Source: ' + ch.utm_source + '\n';
+      body += 'DL Prefix: ' + ch.dl_prefix + '\n';
+      body += 'Optimal chars: ' + ch.optimal_chars + '\n';
+      body += 'Max chars: ' + ch.max_chars + '\n';
+      var hashOn = (ch.use_hashtags === true || String(ch.use_hashtags).toLowerCase() === 'true');
+      if (hashOn) {
+        body += 'Hashtags: YES (min ' + ch.hashtag_count_min + ', max ' + ch.hashtag_count_max + ')\n';
+        if (ch.hashtag_suggestions) body += 'Suggestions: ' + ch.hashtag_suggestions + '\n';
+      } else {
+        body += 'Hashtags: NO\n';
+      }
+      body += 'Image dimensions: ' + ch.image_dimensions + '\n';
+      body += 'Image ratio: ' + ch.image_ratio + '\n';
+      body += 'Link placement: ' + ch.link_placement + '\n';
+      if (ch.platform_note) body += 'Platform note: ' + ch.platform_note + '\n';
+      body += '\n';
+
+      body += LOCK;
+
+      var fmt = String(ch.content_format || '').toLowerCase();
+      var utmBlock = '[UTM_PARAMS] — utm_medium=' + ch.utm_medium + '&utm_source=' + ch.utm_source + '\n';
+
+      if (fmt === 'post' || fmt === 'pin') {
+        body += ARC + PHONE + DERIV + STEPS + SCOPE + THEME_FIELDS;
+        body += '════════════════════\nDYNAMIC FIELDS\n════════════════════\n';
+        body += '[POST_NUMBER] — 1 through ' + (emotArc.stages ? emotArc.stages.length : 7) + '\n';
+        body += '[ICP_CODE] — Target ICP identifier\n[THEME_SLUG] — Theme identifier\n';
+        body += '[HOOK_ANGLE] — Opening hook angle\n[FOOD_TYPE] — Food type for this theme\n';
+        body += '[APPROVED_CLAIM] — Exact wording of applicable approved claim\n' + utmBlock;
+      } else if (fmt === 'video_script') {
+        body += PHONE + STEPS + SCOPE + THEME_FIELDS;
+        body += '════════════════════\nDYNAMIC FIELDS\n════════════════════\n';
+        body += '[VIDEO_TYPE] — short_explainer / testimonial / feature_spotlight\n';
+        body += '[ICP_CODE] — Target ICP identifier\n[PRIMARY_TRIGGER] — Entry emotion for this ICP\n';
+        body += '[THEME_HOOK_ANGLE] — Theme-specific opening hook\n[VIDEO_LENGTH] — Target length in seconds\n' + utmBlock;
+      } else if (fmt === 'email') {
+        body += SCOPE + THEME_FIELDS;
+        body += '════════════════════\nDYNAMIC FIELDS\n════════════════════\n';
+        body += '[EMAIL_ID] — e.g., SEQ-1-E1\n[SEQUENCE_TYPE] — SEQ-1 / SEQ-2 / SEQ-3 / SEQ-4\n';
+        body += '[ICP_CODE] — Target ICP identifier\n[EMOTIONAL_STATE_ENTRY] — Her emotion at start\n';
+        body += '[EMOTIONAL_STATE_EXIT] — Her emotion at end\n';
+        body += '[APPROVED_CLAIM] — Exact wording of applicable approved claim\n';
+        body += '[CTA_PROMISE] — Specific outcome promise in CTA button\n' + utmBlock;
+      } else if (fmt === 'article' || fmt === 'brief') {
+        body += DERIV + SCOPE + THEME_FIELDS;
+        body += '════════════════════\nDYNAMIC FIELDS\n════════════════════\n';
+        body += '[ICP_CODE] — Target ICP identifier\n[ARTICLE_ANGLE] — Primary story angle\n';
+        body += '[APPROVED_CLAIM] — Exact wording of applicable approved claim\n' + utmBlock;
+      } else {
+        body += ARC + SCOPE + THEME_FIELDS;
+        body += '════════════════════\nDYNAMIC FIELDS\n════════════════════\n';
+        body += '[ICP_CODE] — Target ICP identifier\n';
+        body += '[APPROVED_CLAIM] — Exact wording of applicable approved claim\n' + utmBlock;
+      }
+
+      var doc = DocumentApp.create('easyChef Pro — ' + ch.name + ' Schema [' + ts + ']');
+      doc.getBody().setText(body);
+      docs.push({ channel: ch.name, slug: ch.slug_code, format: ch.content_format, id: doc.getId(), url: doc.getUrl() });
+      Logger.log('[buildSocialMediaSchemaDocs] ' + ch.name + '=' + doc.getId());
+    });
+
+    return { ok: true, count: docs.length, docs: docs };
+  } catch(e) {
+    Logger.log('[buildSocialMediaSchemaDocs] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Campaign Center custom menu ───────────────────────────────────────────────
 // onOpen fires automatically when the Campaign Center Sheet is opened.
 // All menu items call zero-argument wrapper functions below.
@@ -3170,6 +3396,7 @@ function onOpen() {
       .createMenu('⚡ Campaign Engine')
       .addItem('Seed GPT-4o Settings',        'menu_seedGpt4oSettings')
       .addItem('Rebuild System Prompt Docs',  'menu_buildGPT4oPromptDocs')
+      .addItem('Build Social Media Schemas',  'menu_buildSocialSchemas')
       .addSeparator()
       .addItem('Toggle GPT-4o Active',        'menu_toggleGpt4oActive')
       .addItem('Clear Settings Cache',        'menu_clearSettingsCache')
@@ -3223,4 +3450,13 @@ function menu_toggleGpt4oActive() {
 function menu_clearSettingsCache() {
   CacheService.getScriptCache().remove('cc_settings_v1');
   SpreadsheetApp.getUi().alert('✓ CcSettings cache cleared.');
+}
+
+function menu_buildSocialSchemas() {
+  var ui     = SpreadsheetApp.getUi();
+  var result = buildSocialMediaSchemaDocs();
+  if (!result.ok) { ui.alert('✗ Error: ' + result.error); return; }
+  var msg = '✓ ' + result.count + ' social schema docs built from live sheet data:\n\n';
+  result.docs.forEach(function(d) { msg += d.channel + ' (' + d.format + ')\nID: ' + d.id + '\n\n'; });
+  ui.alert(msg);
 }

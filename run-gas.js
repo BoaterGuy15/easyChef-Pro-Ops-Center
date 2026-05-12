@@ -7,7 +7,7 @@ const https = require('https');
 const http  = require('http');
 const url   = require('url');
 
-const DEPLOY_URL = 'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec';
+const DEPLOY_URL = 'https://script.google.com/macros/s/AKfycbwryU8JqP0Xmkt4YDSr1DtKE4z84OzAAj1o--nwKCgIhJeIRrK0-gWB3j_wULGkXPYAuA/exec';
 
 const payload = process.argv[2];
 if (!payload) { console.error('Usage: node run-gas.js \'{"action":"..."}\' '); process.exit(1); }

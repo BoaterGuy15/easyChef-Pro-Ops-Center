@@ -1331,6 +1331,7 @@ function doPost(e) {
     if(body.action === 'validate_campaign_step1_gates')  return respond(validateCampaignStep1Gates(body.campaign_id||''));
     if(body.action === 'seed_gpt4o_settings')            return respond(seedGpt4oSettings());
     if(body.action === 'build_gpt4o_prompt_docs')        return respond(buildGPT4oSystemPromptDocs());
+    if(body.action === 'build_social_media_schemas')     return respond(buildSocialMediaSchemaDocs());
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });
