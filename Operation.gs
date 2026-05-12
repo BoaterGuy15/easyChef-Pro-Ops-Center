@@ -1374,6 +1374,16 @@ function doPost(e) {
       return respond({ok:true, written:_existing.length});
     }
 
+    // ── Setup utilities ───────────────────────────────────────────────────────
+    if(body.action === 'create_ai_reference_tab') {
+      var _cart = createAIReferenceTab();
+      return respond({ ok:_cart.ok, result:_cart, log: Logger.getLog() });
+    }
+    if(body.action === 'archive_old_reference_docs') {
+      var _aord = archiveOldReferenceDocs();
+      return respond({ ok:_aord.ok, result:_aord, log: Logger.getLog() });
+    }
+
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');
     setTasks(tasks);
