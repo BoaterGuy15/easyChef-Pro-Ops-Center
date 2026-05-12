@@ -113,6 +113,7 @@ function _ec001_briefJson(stage, feature, day, hA, hB) {
     hook_b:            hB,
     icp_a:             'super_mom_money',
     icp_b:             'super_mom_time',
+    icp_target:        'super_mom_money|super_mom_time',
     theme:             'invisible-leak',
     campaign_id:       'EC-2026-001'
   });

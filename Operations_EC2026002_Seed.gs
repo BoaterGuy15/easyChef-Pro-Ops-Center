@@ -101,6 +101,7 @@ function _ec002_briefJson(stage, feature, day, hA, hB, lp) {
       ? 'Budget Family — ICP-A: budget_family · pain: $111/month invisible grocery leak · savings angle'
       : 'Super Mom — ICP-B: super_mom · pain: 6:30 PM decision fatigue · exhausted→thriving · time relief angle',
     icp_code:          lp === 'a' ? 'budget_family' : 'super_mom',
+    icp_target:        lp === 'a' ? 'budget_family' : 'super_mom',
     lp_variant:        lp,
     emotional_state:   stage + (noPhone ? ' — problem awareness · recognition not defeat' : firstReveal ? ' — first reveal · relief entering' : ' — building toward founding family commitment'),
     funnel_position:   stage + ' · day ' + day + ' of 35 · May 27–Jul 1 2026',
