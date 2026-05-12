@@ -1383,6 +1383,10 @@ function doPost(e) {
       var _aord = archiveOldReferenceDocs();
       return respond({ ok:_aord.ok, result:_aord, log: Logger.getLog() });
     }
+    if(body.action === 'seed_governance_rows') {
+      var _sgr = seedGovernanceRows();
+      return respond({ ok:_sgr.ok, result:_sgr, log: Logger.getLog() });
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');
