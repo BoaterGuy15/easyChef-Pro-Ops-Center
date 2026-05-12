@@ -1432,6 +1432,10 @@ function doPost(e) {
       var _bcbu = backfillContentCalBriefUrl();
       return respond({ ok:_bcbu.ok, result:_bcbu, log: Logger.getLog() });
     }
+    if(body.action === 'backfill_content_cal_caption') {
+      var _bccc = backfillContentCalCaption();
+      return respond({ ok:_bccc.ok, result:_bccc, log: Logger.getLog() });
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');

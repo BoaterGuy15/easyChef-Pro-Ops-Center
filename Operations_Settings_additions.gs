@@ -934,6 +934,84 @@ function diagContentCalBriefUrl() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// backfillContentCalCaption  —  caption + hashtags per asset_id from SocialPosts
+//   caption:  asset_id → SocialPosts.id → body_copy
+//   hashtags: asset_id → SocialPosts.id → hashtags  (only if ContentCalendar.hashtags is blank)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function backfillContentCalCaption() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    // Build asset_id → {body_copy, hashtags} map from SocialPosts
+    var spSheet = ss.getSheetByName('SocialPosts');
+    if (!spSheet || spSheet.getLastRow() < 2) return { ok: false, error: 'SocialPosts tab empty' };
+    var spAll  = spSheet.getDataRange().getValues();
+    var spHdrs = spAll[0].map(function(h){ return String(h).trim(); });
+    var spIdIdx   = spHdrs.indexOf('id');
+    var spBodyIdx = spHdrs.indexOf('body_copy');
+    var spTagIdx  = spHdrs.indexOf('hashtags');
+    var spMap = {};
+    spAll.slice(1).forEach(function(r){
+      var k = spIdIdx >= 0 ? String(r[spIdIdx] || '').trim() : '';
+      if (!k) return;
+      spMap[k] = {
+        body_copy: spBodyIdx >= 0 ? String(r[spBodyIdx] || '').trim() : '',
+        hashtags:  spTagIdx  >= 0 ? String(r[spTagIdx]  || '').trim() : ''
+      };
+    });
+
+    // ContentCalendar
+    var ccSheet = ss.getSheetByName('ContentCalendar');
+    if (!ccSheet || ccSheet.getLastRow() < 2) return { ok: false, error: 'ContentCalendar tab empty' };
+    var ccAll   = ccSheet.getDataRange().getValues();
+    var ccHdrs  = ccAll[0].map(function(h){ return String(h).trim(); });
+    var assetIdx   = ccHdrs.indexOf('asset_id');
+    var captionIdx = ccHdrs.indexOf('caption');
+    var hashIdx    = ccHdrs.indexOf('hashtags');
+
+    if (captionIdx < 0) return { ok: false, error: 'caption column missing in ContentCalendar' };
+    if (assetIdx < 0)   return { ok: false, error: 'asset_id column missing in ContentCalendar' };
+
+    var capWritten = 0, hashWritten = 0, skipped = 0, miss = 0;
+    ccAll.slice(1).forEach(function(row, i) {
+      var sheetRow = i + 2;
+      var assetId  = String(row[assetIdx] || '').trim();
+      var sp       = assetId ? (spMap[assetId] || null) : null;
+      if (!sp || !sp.body_copy) { miss++; return; }
+
+      var curCaption = String(row[captionIdx] || '').trim();
+      if (!curCaption) {
+        ccSheet.getRange(sheetRow, captionIdx + 1).setValue(sp.body_copy);
+        capWritten++;
+      } else {
+        skipped++;
+      }
+
+      if (hashIdx >= 0 && sp.hashtags) {
+        var curHash = String(row[hashIdx] || '').trim();
+        if (!curHash) {
+          ccSheet.getRange(sheetRow, hashIdx + 1).setValue(sp.hashtags);
+          hashWritten++;
+        }
+      }
+    });
+
+    return {
+      ok:            true,
+      total:         ccAll.length - 1,
+      caption_written: capWritten,
+      hashtags_written: hashWritten,
+      skipped:       skipped,
+      miss:          miss
+    };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // backfillContentCalBriefUrl  —  link brief_doc_url per asset_id from AssetLifecycle.export_url
 // ─────────────────────────────────────────────────────────────────────────────
 
