@@ -1313,6 +1313,7 @@ function doPost(e) {
     if(body.action === 'seed_lp_doctrine')             return respond(seedLpDoctrine());
     if(body.action === 'ensure_lp_doctrine_columns')   return respond(ensureAllLPDoctrineColumns());
     if(body.action === 'generate_lp_spine')            return respond(generateLPSpine(body.campaign_id, { lp_variant: body.lp_variant || 'a', icp_code: body.icp_code || '' }));
+    if(body.action === 'generate_loop_copy')           return respond(generateLoopCopy(body.campaign_id, body.post_id, { lp_variant: body.lp_variant || 'a', icp_code: body.icp_code || '', platform: body.platform || '' }));
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });

@@ -1185,6 +1185,170 @@ function generateLPSpine(campaignId, options) {
   }
 }
 
+// ── generateLoopCopy ─────────────────────────────────────────────────────────
+// Generates 3 copy variants (A=pain_direct, B=social_proof, C=curiosity_tease)
+// for a social post, each rooted in the post's LP spine section.
+// Writes variants to SocialPosts.design_brief.loop_variants and updates
+// lp_section_source / loop_stage / emotional_state / emotional_destination fields.
+// Options: { lp_variant: 'a'|'b', platform: 'Facebook'|..., overwrite: true }
+
+function generateLoopCopy(campaignId, postId, options) {
+  if (!campaignId) return { ok: false, error: 'campaign_id required' };
+  if (!postId)     return { ok: false, error: 'post_id required' };
+  options = options || {};
+
+  try {
+    var props  = PropertiesService.getScriptProperties();
+    var apiKey = props.getProperty('ANTHROPIC_API_KEY');
+    if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
+
+    // 1. Load social post row
+    var post = null;
+    var allPosts = getSocialPosts(campaignId);
+    for (var i = 0; i < allPosts.length; i++) {
+      if (allPosts[i].id === postId) { post = allPosts[i]; break; }
+    }
+    if (!post) return { ok: false, error: 'Post not found: ' + postId };
+
+    // 2. Determine LP variant and section source
+    var lpVariant = options.lp_variant || post.lp_variant || 'a';
+    var platform  = options.platform   || post.platform   || 'Facebook';
+    var db = {};
+    try { db = JSON.parse(post.design_brief || '{}'); } catch(e) {}
+
+    // Day → LP section mapping
+    var day = parseInt(db.day || db.post_number || 1);
+    var lpSection = 'hook';
+    if      (day <= 5)  lpSection = 'hook';
+    else if (day <= 10) lpSection = 'problem';
+    else if (day <= 15) lpSection = 'agitate';
+    else if (day <= 20) lpSection = 'solve';
+    else if (day <= 25) lpSection = 'value';
+    else if (day <= 30) lpSection = 'proof';
+    else                lpSection = 'cta';
+
+    // Section → loop_stage mapping
+    var loopStageMap = { hook:'awareness', problem:'awareness', agitate:'consideration',
+                         solve:'consideration', value:'consideration', proof:'decision',
+                         cta:'decision', urgency:'decision' };
+    var loopStage = loopStageMap[lpSection] || 'awareness';
+
+    // 3. Load LP spine for this variant
+    var brief = getCampaignBriefs(campaignId);
+    if (!brief) return { ok: false, error: 'Campaign brief not found' };
+    var spineRaw = brief.lp_campaign_spine_json || '';
+    var spineData = {};
+    try { spineData = JSON.parse(spineRaw); } catch(e) {}
+    var spine = spineData[lpVariant] || spineData.a || spineData || {};
+    var spineSection = spine[lpSection] || {};
+
+    // 4. Load ICP + loop schema
+    var icpCode = options.icp_code
+      ? String(options.icp_code)
+      : _resolveIcpCode(brief.icp_code || '', { lp_variant: lpVariant });
+    var icp = _getIcpRow(icpCode) || {};
+
+    var loopSchema = getCampaignStrategy('LOOP_COPY_SCHEMA_001');
+    var variants = (loopSchema && loopSchema.value && loopSchema.value.variants_per_post) || [
+      { variant: 'a', angle: 'pain_direct'     },
+      { variant: 'b', angle: 'social_proof'    },
+      { variant: 'c', angle: 'curiosity_tease' }
+    ];
+
+    // 5. Build prompt
+    var systemPrompt =
+      'You are the easyChef Pro social copywriter generating loop copy variants. ' +
+      'Each variant must be rooted in the specific LP section listed. ' +
+      'Return only the JSON object requested. No markdown. No explanation.';
+
+    var userMsg =
+      '=== POST: ' + postId + ' | Platform: ' + platform + ' | LP Section: ' + lpSection.toUpperCase() + ' ===\n' +
+      'Campaign: ' + campaignId + ' | LP Variant: ' + lpVariant + ' | ICP: ' + icpCode + '\n' +
+      'Loop stage: ' + loopStage + '\n\n' +
+      '=== LP SPINE — ' + lpSection.toUpperCase() + ' SECTION ===\n';
+    if (spineSection.headline)    userMsg += 'LP Headline: ' + spineSection.headline + '\n';
+    if (spineSection.body_copy)   userMsg += 'LP Body: ' + spineSection.body_copy + '\n';
+    if (spineSection.emotional_beat) userMsg += 'Emotional arc: ' + spineSection.emotional_beat + '\n';
+    if (icp.primary_pain)    userMsg += '\nICP Primary pain: '   + icp.primary_pain + '\n';
+    if (icp.value_trigger)   userMsg += 'ICP Value trigger: '    + icp.value_trigger + '\n';
+    if (icp.loss_aversion)   userMsg += 'ICP Loss aversion: '    + icp.loss_aversion + '\n';
+    userMsg +=
+      '\n=== GENERATE 3 VARIANTS ===\n' +
+      'variant_a — pain_direct: opens on ICP pain point, drives to LP section\n' +
+      'variant_b — social_proof: opens with proof or outcome, connects to LP section\n' +
+      'variant_c — curiosity_tease: opens with curiosity hook, resolves at LP section\n\n' +
+      'Platform: ' + platform + '. Keep hooks under 10 words. Body copy 50-80 words. CTA under 8 words.\n\n' +
+      'Return JSON:\n' +
+      '{\n' +
+      '  "lp_section_source": "' + lpSection + '",\n' +
+      '  "loop_stage": "' + loopStage + '",\n' +
+      '  "variants": [\n' +
+      '    { "variant": "a", "angle": "pain_direct",     "hook": "...", "body_copy": "...", "cta": "...", "emotional_state": "' + (spineSection.emotional_beat||'').split('→')[0].trim() + '", "emotional_destination": "' + (spineSection.emotional_beat||'').split('→')[1].trim() + '", "lp_headline_connection": "..." },\n' +
+      '    { "variant": "b", "angle": "social_proof",    "hook": "...", "body_copy": "...", "cta": "...", "emotional_state": "...", "emotional_destination": "...", "lp_headline_connection": "..." },\n' +
+      '    { "variant": "c", "angle": "curiosity_tease", "hook": "...", "body_copy": "...", "cta": "...", "emotional_state": "...", "emotional_destination": "...", "lp_headline_connection": "..." }\n' +
+      '  ]\n' +
+      '}';
+
+    // 6. Call Claude API
+    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      payload: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }]
+      }),
+      muteHttpExceptions: true
+    });
+
+    var data  = JSON.parse(resp.getContentText());
+    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
+    if (!reply) {
+      var _e = data.error ? (typeof data.error === 'object' ? data.error.message : String(data.error)) : 'empty response';
+      return { ok: false, error: _e };
+    }
+
+    // 7. Parse result
+    var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+    var result = {};
+    try { result = JSON.parse(jsonStr); } catch(e) {
+      return { ok: false, error: 'JSON parse failed: ' + e.message, raw: reply.substring(0, 500) };
+    }
+
+    // 8. Update the SocialPost row
+    db.loop_variants       = result.variants || [];
+    db.lp_section_source   = result.lp_section_source   || lpSection;
+    db.loop_stage          = result.loop_stage           || loopStage;
+    var primaryVariant     = (result.variants || [])[0] || {};
+    setSocialPost({
+      id: postId,
+      lp_section_source:      result.lp_section_source  || lpSection,
+      loop_stage:             result.loop_stage          || loopStage,
+      emotional_state:        primaryVariant.emotional_state        || '',
+      emotional_destination:  primaryVariant.emotional_destination  || '',
+      lp_headline_connection: primaryVariant.lp_headline_connection || '',
+      design_brief:           JSON.stringify(db)
+    });
+
+    Logger.log('[generateLoopCopy] post=' + postId + ' section=' + lpSection +
+               ' variants=' + (result.variants||[]).length);
+    return {
+      ok: true,
+      post_id:          postId,
+      campaign_id:      campaignId,
+      lp_section_source: result.lp_section_source || lpSection,
+      loop_stage:        result.loop_stage         || loopStage,
+      variants_count:    (result.variants||[]).length,
+      variants:          result.variants || []
+    };
+
+  } catch(e) {
+    Logger.log('[generateLoopCopy] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── NEW governance compilers — previously hardcoded constants ─────────────────
 // Each reads from BrandDoctrine or CampaignStrategy; falls back to the hardcoded
 // constant so nothing breaks before sheet rows are added.
