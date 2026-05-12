@@ -350,7 +350,7 @@
     function toLabel(type,v){
       if(type==='status')return STATUS_LABEL[v]||v;
       if(type==='week')return 'Week '+v;
-      if((v||'').length<=2)return (v||'').toUpperCase();
+      if((v||'').length<=3)return (v||'').toUpperCase();
       return (v||'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
     }
     function loadFilterDefs(){
@@ -488,7 +488,7 @@
     function applyAndRender(){
       if(!calData) return;
       var all=getAllPosts(), filtered=hasFilters()?applyFilters(all):all;
-      var dashSrc=hasFilters()?computeDashFromPosts(filtered):(dashData||computeDashFromPosts(filtered));
+      var dashSrc=computeDashFromPosts(filtered);
       var calSrc=hasFilters()?makeFilteredCalData(filtered):calData;
       renderDash(dashSrc, filtered);
       renderCal(calSrc);

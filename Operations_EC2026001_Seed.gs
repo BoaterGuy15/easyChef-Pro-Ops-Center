@@ -2616,6 +2616,66 @@ function getCampaignCalendar(campaignId) {
   }
 }
 
+// ── Dynamic filter defs for cockpit sidebar ───────────────────────────────────
+// Returns distinct values from live sheet so sidebar never needs hardcoded lists.
+
+function getCockpitFilterDefs() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+    var platforms = {}, statuses = {}, emotions = {}, weeks = {};
+
+    var ccSheet = ss.getSheetByName('ContentCalendar');
+    if (ccSheet && ccSheet.getLastRow() >= 2) {
+      var ccAll  = ccSheet.getDataRange().getValues();
+      var ccHdrs = ccAll[0].map(function(h){ return String(h).trim(); });
+      var piIdx  = ccHdrs.indexOf('platform');
+      var csIdx  = ccHdrs.indexOf('creative_status');
+      var emIdx  = ccHdrs.indexOf('emotional_stage');
+      var wkIdx  = ccHdrs.indexOf('week');
+      ccAll.slice(1).forEach(function(r) {
+        var p = String(r[piIdx] || '').trim();
+        var s = String(r[csIdx] || '').trim();
+        var e = String(r[emIdx] || '').trim();
+        var w = String(r[wkIdx] || '').trim();
+        if (p) platforms[p] = true;
+        if (s) statuses[s]  = true;
+        if (e) emotions[e]  = true;
+        if (w && w !== '0') weeks[w] = true;
+      });
+    }
+
+    // Funnel stages — ordered from FunnelStages tab
+    var funnelNames = [];
+    var fsSheet = ss.getSheetByName('FunnelStages');
+    if (fsSheet && fsSheet.getLastRow() >= 2) {
+      var fsAll  = fsSheet.getDataRange().getValues();
+      var fsHdrs = fsAll[0].map(function(h){ return String(h).trim(); });
+      var snIdx  = fsHdrs.indexOf('stage_name');
+      var soIdx  = fsHdrs.indexOf('stage_order');
+      var stages = [];
+      fsAll.slice(1).forEach(function(r) {
+        var name  = String(r[snIdx] || '').trim();
+        var order = Number(r[soIdx] || 999);
+        if (name) stages.push({ name: name, order: order });
+      });
+      stages.sort(function(a, b){ return a.order - b.order; });
+      funnelNames = stages.map(function(s){ return s.name; });
+    }
+
+    return {
+      ok:       true,
+      platform: Object.keys(platforms).sort(),
+      status:   ['generated','in_figma','designer_review','approved','scheduled','published'],
+      emotion:  Object.keys(emotions),
+      funnel:   funnelNames,
+      week:     Object.keys(weeks).sort(function(a, b){ return Number(a) - Number(b); })
+    };
+  } catch(e) {
+    Logger.log('[getCockpitFilterDefs] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Phase 2: Approval gate ────────────────────────────────────────────────────
 
 function getApprovalQueue() {
