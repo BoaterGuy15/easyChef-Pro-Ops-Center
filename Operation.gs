@@ -1412,6 +1412,14 @@ function doPost(e) {
       var _asd = auditSheetData();
       return respond({ ok:_asd.ok, result:_asd, log: Logger.getLog() });
     }
+    if(body.action === 'seed_test_week') {
+      var _stw = seedTestWeek();
+      return respond({ ok:_stw.ok, result:_stw, log: Logger.getLog() });
+    }
+    if(body.action === 'audit_test_week') {
+      var _atw = auditTestWeek(body.campaign_id || 'EC-2026-001');
+      return respond({ ok:_atw.ok, result:_atw, log: Logger.getLog() });
+    }
     if(body.action === 'fix_campaign_briefs_cols') {
       var _fcbc = fixCampaignBriefsCols();
       return respond({ ok:_fcbc.ok, result:_fcbc, log: Logger.getLog() });
