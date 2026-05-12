@@ -1386,6 +1386,26 @@ function doPost(e) {
     if(body.action === 'validate_asset_lp_alignment')   return respond(validateAssetLPAlignment(body.campaign_id, { post_id: body.post_id||'', full_report: body.full_report||false }));
     if(body.action === 'seed_playbook_wiring')           return respond(seedPlaybookWiring());
     if(body.action === 'repair_claim_scoping_001')       return respond(repairClaimScoping001());
+    if(body.action === 'update_roadmap_doc') {
+      var _rdId  = body.doc_id || '1FrsElDIJPdDDywDYzIC8EoYiV_1RXD66sb9T6ynbK8I';
+      var _rdDep = String(body.deploy || '@593');
+      try {
+        var _rdDoc  = DocumentApp.openById(_rdId);
+        var _rdBody = _rdDoc.getBody();
+        // Replace all old deploy references
+        ['@590','@591','@592','@577','@589','@588','@587','@586','@585'].forEach(function(old) {
+          _rdBody.replaceText('Current deploy: ' + old, 'Current deploy: ' + _rdDep);
+          _rdBody.replaceText(old + ' —', _rdDep + ' —');
+          _rdBody.replaceText(old + '$', _rdDep);
+        });
+        // Ensure the Current deploy line is correct
+        _rdBody.replaceText('Current deploy: .*', 'Current deploy: ' + _rdDep);
+        _rdDoc.saveAndClose();
+        return respond({ ok: true, deploy: _rdDep, doc_id: _rdId });
+      } catch(e) {
+        return respond({ ok: false, error: e.message });
+      }
+    }
 
     // ── Manual Mode Enforcement ───────────────────────────────────────────────────
     if(body.action === 'seed_life_stages')               return respond(seedLifeStages());
