@@ -1408,6 +1408,10 @@ function doPost(e) {
       var _fcbc = fixCampaignBriefsCols();
       return respond({ ok:_fcbc.ok, result:_fcbc, log: Logger.getLog() });
     }
+    if(body.action === 'backfill_social_body_copy') {
+      var _bsbc = backfillSocialBodyCopy();
+      return respond({ ok:_bsbc.ok, result:_bsbc, log: Logger.getLog() });
+    }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');

@@ -546,6 +546,50 @@ function fixCampaignBriefsCols() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// backfillSocialBodyCopy  —  copy hook → body_copy for rows where body_copy is blank
+// ─────────────────────────────────────────────────────────────────────────────
+
+function backfillSocialBodyCopy() {
+  try {
+    var ss    = _getCampaignSpreadsheet();
+    var sheet = ss.getSheetByName('SocialPosts');
+    if (!sheet || sheet.getLastRow() < 2) return { ok: false, error: 'SocialPosts tab empty or missing' };
+
+    var data    = sheet.getDataRange().getValues();
+    var headers = data[0].map(function(h){ return String(h).trim(); });
+    var hookIdx = headers.indexOf('hook');
+    var bodyIdx = headers.indexOf('body_copy');
+
+    if (hookIdx < 0) return { ok: false, error: 'hook column not found' };
+    if (bodyIdx < 0) return { ok: false, error: 'body_copy column not found' };
+
+    var written = 0, skipped = 0, hookBlank = 0;
+    var rows = data.slice(1);  // exclude header
+
+    rows.forEach(function(row, i) {
+      var body = String(row[bodyIdx] || '').trim();
+      var hook = String(row[hookIdx] || '').trim();
+      if (body !== '') { skipped++; return; }   // already has content
+      if (hook === '') { hookBlank++; return; }  // nothing to copy
+      // Write hook value into body_copy column (row i+2 is 1-based, +1 for header)
+      sheet.getRange(i + 2, bodyIdx + 1).setValue(hook);
+      written++;
+    });
+
+    return {
+      ok:         true,
+      total:      rows.length,
+      written:    written,
+      skipped:    skipped,
+      hook_blank: hookBlank
+    };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // auditSheetData  —  read-only census of 5 tabs, no writes
 // ─────────────────────────────────────────────────────────────────────────────
 
