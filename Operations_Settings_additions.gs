@@ -173,6 +173,50 @@ function createAIReferenceTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
+// readAiReference()
+// First call in SESSION START PROTOCOL.
+// Reads the AIReference tab and returns all rows as a flat key→value map
+// plus a structured orientation block ready to confirm before touching code.
+// Triggered via: node run-gas.js '{"action":"read_ai_reference"}'
+// ─────────────────────────────────────────────────────────────────────────────
+
+function readAiReference() {
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('AIReference');
+    if (!sheet) return { ok: false, error: 'AIReference tab not found — run create_ai_reference_tab first' };
+
+    var data    = sheet.getDataRange().getValues();
+    var headers = data[0].map(function(h) { return String(h).trim(); });
+    var ref     = {};
+
+    for (var i = 1; i < data.length; i++) {
+      var row = {};
+      headers.forEach(function(h, j) { row[h] = String(data[i][j] || ''); });
+      if (row.key) ref[row.key] = { value: row.value, updated_at: row.updated_at, notes: row.notes };
+    }
+
+    var orientation = {
+      deploy:          (ref.current_deploy   || {}).value || 'unknown',
+      sheet_id:        (ref.sheet_id          || {}).value || 'unknown',
+      sheet_url:       (ref.sheet_url         || {}).value || '',
+      master_ref_url:  (ref.master_reference_url || {}).value || '',
+      github_repo:     (ref.github_repo       || {}).value || '',
+      deploy_date:     (ref.deploy_date       || {}).value || '',
+      governance:      (ref.governance_status || {}).value || '',
+      last_gap_closed: (ref.last_governance_gap || {}).value || ''
+    };
+
+    Logger.log('[readAiReference] orientation loaded — deploy=' + orientation.deploy);
+    return { ok: true, ref: ref, orientation: orientation };
+
+  } catch(e) {
+    Logger.log('[readAiReference] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // updateMasterReference()
 // Updates the Master Reference v4.0 Google Doc via the Docs API.
 // Triggered via: node run-gas.js '{"action":"update_master_reference",...}'
@@ -231,6 +275,26 @@ function updateMasterReference(params) {
       }
       body.appendParagraph('────────────────────────────────────────');
       ops.push('session log appended (' + ((sl.changes || []).length) + ' changes)');
+    }
+
+    // 4. Sync current_deploy in AIReference tab to keep read_ai_reference current
+    if (p.new_deploy) {
+      try {
+        var aiSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AIReference');
+        if (aiSheet) {
+          var aiData = aiSheet.getDataRange().getValues();
+          for (var r = 1; r < aiData.length; r++) {
+            if (String(aiData[r][0]).trim() === 'current_deploy') {
+              aiSheet.getRange(r + 1, 2).setValue(p.new_deploy);
+              aiSheet.getRange(r + 1, 3).setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'));
+              ops.push('AIReference current_deploy → ' + p.new_deploy);
+              break;
+            }
+          }
+        }
+      } catch(aiErr) {
+        Logger.log('[updateMasterReference] AIReference sync error: ' + aiErr.message);
+      }
     }
 
     if (ops.length === 0) {
@@ -422,4 +486,186 @@ function archiveOldReferenceDocs() {
     moved:          moved,
     skipped:        skipped
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// fixCampaignBriefsCols  —  remove duplicate campaign_angle/urgency_trigger
+//                           and stray drive_url columns (structural cleanup)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function fixCampaignBriefsCols() {
+  try {
+    var ss    = _getCampaignSpreadsheet();
+    var sheet = ss.getSheetByName('CampaignBriefs');
+    if (!sheet) return { ok: false, error: 'CampaignBriefs tab not found' };
+
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+                       .map(function(h){ return String(h).trim(); });
+
+    // Find columns to delete: second+ occurrence of campaign_angle / urgency_trigger, and drive_url
+    var seen = {};
+    var toDelete = [];  // 1-based column indices, collect then delete right-to-left
+    headers.forEach(function(h, i) {
+      var col1 = i + 1;  // convert to 1-based
+      if (h === 'campaign_angle' || h === 'urgency_trigger') {
+        if (seen[h]) {
+          toDelete.push({ col: col1, name: h });
+        } else {
+          seen[h] = true;
+        }
+      }
+      if (h === 'drive_url') {
+        toDelete.push({ col: col1, name: h });
+      }
+    });
+
+    if (toDelete.length === 0) return { ok: true, message: 'No duplicate/stray columns found', headers: headers };
+
+    // Delete right-to-left so earlier indices stay stable
+    toDelete.sort(function(a, b){ return b.col - a.col; });
+    var deleted = [];
+    toDelete.forEach(function(c) {
+      sheet.deleteColumns(c.col, 1);
+      deleted.push('col ' + c.col + ' (' + c.name + ')');
+    });
+
+    // Verify final headers
+    var finalHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+                            .map(function(h){ return String(h).trim(); });
+
+    return {
+      ok:            true,
+      deleted:       deleted,
+      final_headers: finalHeaders,
+      final_col_count: finalHeaders.length
+    };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// auditSheetData  —  read-only census of 5 tabs, no writes
+// ─────────────────────────────────────────────────────────────────────────────
+
+function auditSheetData() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    function readTab(tabName) {
+      var sh = ss.getSheetByName(tabName);
+      if (!sh || sh.getLastRow() < 2) return { headers: [], rows: [] };
+      var all = sh.getDataRange().getValues();
+      var headers = all[0].map(function(h){ return String(h).trim(); });
+      var rows = all.slice(1);
+      return { headers: headers, rows: rows };
+    }
+
+    function col(headers, name) {
+      return headers.indexOf(name);
+    }
+
+    function populated(val) {
+      return val !== null && val !== undefined && String(val).trim() !== '';
+    }
+
+    var result = {};
+
+    // ── 1. SocialPosts ────────────────────────────────────────────────────────
+    var sp = readTab('SocialPosts');
+    var spBodyIdx = col(sp.headers, 'body_copy');
+    var spPopulated = [], spNull = 0;
+    sp.rows.forEach(function(r) {
+      var v = spBodyIdx >= 0 ? r[spBodyIdx] : '';
+      if (populated(v)) { spPopulated.push(String(v)); }
+      else              { spNull++; }
+    });
+    result.SocialPosts = {
+      total:             sp.rows.length,
+      body_copy_populated: spPopulated.length,
+      body_copy_null:    spNull,
+      first_3_values:    spPopulated.slice(0, 3).map(function(v){ return v.substring(0, 120); })
+    };
+
+    // ── 2. CampaignBriefs ─────────────────────────────────────────────────────
+    var cb = readTab('CampaignBriefs');
+    var caIdx   = col(cb.headers, 'campaign_angle');
+    var utIdx   = col(cb.headers, 'urgency_trigger');
+    var ca1Idx  = col(cb.headers, 'campaign_angle.1');
+    var ut1Idx  = col(cb.headers, 'urgency_trigger.1');
+    var cbSample = [];
+    cb.rows.slice(0, 5).forEach(function(r) {
+      cbSample.push({
+        campaign_angle:   caIdx  >= 0 ? String(r[caIdx]  || '') : 'col_missing',
+        urgency_trigger:  utIdx  >= 0 ? String(r[utIdx]  || '') : 'col_missing',
+        'campaign_angle.1': ca1Idx >= 0 ? String(r[ca1Idx] || '') : 'col_missing',
+        'urgency_trigger.1': ut1Idx >= 0 ? String(r[ut1Idx] || '') : 'col_missing'
+      });
+    });
+    result.CampaignBriefs = {
+      total:               cb.rows.length,
+      headers_actual:      cb.headers,
+      campaign_angle_col:     caIdx,
+      urgency_trigger_col:    utIdx,
+      'campaign_angle.1_col': ca1Idx,
+      'urgency_trigger.1_col': ut1Idx,
+      first_5_rows_sample: cbSample
+    };
+
+    // ── 3. FigmaExport ────────────────────────────────────────────────────────
+    var fe = readTab('FigmaExport');
+    var feIcpIdx = col(fe.headers, 'icp_target');
+    var feCtaIdx = col(fe.headers, 'cta');
+    var feIcpPop = 0, feIcpNull = 0, feCtaPop = 0, feCtaNull = 0;
+    fe.rows.forEach(function(r) {
+      var icp = feIcpIdx >= 0 ? r[feIcpIdx] : '';
+      var cta = feCtaIdx >= 0 ? r[feCtaIdx] : '';
+      if (populated(icp)) feIcpPop++; else feIcpNull++;
+      if (populated(cta)) feCtaPop++; else feCtaNull++;
+    });
+    result.FigmaExport = {
+      total:           fe.rows.length,
+      headers_actual:  fe.headers,
+      icp_target_populated: feIcpPop,
+      icp_target_null: feIcpNull,
+      cta_populated:   feCtaPop,
+      cta_null:        feCtaNull
+    };
+
+    // ── 4. DeepLinkRegistry ───────────────────────────────────────────────────
+    var dl = readTab('DeepLinkRegistry');
+    var dlIcpIdx = col(dl.headers, 'icp_code');
+    var dlArcIdx = col(dl.headers, 'emotional_arc_id');
+    var dlIcpPop = 0, dlArcPop = 0;
+    dl.rows.forEach(function(r) {
+      if (dlIcpIdx >= 0 && populated(r[dlIcpIdx])) dlIcpPop++;
+      if (dlArcIdx >= 0 && populated(r[dlArcIdx])) dlArcPop++;
+    });
+    result.DeepLinkRegistry = {
+      total:                    dl.rows.length,
+      icp_code_populated:       dlIcpPop,
+      icp_code_null:            dl.rows.length - dlIcpPop,
+      emotional_arc_id_populated: dlArcPop,
+      emotional_arc_id_null:    dl.rows.length - dlArcPop
+    };
+
+    // ── 5. ContentCalendar ────────────────────────────────────────────────────
+    var cc = readTab('ContentCalendar');
+    var ccBriefIdx = col(cc.headers, 'brief_doc_url');
+    var ccBriefPop = 0;
+    cc.rows.forEach(function(r) {
+      if (ccBriefIdx >= 0 && populated(r[ccBriefIdx])) ccBriefPop++;
+    });
+    result.ContentCalendar = {
+      total:               cc.rows.length,
+      brief_doc_url_populated: ccBriefPop,
+      brief_doc_url_null:  cc.rows.length - ccBriefPop
+    };
+
+    return { ok: true, audit: result };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
 }

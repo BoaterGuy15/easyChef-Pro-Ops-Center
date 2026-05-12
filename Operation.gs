@@ -1375,6 +1375,10 @@ function doPost(e) {
     }
 
     // ── Setup utilities ───────────────────────────────────────────────────────
+    if(body.action === 'read_ai_reference') {
+      var _rai = readAiReference();
+      return respond({ ok:_rai.ok, result:_rai, log: Logger.getLog() });
+    }
     if(body.action === 'create_ai_reference_tab') {
       var _cart = createAIReferenceTab();
       return respond({ ok:_cart.ok, result:_cart, log: Logger.getLog() });
@@ -1395,6 +1399,14 @@ function doPost(e) {
         session_log: body.session_log || null
       });
       return respond({ ok:_umr.ok, result:_umr, log: Logger.getLog() });
+    }
+    if(body.action === 'audit_sheet_data') {
+      var _asd = auditSheetData();
+      return respond({ ok:_asd.ok, result:_asd, log: Logger.getLog() });
+    }
+    if(body.action === 'fix_campaign_briefs_cols') {
+      var _fcbc = fixCampaignBriefsCols();
+      return respond({ ok:_fcbc.ok, result:_fcbc, log: Logger.getLog() });
     }
 
     const tasks = Array.isArray(body) ? body : body.tasks;
