@@ -1310,7 +1310,8 @@ function doPost(e) {
     if(body.action === 'cleanup_deep_link_registry') return respond(cleanupDeepLinkRegistry());
 
     // ── LP Doctrine governance ────────────────────────────────────────────────────
-    if(body.action === 'seed_lp_doctrine') return respond(seedLpDoctrine());
+    if(body.action === 'seed_lp_doctrine')             return respond(seedLpDoctrine());
+    if(body.action === 'ensure_lp_doctrine_columns')   return respond(ensureAllLPDoctrineColumns());
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });

@@ -55,7 +55,8 @@ var _CC_HDR = {
     'post_count','post_frequency','email_sequences','email_variants',
     'theme','publish_day','channels',
     'ab_test','ab_tool','ab_split','lp_slug_a','lp_slug_b','ab_experiment_id',
-    'campaign_angle','urgency_trigger'
+    'campaign_angle','urgency_trigger',
+    'lp_campaign_spine_json'
   ],
   GeneratedCopy: [
     'id','campaign_id','icp_code','channel','headline','subheadline',
@@ -75,7 +76,8 @@ var _CC_HDR = {
     'body_value','body_proof','body_cta','send_day','trigger_event',
     'status','approved','approved_by','built_in_klaviyo','klaviyo_id',
     'funnel_stage','subject_angle','body_theme','role','seq_template_id',
-    'design_brief'
+    'design_brief',
+    'lp_section_source','emotional_stage','claim_set','loop_stage','dl_id'
   ],
   CampaignTypes: [
     'id','cta_type','label','cta_text','destination_url','destination_label',
@@ -90,7 +92,8 @@ var _CC_HDR = {
   SocialPosts: [
     'id','campaign_id','platform','hook','body_copy','cta','hashtags',
     'image_brief','image_url','scheduled_date','scheduled_time','status','dl_id','utm_url','posted_url',
-    'design_brief'
+    'design_brief',
+    'lp_section_source','lp_headline_connection','emotional_state','emotional_destination','loop_stage'
   ],
   LandingPages: [
     'id','campaign_id','icp_code','slug','full_url','title_tag','meta_description',
@@ -182,7 +185,8 @@ var _CC_HDR = {
     'ai_tool','ai_gen_status','video_url',
     'edit_status','thumbnail_status',
     'brief','publish_date','published_url','notes',
-    'created_at','updated_at'
+    'created_at','updated_at',
+    'lp_section_source','recognition_moment','product_reveal_timing','visual_metaphor'
   ],
   VideoIdeaBank: [
     'idea_id','campaign_id','title','feature','icp_target','pain_mapped',
@@ -1113,9 +1117,10 @@ function _briefRowToObj(r) {
     ab_split:        String(r[24] || '50/50'),
     lp_slug_a:       String(r[25] || ''),
     lp_slug_b:       String(r[26] || ''),
-    ab_experiment_id: String(r[27] || ''),
-    campaign_angle:   String(r[28] || ''),
-    urgency_trigger:  String(r[29] || '')
+    ab_experiment_id:    String(r[27] || ''),
+    campaign_angle:      String(r[28] || ''),
+    urgency_trigger:     String(r[29] || ''),
+    lp_campaign_spine_json: String(r[30] || '')
   };
 }
 
@@ -1176,8 +1181,9 @@ function setCampaignBrief(item) {
     item.lp_slug_a        !== undefined ? item.lp_slug_a               : (ex ? ex[25] : ''),
     item.lp_slug_b        !== undefined ? item.lp_slug_b               : (ex ? ex[26] : ''),
     item.ab_experiment_id !== undefined ? item.ab_experiment_id        : (ex ? ex[27] : ''),
-    item.campaign_angle   !== undefined ? item.campaign_angle          : (ex ? ex[28] : ''),
-    item.urgency_trigger  !== undefined ? item.urgency_trigger         : (ex ? ex[29] : '')
+    item.campaign_angle          !== undefined ? item.campaign_angle          : (ex ? ex[28] : ''),
+    item.urgency_trigger         !== undefined ? item.urgency_trigger         : (ex ? ex[29] : ''),
+    item.lp_campaign_spine_json  !== undefined ? item.lp_campaign_spine_json  : (ex ? ex[30] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -1205,6 +1211,34 @@ function ensureCampaignBriefColumns() {
   missing.forEach(function(h, i) { sheet.getRange(1, startCol + i).setValue(h); });
   Logger.log('[ensureCampaignBriefColumns] Added ' + missing.length + ' columns starting at col ' + startCol + ': ' + missing.join(', '));
   return { ok: true, added: missing.length, columns: missing };
+}
+
+// Stamps any missing LP Doctrine header columns onto all 4 affected sheets.
+// Safe to run multiple times — only adds columns not already present.
+function ensureAllLPDoctrineColumns() {
+  var tabs = [
+    { tab: _CC_TAB.BRIEFS,        hdr: _CC_HDR.CampaignBriefs  },
+    { tab: _CC_TAB.SOCIAL,        hdr: _CC_HDR.SocialPosts      },
+    { tab: _CC_TAB.EMAIL,         hdr: _CC_HDR.EmailSequences   },
+    { tab: _CC_TAB.VIDEO_PRODUCTION, hdr: _CC_HDR.VideoProduction }
+  ];
+  var results = {};
+  tabs.forEach(function(t) {
+    var sheet    = _getCCSheet(t.tab);
+    var lastCol  = sheet.getLastColumn();
+    var existing = lastCol > 0
+      ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(v) { return String(v || '').trim(); })
+      : [];
+    var missing = t.hdr.filter(function(h) { return existing.indexOf(h) === -1; });
+    if (missing.length) {
+      var start = lastCol + 1;
+      missing.forEach(function(h, i) { sheet.getRange(1, start + i).setValue(h); });
+    }
+    results[t.tab] = { added: missing.length, columns: missing };
+    Logger.log('[ensureAllLPDoctrineColumns] ' + t.tab + ' added=' + missing.length +
+               (missing.length ? ' (' + missing.join(', ') + ')' : ''));
+  });
+  return { ok: true, results: results };
 }
 
 // ── GeneratedCopy ─────────────────────────────────────────────────────────────
@@ -1449,13 +1483,18 @@ function _seqRowToObj(r) {
     approved: r[16] === true || String(r[16]).toLowerCase() === 'true',
     approved_by: r[17],
     built_in_klaviyo: r[18] === true || String(r[18]).toLowerCase() === 'true',
-    klaviyo_id:      r[19] || '',
-    funnel_stage:    r[20] || '',
-    subject_angle:   r[21] || '',
-    body_theme:      r[22] || '',
-    role:            r[23] || '',
-    seq_template_id: r[24] || '',
-    design_brief:    r[25] || ''
+    klaviyo_id:       r[19] || '',
+    funnel_stage:     r[20] || '',
+    subject_angle:    r[21] || '',
+    body_theme:       r[22] || '',
+    role:             r[23] || '',
+    seq_template_id:  r[24] || '',
+    design_brief:     r[25] || '',
+    lp_section_source: r[26] || '',
+    emotional_stage:   r[27] || '',
+    claim_set:         r[28] || '',
+    loop_stage:        r[29] || '',
+    dl_id:             r[30] || ''
   };
 }
 
@@ -1508,7 +1547,12 @@ function setEmailSequence(item) {
     item.body_theme        !== undefined ? item.body_theme        : (ex ? ex[22] : ''),
     item.role              !== undefined ? item.role              : (ex ? ex[23] : ''),
     item.seq_template_id   !== undefined ? item.seq_template_id   : (ex ? ex[24] : ''),
-    item.design_brief      !== undefined ? item.design_brief      : (ex ? ex[25] : '')
+    item.design_brief      !== undefined ? item.design_brief      : (ex ? ex[25] : ''),
+    item.lp_section_source !== undefined ? item.lp_section_source : (ex ? ex[26] : ''),
+    item.emotional_stage   !== undefined ? item.emotional_stage   : (ex ? ex[27] : ''),
+    item.claim_set         !== undefined ? item.claim_set         : (ex ? ex[28] : ''),
+    item.loop_stage        !== undefined ? item.loop_stage        : (ex ? ex[29] : ''),
+    item.dl_id             !== undefined ? item.dl_id             : (ex ? ex[30] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -1523,7 +1567,12 @@ function _socialRowToObj(r) {
     scheduled_date: _ccFmtDate(r[9]), scheduled_time: r[10] || '08:00',
     status: r[11],
     dl_id: r[12], utm_url: r[13], posted_url: r[14],
-    design_brief: r[15] || ''
+    design_brief:           r[15] || '',
+    lp_section_source:      r[16] || '',
+    lp_headline_connection: r[17] || '',
+    emotional_state:        r[18] || '',
+    emotional_destination:  r[19] || '',
+    loop_stage:             r[20] || ''
   };
 }
 
@@ -1564,9 +1613,14 @@ function setSocialPost(item) {
     item.scheduled_time !== undefined ? item.scheduled_time : (ex ? ex[10] : '08:00'),
     item.status         !== undefined ? item.status         : (ex ? ex[11] : 'draft'),
     item.dl_id          !== undefined ? item.dl_id          : (ex ? ex[12] : ''),
-    item.utm_url        !== undefined ? item.utm_url        : (ex ? ex[13] : ''),
-    item.posted_url     !== undefined ? item.posted_url     : (ex ? ex[14] : ''),
-    item.design_brief   !== undefined ? item.design_brief   : (ex ? ex[15] : '')
+    item.utm_url               !== undefined ? item.utm_url               : (ex ? ex[13] : ''),
+    item.posted_url            !== undefined ? item.posted_url            : (ex ? ex[14] : ''),
+    item.design_brief          !== undefined ? item.design_brief          : (ex ? ex[15] : ''),
+    item.lp_section_source     !== undefined ? item.lp_section_source     : (ex ? ex[16] : ''),
+    item.lp_headline_connection !== undefined ? item.lp_headline_connection : (ex ? ex[17] : ''),
+    item.emotional_state       !== undefined ? item.emotional_state       : (ex ? ex[18] : ''),
+    item.emotional_destination !== undefined ? item.emotional_destination : (ex ? ex[19] : ''),
+    item.loop_stage            !== undefined ? item.loop_stage            : (ex ? ex[20] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -1660,6 +1714,77 @@ function setLandingPage(item) {
   _ccUpsert(sheet, headers, item.id, row);
   // Keep LPInventory in sync: register slug and link this campaign
   try { _registerLpInInventory(item.slug || row[3], item.campaign_id || row[1], item); } catch(e) {}
+}
+
+// ── VideoProduction ───────────────────────────────────────────────────────────
+
+function _videoRowToObj(r) {
+  return {
+    asset_id: r[0], campaign_id: r[1], platform: r[2], video_type: r[3],
+    duration_target: r[4], hook: r[5],
+    script_status: r[6], storyboard_status: r[7], storyboard_url: r[8],
+    ai_tool: r[9], ai_gen_status: r[10], video_url: r[11],
+    edit_status: r[12], thumbnail_status: r[13],
+    brief: r[14], publish_date: _ccFmtDate(r[15]), published_url: r[16], notes: r[17],
+    created_at: _ccFmtDate(r[18]), updated_at: _ccFmtDate(r[19]),
+    lp_section_source:    r[20] || '',
+    recognition_moment:   r[21] || '',
+    product_reveal_timing: r[22] || '',
+    visual_metaphor:      r[23] || ''
+  };
+}
+
+function getVideoProduction(campaignId) {
+  var sheet = _getCCSheet(_CC_TAB.VIDEO_PRODUCTION);
+  var last  = sheet.getLastRow();
+  if (last < 2) return [];
+  var rows = sheet.getRange(2, 1, last - 1, _CC_HDR.VideoProduction.length).getValues()
+    .filter(function(r) { return r[0]; })
+    .map(_videoRowToObj);
+  if (!campaignId) return rows;
+  return rows.filter(function(r) { return r.campaign_id === campaignId; });
+}
+
+function setVideoProduction(item) {
+  if (!item || !item.asset_id) return;
+  var sheet   = _getCCSheet(_CC_TAB.VIDEO_PRODUCTION);
+  var headers = _CC_HDR.VideoProduction;
+  var ex      = null;
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === String(item.asset_id)) { ex = rows[i]; break; }
+    }
+  }
+  var now = _ccNow();
+  var row = [
+    item.asset_id,
+    item.campaign_id       !== undefined ? item.campaign_id       : (ex ? ex[1]  : ''),
+    item.platform          !== undefined ? item.platform          : (ex ? ex[2]  : ''),
+    item.video_type        !== undefined ? item.video_type        : (ex ? ex[3]  : ''),
+    item.duration_target   !== undefined ? item.duration_target   : (ex ? ex[4]  : ''),
+    item.hook              !== undefined ? item.hook              : (ex ? ex[5]  : ''),
+    item.script_status     !== undefined ? item.script_status     : (ex ? ex[6]  : 'draft'),
+    item.storyboard_status !== undefined ? item.storyboard_status : (ex ? ex[7]  : 'not_started'),
+    item.storyboard_url    !== undefined ? item.storyboard_url    : (ex ? ex[8]  : ''),
+    item.ai_tool           !== undefined ? item.ai_tool           : (ex ? ex[9]  : ''),
+    item.ai_gen_status     !== undefined ? item.ai_gen_status     : (ex ? ex[10] : 'not_started'),
+    item.video_url         !== undefined ? item.video_url         : (ex ? ex[11] : ''),
+    item.edit_status       !== undefined ? item.edit_status       : (ex ? ex[12] : 'not_started'),
+    item.thumbnail_status  !== undefined ? item.thumbnail_status  : (ex ? ex[13] : 'not_started'),
+    item.brief             !== undefined ? item.brief             : (ex ? ex[14] : ''),
+    item.publish_date      !== undefined ? item.publish_date      : (ex ? ex[15] : ''),
+    item.published_url     !== undefined ? item.published_url     : (ex ? ex[16] : ''),
+    item.notes             !== undefined ? item.notes             : (ex ? ex[17] : ''),
+    ex ? ex[18] : now,
+    now,
+    item.lp_section_source     !== undefined ? item.lp_section_source     : (ex ? ex[20] : ''),
+    item.recognition_moment    !== undefined ? item.recognition_moment    : (ex ? ex[21] : ''),
+    item.product_reveal_timing !== undefined ? item.product_reveal_timing : (ex ? ex[22] : ''),
+    item.visual_metaphor       !== undefined ? item.visual_metaphor       : (ex ? ex[23] : '')
+  ];
+  _ccUpsert(sheet, headers, item.asset_id, row);
 }
 
 // ── Channels ──────────────────────────────────────────────────────────────────
