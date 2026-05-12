@@ -337,12 +337,19 @@ function _fcLoad(campaignId) {
  * Writes each post to SocialPosts sheet before returning.
  * post_count capped at 7 to keep each Claude call ≤ 2 min.
  */
-function fcGenerateSocialPosts(campaignId) {
+function fcGenerateSocialPosts(campaignId, channel) {
   try {
     var ctx = _fcLoad(campaignId);
     if (!ctx) return { ok: false, error: 'Brief not found: ' + campaignId };
-    Logger.log('[fcSocial] Starting buildSocialCalendar for ' + campaignId);
-    var result = buildSocialCalendar(ctx.brief, ctx.copy);
+    var brief = ctx.brief;
+    if (channel) {
+      // Deep copy so we don't mutate the cached brief
+      brief = JSON.parse(JSON.stringify(brief));
+      brief.channels = [channel];
+      brief.channel  = channel;
+    }
+    Logger.log('[fcSocial] Starting buildSocialCalendar for ' + campaignId + (channel ? ' · channel: ' + channel : ' · all channels'));
+    var result = buildSocialCalendar(brief, ctx.copy);
     if (!result.ok) return { ok: false, error: result.error };
     var posts = result.posts || [];
     var tk = posts.filter(function(p){return(p.platform||'').toLowerCase()==='tiktok';}).length;

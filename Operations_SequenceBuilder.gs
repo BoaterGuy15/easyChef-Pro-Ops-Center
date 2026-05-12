@@ -422,6 +422,11 @@ function buildEmailCalendar(brief, copy) {
       ? copy.proof_bar.join(' · ')
       : (copy && copy.proof_bar || '');
 
+    // Build approved-claims lookup once — injected per email to block invented numbers
+    var _emScoping   = getCampaignStrategy('CLAIM_SCOPING_001');
+    var _emSecMap    = (_emScoping && _emScoping.value && _emScoping.value.section_claim_map) || {};
+    var _emAllClaims = _getApprovedClaimsRows() || [];
+
     for (var wi = 0; wi < wireframe.length; wi++) {
       var wf        = wireframe[wi];
       var isWelcome = (wf.seq === 'SEQ-1' && wf.num === 1);
@@ -431,11 +436,22 @@ function buildEmailCalendar(brief, copy) {
       emailCtx.icp_code  = brief.icp || '';
       emailCtx.seq_stage = wf.stage;
 
+      // Inject approved claims for this stage
+      var _emPermitted = _emSecMap[wf.stage] || [];
+      var _emStageClaims = _emPermitted.length
+        ? _emAllClaims.filter(function(c) { return _emPermitted.indexOf(c.claim_type) > -1; })
+            .map(function(c) { return c.exact_wording; }).filter(Boolean).slice(0, 4).join(' | ')
+        : '';
+      var _emClaimsLine = _emStageClaims
+        ? 'APPROVED CLAIMS FOR ' + wf.stage.toUpperCase() + ' (exact wording only — no other numbers): ' + _emStageClaims + '\n'
+        : 'NUMBERS POLICY: Do not invent figures. Only use dollar amounts that appear in the proof_bar above.\n';
+
       var systemPrompt =
         getMasterSystemPrompt('email_full', emailCtx) +
         '=== EMAIL SEQUENCE RULES ===\n' +
         'From name: Taylor at easyChef Pro\n' +
         'TESTIMONIALS ARE BANNED: Never write "One mom told us...", "A customer said...", or any fabricated testimonial. No invented names, no invented quotes.\n' +
+        _emClaimsLine +
         'NUMBERS POLICY: ONLY use figures from the approved claims list. No other dollar amounts, percentages, or counts.\n' +
         'BODY LENGTH: Each step section should be 2-4 sentences. Total email should be 250+ words across all steps combined.\n' +
         'BODY PS: Every email must end with a P.S. line — one sentence that adds urgency or reinforces the founding offer.\n\n' +

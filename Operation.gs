@@ -1359,7 +1359,7 @@ function doPost(e) {
     // ── Sequence Builder ──────────────────────────────────────────────────────────
     if(body.action === 'build_full_sequence')      return respond(buildFullSequence(body.brief, body.copy, body.posts||[], body.emails||[]));
     if(body.action === 'run_full_campaign')        return respond(runFullCampaignAutomatic(body.campaign_id||''));
-    if(body.action === 'generate_social_posts')      return respond(fcGenerateSocialPosts(body.campaign_id||''));
+    if(body.action === 'generate_social_posts')      return respond(fcGenerateSocialPosts(body.campaign_id||'', body.channel||''));
     if(body.action === 'generate_emails')            return respond(fcGenerateEmails(body.campaign_id||''));
     if(body.action === 'generate_utm_and_save')      return respond(fcGenerateUtmAndSave(body.campaign_id||''));
     if(body.action === 'export_campaign_to_drive')   return respond(fcExportCampaignToDrive(body.campaign_id||''));
@@ -1385,6 +1385,7 @@ function doPost(e) {
     if(body.action === 'backfill_lp_doctrine_columns')  return respond(backfillLPDoctrineColumns());
     if(body.action === 'validate_asset_lp_alignment')   return respond(validateAssetLPAlignment(body.campaign_id, { post_id: body.post_id||'', full_report: body.full_report||false }));
     if(body.action === 'seed_playbook_wiring')           return respond(seedPlaybookWiring());
+    if(body.action === 'repair_claim_scoping_001')       return respond(repairClaimScoping001());
 
     // ── Manual Mode Enforcement ───────────────────────────────────────────────────
     if(body.action === 'seed_life_stages')               return respond(seedLifeStages());

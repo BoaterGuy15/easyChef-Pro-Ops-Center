@@ -465,7 +465,7 @@ function _getApprovedClaimsRows() {
       headers.forEach(function(h, j) { row[h] = vals[i][j]; });
       var approved = String(row.approved || row.active || '').toLowerCase();
       if (approved === 'true' || approved === '1' || approved === 'yes') {
-        results.push({ claim: String(row.claim || row.name || ''), exact_wording: String(row.exact_wording || row.claim || '') });
+        results.push({ claim: String(row.claim || row.name || ''), exact_wording: String(row.exact_wording || row.claim || ''), claim_type: String(row.claim_type || '') });
       }
     }
   } catch(e) { Logger.log('_getApprovedClaimsRows error: ' + e.message); }
@@ -1044,17 +1044,20 @@ function generateLPSpine(campaignId, options) {
     var icpCode = options.icp_code
       ? String(options.icp_code)
       : _resolveIcpCode(brief.icp_code || '', { lp_variant: lpVariant });
-    // LP inventory fallback when brief icp_code is generic (no pipe separator)
-    if (!icpCode || icpCode === brief.icp_code) {
-      var _lpSlug = lpVariant === 'b' ? (brief.lp_slug_b || '') : (brief.lp_slug_a || '');
-      if (_lpSlug) {
-        try {
-          var _lpRow = getLPInventoryBySlug(_lpSlug);
-          if (_lpRow && _lpRow.icp_code && _lpRow.icp_code !== brief.icp_code) {
-            icpCode = _lpRow.icp_code;
+    // Always fetch LP inventory for the variant — captures angle + ICP fallback
+    var _variantAngle = '';
+    var _lpSlug = lpVariant === 'b' ? (brief.lp_slug_b || '') : (brief.lp_slug_a || '');
+    if (_lpSlug) {
+      try {
+        var _lpRow = getLPInventoryBySlug(_lpSlug);
+        if (_lpRow) {
+          if (_lpRow.campaign_angle) _variantAngle = String(_lpRow.campaign_angle);
+          // icp_codes fallback (LP inventory uses icp_codes plural)
+          if ((!icpCode || icpCode === brief.icp_code) && _lpRow.icp_codes) {
+            icpCode = _lpRow.icp_codes;
           }
-        } catch(e) {}
-      }
+        }
+      } catch(e) {}
     }
 
     // 3. Load ICP + theme
@@ -1091,7 +1094,8 @@ function generateLPSpine(campaignId, options) {
     if (icp.value_trigger)   userMsg += 'Value trigger: ' + icp.value_trigger + '\n';
     if (icp.loss_aversion)   userMsg += 'Loss aversion: ' + icp.loss_aversion + '\n';
     if (icp.message_hierarchy) userMsg += 'Message hierarchy: ' + icp.message_hierarchy + '\n';
-    if (brief.campaign_angle) userMsg += 'Campaign angle: ' + brief.campaign_angle + '\n';
+    var _effectiveAngle = _variantAngle || brief.campaign_angle || '';
+    if (_effectiveAngle) userMsg += 'Campaign angle: ' + _effectiveAngle + '\n';
     if (brief.urgency_trigger) userMsg += 'Urgency trigger: ' + brief.urgency_trigger + '\n';
     if (theme.theme_name)    userMsg += 'Theme: ' + theme.theme_name + '\n';
     if (theme.hook_angle)    userMsg += 'Hook angle: ' + theme.hook_angle + '\n';
@@ -2160,10 +2164,28 @@ function buildSocialPosts(brief, copy) {
   var _spStoryCtx  = _buildBriefStoryCtx(brief);
   _spStoryCtx.platform = channel;
 
+  // Approved claims per LP section — prevents GPT-4o from inventing numbers
+  var _spScoping   = getCampaignStrategy('CLAIM_SCOPING_001');
+  var _spSecMap    = (_spScoping && _spScoping.value && _spScoping.value.section_claim_map) || {};
+  var _spAllClaims = _getApprovedClaimsRows() || [];
+  var _spClaimsLines = [];
+  ['hook','problem','agitate','solve','value','proof','cta','urgency'].forEach(function(sec) {
+    var permitted = _spSecMap[sec] || [];
+    if (!permitted.length) return;
+    var forSec = _spAllClaims.filter(function(c) { return permitted.indexOf(c.claim_type) > -1; })
+      .map(function(c) { return c.exact_wording; }).filter(Boolean).slice(0, 4);
+    if (forSec.length) _spClaimsLines.push(sec.toUpperCase() + ': ' + forSec.join(' | '));
+  });
+  var _spClaimsBlock = _spClaimsLines.length
+    ? _spClaimsLines.join('\n') + '\n'
+    : 'Use only figures that appear in the approved claims sheet. Never invent dollar amounts or percentages.\n';
+
   var systemPrompt =
     getMasterSystemPrompt('social_post', _spStoryCtx) +
     '=== PLATFORM ===\n' +
     (channelRules || platformNote) + '\n\n' +
+    '=== APPROVED CLAIMS BY SECTION (exact wording only — never invent numbers) ===\n' +
+    _spClaimsBlock + '\n' +
     '=== CAMPAIGN CONTEXT ===\n' +
     'Landing page: ' + lpUrl + '\n' +
     'Headline: '    + (copy && copy.headline    || '') + '\n' +

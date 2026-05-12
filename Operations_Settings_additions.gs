@@ -3119,20 +3119,28 @@ function buildGPT4oSystemPromptDocs() {
       email += '════════════════════\nONBOARDING SEQUENCE: OB-E1 through OB-E7\n════════════════════\n';
       if (obSeq.engineering_deadline) email += 'Engineering deadline: ' + obSeq.engineering_deadline + '\n\n';
       obSeq.emails.forEach(function(em) {
-        email += em.id + ' (Day ' + em.send_day + '): ' + em.subject + '\n';
-        if (em.goal) email += '  Goal: ' + em.goal + '\n';
-        if (em.cta)  email += '  CTA: '  + em.cta  + '\n';
+        email += em.id + ' (Day ' + em.day + '): ' + em.name + '\n';
+        if (em.condition) email += '  Condition: ' + em.condition + '\n';
+        if (em.tone)      email += '  Tone: '      + em.tone      + '\n';
+        if (em.cta)       email += '  CTA: '       + em.cta       + '\n';
+        if (em.variants)  {
+          email += '  Variants:\n';
+          Object.keys(em.variants).forEach(function(vk) { email += '    [' + vk + ']: ' + em.variants[vk] + '\n'; });
+        }
         email += '\n';
       });
     }
 
-    if (tipping && (tipping.meals_cooked || tipping.logic)) {
+    var tCond = tipping && tipping.conditions;
+    if (tCond || (tipping && tipping.logic)) {
       email += '════════════════════\nTIPPING POINT DEFINITION\n════════════════════\n';
-      if (tipping.meals_cooked)   email += 'Meals cooked: '        + tipping.meals_cooked   + '\n';
-      if (tipping.spoilage_saves) email += 'Spoilage saves: '      + tipping.spoilage_saves + '\n';
-      if (tipping.pantry_items)   email += 'Pantry items tracked: '+ tipping.pantry_items   + '\n';
-      if (tipping.logic)          email += 'Logic: '               + tipping.logic          + '\n';
-      if (tipping.paywall_rule)   email += 'Paywall rule: '        + tipping.paywall_rule   + '\n';
+      if (tCond) {
+        if (tCond.meals_cooked)   email += 'Meals cooked: '         + tCond.meals_cooked   + '\n';
+        if (tCond.spoilage_saves) email += 'Spoilage saves: '       + tCond.spoilage_saves + '\n';
+        if (tCond.pantry_items)   email += 'Pantry items tracked: ' + tCond.pantry_items   + '\n';
+      }
+      if (tipping.logic)        email += 'Logic: '       + tipping.logic        + '\n';
+      if (tipping.paywall_rule) email += 'Paywall rule: '+ tipping.paywall_rule + '\n';
       email += '\n';
     }
 
@@ -3148,15 +3156,26 @@ function buildGPT4oSystemPromptDocs() {
       '[CTA_PROMISE] — Specific outcome promise in the CTA button\n';
 
     // ── Create 4 Google Docs ──────────────────────────────────────────────────
-    var ts   = new Date().toISOString().split('T')[0];
-    var doc1 = DocumentApp.create('easyChef Pro — GPT-4o LP System Prompt [' + ts + ']');
-    var doc2 = DocumentApp.create('easyChef Pro — GPT-4o TikTok Caption System Prompt [' + ts + ']');
-    var doc3 = DocumentApp.create('easyChef Pro — GPT-4o YouTube Script System Prompt [' + ts + ']');
-    var doc4 = DocumentApp.create('easyChef Pro — GPT-4o Email System Prompt [' + ts + ']');
-    doc1.getBody().setText(lp);
-    doc2.getBody().setText(tiktok);
-    doc3.getBody().setText(youtube);
-    doc4.getBody().setText(email);
+    var ts   = new Date().toISOString();
+    var tsDate = ts.split('T')[0];
+    // Read current deploy label from CcSettings (DEPLOY_VERSION key if present)
+    var _deplR = _getCcSetting('DEPLOY_VERSION');
+    var _deplLabel = (_deplR && _deplR.length ? _deplR[0].label : '') || '';
+    var META =
+      '════════════════════\nCOMPILED ARTIFACT — DO NOT EDIT MANUALLY\n════════════════════\n' +
+      'Built: ' + ts + '\n' +
+      (_deplLabel ? 'Deploy: ' + _deplLabel + '\n' : '') +
+      'Source: Campaign Center Sheet 1-43KWwGljxoasdfaXAf26gI5JClPgGL0ElETN1Bidas\n' +
+      'Rebuild: {"action":"build_gpt4o_prompt_docs"}\n\n';
+
+    var doc1 = DocumentApp.create('easyChef Pro — GPT-4o LP System Prompt [' + tsDate + ']');
+    var doc2 = DocumentApp.create('easyChef Pro — GPT-4o TikTok Caption System Prompt [' + tsDate + ']');
+    var doc3 = DocumentApp.create('easyChef Pro — GPT-4o YouTube Script System Prompt [' + tsDate + ']');
+    var doc4 = DocumentApp.create('easyChef Pro — GPT-4o Email System Prompt [' + tsDate + ']');
+    doc1.getBody().setText(META + lp);
+    doc2.getBody().setText(META + tiktok);
+    doc3.getBody().setText(META + youtube);
+    doc4.getBody().setText(META + email);
 
     // Persist doc IDs so audit_prompt_schema_drift can locate them
     _upsertCcSettingLabel('SCHEMA_DOCS', 'LP_DOC_ID',      doc1.getId());
@@ -3470,14 +3489,15 @@ function seedBrandVisualTokens() {
 }
 
 // ── auditPromptSchemaDrift ────────────────────────────────────────────────────
-// Reads the 4 GPT-4o system prompt docs (IDs stored in CcSettings SCHEMA_DOCS
-// after build_gpt4o_prompt_docs runs) and checks each doc text against live
-// sheet values. Logs all violations to a SchemaDriftLog tab. Never blocks.
+// Reads the 4 GPT-4o system prompt docs and checks each against live doctrine.
+// DOCTRINE_CONTEXT_ALLOWLIST: violations inside doctrine-reference sections
+// (FORBIDDEN WORDS, APPROVED CLAIMS, PRECISION RULES, etc.) are suppressed —
+// those sections quote rules for instruction, not as generated copy output.
+// Each audit run clears the previous SchemaDriftLog batch before writing fresh.
 function auditPromptSchemaDrift() {
   try {
     var ss      = _getCampaignSpreadsheet();
     var bdSheet = ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE);
-    var csSheet = ss.getSheetByName(_CC_TAB.CAMP_STRATEGY);
 
     function _readBDa(id) {
       if (!bdSheet || bdSheet.getLastRow() < 2) return {};
@@ -3491,7 +3511,6 @@ function auditPromptSchemaDrift() {
     var bvt       = _readBDa('BRAND_VISUAL_TOKENS_001');
     var voiceForb = _readBDa('VOICE_FORBIDDEN_001');
 
-    // Read doc IDs from CcSettings SCHEMA_DOCS section
     var settSheet = _getCCSheet(_CC_TAB.SETTINGS);
     var settLast  = settSheet.getLastRow();
     var docIds    = {};
@@ -3509,52 +3528,151 @@ function auditPromptSchemaDrift() {
     ].filter(function(d) { return d.id; });
 
     if (!docsToCheck.length) {
-      return { ok: false, error: 'No doc IDs in CcSettings SCHEMA_DOCS. Run build_gpt4o_prompt_docs first to register them.' };
+      return { ok: false, error: 'No doc IDs in CcSettings SCHEMA_DOCS. Run build_gpt4o_prompt_docs first.' };
     }
 
     var forbiddenHex   = (bvt.forbidden_colors  || []).filter(function(c) { return String(c).indexOf('#') === 0; });
     var forbiddenWords = (voiceForb.forbidden_words || []);
     var violations     = [];
 
+    // ── DOCTRINE_CONTEXT_ALLOWLIST ────────────────────────────────────────────
+    // Sections whose ════-header name matches any of these patterns are
+    // "doctrine reference" zones. Violations inside them are suppressed.
+    var ALLOWLIST_SECTION_PATTERNS = [
+      'FORBIDDEN WORDS', 'APPROVED CLAIMS', 'PRECISION RULES', 'CLAIM SCOPING',
+      'LOCKED DOCTRINE', 'BANNED COLORS', 'BANNED TERMS', 'COLOR RULES',
+      'VOICE DOCTRINE', 'BRAND DOCTRINE', 'DOCTRINE NOTES', 'BRAND VISUAL TOKENS',
+      'COLOR SYSTEM', 'VISUAL IDENTITY', 'VOICE IDENTITY', 'APPROVED COLORS',
+      'FORBIDDEN COLORS', 'FORBIDDEN EFFECTS', 'DO NOT USE', 'NEVER USE',
+      'BANNED LIST', 'BRAND RULES', 'ENFORCEMENT RULES', 'CLAIM RULES',
+      'COMPILED ARTIFACT'  // build metadata header — never scanned for violations
+    ];
+
+    // Build doctrine zones: character-index ranges inside allowlist sections.
+    // Sections use a 3-line box header: ════...════ / NAME / ════...════
+    // Each box header is detected as a SINGLE unit; the parser skips past all
+    // 3 lines so the closing ════ border never spawns a phantom section entry.
+    function _buildDoctrineRanges(text) {
+      var ranges   = [];
+      var lines    = text.split('\n');
+      // Precompute start char-position of every line
+      var linePos  = [];
+      var cp       = 0;
+      for (var i = 0; i < lines.length; i++) { linePos.push(cp); cp += lines[i].length + 1; }
+
+      var sections = [];
+      var i = 0;
+      while (i < lines.length) {
+        // Box-header pattern: lines[i]=════, lines[i+1]=NAME, lines[i+2]=════
+        if (i + 2 < lines.length &&
+            /^[═]{4,}/.test(lines[i]) &&
+            lines[i + 1].trim() !== '' &&
+            /^[═]{4,}/.test(lines[i + 2])) {
+          sections.push({ charStart: linePos[i], name: lines[i + 1].trim().toUpperCase() });
+          i += 3; // skip the entire 3-line header
+        } else {
+          i++;
+        }
+      }
+
+      // Each section's range: from its charStart to the next section's charStart (or EOF)
+      for (var s = 0; s < sections.length; s++) {
+        var end = s + 1 < sections.length ? sections[s + 1].charStart : text.length;
+        for (var ap = 0; ap < ALLOWLIST_SECTION_PATTERNS.length; ap++) {
+          if (sections[s].name.indexOf(ALLOWLIST_SECTION_PATTERNS[ap]) !== -1) {
+            ranges.push({ start: sections[s].charStart, end: end });
+            break;
+          }
+        }
+      }
+      return ranges;
+    }
+
+    // Also suppress violations on lines whose first token signals a doctrine
+    // reference or negative-example instruction.
+    var DOCTRINE_LINE_RE = /^\s*(forbidden|banned|do not use|never use|prohibited|not allowed|retired|wrong|disallowed|what kills it|kills it|avoid|never write)[:\s]/i;
+    function _isDoctrineReferenceLine(text, matchIndex) {
+      var lineStart = text.lastIndexOf('\n', matchIndex - 1) + 1;
+      var lineEnd   = text.indexOf('\n', matchIndex);
+      if (lineEnd === -1) lineEnd = text.length;
+      return DOCTRINE_LINE_RE.test(text.slice(lineStart, lineEnd));
+    }
+
+    function _inDoctrineZone(matchIndex, ranges) {
+      for (var k = 0; k < ranges.length; k++) {
+        if (matchIndex >= ranges[k].start && matchIndex < ranges[k].end) return true;
+      }
+      return false;
+    }
+
+    function _suppress(text, matchIndex, ranges) {
+      return _inDoctrineZone(matchIndex, ranges) || _isDoctrineReferenceLine(text, matchIndex);
+    }
+
     docsToCheck.forEach(function(docInfo) {
       try {
-        var text = DocumentApp.openById(docInfo.id).getBody().getText();
+        var text          = DocumentApp.openById(docInfo.id).getBody().getText();
+        var doctrineRanges = _buildDoctrineRanges(text);
 
-        // Forbidden hex colors
+        // 1. Forbidden hex colors — suppressed inside doctrine zones
         forbiddenHex.forEach(function(hex) {
-          if (text.indexOf(hex) !== -1)
-            violations.push({ doc: docInfo.title, id: docInfo.id, check: 'WRONG_COLOR', violation: hex + ' found (forbidden)', context: hex });
+          var idx = -1;
+          while ((idx = text.indexOf(hex, idx + 1)) !== -1) {
+            if (!_suppress(text, idx, doctrineRanges))
+              violations.push({ doc: docInfo.title, id: docInfo.id, check: 'WRONG_COLOR', violation: hex + ' in generated copy (forbidden)', context: hex });
+          }
         });
 
-        // Retired master story
+        // 2. Retired master story — flag anywhere, no doctrine exemption
         if (text.indexOf('Your kitchen is broken') !== -1)
-          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'RETIRED_STORY', violation: 'Retired master story present — must be removed', context: 'Your kitchen is broken' });
+          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'RETIRED_STORY', violation: 'Retired master story — must be removed', context: 'Your kitchen is broken' });
 
-        // Hardcoded prices
+        // 3. Hardcoded prices — suppressed inside ApprovedClaims / Pricing zones
         (text.match(/\$\d+\.\d{2}/g) || []).forEach(function(p) {
-          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'HARDCODED_PRICE', violation: p + ' hardcoded (use ApprovedClaims ref)', context: p });
+          var idx = text.indexOf(p);
+          if (!_suppress(text, idx, doctrineRanges))
+            violations.push({ doc: docInfo.title, id: docInfo.id, check: 'HARDCODED_PRICE', violation: p + ' hardcoded outside doctrine — reference ApprovedClaims', context: p });
         });
 
-        // Forbidden words from VOICE_FORBIDDEN_001
+        // 4. Forbidden words — suppressed inside FORBIDDEN WORDS doctrine block
         forbiddenWords.forEach(function(w) {
-          if (w && text.toLowerCase().indexOf(String(w).toLowerCase()) !== -1)
-            violations.push({ doc: docInfo.title, id: docInfo.id, check: 'FORBIDDEN_WORD', violation: '"' + w + '" is forbidden', context: String(w) });
+          if (!w) return;
+          var lower  = text.toLowerCase();
+          var wLower = String(w).toLowerCase();
+          var idx    = -1;
+          while ((idx = lower.indexOf(wLower, idx + 1)) !== -1) {
+            if (!_suppress(text, idx, doctrineRanges))
+              violations.push({ doc: docInfo.title, id: docInfo.id, check: 'FORBIDDEN_WORD', violation: '"' + w + '" in generated copy instructions', context: String(w) });
+          }
         });
 
-        // Forbidden CTA
-        if (text.toLowerCase().indexOf('sign up') !== -1)
-          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'FORBIDDEN_CTA', violation: '"sign up" always forbidden — use "join the waitlist"', context: 'sign up' });
+        // 5. Forbidden CTA "sign up" — suppressed inside doctrine zones
+        (function() {
+          var lower = text.toLowerCase();
+          var idx   = -1;
+          while ((idx = lower.indexOf('sign up', idx + 1)) !== -1) {
+            if (!_suppress(text, idx, doctrineRanges))
+              violations.push({ doc: docInfo.title, id: docInfo.id, check: 'FORBIDDEN_CTA', violation: '"sign up" forbidden — use "join the waitlist"', context: 'sign up' });
+          }
+        })();
 
-        // Wrong app name
-        if (/\bthe app\b/i.test(text))
-          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'WRONG_APP_NAME', violation: '"the app" should be "easyChef Pro"', context: 'the app' });
+        // 6. Wrong app name — "the app" without brand qualifier
+        //    "the easyChef Pro app" is allowed; suppressed inside doctrine zones
+        var appRe = /\bthe app\b/gi;
+        var m2;
+        while ((m2 = appRe.exec(text)) !== null) {
+          if (_suppress(text, m2.index, doctrineRanges)) continue;
+          var before = text.slice(Math.max(0, m2.index - 20), m2.index).toLowerCase();
+          if (before.indexOf('easychef pro') !== -1) continue;
+          violations.push({ doc: docInfo.title, id: docInfo.id, check: 'WRONG_APP_NAME', violation: '"the app" without brand qualifier — use "easyChef Pro"', context: 'the app' });
+        }
 
-        // LP: LIFECYCLE must sit between VALUE and PROOF
+        // 7. LP: LIFECYCLE must sit between VALUE and PROOF
         if (docInfo.title.indexOf('LP') !== -1) {
-          var up   = text.toUpperCase();
-          var vi   = up.indexOf('SECTION: VALUE');
-          var li   = up.indexOf('SECTION: LIFECYCLE');
-          var pi   = up.indexOf('SECTION: PROOF');
+          var up = text.toUpperCase();
+          var vi = up.indexOf('SECTION: VALUE');
+          var li = up.indexOf('SECTION: LIFECYCLE');
+          var pi = up.indexOf('SECTION: PROOF');
           if (li === -1)
             violations.push({ doc: docInfo.title, id: docInfo.id, check: 'MISSING_LIFECYCLE', violation: 'LIFECYCLE section absent from LP doc', context: '' });
           else if (vi !== -1 && pi !== -1 && !(li > vi && li < pi))
@@ -3566,11 +3684,29 @@ function auditPromptSchemaDrift() {
       }
     });
 
-    // Write to SchemaDriftLog tab (create if absent)
+    // ── MISSING_APPROVAL_DATE — scan all ACTIVE ApprovedClaims ──────────────────
+    // Flag any active claim with no approved_date. These feed the system prompt
+    // docs and could represent unreviewed content.
+    try {
+      var _acAll = getApprovedClaims(false); // all rows
+      _acAll.forEach(function(c) {
+        var _d = String(c.approved_date || '').trim();
+        var _missing = !_d || _d === '' || _d === '1970-01-01' || _d === '1969-12-31';
+        if (c.approved && _missing) {
+          violations.push({ doc: 'ApprovedClaims', id: c.id, check: 'MISSING_APPROVAL_DATE',
+            violation: 'Active claim "' + c.id + '" has no approved_date', context: c.id });
+        }
+      });
+    } catch(acErr) { /* non-fatal */ }
+
+    // Clear previous batch, write fresh results to SchemaDriftLog
     var logSheet = ss.getSheetByName('SchemaDriftLog');
     if (!logSheet) {
       logSheet = ss.insertSheet('SchemaDriftLog');
-      logSheet.appendRow(['timestamp', 'doc_title', 'doc_id', 'check_type', 'violation', 'context']);
+      logSheet.appendRow(['timestamp','doc_title','doc_id','check_type','violation','context']);
+    } else {
+      var lrLog = logSheet.getLastRow();
+      if (lrLog > 1) logSheet.deleteRows(2, lrLog - 1);
     }
     var ts = new Date().toISOString();
     violations.forEach(function(v) {
@@ -3678,4 +3814,54 @@ function menu_auditSchemaDrift() {
     ? '✓ No violations found. All docs are clean.'
     : '⚠ ' + result.violations + ' violation(s) logged to SchemaDriftLog tab.';
   ui.alert(msg);
+}
+
+// ── repairClaimScoping001 ────────────────────────────────────────────────────
+// Reads the current CLAIM_SCOPING_001 row. If section_claim_map is empty or
+// missing, writes the canonical 14-type map and returns the new state.
+function repairClaimScoping001() {
+  try {
+    var ss     = _getCampaignSpreadsheet();
+    var csTab  = ss.getSheetByName(_CC_TAB.CAMPAIGN_STRATEGY);
+    if (!csTab) return { ok: false, error: 'CampaignStrategy tab not found' };
+
+    var current = getCampaignStrategy('CLAIM_SCOPING_001');
+    var existingMap = (current && current.value && current.value.section_claim_map) || null;
+    var mapIsEmpty  = !existingMap || Object.keys(existingMap).every(function(k) { return !existingMap[k] || existingMap[k].length === 0; });
+
+    if (!mapIsEmpty) {
+      return { ok: true, status: 'already_populated', sections: Object.keys(existingMap).length, map: existingMap };
+    }
+
+    var allClaims = ['savings','roi','waste','speed','product','credibility','validation',
+                     'positioning','nutrition','outcome','trial','brand','pricing','problem_validation'];
+    var newMap = {
+      hook:              [],
+      problem:           ['speed','outcome'],
+      agitate_money:     ['savings','roi','waste'],
+      agitate_time:      ['speed','outcome'],
+      agitate_nutrition: ['nutrition','credibility'],
+      solve:             ['product','positioning','speed'],
+      value:             ['outcome','product'],
+      lifecycle:         [],
+      proof:             allClaims,
+      cta:               ['pricing','trial','outcome','positioning']
+    };
+
+    var csHdr = _CC_HDR.CampaignStrategy;
+    _ccUpsert(csTab, csHdr, 'CLAIM_SCOPING_001', [
+      'CLAIM_SCOPING_001',
+      'claim_scoping',
+      'true',
+      JSON.stringify({
+        section_claim_map: newMap,
+        claim_types: allClaims,
+        note: 'Repaired — 14-type map. Empty array = no restriction for that section.'
+      })
+    ]);
+
+    return { ok: true, status: 'repaired', sections: Object.keys(newMap).length, map: newMap };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
 }
