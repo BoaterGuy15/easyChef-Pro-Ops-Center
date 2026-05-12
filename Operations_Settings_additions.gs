@@ -1250,3 +1250,159 @@ function auditSheetData() {
     return { ok: false, error: e.message };
   }
 }
+
+// ── cleanupAssetLifecycle ─────────────────────────────────────────────────────
+// Removes AssetLifecycle rows whose asset_id has no matching row in SocialPosts.
+// Deletes from bottom to top to avoid index shift. Returns before/after counts.
+function cleanupAssetLifecycle() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    // 1. Build set of valid asset_ids from SocialPosts
+    var spSheet = ss.getSheetByName(_CC_TAB.SOCIAL);
+    var spLast  = spSheet ? spSheet.getLastRow() : 1;
+    var validIds = {};
+    if (spSheet && spLast >= 2) {
+      var spIdCol = spSheet.getRange(2, 1, spLast - 1, 1).getValues();
+      spIdCol.forEach(function(r) { if (r[0]) validIds[String(r[0])] = true; });
+    }
+
+    // 2. Read AssetLifecycle
+    var alcSheet = ss.getSheetByName(_CC_TAB.ASSET_LIFECYCLE);
+    if (!alcSheet) return { ok: false, error: 'AssetLifecycle tab not found' };
+    var alcLast = alcSheet.getLastRow();
+    if (alcLast < 2) return { ok: true, before: 0, removed: 0, after: 0 };
+
+    var alcHdrs  = _CC_HDR.AssetLifecycle;
+    var alcH     = {};
+    alcHdrs.forEach(function(h, i) { alcH[h] = i; });
+
+    var alcData = alcSheet.getRange(2, 1, alcLast - 1, alcHdrs.length).getValues();
+    var rowsBefore = alcData.length;
+
+    // 3. Collect row indices to delete (1-based sheet rows, descending)
+    var toDelete = [];
+    for (var i = alcData.length - 1; i >= 0; i--) {
+      var assetId = String(alcData[i][alcH['asset_id']] || '');
+      if (!assetId || !validIds[assetId]) {
+        toDelete.push(i + 2); // +2: header row + 0-index offset
+      }
+    }
+
+    // 4. Delete from bottom to top (already in descending order)
+    toDelete.forEach(function(rowNum) { alcSheet.deleteRow(rowNum); });
+
+    var after = alcSheet.getLastRow() - 1;
+    Logger.log('[cleanupAssetLifecycle] before=' + rowsBefore + ' removed=' + toDelete.length + ' after=' + after);
+    return { ok: true, before: rowsBefore, removed: toDelete.length, after: after };
+
+  } catch(e) {
+    Logger.log('[cleanupAssetLifecycle] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── cleanupDeepLinkRegistry ───────────────────────────────────────────────────
+// Two-pass cleanup:
+//   1. Removes DL entries whose dl_id has no matching SocialPosts.dl_id OR
+//      EmailSequences row (orphaned test-week / stale entries).
+//   2. Deduplicates by dl_id — keeps the first occurrence, removes subsequent.
+// Deletes from bottom to top. Returns detailed counts.
+function cleanupDeepLinkRegistry() {
+  try {
+    var ss = _getCampaignSpreadsheet();
+
+    // 1. Build set of valid dl_ids from SocialPosts
+    var spSheet  = ss.getSheetByName(_CC_TAB.SOCIAL);
+    var validDls = {};
+    if (spSheet && spSheet.getLastRow() >= 2) {
+      var spHdrs = _CC_HDR.SocialPosts;
+      var spH    = {};
+      spHdrs.forEach(function(h, i) { spH[h] = i; });
+      var dlColIdx = spH['dl_id'];
+      if (dlColIdx !== undefined) {
+        var spRows = spSheet.getRange(2, 1, spSheet.getLastRow() - 1, spHdrs.length).getValues();
+        spRows.forEach(function(r) {
+          var dl = String(r[dlColIdx] || '').trim();
+          if (dl) validDls[dl] = true;
+        });
+      }
+    }
+
+    // 2. Build set of valid dl_ids from EmailSequences (any field containing DL- prefix)
+    var esSheet = ss.getSheetByName(_CC_TAB.EMAIL);
+    if (esSheet && esSheet.getLastRow() >= 2) {
+      var esHdrs = _CC_HDR.EmailSequences;
+      var esH    = {};
+      esHdrs.forEach(function(h, i) { esH[h] = i; });
+      var esRows = esSheet.getRange(2, 1, esSheet.getLastRow() - 1, esHdrs.length).getValues();
+      esRows.forEach(function(r) {
+        // EmailSequences may store dl_id in various columns — scan all
+        r.forEach(function(cell) {
+          var v = String(cell || '').trim();
+          if (v.indexOf('DL-') === 0) validDls[v] = true;
+        });
+      });
+    }
+
+    // 3. Read DL registry
+    var dlSheet = ss.getSheetByName(_CC_TAB.DL);
+    if (!dlSheet) return { ok: false, error: 'DeepLinkRegistry tab not found' };
+    var dlLast  = dlSheet.getLastRow();
+    if (dlLast < 2) return { ok: true, before: 0, removed_orphan: 0, removed_dup: 0, after: 0 };
+
+    var dlHdrs = _CC_HDR.DeepLinkRegistry;
+    var dlH    = {};
+    dlHdrs.forEach(function(h, i) { dlH[h] = i; });
+
+    var dlData    = dlSheet.getRange(2, 1, dlLast - 1, dlHdrs.length).getValues();
+    var rowsBefore = dlData.length;
+
+    // 4. Two-pass: identify orphans and duplicates (scan descending for safe deletion)
+    var seenIds    = {};
+    var toDelete   = []; // sheet row numbers, will sort descending before deleting
+
+    for (var i = 0; i < dlData.length; i++) {
+      var dlId = String(dlData[i][dlH['dl_id']] || '').trim();
+      if (!dlId) {
+        toDelete.push(i + 2); // blank dl_id — orphan
+        continue;
+      }
+      if (!validDls[dlId]) {
+        toDelete.push(i + 2); // orphan — no matching post or email
+        continue;
+      }
+      if (seenIds[dlId]) {
+        toDelete.push(i + 2); // duplicate — already seen this dl_id
+        continue;
+      }
+      seenIds[dlId] = true;
+    }
+
+    // 5. Delete from bottom to top
+    toDelete.sort(function(a, b) { return b - a; });
+    var orphanCount = 0, dupCount = 0;
+    toDelete.forEach(function(rowNum) {
+      var dlIdAtRow = String(dlSheet.getRange(rowNum, dlH['dl_id'] + 1).getValue() || '').trim();
+      if (!dlIdAtRow || !validDls[dlIdAtRow]) orphanCount++;
+      else dupCount++;
+      dlSheet.deleteRow(rowNum);
+    });
+
+    var after = dlSheet.getLastRow() - 1;
+    Logger.log('[cleanupDeepLinkRegistry] before=' + rowsBefore + ' removed_orphan=' + orphanCount +
+      ' removed_dup=' + dupCount + ' after=' + after);
+    return {
+      ok:             true,
+      before:         rowsBefore,
+      removed_orphan: orphanCount,
+      removed_dup:    dupCount,
+      removed_total:  toDelete.length,
+      after:          after
+    };
+
+  } catch(e) {
+    Logger.log('[cleanupDeepLinkRegistry] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
