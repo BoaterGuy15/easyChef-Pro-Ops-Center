@@ -339,7 +339,8 @@ function _buildBriefStoryCtx(brief) {
     image_mood_cta:   t.image_mood_cta       || '',
     blueprint:        brief.blueprint        || '',
     lp_variant:       brief.lp_variant       || '',
-    lp_slug:          brief.lp_slug          || brief.slug             || ''
+    lp_slug:          brief.lp_slug          || brief.slug             || '',
+    campaign_id:      brief.id               || brief.campaign_id      || ''
   };
 }
 
@@ -618,18 +619,21 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
     default: sG = '';
   }
 
-  var _claimQuality   = gov.claimQuality   || _CLAIM_QUALITY_COPY;
-  var _brandPosition  = gov.brandPosition  || _BRAND_POSITION_COPY;
-  var _voiceRules     = gov.voiceRules     || _BRAND_VOICE_RULES;
-  var _phaseGuard     = gov.phaseGuard     || '';
-  var _compliance     = gov.compliance     || '';
-  var _masterStory    = gov.masterStory    || _MASTER_STORY;
-  var _categoryPos    = gov.categoryPos    || _CATEGORY_POSITIONING;
-  var _fiveApp        = gov.fiveApp        || _5_APP_REPLACEMENT;
-  var _sevenStep      = gov.sevenStep      || _7_STEP_FRAMEWORK;
-  var _precisionRules = gov.precisionRules || _PRECISION_RULES;
-  var _arch           = gov.arch           || _AB_ARCH;
-  return role + '\n\n' + _masterStory + _categoryPos + _brandPosition + _fiveApp + _sevenStep + _claimQuality + _voiceRules + _precisionRules + sD + _arch + sE + sF + sG + _phaseGuard + _compliance;
+  var _claimQuality    = gov.claimQuality   || _CLAIM_QUALITY_COPY;
+  var _brandPosition   = gov.brandPosition  || _BRAND_POSITION_COPY;
+  var _voiceRules      = gov.voiceRules     || _BRAND_VOICE_RULES;
+  var _phaseGuard      = gov.phaseGuard     || '';
+  var _compliance      = gov.compliance     || '';
+  var _masterStory     = gov.masterStory    || _MASTER_STORY;
+  var _categoryPos     = gov.categoryPos    || _CATEGORY_POSITIONING;
+  var _fiveApp         = gov.fiveApp        || _5_APP_REPLACEMENT;
+  var _sevenStep       = gov.sevenStep      || _7_STEP_FRAMEWORK;
+  var _precisionRules  = gov.precisionRules || _PRECISION_RULES;
+  var _arch            = gov.arch           || _AB_ARCH;
+  var _lpDoctrine      = gov.lpDoctrine     || '';
+  var _lpSpine         = gov.lpSpine        || '';
+  var _lpClaimScoping  = gov.lpClaimScoping || '';
+  return role + '\n\n' + _masterStory + _categoryPos + _brandPosition + _fiveApp + _sevenStep + _claimQuality + _voiceRules + _precisionRules + sD + _arch + sE + sF + sG + _phaseGuard + _compliance + _lpDoctrine + _lpSpine + _lpClaimScoping;
 }
 
 // ── Governance compiler functions ─────────────────────────────────────────────
@@ -943,7 +947,7 @@ function _compileLPDoctrineBlock() {
 // the sentinel string 'LP_SPINE_MISSING' if the spine has not been generated yet.
 function _compileLPSpineBlock(campaignId) {
   try {
-    if (!campaignId) return 'LP_SPINE_MISSING';
+    if (!campaignId) return '';
     var brief = getCampaignBriefs(campaignId);
     if (!brief) return 'LP_SPINE_MISSING';
     var spineRaw = brief.lp_campaign_spine_json || '';
@@ -1228,6 +1232,25 @@ function getMasterSystemPrompt(type, context) {
   var icp         = _getIcpRow(_icpCode);
   var theme       = _getThemeRow(context.theme_id || context.theme || '');
 
+  // LP Doctrine spine gate — hard blocks asset generation if spine not generated yet.
+  // Only fires when campaign_id is explicitly in context (backwards-compatible).
+  var _lpDoctrineBlock   = _compileLPDoctrineBlock();
+  var _lpSpineBlock      = '';
+  var _lpClaimScopingBlock = '';
+  if (context.campaign_id) {
+    var _spineResult = _compileLPSpineBlock(context.campaign_id);
+    if (_spineResult === 'LP_SPINE_MISSING') {
+      Logger.log('[getMasterSystemPrompt] LP_SPINE_MISSING for campaign ' + context.campaign_id +
+                 ' type=' + type + ' — run generate_lp_spine first');
+      return 'LP_SPINE_MISSING:' + context.campaign_id;
+    }
+    _lpSpineBlock = _spineResult;
+    var _lpSectionForScoping = context.lp_section || context.stage || '';
+    if (_lpSectionForScoping) {
+      _lpClaimScopingBlock = _compileClaimScopingBlock(_lpSectionForScoping, _icpCode);
+    }
+  }
+
   // Compile governance blocks from tabs (fall back to hardcoded constants if tabs unavailable)
   var governance = {
     claimQuality:    _compileClaimQualityBlock(),
@@ -1244,7 +1267,10 @@ function getMasterSystemPrompt(type, context) {
     sevenStep:       _compileSevenStepBlock(),
     precisionRules:  _compilePrecisionRulesBlock(),
     arch:            _compileArchBlock(),
-    designBriefRules:_compileDesignBriefRulesBlock()
+    designBriefRules:_compileDesignBriefRulesBlock(),
+    lpDoctrine:      _lpDoctrineBlock    || '',
+    lpSpine:         _lpSpineBlock       || '',
+    lpClaimScoping:  _lpClaimScopingBlock || ''
   };
 
   // Design brief types — art direction only, no copy machinery needed
