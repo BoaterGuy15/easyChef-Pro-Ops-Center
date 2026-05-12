@@ -772,8 +772,17 @@ function doPost(e) {
     if(body.action === 'run_drive_export') {
       var _rdeCid = (body.campaign_id || '').trim();
       if (!_rdeCid) return respond({ ok:false, error:'campaign_id required' });
-      var _rdeBrief = getCampaignBriefs(_rdeCid);
-      if (!_rdeBrief || !_rdeBrief.id) return respond({ ok:false, error:'No brief found for campaign: ' + _rdeCid });
+      // Diagnostic: read all briefs and log every id
+      var _allBriefs = getCampaignBriefs('') || [];
+      var _allIds    = _allBriefs.map(function(b){ return b.id; });
+      Logger.log('[run_drive_export] looking for: "' + _rdeCid + '" in: ' + JSON.stringify(_allIds));
+      var _rdeBrief = null;
+      for (var _rbi = 0; _rbi < _allBriefs.length; _rbi++) {
+        var _rbiId = String(_allBriefs[_rbi].id || '').trim().toUpperCase();
+        Logger.log('[run_drive_export] compare "' + _rbiId + '" === "' + _rdeCid.toUpperCase() + '" → ' + (_rbiId === _rdeCid.toUpperCase()));
+        if (_rbiId === _rdeCid.toUpperCase()) { _rdeBrief = _allBriefs[_rbi]; break; }
+      }
+      if (!_rdeBrief || !_rdeBrief.id) return respond({ ok:false, error:'No brief found for campaign: ' + _rdeCid, available_ids: _allIds, log: Logger.getLog() });
       var _rdeCopy   = (getGeneratedCopy(_rdeCid) || [])[0] || {};
       var _rdePosts  = getSocialPosts(_rdeCid)    || [];
       var _rdeEmails = getEmailSequences(_rdeCid) || [];
