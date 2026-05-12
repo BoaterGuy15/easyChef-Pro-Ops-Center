@@ -5818,7 +5818,7 @@ function exportCampaignSnapshotToDrive(campaignId) {
   return { ok: true, campaign_id: campaignId, snapshot_name: snapName, url: url, tabs_copied: copied };
 }
 
-function seedEC2026002() {
+function _legacySeedEC2026002BriefOnly() {
   var now   = _ccNow();
   var sheet = _getCCSheet(_CC_TAB.BRIEFS);
   var hdrs  = _CC_HDR.CampaignBriefs;

@@ -1017,8 +1017,8 @@ function doPost(e) {
       // If EC-2026-002 rows are missing, seed them first
       var _ec2Check = getSocialPosts('EC-2026-002') || [];
       if (!_ec2Check.length) {
-        Logger.log('[repair_ec2026002] No rows found — running seedEC2026002Full first');
-        var _seedResult = seedEC2026002Full();
+        Logger.log('[repair_ec2026002] No rows found — running seedEC2026002 first');
+        var _seedResult = seedEC2026002();
         if (!_seedResult.ok) return respond({ ok:false, error:'Seed failed: ' + (_seedResult.error||'unknown'), log:Logger.getLog() });
       }
       var _r2 = repairEC2026002SocialPosts();
