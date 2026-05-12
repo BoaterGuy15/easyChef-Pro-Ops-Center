@@ -1014,11 +1014,18 @@ function doPost(e) {
       return respond({ ok:_sacResult.ok, total_seeded:_sacResult.total_seeded, by_campaign:_sacResult.by_campaign, error:_sacResult.error||null, log:Logger.getLog() });
     }
     if(body.action === 'repair_ec2026002_social_posts') {
+      // If EC-2026-002 rows are missing, seed them first
+      var _ec2Check = getSocialPosts('EC-2026-002') || [];
+      if (!_ec2Check.length) {
+        Logger.log('[repair_ec2026002] No rows found — running seedEC2026002Full first');
+        var _seedResult = seedEC2026002Full();
+        if (!_seedResult.ok) return respond({ ok:false, error:'Seed failed: ' + (_seedResult.error||'unknown'), log:Logger.getLog() });
+      }
       var _r2 = repairEC2026002SocialPosts();
       if (!_r2.ok) return respond({ ok:false, error:_r2.error, log:Logger.getLog() });
       // Auto-resync ContentCalendar so cockpit shows corrected IDs and dates
       var _r2sync = seedAllCampaignsContentCalendar();
-      return respond({ ok:true, fixed:_r2.fixed, dl_seeded:_r2.dl_seeded, cal_seeded:_r2sync.total_seeded, cal_ok:_r2sync.ok, log:Logger.getLog() });
+      return respond({ ok:true, seeded:!_ec2Check.length, fixed:_r2.fixed, dl_seeded:_r2.dl_seeded, cal_seeded:_r2sync.total_seeded, cal_ok:_r2sync.ok, log:Logger.getLog() });
     }
     if(body.action === 'rebuild_social_posts_from_figma') {
       var _rbCid = body.campaignId || body.campaign_id || 'EC-2026-001';
