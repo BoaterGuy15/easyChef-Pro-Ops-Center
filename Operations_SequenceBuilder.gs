@@ -425,7 +425,7 @@ function buildEmailCalendar(brief, copy) {
     // Build approved-claims lookup once — injected per email to block invented numbers
     var _emScoping   = getCampaignStrategy('CLAIM_SCOPING_001');
     var _emSecMap    = (_emScoping && _emScoping.value && _emScoping.value.section_claim_map) || {};
-    var _emAllClaims = _getApprovedClaimsRows() || [];
+    var _emAllClaims = getApprovedClaims() || [];
 
     for (var wi = 0; wi < wireframe.length; wi++) {
       var wf        = wireframe[wi];
@@ -438,6 +438,14 @@ function buildEmailCalendar(brief, copy) {
 
       // Inject approved claims for this stage
       var _emPermitted = _emSecMap[wf.stage] || [];
+      // agitate maps to agitate_money / agitate_time sub-sections — merge
+      if (!_emPermitted.length && wf.stage === 'agitate') {
+        var _emAg = {};
+        ['agitate_money','agitate_time','agitate_nutrition'].forEach(function(sub) {
+          (_emSecMap[sub] || []).forEach(function(t) { _emAg[t] = true; });
+        });
+        _emPermitted = Object.keys(_emAg);
+      }
       var _emStageClaims = _emPermitted.length
         ? _emAllClaims.filter(function(c) { return _emPermitted.indexOf(c.claim_type) > -1; })
             .map(function(c) { return c.exact_wording; }).filter(Boolean).slice(0, 4).join(' | ')

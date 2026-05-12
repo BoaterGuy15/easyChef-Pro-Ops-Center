@@ -3822,7 +3822,7 @@ function menu_auditSchemaDrift() {
 function repairClaimScoping001() {
   try {
     var ss     = _getCampaignSpreadsheet();
-    var csTab  = ss.getSheetByName(_CC_TAB.CAMPAIGN_STRATEGY);
+    var csTab  = ss.getSheetByName(_CC_TAB.CAMP_STRATEGY);
     if (!csTab) return { ok: false, error: 'CampaignStrategy tab not found' };
 
     var current = getCampaignStrategy('CLAIM_SCOPING_001');
@@ -3848,7 +3848,7 @@ function repairClaimScoping001() {
       cta:               ['pricing','trial','outcome','positioning']
     };
 
-    var csHdr = _CC_HDR.CampaignStrategy;
+    var csHdr = _CC_HDR.CampaignStrategy || ['strategy_id','strategy_type','active','value_json'];
     _ccUpsert(csTab, csHdr, 'CLAIM_SCOPING_001', [
       'CLAIM_SCOPING_001',
       'claim_scoping',

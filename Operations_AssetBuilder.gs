@@ -1075,13 +1075,21 @@ function generateLPSpine(campaignId, options) {
     // 5. Gather scoped claims per section
     var scoping = getCampaignStrategy('CLAIM_SCOPING_001');
     var sectionClaimMap = (scoping && scoping.value && scoping.value.section_claim_map) || {};
-    var allClaims = _getApprovedClaimsRows() || [];
+    var allClaims = getApprovedClaims() || [];
     var sectionClaims = {};
     ['hook','problem','agitate','solve','value','proof','cta','urgency'].forEach(function(sec) {
       var permitted = sectionClaimMap[sec] || [];
+      // agitate maps to agitate_money / agitate_time sub-sections — merge them
+      if (!permitted.length && sec === 'agitate') {
+        var _ag = {};
+        ['agitate_money','agitate_time','agitate_nutrition'].forEach(function(sub) {
+          (sectionClaimMap[sub] || []).forEach(function(t) { _ag[t] = true; });
+        });
+        permitted = Object.keys(_ag);
+      }
       sectionClaims[sec] = allClaims
-        .filter(function(c) { return c.approved && permitted.indexOf(c.claim_type) > -1; })
-        .map(function(c) { return c.exact_wording || c.claim || ''; })
+        .filter(function(c) { return permitted.indexOf(c.claim_type) > -1; })
+        .map(function(c) { return c.exact_wording || ''; })
         .filter(Boolean).slice(0, 3);
     });
 
@@ -2167,10 +2175,18 @@ function buildSocialPosts(brief, copy) {
   // Approved claims per LP section — prevents GPT-4o from inventing numbers
   var _spScoping   = getCampaignStrategy('CLAIM_SCOPING_001');
   var _spSecMap    = (_spScoping && _spScoping.value && _spScoping.value.section_claim_map) || {};
-  var _spAllClaims = _getApprovedClaimsRows() || [];
+  var _spAllClaims = getApprovedClaims() || [];
   var _spClaimsLines = [];
   ['hook','problem','agitate','solve','value','proof','cta','urgency'].forEach(function(sec) {
     var permitted = _spSecMap[sec] || [];
+    // agitate maps to agitate_money / agitate_time sub-sections — merge them
+    if (!permitted.length && sec === 'agitate') {
+      var _ag = {};
+      ['agitate_money','agitate_time','agitate_nutrition'].forEach(function(sub) {
+        (_spSecMap[sub] || []).forEach(function(t) { _ag[t] = true; });
+      });
+      permitted = Object.keys(_ag);
+    }
     if (!permitted.length) return;
     var forSec = _spAllClaims.filter(function(c) { return permitted.indexOf(c.claim_type) > -1; })
       .map(function(c) { return c.exact_wording; }).filter(Boolean).slice(0, 4);
