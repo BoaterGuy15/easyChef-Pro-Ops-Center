@@ -1312,6 +1312,7 @@ function doPost(e) {
     // ── LP Doctrine governance ────────────────────────────────────────────────────
     if(body.action === 'seed_lp_doctrine')             return respond(seedLpDoctrine());
     if(body.action === 'ensure_lp_doctrine_columns')   return respond(ensureAllLPDoctrineColumns());
+    if(body.action === 'generate_lp_spine')            return respond(generateLPSpine(body.campaign_id, { lp_variant: body.lp_variant || 'a', icp_code: body.icp_code || '' }));
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });

@@ -943,17 +943,23 @@ function _compileLPDoctrineBlock() {
 }
 
 // Reads lp_campaign_spine_json from CampaignBriefs for the given campaign.
-// Returns a formatted block with headline + body_copy for each LP section, or
-// the sentinel string 'LP_SPINE_MISSING' if the spine has not been generated yet.
-function _compileLPSpineBlock(campaignId) {
+// Supports variant-keyed format {"a":{...},"b":{...}} or direct {"hook":{...},...}.
+// Returns a formatted prompt block, or the sentinel 'LP_SPINE_MISSING' when absent.
+function _compileLPSpineBlock(campaignId, lpVariant) {
   try {
     if (!campaignId) return '';
     var brief = getCampaignBriefs(campaignId);
     if (!brief) return 'LP_SPINE_MISSING';
     var spineRaw = brief.lp_campaign_spine_json || '';
     if (!spineRaw) return 'LP_SPINE_MISSING';
-    var spine = {};
-    try { spine = JSON.parse(spineRaw); } catch(e) { return 'LP_SPINE_MISSING'; }
+    var spineData = {};
+    try { spineData = JSON.parse(spineRaw); } catch(e) { return 'LP_SPINE_MISSING'; }
+    // Resolve variant: {"a":{...},"b":{...}} or direct section map
+    var spine = spineData;
+    if (spineData.a || spineData.b) {
+      var v = String(lpVariant || 'a').toLowerCase();
+      spine = spineData[v] || spineData.a || {};
+    }
     var sections = ['hook','problem','agitate','solve','value','proof','cta','urgency'];
     var hasAll = sections.every(function(s) { return spine[s] && spine[s].headline; });
     if (!hasAll) return 'LP_SPINE_MISSING';
@@ -1010,6 +1016,172 @@ function _compileClaimScopingBlock(lpSection, icpCode) {
   } catch(e) {
     Logger.log('[_compileClaimScopingBlock] error: ' + e.message);
     return '';
+  }
+}
+
+// ── generateLPSpine ───────────────────────────────────────────────────────────
+// Generates all 8 LP sections for a campaign via Claude API and stores the result
+// in CampaignBriefs.lp_campaign_spine_json.
+// Options: { lp_variant: 'a'|'b'|'both' }  — 'both' runs A then B and merges.
+// Returns: { ok, campaign_id, lp_variant, spine, chars_stored }
+
+function generateLPSpine(campaignId, options) {
+  if (!campaignId) return { ok: false, error: 'campaign_id required' };
+  options = options || {};
+  var lpVariant = String(options.lp_variant || 'a').toLowerCase();
+
+  try {
+    var props  = PropertiesService.getScriptProperties();
+    var apiKey = props.getProperty('ANTHROPIC_API_KEY');
+    if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
+
+    // 1. Load campaign brief
+    var brief = getCampaignBriefs(campaignId);
+    if (!brief) return { ok: false, error: 'Campaign brief not found: ' + campaignId };
+
+    // 2. Resolve ICP code — options.icp_code overrides; otherwise resolve from brief
+    var icpCode = options.icp_code
+      ? String(options.icp_code)
+      : _resolveIcpCode(brief.icp_code || '', { lp_variant: lpVariant });
+    // LP inventory fallback when brief icp_code is generic (no pipe separator)
+    if (!icpCode || icpCode === brief.icp_code) {
+      var _lpSlug = lpVariant === 'b' ? (brief.lp_slug_b || '') : (brief.lp_slug_a || '');
+      if (_lpSlug) {
+        try {
+          var _lpRow = getLPInventoryBySlug(_lpSlug);
+          if (_lpRow && _lpRow.icp_code && _lpRow.icp_code !== brief.icp_code) {
+            icpCode = _lpRow.icp_code;
+          }
+        } catch(e) {}
+      }
+    }
+
+    // 3. Load ICP + theme
+    var icp   = _getIcpRow(icpCode)        || {};
+    var theme = _getThemeRow(brief.theme || '') || {};
+
+    // 4. Build system prompt from LP Doctrine
+    var doctrineBlock = _compileLPDoctrineBlock() || '';
+    var systemPrompt =
+      'You are the easyChef Pro landing page architect. ' +
+      'Your job is to generate a complete LP spine — all 8 sections — ' +
+      'that will serve as the source of truth for every social post, email, and video in this campaign.\n\n' +
+      doctrineBlock;
+
+    // 5. Gather scoped claims per section
+    var scoping = getCampaignStrategy('CLAIM_SCOPING_001');
+    var sectionClaimMap = (scoping && scoping.value && scoping.value.section_claim_map) || {};
+    var allClaims = _getApprovedClaimsRows() || [];
+    var sectionClaims = {};
+    ['hook','problem','agitate','solve','value','proof','cta','urgency'].forEach(function(sec) {
+      var permitted = sectionClaimMap[sec] || [];
+      sectionClaims[sec] = allClaims
+        .filter(function(c) { return c.approved && permitted.indexOf(c.claim_type) > -1; })
+        .map(function(c) { return c.exact_wording || c.claim || ''; })
+        .filter(Boolean).slice(0, 3);
+    });
+
+    // 6. Build user message
+    var userMsg =
+      '=== CAMPAIGN: ' + campaignId + ' ===\n' +
+      'LP variant: ' + lpVariant + '\n' +
+      'ICP: ' + icpCode + '\n';
+    if (icp.primary_pain)    userMsg += 'Primary pain: ' + icp.primary_pain + '\n';
+    if (icp.value_trigger)   userMsg += 'Value trigger: ' + icp.value_trigger + '\n';
+    if (icp.loss_aversion)   userMsg += 'Loss aversion: ' + icp.loss_aversion + '\n';
+    if (icp.message_hierarchy) userMsg += 'Message hierarchy: ' + icp.message_hierarchy + '\n';
+    if (brief.campaign_angle) userMsg += 'Campaign angle: ' + brief.campaign_angle + '\n';
+    if (brief.urgency_trigger) userMsg += 'Urgency trigger: ' + brief.urgency_trigger + '\n';
+    if (theme.theme_name)    userMsg += 'Theme: ' + theme.theme_name + '\n';
+    if (theme.hook_angle)    userMsg += 'Hook angle: ' + theme.hook_angle + '\n';
+    userMsg += '\n=== APPROVED CLAIMS BY SECTION (use exact wording only) ===\n';
+    Object.keys(sectionClaims).forEach(function(sec) {
+      if (sectionClaims[sec].length) {
+        userMsg += sec.toUpperCase() + ': ' + sectionClaims[sec].join(' | ') + '\n';
+      }
+    });
+    userMsg +=
+      '\n=== OUTPUT REQUIREMENTS ===\n' +
+      'Return ONLY valid JSON. No markdown. No explanation.\n' +
+      'Schema (all 8 sections required):\n' +
+      '{\n' +
+      '  "hook":    { "headline": "H1 — 8 words max", "subheadline": "one line expands the hook", "body_copy": "30 words — names the moment, no solution", "emotional_beat": "frustrated_or_resigned → curious_and_seen", "approved_claims": ["exact wording"] },\n' +
+      '  "problem": { "headline": "H2 — names the pain exactly", "subheadline": "one line", "body_copy": "60 words — specific, not general", "emotional_beat": "curious_and_seen → validated_and_named", "approved_claims": [] },\n' +
+      '  "agitate": { "headline": "H2 — makes the cost real", "body_copy": "80 words — dollar figures, no shame", "emotional_beat": "validated_and_named → urgent_and_motivated", "approved_claims": [] },\n' +
+      '  "solve":   { "headline": "H2 — one sentence intro of easyChef Pro", "subheadline": "one line", "body_copy": "60 words", "emotional_beat": "urgent_and_motivated → hopeful_and_curious", "approved_claims": [] },\n' +
+      '  "value":   { "headline": "H2 — outcome not feature", "subheadline": "one line", "body_copy": "120 words — specific outcomes", "emotional_beat": "hopeful_and_curious → excited_and_ready", "approved_claims": [] },\n' +
+      '  "proof":   { "headline": "H2 — social proof", "body_copy": "100 words — validated claims only, no invented testimonials", "emotional_beat": "excited_and_ready → convinced_and_trusting", "approved_claims": [] },\n' +
+      '  "cta":     { "headline": "H2 — outcome-framed", "subheadline": "one line", "body_copy": "40 words", "cta_button": "under 6 words", "emotional_beat": "convinced_and_trusting → committed_and_decisive", "approved_claims": [] },\n' +
+      '  "urgency": { "headline": "H3 — why act now", "urgency_line": "one line — scarcity or time", "cta_button": "under 6 words", "emotional_beat": "committed_and_decisive → acting_now", "approved_claims": [] }\n' +
+      '}\n' +
+      'Generate the LP spine now for ' + icpCode + ' (variant ' + lpVariant + ').';
+
+    // 7. Call Claude API
+    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }]
+      }),
+      muteHttpExceptions: true
+    });
+
+    var data  = JSON.parse(resp.getContentText());
+    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
+    if (!reply) {
+      var errMsg = data.error ? (typeof data.error === 'object' ? data.error.message : String(data.error)) : 'empty response';
+      return { ok: false, error: errMsg };
+    }
+
+    // 8. Parse the spine JSON
+    var spineJson = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+    var spine = {};
+    try { spine = JSON.parse(spineJson); } catch(e) {
+      return { ok: false, error: 'JSON parse failed: ' + e.message, raw: reply.substring(0, 500) };
+    }
+
+    // Validate all 8 sections present
+    var sections = ['hook','problem','agitate','solve','value','proof','cta','urgency'];
+    var missing = sections.filter(function(s) { return !spine[s] || !spine[s].headline; });
+    if (missing.length) {
+      return { ok: false, error: 'Missing sections: ' + missing.join(', '), raw: reply.substring(0, 500) };
+    }
+
+    // 9. Read existing spine JSON and merge (so variant A and B are stored together)
+    var existingBrief = getCampaignBriefs(campaignId);
+    var existingSpineRaw = (existingBrief && existingBrief.lp_campaign_spine_json) || '';
+    var existingSpine = {};
+    if (existingSpineRaw) {
+      try { existingSpine = JSON.parse(existingSpineRaw); } catch(e) {}
+    }
+    existingSpine[lpVariant] = spine;
+    var newSpineJson = JSON.stringify(existingSpine);
+
+    // 10. Write to CampaignBriefs
+    setCampaignBrief({ id: campaignId, lp_campaign_spine_json: newSpineJson });
+
+    Logger.log('[generateLPSpine] campaign=' + campaignId + ' variant=' + lpVariant +
+               ' sections=' + sections.length + ' chars=' + newSpineJson.length);
+    return {
+      ok: true,
+      campaign_id: campaignId,
+      lp_variant: lpVariant,
+      icp_code: icpCode,
+      sections_generated: sections.length,
+      chars_stored: newSpineJson.length,
+      spine: spine
+    };
+
+  } catch(e) {
+    Logger.log('[generateLPSpine] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
   }
 }
 
@@ -1238,7 +1410,7 @@ function getMasterSystemPrompt(type, context) {
   var _lpSpineBlock      = '';
   var _lpClaimScopingBlock = '';
   if (context.campaign_id) {
-    var _spineResult = _compileLPSpineBlock(context.campaign_id);
+    var _spineResult = _compileLPSpineBlock(context.campaign_id, context.lp_variant);
     if (_spineResult === 'LP_SPINE_MISSING') {
       Logger.log('[getMasterSystemPrompt] LP_SPINE_MISSING for campaign ' + context.campaign_id +
                  ' type=' + type + ' — run generate_lp_spine first');
