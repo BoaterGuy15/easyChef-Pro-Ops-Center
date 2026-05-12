@@ -74,6 +74,70 @@ function figmaPostComment(figmaUrl, comment) {
   }
 }
 
+// ── Token expiry management ───────────────────────────────────────────────────
+// figmaRecordTokenExpiry — safe to call via doPost (no ScriptApp).
+// Stamps FIGMA_TOKEN_EXPIRES in Script Properties.
+// The cockpit checks this on every load and shows an in-app banner when ≤14 days remain.
+//
+// Optional email trigger (run once from Apps Script editor, not via doPost):
+//   _setupFigmaExpiryTrigger() — creates a weekly trigger that calls figmaCheckTokenExpiry.
+
+function figmaRecordTokenExpiry(daysValid) {
+  daysValid = daysValid || 90;
+  var expiry = new Date();
+  expiry.setDate(expiry.getDate() + daysValid);
+  PropertiesService.getScriptProperties().setProperty('FIGMA_TOKEN_EXPIRES', expiry.toISOString());
+  Logger.log('[figmaRecordTokenExpiry] Token expires: ' + expiry.toDateString());
+  return { ok: true, expires: expiry.toISOString(), days_valid: daysValid };
+}
+
+// figmaTokenStatus — returns days remaining and expired flag. Called by doPost check_figma_token.
+function figmaTokenStatus() {
+  var expiryStr = PropertiesService.getScriptProperties().getProperty('FIGMA_TOKEN_EXPIRES');
+  if (!expiryStr) return { ok: true, set: false, days_left: null, expired: false };
+  var expiry   = new Date(expiryStr);
+  var daysLeft = Math.floor((expiry - new Date()) / (1000 * 60 * 60 * 24));
+  return { ok: true, set: true, days_left: daysLeft, expired: daysLeft <= 0, expires: expiry.toISOString() };
+}
+
+// ── Optional: email alert trigger (run once from Apps Script editor) ──────────
+// Requires script.scriptapp + mail.send scopes — do NOT call via doPost.
+// Add those scopes temporarily in appsscript.json, run this, then remove them.
+function _setupFigmaExpiryTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'figmaCheckTokenExpiry') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('figmaCheckTokenExpiry').timeBased().everyWeeks(1).create();
+  Logger.log('[_setupFigmaExpiryTrigger] Weekly trigger created.');
+}
+
+function figmaCheckTokenExpiry() {
+  var expiryStr = PropertiesService.getScriptProperties().getProperty('FIGMA_TOKEN_EXPIRES');
+  if (!expiryStr) return;
+  var expiry   = new Date(expiryStr);
+  var daysLeft = Math.floor((expiry - new Date()) / (1000 * 60 * 60 * 24));
+  Logger.log('[figmaCheckTokenExpiry] Days until expiry: ' + daysLeft);
+  if (daysLeft > 14) return;
+
+  var subject = daysLeft <= 0
+    ? 'Figma API token EXPIRED — easyChef Ops'
+    : 'Figma API token expires in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + ' — easyChef Ops';
+  var body =
+    'Your Figma personal access token ' + (daysLeft <= 0 ? 'has expired' : 'expires in ' + daysLeft + ' days') + '.\n\n' +
+    'Steps:\n' +
+    '1. Figma → Account Settings → Personal access tokens → Create new token\n' +
+    '2. Apps Script → Project Settings → Script Properties → update FIGMA_ACCESS_TOKEN\n' +
+    '3. Run figmaRecordTokenExpiry() from the editor to reset the 90-day clock\n\n' +
+    'Token expiry date: ' + expiry.toDateString();
+
+  try {
+    MailApp.sendEmail({ to: 'Taylor@gatehouseassets.com', subject: subject, body: body });
+    Logger.log('[figmaCheckTokenExpiry] Alert sent — ' + daysLeft + ' days left.');
+  } catch(e) {
+    Logger.log('[figmaCheckTokenExpiry] Email error: ' + e.message);
+  }
+}
+
 // ── Diagnostic ────────────────────────────────────────────────────────────────
 // Run _testFigma() from Apps Script editor to verify token and connection.
 function _testFigma() {

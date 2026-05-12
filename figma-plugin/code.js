@@ -10,7 +10,10 @@ const TEXT_FIELDS = [
   'hook_a', 'hook_b', 'caption_opening', 'cta',
   'scene_direction', 'dl_id', 'utm_url',
   'subject_line', 'preview_text', 'opening_hook', 'audio_direction',
-  'what_not_to_show'
+  'what_not_to_show',
+  'scene_sq_1', 'scene_sq_2', 'scene_sq_3', 'scene_sq_4', 'scene_sq_5', 'scene_sq_6',
+  'story_arc_1', 'story_arc_2', 'story_arc_3', 'story_arc_4',
+  'header_image_direction'
 ];
 
 function normKey(name) {
