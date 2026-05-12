@@ -2079,10 +2079,6 @@ function getLandingPagesByIcp(icpFilter) {
 function buildEmailSequence(brief, copy) {
   if (!brief) return { ok: false, error: 'brief is required' };
 
-  var props  = PropertiesService.getScriptProperties();
-  var apiKey = props.getProperty('ANTHROPIC_API_KEY');
-  if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
-
   var lpUrl = _buildLpUrl(brief.slug || 'waitlist');
 
   var _esStoryCtx = _buildBriefStoryCtx(brief);
@@ -2116,25 +2112,9 @@ function buildEmailSequence(brief, copy) {
     '}';
 
   try {
-    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json'
-      },
-      payload: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: 'Generate the 2-email proof of concept for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object with exactly 2 entries in the sequence array.' }]
-      }),
-      muteHttpExceptions: true
-    });
-
-    var data  = JSON.parse(resp.getContentText());
-    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
-    if (!reply && data.error) return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+    var _emResult = _callCopyModel(systemPrompt, 'Generate the 2-email proof of concept for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object with exactly 2 entries in the sequence array.', 1500);
+    if (!_emResult.ok) return { ok: false, error: _emResult.error };
+    var reply = _emResult.content;
 
     try {
       var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
@@ -2156,10 +2136,6 @@ function buildEmailSequence(brief, copy) {
  */
 function buildSocialPosts(brief, copy) {
   if (!brief) return { ok: false, error: 'brief is required' };
-
-  var props  = PropertiesService.getScriptProperties();
-  var apiKey = props.getProperty('ANTHROPIC_API_KEY');
-  if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
 
   var channel  = brief.channel  || 'Facebook';
   var ctaType  = brief.cta_type || 'waitlist';
@@ -2246,25 +2222,9 @@ function buildSocialPosts(brief, copy) {
     '}';
 
   try {
-    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json'
-      },
-      payload: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: 'Generate ' + (brief.post_count || 7) + ' ' + channel + ' posts for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object.' }]
-      }),
-      muteHttpExceptions: true
-    });
-
-    var data  = JSON.parse(resp.getContentText());
-    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
-    if (!reply && data.error) return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+    var _spResult = _callCopyModel(systemPrompt, 'Generate ' + (brief.post_count || 7) + ' ' + channel + ' posts for the ' + (brief.icp || 'selected') + ' ICP. Return only the JSON object.', 4096);
+    if (!_spResult.ok) return { ok: false, error: _spResult.error };
+    var reply = _spResult.content;
 
     try {
       var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
@@ -2484,10 +2444,6 @@ function buildPushNotifications(brief, copy) {
 function buildLandingPage(brief, copy) {
   if (!brief) return { ok: false, error: 'brief is required' };
 
-  var props  = PropertiesService.getScriptProperties();
-  var apiKey = props.getProperty('ANTHROPIC_API_KEY');
-  if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
-
   var lpUrl   = _buildLpUrl(brief.slug || 'waitlist');
   var ctaType = brief.cta_type || 'waitlist';
   // Phase guard: pre-launch
@@ -2595,25 +2551,9 @@ function buildLandingPage(brief, copy) {
     '}';
 
   try {
-    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json'
-      },
-      payload: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: 'Generate landing page copy for the ' + (brief.icp || 'selected') + ' ICP' + (brief.theme ? ' with theme: ' + brief.theme : '') + '. Follow the 7-section structure exactly. Return only the JSON object.' }]
-      }),
-      muteHttpExceptions: true
-    });
-
-    var data  = JSON.parse(resp.getContentText());
-    var reply = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
-    if (!reply && data.error) return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+    var _lpResult = _callCopyModel(systemPrompt, 'Generate landing page copy for the ' + (brief.icp || 'selected') + ' ICP' + (brief.theme ? ' with theme: ' + brief.theme : '') + '. Follow the 7-section structure exactly. Return only the JSON object.', 2048);
+    if (!_lpResult.ok) return { ok: false, error: _lpResult.error };
+    var reply = _lpResult.content;
 
     try {
       var jsonStr = reply.trim().replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
@@ -2868,6 +2808,94 @@ function getVisualDirectionContext(campaignId, lpSection, postNumber) {
     };
   } catch(e) {
     Logger.log('[getVisualDirectionContext] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── GPT-4o Copy Routing ──────────────────────────────────────────────────────
+// callGPT4o  — calls OpenAI GPT-4o for copy generation (social, email, LP, video)
+// _logGpt4oCall — upserts LOG_LAST_GPT4O_CALL row in CcSettings for debugging
+// _callCopyModel — routes to GPT-4o if GPT4O_ACTIVE, else Claude
+
+function callGPT4o(systemPrompt, userPrompt, maxTokens) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+  if (!apiKey) return { ok: false, error: 'OPENAI_API_KEY not set in Script Properties' };
+  var model = _getCcSetting('GPT4O_COPY_MODEL') || 'gpt-4o';
+  try {
+    var resp = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type':  'application/json'
+      },
+      payload: JSON.stringify({
+        model:       model,
+        max_tokens:  maxTokens || 2000,
+        temperature: 0.7,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: userPrompt   }
+        ]
+      }),
+      muteHttpExceptions: true
+    });
+    var data    = JSON.parse(resp.getContentText());
+    var content = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+    if (!content && data.error) return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+    _logGpt4oCall(systemPrompt, content);
+    return { ok: true, content: content };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+function _logGpt4oCall(systemPrompt, responseContent) {
+  try {
+    var sheet  = _getCCSheet(_CC_TAB.SETTINGS);
+    var last   = sheet.getLastRow();
+    var logVal = JSON.stringify({
+      ts:               new Date().toISOString(),
+      prompt_chars:     systemPrompt.length,
+      response_chars:   responseContent.length,
+      response_preview: responseContent.substring(0, 200)
+    });
+    if (last >= 2) {
+      var vals = sheet.getRange(2, 1, last - 1, 2).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        if (String(vals[i][0]) === 'DEBUG' && String(vals[i][1]) === 'LOG_LAST_GPT4O_CALL') {
+          sheet.getRange(i + 2, 3, 1, 1).setValue(logVal);
+          CacheService.getScriptCache().remove('cc_settings_v1');
+          return;
+        }
+      }
+    }
+    sheet.appendRow(['DEBUG', 'LOG_LAST_GPT4O_CALL', logVal, '', true]);
+    CacheService.getScriptCache().remove('cc_settings_v1');
+  } catch(e) {}
+}
+
+function _callCopyModel(systemPrompt, userPrompt, maxTokens) {
+  var gptActive = String(_getCcSetting('GPT4O_ACTIVE') || 'false').toLowerCase();
+  if (gptActive === 'true') return callGPT4o(systemPrompt, userPrompt, maxTokens);
+  var apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+  if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
+  try {
+    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      payload: JSON.stringify({
+        model:     'claude-sonnet-4-20250514',
+        max_tokens: maxTokens || 2000,
+        system:    systemPrompt,
+        messages:  [{ role: 'user', content: userPrompt }]
+      }),
+      muteHttpExceptions: true
+    });
+    var data    = JSON.parse(resp.getContentText());
+    var content = (Array.isArray(data.content) && data.content[0] && data.content[0].text) || '';
+    if (!content && data.error) return { ok: false, error: typeof data.error === 'object' ? data.error.message : String(data.error) };
+    return { ok: true, content: content };
+  } catch(e) {
     return { ok: false, error: e.message };
   }
 }

@@ -1329,6 +1329,8 @@ function doPost(e) {
     if(body.action === 'check_phone_rule')               return respond(checkPhoneRule(body.post_number||0, body.image_brief_text||'', body.asset_type||''));
     if(body.action === 'get_visual_direction_context')   return respond(getVisualDirectionContext(body.campaign_id||'', body.lp_section||'', body.post_number||1));
     if(body.action === 'validate_campaign_step1_gates')  return respond(validateCampaignStep1Gates(body.campaign_id||''));
+    if(body.action === 'seed_gpt4o_settings')            return respond(seedGpt4oSettings());
+    if(body.action === 'build_gpt4o_prompt_docs')        return respond(buildGPT4oSystemPromptDocs());
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });

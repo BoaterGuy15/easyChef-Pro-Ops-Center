@@ -2807,3 +2807,355 @@ function validateCampaignStep1Gates(campaignId) {
     return { ok: false, error: e.message };
   }
 }
+
+// ── seedGpt4oSettings ─────────────────────────────────────────────────────────
+// Seeds GPT4O_COPY_MODEL, GPT4O_ACTIVE, and the debug log placeholder into CcSettings.
+// OPENAI_API_KEY must already exist in Script Properties (user sets the value manually).
+function seedGpt4oSettings() {
+  try {
+    appendSettingRow('AI_MODELS', 'GPT4O_COPY_MODEL',     'gpt-4o',  'OpenAI model for copy generation (social, email, LP, video)');
+    appendSettingRow('AI_MODELS', 'GPT4O_ACTIVE',         'true',    'Set to false to route copy generation back to Claude');
+    appendSettingRow('DEBUG',     'LOG_LAST_GPT4O_CALL',  '(none)',  'Auto-updated by _logGpt4oCall — ts + prompt_chars + response_chars + preview');
+    return {
+      ok:   true,
+      note: 'GPT4O_ACTIVE=true. Set to false in CcSettings to switch back to Claude. OPENAI_API_KEY value must be set in Apps Script > Script Properties.'
+    };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── buildGPT4oSystemPromptDocs ────────────────────────────────────────────────
+// Reads LIVE doctrine from the Campaign Center Sheet and creates 4 Google Docs:
+//   1. LP System Prompt
+//   2. TikTok Caption System Prompt
+//   3. YouTube Script System Prompt
+//   4. Email Copy System Prompt
+// Returns { ok, docs: [{ title, id, url }] }
+function buildGPT4oSystemPromptDocs() {
+  try {
+    var ss      = _getCampaignSpreadsheet();
+    var bdSheet = ss.getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+    var csSheet = ss.getSheetByName(_CC_TAB.CAMP_STRATEGY);
+
+    function _readAllBD() {
+      if (!bdSheet || bdSheet.getLastRow() < 2) return [];
+      return bdSheet.getRange(2, 1, bdSheet.getLastRow() - 1, 5).getValues()
+        .filter(function(r) { var a = String(r[3]).toLowerCase(); return r[0] && (a === 'true' || a === '1' || a === 'yes'); })
+        .map(function(r) { var c = {}; try { c = JSON.parse(String(r[4] || '{}')); } catch(e) {} return { id: String(r[0]), type: String(r[1]), conditions: c }; });
+    }
+    function _readAllCS() {
+      if (!csSheet || csSheet.getLastRow() < 2) return [];
+      return csSheet.getRange(2, 1, csSheet.getLastRow() - 1, 4).getValues()
+        .filter(function(r) { var a = String(r[2]).toLowerCase(); return r[0] && (a === 'true' || a === '1' || a === 'yes'); })
+        .map(function(r) { var v = {}; try { v = JSON.parse(String(r[3] || '{}')); } catch(e) {} return { id: String(r[0]), type: String(r[1]), value: v }; });
+    }
+
+    var bdRows = _readAllBD();
+    var csRows = _readAllCS();
+    function bd(id) { return (bdRows.filter(function(r) { return r.id === id; })[0] || { conditions: {} }).conditions; }
+    function cs(id) { return (csRows.filter(function(r) { return r.id === id; })[0] || { value: {} }).value; }
+
+    var activeClaims = (getApprovedClaims ? getApprovedClaims() : []).filter(function(c) { return c.approved; });
+    var lifeStages   = getLifeStages ? getLifeStages() : [];
+
+    // ── LOCKED DOCTRINE (shared across all 4 docs) ───────────────────────────
+    var masterStory  = cs('MASTER_STORY_001');
+    var soWhat       = bd('SO_WHAT_ARCHITECTURE_001');
+    var voiceForb    = bd('VOICE_FORBIDDEN_001');
+    var precision    = bd('PRECISION_RULES_001');
+
+    var LOCK =
+      '════════════════════════════════════════\n' +
+      'SECTION 0 — LOCKED DOCTRINE\n' +
+      '════════════════════════════════════════\n\n' +
+      'MASTER STORY: "' + (masterStory.story || 'The problem was never you. The system was disconnected. easyChef Pro closes the gaps.') + '"\n\n';
+
+    if (masterStory.narrative_spine) LOCK += masterStory.narrative_spine + '\n\n';
+    if (masterStory.instruction)     LOCK += masterStory.instruction + '\n\n';
+
+    if (soWhat.steps && Array.isArray(soWhat.steps)) {
+      LOCK += 'SO WHAT ARCHITECTURE (every section follows this arc):\n';
+      soWhat.steps.forEach(function(s, i) {
+        LOCK += (i + 1) + '. ' + (s.name || '') + ': ' + (s.description || '') + '\n';
+        if (s.signal) LOCK += '   Signal: ' + s.signal + '\n';
+      });
+      LOCK += '\n';
+    }
+
+    if (activeClaims.length) {
+      LOCK += 'APPROVED CLAIMS — exact wording only, never invent statistics:\n';
+      activeClaims.forEach(function(c) { LOCK += '  • ' + c.exact_wording + '\n'; });
+      LOCK += '\n';
+    }
+
+    if (voiceForb.forbidden_words && voiceForb.forbidden_words.length) {
+      LOCK += 'FORBIDDEN WORDS (never write any of these):\n';
+      voiceForb.forbidden_words.forEach(function(w) { LOCK += '  × ' + w + '\n'; });
+      LOCK += '\n';
+    }
+
+    if (precision.figures && precision.figures.length) {
+      LOCK += 'PRECISION RULES — exact figures only, no rounding:\n';
+      precision.figures.forEach(function(f) {
+        LOCK += '  "' + f.exact + '"' + (f.never ? ' — NEVER ' + f.never : '') + '\n';
+      });
+      LOCK += '\n';
+    }
+
+    // ── Doc 1: LP System Prompt ───────────────────────────────────────────────
+    var lpDoc     = cs('LP_DOCTRINE_001');
+    var scopeMap  = cs('CLAIM_SCOPING_001');
+    var secMap    = (scopeMap && scopeMap.section_claim_map) || {};
+
+    var lp =
+      'ROLE: You are the easyChef Pro landing page copywriter.\n' +
+      'Every section must follow the So What Architecture. Never deviate from locked doctrine.\n\n' +
+      LOCK;
+
+    if (lpDoc.sections) lp += 'LP SECTION ORDER: ' + lpDoc.sections.join(' → ') + '\n\n';
+    if (lpDoc.laws && lpDoc.laws.length) {
+      lp += 'PERSUASION LAWS (non-negotiable):\n';
+      lpDoc.laws.forEach(function(law, i) { lp += (i + 1) + '. ' + String(law).replace(/_/g, ' ') + '\n'; });
+      lp += '\n';
+    }
+
+    if (lpDoc.emotional_map) {
+      lp += '════════════════════\nSECTION EMOTIONAL JOBS\n════════════════════\n';
+      ['hook','problem','agitate','solve','value','lifecycle','proof','cta'].forEach(function(sec) {
+        var em = lpDoc.emotional_map[sec];
+        if (!em) return;
+        var permitted = secMap[sec] || [];
+        lp += '\nSECTION: ' + sec.toUpperCase() + '\n';
+        if (em.job)           lp += 'Emotional job: ' + em.job + '\n';
+        if (em.entry)         lp += 'Entry state: ' + em.entry + '\n';
+        if (em.exit)          lp += 'Exit state: ' + em.exit + '\n';
+        if (em.what_kills_it) lp += 'What kills it: ' + em.what_kills_it + '\n';
+        if (em.word_target)   lp += 'Word target: ' + em.word_target + '\n';
+        if (permitted.length) lp += 'Permitted claim types: ' + permitted.join(', ') + '\n';
+      });
+      lp += '\n';
+    }
+
+    if (lifeStages.length) {
+      lp += '════════════════════\nLIFE STAGES\n════════════════════\n';
+      lifeStages.forEach(function(ls) {
+        lp += ls.life_stage_id + ': ' + (ls.current_chapter || '') + '\n';
+      });
+      lp += '\n';
+    }
+
+    lp +=
+      '════════════════════\nDYNAMIC FIELDS\n════════════════════\n' +
+      '[ICP_CODE] — The specific ICP this LP is written for\n' +
+      '[LP_ANGLE] — Campaign angle (savings / time / health / social)\n' +
+      '[THEME_SLUG] — Theme identifier\n' +
+      '[HOOK_ANGLE] — First hook variant\n' +
+      '[FOOD_TYPE] — Food type for this theme\n' +
+      '[LIFE_STAGE_ID] — newlywed / busy_parent / meal_prep_phase / empty_nester\n' +
+      '[STAGE_RECOGNITION_LINE] — Opens the lifecycle section\n' +
+      '[NEXT_STAGE_BRIDGE] — Connects current stage to next\n' +
+      '[CTA_PROMISE] — Outcome promise in the CTA\n';
+
+    // ── Doc 2: TikTok Caption System Prompt ───────────────────────────────────
+    var phoneVis  = bd('PHONE_VISIBILITY_001');
+    var phoneLP   = bd('PHONE_RULE_LP_001');
+    var emotArc   = cs('EMOTIONAL_ARC_001');
+
+    var tiktok =
+      'ROLE: You are the easyChef Pro TikTok caption writer.\n' +
+      'Every caption follows the 7-post emotional arc and phone reveal rule. Never deviate from locked doctrine.\n\n' +
+      LOCK;
+
+    tiktok += '════════════════════\nPHONE REVEAL RULE\n════════════════════\n';
+    if (phoneVis.posts_1_3) {
+      tiktok += 'Posts 1-3: NO phone — story is the problem world, no solution visible\n';
+      if (phoneVis.posts_1_3.image_direction) tiktok += 'Image: ' + phoneVis.posts_1_3.image_direction + '\n';
+    }
+    if (phoneVis.posts_4_plus) {
+      tiktok += 'Posts 4+: Phone visible — holds easyChef Pro app\n';
+      var screens = phoneVis.posts_4_plus.screen_options;
+      if (screens) tiktok += 'Screen options: ' + (Array.isArray(screens) ? screens.join(', ') : String(screens)) + '\n';
+    }
+    if (phoneLP && phoneLP.rule) tiktok += 'LP rule: ' + phoneLP.rule + '\n';
+    tiktok += '\n';
+
+    if (emotArc.stages && Array.isArray(emotArc.stages)) {
+      tiktok += '════════════════════\nPOST 1-7 EMOTIONAL JOBS\n════════════════════\n';
+      emotArc.stages.forEach(function(s, i) {
+        tiktok += 'Post ' + (i + 1) + ' — ' + (s.stage || '').toUpperCase() + ': ' + (s.emotion || '') + '\n';
+        if (s.writer_instruction) tiktok += '  ' + s.writer_instruction + '\n';
+      });
+      tiktok += '\n';
+    }
+
+    if (Object.keys(secMap).length) {
+      tiktok += '════════════════════\nCLAIM SCOPING PER SECTION\n════════════════════\n';
+      Object.keys(secMap).forEach(function(sec) { tiktok += sec + ': ' + secMap[sec].join(', ') + '\n'; });
+      tiktok += '\n';
+    }
+
+    tiktok +=
+      '════════════════════\nCAPTION STRUCTURE\n════════════════════\n' +
+      'Line 1: Hook — stop the scroll, under 15 words\n' +
+      'Lines 2-3: Problem or agitate — match the post emotional job\n' +
+      'Lines 4-5: Solve or value — what changes with easyChef Pro\n' +
+      'Line 6: CTA — one action, outcome-framed, under 8 words\n' +
+      'Character limit: 150 characters\n\n' +
+      '════════════════════\nDYNAMIC FIELDS\n════════════════════\n' +
+      '[POST_NUMBER] — 1 through 7\n' +
+      '[LP_SECTION_SOURCE] — LP section this post derives from\n' +
+      '[ICP_EMOTIONAL_STATE] — Entry emotion at this post\n' +
+      '[THEME_HOOK_ANGLE] — Theme-specific hook angle\n' +
+      '[THEME_FOOD_TYPE] — Food type from theme\n' +
+      '[APPROVED_CLAIM] — Exact wording of the applicable approved claim\n';
+
+    // ── Doc 3: YouTube Script System Prompt ───────────────────────────────────
+    var videoDeriv = cs('VIDEO_DERIVATION_001');
+
+    var youtube =
+      'ROLE: You are the easyChef Pro YouTube script writer.\n' +
+      'Every script follows the 3-act structure with the product reveal gate. Never deviate from locked doctrine.\n\n' +
+      LOCK;
+
+    if (videoDeriv.acts && Array.isArray(videoDeriv.acts)) {
+      youtube += '════════════════════\n3-ACT STRUCTURE\n════════════════════\n';
+      videoDeriv.acts.forEach(function(act) {
+        youtube += '\nACT ' + (act.act || '') + ': ' + (act.name || '') + '\n';
+        if (act.description)         youtube += act.description + '\n';
+        if (act.product_reveal_gate) youtube += 'Product reveal gate: ' + act.product_reveal_gate + '\n';
+        if (act.duration)            youtube += 'Duration: ' + act.duration + '\n';
+      });
+      youtube += '\n';
+    } else {
+      youtube +=
+        '════════════════════\n3-ACT STRUCTURE\n════════════════════\n' +
+        'ACT 1 — PROBLEM WORLD (0:00–0:45): Name the exact pain. No product mention. No solution. Pure empathy.\n' +
+        'ACT 2 — DISCOVERY (0:45–1:30): Moment she finds easyChef Pro. Show TRACK→PLAN→OPTIMIZE→COOK→SHOP loop.\n' +
+        'ACT 3 — NEW WORLD (1:30–2:00): Her life after easyChef Pro. Specific outcomes. CTA to waitlist.\n' +
+        'PRODUCT REVEAL GATE: easyChef Pro name/visuals appear ONLY in Act 2 or later. Never in Act 1.\n\n';
+    }
+
+    if (soWhat.steps && Array.isArray(soWhat.steps)) {
+      youtube += '════════════════════\nSO WHAT ARCHITECTURE\n════════════════════\n';
+      soWhat.steps.forEach(function(s, i) {
+        youtube += 'Step ' + (i + 1) + ': ' + (s.name || '') + ' — ' + (s.description || '') + '\n';
+        if (s.signal) youtube += 'Signal: ' + s.signal + '\n';
+      });
+      youtube += '\n';
+    }
+
+    youtube +=
+      '════════════════════\nSCRIPT FORMAT RULES\n════════════════════\n' +
+      'Spoken English only — no markdown, no formatting codes\n' +
+      'B-roll direction in [brackets]: e.g., [show fridge scan screen]\n' +
+      'Hook is the first spoken word — no intro, no greeting\n' +
+      'Mention easyChef Pro by name 2-5 times\n' +
+      'End with single CTA: waitlist URL in description\n\n' +
+      '════════════════════\nDYNAMIC FIELDS\n════════════════════\n' +
+      '[VIDEO_TYPE] — short_explainer / testimonial / feature_spotlight / origin_story\n' +
+      '[ICP_CODE] — The specific ICP\n' +
+      '[PRIMARY_TRIGGER] — Entry trigger emotion for this ICP\n' +
+      '[THEME_HOOK_ANGLE] — Theme-specific opening hook\n' +
+      '[VIDEO_LENGTH] — Target length in seconds\n';
+
+    // ── Doc 4: Email Copy System Prompt ───────────────────────────────────────
+    var emailDeriv  = cs('EMAIL_DERIVATION_001');
+    var obSeq       = bd('OB_SEQUENCE_001');
+    var tipping     = bd('TIPPING_POINT_001');
+
+    var email =
+      'ROLE: You are the easyChef Pro email copywriter.\n' +
+      'Every email follows the sequence doctrine, claim scoping, and onboarding arc exactly. Never deviate from locked doctrine.\n\n' +
+      LOCK;
+
+    if (emailDeriv.sequences && Array.isArray(emailDeriv.sequences)) {
+      email += '════════════════════\nSEQUENCE TYPES\n════════════════════\n';
+      emailDeriv.sequences.forEach(function(seq) {
+        email += '\n' + (seq.seq_id || '') + ' — ' + (seq.name || '') + '\n';
+        if (seq.trigger) email += 'Trigger: ' + seq.trigger + '\n';
+        if (seq.emails)  email += 'Emails: ' + seq.emails + '\n';
+        if (seq.goal)    email += 'Goal: ' + seq.goal + '\n';
+      });
+      email += '\n';
+    } else {
+      email +=
+        '════════════════════\nSEQUENCE TYPES\n════════════════════\n' +
+        'SEQ-1 (Welcome/Waitlist): Trigger = waitlist signup. 4 emails. Goal: activate → tipping point.\n' +
+        'SEQ-2 (Feature Spotlight): Trigger = day 3 in app. 3 emails. Goal: first tipping point.\n' +
+        'SEQ-3 (Tipping Point): Trigger = tipping_point_reached. 2 emails. Goal: paywall conversion.\n' +
+        'SEQ-4 (Win-Back): Trigger = 14-day churn risk. 2 emails. Goal: re-engagement.\n\n';
+    }
+
+    if (Object.keys(secMap).length) {
+      email += '════════════════════\nCLAIM SCOPING PER SECTION\n════════════════════\n';
+      Object.keys(secMap).forEach(function(sec) { email += sec + ': ' + secMap[sec].join(', ') + '\n'; });
+      email += '\n';
+    }
+
+    email +=
+      '════════════════════\nSUBJECT LINE RULES\n════════════════════\n' +
+      'Under 50 characters — count carefully\n' +
+      'No emojis\n' +
+      'Variant A: curiosity/tension angle\n' +
+      'Variant B: direct benefit/number angle\n\n';
+
+    if (obSeq.emails && Array.isArray(obSeq.emails)) {
+      email += '════════════════════\nONBOARDING SEQUENCE: OB-E1 through OB-E7\n════════════════════\n';
+      if (obSeq.engineering_deadline) email += 'Engineering deadline: ' + obSeq.engineering_deadline + '\n\n';
+      obSeq.emails.forEach(function(em) {
+        email += em.id + ' (Day ' + em.send_day + '): ' + em.subject + '\n';
+        if (em.goal) email += '  Goal: ' + em.goal + '\n';
+        if (em.cta)  email += '  CTA: '  + em.cta  + '\n';
+        email += '\n';
+      });
+    }
+
+    if (tipping && (tipping.meals_cooked || tipping.logic)) {
+      email += '════════════════════\nTIPPING POINT DEFINITION\n════════════════════\n';
+      if (tipping.meals_cooked)   email += 'Meals cooked: '        + tipping.meals_cooked   + '\n';
+      if (tipping.spoilage_saves) email += 'Spoilage saves: '      + tipping.spoilage_saves + '\n';
+      if (tipping.pantry_items)   email += 'Pantry items tracked: '+ tipping.pantry_items   + '\n';
+      if (tipping.logic)          email += 'Logic: '               + tipping.logic          + '\n';
+      if (tipping.paywall_rule)   email += 'Paywall rule: '        + tipping.paywall_rule   + '\n';
+      email += '\n';
+    }
+
+    email +=
+      '════════════════════\nDYNAMIC FIELDS\n════════════════════\n' +
+      '[EMAIL_ID] — e.g., SEQ-1-E1\n' +
+      '[SEQUENCE_TYPE] — SEQ-1 / SEQ-2 / SEQ-3 / SEQ-4\n' +
+      '[LP_SECTION_SOURCE] — LP section this email derives from\n' +
+      '[ICP_CODE] — The specific ICP\n' +
+      '[EMOTIONAL_STATE_ENTRY] — Her emotion at the start of this email\n' +
+      '[EMOTIONAL_STATE_EXIT] — Her emotion at the end of this email\n' +
+      '[APPROVED_CLAIM] — Exact wording of the applicable approved claim\n' +
+      '[CTA_PROMISE] — Specific outcome promise in the CTA button\n';
+
+    // ── Create 4 Google Docs ──────────────────────────────────────────────────
+    var ts   = new Date().toISOString().split('T')[0];
+    var doc1 = DocumentApp.create('easyChef Pro — GPT-4o LP System Prompt [' + ts + ']');
+    var doc2 = DocumentApp.create('easyChef Pro — GPT-4o TikTok Caption System Prompt [' + ts + ']');
+    var doc3 = DocumentApp.create('easyChef Pro — GPT-4o YouTube Script System Prompt [' + ts + ']');
+    var doc4 = DocumentApp.create('easyChef Pro — GPT-4o Email System Prompt [' + ts + ']');
+    doc1.getBody().setText(lp);
+    doc2.getBody().setText(tiktok);
+    doc3.getBody().setText(youtube);
+    doc4.getBody().setText(email);
+
+    Logger.log('[buildGPT4oSystemPromptDocs] LP=' + doc1.getId() + ' TikTok=' + doc2.getId() + ' YT=' + doc3.getId() + ' Email=' + doc4.getId());
+
+    return {
+      ok:   true,
+      docs: [
+        { title: 'LP System Prompt',           id: doc1.getId(), url: doc1.getUrl() },
+        { title: 'TikTok Caption System Prompt', id: doc2.getId(), url: doc2.getUrl() },
+        { title: 'YouTube Script System Prompt', id: doc3.getId(), url: doc3.getUrl() },
+        { title: 'Email Copy System Prompt',    id: doc4.getId(), url: doc4.getUrl() }
+      ]
+    };
+  } catch(e) {
+    Logger.log('[buildGPT4oSystemPromptDocs] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
