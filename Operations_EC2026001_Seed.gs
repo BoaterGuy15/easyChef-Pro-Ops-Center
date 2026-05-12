@@ -375,7 +375,7 @@ function seedEC2026001() {
     postData.push({day:21, stage:'proof',   feature:'all',     type:'youtube', hA:'YT-2 · The Solution · TRACK→PLAN→OPTIMIZE→COOK→SHOP',            hB:''});
     postData.push({day:35, stage:'launch',  feature:'launch',  type:'youtube', hA:'YT-3 · Launch Day · The leak is closed.',                          hB:''});
 
-    var spHdrLen = _CC_HDR.SocialPosts.length; // 16
+    var spHdrLen = _CC_HDR.SocialPosts.length;
     var newRows = postData.map(function(r, idx) {
       var id    = 'ec001-sp-' + ('000' + (idx + 1)).slice(-3);
       var brief = _ec001_briefJson(r.stage, r.feature, r.day, r.hA, r.hB);
@@ -395,7 +395,12 @@ function seedEC2026001() {
         '',                           // dl_id — assigned from DeepLinkRegistry
         '',                           // utm_url — built after dl_id activated
         '',                           // posted_url
-        brief                         // design_brief JSON — generateBriefDocs reads this
+        brief,                        // design_brief JSON
+        (r.stage === 'launch' ? 'urgency' : r.stage), // lp_section_source
+        '',                           // lp_headline_connection
+        r.stage + ' — recognition',   // emotional_state
+        r.stage === 'launch' ? 'acting_now' : (r.stage === 'cta' ? 'committed_and_decisive' : ''), // emotional_destination
+        r.stage                       // loop_stage
       ];
     });
 

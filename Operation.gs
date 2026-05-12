@@ -892,6 +892,74 @@ function doPost(e) {
       var _seedResult = seedEC2026001();
       return respond({ ok:_seedResult.ok, result:_seedResult, log: Logger.getLog() });
     }
+    if(body.action === 'backfill_lp_section_sources') {
+      // Fills blank lp_section_source on SocialPosts (from design_brief or ID pattern)
+      // and EmailSequences (from funnel_stage column).
+      var _ss = _getCampaignSpreadsheet();
+      var _stageMap = {hook:'hook',problem:'problem',agitate:'agitate',solve:'solve',value:'value',proof:'proof',cta:'cta',launch:'urgency',urgency:'urgency'};
+      var _postNumMap = {'001':'hook','002':'problem','003':'agitate','004':'solve','005':'value','006':'proof','007':'cta'};
+      var _fixed = 0;
+
+      // ── SocialPosts ──────────────────────────────────────────────────────────
+      var _spS   = _ss.getSheetByName(_CC_TAB.SOCIAL);
+      var _spH   = _CC_HDR.SocialPosts;
+      var _spLast = _spS.getLastRow();
+      if (_spLast >= 2) {
+        var _spVals    = _spS.getRange(2, 1, _spLast - 1, _spH.length).getValues();
+        var _lpSrcIdx  = _spH.indexOf('lp_section_source');
+        var _loopIdx   = _spH.indexOf('loop_stage');
+        var _briefIdx  = _spH.indexOf('design_brief');
+        var _stateIdx  = _spH.indexOf('emotional_state');
+        var _destIdx   = _spH.indexOf('emotional_destination');
+        for (var _ri = 0; _ri < _spVals.length; _ri++) {
+          if (_spVals[_ri][_lpSrcIdx]) continue;
+          var _bj = {};
+          try { _bj = JSON.parse(_spVals[_ri][_briefIdx] || '{}'); } catch(e) {}
+          var _fs = String(_bj.funnel_stage || '').toLowerCase();
+          // Fallback: infer from ID pattern (EC-2026-001-{platform}-POST-NNN or tiktok/youtube)
+          if (!_fs) {
+            var _idStr = String(_spVals[_ri][0] || '').toLowerCase();
+            var _pnMatch = _idStr.match(/-post-(\d+)$/);
+            if (_idStr.indexOf('tiktok') > -1) { _fs = 'solve'; }
+            else if (_idStr.indexOf('youtube') > -1) { _fs = 'proof'; }
+            else if (_pnMatch) { _fs = _postNumMap[_pnMatch[1]] || 'hook'; }
+          }
+          if (!_fs) continue;
+          var _lpSrc = _stageMap[_fs] || _fs;
+          _spS.getRange(_ri + 2, _lpSrcIdx + 1).setValue(_lpSrc);
+          if (_loopIdx > -1) _spS.getRange(_ri + 2, _loopIdx + 1).setValue(_fs);
+          if (_stateIdx > -1 && !_spVals[_ri][_stateIdx]) _spS.getRange(_ri + 2, _stateIdx + 1).setValue(_fs + ' — recognition');
+          _fixed++;
+        }
+      }
+
+      // ── EmailSequences ───────────────────────────────────────────────────────
+      var _emS   = _ss.getSheetByName(_CC_TAB.EMAIL);
+      var _emH   = _CC_HDR.EmailSequences;
+      var _emLast = _emS ? _emS.getLastRow() : 0;
+      if (_emLast >= 2) {
+        var _emVals   = _emS.getRange(2, 1, _emLast - 1, _emH.length).getValues();
+        var _emLpIdx  = _emH.indexOf('lp_section_source');
+        var _emFsIdx  = _emH.indexOf('funnel_stage');
+        var _emLoopIdx = _emH.indexOf('loop_stage');
+        var _emSeqIdx  = _emH.indexOf('sequence_code');
+        var _seqLpMap  = {'SEQ-1':'hook','SEQ-2':'problem','SEQ-3':'agitate','SEQ-4':'cta','SEQ-5':'urgency'};
+        for (var _ei = 0; _ei < _emVals.length; _ei++) {
+          if (_emVals[_ei][_emLpIdx]) continue;
+          var _efs = String(_emVals[_ei][_emFsIdx] || '').toLowerCase().trim();
+          if (!_efs) {
+            var _seqCode = String(_emVals[_ei][_emSeqIdx] || '').toUpperCase();
+            var _seqKey = _seqCode.match(/SEQ-\d/i) ? _seqCode.match(/SEQ-\d/i)[0].toUpperCase() : '';
+            _efs = _seqLpMap[_seqKey] || 'hook';
+          }
+          var _eLpSrc = _stageMap[_efs] || _efs;
+          _emS.getRange(_ei + 2, _emLpIdx + 1).setValue(_eLpSrc);
+          if (_emLoopIdx > -1) _emS.getRange(_ei + 2, _emLoopIdx + 1).setValue(_efs);
+          _fixed++;
+        }
+      }
+      return respond({ ok: true, fixed: _fixed, log: Logger.getLog() });
+    }
     if(body.action === 'update_ec2026001_post_details') {
       var _updResult = updateEC2026001PostDetails();
       return respond({ ok:_updResult.ok, result:_updResult, log: Logger.getLog() });
@@ -1331,9 +1399,99 @@ function doPost(e) {
     if(body.action === 'validate_campaign_step1_gates')  return respond(validateCampaignStep1Gates(body.campaign_id||''));
     if(body.action === 'seed_gpt4o_settings')            return respond(seedGpt4oSettings());
     if(body.action === 'seed_brand_visual_tokens')       return respond(seedBrandVisualTokens());
+    if(body.action === 'get_gpt4o_log') {
+      var _gl = _getCCSheet(_CC_TAB.SETTINGS); var _gll = _gl.getLastRow();
+      if (_gll >= 2) {
+        var _glv = _gl.getRange(2,1,_gll-1,3).getValues();
+        for(var _gi=0;_gi<_glv.length;_gi++) {
+          if(String(_glv[_gi][0]).toUpperCase()==='DEBUG' && String(_glv[_gi][1])==='LOG_LAST_GPT4O_CALL') {
+            return respond({ok:true, log: _glv[_gi][2]});
+          }
+        }
+      }
+      return respond({ok:false, error:'LOG_LAST_GPT4O_CALL row not found'});
+    }
+    if(body.action === 'get_gpt4o_active') {
+      var _ga = _getCCSheet(_CC_TAB.SETTINGS); var _gal = _ga.getLastRow();
+      var _gaState = {gpt4o_active:'(not set)', gpt4o_model:'(not set)'};
+      if (_gal >= 2) {
+        var _gav = _ga.getRange(2,1,_gal-1,3).getValues();
+        _gav.forEach(function(r) {
+          if(String(r[0]).toUpperCase()==='AI_MODELS') {
+            if(String(r[1])==='GPT4O_ACTIVE')     _gaState.gpt4o_active = String(r[2]);
+            if(String(r[1])==='GPT4O_COPY_MODEL') _gaState.gpt4o_model  = String(r[2]);
+          }
+        });
+      }
+      return respond({ok:true, state: _gaState});
+    }
     if(body.action === 'build_gpt4o_prompt_docs')        return respond(buildGPT4oSystemPromptDocs());
     if(body.action === 'build_social_media_schemas')     return respond(buildSocialMediaSchemaDocs());
     if(body.action === 'audit_prompt_schema_drift')      return respond(auditPromptSchemaDrift());
+    // Read all ApprovedClaims rows (including non-approved) — returns full array with IDs
+    if(body.action === 'get_all_claims') {
+      return respond({ ok: true, claims: getApprovedClaims(false) });
+    }
+    // Deactivate one or more claims by ID: body.ids = ["claim-id-1","claim-id-2"]
+    if(body.action === 'deactivate_claims') {
+      var _dcIds = body.ids || [];
+      _dcIds.forEach(function(cid) { setApprovedClaim({ id: cid, approved: false }); });
+      return respond({ ok: true, deactivated: _dcIds });
+    }
+    // Set approved_date=today on all ACTIVE claims missing a real date.
+    // Empty date cells in Sheets return new Date(0) → "1970-01-01" after _ccFmtDate.
+    if(body.action === 'backfill_claim_dates') {
+      var _bfClaims = getApprovedClaims(false);
+      var _bfToday  = new Date().toISOString().split('T')[0];
+      var _bfFixed  = [];
+      _bfClaims.forEach(function(c) {
+        var _d = String(c.approved_date || '').trim();
+        var _missing = !_d || _d === '' || _d === '1970-01-01' || _d === '1969-12-31';
+        if (c.approved && _missing) {
+          setApprovedClaim({ id: c.id, approved_date: _bfToday, approved_by: c.approved_by || 'Marketing Lead' });
+          _bfFixed.push(c.id);
+        }
+      });
+      return respond({ ok: true, backfilled: _bfFixed, total: _bfClaims.length });
+    }
+    // Upsert a BrandDoctrine row: body.id, body.type (opt), body.active (opt), body.conditions_json (obj)
+    if(body.action === 'upsert_doctrine_row') {
+      var _udSheet = _getCampaignSpreadsheet().getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+      var _udHdrs  = _CC_HDR.BrandDoctrine;
+      if (!_udSheet) return respond({ok:false, error:'BrandDoctrine tab not found'});
+      // Read existing row for defaults
+      var _udEx = {}; var _udLr = _udSheet.getLastRow();
+      if (_udLr >= 2) {
+        var _udVals = _udSheet.getRange(2,1,_udLr-1,5).getValues();
+        for (var _ui=0;_ui<_udVals.length;_ui++) {
+          if (String(_udVals[_ui][0])===String(body.id)) { _udEx={id:_udVals[_ui][0],type:_udVals[_ui][1],active:_udVals[_ui][3],json:_udVals[_ui][4]}; break; }
+        }
+      }
+      var _udJson = body.conditions_json !== undefined ? JSON.stringify(body.conditions_json) : String(_udEx.json||'{}');
+      _ccUpsert(_udSheet, _udHdrs, body.id, [
+        body.id,
+        body.type    !== undefined ? body.type   : (_udEx.type   || ''),
+        '',
+        body.active  !== undefined ? body.active : (_udEx.active !== undefined ? _udEx.active : true),
+        _udJson
+      ]);
+      return respond({ok:true, id:body.id});
+    }
+    if(body.action === 'get_doctrine_rows') {
+      var _drSheet = _getCampaignSpreadsheet().getSheetByName(_CC_TAB.BRAND_DOCTRINE);
+      var _drRows  = {};
+      var _drIds   = body.ids || [];
+      if (_drSheet && _drSheet.getLastRow() >= 2) {
+        var _drVals = _drSheet.getRange(2, 1, _drSheet.getLastRow() - 1, 5).getValues();
+        _drVals.forEach(function(r) {
+          if (_drIds.indexOf(String(r[0])) !== -1) {
+            var _drJ = {}; try { _drJ = JSON.parse(String(r[4] || '{}')); } catch(e) {}
+            _drRows[String(r[0])] = { id: String(r[0]), type: String(r[1]), active: String(r[3]), json: _drJ };
+          }
+        });
+      }
+      return respond({ ok: true, rows: _drRows });
+    }
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
     if(body.action === 'social_posts_read')      return respond({ ok:true, posts: getSocialPosts(body.campaign_id||'') });
