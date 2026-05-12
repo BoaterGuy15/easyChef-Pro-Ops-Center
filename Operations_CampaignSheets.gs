@@ -1323,6 +1323,26 @@ function ensureCampaignBriefColumns() {
   return { ok: true, added: missing.length, columns: missing };
 }
 
+// Stamps any missing ContentCalendar header columns into row 1 of the sheet.
+// Safe to run multiple times — only adds columns not already present.
+function ensureContentCalColumns() {
+  var sheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
+  var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+  var lastCol = sheet.getLastColumn();
+  var existing = lastCol > 0
+    ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(v) { return String(v || '').trim(); })
+    : [];
+  var missing = headers.filter(function(h) { return existing.indexOf(h) === -1; });
+  if (!missing.length) {
+    Logger.log('[ensureContentCalColumns] All ' + headers.length + ' columns present');
+    return { ok: true, added: 0 };
+  }
+  var start = lastCol + 1;
+  missing.forEach(function(h, i) { sheet.getRange(1, start + i).setValue(h); });
+  Logger.log('[ensureContentCalColumns] Added ' + missing.length + ': ' + missing.join(', '));
+  return { ok: true, added: missing.length, columns: missing };
+}
+
 // Stamps any missing LP Doctrine header columns onto all 4 affected sheets.
 // Safe to run multiple times — only adds columns not already present.
 function ensureAllLPDoctrineColumns() {

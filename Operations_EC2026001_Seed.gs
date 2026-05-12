@@ -2552,7 +2552,8 @@ function getCampaignCalendar(campaignId) {
     var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
     var H = {};
     headers.forEach(function(h, i) { H[h] = i; });
-    var data = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
+    var safeColCount = Math.min(headers.length, ccSheet.getLastColumn());
+    var data = ccSheet.getRange(2, 1, last - 1, safeColCount).getValues();
     var days = {};
 
     for (var i = 0; i < data.length; i++) {

@@ -827,6 +827,9 @@ function doPost(e) {
       var _cdbResult = generateClaudeDesignBrief(body.asset_id || '');
       return respond({ ok: _cdbResult.ok, result: _cdbResult, log: Logger.getLog() });
     }
+    if(body.action === 'ensure_content_cal_columns') {
+      return respond(ensureContentCalColumns());
+    }
     if(body.action === 'update_content_cal_field') {
       var _ucfResult = updateContentCalField(body.asset_id||'', body.field||'', body.value||'');
       return respond({ ok:_ucfResult.ok, result:_ucfResult, log: Logger.getLog() });
