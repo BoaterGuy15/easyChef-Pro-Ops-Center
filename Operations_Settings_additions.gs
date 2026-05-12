@@ -104,3 +104,62 @@ function agentConstitutionWrite(agent, instructions) {
   setSetting('agent_constitution', agent, instructions || '', '');
   return { ok: true, agent: agent };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AIReference tab — session anchor for Claude Code
+// Run createAIReferenceTab() once from the Apps Script editor.
+// After creation, update master_reference_url with the v4.0 doc URL.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function createAIReferenceTab() {
+  var ss      = SpreadsheetApp.getActiveSpreadsheet();
+  var today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var sheetId = ss.getId();
+
+  var sh = ss.getSheetByName('AIReference');
+  if (sh) {
+    sh.clear();
+  } else {
+    sh = ss.insertSheet('AIReference');
+  }
+
+  // Headers
+  var headers = ['key', 'value', 'updated_at', 'notes'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  var hRange = sh.getRange(1, 1, 1, headers.length);
+  hRange.setBackground('#1a1a2e');
+  hRange.setFontColor('#c9a84c');
+  hRange.setFontWeight('bold');
+  hRange.setFontFamily('Courier New');
+  sh.setFrozenRows(1);
+
+  // Rows
+  var rows = [
+    ['current_deploy',        '@524',                                                           today, 'Apps Script deployment version — update after each clasp deploy'],
+    ['github_repo',           'https://github.com/BoaterGuy15/easyChef-Pro-Ops-Center',         today, 'Source of truth for all GAS and dashboard code'],
+    ['sheet_id',              sheetId,                                                           today, 'This spreadsheet ID — used to open directly from any session'],
+    ['sheet_url',             ss.getUrl(),                                                       today, 'Direct URL to Campaign Center Sheet'],
+    ['master_reference_url',  'PASTE_V4_DOC_URL_HERE',                                          today, 'v4.0 master reference doc — single source of truth for brand + governance rules'],
+    ['deploy_date',           today,                                                             today, 'Date of last GAS deployment'],
+    ['governance_status',     'All 7 governance blocks wired to sheet. Hardcoded fallbacks active until BrandDoctrine/CampaignStrategy rows are added.', today, 'See BrandDoctrine and CampaignStrategy tabs for required rows'],
+    ['last_governance_gap',   'CLOSED 2026-05-11 — _MASTER_STORY, _CATEGORY_POSITIONING, _5_APP_REPLACEMENT, _7_STEP_FRAMEWORK, _PRECISION_RULES, _AB_ARCH, _BRAND_RULES all wired to sheet compilers', today, 'All rules now editable from sheet with zero code deployment']
+  ];
+
+  sh.getRange(2, 1, rows.length, headers.length).setValues(rows);
+
+  // Column widths
+  sh.setColumnWidth(1, 220);
+  sh.setColumnWidth(2, 520);
+  sh.setColumnWidth(3, 110);
+  sh.setColumnWidth(4, 420);
+
+  // Alternate row shading
+  for (var i = 0; i < rows.length; i++) {
+    var bg = (i % 2 === 0) ? '#f8f5f0' : '#ffffff';
+    sh.getRange(i + 2, 1, 1, headers.length).setBackground(bg);
+  }
+
+  Logger.log('AIReference tab created. Sheet ID: ' + sheetId);
+  Logger.log('Remember to update master_reference_url with the v4.0 doc URL.');
+  return { ok: true, sheet_id: sheetId, rows_written: rows.length };
+}
