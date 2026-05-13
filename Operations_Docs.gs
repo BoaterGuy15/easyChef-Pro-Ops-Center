@@ -580,7 +580,7 @@ function generateContentCalBriefDocs(campaignId) {
     var data = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
 
     // Campaign Drive folder
-    var campaignFolderIds = { 'EC-2026-001': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl' };
+    var campaignFolderIds = { 'EC-2026-001': '1rB1OoKXiA1UjEKBTKhSsbQdw3jLs7CYU' };
     var folderId = campaignFolderIds[campaignId] || '';
     var briefFolder;
     try {
@@ -844,7 +844,7 @@ function generateClaudeDesignBrief(assetId) {
 
     // Move to campaign Drive folder
     try {
-      var campaignFolderIds = { 'EC-2026-001': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl' };
+      var campaignFolderIds = { 'EC-2026-001': '1rB1OoKXiA1UjEKBTKhSsbQdw3jLs7CYU' };
       var fId = campaignFolderIds[campaignId] || '';
       if (fId) {
         var dFile = DriveApp.getFileById(doc.getId());
@@ -1101,7 +1101,7 @@ function saveDesignToDrive(assetId, htmlContent) {
     var funnel     = String(ccRow[CH.funnel_stage] || '');
 
     // Campaign Drive folder
-    var campaignFolderIds = { 'EC-2026-001': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl' };
+    var campaignFolderIds = { 'EC-2026-001': '1rB1OoKXiA1UjEKBTKhSsbQdw3jLs7CYU' };
     var folderId  = campaignFolderIds[campaignId] || '';
     var folder;
     try {
@@ -1401,8 +1401,8 @@ function generateDesignForAsset(assetId) {
 
     // ── 10. Save HTML to Drive ────────────────────────────────────────────────
     var campaignFolderIds = {
-      'EC-2026-001': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl',
-      'EC-2026-002': '1O9WYhU7B9MS9aMTUurBRCA5xufE3o8rl'
+      'EC-2026-001': '1rB1OoKXiA1UjEKBTKhSsbQdw3jLs7CYU',
+      'EC-2026-002': '1rB1OoKXiA1UjEKBTKhSsbQdw3jLs7CYU'
     };
     var folderId = campaignFolderIds[campaignId] || '';
     var folder;
