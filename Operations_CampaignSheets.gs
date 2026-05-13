@@ -79,7 +79,7 @@ var _CC_HDR = {
     'funnel_stage','subject_angle','body_theme','role','seq_template_id',
     'design_brief',
     'lp_section_source','emotional_stage','claim_set','loop_stage','dl_id',
-    'claude_design_url'
+    'claude_design_url','full_email_body'
   ],
   CampaignTypes: [
     'id','cta_type','label','cta_text','destination_url','destination_label',

@@ -860,19 +860,30 @@
       var _folderMap={'EC-2026-001':'https://drive.google.com/drive/folders/1rB1OoKXiA1UjEKBTKhSsbQdw3jLs7CYU','EC-2026-002':'https://drive.google.com/drive/folders/1rB1OoKXiA1UjEKBTKhSsbQdw3jLs7CYU'};
       var _driveFolderUrl=_folderMap[p.campaign_id]||DRIVE_FOLDER_URL||null;
       var _safeId=(p.asset_id||'').replace(/['"]/g,'');
+      var _isEmail=(p.platform||'').toLowerCase()==='email';
       var _genBtn='<button class="pm-link generate" id="pm-gen-btn-'+_safeId+'" onclick="generateDesign(\''+_safeId+'\')">✦ Generate Design<span class="pm-link-tag">ai</span></button>';
+      var _writeEmailBtn='<button class="pm-link generate" id="pm-email-btn-'+_safeId+'" onclick="writeEmail(\''+_safeId+'\')">✦ Write Email<span class="pm-link-tag">ai</span></button>';
       var _viewDesignLink=p.claude_design_url?'<a class="pm-link generate" href="'+p.claude_design_url+'" target="_blank">↗ View Design<span class="pm-link-tag">open</span></a>':'';
       var _regenBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-gen-btn-'+_safeId+'" onclick="generateDesign(\''+_safeId+'\')">↺ Regen<span class="pm-link-tag">ai</span></button>':'';
       var _copyHtmlBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-cphtml-btn-'+_safeId+'" onclick="copyDesignHtml(\''+_safeId+'\')">⎘ Copy HTML<span class="pm-link-tag">claude</span></button>':'';
       var _ghBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-gh-btn-'+_safeId+'" onclick="pushToGithub(\''+_safeId+'\')">↑ GitHub<span class="pm-link-tag">pages</span></button>':'';
+      var _rewriteEmailBtn=p.full_email_body?'<button class="pm-link generate" id="pm-email-btn-'+_safeId+'" onclick="writeEmail(\''+_safeId+'\')">↺ Rewrite<span class="pm-link-tag">ai</span></button>':'';
       rows+='<div class="pm-links">'+
         pmLink('Brief Doc', p.brief_doc_url||null)+
-        (p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn+_ghBtn:_genBtn)+
+        (_isEmail
+          ? (p.full_email_body ? _rewriteEmailBtn : _writeEmailBtn)+(p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn+_ghBtn:_genBtn)
+          : (p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn+_ghBtn:_genBtn))+
         pmLink('Figma', p.figma_url||null)+
         pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', _driveFolderUrl)+
       '</div>';
       rows+='<div class="pm-save-msg" id="pm-gen-msg-'+_safeId+'" style="margin-top:4px;font-size:10px"></div>';
+      if(_isEmail&&p.full_email_body){
+        rows+='<div class="pm-html-drop"><button class="pm-html-toggle" onclick="toggleEmailBody(\''+_safeId+'\')">▸ View email body ('+(p.full_email_body.split(/\s+/).filter(Boolean).length)+' words)</button>';
+        rows+='<div class="pm-html-area" id="pm-eb-area-'+_safeId+'" style="display:none">';
+        rows+='<textarea id="pm-eb-ta-'+_safeId+'" style="height:220px;font-size:11px;line-height:1.5;white-space:pre-wrap" readonly>'+p.full_email_body.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</textarea>';
+        rows+='<div style="display:flex;gap:8px;margin-top:6px"><button class="pm-note-btn" onclick="copyEmailBody(\''+_safeId+'\')">⎘ Copy Text</button></div></div></div>';
+      }
       if(p.claude_design_url){
         rows+='<div class="pm-html-drop"><button class="pm-html-toggle" onclick="togglePasteBack(\''+_safeId+'\')">▸ Paste refined HTML back</button>';
         rows+='<div class="pm-html-area" id="pm-pb-area-'+_safeId+'">';
@@ -917,6 +928,48 @@
           if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
         })
         .generateDesignForAsset(assetId);
+    }
+    function writeEmail(assetId){
+      var btn=document.getElementById('pm-email-btn-'+assetId);
+      var msg=document.getElementById('pm-gen-msg-'+assetId);
+      if(btn){btn.disabled=true;btn.innerHTML='⏳ Writing…<span class="pm-link-tag">ai</span>';}
+      if(msg){msg.style.color='#666';msg.textContent='Calling Claude — usually 20–40 sec for 1,500 words…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok&&r.full_email_body){
+            if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].full_email_body=r.full_email_body;
+            if(msg){msg.style.color='#32d74b';msg.textContent='✓ Email written — '+r.word_count+' words';}
+            setTimeout(function(){openPostModal(assetId);},600);
+          } else {
+            var errMsg=(r&&r.error)||'unknown error';
+            if(btn){btn.disabled=false;btn.innerHTML='✦ Write Email<span class="pm-link-tag">ai</span>';}
+            if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+errMsg;}
+          }
+        })
+        .withFailureHandler(function(err){
+          if(btn){btn.disabled=false;btn.innerHTML='✦ Write Email<span class="pm-link-tag">ai</span>';}
+          if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
+        })
+        .generateEmailBody(assetId);
+    }
+    function toggleEmailBody(assetId){
+      var area=document.getElementById('pm-eb-area-'+assetId);
+      if(area){area.style.display=area.style.display==='none'?'block':'none';}
+    }
+    function copyEmailBody(assetId){
+      var ta=document.getElementById('pm-eb-ta-'+assetId);
+      if(!ta)return;
+      var text=ta.value;
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){
+          var msg=document.getElementById('pm-gen-msg-'+assetId);
+          if(msg){msg.style.color='#32d74b';msg.textContent='✓ Email body copied to clipboard';}
+        });
+      } else {
+        ta.select(); document.execCommand('copy');
+        var msg=document.getElementById('pm-gen-msg-'+assetId);
+        if(msg){msg.style.color='#32d74b';msg.textContent='✓ Copied';}
+      }
     }
     function pushToGithub(assetId){
       var btn=document.getElementById('pm-gh-btn-'+assetId);

@@ -1522,6 +1522,153 @@ function saveDesignToGithub(assetId) {
   }
 }
 
+// ── Full 1500-word email body generation ──────────────────────────────────────
+// generateEmailBody(emailId) — reads EmailSequences row + LP spine, calls Claude
+// for a ~1500-word brand-voice email, writes back to full_email_body column,
+// returns { ok, email_id, full_email_body, word_count }.
+
+function generateEmailBody(emailId) {
+  if (!emailId) return { ok: false, error: 'emailId required' };
+  try {
+    var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+    var emLast  = emSheet.getLastRow();
+    if (emLast < 2) return { ok: false, error: 'No email rows in sheet' };
+    var emHdrs = _CC_HDR.EmailSequences;
+    var EH = {}; emHdrs.forEach(function(h, i) { EH[h] = i; });
+    var safeEm = Math.min(emHdrs.length, emSheet.getLastColumn());
+    var emData = emSheet.getRange(2, 1, emLast - 1, safeEm).getValues();
+
+    var emRow = null, emRowIndex = -1;
+    for (var i = 0; i < emData.length; i++) {
+      if (String(emData[i][EH.id] || '') === emailId) {
+        emRow = emData[i]; emRowIndex = i; break;
+      }
+    }
+    if (!emRow) return { ok: false, error: 'Email not found: ' + emailId };
+
+    var campaignId   = String(emRow[EH.campaign_id]      || '');
+    var subjectLine  = String(emRow[EH.subject_line]     || '');
+    var previewText  = String(emRow[EH.preview_text]     || '');
+    var bodyHook     = String(emRow[EH.body_hook]        || '');
+    var bodyProblem  = String(emRow[EH.body_problem]     || '');
+    var bodyAgitate  = String(emRow[EH.body_agitate]     || '');
+    var bodySolve    = String(emRow[EH.body_solve]       || '');
+    var bodyValue    = String(emRow[EH.body_value]       || '');
+    var bodyProof    = String(emRow[EH.body_proof]       || '');
+    var bodyCta      = String(emRow[EH.body_cta]         || '');
+    var funnel       = String(emRow[EH.funnel_stage]     || '');
+    var emotionStage = String(emRow[EH.emotional_stage]  || '');
+    var subjectAngle = String(emRow[EH.subject_angle]    || '');
+    var bodyTheme    = String(emRow[EH.body_theme]       || '');
+    var role         = String(emRow[EH.role]             || '');
+    var designBrief  = String(emRow[EH.design_brief]     || '');
+    var lpSection    = String(emRow[EH.lp_section_source]|| '');
+    var claimSet     = String(emRow[EH.claim_set]        || '');
+    var emailNumber  = String(emRow[EH.email_number]     || '');
+
+    // ── LP spine ──────────────────────────────────────────────────────────────
+    var lpSpineJson = '';
+    try {
+      var bfSheet = _getCCSheet(_CC_TAB.BRIEFS);
+      var bfHdrs  = _CC_HDR.CampaignBriefs;
+      var BH = {}; bfHdrs.forEach(function(h, i) { BH[h] = i; });
+      var bfLast  = bfSheet.getLastRow();
+      if (bfLast >= 2) {
+        var bfData = bfSheet.getRange(2, 1, bfLast - 1, Math.min(bfHdrs.length, bfSheet.getLastColumn())).getValues();
+        for (var bi = 0; bi < bfData.length; bi++) {
+          if (String(bfData[bi][BH.id] || '') === campaignId) {
+            lpSpineJson = String(bfData[bi][BH.lp_campaign_spine_json] || '');
+            break;
+          }
+        }
+      }
+    } catch(lpErr) { Logger.log('[generateEmailBody] LP spine error: ' + lpErr.message); }
+
+    // ── Approved claims ───────────────────────────────────────────────────────
+    var claimsText = '$1,336/year savings · 69.5% less food waste · 30 minutes fridge to table · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages at launch · registered dietitians · 60% off founding discount · $7.99/month founding price';
+    try {
+      var approvedClaims = getApprovedClaims();
+      if (approvedClaims && approvedClaims.length) {
+        claimsText = approvedClaims.map(function(c) { return c.exact_wording || c.claim || ''; }).filter(Boolean).join(' · ');
+      }
+    } catch(clErr) { Logger.log('[generateEmailBody] claims error: ' + clErr.message); }
+
+    // ── System prompt ─────────────────────────────────────────────────────────
+    var systemPrompt = [
+      'You are the easyChef Pro email copywriter. Write in brand voice: direct, warm, credible, specific. Never use: optimize, seamless, leverage, ecosystem, AI-powered (as primary claim), pain points, "the app", shame language, or invented statistics.',
+      '',
+      'APPROVED CLAIMS (use these exactly — no rounding, no paraphrasing):',
+      claimsText,
+      '',
+      'BRAND RULES:',
+      '- Lead with the reader\'s real life — their fridge, their Wednesday, their food stress',
+      '- Short sentences. Short paragraphs. White space. Scannable.',
+      '- Write like a smart friend who happens to know a lot about food and nutrition.',
+      '- Never shame. Never guilt. Never manufactured urgency.',
+      '- $7.99/month and 60% off are the founding offer — always frame as limited access, not pressure.',
+      '',
+      'OUTPUT: ~1,500 words of plain prose email body. No HTML. No section labels. Natural flow: Hook → Problem → Agitate → Solve → Value → Proof → CTA.',
+    ].join('\n');
+
+    // ── User prompt ───────────────────────────────────────────────────────────
+    var upLines = [
+      'Write a full ~1,500-word email body for easyChef Pro.',
+      '',
+      'EMAIL ID: ' + emailId,
+      'CAMPAIGN: ' + campaignId,
+      'EMAIL #: ' + emailNumber,
+      'SUBJECT LINE: ' + subjectLine,
+      'PREVIEW TEXT: ' + previewText,
+      'FUNNEL STAGE: ' + funnel,
+      'EMOTIONAL STAGE: ' + emotionStage,
+      'ROLE: ' + role,
+      'SUBJECT ANGLE: ' + subjectAngle,
+      'BODY THEME: ' + bodyTheme,
+      'LP SECTION SOURCE: ' + lpSection,
+      'CLAIM SET: ' + claimSet,
+      '',
+      'STRUCTURAL BRIEF:',
+    ];
+    if (bodyHook)    upLines.push('HOOK:     ' + bodyHook);
+    if (bodyProblem) upLines.push('PROBLEM:  ' + bodyProblem);
+    if (bodyAgitate) upLines.push('AGITATE:  ' + bodyAgitate);
+    if (bodySolve)   upLines.push('SOLVE:    ' + bodySolve);
+    if (bodyValue)   upLines.push('VALUE:    ' + bodyValue);
+    if (bodyProof)   upLines.push('PROOF:    ' + bodyProof);
+    if (bodyCta)     upLines.push('CTA:      ' + bodyCta);
+    if (designBrief) { upLines.push(''); upLines.push('DESIGN BRIEF: ' + designBrief); }
+    if (lpSpineJson) { upLines.push(''); upLines.push('LP SPINE (source of truth):'); upLines.push(lpSpineJson.slice(0, 3000)); }
+    upLines.push('');
+    upLines.push('Write the full ~1,500-word email body now. No section headers. Plain prose. Start directly with the hook. End with a clear CTA for the founding offer ($7.99/month, 60% off).');
+
+    var userPrompt = upLines.join('\n');
+
+    Logger.log('[generateEmailBody] calling Claude for ' + emailId);
+    var fullBody = callAnthropicModel(userPrompt, systemPrompt, 'claude-sonnet-4-20250514', 4096);
+    if (!fullBody || fullBody.indexOf('Error:') === 0) {
+      return { ok: false, error: fullBody || 'Claude returned empty response' };
+    }
+
+    // ── Write back to EmailSequences ──────────────────────────────────────────
+    var bodyColIdx = EH.full_email_body;
+    if (bodyColIdx !== undefined && bodyColIdx >= 0 && bodyColIdx < safeEm) {
+      emSheet.getRange(emRowIndex + 2, bodyColIdx + 1).setValue(fullBody);
+    } else {
+      var allSheetHdrs = emSheet.getRange(1, 1, 1, emSheet.getLastColumn()).getValues()[0];
+      var fIdx = allSheetHdrs.indexOf('full_email_body');
+      if (fIdx >= 0) emSheet.getRange(emRowIndex + 2, fIdx + 1).setValue(fullBody);
+    }
+
+    var wordCount = fullBody.split(/\s+/).filter(Boolean).length;
+    Logger.log('[generateEmailBody] done — ' + wordCount + ' words for ' + emailId);
+    return { ok: true, email_id: emailId, full_email_body: fullBody, word_count: wordCount };
+
+  } catch(e) {
+    Logger.log('[generateEmailBody] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── Get raw HTML for a design (for Copy-to-Claude workflow) ──────────────────
 // getDesignHtml(assetId) — reads claude_design_url from ContentCalendar,
 // extracts file_id, returns the raw HTML string so the cockpit can copy it.

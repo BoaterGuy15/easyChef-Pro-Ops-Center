@@ -2549,6 +2549,26 @@ function getCampaignCalendar(campaignId) {
       }
     } catch(se) { Logger.log('[getCampaignCalendar] spMap error: ' + se.message); }
 
+    // Build asset_id → full_email_body map from EmailSequences
+    var emBodyMap = {};
+    try {
+      var emSheet2 = _getCCSheet(_CC_TAB.EMAIL);
+      var emLast2  = emSheet2.getLastRow();
+      if (emLast2 >= 2) {
+        var emAllHdrs = emSheet2.getRange(1, 1, 1, emSheet2.getLastColumn()).getValues()[0];
+        var emIdIdx   = emAllHdrs.indexOf('id');
+        var emBodyIdx = emAllHdrs.indexOf('full_email_body');
+        if (emIdIdx >= 0 && emBodyIdx >= 0) {
+          var emData2 = emSheet2.getRange(2, 1, emLast2 - 1, emSheet2.getLastColumn()).getValues();
+          emData2.forEach(function(row) {
+            var eid  = String(row[emIdIdx]   || '');
+            var body = String(row[emBodyIdx] || '');
+            if (eid && body) emBodyMap[eid] = body;
+          });
+        }
+      }
+    } catch(ee) { Logger.log('[getCampaignCalendar] emBodyMap error: ' + ee.message); }
+
     var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
     var H = {};
     headers.forEach(function(h, i) { H[h] = i; });
@@ -2600,7 +2620,8 @@ function getCampaignCalendar(campaignId) {
         emotional_stage: emotion, funnel_stage: funnel, publish_time: pubTime,
         blocked: isBlocked, blocked_reason: blockedReason,
         figma_url: figmaUrl, brief_doc_url: briefDocUrl, claude_design_url: claudeDesignUrl,
-        notes: notes, sheet_row: sheetRow
+        notes: notes, sheet_row: sheetRow,
+        full_email_body: emBodyMap[assetId] || ''
       });
       days[dateKey].total++;
       if (status === 'published')  days[dateKey].published++;

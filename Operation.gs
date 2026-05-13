@@ -861,6 +861,10 @@ function doPost(e) {
       var _sdghResult = saveDesignToGithub(body.asset_id || '');
       return respond({ ok: _sdghResult.ok, result: _sdghResult, log: Logger.getLog() });
     }
+    if(body.action === 'generate_email_body') {
+      var _gebResult = generateEmailBody(body.email_id || body.asset_id || '');
+      return respond({ ok: _gebResult.ok, result: _gebResult, log: Logger.getLog() });
+    }
     if(body.action === 'ensure_content_cal_columns') {
       return respond(ensureContentCalColumns());
     }
