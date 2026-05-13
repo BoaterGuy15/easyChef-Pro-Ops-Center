@@ -2607,9 +2607,7 @@ function getCampaignCalendar(campaignId) {
       var week        = Number(r[H.week]            || 0);
       var briefDocUrl     = String(r[H.brief_doc_url]     || '') || (dlId ? (spMap[dlId] || '') : '');
       var claudeDesignUrl = String(r[H.claude_design_url] || '');
-      // Derive sequence code from asset_id (e.g. ec001-email-s2-e3-a → seq2)
-      var seqMatch = assetId.match(/email-s(\d+)-/i);
-      var seqCode  = seqMatch ? 'seq' + seqMatch[1] : '';
+      var seqCode         = H.sequence_code !== undefined ? String(r[H.sequence_code] || '') : '';
       var blockedReason = _computeBlockedReason(r, H);
       var isBlocked = !!(blockedReason && blockedReason !== 'in production');
 
@@ -2666,7 +2664,7 @@ function getCockpitFilterDefs() {
       var csIdx  = ccHdrs.indexOf('creative_status');
       var emIdx  = ccHdrs.indexOf('emotional_stage');
       var wkIdx  = ccHdrs.indexOf('week');
-      var aiIdx  = ccHdrs.indexOf('asset_id');
+      var scIdx  = ccHdrs.indexOf('sequence_code');
       ccAll.slice(1).forEach(function(r) {
         var p = String(r[piIdx] || '').trim();
         var s = String(r[csIdx] || '').trim();
@@ -2676,10 +2674,9 @@ function getCockpitFilterDefs() {
         if (s) statuses[s]  = true;
         if (e) emotions[e]  = true;
         if (w && w !== '0') weeks[w] = true;
-        if (aiIdx >= 0) {
-          var aid = String(r[aiIdx] || '');
-          var sm  = aid.match(/email-s(\d+)-/i);
-          if (sm) seqs['seq' + sm[1]] = true;
+        if (scIdx >= 0) {
+          var sc = String(r[scIdx] || '').trim();
+          if (sc) seqs[sc] = true;
         }
       });
     }
@@ -6141,6 +6138,70 @@ function seedAllCampaignsContentCalendar() {
       ccSheet.getRange(writeStart, APPROVAL_COL, newRows.length, 1).setDataValidation(approvalRule);
       ccSheet.getRange(writeStart, CREATIVE_COL, newRows.length, 1).setDataValidation(statusRule);
     }
+
+    // ── Pass 2: EmailSequences → ContentCalendar ─────────────────────────────
+    try {
+      var emSheet3 = _getCCSheet(_CC_TAB.EMAIL);
+      var emLast3  = emSheet3.getLastRow();
+      if (emLast3 >= 2) {
+        var emHdrs3 = _CC_HDR.EmailSequences;
+        var EH3 = {}; emHdrs3.forEach(function(h, i) { EH3[h] = i; });
+        var safeEm3 = Math.min(emHdrs3.length, emSheet3.getLastColumn());
+        var emData3 = emSheet3.getRange(2, 1, emLast3 - 1, safeEm3).getValues();
+        var emNewRows = [];
+        emData3.forEach(function(eRow) {
+          var emId    = String(eRow[EH3.id]            || '').trim();
+          var emCamp  = String(eRow[EH3.campaign_id]   || '').trim();
+          var seqC    = String(eRow[EH3.sequence_code] || '').trim();
+          var sendDay = Number(eRow[EH3.send_day]      || 0);
+          var funnel  = String(eRow[EH3.funnel_stage]  || '').trim();
+          var emotion = String(eRow[EH3.emotional_stage]|| '').trim();
+          var subject = String(eRow[EH3.subject_line]  || '').trim();
+          var dlId3   = String(eRow[EH3.dl_id]         || '').trim();
+          if (!emId || !emCamp) return;
+          var campStart3 = CAMPAIGN_STARTS[emCamp] || DEFAULT_START;
+          var pubDate3 = '';
+          if (sendDay > 0) {
+            var dOff3 = new Date(campStart3.getTime());
+            dOff3.setDate(dOff3.getDate() + (sendDay - 1));
+            pubDate3 = Utilities.formatDate(dOff3, _CAL_TZ, 'yyyy-MM-dd');
+          }
+          var week3 = sendDay ? Math.ceil(sendDay / 7) : '';
+          var emCalRow = new Array(headers.length).fill('');
+          emCalRow[H.calendar_id]     = 'cc-' + emId;
+          emCalRow[H.asset_id]        = emId;
+          emCalRow[H.campaign_id]     = emCamp;
+          emCalRow[H.platform]        = 'Email';
+          emCalRow[H.publish_date]    = pubDate3;
+          emCalRow[H.publish_time]    = '08:00';
+          emCalRow[H.timezone]        = _CAL_TZ;
+          emCalRow[H.status]          = 'generated';
+          emCalRow[H.approval_status] = 'pending';
+          emCalRow[H.creative_status] = 'generated';
+          emCalRow[H.caption]         = subject;
+          emCalRow[H.dl_id]           = dlId3;
+          emCalRow[H.day]             = sendDay;
+          emCalRow[H.week]            = week3;
+          emCalRow[H.funnel_stage]    = funnel;
+          emCalRow[H.emotional_stage] = emotion;
+          emCalRow[H.created_at]      = now;
+          emCalRow[H.updated_at]      = now;
+          if (H.sequence_code !== undefined) emCalRow[H.sequence_code] = seqC;
+          emNewRows.push(emCalRow);
+          byCampaign[emCamp] = (byCampaign[emCamp] || 0) + 1;
+        });
+        if (emNewRows.length) {
+          var emWriteStart = ccSheet.getLastRow() + 1;
+          ccSheet.getRange(emWriteStart, 1, emNewRows.length, headers.length).setValues(emNewRows);
+          var emSRule = SpreadsheetApp.newDataValidation().requireValueInList(_CAL_STATUSES, true).setAllowInvalid(false).build();
+          var emARule = SpreadsheetApp.newDataValidation().requireValueInList(_CAL_APPROVAL, true).setAllowInvalid(false).build();
+          ccSheet.getRange(emWriteStart, STATUS_COL,   emNewRows.length, 1).setDataValidation(emSRule);
+          ccSheet.getRange(emWriteStart, APPROVAL_COL, emNewRows.length, 1).setDataValidation(emARule);
+          ccSheet.getRange(emWriteStart, CREATIVE_COL, emNewRows.length, 1).setDataValidation(emSRule);
+          Logger.log('[seedAllCampaignsContentCalendar] email sequences added: ' + emNewRows.length);
+        }
+      }
+    } catch(emErr3) { Logger.log('[seedAllCampaignsContentCalendar] email seq pass error: ' + emErr3.message); }
 
     Logger.log('[seedAllCampaignsContentCalendar] total:' + newRows.length + ' campaigns:' + JSON.stringify(byCampaign));
     return { ok: true, total_seeded: newRows.length, by_campaign: byCampaign };
