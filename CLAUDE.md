@@ -29,7 +29,21 @@ Before writing or changing any code:
 
 8. Do not write code until orientation is confirmed.
 
-Current state: deploy @573 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+Current state: deploy @642 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+
+## Marketing Skills
+
+Agent skills are in `.agents/skills/`. The full library lives at `.agents/marketingskills/` (git submodule: `coreyhaines31/marketingskills`). Update with `git submodule update --remote .agents/marketingskills`.
+
+Active skills (copied to `.agents/skills/`):
+- `page-cro` — landing page conversion optimization
+- `copywriting` — marketing copy for any page
+- `email-sequence` — drip campaigns and lifecycle email flows
+- `ab-test-setup` — A/B test design and implementation
+- `analytics-tracking` — analytics setup and audit
+- `ad-creative` — ad headlines, descriptions, and primary text
+
+All skills read `.agents/product-marketing-context.md` first for product/audience context. Populate that file before invoking any skill.
 
 ## Project Overview
 

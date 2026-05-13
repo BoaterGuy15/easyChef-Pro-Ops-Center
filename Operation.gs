@@ -334,6 +334,16 @@ function doGet(e) {
         return HtmlService.createHtmlOutput('<body style="font:14px sans-serif;padding:40px;background:#0c0c0e;color:#f0f0f0">Error: ' + _vdErr.message + '</body>');
       }
     }
+    if(e.parameter.action === 'view_brief') {
+      var _vbId = e.parameter.asset_id || '';
+      if (!_vbId) return HtmlService.createHtmlOutput('<body style="font:16px Inter,sans-serif;padding:40px">No asset_id provided.</body>');
+      try {
+        var _vbHtml = renderBriefHtml(_vbId);
+        return HtmlService.createHtmlOutput(_vbHtml).setTitle('Brief — ' + _vbId).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+      } catch(_vbErr) {
+        return HtmlService.createHtmlOutput('<body style="font:16px Inter,sans-serif;padding:40px;color:#FF0000">Error: ' + _vbErr.message + '</body>');
+      }
+    }
     if(e.parameter.code) return doGetSlackOAuth(e);
     if(e.parameter.action === 'anthropic') return callAnthropic({ prompt: e.parameter.prompt||'', system: e.parameter.system||'' });
     if(e.parameter.action === 'budget_read') return respond({ ok: true, history: getBudgetHistory() });
@@ -830,8 +840,29 @@ function doPost(e) {
       return respond({ ok:true, result: _bdResult, log: Logger.getLog() });
     }
     if(body.action === 'generate_content_cal_brief_docs') {
-      var _ccbResult = generateContentCalBriefDocs(body.campaign_id || '');
+      var _ccbResult = generateContentCalBriefDocs(body.campaign_id || '', { force: !!(body.force) });
       return respond({ ok:true, result: _ccbResult, log: Logger.getLog() });
+    }
+    if(body.action === 'clear_brief_doc_urls') {
+      var _cbCid = (body.campaign_id || '').trim();
+      if (!_cbCid) return respond({ ok: false, error: 'campaign_id required' });
+      var _cbSheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
+      var _cbHdrs    = _CC_HDR[_CC_TAB.CONTENT_CAL];
+      var _cbH = {}; _cbHdrs.forEach(function(h,i){_cbH[h]=i;});
+      var _cbBriefCol = _cbHdrs.indexOf('brief_doc_url') + 1;
+      var _cbLast  = _cbSheet.getLastRow();
+      var _cbCleared = 0;
+      if (_cbLast >= 2) {
+        var _cbData = _cbSheet.getRange(2, 1, _cbLast - 1, _cbHdrs.length).getValues();
+        for (var _cbi = 0; _cbi < _cbData.length; _cbi++) {
+          if (String(_cbData[_cbi][_cbH.campaign_id]) !== _cbCid) continue;
+          if (String(_cbData[_cbi][_cbH.brief_doc_url] || '')) {
+            _cbSheet.getRange(_cbi + 2, _cbBriefCol).setValue('');
+            _cbCleared++;
+          }
+        }
+      }
+      return respond({ ok: true, cleared: _cbCleared, log: Logger.getLog() });
     }
     if(body.action === 'generate_claude_design_brief') {
       var _cdbResult = generateClaudeDesignBrief(body.asset_id || '');

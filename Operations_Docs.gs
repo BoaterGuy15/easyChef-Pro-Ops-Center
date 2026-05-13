@@ -559,13 +559,19 @@ function generateBriefDocs(campaignId) {
 }
 
 // ── ContentCalendar Brief Docs ─────────────────────────────────────────────────
-// generateContentCalBriefDocs(campaignId) — creates one Google Doc per row in
-// ContentCalendar (not SocialPosts), writes URL back to brief_doc_url column.
-// Skips rows that already have a brief_doc_url.
+// generateContentCalBriefDocs(campaignId, opts)
+// Creates one Google Doc per ContentCalendar row — a production-ready creative
+// execution brief with IDENTITY / COPY SYSTEM / DESIGN SYSTEM / VISUAL DIRECTION /
+// CLAUDE DESIGN / FIGMA HANDOFF / DEPLOY sections.
+// Joins to SocialPosts or EmailSequences by asset_id to pull actual copy content.
+// opts.force=true regenerates rows that already have a brief_doc_url.
 
-function generateContentCalBriefDocs(campaignId) {
+function generateContentCalBriefDocs(campaignId, opts) {
   if (!campaignId) return { ok: false, error: 'campaignId required' };
+  opts = opts || {};
+  var force = !!(opts.force);
   try {
+    var tz = Session.getScriptTimeZone();
     var ccSheet  = _getCCSheet(_CC_TAB.CONTENT_CAL);
     var last     = ccSheet.getLastRow();
     if (last < 2) return { ok: true, created: 0, skipped: 0 };
@@ -573,98 +579,141 @@ function generateContentCalBriefDocs(campaignId) {
     var headers  = _CC_HDR[_CC_TAB.CONTENT_CAL];
     var H = {};
     headers.forEach(function(h, i) { H[h] = i; });
-    // Ensure brief_doc_url column exists in the sheet header row
-    var headerRow = ccSheet.getRange(1, 1, 1, headers.length).getValues()[0];
-    var briefCol  = headers.indexOf('brief_doc_url') + 1; // 1-indexed
+    var briefCol = headers.indexOf('brief_doc_url') + 1;
 
     var data = ccSheet.getRange(2, 1, last - 1, headers.length).getValues();
 
-    // Campaign Drive folder
+    // ── Pre-load SocialPosts → lookup map keyed by id ───────────────────────
+    var spMap = {};
+    try {
+      var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+      var spLast  = spSheet.getLastRow();
+      if (spLast >= 2) {
+        var spHdrs = _CC_HDR.SocialPosts;
+        var SH = {};
+        spHdrs.forEach(function(h, i) { SH[h] = i; });
+        var spData = spSheet.getRange(2, 1, spLast - 1, spHdrs.length).getValues();
+        spData.forEach(function(sr) {
+          var id = String(sr[SH.id] || '').trim();
+          if (!id) return;
+          spMap[id] = {
+            hook:                  String(sr[SH.hook]                   || ''),
+            body_copy:             String(sr[SH.body_copy]              || ''),
+            cta:                   String(sr[SH.cta]                    || ''),
+            hashtags:              String(sr[SH.hashtags]               || ''),
+            image_brief:           String(sr[SH.image_brief]            || ''),
+            design_brief:          String(sr[SH.design_brief]           || ''),
+            dl_id:                 String(sr[SH.dl_id]                  || ''),
+            utm_url:               String(sr[SH.utm_url]                || ''),
+            lp_section_source:     String(sr[SH.lp_section_source]      || ''),
+            loop_stage:            String(sr[SH.loop_stage]             || ''),
+            emotional_state:       String(sr[SH.emotional_state]        || ''),
+            emotional_destination: String(sr[SH.emotional_destination]  || '')
+          };
+        });
+      }
+    } catch(se) { Logger.log('[generateContentCalBriefDocs] spMap error: ' + se.message); }
+
+    // ── Pre-load EmailSequences → lookup map keyed by id ────────────────────
+    var emMap = {};
+    try {
+      var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+      var emLast  = emSheet.getLastRow();
+      if (emLast >= 2) {
+        var emHdrs = _CC_HDR.EmailSequences;
+        var EH = {};
+        emHdrs.forEach(function(h, i) { EH[h] = i; });
+        var emData = emSheet.getRange(2, 1, emLast - 1, emHdrs.length).getValues();
+        emData.forEach(function(er) {
+          var id = String(er[EH.id] || '').trim();
+          if (!id) return;
+          emMap[id] = {
+            subject_line:    String(er[EH.subject_line]    || ''),
+            preview_text:    String(er[EH.preview_text]    || ''),
+            body_hook:       String(er[EH.body_hook]       || ''),
+            body_problem:    String(er[EH.body_problem]    || ''),
+            body_agitate:    String(er[EH.body_agitate]    || ''),
+            body_solve:      String(er[EH.body_solve]      || ''),
+            body_value:      String(er[EH.body_value]      || ''),
+            body_proof:      String(er[EH.body_proof]      || ''),
+            body_cta:        String(er[EH.body_cta]        || ''),
+            send_day:        String(er[EH.send_day]        || ''),
+            trigger_event:   String(er[EH.trigger_event]   || ''),
+            funnel_stage:    String(er[EH.funnel_stage]    || ''),
+            sequence_code:   String(er[EH.sequence_code]   || ''),
+            dl_id:           String(er[EH.dl_id]           || ''),
+            full_email_body: String(er[EH.full_email_body] || '')
+          };
+        });
+      }
+    } catch(ee) { Logger.log('[generateContentCalBriefDocs] emMap error: ' + ee.message); }
+
+    // ── Campaign Drive folder ─────────────────────────────────────────────────
     var campaignFolderIds = { 'EC-2026-001': '1rB1OoKXiA1UjEKBTKhSsbQdw3jLs7CYU' };
     var folderId = campaignFolderIds[campaignId] || '';
     var briefFolder;
     try {
       if (folderId) briefFolder = DriveApp.getFolderById(folderId);
-    } catch(fe) { briefFolder = DriveApp.getRootFolder(); }
+    } catch(fe) {}
     if (!briefFolder) briefFolder = DriveApp.getRootFolder();
 
     var created = 0, skipped = 0;
-    var BATCH = 30; // stay well under 6-min limit
+    var BATCH = 30;
 
     for (var i = 0; i < data.length && created < BATCH; i++) {
       var r = data[i];
       if (!r[0] || String(r[H.campaign_id]) !== campaignId) continue;
       var existing = String(r[H.brief_doc_url] || '');
-      if (existing) { skipped++; continue; }
+      if (existing && !force) { skipped++; continue; }
 
-      var assetId  = String(r[H.asset_id]        || '');
-      var platform = String(r[H.platform]         || '');
-      var calId    = String(r[H.calendar_id]      || '');
-      var dlId     = String(r[H.dl_id]            || '');
-      var pubDate  = String(r[H.publish_date]     || '');
-      var pubTime  = String(r[H.publish_time]     || '');
-      var funnel   = String(r[H.funnel_stage]     || '');
-      var emotion  = String(r[H.emotional_stage]  || '');
-      var icp      = String(r[H.icp_target]       || '');
-      var status   = String(r[H.status]           || '');
-      var caption  = String(r[H.caption]          || '');
-      var hashtags = String(r[H.hashtags]         || '');
-      var figma    = String(r[H.figma_export_url] || '');
-      var day      = String(r[H.day]              || '');
-      var week     = String(r[H.week]             || '');
+      var assetId   = String(r[H.asset_id]     || '');
+      var platform  = String(r[H.platform]     || '');
+      var calId     = String(r[H.calendar_id]  || '');
+      var dlId      = String(r[H.dl_id]        || '');
+      var funnel    = String(r[H.funnel_stage] || '');
+      var emotion   = String(r[H.emotional_stage] || '');
+      var icpRaw    = String(r[H.icp_target]   || '');
+      var status    = String(r[H.status]       || '');
+      var day       = String(r[H.day]          || '');
+      var week      = String(r[H.week]         || '');
+      var seqCode   = String((H.sequence_code !== undefined ? r[H.sequence_code] : '') || '');
+      var blockedBy = String(r[H.blocked_by]   || '');
 
-      var title = 'Brief ' + assetId + ' — ' + platform + ' — ' + funnel;
-      var doc  = DocumentApp.create(title);
-      var body = doc.getBody();
-
-      var H1 = DocumentApp.ParagraphHeading.HEADING1;
-      var H2 = DocumentApp.ParagraphHeading.HEADING2;
-
-      body.appendParagraph('ASSET BRIEF — ' + assetId).setHeading(H1);
-      body.appendParagraph('Campaign: ' + campaignId + '   ·   Platform: ' + platform);
-      body.appendParagraph(' ');
-
-      body.appendParagraph('Asset Details').setHeading(H2);
-      body.appendParagraph('Asset ID:       ' + assetId);
-      body.appendParagraph('Calendar ID:    ' + calId);
-      body.appendParagraph('DL ID:          ' + dlId);
-      body.appendParagraph('Platform:       ' + platform);
-      body.appendParagraph('Publish Date:   ' + pubDate + (pubTime ? '  ' + pubTime : ''));
-      body.appendParagraph('Campaign Day:   Day ' + day + '  ·  Week ' + week);
-      body.appendParagraph('Status:         ' + status);
-      body.appendParagraph(' ');
-
-      body.appendParagraph('Content Direction').setHeading(H2);
-      body.appendParagraph('Funnel Stage:   ' + (funnel   || '—'));
-      body.appendParagraph('Emotional Arc:  ' + (emotion  || '—'));
-      body.appendParagraph('ICP Target:     ' + (icp      || '—'));
-      body.appendParagraph(' ');
-
-      if (caption || hashtags) {
-        body.appendParagraph('Content').setHeading(H2);
-        if (caption)  body.appendParagraph('Caption:\n' + caption);
-        if (hashtags) body.appendParagraph('Hashtags:\n' + hashtags);
-        body.appendParagraph(' ');
+      // Date fix — strip 1899 ghost from time-only serial values
+      var pubDateVal = r[H.publish_date];
+      var pubDate = '';
+      if (pubDateVal instanceof Date && !isNaN(pubDateVal.getTime())) {
+        pubDate = Utilities.formatDate(pubDateVal, tz, 'yyyy-MM-dd');
+      } else {
+        pubDate = String(pubDateVal || '');
+      }
+      var pubTimeVal = r[H.publish_time];
+      var pubTime = '';
+      if (pubTimeVal instanceof Date && !isNaN(pubTimeVal.getTime())) {
+        pubTime = Utilities.formatDate(pubTimeVal, tz, 'HH:mm');
+      } else {
+        pubTime = String(pubTimeVal || '');
       }
 
-      if (figma) {
-        body.appendParagraph('Links').setHeading(H2);
-        body.appendParagraph('Figma: ' + figma);
+      // ICP fix — single ICP based on post index (odd=A=money, even=B=time)
+      var icp = icpRaw;
+      if (icp.indexOf('|') >= 0) {
+        var icpParts = icp.split('|');
+        var postMatch = assetId.match(/(\d+)$/);
+        var postIdx = postMatch ? parseInt(postMatch[1], 10) : 0;
+        icp = (postIdx % 2 === 1) ? (icpParts[0] || icp) : (icpParts[1] || icp);
       }
 
-      doc.saveAndClose();
-      var docUrl = 'https://docs.google.com/document/d/' + doc.getId() + '/edit';
+      var isEmail = (platform.toLowerCase() === 'email');
+      var isVideo = (['tiktok','youtube'].indexOf(platform.toLowerCase()) > -1);
+      var sp = spMap[assetId] || null;
+      var em = emMap[assetId] || null;
 
-      try {
-        var docFile = DriveApp.getFileById(doc.getId());
-        briefFolder.addFile(docFile);
-        DriveApp.getRootFolder().removeFile(docFile);
-      } catch(me) {}
-
-      // Write URL back to brief_doc_url column
-      ccSheet.getRange(i + 2, briefCol).setValue(docUrl);
+      var _gbGasBase = 'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec';
+      var briefUrl = _gbGasBase + '?action=view_brief&asset_id=' + encodeURIComponent(assetId);
+      ccSheet.getRange(i + 2, briefCol).setValue(briefUrl);
       created++;
-      Logger.log('[generateContentCalBriefDocs] ' + assetId + ' → ' + docUrl);
+      Logger.log('[generateContentCalBriefDocs] ' + assetId + ' → ' + briefUrl);
     }
 
     var remaining = 0;
@@ -1697,4 +1746,392 @@ function getDesignHtml(assetId) {
   } catch(e) {
     return { ok: false, error: e.message };
   }
+}
+
+// ── HTML Brief Renderer ───────────────────────────────────────────────────────
+// renderBriefHtml(assetId) — builds a full HTML brief for the view_brief doGet.
+// Reads ContentCalendar + SocialPosts or EmailSequences. Returns HTML string.
+
+function _bDecode(s) {
+  // Fix common UTF-8 mojibake from GAS/sheet encoding crossover
+  return String(s || '')
+    .replace(/â/g, "'").replace(/â€™/g, "'")
+    .replace(/â/g, '"').replace(/â€œ/g, '"')
+    .replace(/â/g, '"').replace(/â€/g, '"')
+    .replace(/â/g, '-').replace(/â€"/g, '-')
+    .replace(/Â·/g, '·').replace(/Â·/g, '·')
+    .replace(/â¢/g, '-').replace(/â€¢/g, '-')
+    .replace(/â/g, '->').replace(/â†'/g, '->')
+    .replace(/â/g, '<-')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+
+function _bH(text) { return _bDecode(text).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderBriefHtml(assetId) {
+  var tz = Session.getScriptTimeZone();
+
+  // ── Load ContentCalendar row ───────────────────────────────────────────────
+  var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+  var ccLast  = ccSheet.getLastRow();
+  var ccHdrs  = _CC_HDR[_CC_TAB.CONTENT_CAL];
+  var CH = {}; ccHdrs.forEach(function(h,i){ CH[h]=i; });
+  var data = ccSheet.getLastRow() < 2 ? [] :
+    ccSheet.getRange(2, 1, ccLast - 1, Math.min(ccHdrs.length, ccSheet.getLastColumn())).getValues();
+  var ccRow = null;
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][CH.asset_id] || '') === assetId) { ccRow = data[i]; break; }
+  }
+  if (!ccRow) throw new Error('Asset not found in ContentCalendar: ' + assetId);
+
+  var campaignId  = String(ccRow[CH.campaign_id]     || '');
+  var platform    = String(ccRow[CH.platform]        || '');
+  var calId       = String(ccRow[CH.calendar_id]     || '');
+  var dlId        = String(ccRow[CH.dl_id]           || '');
+  var funnel      = String(ccRow[CH.funnel_stage]    || '');
+  var emotion     = String(ccRow[CH.emotional_stage] || '');
+  var icpRaw      = String(ccRow[CH.icp_target]      || '');
+  var status      = String(ccRow[CH.status]          || '');
+  var day         = String(ccRow[CH.day]             || '');
+  var week        = String(ccRow[CH.week]            || '');
+  var seqCode     = String((CH.sequence_code !== undefined ? ccRow[CH.sequence_code] : '') || '');
+  var blockedBy   = String(ccRow[CH.blocked_by]      || '');
+
+  var pubDateVal  = ccRow[CH.publish_date];
+  var pubDate = (pubDateVal instanceof Date && !isNaN(pubDateVal.getTime()))
+    ? Utilities.formatDate(pubDateVal, tz, 'yyyy-MM-dd') : String(pubDateVal || '');
+  var pubTimeVal  = ccRow[CH.publish_time];
+  var pubTime = (pubTimeVal instanceof Date && !isNaN(pubTimeVal.getTime()))
+    ? Utilities.formatDate(pubTimeVal, tz, 'HH:mm') : String(pubTimeVal || '');
+
+  // ICP: single value based on post index
+  var icp = icpRaw;
+  if (icp.indexOf('|') >= 0) {
+    var ip = icp.split('|'); var pm = assetId.match(/(\d+)$/);
+    icp = ((pm && parseInt(pm[1],10) % 2 === 1) ? ip[0] : ip[1]) || icp;
+  }
+
+  var isEmail = (platform.toLowerCase() === 'email');
+  var isVideo = (['tiktok','youtube'].indexOf(platform.toLowerCase()) > -1);
+
+  // ── Load SocialPost or EmailSequence ────────────────────────────────────────
+  var sp = null, em = null;
+  if (isEmail) {
+    try {
+      var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+      var emLast  = emSheet.getLastRow();
+      var emHdrs  = _CC_HDR.EmailSequences;
+      var EH = {}; emHdrs.forEach(function(h,i){EH[h]=i;});
+      var emData  = emSheet.getRange(2, 1, emLast - 1, emHdrs.length).getValues();
+      for (var j = 0; j < emData.length; j++) {
+        if (String(emData[j][EH.id]||'') === assetId || String(emData[j][EH.dl_id]||'') === dlId) {
+          var er = emData[j];
+          em = {
+            subject_line:  _bDecode(er[EH.subject_line]  || ''),
+            preview_text:  _bDecode(er[EH.preview_text]  || ''),
+            body_hook:     _bDecode(er[EH.body_hook]     || ''),
+            body_problem:  _bDecode(er[EH.body_problem]  || ''),
+            body_agitate:  _bDecode(er[EH.body_agitate]  || ''),
+            body_solve:    _bDecode(er[EH.body_solve]    || ''),
+            body_value:    _bDecode(er[EH.body_value]    || ''),
+            body_proof:    _bDecode(er[EH.body_proof]    || ''),
+            body_cta:      _bDecode(er[EH.body_cta]      || ''),
+            send_day:      String(er[EH.send_day]        || ''),
+            trigger_event: _bDecode(er[EH.trigger_event] || ''),
+            sequence_code: String(er[EH.sequence_code]   || ''),
+            dl_id:         String(er[EH.dl_id]           || ''),
+            funnel_stage:  String(er[EH.funnel_stage]    || '')
+          };
+          break;
+        }
+      }
+    } catch(ee) {}
+  } else {
+    try {
+      var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+      var spLast  = spSheet.getLastRow();
+      var spHdrs  = _CC_HDR.SocialPosts;
+      var SH = {}; spHdrs.forEach(function(h,i){SH[h]=i;});
+      var spData  = spSheet.getRange(2, 1, spLast - 1, spHdrs.length).getValues();
+      for (var k = 0; k < spData.length; k++) {
+        if (String(spData[k][SH.id]||'') === assetId || String(spData[k][SH.dl_id]||'') === dlId) {
+          var sr = spData[k];
+          sp = {
+            hook:                  _bDecode(sr[SH.hook]                   || ''),
+            body_copy:             _bDecode(sr[SH.body_copy]              || ''),
+            cta:                   _bDecode(sr[SH.cta]                    || ''),
+            hashtags:              _bDecode(sr[SH.hashtags]               || ''),
+            image_brief:           _bDecode(sr[SH.image_brief]            || ''),
+            dl_id:                 String(sr[SH.dl_id]                    || ''),
+            utm_url:               String(sr[SH.utm_url]                  || ''),
+            lp_section_source:     String(sr[SH.lp_section_source]        || ''),
+            loop_stage:            String(sr[SH.loop_stage]               || ''),
+            emotional_state:       _bDecode(sr[SH.emotional_state]        || ''),
+            emotional_destination: _bDecode(sr[SH.emotional_destination]  || '')
+          };
+          break;
+        }
+      }
+    } catch(se) {}
+  }
+
+  // ── Derived values ──────────────────────────────────────────────────────────
+  var lpSection   = (sp && sp.lp_section_source) || funnel || '';
+  var emotionIn   = (sp && sp.emotional_state)   || emotion || '';
+  var emotionOut  = (sp && sp.emotional_destination) || '';
+  var utmDisplay  = dlId + (lpSection ? '_' + lpSection : '') + (day ? '_d' + day : '');
+  var arcThemes   = ['hook','problem','agitate','solve','value','proof','cta'];
+  var postNum     = 0; var pn = assetId.match(/(\d+)$/); if (pn) postNum = parseInt(pn[1],10);
+  var phoneOk     = (postNum > 3) || isEmail;
+  var phonePill   = phoneOk
+    ? '<span style="background:#00B050;color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">PHONE VISIBLE</span>'
+    : '<span style="background:#FF0000;color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">NO PHONE</span>';
+
+  var plat       = platform.toLowerCase();
+  var layoutType = 'Social Static Card — 1:1';
+  var frameSize  = '1080 x 1080px';
+  if (plat==='facebook')  { layoutType='Facebook Feed — 4:5';      frameSize='1080 x 1350px'; }
+  if (plat==='instagram') { layoutType='Instagram Feed — 1:1';     frameSize='1080 x 1080px'; }
+  if (plat==='pinterest') { layoutType='Pinterest Card — 2:3';     frameSize='1000 x 1500px'; }
+  if (plat==='x')         { layoutType='X Card — 16:9';            frameSize='1200 x 675px'; }
+  if (plat==='nextdoor')  { layoutType='Nextdoor Card — 1:1';      frameSize='1080 x 1080px'; }
+  if (plat==='tiktok')    { layoutType='TikTok/Reels — 9:16';      frameSize='1080 x 1920px'; }
+  if (plat==='youtube')   { layoutType='YouTube — 16:9';           frameSize='1920 x 1080px'; }
+
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec';
+
+  // ── Copy button helper ─────────────────────────────────────────────────────
+  function copyBtn(id) {
+    return '<button onclick="copyField(\'' + id + '\')" style="float:right;background:#FF0000;color:#fff;border:none;padding:3px 10px;border-radius:4px;font-size:11px;cursor:pointer;font-family:Inter,sans-serif;">Copy</button>';
+  }
+  function field(label, value, id) {
+    if (!value) return '<div class="field"><span class="label">' + label + '</span><span class="empty">—</span></div>';
+    return '<div class="field">' + copyBtn(id || label) + '<span class="label">' + label + '</span><span id="' + (id||label) + '" class="value">' + _bH(value) + '</span></div>';
+  }
+  function block(label, value, id) {
+    if (!value) return '<div class="block"><span class="label">' + label + '</span><div class="empty-block">(not yet generated)</div></div>';
+    return '<div class="block">' + copyBtn(id || label) + '<span class="label">' + label + '</span><pre id="' + (id||label) + '" class="body-text">' + _bH(value) + '</pre></div>';
+  }
+  function section(title, content) {
+    return '<section><h2>' + title + '</h2><div class="section-body">' + content + '</div></section>';
+  }
+  function metric(label, value) {
+    return '<div class="metric"><div class="metric-label">' + label + '</div><div class="metric-value">' + _bH(value) + '</div></div>';
+  }
+
+  // ── IDENTITY section ───────────────────────────────────────────────────────
+  var sIdentity =
+    field('Asset ID', assetId, 'asset_id') +
+    field('Campaign', campaignId, 'cmp') +
+    field('Calendar ID', calId, 'cal_id') +
+    field('DL ID', dlId, 'dl_id') +
+    field('Platform', platform, 'plat') +
+    field('Publish Date', pubDate + (pubTime ? '  ' + pubTime : ''), 'pub') +
+    field('Campaign Day', 'Day ' + day + '  ·  Week ' + week, 'day') +
+    field('Status', status, 'status') +
+    (seqCode ? field('Sequence', seqCode, 'seq') : '') +
+    '<div class="field"><span class="label">Phone Rule</span>' + phonePill + '</div>';
+
+  // ── COPY SYSTEM section ────────────────────────────────────────────────────
+  var sCopy =
+    field('Funnel Stage', funnel, 'fstage') +
+    field('Emotional Arc', (emotionIn || '—') + ' -> ' + (emotionOut || '—'), 'emo') +
+    field('ICP Target', icp, 'icp') +
+    field('LP Section', lpSection, 'lpsec') +
+    field('Loop Stage', (sp && sp.loop_stage) || funnel, 'loop');
+
+  if (isEmail && em) {
+    sCopy +=
+      block('Subject Line', em.subject_line, 'subj') +
+      block('Preview Text', em.preview_text, 'prev') +
+      (em.send_day ? field('Send Day', 'Day ' + em.send_day, 'sd') : '') +
+      (em.trigger_event ? field('Trigger', em.trigger_event, 'trig') : '') +
+      field('Sequence Type', em.sequence_code, 'sqt');
+  } else if (sp) {
+    sCopy +=
+      block('Hook', sp.hook, 'hook') +
+      block('Body Copy', sp.body_copy, 'body') +
+      block('CTA', sp.cta, 'cta') +
+      (sp.hashtags ? block('Hashtags', sp.hashtags, 'tags') : '');
+  }
+
+  sCopy += field('UTM String', utmDisplay, 'utm');
+
+  // ── EMAIL BODY section ─────────────────────────────────────────────────────
+  var sEmailBody = '';
+  if (isEmail && em) {
+    var bodyParts = [em.body_hook, em.body_problem, em.body_agitate, em.body_solve, em.body_value, em.body_proof, em.body_cta];
+    var fullBody  = bodyParts.filter(Boolean).join('\n\n');
+    sEmailBody = section('EMAIL BODY', block('Full Email Body', fullBody, 'fullbody'));
+  }
+
+  // ── DESIGN SYSTEM section ─────────────────────────────────────────────────
+  var sDesign = '';
+  if (!isEmail) {
+    sDesign = section('DESIGN SYSTEM',
+      field('Asset Type', isVideo ? 'Video' : 'Static Image', 'at') +
+      field('Layout Type', layoutType, 'lt') +
+      field('Frame Size', frameSize, 'fs') +
+      field('Mobile Priority', 'High', 'mp') +
+      '<h3>Design Tokens</h3>' +
+      '<div class="token-grid">' +
+        '<div class="token"><div class="swatch" style="background:#FF0000"></div><span>#FF0000 — primary red · CTA</span></div>' +
+        '<div class="token"><div class="swatch" style="background:#F6EFE8;border:1px solid #ddd"></div><span>#F6EFE8 — beige · background</span></div>' +
+        '<div class="token"><div class="swatch" style="background:#000000"></div><span>#000000 — black · body text</span></div>' +
+        '<div class="token"><div class="swatch" style="background:#FFFFFF;border:1px solid #ddd"></div><span>#FFFFFF — white · card bg</span></div>' +
+      '</div>' +
+      field('Typography', 'Proza Libre — headings  ·  Inter — body  ·  CTA 18px semibold', 'typ') +
+      field('Button Radius', 'pill (999px)', 'br') +
+      field('Shadow', 'none — flat design', 'sh')
+    );
+  }
+
+  // ── VISUAL DIRECTION section ───────────────────────────────────────────────
+  var sVisual = '';
+  if (!isEmail) {
+    var vContent = '';
+    if (sp && sp.image_brief) vContent += block('Image Brief', sp.image_brief, 'imgbrief');
+    vContent +=
+      field('Photography Style', 'Warm realistic photography — no staged influencer aesthetics', 'ps') +
+      field('Subject', 'Woman 30-44  ·  busy mom  ·  real kitchen or grocery setting', 'sub') +
+      field('Mood', emotionIn || 'recognition, not defeat', 'mood') +
+      field('Composition', 'Subject right  ·  text/CTA left  ·  breathing room  ·  natural light', 'comp') +
+      field('Avoid', 'Staged poses  ·  fake smiles  ·  stock photography  ·  gradients  ·  glassmorphism', 'avoid');
+    sVisual = section('VISUAL DIRECTION', vContent);
+  }
+
+  // ── IMAGE GENERATION PROMPT section ───────────────────────────────────────
+  var sImgGen = '';
+  if (!isEmail && !isVideo) {
+    var imgPrompt = 'Warm realistic kitchen photography, ' + (emotionIn || 'exhausted') + ' woman 32-44, ' +
+      'natural light, busy family kitchen, ' + lpSection + ' stage visual, ' +
+      'easyChef Pro brand — no phone visible' + (phoneOk ? '' : ', NO phone in frame') + ', ' +
+      'no staged poses, no stock photo aesthetic, no gradients, no glassmorphism, ' +
+      'documentary style, Canon 5D natural colors';
+    sImgGen = section('IMAGE GENERATION PROMPT',
+      block('Midjourney / Flux / Ideogram', imgPrompt, 'imgprompt') +
+      '<div class="field"><span class="label">Style</span><span class="value">--style raw --ar ' + (plat==='pinterest'?'2:3':plat==='facebook'?'4:5':'1:1') + ' --q 2</span></div>'
+    );
+  }
+
+  // ── CLAUDE DESIGN INSTRUCTIONS section ────────────────────────────────────
+  var sClaudeDesign = '';
+  if (!isEmail) {
+    var genUrl = GAS_URL + '?action=generate_design_for_asset&asset_id=' + encodeURIComponent(assetId);
+    var cdContent =
+      '<div class="field"><span class="label">Render Constraints</span>' +
+      '<ul class="constraint-list">' +
+      '<li>Clean conversion-first social card</li>' +
+      '<li>Mobile-first  ·  ' + layoutType + '</li>' +
+      '<li>No creative agency styling</li>' +
+      '<li>No gradients  ·  no glassmorphism</li>' +
+      '<li>Standard 8pt spacing system</li>' +
+      '<li>Realistic photography only</li>' +
+      '<li>Hook text dominant at top</li>' +
+      '<li>CTA button bottom  ·  pill shape  ·  #FF0000</li>' +
+      '<li>DL URL: ' + _bH(dlId) + '</li>' +
+      '</ul></div>' +
+      '<a href="' + genUrl + '" target="_blank" class="action-btn">Generate Design for this Asset</a>';
+    sClaudeDesign = section('CLAUDE DESIGN INSTRUCTIONS', cdContent);
+  }
+
+  // ── FIGMA HANDOFF section ─────────────────────────────────────────────────
+  var sFigma = '';
+  if (!isEmail) {
+    sFigma = section('FIGMA HANDOFF',
+      field('Template', 'easyChef Pro Social Card v1', 'ftpl') +
+      field('Frame Size', frameSize, 'ffs') +
+      field('Spacing', '8pt system  ·  24px margins', 'fsp') +
+      field('Mobile', '390px priority', 'fmob') +
+      field('Export', 'PNG 2x  ·  JPEG 90% for delivery', 'fexp')
+    );
+  }
+
+  // ── PERFORMANCE METADATA section ──────────────────────────────────────────
+  var kpiMap = {
+    hook: 'Thumb-Stop Rate', problem: 'Engagement Rate', agitate: 'Save Rate',
+    solve: 'Link CTR', value: 'Link CTR', proof: 'Share Rate', cta: 'Conversion Rate'
+  };
+  var sPerfMeta = section('PERFORMANCE METADATA',
+    '<div class="metric-grid">' +
+      metric('Primary KPI', kpiMap[lpSection] || 'Link CTR') +
+      metric('Secondary KPI', isEmail ? 'Open Rate  ·  Click Rate' : 'Waitlist Conversion') +
+      metric('Hook Style', emotionIn || 'recognition') +
+      metric('Funnel Stage', funnel || lpSection) +
+      metric('Expected Read Depth', isEmail ? 'Full' : (lpSection === 'hook' ? 'Shallow' : 'Medium')) +
+      metric('Platform', platform) +
+    '</div>'
+  );
+
+  // ── DEPLOY section ─────────────────────────────────────────────────────────
+  var sDeploy = section('DEPLOY',
+    field('Campaign', campaignId, 'dcmp') +
+    field('Platform', platform, 'dplat') +
+    field('Publish Date', pubDate + (pubTime ? '  ' + pubTime : ''), 'dpub') +
+    field('Day / Week', 'Day ' + day + '  ·  Week ' + week, 'dday') +
+    field('DL ID', dlId, 'ddl') +
+    field('UTM String', utmDisplay, 'dutm') +
+    field('Status', status, 'dst') +
+    (blockedBy ? field('Blocked By', blockedBy, 'dblk') : '')
+  );
+
+  // ── Assemble HTML ──────────────────────────────────────────────────────────
+  var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Brief — ' + _bH(assetId) + '</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">' +
+    '<style>' +
+    '*{box-sizing:border-box;margin:0;padding:0}' +
+    'body{font-family:Inter,sans-serif;font-size:14px;color:#000;background:#F6EFE8;line-height:1.5}' +
+    'header{background:#FF0000;color:#fff;padding:20px 32px;display:flex;align-items:center;justify-content:space-between}' +
+    'header h1{font-family:"Proza Libre",sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.3px}' +
+    'header .sub{font-size:13px;opacity:0.85;margin-top:2px}' +
+    '.container{max-width:860px;margin:0 auto;padding:24px 16px 60px}' +
+    'section{background:#fff;border-radius:8px;margin-bottom:16px;overflow:hidden}' +
+    'section h2{font-family:"Proza Libre",sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:#FF0000;color:#fff;padding:8px 20px}' +
+    'section h3{font-family:"Proza Libre",sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#FF0000;padding:12px 20px 4px;border-top:1px solid #f0e8e0}' +
+    '.section-body{padding:16px 20px}' +
+    '.field{padding:7px 0;border-bottom:1px solid #f4ece4;display:block;overflow:hidden}' +
+    '.field:last-child{border-bottom:none}' +
+    '.label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:#888;display:block;margin-bottom:2px}' +
+    '.value{color:#000;display:block;white-space:pre-wrap;word-break:break-word}' +
+    '.empty{color:#bbb;font-style:italic}' +
+    '.block{padding:10px 0;border-bottom:1px solid #f4ece4}' +
+    '.block:last-child{border-bottom:none}' +
+    '.empty-block{color:#bbb;font-style:italic;font-size:13px;background:#f9f5f1;padding:10px;border-radius:4px;margin-top:4px}' +
+    'pre.body-text{font-family:Inter,sans-serif;font-size:13px;white-space:pre-wrap;word-break:break-word;background:#f9f5f1;padding:12px;border-radius:4px;margin-top:6px;color:#000}' +
+    'button{cursor:pointer}' +
+    '.token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;padding:8px 0 12px}' +
+    '.token{display:flex;align-items:center;gap:10px;font-size:12px;color:#555}' +
+    '.swatch{width:28px;height:28px;border-radius:4px;flex-shrink:0}' +
+    '.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}' +
+    '.metric{background:#f9f5f1;border-radius:6px;padding:12px 14px}' +
+    '.metric-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:#888;margin-bottom:4px}' +
+    '.metric-value{font-size:14px;font-weight:600;color:#000}' +
+    '.constraint-list{margin:8px 0 8px 18px;color:#000}' +
+    '.constraint-list li{margin-bottom:3px;font-size:13px}' +
+    '.action-btn{display:inline-block;margin-top:14px;background:#FF0000;color:#fff;padding:9px 20px;border-radius:999px;text-decoration:none;font-size:13px;font-weight:600;font-family:Inter,sans-serif}' +
+    '.action-btn:hover{opacity:0.88}' +
+    'ul{list-style:none}' +
+    '</style></head><body>' +
+    '<header><div><h1>ASSET BRIEF — ' + _bH(assetId) + '</h1>' +
+    '<div class="sub">' + _bH(campaignId) + '  ·  ' + _bH(platform) + '  ·  Day ' + _bH(day) + '  ·  Week ' + _bH(week) + '</div></div>' +
+    '<div>' + phonePill + '</div></header>' +
+    '<div class="container">' +
+    section('IDENTITY', sIdentity) +
+    section('COPY SYSTEM', sCopy) +
+    sEmailBody +
+    sDesign +
+    sVisual +
+    sImgGen +
+    sClaudeDesign +
+    sFigma +
+    sPerfMeta +
+    sDeploy +
+    '</div>' +
+    '<script>' +
+    'function copyField(id){var el=document.getElementById(id);if(!el)return;var t=el.innerText||el.textContent||"";navigator.clipboard.writeText(t).catch(function(){var ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);});}' +
+    '</script></body></html>';
+
+  return html;
 }
