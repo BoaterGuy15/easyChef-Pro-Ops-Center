@@ -165,7 +165,11 @@
     .post-id { font-size: 10px; color: #444; white-space: nowrap; }
     .post-figma-link { font-size: 10px; color: #a78bfa; text-decoration: none; white-space: nowrap; padding: 2px 6px; border: 1px solid #3b2f6e; border-radius: 4px; flex-shrink: 0; }
     .post-figma-link:hover { background: #1e1533; color: #c4b5fd; }
-    .post-blocked { font-size: 11px; color: #ff453a; margin-top: 2px; }
+    .post-blocked { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+    .reason-pill { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; white-space: nowrap; }
+    .reason-pill.amber { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+    .reason-pill.gray  { background: rgba(156,163,175,0.12); color: #9ca3af; border: 1px solid rgba(156,163,175,0.25); }
+    .reason-pill.red   { background: rgba(255,69,58,0.12); color: #ff453a; border: 1px solid rgba(255,69,58,0.25); }
     .plat-ig  { background: #2a0a18; color: #e1306c; }
     .plat-tt  { background: #1a1a1a; color: #aaa; }
     .plat-pin { background: #2a0005; color: #e60023; }
@@ -772,7 +776,7 @@
       document.getElementById('sheet-body').innerHTML=posts.map(function(p){
         var dc=p.blocked?'#ff453a':(STATUS_DOT_COLOR[p.status]||'#3a3a3a');
         var st=(STATUS_LABEL[p.status]||p.status)+(p.approval_status==='approved'?' · Approved':'');
-        var bl=p.blocked&&p.blocked_reason?'<div class="post-blocked">⚠ '+p.blocked_reason+'</div>':'';
+        var bl='';if(p.blocked&&p.blocked_reason){var _pills=p.blocked_reason.split('|').map(function(r){r=r.trim();if(r==='missing dl_id')return '<span class="reason-pill amber">No DL_ID</span>';if(r.toLowerCase().indexOf('figma')>=0)return '<span class="reason-pill gray">Figma pending</span>';return '<span class="reason-pill red">'+r+'</span>';}).join('');bl='<div class="post-blocked">'+_pills+'</div>';}
         var em=p.emotional_stage?'<div class="post-emotion">'+p.emotional_stage+(p.funnel_stage?' · '+p.funnel_stage:'')+'</div>':'';
         var figmaBtn=p.figma_url?'<a class="post-figma-link" href="'+p.figma_url+'" target="_blank" onclick="event.stopPropagation()">↗ Figma</a>':'';
         return '<div class="post-row" onclick="closeSheet();setTimeout(function(){openPostModal(\''+p.asset_id+'\')},220)"><span class="plat-chip '+platformClass(p.platform)+'">'+platformLabel(p.platform)+'</span><div class="post-info"><div class="post-status-line"><span class="status-dot-lg" style="background:'+dc+'"></span>'+st+'</div>'+em+bl+'</div><div class="post-id">'+p.asset_id+'</div>'+figmaBtn+'</div>';
@@ -816,7 +820,8 @@
       // Blocked
       if(p.blocked){
         rows+='<div class="pm-section">Blocker</div>';
-        rows+=pmRow('Reason', p.blocked_reason||'No reason recorded', 'red');
+        var _bpills=(p.blocked_reason||'').split('|').map(function(r){r=r.trim();if(r==='missing dl_id')return '<span class="reason-pill amber">No DL_ID</span>';if(r.toLowerCase().indexOf('figma')>=0)return '<span class="reason-pill gray">Figma pending</span>';return '<span class="reason-pill red">'+r+'</span>';}).join(' ');
+        rows+='<div class="pm-row"><div class="pm-key">Reason</div><div class="pm-val" style="display:flex;flex-wrap:wrap;gap:4px">'+(_bpills||'<span class="reason-pill red">No reason recorded</span>')+'</div></div>';
       }
 
       // Status pickers

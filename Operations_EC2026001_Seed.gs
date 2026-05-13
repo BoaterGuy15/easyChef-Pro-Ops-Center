@@ -2093,18 +2093,18 @@ function _computeBlockedReason(r, H) {
   if (!dlId) reasons.push('missing dl_id');
 
   if (creative === 'generated') {
-    reasons.push('waiting for Figma â€” not yet assigned');
+    reasons.push('figma not yet assigned');
   } else if (creative === 'in_figma') {
     reasons.push(!figmaId ? 'figma_file_id not recorded' : 'in production');
   } else if (creative === 'designer_review') {
     reasons.push('awaiting designer sign-off');
   } else if (creative === 'approved' && approval === 'pending') {
-    reasons.push('creative approved â€” awaiting Taylor approval');
+    reasons.push('creative approved - awaiting Taylor approval');
   } else if (approval === 'approved' && !finalUrl) {
-    reasons.push('approved â€” export and upload final_asset_url');
+    reasons.push('approved - export final_asset_url');
   }
 
-  return reasons.join(' Â· ');
+  return reasons.join('|');
 }
 
 function seedEC2026001ContentCalendar(campaignId) {
