@@ -1128,9 +1128,21 @@ function saveDesignToDrive(assetId, htmlContent) {
       file = folder.createFile(fileName, htmlContent, MimeType.HTML);
     }
 
-    // Make publicly readable so "View Design" works without auth prompt
+    // Make publicly readable as Drive backup
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    var fileUrl = 'https://drive.google.com/file/d/' + file.getId() + '/view';
+
+    // Primary URL: GitHub Pages (renders properly); fallback: GAS serve URL
+    var fileUrl = '';
+    var ghResult = _saveDesignToGithub(fileName, htmlContent);
+    if (ghResult.ok) {
+      fileUrl = ghResult.url;
+    } else {
+      var _gasBase = '';
+      try { _gasBase = ScriptApp.getService().getUrl(); } catch(_su) {}
+      fileUrl = _gasBase
+        ? _gasBase + '?action=view_design&file_id=' + file.getId()
+        : 'https://drive.google.com/file/d/' + file.getId() + '/view';
+    }
 
     // Write URL back to ContentCalendar
     var safeColCount = Math.min(ccHdrs.length, ccSheet.getLastColumn());
