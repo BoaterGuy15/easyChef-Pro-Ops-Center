@@ -15,18 +15,18 @@
     /* Layout */
     .cockpit-layout { display: flex; gap: 12px; align-items: flex-start; }
 
-    /* Sidebar */
-    .sidebar { width: 158px; flex-shrink: 0; background: #161618; border: 1px solid #2a2a2e; border-radius: 12px; padding: 12px 10px; position: sticky; top: 14px; }
-    .sidebar-title { font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; color: #555; font-weight: 600; margin-bottom: 10px; }
-    .filter-group { margin-bottom: 10px; }
-    .fg-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #555; font-weight: 600; margin-bottom: 4px; }
+    /* Floating filter panels */
+    .filter-panel { position: fixed; background: #161618; border: 1px solid #2a2a2e; border-radius: 10px; padding: 8px 10px 10px; z-index: 150; min-width: 136px; box-shadow: 0 4px 24px rgba(0,0,0,0.45); touch-action: none; transition: box-shadow 0.12s; }
+    .filter-panel.fp-snapping { border-color: rgba(10,132,255,0.5); box-shadow: 0 0 0 2px rgba(10,132,255,0.18), 0 4px 24px rgba(0,0,0,0.45); }
+    .fp-handle { font-size: 9px; text-transform: uppercase; letter-spacing: 0.9px; color: #555; font-weight: 600; margin-bottom: 6px; cursor: grab; display: flex; align-items: center; gap: 5px; user-select: none; -webkit-user-select: none; }
+    .fp-handle:active { cursor: grabbing; }
+    .fp-grip { font-size: 14px; color: #333; line-height: 1; }
     .fg-pills { display: flex; flex-direction: column; gap: 3px; }
     .fp { background: transparent; border: 1px solid #222; color: #666; padding: 5px 10px; border-radius: 7px; font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; text-align: left; transition: all 0.12s; width: 100%; }
     .fp.on { border-color: #0a84ff; color: #0a84ff; background: rgba(10,132,255,0.10); font-weight: 600; }
     .fp.on-em { border-color: #bf5af2; color: #bf5af2; background: rgba(191,90,242,0.10); font-weight: 600; }
-    .sidebar-divider { border: none; border-top: 1px solid #1e1e22; margin: 8px 0; }
-    .active-count { font-size: 10px; color: #0a84ff; font-weight: 700; margin-bottom: 6px; display: none; }
-    .clear-btn { width: 100%; background: transparent; border: 1px solid #ff453a; color: #ff453a; padding: 6px 10px; border-radius: 7px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .active-count { font-size: 9px; color: #0a84ff; font-weight: 700; margin-left: auto; display: none; }
+    .clear-btn { width: 100%; background: transparent; border: 1px solid #ff453a; color: #ff453a; padding: 6px 10px; border-radius: 7px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
 
     /* Main */
     .main { flex: 1; min-width: 0; }
@@ -281,42 +281,34 @@
 
   <div class="cockpit-layout">
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sidebar-title">Filters</div>
-      <div class="active-count" id="active-count"></div>
-
-      <div class="filter-group">
-        <div class="fg-label">Platform</div>
-        <div class="fg-pills" id="fp-platform"></div>
+    <!-- Floating filter panels — draggable, magnet-snap -->
+    <div class="filter-panel" id="fpanel-platform">
+      <div class="fp-handle" onmousedown="fpDown(event,'platform')" ontouchstart="fpTouch(event,'platform')">
+        <span class="fp-grip">⠿</span>Platform
+        <span class="active-count" id="active-count"></span>
       </div>
-      <hr class="sidebar-divider">
-      <div class="filter-group">
-        <div class="fg-label">Status</div>
-        <div class="fg-pills" id="fp-status"></div>
-      </div>
-      <hr class="sidebar-divider">
-      <div class="filter-group">
-        <div class="fg-label">Emotion</div>
-        <div class="fg-pills" id="fp-emotion"></div>
-      </div>
-      <hr class="sidebar-divider">
-      <div class="filter-group">
-        <div class="fg-label">Funnel Stage</div>
-        <div class="fg-pills" id="fp-funnel"></div>
-      </div>
-      <hr class="sidebar-divider">
-      <div class="filter-group">
-        <div class="fg-label">Week</div>
-        <div class="fg-pills" id="fp-week"></div>
-      </div>
-      <hr class="sidebar-divider">
-      <div class="filter-group">
-        <div class="fg-label">Sequence</div>
-        <div class="fg-pills" id="fp-seq"></div>
-      </div>
-
-      <button class="clear-btn" id="clear-btn" onclick="clearFilters()" style="display:none;margin-top:10px">✕ Clear All</button>
+      <div class="fg-pills" id="fp-platform"></div>
+      <button class="clear-btn" id="clear-btn" onclick="clearFilters()" style="display:none">✕ Clear All</button>
+    </div>
+    <div class="filter-panel" id="fpanel-status">
+      <div class="fp-handle" onmousedown="fpDown(event,'status')" ontouchstart="fpTouch(event,'status')"><span class="fp-grip">⠿</span>Status</div>
+      <div class="fg-pills" id="fp-status"></div>
+    </div>
+    <div class="filter-panel" id="fpanel-emotion">
+      <div class="fp-handle" onmousedown="fpDown(event,'emotion')" ontouchstart="fpTouch(event,'emotion')"><span class="fp-grip">⠿</span>Emotion</div>
+      <div class="fg-pills" id="fp-emotion"></div>
+    </div>
+    <div class="filter-panel" id="fpanel-funnel">
+      <div class="fp-handle" onmousedown="fpDown(event,'funnel')" ontouchstart="fpTouch(event,'funnel')"><span class="fp-grip">⠿</span>Funnel Stage</div>
+      <div class="fg-pills" id="fp-funnel"></div>
+    </div>
+    <div class="filter-panel" id="fpanel-week">
+      <div class="fp-handle" onmousedown="fpDown(event,'week')" ontouchstart="fpTouch(event,'week')"><span class="fp-grip">⠿</span>Week</div>
+      <div class="fg-pills" id="fp-week"></div>
+    </div>
+    <div class="filter-panel" id="fpanel-seq">
+      <div class="fp-handle" onmousedown="fpDown(event,'seq')" ontouchstart="fpTouch(event,'seq')"><span class="fp-grip">⠿</span>Sequence</div>
+      <div class="fg-pills" id="fp-seq"></div>
     </div>
 
     <!-- Main -->
@@ -491,7 +483,7 @@
       applyAndRender();
     }
 
-    function clearFilters(){FILTERS={platform:{},status:{},emotion:{},funnel:{},week:{}};renderSidebar();applyAndRender();}
+    function clearFilters(){FILTERS={platform:{},status:{},emotion:{},funnel:{},week:{},seq:{}};renderSidebar();applyAndRender();}
 
     // ── Tabs ──────────────────────────────────────────────────────────────────
     function switchTab(tab){
@@ -1233,10 +1225,104 @@
         .figmaTokenStatus();
     }
 
+    // ── Draggable filter panels ───────────────────────────────────────────────
+    var FP_IDS  = ['platform','status','emotion','funnel','week','seq'];
+    var FP_POS  = {};   // id → {x,y}
+    var FP_DRAG = null; // {id,offX,offY}
+    var FP_SNAP = 36;
+    var FP_GAP  = 5;
+
+    function initPanels() {
+      var x = 14, y = 58;
+      FP_IDS.forEach(function(id) {
+        var el = document.getElementById('fpanel-' + id);
+        if (!el) return;
+        FP_POS[id] = { x: x, y: y };
+        el.style.left = x + 'px';
+        el.style.top  = y + 'px';
+        y += el.offsetHeight + FP_GAP;
+      });
+    }
+
+    function _applyFP(id) {
+      var el = document.getElementById('fpanel-' + id);
+      if (el) { el.style.left = FP_POS[id].x + 'px'; el.style.top = FP_POS[id].y + 'px'; }
+    }
+
+    function _snapFP(mid, rx, ry) {
+      var mel = document.getElementById('fpanel-' + mid);
+      var mw = mel.offsetWidth, mh = mel.offsetHeight;
+      var best = null, bestD = FP_SNAP;
+      FP_IDS.forEach(function(oid) {
+        if (oid === mid) return;
+        var oel = document.getElementById('fpanel-' + oid);
+        if (!oel || !FP_POS[oid]) return;
+        var op = FP_POS[oid], ow = oel.offsetWidth, oh = oel.offsetHeight;
+        [
+          { x: op.x,               y: op.y + oh + FP_GAP },
+          { x: op.x,               y: op.y - mh - FP_GAP },
+          { x: op.x + ow + FP_GAP, y: op.y               },
+          { x: op.x - mw - FP_GAP, y: op.y               },
+        ].forEach(function(c) {
+          var d = Math.hypot(rx - c.x, ry - c.y);
+          if (d < bestD) { bestD = d; best = c; }
+        });
+      });
+      return best || { x: rx, y: ry };
+    }
+
+    function _moveFP(id, rx, ry) {
+      var snapped = _snapFP(id, rx, ry);
+      var isSnap  = snapped.x !== rx || snapped.y !== ry;
+      FP_POS[id]  = snapped;
+      _applyFP(id);
+      var el = document.getElementById('fpanel-' + id);
+      if (el) el.classList.toggle('fp-snapping', isSnap);
+    }
+
+    function fpDown(e, id) {
+      if (e.button !== 0) return;
+      var el = document.getElementById('fpanel-' + id);
+      var r  = el.getBoundingClientRect();
+      FP_DRAG = { id: id, offX: e.clientX - r.left, offY: e.clientY - r.top };
+      el.style.zIndex = 300;
+      el.style.transition = 'none';
+      e.preventDefault();
+    }
+    function fpTouch(e, id) {
+      var t  = e.touches[0];
+      var el = document.getElementById('fpanel-' + id);
+      var r  = el.getBoundingClientRect();
+      FP_DRAG = { id: id, offX: t.clientX - r.left, offY: t.clientY - r.top };
+      el.style.zIndex = 300;
+      el.style.transition = 'none';
+      e.preventDefault();
+    }
+    document.addEventListener('mousemove', function(e) {
+      if (!FP_DRAG) return;
+      _moveFP(FP_DRAG.id, e.clientX - FP_DRAG.offX, e.clientY - FP_DRAG.offY);
+    });
+    document.addEventListener('touchmove', function(e) {
+      if (!FP_DRAG) return;
+      var t = e.touches[0];
+      _moveFP(FP_DRAG.id, t.clientX - FP_DRAG.offX, t.clientY - FP_DRAG.offY);
+      e.preventDefault();
+    }, { passive: false });
+    function _fpUp() {
+      if (!FP_DRAG) return;
+      var el = document.getElementById('fpanel-' + FP_DRAG.id);
+      if (el) { el.style.zIndex = 150; el.style.transition = ''; el.classList.remove('fp-snapping'); }
+      FP_DRAG = null;
+    }
+    document.addEventListener('mouseup',     _fpUp);
+    document.addEventListener('touchend',    _fpUp);
+    document.addEventListener('touchcancel', _fpUp);
+
     renderSidebar();
     loadFilterDefs();
     load();
     checkFigmaToken();
+    setTimeout(initPanels, 0);
     setInterval(load,60000);
   </script>
 </body>
