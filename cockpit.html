@@ -310,6 +310,11 @@
         <div class="fg-label">Week</div>
         <div class="fg-pills" id="fp-week"></div>
       </div>
+      <hr class="sidebar-divider">
+      <div class="filter-group">
+        <div class="fg-label">Sequence</div>
+        <div class="fg-pills" id="fp-seq"></div>
+      </div>
 
       <button class="clear-btn" id="clear-btn" onclick="clearFilters()" style="display:none;margin-top:10px">✕ Clear All</button>
     </div>
@@ -357,11 +362,12 @@
     var STATUS_DOT_COLOR = {generated:'#3a3a3a',in_figma:'#3a7aff',designer_review:'#ffd60a',approved:'#30c05a',scheduled:'#0a84ff',published:'#32d74b',reported:'#bf5af2'};
     var STATUS_LABEL = {generated:'Generated',in_figma:'In Figma',designer_review:'Designer Review',approved:'Approved',scheduled:'Scheduled',published:'Published',reported:'Reported'};
 
-    var FILTER_DEFS = {platform:[],status:[],emotion:[],funnel:[],week:[]};
+    var FILTER_DEFS = {platform:[],status:[],emotion:[],funnel:[],week:[],seq:[]};
 
     function toLabel(type,v){
       if(type==='status')return STATUS_LABEL[v]||v;
       if(type==='week')return 'Week '+v;
+      if(type==='seq')return 'Seq '+(v||'').replace(/^seq/i,'');
       if((v||'').length<=3)return (v||'').toUpperCase();
       return (v||'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
     }
@@ -369,7 +375,7 @@
       google.script.run
         .withSuccessHandler(function(r){
           if(!r||!r.ok)return;
-          ['platform','status','emotion','funnel','week'].forEach(function(k){
+          ['platform','status','emotion','funnel','week','seq'].forEach(function(k){
             FILTER_DEFS[k]=(r[k]||[]).map(function(v){return{v:v,l:toLabel(k,v)};});
           });
           renderSidebar();
@@ -402,12 +408,12 @@
     }
 
     var dashData=null, calData=null, activeTab='dash';
-    var FILTERS={platform:{},status:{},emotion:{},funnel:{},week:{}};
+    var FILTERS={platform:{},status:{},emotion:{},funnel:{},week:{},seq:{}};
     var POST_REGISTRY={};  // keyed by asset_id for fast modal lookup
     var SHEET_ID='', SHEET_GID='', DRIVE_FOLDER_URL='';
 
     // ── Filter helpers ────────────────────────────────────────────────────────
-    function activeCount(){return Object.keys(FILTERS.platform).length+Object.keys(FILTERS.status).length+Object.keys(FILTERS.emotion).length+Object.keys(FILTERS.funnel).length+Object.keys(FILTERS.week).length;}
+    function activeCount(){return Object.keys(FILTERS.platform).length+Object.keys(FILTERS.status).length+Object.keys(FILTERS.emotion).length+Object.keys(FILTERS.funnel).length+Object.keys(FILTERS.week).length+Object.keys(FILTERS.seq).length;}
     function hasFilters(){return activeCount()>0;}
 
     function getAllPosts(){
@@ -432,6 +438,7 @@
         if(Object.keys(FILTERS.emotion).length  && !FILTERS.emotion[p.emotional_stage]) return false;
         if(Object.keys(FILTERS.funnel).length   && !FILTERS.funnel[p.funnel_stage])  return false;
         if(Object.keys(FILTERS.week).length     && !FILTERS.week[String(p.week)])    return false;
+        if(Object.keys(FILTERS.seq).length      && !FILTERS.seq[p.sequence_code])    return false;
         return true;
       });
     }
@@ -462,7 +469,7 @@
 
     // ── Sidebar ───────────────────────────────────────────────────────────────
     function renderSidebar(){
-      ['platform','status','emotion','funnel','week'].forEach(function(type){
+      ['platform','status','emotion','funnel','week','seq'].forEach(function(type){
         var el=document.getElementById('fp-'+type); if(!el) return;
         if(!FILTER_DEFS[type].length){el.innerHTML='<span style="color:#555;font-size:11px">Loading…</span>';return;}
         el.innerHTML=FILTER_DEFS[type].map(function(def){

@@ -2607,6 +2607,9 @@ function getCampaignCalendar(campaignId) {
       var week        = Number(r[H.week]            || 0);
       var briefDocUrl     = String(r[H.brief_doc_url]     || '') || (dlId ? (spMap[dlId] || '') : '');
       var claudeDesignUrl = String(r[H.claude_design_url] || '');
+      // Derive sequence code from asset_id (e.g. ec001-email-s2-e3-a → seq2)
+      var seqMatch = assetId.match(/email-s(\d+)-/i);
+      var seqCode  = seqMatch ? 'seq' + seqMatch[1] : '';
       var blockedReason = _computeBlockedReason(r, H);
       var isBlocked = !!(blockedReason && blockedReason !== 'in production');
 
@@ -2621,7 +2624,8 @@ function getCampaignCalendar(campaignId) {
         blocked: isBlocked, blocked_reason: blockedReason,
         figma_url: figmaUrl, brief_doc_url: briefDocUrl, claude_design_url: claudeDesignUrl,
         notes: notes, sheet_row: sheetRow,
-        full_email_body: emBodyMap[assetId] || ''
+        full_email_body: emBodyMap[assetId] || '',
+        sequence_code: seqCode
       });
       days[dateKey].total++;
       if (status === 'published')  days[dateKey].published++;
@@ -2652,7 +2656,7 @@ function getCampaignCalendar(campaignId) {
 function getCockpitFilterDefs() {
   try {
     var ss = _getCampaignSpreadsheet();
-    var platforms = {}, statuses = {}, emotions = {}, weeks = {};
+    var platforms = {}, statuses = {}, emotions = {}, weeks = {}, seqs = {};
 
     var ccSheet = ss.getSheetByName('ContentCalendar');
     if (ccSheet && ccSheet.getLastRow() >= 2) {
@@ -2662,6 +2666,7 @@ function getCockpitFilterDefs() {
       var csIdx  = ccHdrs.indexOf('creative_status');
       var emIdx  = ccHdrs.indexOf('emotional_stage');
       var wkIdx  = ccHdrs.indexOf('week');
+      var aiIdx  = ccHdrs.indexOf('asset_id');
       ccAll.slice(1).forEach(function(r) {
         var p = String(r[piIdx] || '').trim();
         var s = String(r[csIdx] || '').trim();
@@ -2671,6 +2676,11 @@ function getCockpitFilterDefs() {
         if (s) statuses[s]  = true;
         if (e) emotions[e]  = true;
         if (w && w !== '0') weeks[w] = true;
+        if (aiIdx >= 0) {
+          var aid = String(r[aiIdx] || '');
+          var sm  = aid.match(/email-s(\d+)-/i);
+          if (sm) seqs['seq' + sm[1]] = true;
+        }
       });
     }
 
@@ -2698,7 +2708,8 @@ function getCockpitFilterDefs() {
       status:   ['generated','in_figma','designer_review','approved','scheduled','published'],
       emotion:  Object.keys(emotions),
       funnel:   funnelNames,
-      week:     Object.keys(weeks).sort(function(a, b){ return Number(a) - Number(b); })
+      week:     Object.keys(weeks).sort(function(a, b){ return Number(a) - Number(b); }),
+      seq:      Object.keys(seqs).sort()
     };
   } catch(e) {
     Logger.log('[getCockpitFilterDefs] ERROR: ' + e.message);
