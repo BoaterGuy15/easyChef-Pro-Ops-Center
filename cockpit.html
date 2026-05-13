@@ -872,9 +872,6 @@
         pmLink('Drive Folder', _driveFolderUrl)+
       '</div>';
       rows+='<div class="pm-save-msg" id="pm-gen-msg-'+_safeId+'" style="margin-top:4px;font-size:10px"></div>';
-      // Figma URL input (always shown — lets user link or update Figma frame URL)
-      rows+='<div class="pm-design-url" style="margin-top:8px"><input id="pm-figma-input-'+_safeId+'" placeholder="Paste Figma frame URL to link…" value="'+(p.figma_url||'')+'" /><button class="pm-note-btn" id="pm-figma-btn-'+_safeId+'" onclick="saveFigmaUrl(\''+_safeId+'\')">Link Figma</button></div>';
-      rows+='<div class="pm-save-msg" id="pm-figma-msg-'+_safeId+'" style="margin-top:2px;font-size:10px"></div>';
       if(p.claude_design_url){
         rows+='<div class="pm-html-drop"><button class="pm-html-toggle" onclick="togglePasteBack(\''+_safeId+'\')">▸ Paste refined HTML back</button>';
         rows+='<div class="pm-html-area" id="pm-pb-area-'+_safeId+'">';
@@ -983,32 +980,6 @@
         })
         .withFailureHandler(function(){if(btn)btn.disabled=false;if(msg){msg.style.color='#ff453a';msg.textContent='Connection error';}})
         .saveDesignToDrive(assetId, html);
-    }
-    function saveFigmaUrl(assetId){
-      var input=document.getElementById('pm-figma-input-'+assetId);
-      var btn=document.getElementById('pm-figma-btn-'+assetId);
-      var msg=document.getElementById('pm-figma-msg-'+assetId);
-      var url=(input&&input.value||'').trim();
-      if(!url){if(msg){msg.style.color='#ff453a';msg.textContent='Paste a Figma URL first.';}return;}
-      if(btn)btn.disabled=true;
-      if(msg){msg.style.color='#666';msg.textContent='Saving…';}
-      google.script.run
-        .withSuccessHandler(function(r){
-          if(r&&r.ok){
-            if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].figma_url=url;
-            if(msg){msg.style.color='#32d74b';msg.textContent='✓ Figma linked';}
-            if(btn)btn.disabled=false;
-            setTimeout(function(){openPostModal(assetId);},600);
-          } else {
-            if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+((r&&r.error)||'unknown');}
-            if(btn)btn.disabled=false;
-          }
-        })
-        .withFailureHandler(function(err){
-          if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+(err&&err.message?err.message:String(err));}
-          if(btn)btn.disabled=false;
-        })
-        .updateContentCalField(assetId,'figma_export_url',url);
     }
     function _fmtPlatform(p){var m={instagram:'Instagram',tiktok:'TikTok',pinterest:'Pinterest',facebook:'Facebook',email:'Email'};return m[(p||'').toLowerCase()]||p||'—';}
     function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}
