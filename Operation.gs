@@ -857,6 +857,10 @@ function doPost(e) {
       var _gdhResult = getDesignHtml(body.asset_id || '');
       return respond({ ok: _gdhResult.ok, result: _gdhResult, log: Logger.getLog() });
     }
+    if(body.action === 'save_design_to_github') {
+      var _sdghResult = saveDesignToGithub(body.asset_id || '');
+      return respond({ ok: _sdghResult.ok, result: _sdghResult, log: Logger.getLog() });
+    }
     if(body.action === 'ensure_content_cal_columns') {
       return respond(ensureContentCalColumns());
     }

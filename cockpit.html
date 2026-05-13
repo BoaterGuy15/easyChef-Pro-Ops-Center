@@ -864,9 +864,10 @@
       var _viewDesignLink=p.claude_design_url?'<a class="pm-link generate" href="'+p.claude_design_url+'" target="_blank">↗ View Design<span class="pm-link-tag">open</span></a>':'';
       var _regenBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-gen-btn-'+_safeId+'" onclick="generateDesign(\''+_safeId+'\')">↺ Regen<span class="pm-link-tag">ai</span></button>':'';
       var _copyHtmlBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-cphtml-btn-'+_safeId+'" onclick="copyDesignHtml(\''+_safeId+'\')">⎘ Copy HTML<span class="pm-link-tag">claude</span></button>':'';
+      var _ghBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-gh-btn-'+_safeId+'" onclick="pushToGithub(\''+_safeId+'\')">↑ GitHub<span class="pm-link-tag">pages</span></button>':'';
       rows+='<div class="pm-links">'+
         pmLink('Brief Doc', p.brief_doc_url||null)+
-        (p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn:_genBtn)+
+        (p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn+_ghBtn:_genBtn)+
         pmLink('Figma', p.figma_url||null)+
         pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', _driveFolderUrl)+
@@ -916,6 +917,28 @@
           if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
         })
         .generateDesignForAsset(assetId);
+    }
+    function pushToGithub(assetId){
+      var btn=document.getElementById('pm-gh-btn-'+assetId);
+      var msg=document.getElementById('pm-gen-msg-'+assetId);
+      if(btn){btn.disabled=true;btn.innerHTML='⏳ Pushing…<span class="pm-link-tag">pages</span>';}
+      if(msg){msg.style.color='#666';msg.textContent='Pushing to GitHub Pages…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok&&r.url){
+            if(msg){msg.style.color='#32d74b';msg.textContent='✓ Live at '+r.url;}
+            if(btn){btn.disabled=false;btn.innerHTML='✓ On GitHub<span class="pm-link-tag">pages</span>';}
+          } else {
+            var e=(r&&r.error)||'unknown';
+            if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+e;}
+            if(btn){btn.disabled=false;btn.innerHTML='↑ GitHub<span class="pm-link-tag">pages</span>';}
+          }
+        })
+        .withFailureHandler(function(err){
+          if(btn){btn.disabled=false;btn.innerHTML='↑ GitHub<span class="pm-link-tag">pages</span>';}
+          if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+(err&&err.message?err.message:String(err));}
+        })
+        .saveDesignToGithub(assetId);
     }
     function copyDesignHtml(assetId){
       var btn=document.getElementById('pm-cphtml-btn-'+assetId);

@@ -1128,21 +1128,12 @@ function saveDesignToDrive(assetId, htmlContent) {
       file = folder.createFile(fileName, htmlContent, MimeType.HTML);
     }
 
-    // Make publicly readable as Drive backup
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    // Primary URL: GitHub Pages (renders properly); fallback: GAS serve URL
-    var fileUrl = '';
-    var ghResult = _saveDesignToGithub(fileName, htmlContent);
-    if (ghResult.ok) {
-      fileUrl = ghResult.url;
-    } else {
-      var _gasBase = '';
-      try { _gasBase = ScriptApp.getService().getUrl(); } catch(_su) {}
-      fileUrl = _gasBase
-        ? _gasBase + '?action=view_design&file_id=' + file.getId()
-        : 'https://drive.google.com/file/d/' + file.getId() + '/view';
-    }
+    var _gasBase = '';
+    try { _gasBase = ScriptApp.getService().getUrl(); } catch(_su) {}
+    var fileUrl = _gasBase
+      ? _gasBase + '?action=view_design&file_id=' + file.getId()
+      : 'https://drive.google.com/file/d/' + file.getId() + '/view';
 
     // Write URL back to ContentCalendar
     var safeColCount = Math.min(ccHdrs.length, ccSheet.getLastColumn());
@@ -1479,21 +1470,12 @@ function generateDesignForAsset(assetId) {
     }
     if (!file) { file = folder.createFile(fileName, html, MimeType.HTML); }
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    // Primary: push to GitHub → GitHub Pages serves it as rendered HTML
-    var fileUrl = '';
-    var ghResult = _saveDesignToGithub(fileName, html);
-    if (ghResult.ok) {
-      fileUrl = ghResult.url;
-    } else {
-      // Fallback: GAS doGet serves the Drive file as rendered HTML
-      var _gasBase = '';
-      try { _gasBase = ScriptApp.getService().getUrl(); } catch(_su) {}
-      fileUrl = _gasBase
-        ? _gasBase + '?action=view_design&file_id=' + file.getId()
-        : 'https://drive.google.com/file/d/' + file.getId() + '/view';
-      Logger.log('[generateDesignForAsset] GitHub save failed (' + ghResult.error + '), using GAS serve URL');
-    }
+    // GAS doGet renders the Drive HTML — Drive viewer shows source, GAS renders it
+    var _gasBase2 = '';
+    try { _gasBase2 = ScriptApp.getService().getUrl(); } catch(_su2) {}
+    var fileUrl = _gasBase2
+      ? _gasBase2 + '?action=view_design&file_id=' + file.getId()
+      : 'https://drive.google.com/file/d/' + file.getId() + '/view';
 
     // ── 11. Write URL back to ContentCalendar ─────────────────────────────────
     var safeCC2   = Math.min(ccHdrs.length, ccSheet.getLastColumn());
@@ -1507,6 +1489,35 @@ function generateDesignForAsset(assetId) {
 
   } catch(e) {
     Logger.log('[generateDesignForAsset] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Push current Drive design to GitHub (on-demand) ──────────────────────────
+// saveDesignToGithub(assetId) — reads HTML from Drive, pushes to /designs/ repo,
+// returns { ok, url } with the GitHub Pages URL.
+
+function saveDesignToGithub(assetId) {
+  if (!assetId) return { ok: false, error: 'assetId required' };
+  try {
+    var r = getDesignHtml(assetId);
+    if (!r.ok) return r;
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var ccHdrs  = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var CH = {}; ccHdrs.forEach(function(h, i) { CH[h] = i; });
+    var ccData  = ccSheet.getRange(2, 1, ccSheet.getLastRow() - 1, Math.min(ccHdrs.length, ccSheet.getLastColumn())).getValues();
+    var ccRow = null, ccRowIndex = -1;
+    for (var i = 0; i < ccData.length; i++) {
+      if (String(ccData[i][CH.asset_id] || '') === assetId) { ccRow = ccData[i]; ccRowIndex = i; break; }
+    }
+    if (!ccRow) return { ok: false, error: 'Asset not found' };
+    var platform = String(ccRow[CH.platform]    || '');
+    var funnel   = String(ccRow[CH.funnel_stage] || '');
+    var fileName = 'Design — ' + assetId + ' — ' + platform + ' — ' + funnel + '.html';
+    var ghResult = _saveDesignToGithub(fileName, r.html);
+    if (!ghResult.ok) return ghResult;
+    return { ok: true, url: ghResult.url, asset_id: assetId };
+  } catch(e) {
     return { ok: false, error: e.message };
   }
 }
