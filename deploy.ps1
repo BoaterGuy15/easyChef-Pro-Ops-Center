@@ -1,7 +1,7 @@
-# deploy.ps1 — Fast GAS deploy for easyChef Pro Ops Center
+# deploy.ps1 -- Fast GAS deploy for easyChef Pro Ops Center
 #
 # Usage:
-#   .\deploy.ps1              Push only — HEAD is always live after push (fastest)
+#   .\deploy.ps1              Push only -- HEAD is always live after push (fastest)
 #   .\deploy.ps1 -Deploy      Push + 10s wait + update PRIMARY numbered deployment
 #   .\deploy.ps1 -Sync        Push + 10s wait + update BOTH numbered deployments
 #   .\deploy.ps1 -Deploy -Message "my note"   Custom deployment description
@@ -20,12 +20,12 @@ $start = Get-Date
 Write-Host ""
 Write-Host "=== GAS Deploy ===" -ForegroundColor Cyan
 
-# ── Fix 1: cockpit_template.gs is excluded via .claspignore
-# ── Step 1: Push all non-ignored .gs files
+# Fix 1: cockpit_template.gs is excluded via .claspignore
+# Step 1: Push all non-ignored .gs files
 Write-Host "[1/3] Pushing files..." -ForegroundColor Yellow
 clasp push --force
 if (-not $?) {
-    Write-Host "PUSH FAILED — aborting." -ForegroundColor Red
+    Write-Host "PUSH FAILED -- aborting." -ForegroundColor Red
     exit 1
 }
 Write-Host "Push complete. HEAD is live:" -ForegroundColor Green
@@ -40,12 +40,12 @@ if (-not $Deploy -and -not $Sync) {
     exit 0
 }
 
-# ── Fix 2: 10s wait between push and version creation (GAS rate limit)
+# Fix 2: 10s wait between push and version creation (GAS rate limit)
 Write-Host "[2/3] Waiting 10s (GAS version rate limit)..." -ForegroundColor Yellow
 Start-Sleep -Seconds 10
 
-# ── Fix 3: Single deployment ID by default; -Sync deploys both
-$desc = if ($Message) { $Message } else { "deploy $(Get-Date -Format 'yyyy-MM-dd HH:mm')" }
+# Fix 3: Single deployment ID by default; -Sync deploys both
+if ($Message) { $desc = $Message } else { $desc = "deploy $(Get-Date -Format 'yyyy-MM-dd HH:mm')" }
 
 function Deploy-To {
     param([string]$DepId, [string]$Label)
@@ -53,8 +53,8 @@ function Deploy-To {
     $out = clasp deploy -i $DepId -d $desc 2>&1
     $outStr = $out -join "`n"
     if ($outStr -match "version limit|Cannot create more|quota") {
-        Write-Host "VERSION LIMIT HIT — $Label unchanged." -ForegroundColor Red
-        Write-Host "Fix: Apps Script → Project history → delete old versions (192-524 range)" -ForegroundColor Yellow
+        Write-Host "VERSION LIMIT HIT -- $Label unchanged." -ForegroundColor Red
+        Write-Host "Fix: Apps Script -> Project history -> delete old versions (192-524 range)" -ForegroundColor Yellow
         Write-Host "     HEAD URL above is still fully current." -ForegroundColor Yellow
     } else {
         Write-Host $outStr -ForegroundColor Green
