@@ -1147,6 +1147,54 @@ function saveDesignToDrive(assetId, htmlContent) {
   }
 }
 
+// ── GitHub API: push design HTML to repo → GitHub Pages URL ──────────────────
+// _saveDesignToGithub(fileName, html)
+// Commits the HTML file to /designs/ in the repo via GitHub API.
+// Returns { ok, url } where url is the GitHub Pages served URL.
+// Requires GITHUB_TOKEN in Script Properties (fine-grained or classic, repo write scope).
+
+function _saveDesignToGithub(fileName, html) {
+  var token = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+  if (!token) return { ok: false, error: 'GITHUB_TOKEN not set in Script Properties' };
+
+  var owner = 'BoaterGuy15';
+  var repo  = 'easyChef-Pro-Ops-Center';
+  var path  = 'designs/' + fileName;
+  var api   = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + encodeURIComponent(path);
+
+  var b64 = Utilities.base64Encode(Utilities.newBlob(html, 'text/html').getBytes());
+
+  // Fetch existing SHA so we can update in-place
+  var sha = null;
+  try {
+    var getResp = UrlFetchApp.fetch(api, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+      muteHttpExceptions: true
+    });
+    if (getResp.getResponseCode() === 200) sha = JSON.parse(getResp.getContentText()).sha;
+  } catch(ge) {}
+
+  var payload = { message: 'design: ' + fileName, content: b64, branch: 'main' };
+  if (sha) payload.sha = sha;
+
+  var putResp = UrlFetchApp.fetch(api, {
+    method: 'put',
+    headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var code = putResp.getResponseCode();
+  if (code !== 200 && code !== 201) {
+    Logger.log('[_saveDesignToGithub] error ' + code + ': ' + putResp.getContentText().slice(0, 300));
+    return { ok: false, error: 'GitHub API ' + code + ' — check GITHUB_TOKEN permissions' };
+  }
+
+  var ghPagesUrl = 'https://boaterguy15.github.io/easyChef-Pro-Ops-Center/designs/' + encodeURIComponent(fileName);
+  Logger.log('[_saveDesignToGithub] pushed → ' + ghPagesUrl);
+  return { ok: true, url: ghPagesUrl, path: path };
+}
+
 // ── One-button AI Design Generation ──────────────────────────────────────────
 // generateDesignForAsset(assetId)
 // Reads the full brief for a specific asset, calls Claude to generate an HTML
@@ -1419,12 +1467,21 @@ function generateDesignForAsset(assetId) {
     }
     if (!file) { file = folder.createFile(fileName, html, MimeType.HTML); }
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    // Serve via GAS doGet so the HTML renders — Drive shows source, GAS renders
-    var _gasBase = '';
-    try { _gasBase = ScriptApp.getService().getUrl(); } catch(_su) {}
-    var fileUrl = _gasBase
-      ? _gasBase + '?action=view_design&file_id=' + file.getId()
-      : 'https://drive.google.com/file/d/' + file.getId() + '/view';
+
+    // Primary: push to GitHub → GitHub Pages serves it as rendered HTML
+    var fileUrl = '';
+    var ghResult = _saveDesignToGithub(fileName, html);
+    if (ghResult.ok) {
+      fileUrl = ghResult.url;
+    } else {
+      // Fallback: GAS doGet serves the Drive file as rendered HTML
+      var _gasBase = '';
+      try { _gasBase = ScriptApp.getService().getUrl(); } catch(_su) {}
+      fileUrl = _gasBase
+        ? _gasBase + '?action=view_design&file_id=' + file.getId()
+        : 'https://drive.google.com/file/d/' + file.getId() + '/view';
+      Logger.log('[generateDesignForAsset] GitHub save failed (' + ghResult.error + '), using GAS serve URL');
+    }
 
     // ── 11. Write URL back to ContentCalendar ─────────────────────────────────
     var safeCC2   = Math.min(ccHdrs.length, ccSheet.getLastColumn());
