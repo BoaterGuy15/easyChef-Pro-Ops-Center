@@ -1400,11 +1400,25 @@ function doPost(e) {
     if(body.action === 'build_multi_channel_posts')  return respond(buildMultiChannelPosts(body.brief, body.copy));
     if(body.action === 'build_push_notifications')   return respond(buildPushNotifications(body.brief, body.copy));
     if(body.action === 'build_landing_page')        return respond(buildLandingPage(body.brief, body.copy));
+    if(body.action === 'generate_landing_page') {
+      var _glpCtx = _fcLoad(body.campaign_id || '');
+      if (!_glpCtx) return respond({ ok: false, error: 'Brief not found: ' + body.campaign_id });
+      var _glpBrief = JSON.parse(JSON.stringify(_glpCtx.brief));
+      if (body.lp_variant)  _glpBrief.lp_variant      = body.lp_variant;
+      if (body.icp_code)    _glpBrief.icp_code         = body.icp_code;
+      if (body.angle)       _glpBrief.campaign_angle   = body.angle;
+      if (body.lp_variant === 'a') _glpBrief.slug = _glpBrief.lp_slug_a || 'waitlist-a';
+      if (body.lp_variant === 'b') _glpBrief.slug = _glpBrief.lp_slug_b || 'waitlist-b';
+      return respond(buildLandingPage(_glpBrief, _glpCtx.copy));
+    }
 
     // ── Sequence Builder ──────────────────────────────────────────────────────────
     if(body.action === 'build_full_sequence')      return respond(buildFullSequence(body.brief, body.copy, body.posts||[], body.emails||[]));
     if(body.action === 'run_full_campaign')        return respond(runFullCampaignAutomatic(body.campaign_id||''));
-    if(body.action === 'generate_social_posts')      return respond(fcGenerateSocialPosts(body.campaign_id||'', body.channel||''));
+    if(body.action === 'generate_social_posts') {
+      var _spR = fcGenerateSocialPosts(body.campaign_id||'', body.channel||'');
+      return respond({ ok:_spR.ok, posts:_spR.posts, tiktok:_spR.tiktok, youtube:_spR.youtube, error:_spR.error||null, log:Logger.getLog() });
+    }
     if(body.action === 'generate_emails')            return respond(fcGenerateEmails(body.campaign_id||''));
     if(body.action === 'generate_utm_and_save')      return respond(fcGenerateUtmAndSave(body.campaign_id||''));
     if(body.action === 'export_campaign_to_drive')   return respond(fcExportCampaignToDrive(body.campaign_id||''));

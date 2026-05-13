@@ -1752,7 +1752,8 @@ function setSocialPost(item) {
     item.lp_headline_connection !== undefined ? item.lp_headline_connection : (ex ? ex[17] : ''),
     item.emotional_state       !== undefined ? item.emotional_state       : (ex ? ex[18] : ''),
     item.emotional_destination !== undefined ? item.emotional_destination : (ex ? ex[19] : ''),
-    item.loop_stage            !== undefined ? item.loop_stage            : (ex ? ex[20] : '')
+    item.loop_stage            !== undefined ? item.loop_stage            : (ex ? ex[20] : ''),
+    item.claude_design_url     !== undefined ? item.claude_design_url     : (ex ? ex[21] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }

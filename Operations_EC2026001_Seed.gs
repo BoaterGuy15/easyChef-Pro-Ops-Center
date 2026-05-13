@@ -384,7 +384,7 @@ function seedEC2026001() {
         'EC-2026-001',
         _ec001_platMap(r.type),
         r.hA,
-        '',                           // body_copy â€” filled by Campaign Kickstart
+        '',                           // body_copy - filled by Campaign Kickstart
         _ec001_cta(r.stage),
         _ec001_htags(r.feature, r.type),
         _ec001_imgBrief(r.stage, r.feature, r.day),
@@ -392,15 +392,16 @@ function seedEC2026001() {
         _ec001_date(r.day),
         '08:00',
         'draft',
-        '',                           // dl_id â€” assigned from DeepLinkRegistry
-        '',                           // utm_url â€” built after dl_id activated
+        '',                           // dl_id - assigned from DeepLinkRegistry
+        '',                           // utm_url - built after dl_id activated
         '',                           // posted_url
         brief,                        // design_brief JSON
         (r.stage === 'launch' ? 'urgency' : r.stage), // lp_section_source
         '',                           // lp_headline_connection
-        r.stage + ' â€” recognition',   // emotional_state
+        r.stage + ' - recognition',   // emotional_state
         r.stage === 'launch' ? 'acting_now' : (r.stage === 'cta' ? 'committed_and_decisive' : ''), // emotional_destination
-        r.stage                       // loop_stage
+        r.stage,                      // loop_stage
+        ''                            // claude_design_url
       ];
     });
 
