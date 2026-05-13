@@ -2913,21 +2913,82 @@ function _logGpt4oCall(systemPrompt, responseContent) {
   } catch(e) {}
 }
 
+// Returns condensed skill guidance block for a given content type.
+// Prepended to Claude system prompt when GPT4O_ACTIVE is false.
+function _getSkillBlock(contentType) {
+  var social = [
+    '## MARKETING SKILLS: Copywriting + Ad Creative',
+    '- Clarity over cleverness. Benefits over features. Specificity over vagueness.',
+    '- One idea per post. Active voice. Customer language — mirror how they describe their own problem.',
+    '- Strong CTAs: [Action Verb] + [What They Get]. Never "sign up" or "learn more".',
+    '- Every post must serve ONE emotional job from the arc. Do not combine jobs.',
+    '- Vary: hook angle, scene, cost reference, tone — across arc positions and across channels.',
+    '- Define your angle before writing: pain point / outcome / social proof / curiosity / urgency / identity.',
+    '- TikTok: ≤100 chars primary text. Meta: front-load hook in first 125 chars.',
+    '- Remove exclamation points. Remove buzzwords without substance.',
+    '- Post 1 Hook must feel different from a Hook later in the arc — vary the entry point, not just wording.',
+    ''
+  ].join('\n');
+
+  var email = [
+    '## MARKETING SKILLS: Email Sequence + Copywriting',
+    '- One email, one job. One primary CTA per email. Never ask for two things.',
+    '- Value before ask. Lead with usefulness — earn the right to sell.',
+    '- Structure every email: Hook → Context → Value → CTA → Human close.',
+    '- Short paragraphs (1-3 sentences). Conversational not formal. Read aloud — does it sound human?',
+    '- Subject line: Clear > Clever. 40-60 chars. Benefit-driven or curiosity-driven.',
+    '- Preview text extends the subject — do not repeat it.',
+    '- Each email moves them one step forward in the arc. Never repeat the previous email\'s job.',
+    '- Button text: Action + outcome. "Get early access" not "Submit".',
+    ''
+  ].join('\n');
+
+  var lp = [
+    '## MARKETING SKILLS: Page CRO + Copywriting',
+    '- Value prop clarity: can a visitor understand what this is and why they should care in 5 seconds?',
+    '- Headline: outcome-focused, specific, match the traffic source angle. Never clever at the expense of clear.',
+    '- CTA: visible without scrolling. Communicate value not just action. One clear primary CTA.',
+    '- Trust signals (numbers, proof) placed near CTAs and after benefit claims.',
+    '- Each section advances one argument. Build a logical flow — do not repeat.',
+    '- Benefits over features throughout. Connect feature → benefit → outcome.',
+    '- Remove friction: no jargon, no buried value, no weak closes.',
+    ''
+  ].join('\n');
+
+  if (contentType === 'social') return social;
+  if (contentType === 'email')  return email;
+  if (contentType === 'lp')     return lp;
+  return '';
+}
+
+// Auto-detects content type from userPrompt string.
+function _detectContentType(userPrompt) {
+  var u = userPrompt.toLowerCase();
+  if (u.indexOf('landing page') !== -1 || u.indexOf('lp copy') !== -1) return 'lp';
+  if (u.indexOf('email') !== -1 || u.indexOf('sequence') !== -1)        return 'email';
+  if (u.indexOf('post') !== -1  || u.indexOf('social') !== -1 ||
+      u.indexOf('tiktok') !== -1 || u.indexOf('channel') !== -1)        return 'social';
+  return '';
+}
+
 function _callCopyModel(systemPrompt, userPrompt, maxTokens) {
   var _gar = _getCcSetting('GPT4O_ACTIVE');
   var gptActive = (_gar && _gar.length ? _gar[0].label : 'false').toLowerCase();
   if (gptActive === 'true') return callGPT4o(systemPrompt, userPrompt, maxTokens);
   var apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
   if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY not set' };
+  // Prepend marketing skill block before the easyChef doctrine
+  var skillBlock = _getSkillBlock(_detectContentType(userPrompt));
+  var fullSystem = skillBlock ? (skillBlock + '\n---\n\n' + systemPrompt) : systemPrompt;
   try {
     var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
       payload: JSON.stringify({
-        model:     'claude-sonnet-4-20250514',
+        model:      'claude-sonnet-4-5',
         max_tokens: maxTokens || 2000,
-        system:    systemPrompt,
-        messages:  [{ role: 'user', content: userPrompt }]
+        system:     fullSystem,
+        messages:   [{ role: 'user', content: userPrompt }]
       }),
       muteHttpExceptions: true
     });

@@ -23,6 +23,7 @@ function _ec001_cta(stage) {
     'agitate': 'Join the waitlist â€” early access July 1 Â· easychefpro.com/lp/waitlist-a',
     'solve':   'Get early access Â· $7.99/month founding price Â· easychefpro.com/lp/waitlist-a',
     'value':   'Get early access free Â· easychefpro.com/lp/waitlist-a',
+    'lifecycle': 'Join the founding family. The app that evolves with your life. easychefpro.com/lp/waitlist-a',
     'proof':   'Join the waitlist free â€” 5,000 founding spots Â· easychefpro.com/lp/waitlist-a',
     'urgency': 'Lock in $7.99/month â€” 60% off forever Â· easychefpro.com/lp/waitlist-a',
     'cta':     'Join the founding family Â· First 5,000 only Â· easychefpro.com/lp/waitlist-a',
@@ -80,6 +81,7 @@ function _ec001_imgBrief(stage, feature, day) {
     'agitate': '$111 visual Â· expiring produce Â· ground beef Â· yogurt Â· spinach Â· $1,336 annual figure prominent Â· emotional weight without shame',
     'solve':   'TRACK pantry view Â· organized data Â· receipt scan animation Â· expiry alerts firing Â· first time it all clicks',
     'value':   _ec001_featureScene(feature),
+    'lifecycle': 'PHONE VISIBLE. Life stage sequence. The app that evolves with your life. Warm everyday household scene',
     'proof':   '10,000 households Â· 69.5% less waste Â· $1,336 average savings Â· confident data not testimonials Â· built by first responders note',
     'urgency': '5,000 spots counter Â· $7.99 vs $19.99 price contrast Â· real scarcity not manufactured Â· clock or countdown visible',
     'cta':     'Woman on couch after dinner Â· kitchen clean behind her Â· kids settled Â· peace Â· phone in hand Â· founding family energy',
@@ -140,7 +142,7 @@ function seedEC2026001() {
       blueprint:        'A-Waitlist',
       launch_date:      '2026-07-01',
       status:           'active',
-      post_count:       218,
+      post_count:       64,
       post_frequency:   'daily',
       email_sequences:  4,
       theme:            'invisible-leak',
@@ -314,67 +316,37 @@ function seedEC2026001() {
       }
     }
 
-    // â”€â”€ 218 posts: 6 platforms Ã— 35 days + 5 TikTok spotlights + 3 YouTube spotlights â”€â”€
-    var _ARC = [
-      {day:1,  stage:'hook',    feature:'problem',  hA:'You have an invisible leak. $111 a month.',                  hB:'6:30 PM. Fridge full. Five apps open. Still no dinner.'},
-      {day:2,  stage:'hook',    feature:'problem',  hA:'$111/month disappearing from your grocery budget.',           hB:'That 6:30 PM wall. Every single night.'},
-      {day:3,  stage:'problem', feature:'problem',  hA:'Five apps. None of them talk to each other.',                 hB:"Mealime doesn't know your pantry. No app closes the loop."},
-      {day:4,  stage:'problem', feature:'problem',  hA:"You buy groceries Sunday. By Wednesday it's a guessing game.", hB:'Dinner is already decided by 6:30 PM â€” or it isn\'t.'},
-      {day:5,  stage:'agitate', feature:'problem',  hA:'The spinach. The ground beef. The yogurt. $111 gone.',        hB:'DoorDash again. The groceries sit untouched.'},
-      {day:6,  stage:'agitate', feature:'problem',  hA:'$1,336. Every year. Food you bought. Never ate.',             hB:'5â€“10 hours a week deciding what to eat. That time is yours.'},
-      {day:7,  stage:'agitate', feature:'problem',  hA:"The leak is invisible. The cost isn't. $111/month.",          hB:'The 6:30 PM wall is a system problem. Not a you problem.'},
-      {day:8,  stage:'solve',   feature:'TRACK',    hA:'TRACK. Your pantry, finally tracked. The leak starts here.',  hB:"easyChef Pro knows what's in your fridge before it expires."},
-      {day:9,  stage:'value',   feature:'TRACK',    hA:'Scan your receipt. Every item tracked. Expiry fires first.',  hB:'The app caught the spinach before you did.'},
-      {day:10, stage:'value',   feature:'TRACK',    hA:'No more buying what you already have.',                       hB:'The pantry knows. You never duplicate again.'},
-      {day:11, stage:'value',   feature:'TRACK',    hA:'TRACK replaced NoWaste â€” and it does more.',                  hB:'The leak starts in your pantry. TRACK closes it.'},
-      {day:12, stage:'value',   feature:'TRACK',    hA:'69.5% less food waste. $111/month back. Validated.',          hB:'The leak is measurable. The fix is proven.'},
-      {day:13, stage:'value',   feature:'TRACK',    hA:'TRACK connects to everything. PLAN sees your pantry.',        hB:'One app. The pantry feeds the plan feeds the recipe.'},
-      {day:14, stage:'proof',   feature:'proof',    hA:'9 patent-pending technologies. Validated across 10,000 households.', hB:'Built by first responders. Not Silicon Valley.'},
-      {day:15, stage:'value',   feature:'PLAN',     hA:'Your pantry auto-builds the meal plan. No manual entry.',     hB:'PLAN replaced your meal planner. It knows what you already have.'},
-      {day:16, stage:'value',   feature:'PLAN',     hA:'Monday: salmon. Tuesday: tacos. From what you paid for.',     hB:'Five dinners planned from what you already own.'},
-      {day:17, stage:'value',   feature:'PLAN',     hA:'PLAN and OPTIMIZE together. Two apps replaced.',              hB:'Dinner planned. Nutrition scored. Zero manual entry.'},
-      {day:18, stage:'value',   feature:'OPTIMIZE', hA:'Every meal scored across 6 nutrition dimensions. FDA-grade. No manual tracking.', hB:'OPTIMIZE replaced your nutrition app. Scores from your actual fridge.'},
-      {day:19, stage:'value',   feature:'OPTIMIZE', hA:'Registered dietitians validated every recipe. 6 dimensions. Every meal.', hB:'No app scored your nutrition from your pantry before.'},
-      {day:20, stage:'proof',   feature:'proof',    hA:'800,000 products. 9 patent-pending technologies.',            hB:'Built by first responders who needed this as much as you do.'},
-      {day:21, stage:'proof',   feature:'all',      hA:'TRACK â†’ PLAN â†’ OPTIMIZE â†’ COOK â†’ SHOP. The full loop.',      hB:'Five apps replaced. The 6:30 PM panic â€” gone.'},
-      {day:22, stage:'urgency', feature:'urgency',  hA:'5,000 founding spots. The window is closing.',                hB:"You've been deciding for 3 weeks. Here's what that costs."},
-      {day:23, stage:'value',   feature:'COOK',     hA:"COOK turns your fridge into tonight's recipe. 30 minutes.",   hB:"easyChef Pro replaced your recipe app. Already knows what you have."},
-      {day:24, stage:'urgency', feature:'urgency',  hA:'$7.99/month. 60% off. Founding price closes at 5,000.',       hB:'Two leaks closing â€” your grocery budget AND this price.'},
-      {day:25, stage:'value',   feature:'SHOP',     hA:'1-click shopping. The list builds itself.',                   hB:'Never buy what you already have again.'},
-      {day:26, stage:'value',   feature:'SHOP',     hA:'800,000 products. 1-click shopping. Done.',                   hB:"Shopping used to take 45 minutes. Now it's one click."},
-      {day:27, stage:'urgency', feature:'urgency',  hA:'Five apps replaced. One leak closed. 4 days left.',           hB:'Every night you wing it is $3.66. Price goes up in 4 days.'},
-      {day:28, stage:'urgency', feature:'urgency',  hA:'$7.99 or $19.99. You decide before July 1.',                  hB:'The founding family window is closing.'},
-      {day:29, stage:'cta',     feature:'launch',   hA:'TRACK â†’ PLAN â†’ OPTIMIZE â†’ COOK â†’ SHOP. One loop. July 1.',    hB:'The founding family window is almost closed.'},
-      {day:30, stage:'cta',     feature:'launch',   hA:'You are founding the kitchen of the future.',                 hB:'You found this before everyone else.'},
-      {day:31, stage:'cta',     feature:'launch',   hA:'Five apps replaced. One founding price. First 5,000 only.',   hB:'Dinner figured out before you open the fridge. Forever.'},
-      {day:32, stage:'cta',     feature:'launch',   hA:'Founding price closes at 5,000 families. Real scarcity.',     hB:'The founding family window is closing.'},
-      {day:33, stage:'proof',   feature:'proof',    hA:'10,000 households. 69.5% less waste. The leak is gone.',      hB:'Real outcomes. Real kitchens.'},
-      {day:34, stage:'cta',     feature:'launch',   hA:'Tomorrow your kitchen changes.',                              hB:'July 1. The loop closes. Your kitchen is in command.'},
-      {day:35, stage:'launch',  feature:'launch',   hA:'TRACK â†’ PLAN â†’ OPTIMIZE â†’ COOK â†’ SHOP. Live. Now.',          hB:'Your kitchen. In command. July 1.'}
+    // 8-stage arc: 1 post per channel per stage = 64 posts
+    var _ARC8 = [
+      {day:1,  stage:'hook',      feature:'problem',  hA:'You have an invisible leak. $111 a month.',                    hB:'6:30 PM. Fridge full. Five apps open. Still no dinner.'},
+      {day:5,  stage:'problem',   feature:'problem',  hA:'Five apps. None of them talk to each other.',                  hB:'You buy groceries Sunday. By Wednesday it\'s a guessing game.'},
+      {day:9,  stage:'agitate',   feature:'problem',  hA:'The spinach. The ground beef. The yogurt. $111 gone.',         hB:'$1,336. Every year. Food you bought. Never ate.'},
+      {day:13, stage:'solve',     feature:'TRACK',    hA:'TRACK. Your pantry, finally tracked. The leak starts here.',   hB:'easyChef Pro knows what\'s in your fridge before it expires.'},
+      {day:18, stage:'value',     feature:'all',      hA:'TRACK to PLAN to OPTIMIZE to COOK to SHOP. One loop.',        hB:'Dinner figured out before you open the fridge. Every night.'},
+      {day:22, stage:'lifecycle', feature:'all',      hA:'Join the founding family. The app that evolves with your life.', hB:'Your kitchen. This chapter. And every chapter after.'},
+      {day:27, stage:'proof',     feature:'proof',    hA:'10,000 households. 69.5% less waste. $1,336 average savings.', hB:'Built by first responders. Not Silicon Valley.'},
+      {day:33, stage:'cta',       feature:'launch',   hA:'You are founding the kitchen of the future.',                  hB:'First 5,000 families lock in $7.99/month forever.'}
     ];
 
     var _DAILY_TYPES = ['facebook','instagram','pinterest','nextdoor','x','email'];
     var postData = [];
 
-    // 6 platforms Ã— 35 days = 210 rows
-    _ARC.forEach(function(d) {
+    // 6 daily platforms x 8 stages = 48 rows
+    _ARC8.forEach(function(d) {
       _DAILY_TYPES.forEach(function(t) {
         postData.push({day:d.day, stage:d.stage, feature:d.feature, type:t, hA:d.hA, hB:d.hB});
       });
     });
 
-    // TikTok spotlights â€” days 4, 11, 17, 22, 26
-    postData.push({day:4,  stage:'solve',  feature:'TRACK',    type:'tiktok', hA:'TK-1 Â· TRACK Â· "$1,336 in your fridge right now."',              hB:''});
-    postData.push({day:11, stage:'value',  feature:'PLAN',     type:'tiktok', hA:'TK-2 Â· PLAN Â· "One Sunday. Five dinners. From what you have."',   hB:''});
-    postData.push({day:17, stage:'value',  feature:'OPTIMIZE', type:'tiktok', hA:'TK-3 Â· OPTIMIZE Â· "Six nutrition scores. Every meal. No logging."', hB:''});
-    postData.push({day:22, stage:'value',  feature:'COOK',     type:'tiktok', hA:"TK-4 Â· COOK Â· \"30 minutes. From what's in your fridge.\"",       hB:''});
-    postData.push({day:26, stage:'value',  feature:'SHOP',     type:'tiktok', hA:'TK-5 Â· SHOP Â· "The list builds itself. 1-click to your cart."',   hB:''});
+    // TikTok - one per arc stage (8 posts)
+    _ARC8.forEach(function(d) {
+      postData.push({day:d.day, stage:d.stage, feature:d.feature, type:'tiktok', hA:d.hA, hB:d.hB});
+    });
 
-    // YouTube spotlights â€” days 7, 21, 35
-    postData.push({day:7,  stage:'agitate', feature:'problem', type:'youtube', hA:'YT-1 Â· The Problem Â· 60 seconds Â· the invisible leak',            hB:''});
-    postData.push({day:21, stage:'proof',   feature:'all',     type:'youtube', hA:'YT-2 Â· The Solution Â· TRACKâ†’PLANâ†’OPTIMIZEâ†’COOKâ†’SHOP',            hB:''});
-    postData.push({day:35, stage:'launch',  feature:'launch',  type:'youtube', hA:'YT-3 Â· Launch Day Â· The leak is closed.',                          hB:''});
-
+    // YouTube - one per arc stage (8 posts)
+    _ARC8.forEach(function(d) {
+      postData.push({day:d.day, stage:d.stage, feature:d.feature, type:'youtube', hA:d.hA, hB:d.hB});
+    });
     var spHdrLen = _CC_HDR.SocialPosts.length;
     var newRows = postData.map(function(r, idx) {
       var id    = 'ec001-sp-' + ('000' + (idx + 1)).slice(-3);
@@ -396,10 +368,10 @@ function seedEC2026001() {
         '',                           // utm_url - built after dl_id activated
         '',                           // posted_url
         brief,                        // design_brief JSON
-        (r.stage === 'launch' ? 'urgency' : r.stage), // lp_section_source
+        r.stage,                      // lp_section_source
         '',                           // lp_headline_connection
         r.stage + ' - recognition',   // emotional_state
-        r.stage === 'launch' ? 'acting_now' : (r.stage === 'cta' ? 'committed_and_decisive' : ''), // emotional_destination
+        r.stage === 'cta' ? 'committed_and_decisive' : '', // emotional_destination
         r.stage,                      // loop_stage
         ''                            // claude_design_url
       ];
@@ -407,7 +379,7 @@ function seedEC2026001() {
 
     var spWriteStart = spSheet.getLastRow() + 1;
     spSheet.getRange(spWriteStart, 1, newRows.length, spHdrLen).setValues(newRows);
-    results.push('âœ“ Social posts seeded: ' + newRows.length + ' posts (days 1â€“35 Â· May 27â€“Jun 30)');
+    results.push('Seed OK: ' + newRows.length + ' social posts (8 stages x 8 channels)');
 
     Logger.log('[seedEC2026001] ' + results.join(' | '));
     return { ok: true, results: results, post_count: newRows.length };
@@ -2220,7 +2192,9 @@ function seedEC2026001ContentCalendar(campaignId) {
         blockedBy,                            // blocked_by
         now,                                  // created_at
         now,                                  // updated_at
-        String(b.brief_doc_url || '')         // brief_doc_url
+        String(b.brief_doc_url || ''),        // brief_doc_url
+        '',                                   // claude_design_url
+        ''                                    // sequence_code
       ]);
     }
 

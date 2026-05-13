@@ -336,12 +336,12 @@ function doGet(e) {
     }
     if(e.parameter.action === 'view_brief') {
       var _vbId = e.parameter.asset_id || '';
-      if (!_vbId) return HtmlService.createHtmlOutput('<body style="font:16px Inter,sans-serif;padding:40px">No asset_id provided.</body>');
+      if (!_vbId) return ContentService.createTextOutput('<body style="font:16px Inter,sans-serif;padding:40px">No asset_id provided.</body>').setMimeType(ContentService.MimeType.HTML);
       try {
         var _vbHtml = renderBriefHtml(_vbId);
-        return HtmlService.createHtmlOutput(_vbHtml).setTitle('Brief — ' + _vbId).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return ContentService.createTextOutput(_vbHtml).setMimeType(ContentService.MimeType.HTML);
       } catch(_vbErr) {
-        return HtmlService.createHtmlOutput('<body style="font:16px Inter,sans-serif;padding:40px;color:#FF0000">Error: ' + _vbErr.message + '</body>');
+        return ContentService.createTextOutput('<body style="font:16px Inter,sans-serif;padding:40px;color:#FF0000">Error rendering brief: ' + _vbErr.message + '</body>').setMimeType(ContentService.MimeType.HTML);
       }
     }
     if(e.parameter.code) return doGetSlackOAuth(e);
@@ -968,6 +968,16 @@ function doPost(e) {
       var _seedResult = seedEC2026001();
       return respond({ ok:_seedResult.ok, result:_seedResult, log: Logger.getLog() });
     }
+    if(body.action === 'seed_social_derivation_001') {
+      var _sd001Sheet = _getCCSheet(_CC_TAB.CAMP_STRATEGY);
+      _seedCampaignStrategy(_sd001Sheet);
+      var _sd001Check = getCampaignStrategy('SOCIAL_DERIVATION_001');
+      return respond({ ok: !!_sd001Check, seeded: !!_sd001Check, rule_id: 'SOCIAL_DERIVATION_001', log: Logger.getLog() });
+    }
+    if(body.action === 'reassign_arc_stages') {
+      var _ras = reassignArcStages(body.campaign_id || 'EC-2026-001');
+      return respond({ ok:_ras.ok, result:_ras, log: Logger.getLog() });
+    }
     if(body.action === 'backfill_lp_section_sources') {
       // Fills blank lp_section_source on SocialPosts (from design_brief or ID pattern)
       // and EmailSequences (from funnel_stage column).
@@ -1111,6 +1121,48 @@ function doPost(e) {
     if(body.action === 'seed_ec2026001_content_calendar') {
       var _ccSeed = seedEC2026001ContentCalendar(body.campaignId || body.campaign_id || 'EC-2026-001');
       return respond({ ok:_ccSeed.ok, result:_ccSeed, log: Logger.getLog() });
+    }
+    if(body.action === 'audit_content_calendar') {
+      var _aCid  = body.campaign_id || 'EC-2026-001';
+      var _aWinS = body.window_start || '2026-05-27';
+      var _aWinE = body.window_end   || '2026-06-30';
+      try {
+        var _aSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+        var _aHdrs  = _CC_HDR[_CC_TAB.CONTENT_CAL];
+        var _aH = {}; _aHdrs.forEach(function(h,i){_aH[h]=i;});
+        var _aLast  = _aSheet.getLastRow();
+        if (_aLast < 2) return respond({ok:false, error:'ContentCalendar empty'});
+        var _aRows  = _aSheet.getRange(2,1,_aLast-1,_aHdrs.length).getValues();
+        var total=0, badDate=0, noDl=0, noDate=0, wrongDay=0, platforms={};
+        var minDate='', maxDate='', examples=[];
+        _aRows.forEach(function(r) {
+          if (String(r[_aH.campaign_id]||'') !== _aCid) return;
+          total++;
+          var pd = String(r[_aH.publish_date]||'');
+          if (r[_aH.publish_date] instanceof Date) pd = Utilities.formatDate(r[_aH.publish_date], 'UTC', 'yyyy-MM-dd');
+          var dl = String(r[_aH.dl_id]||'');
+          var dy = Number(r[_aH.day]||0);
+          var plt= String(r[_aH.platform]||'');
+          var aid= String(r[_aH.asset_id]||'');
+          platforms[plt] = (platforms[plt]||0)+1;
+          if (!pd || pd==='') { noDate++; if(examples.length<5) examples.push({id:aid,issue:'no_date'}); }
+          else {
+            if (!minDate || pd < minDate) minDate = pd;
+            if (!maxDate || pd > maxDate) maxDate = pd;
+            if (pd < _aWinS || pd > _aWinE) { badDate++; if(examples.length<10) examples.push({id:aid,platform:plt,date:pd,issue:'out_of_window'}); }
+          }
+          if (!dl) { noDl++; if(examples.length<10) examples.push({id:aid,platform:plt,issue:'no_dl_id'}); }
+          if (dy < 1 || dy > 35) { wrongDay++; if(examples.length<5) examples.push({id:aid,day:dy,issue:'day_out_of_range'}); }
+        });
+        return respond({ok:true, result:{
+          total:total, window:_aWinS+'→'+_aWinE,
+          min_date:minDate, max_date:maxDate,
+          bad_date_count:badDate, no_date_count:noDate,
+          no_dl_id_count:noDl, wrong_day_count:wrongDay,
+          platforms:platforms, issues:examples,
+          all_clear:(badDate===0 && noDate===0 && noDl===0 && wrongDay===0)
+        }});
+      } catch(_ae) { return respond({ok:false,error:_ae.message}); }
     }
     if(body.action === 'seed_content_calendar') {
       var _ccSeed2 = seedEC2026001ContentCalendar(body.campaignId || body.campaign_id || 'EC-2026-001');
@@ -1450,6 +1502,138 @@ function doPost(e) {
       var _spR = fcGenerateSocialPosts(body.campaign_id||'', body.channel||'');
       return respond({ ok:_spR.ok, posts:_spR.posts, tiktok:_spR.tiktok, youtube:_spR.youtube, error:_spR.error||null, log:Logger.getLog() });
     }
+    if(body.action === 'patch_social_body_copy') {
+      // Regenerates body_copy on EXISTING SocialPosts rows (preserves ec001-sp-XXX IDs).
+      // Uses playbook-correct stage prompts: phone rule, food rule, claim scoping, arc emotions.
+      // body.campaign_id required. body.channel optional filter. body.force=true to repatch non-empty.
+      var _pCid    = (body.campaign_id || '').trim();
+      var _pChan   = (body.channel     || '').toLowerCase();
+      var _pForce  = !!(body.force);
+      var _pDryRun = !!(body.dry_run);
+      if (!_pCid) return respond({ ok: false, error: 'campaign_id required' });
+      try {
+        var _pCtx = _fcLoad(_pCid);
+        if (!_pCtx) return respond({ ok: false, error: 'Brief not found: ' + _pCid });
+        var _pBrief = _pCtx.brief;
+        var _pCopy  = _pCtx.copy;
+        var _pFood  = (_pBrief.themeData && _pBrief.themeData.food_type) || _pBrief.theme_food || _pBrief.food_type || '';
+        var _pAngle = _pBrief.campaign_angle || 'savings';
+        var _pProps = PropertiesService.getScriptProperties();
+        var _pKey   = _pProps.getProperty('ANTHROPIC_API_KEY') || '';
+        if (!_pKey) return respond({ ok: false, error: 'ANTHROPIC_API_KEY not set' });
+
+        // Stage-specific playbook rules
+        var _pStageRules = {
+          hook:     { phone: false, claims: 'NONE — hook is recognition. No statistics, no product name, no features.', emotion_in: 'unaware-of-pattern', emotion_out: 'recognised', goal: 'They feel it before they read line 2. ICP in their kitchen. Real scene. Quiet resignation. Make the invisible visible.', forbidden: 'Product mention. Feature name. Generic pain. App name. CTA to download.' },
+          problem:  { phone: false, claims: 'TIME-COST ONLY if needed: "5 to 10 hours a week deciding what to eat." No product.', emotion_in: 'recognised', emotion_out: 'understood — it was the system not me', goal: 'They realise the problem is the disconnected system, not them. Never shame. The system is broken, not the person.', forbidden: 'Shame language. Blaming the person. Solution reference of any kind. App name before they are ready.' },
+          agitate:  { phone: false, claims: _pAngle === 'time' ? 'TIME ONLY: "5 to 10 hours a week." NO savings stat on time-angle posts.' : 'MONEY ONLY: "$1,336/year average savings" or "$111/month on food that never becomes dinner." Make the cost concrete.', emotion_in: 'understood', emotion_out: 'activated — cost is real', goal: 'The cost of staying where they are becomes undeniable. Not drama — the quiet truth of what keeps repeating.', forbidden: 'Product reveal. Optimism. Multiple vague costs. easyChef Pro name. Any solution hint.' },
+          solve:    { phone: true,  claims: '"30 minutes fridge to table" OR "800,000 products" OR "dietitian-reviewed nutrition intelligence." ONE claim maximum.', emotion_in: 'activated', emotion_out: 'curious and relieved — discovered not sold', goal: 'The solution feels discovered, not pitched. Phone appears for the FIRST time. ONE feature only — the lead feature for this campaign theme.' + (_pFood ? ' Food rule: mention "' + _pFood + '" by name.' : ''), forbidden: 'All five features at once. Hard sell. Feature list. Jargon.' },
+          value:    { phone: true,  claims: 'NONE — value is qualitative. The feeling, not the number. No statistics.',      emotion_in: 'curious', emotion_out: 'calm — they can see it', goal: 'Life after the system works. Paint the version of their life where easyChef Pro exists. Specific to this ICP.' + (_pFood ? ' Food rule: mention "' + _pFood + '" by name.' : ''), forbidden: 'Statistics. Claims. Specs. Feature descriptions.' },
+          lifecycle:{ phone: true,  claims: 'NONE — lifecycle is identity. Life stage language only. No statistics.',         emotion_in: 'calm', emotion_out: 'identity-aligned', goal: 'This was built for where they are and where they are going next. Name the current life stage. Name the next one. "The app that evolves with your life."', forbidden: 'Generic "it adapts" copy. Stats. Claims.' },
+          proof:    { phone: true,  claims: 'ALL approved claims with EXACT wording: "$1,336/year" · "69.5%" · "30 minutes fridge to table" · "Validated across 10,000 household profiles" · "9 patent-pending technologies" · "Built by first responders." ONE per post. No rounding. No paraphrasing.', emotion_in: 'identity-aligned', emotion_out: 'trusting', goal: 'Stats confirm what they already believe — do not try to create belief. One claim. Real people. Real food.' + (_pFood ? ' Food rule: ' + _pFood + ' visible.' : ''), forbidden: 'Rounded numbers. Paraphrased claims. Invented testimonials. More than one stat.' },
+          cta:      { phone: true,  claims: '"$7.99/month" · "60% off forever" · "first 5,000 families" · "60-day money-back." Belonging only.',                                  emotion_in: 'trusting', emotion_out: 'belonging', goal: 'The action feels like a door they were already walking toward. Outcome-framed. Never pressure. Never urgency. Identity and belonging.', forbidden: '"Sign up". Feature-based action. Pressure language. Urgency without belonging.' }
+        };
+        var _pCharLimits = { facebook:400, instagram:2200, x:280, pinterest:500, nextdoor:300, tiktok:400, youtube:400 };
+
+        var _pPosts   = getSocialPosts(_pCid);
+        var _pUpdated = 0, _pSkipped = 0, _pErrors = 0;
+        var _pBATCH   = 20; // max per call to stay under GAS 6-min limit
+
+        for (var _pi = 0; _pi < _pPosts.length && _pUpdated < _pBATCH; _pi++) {
+          var _pp = _pPosts[_pi];
+          if (_pChan && (_pp.platform || '').toLowerCase() !== _pChan) { _pSkipped++; continue; }
+          if (!_pForce && _pp.body_copy && _pp.body_copy.trim()) { _pSkipped++; continue; }
+          var _pStage = (_pp.lp_section_source || _pp.loop_stage || 'hook').toLowerCase();
+          var _pRules = _pStageRules[_pStage] || _pStageRules['hook'];
+          var _pCharLim = _pCharLimits[(_pp.platform||'').toLowerCase()] || 400;
+          var _pNum = 0; var _pnm = String(_pp.id||'').match(/(\d+)$/); if (_pnm) _pNum = parseInt(_pnm[1],10);
+          var _pPhoneInstruct = _pRules.phone
+            ? 'PHONE VISIBLE — phone or app screen IS shown (post ' + _pNum + ', ' + _pStage + ' stage).'
+            : 'NO PHONE — phone and app are NOT shown in this post (post ' + _pNum + ', ' + _pStage + ' stage, posts 1-3 rule).';
+
+          if (_pDryRun) { _pUpdated++; Logger.log('[patchBody] DRY RUN — would patch ' + _pp.id + ' (' + _pStage + ')'); continue; }
+
+          var _pSysPrompt =
+            '=== CAMPAIGN: easyChef Pro · EC-2026-001 ===\n' +
+            'Master story: "The problem was never you. The system was disconnected. easyChef Pro closes the gaps."\n' +
+            'Campaign angle: ' + _pAngle + '\n' +
+            'ICP: ' + (_pBrief.icp || 'super_mom') + '\n' +
+            (_pFood ? 'Theme food: ' + _pFood + '\n' : '') +
+            '\n=== THIS POST ===\n' +
+            'Post ID: ' + _pp.id + '\n' +
+            'Platform: ' + (_pp.platform||'') + ' — character limit: ' + _pCharLim + ' chars for body_copy\n' +
+            'Arc stage: ' + _pStage.toUpperCase() + '\n' +
+            _pPhoneInstruct + '\n' +
+            '\n=== PLAYBOOK RULES FOR ' + _pStage.toUpperCase() + ' ===\n' +
+            'Emotional goal: ' + _pRules.goal + '\n' +
+            'Emotion entering: ' + _pRules.emotion_in + '\n' +
+            'Emotion leaving: ' + _pRules.emotion_out + '\n' +
+            'Claims: ' + _pRules.claims + '\n' +
+            'Forbidden: ' + _pRules.forbidden + '\n' +
+            '\n=== CONTENT LAWS (NEVER BREAK) ===\n' +
+            '- Never shame-based. The problem is always the system, never the person.\n' +
+            '- CTA never says "sign up". Always outcome-framed. Always belonging.\n' +
+            '- No invented testimonials. No rounded statistics.\n' +
+            '- "easyChef Pro" in full every time. Never "the app" or "a meal planning app".\n' +
+            '- Hook: If provided, keep it. Write body_copy AFTER the hook.\n' +
+            '\n=== EXISTING HOOK (do not rewrite) ===\n' +
+            (_pp.hook || '[hook not yet written — write one]') + '\n' +
+            '\n=== OUTPUT FORMAT ===\n' +
+            'Return ONLY a valid JSON object. No markdown. No explanation.\n' +
+            '{\n' +
+            '  "hook": "keep or improve the hook — under 15 words",\n' +
+            '  "body_copy": "full post body — plain text, no markdown — under ' + _pCharLim + ' chars",\n' +
+            '  "cta": "CTA line — under 10 words — never say sign up",\n' +
+            '  "emotional_state": "' + _pRules.emotion_in + '",\n' +
+            '  "emotional_destination": "' + _pRules.emotion_out + '"\n' +
+            '}';
+
+          try {
+            var _pResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: { 'x-api-key': _pKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+              payload: JSON.stringify({
+                model: 'claude-sonnet-4-20250514', max_tokens: 800,
+                messages: [{ role: 'user', content: 'Write the body_copy for post ' + _pp.id + ' (' + _pStage.toUpperCase() + ' stage, ' + (_pp.platform||'') + '). Return only the JSON.' }],
+                system: _pSysPrompt
+              }),
+              muteHttpExceptions: true
+            });
+            var _pRespJson = JSON.parse(_pResp.getContentText());
+            var _pText = (_pRespJson.content && _pRespJson.content[0] && _pRespJson.content[0].text) || '';
+            if (!_pText) { _pErrors++; Logger.log('[patchBody] No text for ' + _pp.id); continue; }
+            var _pClean = _pText.trim().replace(/^```[a-z]*\n?/i,'').replace(/\n?```$/,'').trim();
+            var _pObj   = JSON.parse(_pClean);
+            setSocialPost({
+              id:                    _pp.id,
+              hook:                  _pObj.hook                  || _pp.hook || '',
+              body_copy:             _pObj.body_copy             || '',
+              cta:                   _pObj.cta                   || _pp.cta  || '',
+              emotional_state:       _pObj.emotional_state       || _pRules.emotion_in,
+              emotional_destination: _pObj.emotional_destination || _pRules.emotion_out,
+              lp_section_source:     _pStage,
+              loop_stage:            _pStage
+            });
+            _pUpdated++;
+            Logger.log('[patchBody] ' + _pp.id + ' (' + _pStage + ' · ' + (_pp.platform||'') + ') patched');
+          } catch(_pPostErr) {
+            _pErrors++;
+            Logger.log('[patchBody] ERROR on ' + _pp.id + ': ' + _pPostErr.message);
+          }
+        }
+
+        var _pRemaining = 0;
+        for (var _pri = 0; _pri < _pPosts.length; _pri++) {
+          var _prp = _pPosts[_pri];
+          if (_pChan && (_prp.platform||'').toLowerCase() !== _pChan) continue;
+          if (!_prp.body_copy || !_prp.body_copy.trim()) _pRemaining++;
+        }
+
+        return respond({ ok: true, updated: _pUpdated, skipped: _pSkipped, errors: _pErrors, remaining: Math.max(0, _pRemaining - _pUpdated), log: Logger.getLog() });
+      } catch(_pErr) {
+        return respond({ ok: false, error: _pErr.message, log: Logger.getLog() });
+      }
+    }
     if(body.action === 'generate_emails')            return respond(fcGenerateEmails(body.campaign_id||''));
     if(body.action === 'generate_utm_and_save')      return respond(fcGenerateUtmAndSave(body.campaign_id||''));
     if(body.action === 'export_campaign_to_drive')   return respond(fcExportCampaignToDrive(body.campaign_id||''));
@@ -1472,6 +1656,60 @@ function doPost(e) {
     if(body.action === 'ensure_lp_doctrine_columns')   return respond(ensureAllLPDoctrineColumns());
     if(body.action === 'generate_lp_spine')            return respond(generateLPSpine(body.campaign_id, { lp_variant: body.lp_variant || 'a', icp_code: body.icp_code || '' }));
     if(body.action === 'generate_loop_copy')           return respond(generateLoopCopy(body.campaign_id, body.post_id, { lp_variant: body.lp_variant || 'a', icp_code: body.icp_code || '', platform: body.platform || '' }));
+    if(body.action === 'debug_brief') {
+      var _dbId = (body.asset_id || '').trim();
+      if (!_dbId) return respond({ ok: false, error: 'asset_id required' });
+      try {
+        // ContentCalendar row
+        var _dbCCSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+        var _dbCCHdrs  = _CC_HDR[_CC_TAB.CONTENT_CAL];
+        var _dbCH = {}; _dbCCHdrs.forEach(function(h,i){ _dbCH[h]=i; });
+        var _dbCCData = _dbCCSheet.getLastRow() < 2 ? [] :
+          _dbCCSheet.getRange(2,1,_dbCCSheet.getLastRow()-1,Math.min(_dbCCHdrs.length,_dbCCSheet.getLastColumn())).getValues();
+        var _dbCCRow = null;
+        for (var _dbi=0; _dbi<_dbCCData.length; _dbi++) {
+          if (String(_dbCCData[_dbi][_dbCH.asset_id]||'') === _dbId) { _dbCCRow = _dbCCData[_dbi]; break; }
+        }
+        var _dbCCObj = _dbCCRow ? {} : null;
+        if (_dbCCRow) _dbCCHdrs.forEach(function(h,i){ _dbCCObj[h] = String(_dbCCRow[i]||''); });
+
+        var _dbPlatform = _dbCCRow ? String(_dbCCRow[_dbCH.platform]||'') : '';
+        var _dbDlId     = _dbCCRow ? String(_dbCCRow[_dbCH.dl_id]||'') : '';
+        var _dbIsEmail  = _dbPlatform.toLowerCase() === 'email';
+
+        // SocialPosts: first 5 IDs + match attempt
+        var _dbSPSheet = _getCCSheet(_CC_TAB.SOCIAL);
+        var _dbSPHdrs  = _CC_HDR.SocialPosts;
+        var _dbSH = {}; _dbSPHdrs.forEach(function(h,i){ _dbSH[h]=i; });
+        var _dbSPData  = _dbSPSheet.getLastRow() < 2 ? [] :
+          _dbSPSheet.getRange(2,1,_dbSPSheet.getLastRow()-1,_dbSPHdrs.length).getValues();
+        var _dbSPRow = null;
+        var _dbFirst5 = [];
+        for (var _dbj=0; _dbj<_dbSPData.length; _dbj++) {
+          if (_dbj < 5) _dbFirst5.push(String(_dbSPData[_dbj][_dbSH.id]||''));
+          if (String(_dbSPData[_dbj][_dbSH.id]||'') === _dbId || String(_dbSPData[_dbj][_dbSH.dl_id]||'') === _dbDlId) {
+            _dbSPRow = _dbSPData[_dbj]; break;
+          }
+        }
+        var _dbSPObj = _dbSPRow ? {} : null;
+        if (_dbSPRow) { _dbSPHdrs.forEach(function(h,i){ _dbSPObj[h] = String(_dbSPRow[i]||''); }); }
+
+        return respond({
+          ok: true,
+          asset_id_queried: _dbId,
+          cc_row_found: !!_dbCCRow,
+          cc_platform: _dbPlatform,
+          cc_dl_id: _dbDlId,
+          is_email: _dbIsEmail,
+          sp_row_found: !!_dbSPRow,
+          sp_first_5_ids: _dbFirst5,
+          cc_row: _dbCCObj,
+          sp_row: _dbSPObj
+        });
+      } catch(_dbErr) {
+        return respond({ ok: false, error: _dbErr.message });
+      }
+    }
     if(body.action === 'backfill_lp_doctrine_columns')  return respond(backfillLPDoctrineColumns());
     if(body.action === 'validate_asset_lp_alignment')   return respond(validateAssetLPAlignment(body.campaign_id, { post_id: body.post_id||'', full_report: body.full_report||false }));
     if(body.action === 'backfill_lp_section_source') {
@@ -1532,6 +1770,25 @@ function doPost(e) {
     if(body.action === 'get_visual_direction_context')   return respond(getVisualDirectionContext(body.campaign_id||'', body.lp_section||'', body.post_number||1));
     if(body.action === 'validate_campaign_step1_gates')  return respond(validateCampaignStep1Gates(body.campaign_id||''));
     if(body.action === 'seed_gpt4o_settings')            return respond(seedGpt4oSettings());
+    if(body.action === 'update_cc_setting') {
+      var _uck = body.key, _ucv = body.value;
+      if (!_uck) return respond({ ok:false, error:'key required' });
+      var _ucs = _getCCSheet(_CC_TAB.SETTINGS);
+      var _ucl = _ucs.getLastRow();
+      var _found = false;
+      if (_ucl >= 2) {
+        var _ucv2 = _ucs.getRange(2,1,_ucl-1,2).getValues();
+        for(var _ui=0;_ui<_ucv2.length;_ui++) {
+          if(String(_ucv2[_ui][1]) === _uck) {
+            _ucs.getRange(_ui+2,3,1,1).setValue(String(_ucv));
+            try { CacheService.getScriptCache().remove('cc_settings_v1'); } catch(e) {}
+            _found = true; break;
+          }
+        }
+      }
+      if (!_found) return respond({ ok:false, error:'Setting key not found: '+_uck });
+      return respond({ ok:true, key:_uck, value:_ucv });
+    }
     if(body.action === 'seed_brand_visual_tokens')       return respond(seedBrandVisualTokens());
     if(body.action === 'get_gpt4o_log') {
       var _gl = _getCCSheet(_CC_TAB.SETTINGS); var _gll = _gl.getLastRow();
