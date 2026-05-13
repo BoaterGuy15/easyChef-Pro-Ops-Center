@@ -1443,6 +1443,29 @@ function doPost(e) {
     if(body.action === 'generate_loop_copy')           return respond(generateLoopCopy(body.campaign_id, body.post_id, { lp_variant: body.lp_variant || 'a', icp_code: body.icp_code || '', platform: body.platform || '' }));
     if(body.action === 'backfill_lp_doctrine_columns')  return respond(backfillLPDoctrineColumns());
     if(body.action === 'validate_asset_lp_alignment')   return respond(validateAssetLPAlignment(body.campaign_id, { post_id: body.post_id||'', full_report: body.full_report||false }));
+    if(body.action === 'backfill_lp_section_source') {
+      var _bCid = (body.campaign_id || '').trim();
+      if (!_bCid) return respond({ ok: false, error: 'campaign_id required' });
+      var _arcMap = ['hook','problem','agitate','solve','value','proof','cta'];
+      var _spFixed = 0, _emFixed = 0;
+      var _bPosts = getSocialPosts(_bCid);
+      _bPosts.forEach(function(p) {
+        if (p.lp_section_source) return;
+        var m = String(p.id).match(/-POST-(\d+)$/i);
+        if (!m) return;
+        var stage = _arcMap[Math.min(parseInt(m[1],10)-1, _arcMap.length-1)] || 'hook';
+        setSocialPost({ id: p.id, lp_section_source: stage, loop_stage: stage });
+        _spFixed++;
+      });
+      var _bEmails = getEmailSequences(_bCid);
+      _bEmails.forEach(function(e) {
+        if (e.lp_section_source) return;
+        var stage = e.funnel_stage || 'hook';
+        setEmailSequence({ id: e.id, lp_section_source: stage, loop_stage: stage });
+        _emFixed++;
+      });
+      return respond({ ok: true, social_fixed: _spFixed, email_fixed: _emFixed, log: Logger.getLog() });
+    }
     if(body.action === 'seed_playbook_wiring')           return respond(seedPlaybookWiring());
     if(body.action === 'repair_claim_scoping_001')       return respond(repairClaimScoping001());
     if(body.action === 'update_roadmap_doc') {

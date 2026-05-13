@@ -1626,7 +1626,9 @@ function _seqRowToObj(r) {
     emotional_stage:   r[27] || '',
     claim_set:         r[28] || '',
     loop_stage:        r[29] || '',
-    dl_id:             r[30] || ''
+    dl_id:             r[30] || '',
+    claude_design_url: r[31] || '',
+    full_email_body:   r[32] || ''
   };
 }
 
@@ -1684,7 +1686,9 @@ function setEmailSequence(item) {
     item.emotional_stage   !== undefined ? item.emotional_stage   : (ex ? ex[27] : ''),
     item.claim_set         !== undefined ? item.claim_set         : (ex ? ex[28] : ''),
     item.loop_stage        !== undefined ? item.loop_stage        : (ex ? ex[29] : ''),
-    item.dl_id             !== undefined ? item.dl_id             : (ex ? ex[30] : '')
+    item.dl_id             !== undefined ? item.dl_id             : (ex ? ex[30] : ''),
+    item.claude_design_url !== undefined ? item.claude_design_url : (ex ? ex[31] : ''),
+    item.full_email_body   !== undefined ? item.full_email_body   : (ex ? ex[32] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }

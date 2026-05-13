@@ -853,15 +853,20 @@ function buildSocialCalendar(brief, copy) {
           }
 
           setSocialPost({
-            id:             postId,
-            campaign_id:    campaignId,
-            platform:       channel,
-            hook:           p.hook      || '',
-            body_copy:      p.body_copy || '',
-            cta:            p.cta       || '',
-            hashtags:       p.hashtags  || '',
-            scheduled_date: _sched,
-            status:         'draft'
+            id:                 postId,
+            campaign_id:        campaignId,
+            platform:           channel,
+            hook:               p.hook      || '',
+            body_copy:          p.body_copy || '',
+            cta:                p.cta       || '',
+            hashtags:           p.hashtags  || '',
+            scheduled_date:     _sched,
+            status:             'draft',
+            lp_section_source:  stage,
+            loop_stage:         stage,
+            lp_headline_connection: p.lp_headline_connection || '',
+            emotional_state:    p.emotional_state    || '',
+            emotional_destination: p.emotional_destination || ''
           });
           allPosts.push(p);
           Logger.log('[buildSocialCalendar] ' + channel + ' post ' + (pi + 1) + ' (' + stage + ') saved');

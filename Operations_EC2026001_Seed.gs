@@ -6122,7 +6122,7 @@ function seedAllCampaignsContentCalendar() {
         dlId, utmUrl, '', '', '', '', '', '',
         day, week, funnelStage, emotion,
         String(b.icp_target || ''), '', blockedBy,
-        now, now, String(b.brief_doc_url || '')
+        now, now, String(b.brief_doc_url || ''), '', ''
       ]);
 
       byCampaign[campaignId] = (byCampaign[campaignId] || 0) + 1;
