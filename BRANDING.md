@@ -131,12 +131,17 @@ These rules live in `Operations_AssetBuilder.gs` → `_getSkillBlock('design')` 
 - `h1`, `.kpi-val`, `.cal-month-title` → Proza Libre via `var(--font-head)`
 - Preserved: milestone swatch `#0a84ff` option, `scheduled` status dot `#0a84ff`
 
-### Session 2 — Planned
-- KPI card depth (subtle inner shadow, border glow on hover)
-- Pipeline bar polish (gradient fill, animated entry)
-- Calendar cell treatment (today highlight uses `var(--accent)` circle)
-- Filter pill refinement (active pill uses Proza Libre weight contrast)
-- Explore Bento Grid layout for dashboard sections
+### Session 2 — Deploy @724 (May 2026)
+- Page background: `#F6EFE8` beige; removed all dark `#0c0c0e` backgrounds
+- Cards and panels: `#FFFFFF` white; borders: `rgba(0,0,0,0.08)` soft
+- KPI cards: white + `border-top: 3px solid #FF0000` stripe + `box-shadow: 0 2px 8px rgba(0,0,0,0.06)`
+- Pipeline bars: beige `#F6EFE8` track, `#FF0000` brand red fill; PIPELINE_COLORS all → `#FF0000`
+- Calendar: white cells for in-campaign days, `#EDE8E0` beige for non-campaign, `#E8E3DB` for outside, `#FFF5F5` for today
+- Filter pills: white background + red `#FF0000` border inactive; red background + white text active
+- Day popup + PM card: white body, beige `#F6EFE8` drag header
+- Platform chips updated to light-mode semi-transparent backgrounds
+- Status colors adjusted for WCAG contrast on light: green `#16a34a`, yellow `#b45309`, purple `#7c3aed`
+- STATUS_DOT_COLOR updated for light backgrounds
 
 ---
 
