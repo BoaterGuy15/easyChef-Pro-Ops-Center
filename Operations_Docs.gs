@@ -2179,7 +2179,8 @@ function renderBriefHtml(assetId) {
       _schemaField('Household Utility',     'High — functional kitchen context') +
 
       _schemaHead('Product / App Rules') +
-      _schemaField('Phone Visible',         phoneOk ? 'YES — lifestyle context, not full UI showcase' : 'NO — keep phone out of frame') +
+      _schemaField('Phone Device Visible',   phoneOk ? 'YES — handset in lifestyle scene, not UI showcase' : 'NO — keep device out of frame entirely') +
+      _schemaField('Phone NUMBER in asset', 'NEVER — no phone number on any social or email asset') +
       _schemaField('App UI Visible',        phoneOk ? 'Optional — partial glance acceptable' : 'No') +
       _schemaField('Icons Visible',         'No') +
       _schemaField('easyChef Pro Logo',     'No — handled by text overlay layer') +
@@ -2199,7 +2200,8 @@ function renderBriefHtml(assetId) {
       '<ul class="constraint-list" style="margin:8px 0 8px 20px">' +
       ['Stock photo look','Fake smiles','Influencer poses','Overly polished kitchen',
        'AI hands / extra fingers','Weird or unrealistic groceries',
-       'Phone UI if prohibited','Gradients','Glassmorphism',
+       'Phone UI if prohibited','Phone NUMBER in any asset (social or email)',
+       'Gradients','Glassmorphism',
        'Surreal or studio lighting','Unrealistic food','Defeat or shame tone'].map(function(a){
          return '<li>' + a + '</li>';
        }).join('') +
