@@ -2241,6 +2241,7 @@ function renderBriefHtml(assetId) {
       'Design an HTML email for easyChef Pro — ' + (em.sequence_code || seqCode || 'SEQ-1') + ' · ' + (funnel || 'hook') + '\n\n' +
       'SUBJECT: ' + (em.subject_line || '') + '\n' +
       'PREVIEW: ' + (em.preview_text || '') + '\n\n' +
+      'NO PHONE NUMBER: Do NOT include any phone number anywhere in this email. Ever.\n' +
       'LAYOUT: red accent bar top · logo · hero line · body · red CTA pill · footer\n' +
       'WIDTH: 600px desktop · 375px mobile\n' +
       'BRAND: #FF0000 · #F6EFE8 · #000000 · Proza Libre headings · Inter body\n' +
@@ -2254,7 +2255,8 @@ function renderBriefHtml(assetId) {
     _cdPrompt =
       'Design a ' + platform + ' ' + layoutType + ' for easyChef Pro.\n\n' +
       'CANVAS: ' + frameSize + ' · 8pt spacing · 24px margins\n' +
-      'PHONE RULE: ' + (phoneOk ? 'PHONE VISIBLE' : 'NO PHONE in frame') + '\n' +
+      'PHONE RULE: ' + (phoneOk ? 'PHONE DEVICE VISIBLE — handset in lifestyle scene only' : 'NO PHONE DEVICE in frame') + '\n' +
+      'NO PHONE NUMBER: Do NOT include any phone number anywhere in this asset. Ever.\n' +
       (_cdLogoUrl ? 'LOGO: ' + _cdLogoUrl + ' — top-left, 120px wide\n' : '') +
       '\nCOPY:\nHook: "' + (sp.hook || '') + '"\n' +
       'Body: "' + _spFirst2 + '"\n' +
@@ -2264,7 +2266,7 @@ function renderBriefHtml(assetId) {
       'CTA style: pill button · red · white text · bottom of card · no shadow\n' +
       '\nIMAGE: ' + (sp.image_brief || 'warm realistic kitchen photography') + ' · warm realistic photography · no staged aesthetics · no gradients\n' +
       'MOOD: ' + (emotionIn || '') + '\n' +
-      'AVOID: blue tones · studio lighting · fake smiles · glassmorphism\n' +
+      'AVOID: phone numbers · blue tones · studio lighting · fake smiles · glassmorphism\n' +
       '\nLAYOUT: hook text dominant top · photo zone 65% · CTA bottom';
   }
 
