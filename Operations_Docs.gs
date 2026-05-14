@@ -2437,3 +2437,211 @@ function renderBriefHtml(assetId) {
 
   return html;
 }
+
+/**
+ * Returns the assembled Claude Design Prompt for an asset.
+ * Called directly from cockpit via google.script.run.getClaudeDesignPrompt(assetId).
+ */
+function getClaudeDesignPrompt(assetId) {
+  try {
+    var _logoUrl = '';
+    try {
+      var _la = _getCcSetting('LOGO_URL');
+      if (_la && _la.length > 0 && _la[0].label) _logoUrl = String(_la[0].label);
+    } catch(_le) {}
+
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var calHdrs  = _CC_HDR.ContentCalendar;
+    var CH = {}; calHdrs.forEach(function(h,i){ CH[h]=i; });
+    var calData  = calSheet.getRange(2,1,calSheet.getLastRow()-1,calHdrs.length).getValues();
+    var ccRow = null;
+    for (var i=0;i<calData.length;i++) {
+      if (String(calData[i][CH.asset_id]||'')===assetId){ccRow=calData[i];break;}
+    }
+    if (!ccRow) return { ok:false, error:'Asset not found: '+assetId };
+
+    var campaignId = String(ccRow[CH.campaign_id]||'');
+    var platform   = String(ccRow[CH.platform]||'');
+    var day        = String(ccRow[CH.day]||'');
+    var week       = String(ccRow[CH.week]||'');
+    var dlId       = String(ccRow[CH.dl_id]||'');
+    var funnel     = String(ccRow[CH.funnel_stage]||'');
+    var icp        = String(ccRow[CH.icp_target]||'');
+    var plat       = platform.toLowerCase();
+    var isEmail    = plat === 'email';
+    var postNum    = 0; var pn=assetId.match(/(\d+)$/); if(pn) postNum=parseInt(pn[1],10);
+    var phoneOk    = (postNum > 3) || isEmail;
+    var _lpVariant = (postNum % 2 === 1) ? 'waitlist-a' : 'waitlist-b';
+
+    var sp = null, em = null;
+    if (isEmail) {
+      var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+      var emHdrs  = _CC_HDR.EmailSequences;
+      var EH = {}; emHdrs.forEach(function(h,i){EH[h]=i;});
+      var emData  = emSheet.getRange(2,1,emSheet.getLastRow()-1,emHdrs.length).getValues();
+      for (var j=0;j<emData.length;j++) {
+        if (String(emData[j][EH.id]||'')===assetId) {
+          var er=emData[j];
+          em={subject_line:_bDecode(er[EH.subject_line]||''),preview_text:_bDecode(er[EH.preview_text]||''),
+              body_hook:_bDecode(er[EH.body_hook]||''),body_problem:_bDecode(er[EH.body_problem]||''),
+              body_agitate:_bDecode(er[EH.body_agitate]||''),body_solve:_bDecode(er[EH.body_solve]||''),
+              body_value:_bDecode(er[EH.body_value]||''),body_proof:_bDecode(er[EH.body_proof]||''),
+              body_cta:_bDecode(er[EH.body_cta]||''),sequence_code:String(er[EH.sequence_code]||''),dl_id:String(er[EH.dl_id]||'')};
+          break;
+        }
+      }
+    } else {
+      var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+      var spHdrs  = _CC_HDR.SocialPosts;
+      var SH = {}; spHdrs.forEach(function(h,i){SH[h]=i;});
+      var spData  = spSheet.getRange(2,1,spSheet.getLastRow()-1,spHdrs.length).getValues();
+      for (var k=0;k<spData.length;k++) {
+        if (String(spData[k][SH.id]||'')===assetId) {
+          var sr=spData[k];
+          sp={hook:_bDecode(sr[SH.hook]||''),body_copy:_bDecode(sr[SH.body_copy]||''),
+              cta:_bDecode(sr[SH.cta]||''),hashtags:_bDecode(sr[SH.hashtags]||''),
+              image_brief:_bDecode(sr[SH.image_brief]||''),dl_id:String(sr[SH.dl_id]||''),
+              utm_url:String(sr[SH.utm_url]||''),lp_section_source:String(sr[SH.lp_section_source]||''),
+              emotional_state:_bDecode(sr[SH.emotional_state]||''),
+              emotional_destination:_bDecode(sr[SH.emotional_destination]||'')};
+          break;
+        }
+      }
+    }
+
+    if (!dlId && sp && sp.dl_id) dlId = sp.dl_id;
+    var lpSection  = (sp && sp.lp_section_source) || funnel || '';
+    var emotionIn  = (sp && sp.emotional_state)   || '';
+    var emotionOut = (sp && sp.emotional_destination) || '';
+    var _utmUrl    = (sp && sp.utm_url) || '';
+    var _lpUrl     = _utmUrl ? _utmUrl.split('?')[0] : 'https://easychefpro.com/lp/' + _lpVariant;
+
+    var layoutType='Social Static Card — 1:1', frameSize='1080 x 1080px';
+    if(plat==='facebook')  {layoutType='Facebook Feed — 4:5';     frameSize='1080 x 1350px';}
+    if(plat==='instagram') {layoutType='Instagram Feed — 1:1';    frameSize='1080 x 1080px';}
+    if(plat==='pinterest') {layoutType='Pinterest Card — 2:3';    frameSize='1000 x 1500px';}
+    if(plat==='x')         {layoutType='X Card — 16:9';           frameSize='1200 x 675px';}
+    if(plat==='nextdoor')  {layoutType='Nextdoor Card — 1:1';     frameSize='1080 x 1080px';}
+    if(plat==='tiktok')    {layoutType='TikTok/Reels — 9:16';     frameSize='1080 x 1920px';}
+    if(plat==='youtube')   {layoutType='YouTube — 16:9';          frameSize='1920 x 1080px';}
+
+    var _sceneMap={
+      hook:    {loc:'kitchen counter',time:'early morning',env:'home kitchen, warm ambient light',props:'fridge door open, leftover containers visible',bg:'clean countertop, soft morning window light'},
+      problem: {loc:'grocery store aisle or fridge',time:'late afternoon',env:'busy family kitchen or grocery store',props:'cart with groceries, phone in hand, confused expression',bg:'fluorescent grocery aisle or crowded kitchen'},
+      agitate: {loc:'kitchen / dinner table',time:'6:30 PM rush hour',env:'chaotic kitchen, kids nearby',props:'empty pots, open fridge, stressed posture',bg:'cluttered counter, background family noise implied'},
+      solve:   {loc:'kitchen counter',time:'evening',env:'calm kitchen, phone in use',props:'phone with easyChef Pro UI visible (if allowed), ingredients laid out',bg:'organized counter, warm light'},
+      value:   {loc:'dinner table',time:'evening meal',env:'family dinner, relaxed',props:'plated meal, family seated, smiles natural not staged',bg:'dining area, warm overhead light'},
+      proof:   {loc:'kitchen',time:'any',env:'real home kitchen',props:'finished meal, clean counter',bg:'lived-in kitchen, not showroom'},
+      cta:     {loc:'kitchen counter',time:'evening',env:'decisive moment, phone in hand',props:'phone visible (if allowed), CTA implied by posture',bg:'clean counter, focused light'}
+    };
+    var _emoMap={
+      exhausted:   {expr:'tired but present, not defeated',  body:'slouched slightly, hand on counter'},
+      frustrated:  {expr:'mildly stressed, furrowed brow',  body:'hands on hips or open fridge staring'},
+      overwhelmed: {expr:'wide eyes, distracted',            body:'turning away from fridge, phone nearby'},
+      relieved:    {expr:'soft exhale, shoulders dropping',  body:'relaxed stance, looking at phone'},
+      empowered:   {expr:'quiet confidence, slight smile',   body:'upright, active, purposeful'},
+      satisfied:   {expr:'warm genuine smile',               body:'seated or leaning, looking at meal'}
+    };
+    var _compMap={
+      facebook: {orient:'Portrait 4:5',  crop:'mid-body or closer',  placement:'right-center', textSafe:'left 35%',  ctaSafe:'bottom 15%', dof:'subject sharp, bg soft blur'},
+      instagram:{orient:'Square 1:1',    crop:'waist up',            placement:'center-right', textSafe:'top 30%',   ctaSafe:'bottom 12%', dof:'balanced, slight bg blur'},
+      pinterest:{orient:'Portrait 2:3',  crop:'full body or mid',    placement:'lower-center', textSafe:'top 40%',   ctaSafe:'bottom 10%', dof:'editorial, moderate blur'},
+      x:        {orient:'Landscape 16:9',crop:'shoulder up',         placement:'right third',  textSafe:'left 45%',  ctaSafe:'bottom 18%', dof:'subject sharp, bg implied'},
+      nextdoor: {orient:'Square 1:1',    crop:'waist up or close',   placement:'center',       textSafe:'top 25%',   ctaSafe:'bottom 15%', dof:'close-up, natural'},
+      tiktok:   {orient:'Portrait 9:16', crop:'full frame',          placement:'center',       textSafe:'top 20% + bottom 25%',ctaSafe:'bottom 20%',dof:'full scene'},
+      youtube:  {orient:'Landscape 16:9',crop:'scene establishing',  placement:'center-left',  textSafe:'right 40%', ctaSafe:'bottom 12%', dof:'wide, cinematic'}
+    };
+    var _lightMap={
+      hook:    {source:'soft window light (east-facing morning)', mood:'warm, inviting',      temp:'3200K warm white',     shadows:'soft, directional'},
+      problem: {source:'overhead kitchen light + fridge glow',   mood:'slightly harsh, real', temp:'4000K neutral',        shadows:'harder edges, realistic'},
+      agitate: {source:'overhead fluorescent or ambient chaos',  mood:'stressed, busy',       temp:'4500K cooler',         shadows:'mixed, unflattering on purpose'},
+      solve:   {source:'phone screen glow + ambient kitchen',    mood:'relief, calm discovery',temp:'3500K warm',          shadows:'soft, directional'},
+      value:   {source:'warm overhead dinner light',             mood:'warmth, togetherness',  temp:'2700K golden',        shadows:'minimal, soft'},
+      proof:   {source:'natural window + kitchen ambient',       mood:'real, lived-in',        temp:'3800K neutral warm',  shadows:'natural'},
+      cta:     {source:'directional spot + ambient warm',        mood:'decisive, confident',   temp:'3200K warm',          shadows:'clean, purposeful'}
+    };
+    var _sc    = _sceneMap[lpSection]  || _sceneMap['hook'];
+    var _emo   = _emoMap[emotionIn]    || {expr:'natural, real — not staged', body:'relaxed, purposeful'};
+    var _comp  = _compMap[plat]        || _compMap['instagram'];
+    var _light = _lightMap[lpSection]  || _lightMap['hook'];
+
+    var prompt = '';
+    if (isEmail && em) {
+      var _emParts  = [em.body_hook,em.body_problem,em.body_agitate,em.body_solve,em.body_value,em.body_proof,em.body_cta].filter(Boolean);
+      var _emSents  = _emParts.join(' ').match(/[^.!?]+[.!?]+\s*/g) || [_emParts.join(' ').slice(0,160)];
+      var _emFirst3 = _emSents.slice(0,3).join('').trim();
+      prompt =
+        'Design an HTML email for easyChef Pro — ' + (em.sequence_code||'SEQ-1') + ' · ' + (funnel||'hook') + '\n\n' +
+        'NO PHONE NUMBER: Do NOT include any phone number anywhere in this email. Ever.\n' +
+        'SUBJECT: ' + em.subject_line + '\n' +
+        'PREVIEW: ' + em.preview_text + '\n\n' +
+        'LAYOUT: red accent bar top · logo · hero line · body · red CTA pill · footer\n' +
+        'WIDTH: 600px desktop · 375px mobile\n' +
+        'BRAND: #FF0000 · #F6EFE8 · #000000 · Proza Libre headings · Inter body\n' +
+        (_logoUrl ? 'LOGO: ' + _logoUrl + ' — centered top of email, max-width 200px\n' : '') +
+        '\nCOPY:\n' + _emFirst3 + '\n' +
+        'CTA: "' + em.body_cta + '"';
+    } else if (sp) {
+      var _imgPurpose = 'Create immediate emotional recognition in a ' + (icp||'busy mom') +
+        ' at the ' + (lpSection||'hook') + ' stage. Make her feel seen — ' +
+        (emotionIn||'exhausted') + ' → ' + (emotionOut||'curious') +
+        ' — without words. Support the hook: "' + (sp.hook||'').slice(0,80) + '"';
+      var _spSents  = sp.body_copy.match(/[^.!?]+[.!?]+\s*/g) || [sp.body_copy.slice(0,120)];
+      var _spFirst2 = _spSents.slice(0,2).join('').trim();
+      prompt =
+        'Design a ' + platform + ' ' + layoutType + ' for easyChef Pro.\n\n' +
+        '— ASSET —\n' +
+        'ID: ' + assetId + ' · ' + campaignId + ' · Day ' + day + ' · Week ' + week + '\n' +
+        'Funnel Stage: ' + (funnel||lpSection) + ' · ICP: ' + icp + '\n' +
+        'Landing Page: ' + _lpUrl + '\n' +
+        (_utmUrl ? 'UTM URL: ' + _utmUrl + '\n' : '') +
+        '\n— CANVAS —\n' +
+        'Format: ' + frameSize + ' · 8pt spacing · 24px margins\n' +
+        'Phone Device Rule: ' + (phoneOk ? 'VISIBLE — handset in lifestyle scene only' : 'NO DEVICE in frame') + '\n' +
+        'NO PHONE NUMBER: Do NOT include any phone number anywhere in this asset. Ever.\n' +
+        (_logoUrl ? 'Logo: ' + _logoUrl + ' — top-left, 120px wide\n' : '') +
+        '\n— COPY —\n' +
+        'Hook: "' + sp.hook + '"\n' +
+        'Body: "' + _spFirst2 + '"\n' +
+        'CTA: "' + sp.cta + '"\n' +
+        (sp.hashtags ? 'Hashtags: ' + sp.hashtags + '\n' : '') +
+        '\n— BRAND —\n' +
+        'Primary: #FF0000 red · Background: #F6EFE8 beige · Text: #000000 black · White: #FFFFFF\n' +
+        'Headlines: Proza Libre bold/800 · Body: Inter 400–500\n' +
+        'CTA button: red pill · white text · border-radius 999px · no shadow · no gradient\n' +
+        '\n— IMAGE SCHEMA —\n' +
+        'Purpose: ' + _imgPurpose + '\n' +
+        'Scene: ' + _sc.loc + ' · ' + _sc.time + ' · ' + _sc.env + '\n' +
+        'Props: ' + _sc.props + '\n' +
+        'Background: ' + _sc.bg + '\n' +
+        'Subject: Woman 32–44 · busy mom · ' + _emo.expr + '\n' +
+        'Body Language: ' + _emo.body + '\n' +
+        'Wardrobe: Casual — jeans, t-shirt or light jacket. No apron.\n' +
+        'Primary Emotion: ' + (emotionIn||'exhausted') + ' → ' + (emotionOut||'curious') + '\n' +
+        'Must feel like: Real life — a moment she has actually lived\n' +
+        'Must NOT feel like: Stock photo · influencer content · aspirational staging\n' +
+        '\n— COMPOSITION —\n' +
+        'Orientation: ' + _comp.orient + ' · Crop: ' + _comp.crop + '\n' +
+        'Subject placement: ' + _comp.placement + '\n' +
+        'Text safe zone: ' + _comp.textSafe + '\n' +
+        'CTA safe zone: ' + _comp.ctaSafe + '\n' +
+        'Depth of field: ' + _comp.dof + '\n' +
+        '\n— LIGHTING —\n' +
+        'Source: ' + _light.source + '\n' +
+        'Mood: ' + _light.mood + ' · Temp: ' + _light.temp + '\n' +
+        'Shadows: ' + _light.shadows + '\n' +
+        '\n— IMAGE BRIEF —\n' +
+        (sp.image_brief || 'Warm realistic kitchen photography. Natural light. Busy mom 32–44.') + '\n' +
+        '\n— LAYOUT —\n' +
+        'Hook text dominant top · photo zone 65% · CTA pill bottom · 8pt grid\n' +
+        '\n— AVOID —\n' +
+        'Phone numbers · blue tones · studio lighting · fake smiles · AI hands · extra fingers\n' +
+        'Glassmorphism · gradients · staged aesthetics · defeat/shame tone · unrealistic food';
+    }
+
+    if (!prompt) return { ok:false, error:'No copy found for asset: '+assetId };
+    return { ok:true, prompt:prompt, asset_id:assetId };
+  } catch(e) {
+    return { ok:false, error:e.message };
+  }
+}

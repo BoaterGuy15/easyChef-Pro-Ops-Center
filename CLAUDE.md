@@ -140,4 +140,4 @@ All skills read `.agents/product-marketing-context.md` first. Populate that file
 
 ---
 
-Current state: deploy @668 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+Current state: deploy @677 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`

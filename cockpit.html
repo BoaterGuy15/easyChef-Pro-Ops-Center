@@ -123,26 +123,54 @@
     .dot-anim::after { content: '.'; animation: dots 1.2s infinite; }
     @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
 
-    /* Calendar */
-    .cal-month-label { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
-    .cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 3px; }
-    .cal-dow-cell { text-align: center; font-size: 9px; color: #555; font-weight: 600; padding: 2px 0; }
-    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
-    .cal-day { background: #0e0e10; border: 1px solid #1a1a1e; border-radius: 7px; padding: 4px; aspect-ratio: 1; cursor: pointer; user-select: none; display: flex; flex-direction: column; }
-    .cal-day.in-campaign { background: #161618; border-color: #2a2a2e; }
-    .cal-day.is-today { border-color: #0a84ff !important; }
-    .cal-day.outside { opacity: 0.2; cursor: default; pointer-events: none; }
-    .cal-day.has-blocked.in-campaign { background: #180e0e; }
-    .cal-day.all-published.in-campaign { background: #0a180e; }
-    .cal-day.filtered-empty { opacity: 0.28; }
-    .cal-date { font-size: 10px; font-weight: 600; color: #555; line-height: 1; margin-bottom: 3px; flex-shrink: 0; }
-    .cal-day.in-campaign .cal-date { color: #ccc; }
-    .cal-day.is-today .cal-date { color: #0a84ff; }
-    .cal-dots { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; align-content: flex-start; }
-    .cal-dot  { width: 6px; height: 6px; border-radius: 50%; }
-    .cal-badge { font-size: 9px; font-weight: 600; color: #888; flex-shrink: 0; }
-    .cal-day.has-blocked .cal-badge { color: #ff453a; }
-    .cal-day.all-published .cal-badge { color: #32d74b; }
+    /* Calendar — Google-style grid */
+    /* ── Calendar 2.0 ──────────────────────────────────────────────────────── */
+    .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .cal-nav-left { display:flex; align-items:center; gap:8px; }
+    .cal-nav-title { font-size:15px; font-weight:700; letter-spacing:-0.2px; min-width:130px; text-align:center; }
+    .cal-nav-btn { background:#1e1e22; border:1px solid #2a2a2e; color:#aaa; width:30px; height:30px; border-radius:8px; font-size:16px; cursor:pointer; font-family:inherit; transition:all 0.12s; display:flex; align-items:center; justify-content:center; }
+    .cal-nav-btn:hover { background:#2a2a2e; color:#f0f0f0; }
+    .cal-today-btn { background:transparent; border:1px solid #2a2a2e; color:#555; padding:4px 10px; border-radius:6px; font-size:10px; font-weight:600; cursor:pointer; font-family:inherit; letter-spacing:0.3px; transition:all 0.12s; }
+    .cal-today-btn:hover { border-color:#0a84ff; color:#0a84ff; }
+    .add-ms-btn { background:rgba(255,69,58,0.1); border:1px solid rgba(255,69,58,0.35); color:#ff453a; padding:5px 12px; border-radius:8px; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; transition:all 0.12s; }
+    .add-ms-btn:hover { background:rgba(255,69,58,0.22); }
+    .cal-dow { display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid #2a2a2e; border-left:1px solid #2a2a2e; margin-bottom:0; }
+    .cal-dow-cell { border-right:1px solid #2a2a2e; border-bottom:1px solid #2a2a2e; text-align:center; font-size:9px; color:#555; font-weight:600; padding:5px 4px; letter-spacing:0.3px; }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); border-left:1px solid #2a2a2e; }
+    .cal-day { background:#0c0c0e; border-right:1px solid #1a1a1e; border-bottom:1px solid #1a1a1e; min-height:90px; padding:5px 5px 4px; display:flex; flex-direction:column; cursor:default; user-select:none; box-sizing:border-box; }
+    .cal-day.in-campaign { background:#111116; border-right-color:#2a2a2e; border-bottom-color:#2a2a2e; cursor:pointer; }
+    .cal-day.in-campaign:hover { background:#1a1a20; }
+    .cal-day.is-today { background:#0b1828 !important; }
+    .cal-day.outside { background:#080809; pointer-events:none; }
+    .cal-day.has-blocked { background:#160c0c !important; }
+    .cal-day.all-published { background:#091410 !important; }
+    .cal-day.filtered-empty { opacity:0.28; }
+    .cal-date { font-size:10px; font-weight:600; color:#3a3a3a; line-height:1; margin-bottom:4px; flex-shrink:0; display:flex; align-items:center; }
+    .cal-day.in-campaign .cal-date { color:#666; }
+    .cal-day.outside .cal-date { color:#2a2a2a; }
+    .cal-date-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:11px; }
+    .cal-day.is-today .cal-date-num { background:#0a84ff; color:#fff !important; font-weight:700; }
+    .cal-date.date-red .cal-date-num { color:#FF0000 !important; font-weight:800 !important; }
+    .cal-events { display:flex; flex-direction:column; gap:2px; flex:1; overflow:hidden; }
+    .cal-event-bar { display:block; font-size:9px; font-weight:600; padding:1px 5px 1px 6px; border-radius:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:15px; border-left:3px solid transparent; }
+    .cal-ms-banner { display:block; font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:15px; }
+        /* Milestone modal */
+    .ms-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:50; display:none; align-items:center; justify-content:center; padding:20px; }
+    .ms-overlay.open { display:flex; }
+    .ms-card { background:#1a1a1e; border:1px solid #2a2a2e; border-radius:16px; width:100%; max-width:380px; box-shadow:0 24px 64px rgba(0,0,0,0.7); }
+    .ms-head { padding:14px 18px 10px; border-bottom:1px solid #2a2a2e; display:flex; align-items:center; justify-content:space-between; }
+    .ms-htitle { font-size:15px; font-weight:700; }
+    .ms-xbtn { background:#2a2a2e; border:none; color:#888; width:28px; height:28px; border-radius:50%; font-size:13px; cursor:pointer; font-family:inherit; }
+    .ms-body { padding:16px 18px 20px; display:flex; flex-direction:column; gap:12px; }
+    .ms-lbl { font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:#555; margin-bottom:4px; font-weight:600; display:block; }
+    .ms-inp { width:100%; background:#0e0e10; border:1px solid #2a2a2e; border-radius:8px; color:#e0e0e0; font-family:inherit; font-size:13px; padding:9px 12px; outline:none; box-sizing:border-box; transition:border-color 0.12s; }
+    .ms-inp:focus { border-color:#0a84ff; }
+    .ms-swatches { display:flex; gap:8px; }
+    .ms-swatch { width:30px; height:30px; border-radius:7px; cursor:pointer; border:2px solid transparent; transition:all 0.12s; flex-shrink:0; }
+    .ms-swatch.on { border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,0.15); }
+    .ms-savebtn { background:#FF0000; border:none; color:#fff; padding:11px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; width:100%; }
+    .ms-savebtn:disabled { background:#222; color:#444; cursor:default; }
+    .ms-msg { font-size:11px; min-height:16px; color:#32d74b; text-align:center; }
 
     /* Day sheet */
     .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 20; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
@@ -338,6 +366,35 @@
         <button class="pm-close" onclick="closePostModal()">✕</button>
       </div>
       <div class="pm-body" id="pm-body"></div>
+    </div>
+  </div>
+
+
+  <!-- Add Milestone modal -->
+  <div class="ms-overlay" id="ms-overlay" onclick="if(event.target===this)closeMsModal()">
+    <div class="ms-card">
+      <div class="ms-head">
+        <span class="ms-htitle">Add Milestone</span>
+        <button class="ms-xbtn" onclick="closeMsModal()">&#x2715;</button>
+      </div>
+      <div class="ms-body">
+        <div><label class="ms-lbl">Title</label><input class="ms-inp" id="ms-title" placeholder="e.g. Content deadline, Review, Launch…" /></div>
+        <div><label class="ms-lbl">Date</label><input class="ms-inp" id="ms-date" type="date" /></div>
+        <div>
+          <label class="ms-lbl">Color</label>
+          <div class="ms-swatches">
+            <div class="ms-swatch on" style="background:#FF0000" data-color="#FF0000" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#ff9500" data-color="#ff9500" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#0a84ff" data-color="#0a84ff" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#32d74b" data-color="#32d74b" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#bf5af2" data-color="#bf5af2" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#ffd60a" data-color="#ffd60a" onclick="selectMsColor(this)"></div>
+          </div>
+        </div>
+        <div><label class="ms-lbl">Your name</label><input class="ms-inp" id="ms-author" placeholder="Name" /></div>
+        <button class="ms-savebtn" id="ms-savebtn" onclick="submitMilestone()">Add Milestone</button>
+        <div class="ms-msg" id="ms-msg"></div>
+      </div>
     </div>
   </div>
 
@@ -721,52 +778,111 @@
         .getCampaignFunnel(_activeCampaign);
     }
 
-    // ── Calendar ──────────────────────────────────────────────────────────────
+    // ── Calendar 2.0 ──────────────────────────────────────────────────────────
     function isoDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 
+    var calViewYear=2026, calViewMonth=4; // May 2026 (month is 0-indexed)
+    var MILESTONES_BY_DATE={};
+    var PILL_BG={
+      'Facebook':'rgba(74,158,255,0.22)','Instagram':'rgba(225,48,108,0.22)',
+      'Pinterest':'rgba(230,0,35,0.20)','TikTok':'rgba(170,170,170,0.16)',
+      'X':'rgba(200,200,200,0.14)','Email':'rgba(10,132,255,0.22)',
+      'Nextdoor':'rgba(76,175,80,0.20)','YouTube':'rgba(255,48,64,0.22)'
+    };
+    var PILL_FG={
+      'Facebook':'#4a9eff','Instagram':'#e1306c','Pinterest':'#ff4858',
+      'TikTok':'#aaa','X':'#bbb','Email':'#0a84ff',
+      'Nextdoor':'#4caf50','YouTube':'#ff3040'
+    };
+    var PILL_AB={
+      'Facebook':'FB','Instagram':'IG','Pinterest':'PIN',
+      'TikTok':'TT','X':'X','Email':'EM','Nextdoor':'ND','YouTube':'YT'
+    };
+    var RED_DATES={'2026-05-27':true,'2026-07-01':true};
+    var CAM_START_ISO='2026-05-27', CAM_END_ISO='2026-06-30';
+    var CAL_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    function prevMonth(){calViewMonth--;if(calViewMonth<0){calViewMonth=11;calViewYear--;}renderCal(calData);}
+    function nextMonth(){calViewMonth++;if(calViewMonth>11){calViewMonth=0;calViewYear++;}renderCal(calData);}
+    function goToday(){var n=new Date();calViewYear=n.getFullYear();calViewMonth=n.getMonth();renderCal(calData);}
+
     function renderCal(data){
+      var pc=document.getElementById('panel-cal'); if(!pc) return;
       if(!data||!data.days){
-        var emptyDiv=document.createElement('div');
-        emptyDiv.className='loading';
-        emptyDiv.style.cssText='display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0';
-        emptyDiv.appendChild(document.createTextNode('No calendar data. Click Sync to pull posts in.'));
-        var syncBtn=document.createElement('button');
-        syncBtn.textContent='Sync Posts to Calendar';
-        syncBtn.style.cssText='background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:7px 20px;border-radius:7px;font-size:12px;cursor:pointer';
-        syncBtn.onclick=syncCalendar;
-        emptyDiv.appendChild(syncBtn);
-        var pc=document.getElementById('panel-cal');
-        if(pc){pc.innerHTML='';pc.appendChild(emptyDiv);}
+        pc.innerHTML='<div class="loading" style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0">No calendar data.<br><button onclick="syncCalendar()" style="background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:7px 20px;border-radius:7px;font-size:12px;cursor:pointer;margin-top:8px">Sync Posts</button></div>';
         return;
       }
-      var days=data.days,today=isoDate(new Date()),allDays=calData?calData.days:{};
+      var days=data.days, allDays=calData?calData.days:{};
+      var today=isoDate(new Date()), hasF=hasFilters();
+      var firstDay=new Date(calViewYear,calViewMonth,1);
+      var daysInMonth=new Date(calViewYear,calViewMonth+1,0).getDate();
+      var startDow=firstDay.getDay();
+
+      var nav='<div class="cal-nav">'+
+        '<div class="cal-nav-left">'+
+          '<button class="cal-nav-btn" onclick="prevMonth()">&#8249;</button>'+
+          '<span class="cal-nav-title">'+CAL_MONTH_NAMES[calViewMonth]+' '+calViewYear+'</span>'+
+          '<button class="cal-nav-btn" onclick="nextMonth()">&#8250;</button>'+
+          '<button class="cal-today-btn" onclick="goToday()">Today</button>'+
+        '</div>'+
+        '<button class="add-ms-btn" onclick="openMsModal()">+ Milestone</button>'+
+      '</div>';
+
       var dowHtml=DOW.map(function(d){return '<div class="cal-dow-cell">'+d+'</div>';}).join('');
-      var cells='',cur=new Date(2026,4,24),end=new Date(2026,6,4);
-      while(cur<=end){
-        var dk=isoDate(cur),dn=cur.getDate(),inC=cur>=CAM_START&&cur<=CAM_END,isT=dk===today;
-        var dayObj=days[dk]||null,origDay=allDays[dk]||null;
-        var cls='cal-day'+(inC?' in-campaign':' outside')+(isT?' is-today':'');
-        if(dayObj){if(dayObj.blocked===dayObj.total&&dayObj.total>0)cls+=' has-blocked';if(dayObj.published===dayObj.total&&dayObj.total>0)cls+=' all-published';}
-        else if(inC&&origDay&&hasFilters())cls+=' filtered-empty';
-        var dateLbl=dn===1?MONTHS[cur.getMonth()].toUpperCase()+' 1':String(dn);
-        var dotsHtml='<div class="cal-dots"></div>',badgeHtml='';
-        if(dayObj&&dayObj.total>0){
-          var ps={};
-          dayObj.posts.forEach(function(p){var c=p.blocked?'#ff453a':(STATUS_DOT_COLOR[p.status]||'#3a3a3a');if(!ps[p.platform]||p.blocked)ps[p.platform]=c;});
-          dotsHtml='<div class="cal-dots">'+Object.keys(ps).slice(0,6).map(function(pl){return '<div class="cal-dot" style="background:'+ps[pl]+'"></div>';}).join('')+'</div>';
-          badgeHtml='<div class="cal-badge">'+dayObj.total+'</div>';
+      var cells='';
+      for(var b=0;b<startDow;b++) cells+='<div class="cal-day outside"><div class="cal-date"><span class="cal-date-num"></span></div></div>';
+
+      for(var d=1;d<=daysInMonth;d++){
+        var curD=new Date(calViewYear,calViewMonth,d);
+        var dk=isoDate(curD);
+        var inC=dk>=CAM_START_ISO&&dk<=CAM_END_ISO;
+        var isT=dk===today;
+        var isRed=!!RED_DATES[dk];
+        var dayObj=days[dk]||null;
+        var origDay=allDays[dk]||null;
+
+        var cls='cal-day'+(inC?' in-campaign':'')+(isT?' is-today':'');
+        if(dayObj){
+          if(dayObj.blocked>0&&dayObj.blocked===dayObj.total) cls+=' has-blocked';
+          else if(dayObj.published===dayObj.total&&dayObj.total>0) cls+=' all-published';
+        } else if(inC&&origDay&&hasF) cls+=' filtered-empty';
+
+        var msList=MILESTONES_BY_DATE[dk]||[];
+        var eventsHtml='';
+        msList.forEach(function(ms){
+          eventsHtml+='<span class="cal-ms-banner" style="background:'+ms.color+'">'+ms.title+'</span>';
+        });
+
+        if(dayObj&&dayObj.posts&&dayObj.posts.length){
+          var platMap={};
+          dayObj.posts.forEach(function(p){
+            var pl=p.platform||'';
+            if(!platMap[pl]||p.blocked) platMap[pl]=p;
+          });
+          Object.keys(platMap).sort().forEach(function(pl){
+            var p2=platMap[pl];
+            var bg2=PILL_BG[pl]||'rgba(100,100,100,0.18)';
+            var fg2=p2.blocked?'#ff453a':(PILL_FG[pl]||'#888');
+            var bc2=p2.blocked?'#ff453a':(PILL_FG[pl]||'#555');
+            eventsHtml+='<span class="cal-event-bar" style="background:'+bg2+';color:'+fg2+';border-left-color:'+bc2+'">'+pl+'</span>';
+          });
         }
-        var oc=inC&&dayObj?' onclick="openSheet(\''+dk+'\')"':'';
-        cells+='<div class="'+cls+'"'+oc+'><div class="cal-date">'+dateLbl+'</div>'+dotsHtml+badgeHtml+'</div>';
-        cur.setDate(cur.getDate()+1);
+
+        var oc2=(inC&&dayObj)||msList.length?' onclick="openSheet(\''+dk+'\')"':'';
+        var dateCls='cal-date'+(isRed?' date-red':'');
+        cells+='<div class="'+cls+'"'+oc2+'>'+
+          '<div class="'+dateCls+'"><span class="cal-date-num">'+d+'</span></div>'+
+          '<div class="cal-events">'+eventsHtml+'</div>'+
+        '</div>';
       }
-      document.getElementById('panel-cal').innerHTML=
-        '<div class="cal-month-label">May 27 – Jun 30, 2026'+(hasFilters()?' <span style="color:#0a84ff;font-size:11px;font-weight:400">(filtered)</span>':'')+'</div>'+
+
+      pc.innerHTML=nav+
         '<div class="cal-dow">'+dowHtml+'</div>'+
-        '<div class="cal-grid">'+cells+'</div>';
+        '<div class="cal-grid">'+cells+'</div>'+
+        (hasF?'<div style="text-align:center;padding:8px 0;font-size:11px;color:#0a84ff">Filtered &nbsp;·&nbsp; <button onclick="clearFilters()" style="background:none;border:none;color:#ff453a;font-size:11px;cursor:pointer;font-family:inherit">Clear</button></div>':'');
     }
 
-    // ── Day sheet ─────────────────────────────────────────────────────────────
+        // ── Day sheet ─────────────────────────────────────────────────────────────
     function openSheet(dk){
       var src=calData&&calData.days&&calData.days[dk]?calData.days[dk]:null;if(!src)return;
       var posts=hasFilters()?applyFilters(src.posts.map(function(p){return Object.assign({},p,{date:dk,day:src.day,week:src.week});})):src.posts;
@@ -872,8 +988,10 @@
       var _copyHtmlBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-cphtml-btn-'+_safeId+'" onclick="copyDesignHtml(\''+_safeId+'\')">⎘ Copy HTML<span class="pm-link-tag">claude</span></button>':'';
       var _ghBtn=p.claude_design_url?'<button class="pm-link generate" id="pm-gh-btn-'+_safeId+'" onclick="pushToGithub(\''+_safeId+'\')">↑ GitHub<span class="pm-link-tag">pages</span></button>':'';
       var _rewriteEmailBtn=p.full_email_body?'<button class="pm-link generate" id="pm-email-btn-'+_safeId+'" onclick="writeEmail(\''+_safeId+'\')">↺ Rewrite<span class="pm-link-tag">ai</span></button>':'';
+      var _cdCopyBtn='<button class="pm-link generate" id="pm-cdcopy-btn-'+_safeId+'" onclick="copyForClaudeDesign(\''+_safeId+'\')">⎘ Claude Design<span class="pm-link-tag">claude</span></button>';
       rows+='<div class="pm-links">'+
         pmLink('Brief Doc', p.brief_doc_url||null)+
+        _cdCopyBtn+
         (_isEmail
           ? (p.full_email_body ? _rewriteEmailBtn : _writeEmailBtn)+(p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn+_ghBtn:_genBtn)
           : (p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn+_ghBtn:_genBtn))+
@@ -932,6 +1050,33 @@
           if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
         })
         .generateDesignForAsset(assetId);
+    }
+    function copyForClaudeDesign(assetId){
+      var btn=document.getElementById('pm-cdcopy-btn-'+assetId);
+      var msg=document.getElementById('pm-gen-msg-'+assetId);
+      if(btn){btn.disabled=true;btn.innerHTML='⏳ Building…<span class="pm-link-tag">claude</span>';}
+      if(msg){msg.style.color='#666';msg.textContent='Assembling prompt…';}
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(btn){btn.disabled=false;btn.innerHTML='⎘ Claude Design<span class="pm-link-tag">claude</span>';}
+          if(r&&r.ok&&r.prompt){
+            navigator.clipboard.writeText(r.prompt).then(function(){
+              if(msg){msg.style.color='#32d74b';msg.textContent='✓ Copied — paste into Claude.ai Design';}
+            }).catch(function(){
+              var ta=document.createElement('textarea');ta.value=r.prompt;
+              document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+              if(msg){msg.style.color='#32d74b';msg.textContent='✓ Copied — paste into Claude.ai Design';}
+            });
+          } else {
+            var errMsg=(r&&r.error)||'unknown error';
+            if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+errMsg;}
+          }
+        })
+        .withFailureHandler(function(err){
+          if(btn){btn.disabled=false;btn.innerHTML='⎘ Claude Design<span class="pm-link-tag">claude</span>';}
+          if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
+        })
+        .getClaudeDesignPrompt(assetId);
     }
     function writeEmail(assetId){
       var btn=document.getElementById('pm-email-btn-'+assetId);
@@ -1171,7 +1316,7 @@
     }
     function load(){
       document.getElementById('tagline').innerHTML=_activeCampaign+' &nbsp;·&nbsp; Refreshing<span class="dot-anim"></span>';
-      loadDashboard();loadCalendar();
+      loadDashboard();loadCalendar();loadMilestones();
     }
 
     // ── Sync posts → ContentCalendar ──────────────────────────────────────────
@@ -1230,6 +1375,76 @@
         .figmaTokenStatus();
     }
 
+
+    function loadMilestones(){
+      if(typeof google==='undefined'||!google.script) return;
+      google.script.run.withSuccessHandler(function(r){
+        MILESTONES_BY_DATE={};
+        if(r&&r.ok&&r.milestones){
+          r.milestones.forEach(function(ms){
+            var dk=ms.date;
+            if(!MILESTONES_BY_DATE[dk]) MILESTONES_BY_DATE[dk]=[];
+            MILESTONES_BY_DATE[dk].push(ms);
+          });
+        }
+        renderCal(calData);
+      }).withFailureHandler(function(){}).getCampaignMilestones(_activeCampaign||'all');
+    }
+
+    var _msCurColor='#FF0000';
+
+    function openMsModal(){
+      var ov=document.getElementById('ms-overlay'); if(!ov) return;
+      var today=isoDate(new Date());
+      document.getElementById('ms-date').value=today;
+      document.getElementById('ms-title').value='';
+      document.getElementById('ms-author').value='';
+      document.getElementById('ms-msg').textContent='';
+      var btn=document.getElementById('ms-savebtn'); if(btn) btn.disabled=false;
+      _msCurColor='#FF0000';
+      var sw=ov.querySelectorAll('.ms-swatch');
+      sw.forEach(function(s){ s.classList.remove('on'); });
+      if(sw.length) sw[0].classList.add('on');
+      ov.classList.add('open');
+    }
+
+    function closeMsModal(){
+      var ov=document.getElementById('ms-overlay'); if(ov) ov.classList.remove('open');
+    }
+
+    function selectMsColor(el){
+      document.querySelectorAll('.ms-swatch').forEach(function(s){ s.classList.remove('on'); });
+      el.classList.add('on');
+      _msCurColor=el.getAttribute('data-color')||'#FF0000';
+    }
+
+    function submitMilestone(){
+      var title=(document.getElementById('ms-title').value||'').trim();
+      var date=(document.getElementById('ms-date').value||'').trim();
+      var author=(document.getElementById('ms-author').value||'').trim();
+      var msg=document.getElementById('ms-msg');
+      var btn=document.getElementById('ms-savebtn');
+      if(!title){ msg.style.color='#ff453a'; msg.textContent='Title is required.'; return; }
+      if(!date){ msg.style.color='#ff453a'; msg.textContent='Date is required.'; return; }
+      btn.disabled=true; msg.style.color='#aaa'; msg.textContent='Saving…';
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok){
+            msg.style.color='#32d74b'; msg.textContent='Milestone added!';
+            setTimeout(function(){ closeMsModal(); loadMilestones(); },900);
+          } else {
+            msg.style.color='#ff453a'; msg.textContent='Error saving.'; btn.disabled=false;
+          }
+        })
+        .withFailureHandler(function(e){
+          msg.style.color='#ff453a'; msg.textContent='Error: '+(e&&e.message?e.message:'unknown'); btn.disabled=false;
+        })
+        .addCampaignMilestone({
+          title:title, date:date, color:_msCurColor,
+          type:'custom', campaign_id:_activeCampaign||'EC-2026-001', created_by:author
+        });
+    }
+
     // ── Draggable filter panels ───────────────────────────────────────────────
     var FP_IDS  = ['platform','status','emotion','funnel','week','seq'];
     var FP_POS  = {};   // id → {x,y}
@@ -1238,14 +1453,20 @@
     var FP_GAP  = 5;
 
     function initPanels() {
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem('cockpit_fp_pos') || 'null'); } catch(e) {}
       var x = 14, y = 58;
       FP_IDS.forEach(function(id) {
         var el = document.getElementById('fpanel-' + id);
         if (!el) return;
-        FP_POS[id] = { x: x, y: y };
-        el.style.left = x + 'px';
-        el.style.top  = y + 'px';
-        y += el.offsetHeight + FP_GAP;
+        if (saved && saved[id] && typeof saved[id].x === 'number') {
+          FP_POS[id] = { x: saved[id].x, y: saved[id].y };
+        } else {
+          FP_POS[id] = { x: x, y: y };
+          y += el.offsetHeight + FP_GAP;
+        }
+        el.style.left = FP_POS[id].x + 'px';
+        el.style.top  = FP_POS[id].y + 'px';
       });
     }
 
@@ -1318,6 +1539,7 @@
       var el = document.getElementById('fpanel-' + FP_DRAG.id);
       if (el) { el.style.zIndex = 150; el.style.transition = ''; el.classList.remove('fp-snapping'); }
       FP_DRAG = null;
+      try { localStorage.setItem('cockpit_fp_pos', JSON.stringify(FP_POS)); } catch(e) {}
     }
     document.addEventListener('mouseup',     _fpUp);
     document.addEventListener('touchend',    _fpUp);
