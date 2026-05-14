@@ -17,7 +17,7 @@ Report: deploy number, RED systems, blocked count, LP spine state, brief docs co
 **Step 2 — Read the permanent Roadmap doc**
 Read ROADMAP_DOC_ID from health check response. Open that doc. Read the SESSION LOG section (last 10 lines). This tells you what was last worked on and what broke.
 
-Permanent Roadmap doc ID: `1-lfrnWtbKzRBbozXxffR4-DJ-6uD3uqkfWQqSDiSYFI`
+Permanent Roadmap doc ID: `1PK1VOmMghvYw6CbhHvDmv0MSE58fBeIPN28Knhi0J6M`
 Never create a new Roadmap doc. Always update this one.
 
 **Step 3 — Confirm state**

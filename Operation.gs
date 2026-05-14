@@ -1050,6 +1050,10 @@ function doPost(e) {
       var _updResult = updateEC2026001PostDetails();
       return respond({ ok:_updResult.ok, result:_updResult, log: Logger.getLog() });
     }
+    if(body.action === 'assign_ec2026001_dl_ids') {
+      var _dlResult = assignEC2026001DlIds({ force: !!(body.force) });
+      return respond({ ok:_dlResult.ok, result:_dlResult, log: Logger.getLog() });
+    }
     if(body.action === 'seed_ec2026001_emails') {
       var _emResult = seedEC2026001Emails();
       return respond({ ok:_emResult.ok, result:_emResult, log: Logger.getLog() });
@@ -1530,7 +1534,7 @@ function doPost(e) {
 
         var health = {
           campaign_id:      _hcid,
-          deploy:           '@668',
+          deploy:           '@669',
           sheet_id:         _hss.getId(),
           content_calendar: _ccTotal,
           social_posts:     _spTotal,
