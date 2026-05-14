@@ -2,83 +2,142 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Session Start Protocol
+---
 
-Before writing or changing any code:
+## ORIENTATION PROTOCOL — run every session start, in this order
 
-1. Read the AIReference tab in the Campaign Center Sheet
-   Sheet ID: `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE`
+Do not touch any code until all four steps are confirmed complete.
 
-2. Open the Master Reference doc linked in AIReference
-   Current: https://docs.google.com/document/d/1kIq1_bkWD4TJlSidPspqF2wc_EXFO0YHqb2BNiOiFZI/edit
+**Step 1 — System health check**
+```
+{"action":"system_health_check","campaign_id":"EC-2026-001"}
+```
+Report: deploy number, RED systems, blocked count, LP spine state, brief docs count, GPT4O_ACTIVE.
 
-3. Confirm before touching code:
-   - Current deploy version
-   - Sheet ID
-   - GitHub branch (always `main`)
-   - Governance state (all 7 blocks wired to sheet as of 2026-05-11)
-   - LP spine state — CampaignBriefs.lp_campaign_spine_json must be populated before any asset generation
+**Step 2 — Read the permanent Roadmap doc**
+Read ROADMAP_DOC_ID from health check response. Open that doc. Read the SESSION LOG section (last 10 lines). This tells you what was last worked on and what broke.
 
-4. Treat the Campaign Center Sheet as source of truth for all governance rules — not memory, not old docs.
+Permanent Roadmap doc ID: `1-lfrnWtbKzRBbozXxffR4-DJ-6uD3uqkfWQqSDiSYFI`
+Never create a new Roadmap doc. Always update this one.
 
-5. If AIReference points to a newer Master Reference doc, load that one instead. The tab is always current.
+**Step 3 — Confirm state**
+Report back:
+- Current deploy version
+- RED systems (if any)
+- What was last worked on (from SESSION LOG)
+- LP spine status
+- Any open blockers
 
-6. **LP first. Always.** The landing page spine is the source of truth for every social post, email, and video in a campaign. No asset generation before `generate_lp_spine` succeeds. No asset can advance past draft without `validate_asset_lp_alignment` passing. getMasterSystemPrompt returns `LP_SPINE_MISSING:<campaign_id>` if the spine is absent — that is a hard gate, not a warning.
+**Step 4 — Get explicit go-ahead before touching code**
 
-7. **Playbook first. Always.** Before generating any content (social, email, video, LP copy), read the Campaign Creation Playbook. Doc ID: `1i34M_7FDJ6qy7SMjfWfFMPs3rTKL_AogoCM3egX1a_I`. Retrieve via `_getCcSetting('PLAYBOOK_DOC_ID')` — the label column holds the doc ID. The playbook is the source of truth for master story, So What architecture, claim scoping, and phone rules. Do not generate without it.
+---
 
-8. Do not write code until orientation is confirmed.
+## AFTER EVERY DEPLOY
 
-Current state: deploy @656 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+1. Run `{"action":"system_health_check"}` — confirm no new RED systems introduced
+2. Append a session log line:
+   ```
+   {"action":"append_session_log","line":"@NNN Mon DD — what changed. Campaign state. What's next."}
+   ```
+3. Update the `Current state:` line at the bottom of this file
+4. Report any RED systems before closing the task
 
-## Marketing Skills
+---
 
-Agent skills are in `.agents/skills/`. The full library lives at `.agents/marketingskills/` (git submodule: `coreyhaines31/marketingskills`). Update with `git submodule update --remote .agents/marketingskills`.
+## NEVER DO THESE THINGS
 
-Active skills (copied to `.agents/skills/`):
+- **Create a new Roadmap doc** — update the permanent one (`1-lfrnWtbKzRBbozXxffR4-DJ-6uD3uqkfWQqSDiSYFI`)
+- **Hardcode any value that exists in the sheet** — read it from CcSettings
+- **Fix one thing without checking what it might break** — run system_health_check after every deploy
+- **Deploy without running system_health_check after** — always verify
+- **Use `getActiveSpreadsheet()`** — always use `_getCampaignSpreadsheet()`
+- **Run `clear_campaign_data_tabs`** without `confirm_clear:true` in the payload
+- **Generate copy without LP spine existing first** — getMasterSystemPrompt returns `LP_SPINE_MISSING:<id>` as a hard gate
+- **Create new GAS functions that duplicate existing ones** — search first
+- **Use PowerShell here-strings for JavaScript content** — write to .txt files, use Python for splicing
+- **Update `update_cc_setting` for a key that doesn't exist** — use `append_setting` for new keys
+
+---
+
+## COPY MODEL
+
+Copy generation uses **Claude** (`claude-sonnet-4-20250514`), not GPT-4o.
+- `GPT4O_ACTIVE = false` in CcSettings
+- Social posts → `.agents/skills/copywriting` + `.agents/skills/ad-creative` prepended to system prompt
+- Email → `.agents/skills/email-sequence` + `.agents/skills/copywriting` prepended
+- LP → `.agents/skills/page-cro` + `.agents/skills/copywriting`
+- Skills are baked into `_getSkillBlock()` in `Operations_AssetBuilder.gs` at deploy time
+
+---
+
+## CAMPAIGN CENTER SHEET
+
+Sheet ID: `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE`
+Branch: always `main`
+Deployment ID: `AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ`
+
+The Campaign Center Sheet is the source of truth for all governance rules — not memory, not old docs.
+
+**LP first. Always.** The landing page spine is the source of truth for every social post, email, and video in a campaign. No asset generation before `generate_lp_spine` succeeds. getMasterSystemPrompt returns `LP_SPINE_MISSING:<campaign_id>` if the spine is absent — that is a hard gate, not a warning.
+
+**Playbook first. Always.** Before generating any content, read the Campaign Creation Playbook. Doc ID via `_getCcSetting('PLAYBOOK_DOC_ID')`. The playbook is the source of truth for master story, So What architecture, claim scoping, and phone rules.
+
+---
+
+## DEPLOYMENT
+
+```
+clasp push
+clasp version "description"
+clasp deploy --deploymentId AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ --versionNumber NNN --description "description"
+```
+
+Or: `.\deploy.ps1 -Deploy`
+
+After deploy: run system_health_check, append session log, update Current state below.
+
+---
+
+## MARKETING SKILLS
+
+Skills in `.agents/skills/`. Full library at `.agents/marketingskills/` (git submodule: `coreyhaines31/marketingskills`).
+
+Active skills:
 - `page-cro` — landing page conversion optimization
-- `copywriting` — marketing copy for any page
+- `copywriting` — marketing copy
 - `email-sequence` — drip campaigns and lifecycle email flows
-- `ab-test-setup` — A/B test design and implementation
+- `ab-test-setup` — A/B test design
 - `analytics-tracking` — analytics setup and audit
-- `ad-creative` — ad headlines, descriptions, and primary text
+- `ad-creative` — ad headlines, descriptions, primary text
 
-All skills read `.agents/product-marketing-context.md` first for product/audience context. Populate that file before invoking any skill.
+All skills read `.agents/product-marketing-context.md` first. Populate that file before invoking any skill.
 
-## Project Overview
+---
 
-**DGL easyChef Pro Ops Center** — an internal operations dashboard for Digital Galactica Labs tracking the easyChef Pro product launch (target: July 1, 2026). It consolidates RACI workflow, 10-week launch roadmap, team responsibilities, budget and burn rate, and spend logging in a single browser-based interface.
+## PROJECT OVERVIEW
 
-## Tech Stack
+**DGL easyChef Pro Ops Center** — internal operations dashboard for Digital Galactica Labs tracking the easyChef Pro product launch (target: July 1, 2026).
 
-- Single HTML file: `ops-dashboard.html` — vanilla JavaScript, inline CSS, no frameworks, no build step, no npm
-- Public marketing site root: `index.html` — the coming soon / waitlist page served at easychefpro.com
-- Supporting source data (read-only reference, not loaded by the app):
-  - `EasyChefPro_RACI.xlsx` — RACI tracker
-  - `easyChef-Pro-Launch-Roadmap.xlsx` — 10-week roadmap
-  - `easyChefPro_GTM_ProjectTracker.xlsx` — Adam's GTM tracker
+**Tech stack:** GAS backend (clasp), single `cockpit.html` frontend (vanilla JS, inline CSS, no frameworks).
 
-## Running the Dashboard
+**Key GAS files:**
+- `Operation.gs` — action router (all POST body.action routes)
+- `Operations_AssetBuilder.gs` — `getMasterSystemPrompt`, `_callCopyModel`, `_getSkillBlock`
+- `Operations_SequenceBuilder.gs` — `buildSocialCalendar`, `buildEmailSequence`
+- `Operations_EC2026001_Seed.gs` — EC-2026-001 seeder, `_computeBlockedReason`
+- `Operations_CampaignSheets.gs` — `_CC_HDR`, `_CC_TAB`, all sheet read/write helpers
+- `Operations_Milestones.gs` — `seedCampaignMilestones`, `getCampaignMilestones`, `addCampaignMilestone`
 
-Open `ops-dashboard.html` directly in a browser, or access the live ops.dgl.dev URL (staging branch → GitHub Pages). No server, no install, no build step required.
+---
 
-## Architecture
+## EDIT RULES
 
-All dashboard data lives in the `DASHBOARD_DATA` JavaScript object at the top of the `<script>` section in `ops-dashboard.html`. This is the single source of truth for everything rendered on screen.
-
-The UI is organized into eight nav tabs — do not rename or remove them:
-1. **Agenda** — Monday meeting agenda (items + checkboxes), executive AI assessment, and meeting notes
-2. **Command** — high-level status and KPIs
-3. **RACI & Workflow** — task ownership matrix
-4. **Roadmap** — 10-week launch timeline
-5. **Budget & Burn** — budget tracking and burn rate
-6. **Team** — team member responsibilities
-7. **App Data** — PMF Kill Criteria tracking, beta metrics, and Google Sheets sync
-8. **Comms** — Slack integration (channel selector, message feed, thread viewer, AI analysis, send message)
-
-## Edit Rules
-
-- **Surgical edits only** — never rewrite sections that are not part of the requested change
+- **Surgical edits only** — never rewrite sections not part of the requested change
 - **Never restructure `DASHBOARD_DATA`** without explicit instruction
 - **Always describe the planned change before making it**
 - Commit message format: `feat: description` or `fix: description`
+- GAS edits with JS content: write to .txt files, use Python for string splicing (PowerShell can't hold JS in here-strings)
+
+---
+
+Current state: deploy @668 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
