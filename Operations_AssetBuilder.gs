@@ -415,8 +415,7 @@ function _getIcpRow(icp_code) {
 function _getThemeRow(theme_id) {
   if (!theme_id) return {};
   try {
-    var ss    = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName('ThemeLibrary');
+    var sheet = _getCCSheet(_CC_TAB.THEME_LIBRARY);
     if (!sheet) return {};
     var vals    = sheet.getDataRange().getValues();
     var headers = vals[0].map(function(h) { return String(h).toLowerCase().trim().replace(/\s+/g, '_'); });
@@ -433,8 +432,7 @@ function _getThemeRow(theme_id) {
 function _getCcSetting(key_prefix) {
   var results = [];
   try {
-    var ss    = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName('CcSettings');
+    var sheet = _getCCSheet(_CC_TAB.SETTINGS);
     if (!sheet) return results;
     var vals    = sheet.getDataRange().getValues();
     var headers = vals[0].map(function(h) { return String(h).toLowerCase().trim().replace(/\s+/g, '_'); });
@@ -2913,45 +2911,114 @@ function _logGpt4oCall(systemPrompt, responseContent) {
   } catch(e) {}
 }
 
-// Returns condensed skill guidance block for a given content type.
+// Returns marketing skill guidance for a given content type.
+// Content baked from .agents/skills/ — copywriting.md, ad-creative.md, email-sequence.md, page-cro.md
 // Prepended to Claude system prompt when GPT4O_ACTIVE is false.
 function _getSkillBlock(contentType) {
+
   var social = [
-    '## MARKETING SKILLS: Copywriting + Ad Creative',
-    '- Clarity over cleverness. Benefits over features. Specificity over vagueness.',
-    '- One idea per post. Active voice. Customer language — mirror how they describe their own problem.',
-    '- Strong CTAs: [Action Verb] + [What They Get]. Never "sign up" or "learn more".',
-    '- Every post must serve ONE emotional job from the arc. Do not combine jobs.',
-    '- Vary: hook angle, scene, cost reference, tone — across arc positions and across channels.',
-    '- Define your angle before writing: pain point / outcome / social proof / curiosity / urgency / identity.',
-    '- TikTok: ≤100 chars primary text. Meta: front-load hook in first 125 chars.',
+    '## SKILL: Copywriting (from .agents/skills/copywriting.md)',
+    'You are an expert conversion copywriter. Write copy that is clear, compelling, and drives action.',
+    '',
+    '### Copywriting Principles',
+    '- Clarity Over Cleverness: If choosing between clear and creative, choose clear.',
+    '- Benefits Over Features: Features = what it does. Benefits = what that means for the customer.',
+    '- Specificity Over Vagueness: "Cut weekly reporting from 4 hours to 15 minutes" not "Save time."',
+    '- Customer Language: Mirror how customers describe their own problem — use their words.',
+    '- One Idea Per Section: Each post advances one argument only.',
+    '',
+    '### Writing Style Rules',
+    '- Simple over complex: "use" not "utilize", "help" not "facilitate"',
+    '- Active over passive: "We generate reports" not "Reports are generated"',
+    '- Confident over qualified: remove "almost", "very", "really"',
     '- Remove exclamation points. Remove buzzwords without substance.',
-    '- Post 1 Hook must feel different from a Hook later in the arc — vary the entry point, not just wording.',
+    '- Show outcome instead of using adverbs.',
+    '',
+    '### CTA Copy',
+    '- Avoid: Submit, Sign Up, Learn More, Click Here, Get Started',
+    '- Use formula: [Action Verb] + [What They Get] + [Qualifier if needed]',
+    '- Examples: "Start My Free Trial", "Get Early Access", "See It In Action"',
+    '',
+    '## SKILL: Ad Creative (from .agents/skills/ad-creative.md)',
+    'You are an expert performance creative strategist generating ad copy that drives clicks and conversions.',
+    '',
+    '### Define an Angle Before Writing',
+    'Each post should tap ONE distinct angle: pain point / outcome / social proof / curiosity / urgency / identity / contrarian.',
+    '',
+    '### Platform Specs',
+    '- Meta (Facebook/Instagram): front-load hook in first 125 chars. Primary text up to 2,200 chars.',
+    '- TikTok: ad text 80 chars recommended, 100 chars max.',
+    '- Pinterest: benefit-focused, visual description, searchable language.',
+    '- X/Twitter: 280 chars total. Direct, punchy.',
+    '- Nextdoor: community-first tone, local/household relevance.',
+    '',
+    '### Quality Standards',
+    '- Specific over vague: "Cut reporting time 75%" not "Save time"',
+    '- Benefits over features: "Ship code faster" not "CI/CD pipeline"',
+    '- Include numbers when possible: "3x faster", "in 5 minutes", "10,000+ households"',
+    '- Every post must serve ONE emotional job from the campaign arc — do not combine jobs.',
+    '- Vary hook angle, scene, cost reference, tone across arc positions and across channels.',
+    '- Post 1 Hook must feel different from a Hook post later in the arc — vary the entry point.',
     ''
   ].join('\n');
 
   var email = [
-    '## MARKETING SKILLS: Email Sequence + Copywriting',
-    '- One email, one job. One primary CTA per email. Never ask for two things.',
-    '- Value before ask. Lead with usefulness — earn the right to sell.',
-    '- Structure every email: Hook → Context → Value → CTA → Human close.',
+    '## SKILL: Email Sequence (from .agents/skills/email-sequence.md)',
+    'You are an expert in email marketing and automation. Create email sequences that nurture relationships and drive action.',
+    '',
+    '### Core Principles',
+    '- One Email, One Job: each email has one primary purpose and one main CTA.',
+    '- Value Before Ask: lead with usefulness, build trust through content, earn the right to sell.',
+    '- Relevance Over Volume: fewer, better emails win.',
+    '- Clear Path Forward: every email moves them one step forward in the arc.',
+    '',
+    '### Structure Every Email',
+    'Hook → Context → Value → CTA → Human close',
     '- Short paragraphs (1-3 sentences). Conversational not formal. Read aloud — does it sound human?',
-    '- Subject line: Clear > Clever. 40-60 chars. Benefit-driven or curiosity-driven.',
-    '- Preview text extends the subject — do not repeat it.',
     '- Each email moves them one step forward in the arc. Never repeat the previous email\'s job.',
+    '',
+    '### Subject Lines',
+    '- Clear > Clever. 40-60 chars. Benefit-driven or curiosity-driven.',
+    '- Patterns: question ("Still struggling with X?"), how-to, number, direct, story tease.',
+    '- Preview text extends the subject — do not repeat it. ~90-140 chars.',
+    '',
+    '### CTAs',
     '- Button text: Action + outcome. "Get early access" not "Submit".',
+    '- One primary CTA per email. Never ask for two things.',
+    '',
+    '## SKILL: Copywriting (from .agents/skills/copywriting.md)',
+    '- Clarity over cleverness. Benefits over features. Specificity over vagueness.',
+    '- Active voice. Customer language. Remove exclamation points and buzzwords.',
     ''
   ].join('\n');
 
   var lp = [
-    '## MARKETING SKILLS: Page CRO + Copywriting',
-    '- Value prop clarity: can a visitor understand what this is and why they should care in 5 seconds?',
-    '- Headline: outcome-focused, specific, match the traffic source angle. Never clever at the expense of clear.',
-    '- CTA: visible without scrolling. Communicate value not just action. One clear primary CTA.',
+    '## SKILL: Page CRO (from .agents/skills/page-cro.md)',
+    'You are a conversion rate optimization expert. Analyze and write landing page copy to improve conversion rates.',
+    '',
+    '### Value Proposition Clarity (Highest Impact)',
+    '- Can a visitor understand what this is and why they should care within 5 seconds?',
+    '- Primary benefit: clear, specific, differentiated. Written in customer language — not company jargon.',
+    '',
+    '### Headline',
+    '- Outcome-focused, specific, matches traffic source angle. Never clever at expense of clear.',
+    '- Patterns: "Get [outcome] without [pain point]" / "Join 10,000+ [audience] who..." / "[Number]-second/minute result"',
+    '',
+    '### CTA',
+    '- One clear primary CTA. Visible without scrolling. Communicates value not just action.',
+    '- Repeat CTAs at key decision points (top, mid, bottom).',
+    '- Strong: "Start Free Trial", "Get Early Access". Weak: "Submit", "Sign Up".',
+    '',
+    '### Page Structure',
+    '- Above fold: Headline + Subheadline + Primary CTA',
+    '- Sections: Social Proof → Problem/Pain → Solution/Benefits → How It Works → Objection Handling → Final CTA',
+    '- Each section advances ONE argument. Logical flow — do not repeat.',
+    '- Benefits over features throughout. Connect: feature → benefit → outcome.',
     '- Trust signals (numbers, proof) placed near CTAs and after benefit claims.',
-    '- Each section advances one argument. Build a logical flow — do not repeat.',
-    '- Benefits over features throughout. Connect feature → benefit → outcome.',
-    '- Remove friction: no jargon, no buried value, no weak closes.',
+    '',
+    '## SKILL: Copywriting (from .agents/skills/copywriting.md)',
+    '- Clarity over cleverness. Benefits over features. Specificity over vagueness.',
+    '- Active voice. Customer language. Remove exclamation points and buzzwords.',
     ''
   ].join('\n');
 
@@ -2985,7 +3052,7 @@ function _callCopyModel(systemPrompt, userPrompt, maxTokens) {
       method: 'POST',
       headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
       payload: JSON.stringify({
-        model:      'claude-sonnet-4-5',
+        model:      'claude-sonnet-4-20250514',
         max_tokens: maxTokens || 2000,
         system:     fullSystem,
         messages:   [{ role: 'user', content: userPrompt }]

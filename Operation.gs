@@ -1,4 +1,4 @@
-
+﻿
 const SHEET_NAME = 'Tasks';
 const BUDGET_SHEET_NAME = 'Budget';
 const PMF_SHEET_NAME = 'PMF';
@@ -1168,6 +1168,18 @@ function doPost(e) {
       var _ccSeed2 = seedEC2026001ContentCalendar(body.campaignId || body.campaign_id || 'EC-2026-001');
       return respond({ ok:_ccSeed2.ok, result:_ccSeed2, log: Logger.getLog() });
     }
+    if(body.action === 'seed_milestones') {
+      var _sm = seedCampaignMilestones();
+      return respond({ ok:_sm.ok, result:_sm, log: Logger.getLog() });
+    }
+    if(body.action === 'get_milestones') {
+      var _gm = getCampaignMilestones(body.campaign_id || 'all');
+      return respond({ ok:_gm.ok, result:_gm, log: Logger.getLog() });
+    }
+    if(body.action === 'add_milestone') {
+      var _am = addCampaignMilestone(body);
+      return respond({ ok:_am.ok, result:_am, log: Logger.getLog() });
+    }
     if(body.action === 'repair_campaign_center') {
       var _rpCid = body.campaignId || body.campaign_id || 'EC-2026-001';
       var _rpLog = [];
@@ -1439,6 +1451,136 @@ function doPost(e) {
     if(body.action === 'get_blocked_assets') {
       var _bl = getBlockedAssets(body.campaign_id);
       return respond({ ok:_bl.ok, result:_bl, log: Logger.getLog() });
+    }
+
+    // ── System health check — run at every session start ──────────────────────
+    if(body.action === 'system_health_check') {
+      try {
+        var _hss = _getCampaignSpreadsheet();
+        var _hcid = body.campaign_id || 'EC-2026-001';
+
+        // Row counts
+        var _hCC   = _hss.getSheetByName('ContentCalendar');
+        var _hSP   = _hss.getSheetByName('SocialPosts');
+        var _hES   = _hss.getSheetByName('EmailSequences');
+        var _hDL   = _hss.getSheetByName('DeepLinkRegistry');
+        var _hMS   = _hss.getSheetByName('Milestones');
+        var _hCB   = _hss.getSheetByName('CampaignBriefs');
+
+        var _ccTotal = _hCC ? Math.max(_hCC.getLastRow() - 1, 0) : 0;
+        var _spTotal = _hSP ? Math.max(_hSP.getLastRow() - 1, 0) : 0;
+        var _esTotal = _hES ? Math.max(_hES.getLastRow() - 1, 0) : 0;
+        var _dlTotal = _hDL ? Math.max(_hDL.getLastRow() - 1, 0) : 0;
+        var _msTotal = _hMS ? Math.max(_hMS.getLastRow() - 1, 0) : 0;
+
+        // LP spine status
+        var _hSpine = '';
+        if (_hCB && _hCB.getLastRow() >= 2) {
+          var _cbHdrs = _CC_HDR.CampaignBriefs;
+          var _cbSpineCol = _cbHdrs.indexOf('lp_campaign_spine_json') + 1;
+          var _cbIdCol    = _cbHdrs.indexOf('id') + 1;
+          if (_cbSpineCol > 0) {
+            var _cbRows = _hCB.getRange(2,1,_hCB.getLastRow()-1,_cbHdrs.length).getValues();
+            _cbRows.forEach(function(r){
+              if(String(r[_cbIdCol-1])===_hcid) _hSpine = String(r[_cbSpineCol-1]||'');
+            });
+          }
+        }
+
+        // Blocked count
+        var _hBlocked = 0;
+        if (_hCC && _hCC.getLastRow() >= 2) {
+          var _hCCHdrs = _CC_HDR.ContentCalendar;
+          var _hBCol   = _hCCHdrs.indexOf('blocked_by') + 1;
+          var _hCidCol = _hCCHdrs.indexOf('campaign_id') + 1;
+          if (_hBCol > 0) {
+            var _hCCRows = _hCC.getRange(2,1,_hCC.getLastRow()-1,_hCCHdrs.length).getValues();
+            _hCCRows.forEach(function(r){
+              if(String(r[_hCidCol-1])===_hcid && String(r[_hBCol-1]).trim()) _hBlocked++;
+            });
+          }
+        }
+
+        // AI model state + ROADMAP_DOC_ID — direct sheet read, no _getCcSetting
+        var _hGptActive = 'unknown';
+        var _hRoadmapId = '';
+        var _hCcSettingsSheet = _getCCSheet(_CC_TAB.SETTINGS);
+        if (_hCcSettingsSheet && _hCcSettingsSheet.getLastRow() >= 2) {
+          var _hCcVals = _hCcSettingsSheet.getRange(2,1,_hCcSettingsSheet.getLastRow()-1,3).getValues();
+          _hCcVals.forEach(function(r) {
+            var _rKey = String(r[1]);
+            if (_rKey === 'GPT4O_ACTIVE') _hGptActive = String(r[2]);
+            if (_rKey === 'ROADMAP_DOC_ID') _hRoadmapId = String(r[2]);
+          });
+        }
+
+        // Brief doc status
+        var _hBriefDocs = 0;
+        if (_hCC && _hCC.getLastRow() >= 2) {
+          var _hCCHdrs2  = _CC_HDR.ContentCalendar;
+          var _hBdCol    = _hCCHdrs2.indexOf('brief_doc_url') + 1;
+          var _hCidCol2  = _hCCHdrs2.indexOf('campaign_id') + 1;
+          if (_hBdCol > 0) {
+            var _hCCRows2 = _hCC.getRange(2,1,_hCC.getLastRow()-1,_hCCHdrs2.length).getValues();
+            _hCCRows2.forEach(function(r){
+              if(String(r[_hCidCol2-1])===_hcid && String(r[_hBdCol-1]).trim()) _hBriefDocs++;
+            });
+          }
+        }
+
+        var health = {
+          campaign_id:      _hcid,
+          deploy:           '@668',
+          sheet_id:         _hss.getId(),
+          content_calendar: _ccTotal,
+          social_posts:     _spTotal,
+          email_sequences:  _esTotal,
+          deep_links:       _dlTotal,
+          milestones:       _msTotal,
+          blocked:          _hBlocked,
+          brief_docs:       _hBriefDocs,
+          lp_spine:         _hSpine ? 'POPULATED' : 'MISSING',
+          gpt4o_active:     _hGptActive,
+          roadmap_doc_id:   _hRoadmapId,
+          red: []
+        };
+
+        if (!_hSpine)         health.red.push('LP_SPINE_MISSING — run generate_lp_spine before any content generation');
+        if (_hBlocked > 0)    health.red.push('BLOCKED_ASSETS: ' + _hBlocked + ' rows have blocked_by set');
+        if (_hBriefDocs === 0) health.red.push('BRIEF_DOCS: 0 brief_doc_url populated — run generate_content_cal_brief_docs');
+        if (!_hRoadmapId)     health.red.push('ROADMAP_DOC_ID not in CcSettings — run append_setting to add it');
+
+        Logger.log('[system_health_check] ' + JSON.stringify(health));
+        return respond({ ok:true, health: health, log: Logger.getLog() });
+      } catch(e) {
+        return respond({ ok:false, error: e.message, log: Logger.getLog() });
+      }
+    }
+
+    // ── Append session log line to permanent Roadmap doc ──────────────────────
+    if(body.action === 'append_session_log') {
+      try {
+        var _aslLine = body.line || '';
+        if (!_aslLine) return respond({ ok:false, error:'line required' });
+        var _aslRd = _getCcSetting('ROADMAP_DOC_ID');
+        var _aslDocId = (_aslRd && _aslRd.length ? _aslRd[0].label : '').trim();
+        if (!_aslDocId) return respond({ ok:false, error:'ROADMAP_DOC_ID not in CcSettings' });
+        var _aslDoc  = DocumentApp.openById(_aslDocId);
+        var _aslBody = _aslDoc.getBody();
+        var _aslText = _aslBody.getText();
+        var _aslSection = '\n## SESSION LOG\n';
+        if (_aslText.indexOf('SESSION LOG') < 0) {
+          _aslBody.appendParagraph('').editAsText();
+          _aslBody.appendParagraph('SESSION LOG')
+            .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+        }
+        _aslBody.appendParagraph(_aslLine);
+        _aslDoc.saveAndClose();
+        Logger.log('[append_session_log] ' + _aslLine);
+        return respond({ ok:true, line: _aslLine, doc_id: _aslDocId, log: Logger.getLog() });
+      } catch(e) {
+        return respond({ ok:false, error: e.message, log: Logger.getLog() });
+      }
     }
     if(body.action === 'get_campaign_dashboard') {
       var _dash = getCampaignDashboard(body.campaign_id);
@@ -1882,6 +2024,31 @@ function doPost(e) {
         });
       }
       return respond({ ok: true, rows: _drRows });
+    }
+
+    // ── Field audit ───────────────────────────────────────────────────────────────
+    if(body.action === 'audit_fields') {
+      var _ss = _getCampaignSpreadsheet();
+      var _auditTab = function(tabName) {
+        var sh = _ss.getSheetByName(tabName);
+        if (!sh || sh.getLastRow() < 2) return { tab: tabName, total: 0, fields: [] };
+        var vals = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+        var hdrs = vals[0].map(String);
+        var dataRows = vals.slice(1);
+        var cid = body.campaign_id || '';
+        var cidCol = hdrs.indexOf('campaign_id');
+        var rows = cid ? dataRows.filter(function(r){ return String(r[cidCol]||'')=== cid; }) : dataRows;
+        var total = rows.length;
+        var fields = hdrs.map(function(h, i) {
+          var pop = rows.filter(function(r){ var v=r[i]; return v!==''&&v!==null&&v!==undefined; }).length;
+          return { col: h, populated: pop, blank: total - pop, pct: total ? Math.round(pop*100/total) : 0 };
+        });
+        return { tab: tabName, total: total, fields: fields };
+      };
+      return respond({ ok:true,
+        SocialPosts:     _auditTab('SocialPosts'),
+        ContentCalendar: _auditTab('ContentCalendar')
+      });
     }
 
     // ── Social Posts ──────────────────────────────────────────────────────────────
