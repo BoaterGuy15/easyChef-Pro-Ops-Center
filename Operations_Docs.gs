@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────────────────────
 // Operations_Docs.gs
 // ADD THESE FUNCTIONS TO YOUR EXISTING Operations.gs
 // Do NOT replace the existing file — paste the functions below into it.
@@ -870,9 +870,9 @@ function generateClaudeDesignBrief(assetId) {
       if (spDesignBrief) body.appendParagraph('Design Brief:\n' + spDesignBrief);
       body.appendParagraph(' ');
       body.appendParagraph('Brand Specs').setHeading(H2);
-      body.appendParagraph('Primary:   #1A1A2E  (deep navy)');
-      body.appendParagraph('Accent:    #E8C547  (warm gold)');
-      body.appendParagraph('CTA Red:   #FF4444');
+      body.appendParagraph('Primary:   #FF0000  (easyChef red)');
+      body.appendParagraph('Background: #F6EFE8  (warm beige)');
+      body.appendParagraph('Text:       #000000  (black)');
       body.appendParagraph('Font:      Inter — H1 32px bold · Body 16px regular');
     }
 
@@ -1753,23 +1753,40 @@ function getDesignHtml(assetId) {
 // Reads ContentCalendar + SocialPosts or EmailSequences. Returns HTML string.
 
 function _bDecode(s) {
-  // Fix common UTF-8 mojibake from GAS/sheet encoding crossover
-  return String(s || '')
-    .replace(/â/g, "'").replace(/â€™/g, "'")
-    .replace(/â/g, '"').replace(/â€œ/g, '"')
-    .replace(/â/g, '"').replace(/â€/g, '"')
-    .replace(/â/g, '-').replace(/â€"/g, '-')
-    .replace(/Â·/g, '·').replace(/Â·/g, '·')
-    .replace(/â¢/g, '-').replace(/â€¢/g, '-')
-    .replace(/â/g, '->').replace(/â†'/g, '->')
-    .replace(/â/g, '<-')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  // Fix UTF-8 mojibake. Explicit Unicode escape sequences — most specific first
+  // so single-char catch-alls cannot corrupt 3-char em-dash sequences.
+  var t = String(s || '');
+  // 3-byte mojibake: U+00E2 + U+20AC + third-byte (Windows-1252 table)
+  t = t.replace(/â€”/g, '—'); // â€" EM DASH
+  t = t.replace(/â€“/g, '–'); // â€" EN DASH
+  t = t.replace(/â€™/g, '’'); // â€™ right single quote
+  t = t.replace(/â€˜/g, '‘'); // â€˜ left single quote
+  t = t.replace(/â€œ/g, '“'); // â€œ left double quote
+  t = t.replace(/â€¢/g, '•'); // â€¢ bullet
+  t = t.replace(/â€/g,       '”'); // â€  right double quote (2-byte fallback)
+  t = t.replace(/â†’/g, '→'); // â†' right arrow
+  t = t.replace(/Â·/g,       '·'); // Â·  middle dot
+  // HTML entity cleanup
+  t = t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  return t;
 }
 
 function _bH(text) { return _bDecode(text).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function renderBriefHtml(assetId) {
   var tz = Session.getScriptTimeZone();
+
+  // ── Brand tokens from BrandDoctrine (BRAND_VISUAL_TOKENS_001) ─────────────
+  var BT = { primary_red:'#FF0000', beige:'#F6EFE8', black:'#000000', white:'#FFFFFF',
+             cta_button_color:'#FF0000', cta_button_text:'#FFFFFF',
+             headline_font:'Proza Libre', body_font:'Inter',
+             shadow:'none', border_radius_pill:'999px' };
+  try {
+    var _btDoc = getBrandDoctrine('BRAND_VISUAL_TOKENS_001');
+    if (_btDoc && _btDoc.conditions) {
+      Object.keys(_btDoc.conditions).forEach(function(k) { BT[k] = _btDoc.conditions[k]; });
+    }
+  } catch(_bte) {}
 
   // ── Load ContentCalendar row ───────────────────────────────────────────────
   var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
@@ -1876,6 +1893,25 @@ function renderBriefHtml(assetId) {
   }
 
   // ── Derived values ──────────────────────────────────────────────────────────
+  // Fallback: pull dl_id from SocialPost or Email when CC row has none
+  if (!dlId && sp && sp.dl_id) dlId = sp.dl_id;
+  if (!dlId && em && em.dl_id) dlId = em.dl_id;
+  // Fallback: funnel stage from SocialPost when CC row has none
+  if (!funnel && sp) funnel = sp.lp_section_source || sp.loop_stage || '';
+  if (!funnel && em) funnel = em.funnel_stage || '';
+  // Fallback: email publish date — derive from campaign start + send_day
+  if (!pubDate && em && em.send_day) {
+    try {
+      var _csDate = new Date(2026, 4, 27); // EC-2026-001 campaign start
+      try {
+        var _cbData = getCampaignBriefs(campaignId);
+        if (_cbData && _cbData.launch_date) _csDate = new Date(_cbData.launch_date);
+      } catch(_cbe) {}
+      var _sdDate = new Date(_csDate.getTime());
+      _sdDate.setDate(_sdDate.getDate() + (parseInt(em.send_day, 10) - 1));
+      pubDate = Utilities.formatDate(_sdDate, tz, 'yyyy-MM-dd');
+    } catch(_de) {}
+  }
   var lpSection   = (sp && sp.lp_section_source) || funnel || '';
   var emotionIn   = (sp && sp.emotional_state)   || emotion || '';
   var emotionOut  = (sp && sp.emotional_destination) || '';
@@ -1965,6 +2001,37 @@ function renderBriefHtml(assetId) {
     sEmailBody = section('EMAIL BODY', block('Full Email Body', fullBody, 'fullbody'));
   }
 
+  // ── VIDEO STORYBOARD section (YouTube / TikTok) ───────────────────────────
+  var sVideo = '';
+  if (isVideo && sp && sp.body_copy) {
+    var _vbRaw = sp.body_copy;
+    var _vbParts = _vbRaw.split(/(?=(?:\*\*)?Scene\s+\d+)/i);
+    var _vbScenes = [];
+    _vbParts.forEach(function(part) {
+      var _hM = part.match(/^(?:\*\*)?Scene\s+(\d+[^\n]*)/i);
+      if (!_hM) return;
+      var _vM = part.match(/Visual:\s*([^\n]+)/i);
+      var _voM = part.match(/VO:\s*([\s\S]+?)(?=\n\n|\n(?:\*\*)?Scene|$)/i);
+      _vbScenes.push({
+        label: _hM[0].replace(/\*\*/g,'').trim(),
+        visual: _vM  ? _vM[1].trim()  : '',
+        vo:     _voM ? _voM[1].replace(/\n/g,' ').trim() : ''
+      });
+    });
+    if (_vbScenes.length) {
+      var _vbHtml = _vbScenes.map(function(sc) {
+        return '<div style="border-left:3px solid ' + BT.primary_red + ';padding:6px 0 6px 14px;margin-bottom:12px">' +
+          '<div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.6px;color:' + BT.primary_red + ';margin-bottom:6px">' + _bH(sc.label) + '</div>' +
+          '<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.5px">Visual</span><br>' +
+          (sc.visual ? '<span style="font-size:13px">' + _bH(sc.visual) + '</span>' : '<span style="color:#bbb;font-style:italic">— not generated</span>') + '</div>' +
+          '<div><span style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.5px">VO / Caption</span><br>' +
+          (sc.vo ? '<span style="font-size:13px">' + _bH(sc.vo) + '</span>' : '<span style="color:#bbb;font-style:italic">— not generated</span>') + '</div>' +
+          '</div>';
+      }).join('');
+      sVideo = section('VIDEO STORYBOARD', _vbHtml);
+    }
+  }
+
   // ── DESIGN SYSTEM section ─────────────────────────────────────────────────
   var sDesign = '';
   if (!isEmail) {
@@ -2014,28 +2081,77 @@ function renderBriefHtml(assetId) {
     );
   }
 
-  // ── CLAUDE DESIGN INSTRUCTIONS section ────────────────────────────────────
-  var sClaudeDesign = '';
-  if (!isEmail) {
-    var genUrl = GAS_URL + '?action=generate_design_for_asset&asset_id=' + encodeURIComponent(assetId);
-    var cdContent =
-      '<div class="field"><span class="label">Render Constraints</span>' +
-      '<ul class="constraint-list">' +
-      '<li>Clean conversion-first social card</li>' +
-      '<li>Mobile-first  ·  ' + layoutType + '</li>' +
-      '<li>No creative agency styling</li>' +
-      '<li>No gradients  ·  no glassmorphism</li>' +
-      '<li>Standard 8pt spacing system</li>' +
-      '<li>Realistic photography only</li>' +
-      '<li>Hook text dominant at top</li>' +
-      '<li>CTA button bottom  ·  pill shape  ·  #FF0000</li>' +
-      '<li>DL URL: ' + _bH(dlId) + '</li>' +
-      '</ul></div>' +
-      '<a href="' + genUrl + '" target="_blank" class="action-btn">Generate Design for this Asset</a>';
-    sClaudeDesign = section('CLAUDE DESIGN INSTRUCTIONS', cdContent);
+// ── CLAUDE DESIGN PROMPT + INSTRUCTIONS section ───────────────────────────
+  // Logo URL from CcSettings (append_setting LOGO_URL to populate)
+  var _cdLogoUrl = '';
+  try {
+    var _cdLogoArr = _getCcSetting('LOGO_URL');
+    if (_cdLogoArr && _cdLogoArr.length > 0 && _cdLogoArr[0].label) _cdLogoUrl = String(_cdLogoArr[0].label);
+  } catch(_le) {}
+
+  // Assemble prompt — dynamically from sheet data, nothing hardcoded
+  var _cdPrompt = '';
+  if (isEmail && em) {
+    // Email design prompt
+    var _emParts    = [em.body_hook, em.body_problem, em.body_agitate, em.body_solve, em.body_value, em.body_proof, em.body_cta].filter(Boolean);
+    var _emAllText  = _emParts.join(' ');
+    var _emSents    = _emAllText.match(/[^.!?]+[.!?]+\s*/g) || [_emAllText.slice(0, 160)];
+    var _emFirst3   = _emSents.slice(0, 3).join('').trim();
+    _cdPrompt =
+      'Design an HTML email for easyChef Pro — ' + (em.sequence_code || seqCode || 'SEQ-1') + ' · ' + (funnel || 'hook') + '\n\n' +
+      'SUBJECT: ' + (em.subject_line || '') + '\n' +
+      'PREVIEW: ' + (em.preview_text || '') + '\n\n' +
+      'LAYOUT: red accent bar top · logo · hero line · body · red CTA pill · footer\n' +
+      'WIDTH: 600px desktop · 375px mobile\n' +
+      'BRAND: #FF0000 · #F6EFE8 · #000000 · Proza Libre headings · Inter body\n' +
+      (_cdLogoUrl ? 'LOGO: ' + _cdLogoUrl + ' — centered top of email, max-width 200px\n' : '') +
+      '\nCOPY:\n' + _emFirst3 + '\n' +
+      'CTA: "' + (em.body_cta || '') + '"';
+  } else if (sp) {
+    // Social post design prompt
+    var _spSents  = (sp.body_copy || '').match(/[^.!?]+[.!?]+\s*/g) || [(sp.body_copy || '').slice(0, 120)];
+    var _spFirst2 = _spSents.slice(0, 2).join('').trim();
+    _cdPrompt =
+      'Design a ' + platform + ' ' + layoutType + ' for easyChef Pro.\n\n' +
+      'CANVAS: ' + frameSize + ' · 8pt spacing · 24px margins\n' +
+      'PHONE RULE: ' + (phoneOk ? 'PHONE VISIBLE' : 'NO PHONE in frame') + '\n' +
+      (_cdLogoUrl ? 'LOGO: ' + _cdLogoUrl + ' — top-left, 120px wide\n' : '') +
+      '\nCOPY:\nHook: "' + (sp.hook || '') + '"\n' +
+      'Body: "' + _spFirst2 + '"\n' +
+      'CTA: "' + (sp.cta || '') + '"\n' +
+      (sp.hashtags ? 'Hashtags: ' + sp.hashtags + '\n' : '') +
+      '\nBRAND: #FF0000 red · #F6EFE8 beige · #000000 black · Proza Libre headlines · Inter body\n' +
+      'CTA style: pill button · red · white text · bottom of card · no shadow\n' +
+      '\nIMAGE: ' + (sp.image_brief || 'warm realistic kitchen photography') + ' · warm realistic photography · no staged aesthetics · no gradients\n' +
+      'MOOD: ' + (emotionIn || '') + '\n' +
+      'AVOID: blue tones · studio lighting · fake smiles · glassmorphism\n' +
+      '\nLAYOUT: hook text dominant top · photo zone 65% · CTA bottom';
   }
 
-  // ── FIGMA HANDOFF section ─────────────────────────────────────────────────
+  var sClaudeDesign = '';
+  if (_cdPrompt) {
+    var _cdGenUrl = GAS_URL + '?action=generate_design_for_asset&asset_id=' + encodeURIComponent(assetId);
+    var _cdInner =
+      '<div style="margin-bottom:16px">' +
+      '<pre id="cdprompt" style="white-space:pre-wrap;word-break:break-word;background:#f9f5f1;padding:14px;border-radius:6px;font-family:Inter,sans-serif;font-size:12px;color:#000;line-height:1.6;margin-bottom:10px;border:1px solid #ede5db">' + _bH(_cdPrompt) + '</pre>' +
+      '<button onclick="copyField(\'cdprompt\')" style="display:block;width:100%;background:#FF0000;color:#FFFFFF;border:none;padding:12px 24px;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:0.3px;margin-bottom:6px">Copy for Claude Design</button>' +
+      '</div>';
+    if (!isEmail) {
+      _cdInner +=
+        '<div class="field"><span class="label">Render Constraints</span>' +
+        '<ul class="constraint-list">' +
+        '<li>Clean conversion-first social card</li>' +
+        '<li>Mobile-first  ·  ' + layoutType + '</li>' +
+        '<li>No gradients  ·  no glassmorphism  ·  no shadows</li>' +
+        '<li>Hook text dominant at top  ·  CTA bottom pill</li>' +
+        '<li>DL: ' + _bH(dlId || '—') + '</li>' +
+        '</ul></div>' +
+        '<a href="' + _cdGenUrl + '" target="_blank" class="action-btn">Generate Design for this Asset</a>';
+    }
+    sClaudeDesign = section('CLAUDE DESIGN INSTRUCTIONS', _cdInner);
+  }
+
+    // ── FIGMA HANDOFF section ─────────────────────────────────────────────────
   var sFigma = '';
   if (!isEmail) {
     sFigma = section('FIGMA HANDOFF',
@@ -2052,10 +2168,18 @@ function renderBriefHtml(assetId) {
     hook: 'Thumb-Stop Rate', problem: 'Engagement Rate', agitate: 'Save Rate',
     solve: 'Link CTR', value: 'Link CTR', proof: 'Share Rate', cta: 'Conversion Rate'
   };
+  var platformKpi = {
+    youtube:  { primary: 'View Duration',    secondary: 'Click-Through Rate' },
+    tiktok:   { primary: 'Thumb-Stop Rate',  secondary: 'Completion Rate' },
+    email:    { primary: 'Open Rate',        secondary: 'Click Rate' }
+  };
+  var _pk = platformKpi[plat] || null;
+  var primaryKpi   = _pk ? _pk.primary   : (kpiMap[lpSection] || 'Link CTR');
+  var secondaryKpi = _pk ? _pk.secondary : (isEmail ? 'Open Rate  ·  Click Rate' : 'Waitlist Conversion');
   var sPerfMeta = section('PERFORMANCE METADATA',
     '<div class="metric-grid">' +
-      metric('Primary KPI', kpiMap[lpSection] || 'Link CTR') +
-      metric('Secondary KPI', isEmail ? 'Open Rate  ·  Click Rate' : 'Waitlist Conversion') +
+      metric('Primary KPI', primaryKpi) +
+      metric('Secondary KPI', secondaryKpi) +
       metric('Hook Style', emotionIn || 'recognition') +
       metric('Funnel Stage', funnel || lpSection) +
       metric('Expected Read Depth', isEmail ? 'Full' : (lpSection === 'hook' ? 'Shallow' : 'Medium')) +
@@ -2082,24 +2206,24 @@ function renderBriefHtml(assetId) {
     '<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">' +
     '<style>' +
     '*{box-sizing:border-box;margin:0;padding:0}' +
-    'body{font-family:Inter,sans-serif;font-size:14px;color:#000;background:#F6EFE8;line-height:1.5}' +
-    'header{background:#FF0000;color:#fff;padding:20px 32px;display:flex;align-items:center;justify-content:space-between}' +
-    'header h1{font-family:"Proza Libre",sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.3px}' +
+    'body{font-family:' + BT.body_font + ',sans-serif;font-size:14px;color:' + BT.black + ';background:' + BT.beige + ';line-height:1.5}' +
+    'header{background:' + BT.primary_red + ';color:' + BT.white + ';padding:20px 32px;display:flex;align-items:center;justify-content:space-between}' +
+    'header h1{font-family:"' + BT.headline_font + '",sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.3px}' +
     'header .sub{font-size:13px;opacity:0.85;margin-top:2px}' +
     '.container{max-width:860px;margin:0 auto;padding:24px 16px 60px}' +
-    'section{background:#fff;border-radius:8px;margin-bottom:16px;overflow:hidden}' +
-    'section h2{font-family:"Proza Libre",sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:#FF0000;color:#fff;padding:8px 20px}' +
-    'section h3{font-family:"Proza Libre",sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#FF0000;padding:12px 20px 4px;border-top:1px solid #f0e8e0}' +
+    'section{background:' + BT.white + ';border-radius:8px;margin-bottom:16px;overflow:hidden}' +
+    'section h2{font-family:"' + BT.headline_font + '",sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:' + BT.primary_red + ';color:' + BT.white + ';padding:8px 20px}' +
+    'section h3{font-family:"' + BT.headline_font + '",sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:' + BT.primary_red + ';padding:12px 20px 4px;border-top:1px solid #f0e8e0}' +
     '.section-body{padding:16px 20px}' +
     '.field{padding:7px 0;border-bottom:1px solid #f4ece4;display:block;overflow:hidden}' +
     '.field:last-child{border-bottom:none}' +
     '.label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:#888;display:block;margin-bottom:2px}' +
-    '.value{color:#000;display:block;white-space:pre-wrap;word-break:break-word}' +
+    '.value{color:' + BT.black + ';display:block;white-space:pre-wrap;word-break:break-word}' +
     '.empty{color:#bbb;font-style:italic}' +
     '.block{padding:10px 0;border-bottom:1px solid #f4ece4}' +
     '.block:last-child{border-bottom:none}' +
     '.empty-block{color:#bbb;font-style:italic;font-size:13px;background:#f9f5f1;padding:10px;border-radius:4px;margin-top:4px}' +
-    'pre.body-text{font-family:Inter,sans-serif;font-size:13px;white-space:pre-wrap;word-break:break-word;background:#f9f5f1;padding:12px;border-radius:4px;margin-top:6px;color:#000}' +
+    'pre.body-text{font-family:' + BT.body_font + ',sans-serif;font-size:13px;white-space:pre-wrap;word-break:break-word;background:#f9f5f1;padding:12px;border-radius:4px;margin-top:6px;color:' + BT.black + '}' +
     'button{cursor:pointer}' +
     '.token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;padding:8px 0 12px}' +
     '.token{display:flex;align-items:center;gap:10px;font-size:12px;color:#555}' +
@@ -2107,10 +2231,10 @@ function renderBriefHtml(assetId) {
     '.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}' +
     '.metric{background:#f9f5f1;border-radius:6px;padding:12px 14px}' +
     '.metric-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:#888;margin-bottom:4px}' +
-    '.metric-value{font-size:14px;font-weight:600;color:#000}' +
-    '.constraint-list{margin:8px 0 8px 18px;color:#000}' +
+    '.metric-value{font-size:14px;font-weight:600;color:' + BT.black + '}' +
+    '.constraint-list{margin:8px 0 8px 18px;color:' + BT.black + '}' +
     '.constraint-list li{margin-bottom:3px;font-size:13px}' +
-    '.action-btn{display:inline-block;margin-top:14px;background:#FF0000;color:#fff;padding:9px 20px;border-radius:999px;text-decoration:none;font-size:13px;font-weight:600;font-family:Inter,sans-serif}' +
+    '.action-btn{display:inline-block;margin-top:14px;background:' + BT.cta_button_color + ';color:' + BT.cta_button_text + ';padding:9px 20px;border-radius:' + BT.border_radius_pill + ';text-decoration:none;font-size:13px;font-weight:600;font-family:' + BT.body_font + ',sans-serif}' +
     '.action-btn:hover{opacity:0.88}' +
     'ul{list-style:none}' +
     '</style></head><body>' +
@@ -2121,6 +2245,7 @@ function renderBriefHtml(assetId) {
     section('IDENTITY', sIdentity) +
     section('COPY SYSTEM', sCopy) +
     sEmailBody +
+    sVideo +
     sDesign +
     sVisual +
     sImgGen +

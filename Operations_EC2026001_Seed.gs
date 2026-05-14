@@ -6581,3 +6581,68 @@ function backupCampaignData(campaignId) {
     return { ok: false, error: e.message };
   }
 }
+
+// Syncs dl_id, utm_url, and hashtags from SocialPosts → ContentCalendar
+// Matches via ContentCalendar.asset_id === SocialPosts.id
+// Only writes cells that are currently empty (or force:true to overwrite)
+// Leaves all other ContentCalendar columns untouched
+
+function syncEC2026001CalFields(opts) {
+  opts = opts || {};
+  var force = !!(opts.force);
+  var campaignFilter = opts.campaign_id || 'EC-2026-001';
+  try {
+    // ── 1. Build SocialPosts map: id → {dl_id, utm_url, hashtags} ──
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spData  = spSheet.getDataRange().getValues();
+    var spHdrs  = spData[0].map(function(h) { return String(h).trim(); });
+    var SP = {};
+    spHdrs.forEach(function(h, i) { SP[h] = i; });
+    var spMap = {};
+    for (var si = 1; si < spData.length; si++) {
+      var r = spData[si];
+      if (String(r[SP['campaign_id']]) !== campaignFilter) continue;
+      var pid = String(r[SP['id']] || '');
+      if (!pid) continue;
+      spMap[pid] = {
+        dl_id:    String(r[SP['dl_id']]    || ''),
+        utm_url:  String(r[SP['utm_url']]  || ''),
+        hashtags: String(r[SP['hashtags']] || '')
+      };
+    }
+
+    // ── 2. Read ContentCalendar ──
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var calData  = calSheet.getDataRange().getValues();
+    var calHdrs  = calData[0].map(function(h) { return String(h).trim(); });
+    var CAL = {};
+    calHdrs.forEach(function(h, i) { CAL[h] = i; });
+
+    var updated = 0, skipped = 0, noMatch = 0;
+
+    for (var ci = 1; ci < calData.length; ci++) {
+      var row = calData[ci];
+      if (String(row[CAL['campaign_id']]) !== campaignFilter) continue;
+      var assetId = String(row[CAL['asset_id']] || '');
+      if (!assetId || !spMap[assetId]) { noMatch++; continue; }
+
+      var sp = spMap[assetId];
+      var existDl = String(row[CAL['dl_id']] || '');
+      if (existDl && !force) { skipped++; continue; }
+
+      // Surgical cell writes: dl_id, utm_url, hashtags only
+      var sheetRow = ci + 1; // 1-based
+      if (sp.dl_id)   calSheet.getRange(sheetRow, CAL['dl_id']   + 1).setValue(sp.dl_id);
+      if (sp.utm_url) calSheet.getRange(sheetRow, CAL['utm_url'] + 1).setValue(sp.utm_url);
+      // Mirror hashtags (empty string is valid — platform may not use them)
+      calSheet.getRange(sheetRow, CAL['hashtags'] + 1).setValue(sp.hashtags);
+      updated++;
+    }
+
+    Logger.log('[syncEC2026001CalFields] updated=' + updated + ' skipped=' + skipped + ' noMatch=' + noMatch);
+    return { ok: true, updated: updated, skipped: skipped, no_match: noMatch };
+  } catch(e) {
+    Logger.log('[syncEC2026001CalFields] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

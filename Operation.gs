@@ -1054,6 +1054,10 @@ function doPost(e) {
       var _dlResult = assignEC2026001DlIds({ force: !!(body.force) });
       return respond({ ok:_dlResult.ok, result:_dlResult, log: Logger.getLog() });
     }
+    if(body.action === 'sync_ec2026001_cal_fields') {
+      var _calSync = syncEC2026001CalFields({ force: !!(body.force), campaign_id: body.campaign_id });
+      return respond({ ok:_calSync.ok, result:_calSync, log: Logger.getLog() });
+    }
     if(body.action === 'seed_ec2026001_emails') {
       var _emResult = seedEC2026001Emails();
       return respond({ ok:_emResult.ok, result:_emResult, log: Logger.getLog() });
@@ -1534,7 +1538,7 @@ function doPost(e) {
 
         var health = {
           campaign_id:      _hcid,
-          deploy:           '@669',
+          deploy:           '@671',
           sheet_id:         _hss.getId(),
           content_calendar: _ccTotal,
           social_posts:     _spTotal,
