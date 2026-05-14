@@ -133,6 +133,8 @@ Submodule: `.agents/ui-ux-pro-max-skill/` (git submodule: `nextlevelbuilder/ui-u
 
 **For easyChef Pro:** style = Soft UI Evolution · anti-patterns = neon/AI gradients/dark mode/clutter · canvas safe zone ≥80px · WCAG AA contrast enforced.
 
+**Full branding reference:** [`BRANDING.md`](BRANDING.md) — CSS token layer, typography, status colors, generated asset rules, cockpit redesign session log. Read this before any UI or design work.
+
 ---
 
 ## PROJECT OVERVIEW
@@ -161,4 +163,4 @@ Submodule: `.agents/ui-ux-pro-max-skill/` (git submodule: `nextlevelbuilder/ui-u
 
 ---
 
-Current state: deploy @717 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+Current state: deploy @723 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · BRANDING.md created · Session 1 cockpit redesign complete
