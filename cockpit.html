@@ -995,7 +995,7 @@
         (_isEmail
           ? (p.full_email_body ? _rewriteEmailBtn : _writeEmailBtn)+(p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn+_ghBtn:_genBtn)
           : (p.claude_design_url?_viewDesignLink+_regenBtn+_copyHtmlBtn+_ghBtn:_genBtn))+
-        pmLink('Figma', p.figma_url||null)+
+        pmLink('Figma', p.figma_url||null, 'pending')+
         pmLink('Google Sheet Row', sheetUrl)+
         pmLink('Drive Folder', _driveFolderUrl)+
       '</div>';
@@ -1021,9 +1021,9 @@
     function pmRow(label, value, cls){
       return '<div class="pm-row"><div class="pm-lbl">'+label+'</div><div class="pm-val'+(cls?' '+cls:'')+'">'+value+'</div></div>';
     }
-    function pmLink(label, url){
+    function pmLink(label, url, pendingLabel){
       var ready=!!url;
-      var tag='<span class="pm-link-tag">'+(ready?'':'soon')+'</span>';
+      var tag='<span class="pm-link-tag">'+(ready?'open':(pendingLabel||'soon'))+'</span>';
       return ready
         ? '<a class="pm-link ready" href="'+url+'" target="_blank">↗ '+label+tag+'</a>'
         : '<span class="pm-link">↗ '+label+tag+'</span>';

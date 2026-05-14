@@ -2763,6 +2763,18 @@ function getCampaignCalendar(campaignId) {
       }
     } catch(ee) { Logger.log('[getCampaignCalendar] emBodyMap error: ' + ee.message); }
 
+    // Build platform → Figma template URL map from CcSettings
+    var _figmaMap = {};
+    try {
+      ['FACEBOOK','INSTAGRAM','TIKTOK','PINTEREST','X','NEXTDOOR','EMAIL','YOUTUBE'].forEach(function(pk) {
+        var _fa = _getCcSetting('FIGMA_' + pk);
+        if (_fa && _fa.length > 0 && _fa[0].label) {
+          var _fu = String(_fa[0].label);
+          if (_fu) _figmaMap[pk.toLowerCase()] = _fu;
+        }
+      });
+    } catch(_fe) { Logger.log('[getCampaignCalendar] figmaMap error: ' + _fe.message); }
+
     var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
     var H = {};
     headers.forEach(function(h, i) { H[h] = i; });
@@ -2794,7 +2806,7 @@ function getCampaignCalendar(campaignId) {
       var assetId  = String(r[H.asset_id]          || '');
       var calId    = String(r[H.calendar_id]       || '');
       var dlId     = String(r[H.dl_id]             || '');
-      var figmaUrl    = String(r[H.figma_export_url] || '');
+      var figmaUrl    = _figmaMap[platform.toLowerCase()] || String(r[H.figma_export_url] || '');
       var notes       = String(r[H.notes]           || '');
       var pubTime     = String(r[H.publish_time]    || '');
       var day         = Number(r[H.day]             || 0);
