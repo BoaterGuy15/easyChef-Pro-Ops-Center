@@ -2249,25 +2249,59 @@ function renderBriefHtml(assetId) {
       '\nCOPY:\n' + _emFirst3 + '\n' +
       'CTA: "' + (em.body_cta || '') + '"';
   } else if (sp) {
-    // Social post design prompt
+    // Social post design prompt — full IMAGE SCHEMA folded in
     var _spSents  = (sp.body_copy || '').match(/[^.!?]+[.!?]+\s*/g) || [(sp.body_copy || '').slice(0, 120)];
     var _spFirst2 = _spSents.slice(0, 2).join('').trim();
     _cdPrompt =
       'Design a ' + platform + ' ' + layoutType + ' for easyChef Pro.\n\n' +
-      'CANVAS: ' + frameSize + ' · 8pt spacing · 24px margins\n' +
-      'PHONE RULE: ' + (phoneOk ? 'PHONE DEVICE VISIBLE — handset in lifestyle scene only' : 'NO PHONE DEVICE in frame') + '\n' +
+      '— ASSET —\n' +
+      'ID: ' + assetId + ' · ' + campaignId + ' · Day ' + day + ' · Week ' + week + '\n' +
+      'Funnel Stage: ' + (funnel || lpSection) + ' · ICP: ' + icp + '\n' +
+      'Landing Page: ' + _lpUrl + '\n' +
+      (_utmUrl ? 'UTM URL: ' + _utmUrl + '\n' : '') +
+      '\n— CANVAS —\n' +
+      'Format: ' + frameSize + ' · 8pt spacing · 24px margins\n' +
+      'Phone Device Rule: ' + (phoneOk ? 'VISIBLE — handset in lifestyle scene only' : 'NO DEVICE in frame') + '\n' +
       'NO PHONE NUMBER: Do NOT include any phone number anywhere in this asset. Ever.\n' +
-      (_cdLogoUrl ? 'LOGO: ' + _cdLogoUrl + ' — top-left, 120px wide\n' : '') +
-      '\nCOPY:\nHook: "' + (sp.hook || '') + '"\n' +
+      (_cdLogoUrl ? 'Logo: ' + _cdLogoUrl + ' — top-left, 120px wide\n' : '') +
+      '\n— COPY —\n' +
+      'Hook: "' + (sp.hook || '') + '"\n' +
       'Body: "' + _spFirst2 + '"\n' +
       'CTA: "' + (sp.cta || '') + '"\n' +
       (sp.hashtags ? 'Hashtags: ' + sp.hashtags + '\n' : '') +
-      '\nBRAND: #FF0000 red · #F6EFE8 beige · #000000 black · Proza Libre headlines · Inter body\n' +
-      'CTA style: pill button · red · white text · bottom of card · no shadow\n' +
-      '\nIMAGE: ' + (sp.image_brief || 'warm realistic kitchen photography') + ' · warm realistic photography · no staged aesthetics · no gradients\n' +
-      'MOOD: ' + (emotionIn || '') + '\n' +
-      'AVOID: phone numbers · blue tones · studio lighting · fake smiles · glassmorphism\n' +
-      '\nLAYOUT: hook text dominant top · photo zone 65% · CTA bottom';
+      '\n— BRAND —\n' +
+      'Primary: #FF0000 red · Background: #F6EFE8 beige · Text: #000000 black · White: #FFFFFF\n' +
+      'Headlines: Proza Libre bold/800 · Body: Inter 400–500\n' +
+      'CTA button: red pill · white text · border-radius 999px · no shadow · no gradient\n' +
+      '\n— IMAGE SCHEMA —\n' +
+      'Purpose: ' + _imgPurpose + '\n' +
+      'Scene: ' + _sc.loc + ' · ' + _sc.time + ' · ' + _sc.env + '\n' +
+      'Props: ' + _sc.props + '\n' +
+      'Background: ' + _sc.bg + '\n' +
+      'Subject: Woman 32–44 · busy mom · ' + _emo.expr + '\n' +
+      'Body Language: ' + _emo.body + '\n' +
+      'Wardrobe: Casual — jeans, t-shirt or light jacket. No apron.\n' +
+      'Primary Emotion: ' + (emotionIn || 'exhausted') + ' → ' + (emotionOut || 'curious') + '\n' +
+      'Must feel like: Real life — a moment she has actually lived\n' +
+      'Must NOT feel like: Stock photo · influencer content · aspirational staging\n' +
+      '\n— COMPOSITION —\n' +
+      'Orientation: ' + _comp.orient + ' · Crop: ' + _comp.crop + '\n' +
+      'Subject placement: ' + _comp.placement + '\n' +
+      'Text safe zone: ' + _comp.textSafe + '\n' +
+      'CTA safe zone: ' + _comp.ctaSafe + '\n' +
+      'Depth of field: ' + _comp.dof + '\n' +
+      'Negative space: left or top zone reserved for text overlay\n' +
+      '\n— LIGHTING —\n' +
+      'Source: ' + _light.source + '\n' +
+      'Mood: ' + _light.mood + ' · Temp: ' + _light.temp + '\n' +
+      'Shadows: ' + _light.shadows + '\n' +
+      '\n— IMAGE BRIEF —\n' +
+      (sp.image_brief || 'Warm realistic kitchen photography. Natural light. Busy mom 32–44.') + '\n' +
+      '\n— LAYOUT —\n' +
+      'Hook text dominant top · photo zone 65% · CTA pill bottom · 8pt grid\n' +
+      '\n— AVOID —\n' +
+      'Phone numbers · blue tones · studio lighting · fake smiles · AI hands · extra fingers\n' +
+      'Glassmorphism · gradients · staged aesthetics · defeat/shame tone · unrealistic food';
   }
 
   var sClaudeDesign = '';
