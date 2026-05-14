@@ -191,7 +191,7 @@ var _CLAIM_QUALITY_COPY =
 var _BRAND_POSITION_COPY =
   '=== BRAND POSITION — GOVERNING FRAME. EVERY PIECE OF COPY ANSWERS TO THIS. ===\n' +
   'Tagline:     "The app that evolves with your life."\n' +
-  'Brand Truth: "Your life changes. Your kitchen should change with it."\n' +
+  'Brand Truth: "Your life changes. Your kitchen should change with you."\n' +
   'Position:    Adaptive household infrastructure — not recipe software.\n' +
   'Contrast:    Most food apps assume one static person forever. easyChef Pro does not.\n' +
   'Life stages this product serves:\n' +
@@ -3022,9 +3022,52 @@ function _getSkillBlock(contentType) {
     ''
   ].join('\n');
 
-  if (contentType === 'social') return social;
-  if (contentType === 'email')  return email;
-  if (contentType === 'lp')     return lp;
+  var design = [
+    '## SKILL: UI/UX Design (from .agents/ui-ux-pro-max-skill — v2.5.0)',
+    'You are a world-class UI/UX visual designer. Apply these principles to every design output.',
+    '',
+    '### Product Profile: Recipe & Cooking / Lifestyle App (easyChef Pro)',
+    'Recommended style: Soft UI Evolution — warm, clean, premium. Soft depth, no harsh edges.',
+    'Palette mood: Bold accent (#FF0000) on warm neutral base (#F6EFE8). High contrast. Never muddy.',
+    'Typography mood: Trustworthy + approachable. Strong headline weight (700+), clean body (400).',
+    'Key effects: Smooth transitions 200-300ms. Subtle box-shadow. Gentle hover states.',
+    '',
+    '### Anti-Patterns — Never Use',
+    '- Neon or unrelated gradient colors',
+    '- AI purple/pink gradients',
+    '- Harsh, jarring animations',
+    '- Dark backgrounds (brand is light-first)',
+    '- Cluttered composition — every element earns its place',
+    '- Multiple competing CTAs in one frame',
+    '- Generic stock-photo aesthetic — must feel custom and branded',
+    '',
+    '### Visual Hierarchy (ui-ux-pro-max ux-guidelines)',
+    '- One dominant focal point per composition. Eye flows top-to-bottom or center-out.',
+    '- Text contrast minimum 4.5:1 (WCAG AA). Headlines on colored BG must pass this check.',
+    '- Font size scale: headline 32-56px · subheadline 18-24px · body 14-16px · captions 11-12px.',
+    '- White space is a design element — never fill every pixel.',
+    '- CTA button: min 44×44px touch target. Padding ≥12px vertical, ≥24px horizontal.',
+    '',
+    '### Canvas Layout by Platform',
+    '- Square 1080×1080: one dominant visual + short copy. Max 2 text blocks.',
+    '- Story/Vertical 1080×1920: hook zone top 30% · visual middle 50% · CTA bottom 20%.',
+    '- Landscape 1200×628: hero image left, copy + CTA right.',
+    '- Safe zone: all text/CTAs ≥80px from any canvas edge.',
+    '',
+    '### Pre-Delivery Checklist (ui-ux-pro-max)',
+    '- No emojis as icons — use text or CSS-only shapes',
+    '- All interactive elements have smooth hover transitions (150-300ms)',
+    '- Text contrast ≥4.5:1 on all surfaces',
+    '- No overlapping or clipped text',
+    '- CTA is the highest-contrast element on the canvas',
+    '- Funnel-stage phone rule strictly followed',
+    ''
+  ].join('\n');
+
+  if (contentType === 'social')  return social;
+  if (contentType === 'email')   return email;
+  if (contentType === 'lp')      return lp;
+  if (contentType === 'design')  return design;
   return '';
 }
 

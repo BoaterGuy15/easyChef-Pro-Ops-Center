@@ -658,7 +658,7 @@ function generateContentCalBriefDocs(campaignId, opts) {
     if (!briefFolder) briefFolder = DriveApp.getRootFolder();
 
     var created = 0, skipped = 0;
-    var BATCH = 30;
+    var BATCH = 300;
 
     for (var i = 0; i < data.length && created < BATCH; i++) {
       var r = data[i];
@@ -709,8 +709,10 @@ function generateContentCalBriefDocs(campaignId, opts) {
       var sp = spMap[assetId] || null;
       var em = emMap[assetId] || null;
 
-      var _gbGasBase = 'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec';
-      var briefUrl = _gbGasBase + '?action=view_brief&asset_id=' + encodeURIComponent(assetId);
+      var _gbUrlR = []; try { _gbUrlR = _getCcSetting('GAS_URL'); } catch(_gu) {}
+      var _gbGasBase = (_gbUrlR && _gbUrlR.length && _gbUrlR[0].label) ? _gbUrlR[0].label : '';
+      if (!_gbGasBase) { try { _gbGasBase = ScriptApp.getService().getUrl(); } catch(_su) {} }
+      var briefUrl = _gbGasBase ? (_gbGasBase + '?action=view_brief&asset_id=' + encodeURIComponent(assetId)) : '';
       ccSheet.getRange(i + 2, briefCol).setValue(briefUrl);
       created++;
       Logger.log('[generateContentCalBriefDocs] ' + assetId + ' → ' + briefUrl);
@@ -1412,6 +1414,7 @@ function generateDesignForAsset(assetId) {
 
     // ── 8. Build Claude prompts ───────────────────────────────────────────────
     var systemPrompt = [
+      _getSkillBlock('design'),
       'You are a world-class UI/visual designer building social media post mockups as self-contained HTML pages.',
       'App: easyChef Pro — smart meal planning that transforms chaotic weeknight cooking into calm, confident kitchen mastery.',
       '',
@@ -1937,7 +1940,9 @@ function renderBriefHtml(assetId) {
   if (plat==='tiktok')    { layoutType='TikTok/Reels — 9:16';      frameSize='1080 x 1920px'; }
   if (plat==='youtube')   { layoutType='YouTube — 16:9';           frameSize='1920 x 1080px'; }
 
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ/exec';
+  var _rGasUrlR = []; try { _rGasUrlR = _getCcSetting('GAS_URL'); } catch(_rgu) {}
+  var GAS_URL = (_rGasUrlR && _rGasUrlR.length && _rGasUrlR[0].label) ? _rGasUrlR[0].label : '';
+  if (!GAS_URL) { try { GAS_URL = ScriptApp.getService().getUrl(); } catch(_rsu) {} }
 
   // ── Copy button helper ─────────────────────────────────────────────────────
   function copyBtn(id) {
@@ -2004,6 +2009,104 @@ function renderBriefHtml(assetId) {
     var bodyParts = [em.body_hook, em.body_problem, em.body_agitate, em.body_solve, em.body_value, em.body_proof, em.body_cta];
     var fullBody  = bodyParts.filter(Boolean).join('\n\n');
     sEmailBody = section('EMAIL BODY', block('Full Email Body', fullBody, 'fullbody'));
+  }
+
+  // ── EMAIL PRODUCTION SCHEMA section ──────────────────────────────────────
+  var sEmailProductionSchema = '';
+  if (isEmail) {
+    // Pull sender / template config from CcSettings — never hardcoded
+    function _epsGet(key) {
+      var r = []; try { r = _getCcSetting(key); } catch(_eg) {}
+      return (r && r.length && r[0].label) ? r[0].label : '';
+    }
+    var _abM      = assetId.match(/[-_]([ab])$/i);
+    var _abV      = _abM ? _abM[1].toUpperCase() : '';
+    var _isAv     = (_abV === 'A');
+    var _seqSt    = (em && em.sequence_code) ? em.sequence_code : (seqCode || '');
+    var _trig     = (em && em.trigger_event)  ? em.trigger_event  : '';
+    var _primU    = _utmUrl || _lpUrl || '';
+    var _utmCamp  = campaignId ? campaignId.toLowerCase().replace(/[^a-z0-9_-]/g, '_') : '';
+    // CcSettings reads
+    var _fromName = _epsGet('EMAIL_FROM_NAME');
+    var _fromAddr = _epsGet('EMAIL_FROM_ADDRESS');
+    var _replyTo  = _epsGet('EMAIL_REPLY_TO');
+    var _brandSig = _epsGet('EMAIL_BRAND_SIGNATURE');
+    var _espTpl   = _epsGet('EMAIL_TEMPLATE_ID');
+    var _suppRule = _epsGet('EMAIL_SUPPRESSION_RULES');
+    var _excl     = _epsGet('EMAIL_EXCLUSIONS');
+    var _epf = function(label, value) {
+      return '<div class="field"><span class="label">' + label + '</span>' +
+        (value ? '<span class="value">' + _bH(value) + '</span>' : '<span class="empty">Not assigned</span>') + '</div>';
+    };
+    var _epck = function(label, pass) {
+      return '<div class="field"><span class="label">' + label + '</span>' +
+        (pass ? '<span style="color:#00B050;font-weight:700;font-size:13px;">&#10003; Pass</span>'
+               : '<span style="color:#FF0000;font-weight:700;font-size:13px;">&#10007; Not assigned</span>') + '</div>';
+    };
+    sEmailProductionSchema = section('EMAIL PRODUCTION SCHEMA',
+      '<h3>Template</h3>' +
+      _epf('Email Format', 'HTML') +
+      _epf('ESP Template ID', _espTpl) +
+      _epf('Layout Type', 'Single column — red accent bar · logo · hero · body · CTA pill · footer') +
+      _epf('Mobile Priority', 'High — 375px viewport first') +
+      _epf('Dark Mode Safe', 'No — brand beige #F6EFE8 background required') +
+      _epf('Header Image Required', 'No — text-only header preferred') +
+      _epf('CTA Button Style', 'Red pill · #FF0000 · white text · border-radius 999px · no shadow') +
+
+      '<h3>A/B Variant</h3>' +
+      _epf('Variant', _abV) +
+      _epf('Test Variable', (em ? 'Subject line / body copy' : '')) +
+      _epf('Control',    (_isAv && _abM ? 'Variant A — original copy' : '')) +
+      _epf('Challenger', (!_isAv && _abM ? 'Variant B — alternate copy' : '')) +
+      _epf('Success Metric', 'Open Rate · Click Rate') +
+
+      '<h3>Segment</h3>' +
+      _epf('Audience Segment', icp || '') +
+      _epf('ICP Target', icp || '') +
+      _epf('Suppression Rules', _suppRule) +
+      _epf('Exclusions', _excl) +
+
+      '<h3>Sender</h3>' +
+      _epf('From Name', _fromName) +
+      _epf('From Email', _fromAddr) +
+      _epf('Reply-To', _replyTo) +
+      _epf('Brand Signature', _brandSig) +
+
+      '<h3>Timing</h3>' +
+      _epf('Send Date', pubDate || '') +
+      _epf('Send Time', pubTime || '') +
+      _epf('Time Zone', tz) +
+      _epf('Campaign Day', day ? 'Day ' + day : '') +
+      _epf('Sequence Step', _seqSt) +
+      _epf('Delay / Condition', _trig) +
+
+      '<h3>Links + UTM</h3>' +
+      _epf('Primary CTA URL', _primU) +
+      _epf('Secondary URLs', '') +
+      _epf('UTM Source', 'email') +
+      _epf('UTM Medium', 'email-sequence') +
+      _epf('UTM Campaign', _utmCamp) +
+      _epf('UTM Content / DL ID', dlId || '') +
+      _epf('Link QA Required', 'Yes — test all links before send') +
+
+      '<h3>Compliance</h3>' +
+      _epf('Unsubscribe Required', 'Yes — one-click unsubscribe mandatory') +
+      _epf('Physical Address Required', 'Yes — CAN-SPAM §5 required in footer') +
+      _epf('CAN-SPAM Safe', 'Yes') +
+      _epf('No Misleading Subject Line', 'Yes — subject must accurately represent email content') +
+      _epf('No Unsupported Claims', 'Yes — only approved claims permitted') +
+      _epf('Approved Claims Only', 'Yes — see CcSettings APPROVED_CLAIMS') +
+
+      '<h3>QA Checklist</h3>' +
+      _epck('Subject line present',        !!(em && em.subject_line)) +
+      _epck('Preview text present',        !!(em && em.preview_text)) +
+      _epck('CTA text present',            !!(em && em.body_cta)) +
+      _epck('Unsubscribe link (template)', true) +
+      _epck('Primary CTA URL assigned',    !!_primU) +
+      _epck('UTM / DL ID assigned',        !!dlId) +
+      _epck('Segment / ICP assigned',      !!icp) +
+      _epck('A/B variant identified',      !!_abM)
+    );
   }
 
   // ── VIDEO STORYBOARD section (YouTube / TikTok) ───────────────────────────
@@ -2423,6 +2526,7 @@ function renderBriefHtml(assetId) {
     section('IDENTITY', sIdentity) +
     section('COPY SYSTEM', sCopy) +
     sEmailBody +
+    sEmailProductionSchema +
     sVideo +
     sDesign +
     sImageSchema +

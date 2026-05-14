@@ -74,7 +74,7 @@ Copy generation uses **Claude** (`claude-sonnet-4-20250514`), not GPT-4o.
 
 Sheet ID: `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE`
 Branch: always `main`
-Deployment ID: `AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ`
+Deployment ID: `AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg`
 
 The Campaign Center Sheet is the source of truth for all governance rules — not memory, not old docs.
 
@@ -114,6 +114,27 @@ All skills read `.agents/product-marketing-context.md` first. Populate that file
 
 ---
 
+## UI/UX DESIGN SKILL
+
+Submodule: `.agents/ui-ux-pro-max-skill/` (git submodule: `nextlevelbuilder/ui-ux-pro-max-skill` v2.5.0)
+
+**What it provides:**
+- 67 UI styles (Glassmorphism, Soft UI Evolution, Minimalism, Brutalism, Claymorphism, and more)
+- 161 color palettes aligned to product types
+- 57 font pairings with Google Fonts imports
+- 99 UX guidelines (Do/Don't, severity, platform, code examples)
+- 25 chart types for dashboards
+- 161 industry-specific design reasoning rules
+- Python search engine: `python3 .agents/ui-ux-pro-max-skill/src/ui-ux-pro-max/scripts/search.py "<query>" --design-system`
+
+**Wired into:** `generateDesignForAsset()` in `Operations_Docs.gs` via `_getSkillBlock('design')` in `Operations_AssetBuilder.gs`.
+
+**Skill block active for:** `contentType === 'design'` — prepended to system prompt before brand tokens and brief content.
+
+**For easyChef Pro:** style = Soft UI Evolution · anti-patterns = neon/AI gradients/dark mode/clutter · canvas safe zone ≥80px · WCAG AA contrast enforced.
+
+---
+
 ## PROJECT OVERVIEW
 
 **DGL easyChef Pro Ops Center** — internal operations dashboard for Digital Galactica Labs tracking the easyChef Pro product launch (target: July 1, 2026).
@@ -140,4 +161,4 @@ All skills read `.agents/product-marketing-context.md` first. Populate that file
 
 ---
 
-Current state: deploy @678 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
+Current state: deploy @717 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main`
