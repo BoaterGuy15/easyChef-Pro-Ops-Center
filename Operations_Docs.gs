@@ -1919,6 +1919,9 @@ function renderBriefHtml(assetId) {
   var arcThemes   = ['hook','problem','agitate','solve','value','proof','cta'];
   var postNum     = 0; var pn = assetId.match(/(\d+)$/); if (pn) postNum = parseInt(pn[1],10);
   var phoneOk     = (postNum > 3) || isEmail;
+  var _lpVariant  = (postNum % 2 === 1) ? 'waitlist-a' : 'waitlist-b';
+  var _utmUrl     = (sp && sp.utm_url) || (em && em.dl_id ? 'https://easychefpro.com/lp/' + _lpVariant : '');
+  var _lpUrl      = _utmUrl ? _utmUrl.split('?')[0] : 'https://easychefpro.com/lp/' + _lpVariant;
   var phonePill   = phoneOk
     ? '<span style="background:#00B050;color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">PHONE VISIBLE</span>'
     : '<span style="background:#FF0000;color:#fff;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">NO PHONE</span>';
@@ -1961,6 +1964,8 @@ function renderBriefHtml(assetId) {
     field('Campaign', campaignId, 'cmp') +
     field('Calendar ID', calId, 'cal_id') +
     field('DL ID', dlId, 'dl_id') +
+    field('LP Destination', _lpUrl, 'lp_url') +
+    (_utmUrl ? field('UTM URL', _utmUrl, 'utm_url') : '') +
     field('Platform', platform, 'plat') +
     field('Publish Date', pubDate + (pubTime ? '  ' + pubTime : ''), 'pub') +
     field('Campaign Day', 'Day ' + day + '  ·  Week ' + week, 'day') +
@@ -2053,35 +2058,168 @@ function renderBriefHtml(assetId) {
     );
   }
 
-  // ── VISUAL DIRECTION section ───────────────────────────────────────────────
-  var sVisual = '';
+// ── IMAGE SCHEMA section ─────────────────────────────────────────────────
+  var sImageSchema = '';
   if (!isEmail) {
-    var vContent = '';
-    if (sp && sp.image_brief) vContent += block('Image Brief', sp.image_brief, 'imgbrief');
-    vContent +=
-      field('Photography Style', 'Warm realistic photography — no staged influencer aesthetics', 'ps') +
-      field('Subject', 'Woman 30-44  ·  busy mom  ·  real kitchen or grocery setting', 'sub') +
-      field('Mood', emotionIn || 'recognition, not defeat', 'mood') +
-      field('Composition', 'Subject right  ·  text/CTA left  ·  breathing room  ·  natural light', 'comp') +
-      field('Avoid', 'Staged poses  ·  fake smiles  ·  stock photography  ·  gradients  ·  glassmorphism', 'avoid');
-    sVisual = section('VISUAL DIRECTION', vContent);
+    // Scene lookup by arc stage
+    var _sceneMap = {
+      hook:     { loc:'kitchen counter',   time:'early morning',   env:'home kitchen, warm ambient light', props:'fridge door open, leftover containers visible', bg:'clean countertop, soft morning window light' },
+      problem:  { loc:'grocery store aisle or fridge', time:'late afternoon', env:'busy family kitchen or grocery store', props:'cart with groceries, phone in hand, confused expression', bg:'fluorescent grocery aisle or crowded kitchen' },
+      agitate:  { loc:'kitchen / dinner table', time:'6:30 PM rush hour', env:'chaotic kitchen, kids nearby', props:'empty pots, open fridge, stressed posture', bg:'cluttered counter, background family noise implied' },
+      solve:    { loc:'kitchen counter',   time:'evening',         env:'calm kitchen, phone in use', props:'phone with easyChef Pro UI visible (if allowed), ingredients laid out', bg:'organized counter, warm light' },
+      value:    { loc:'dinner table',      time:'evening meal',    env:'family dinner, relaxed', props:'plated meal, family seated, smiles natural not staged', bg:'dining area, warm overhead light' },
+      proof:    { loc:'kitchen',           time:'any',             env:'real home kitchen', props:'finished meal, clean counter', bg:'lived-in kitchen, not showroom' },
+      cta:      { loc:'kitchen counter',   time:'evening',         env:'decisive moment, phone in hand', props:'phone visible (if allowed), CTA implied by posture', bg:'clean counter, focused light' }
+    };
+    var _sc = _sceneMap[lpSection] || _sceneMap['hook'];
+
+    // Expression + body language by emotional state
+    var _emotionExpMap = {
+      exhausted:   { expr:'tired but present, not defeated',   body:'slouched slightly, hand on counter' },
+      frustrated:  { expr:'mildly stressed, furrowed brow',    body:'hands on hips or open fridge staring' },
+      overwhelmed: { expr:'wide eyes, distracted',             body:'turning away from fridge, phone nearby' },
+      relieved:    { expr:'soft exhale, shoulders dropping',   body:'relaxed stance, looking at phone' },
+      empowered:   { expr:'quiet confidence, slight smile',    body:'upright, active, purposeful' },
+      satisfied:   { expr:'warm genuine smile',                body:'seated or leaning, looking at meal' }
+    };
+    var _emo = _emotionExpMap[emotionIn] || { expr:'natural, real — not staged', body:'relaxed, purposeful' };
+
+    // Composition by platform
+    var _compMap = {
+      facebook:  { orient:'Portrait 4:5',    crop:'mid-body or closer', placement:'right-center', textSafe:'left 35%', ctaSafe:'bottom 15%', dof:'subject sharp, bg soft blur' },
+      instagram: { orient:'Square 1:1',      crop:'waist up',           placement:'center-right',  textSafe:'top 30%',  ctaSafe:'bottom 12%', dof:'balanced, slight bg blur' },
+      pinterest: { orient:'Portrait 2:3',    crop:'full body or mid',   placement:'lower-center',  textSafe:'top 40%',  ctaSafe:'bottom 10%', dof:'editorial, moderate blur' },
+      x:         { orient:'Landscape 16:9',  crop:'shoulder up',        placement:'right third',   textSafe:'left 45%', ctaSafe:'bottom 18%', dof:'subject sharp, bg implied' },
+      nextdoor:  { orient:'Square 1:1',      crop:'waist up or close',  placement:'center',        textSafe:'top 25%',  ctaSafe:'bottom 15%', dof:'close-up, natural' },
+      tiktok:    { orient:'Portrait 9:16',   crop:'full frame',         placement:'center',        textSafe:'top 20% + bottom 25%', ctaSafe:'bottom 20%', dof:'full scene' },
+      youtube:   { orient:'Landscape 16:9',  crop:'scene establishing', placement:'center-left',   textSafe:'right 40%', ctaSafe:'bottom 12%', dof:'wide, cinematic' }
+    };
+    var _comp = _compMap[plat] || _compMap['instagram'];
+
+    // Lighting by arc stage
+    var _lightMap = {
+      hook:    { source:'soft window light (east-facing morning)',  mood:'warm, inviting', temp:'3200K warm white', shadows:'soft, directional' },
+      problem: { source:'overhead kitchen light + fridge glow',    mood:'slightly harsh, real', temp:'4000K neutral', shadows:'harder edges, realistic' },
+      agitate: { source:'overhead fluorescent or ambient chaos',   mood:'stressed, busy', temp:'4500K cooler',   shadows:'mixed, unflattering on purpose' },
+      solve:   { source:'phone screen glow + ambient kitchen',     mood:'relief, calm discovery', temp:'3500K warm', shadows:'soft, directional' },
+      value:   { source:'warm overhead dinner light',              mood:'warmth, togetherness',   temp:'2700K golden', shadows:'minimal, soft' },
+      proof:   { source:'natural window + kitchen ambient',        mood:'real, lived-in',         temp:'3800K neutral warm', shadows:'natural' },
+      cta:     { source:'directional spot + ambient warm',         mood:'decisive, confident',    temp:'3200K warm', shadows:'clean, purposeful' }
+    };
+    var _light = _lightMap[lpSection] || _lightMap['hook'];
+
+    function _schemaField(label, value) {
+      return '<div class="field"><span class="label">' + label + '</span>' +
+        (value ? '<span class="value">' + _bH(value) + '</span>' : '<span class="empty">—</span>') + '</div>';
+    }
+    function _schemaHead(label) {
+      return '<h3>' + label + '</h3>';
+    }
+
+    var _imgPurpose = 'Create immediate emotional recognition in a ' + (icp || 'busy mom') + ' at the ' +
+      (lpSection || 'hook') + ' stage. The image must make her feel seen — ' +
+      (emotionIn || 'exhausted') + ' → ' + (emotionOut || 'curious about a solution') +
+      ' — without words. Support the hook: "' + _bH(sp && sp.hook ? sp.hook.slice(0, 80) : '') + '"';
+
+    var _imgSchemaHtml =
+      _schemaHead('Image Purpose') +
+      '<div class="block"><pre class="body-text">' + _bH(_imgPurpose) + '</pre></div>' +
+
+      _schemaHead('Asset Context') +
+      _schemaField('Campaign',    campaignId) +
+      _schemaField('Asset ID',    assetId) +
+      _schemaField('Platform',    platform + ' — ' + layoutType) +
+      _schemaField('Format',      frameSize) +
+      _schemaField('Funnel Stage', funnel || lpSection) +
+      _schemaField('ICP',         icp) +
+      _schemaField('Angle',       lpSection) +
+      _schemaField('CTA',         sp && sp.cta ? sp.cta : '') +
+
+      _schemaHead('Scene') +
+      _schemaField('Location',    _sc.loc) +
+      _schemaField('Time of Day', _sc.time) +
+      _schemaField('Environment', _sc.env) +
+      _schemaField('Key Props',   _sc.props) +
+      _schemaField('Background',  _sc.bg) +
+
+      _schemaHead('Subject') +
+      _schemaField('Person Type', 'Woman — busy mom, primary household cook') +
+      _schemaField('Age Range',   '32 – 44') +
+      _schemaField('Expression',  _emo.expr) +
+      _schemaField('Body Language', _emo.body) +
+      _schemaField('Wardrobe',    'Casual home clothes — jeans, t-shirt, light jacket. No apron unless cooking.') +
+      _schemaField('What They Are Doing', _sc.props.split(',')[0]) +
+
+      _schemaHead('Emotion') +
+      _schemaField('Primary Emotion',   emotionIn || 'exhausted') +
+      _schemaField('Secondary Emotion', emotionOut || 'curious') +
+      _schemaField('Must Feel Like',    'Real life — a moment she has lived') +
+      _schemaField('Must NOT Feel Like','Stock photo, influencer content, aspirational staging') +
+
+      _schemaHead('Composition') +
+      _schemaField('Orientation',      _comp.orient) +
+      _schemaField('Crop',             _comp.crop) +
+      _schemaField('Subject Placement', _comp.placement) +
+      _schemaField('Text Safe Area',   _comp.textSafe) +
+      _schemaField('CTA Safe Area',    _comp.ctaSafe) +
+      _schemaField('Focal Point',      'Subject face / hands') +
+      _schemaField('Depth of Field',   _comp.dof) +
+      _schemaField('Negative Space',   'Left or top zone — reserved for text overlay') +
+
+      _schemaHead('Lighting') +
+      _schemaField('Light Source',     _light.source) +
+      _schemaField('Mood',             _light.mood) +
+      _schemaField('Color Temperature', _light.temp) +
+      _schemaField('Shadows',          _light.shadows) +
+
+      _schemaHead('Brand Fit') +
+      _schemaField('Brand Feeling',         'Warm · real · practical · empowering') +
+      _schemaField('Realism Level',         'High — documentary photography, not editorial') +
+      _schemaField('Premium Level',         'Mid — aspirational but accessible') +
+      _schemaField('Household Utility',     'High — functional kitchen context') +
+
+      _schemaHead('Product / App Rules') +
+      _schemaField('Phone Visible',         phoneOk ? 'YES — lifestyle context, not full UI showcase' : 'NO — keep phone out of frame') +
+      _schemaField('App UI Visible',        phoneOk ? 'Optional — partial glance acceptable' : 'No') +
+      _schemaField('Icons Visible',         'No') +
+      _schemaField('easyChef Pro Logo',     'No — handled by text overlay layer') +
+      _schemaField('Screenshot Allowed',    'No') +
+
+      _schemaHead('Text Overlay Rules') +
+      _schemaField('Headline Placement',    _comp.textSafe) +
+      _schemaField('CTA Placement',         _comp.ctaSafe) +
+      _schemaField('Max Text',             '2 lines hook + 1 CTA button') +
+      _schemaField('Contrast',             'White text on image — ensure 4.5:1 contrast ratio minimum') +
+      _schemaField('Readability Priority', 'Mobile — 390px viewport first') +
+
+      (sp && sp.image_brief ? _schemaHead('Image Brief (from copy system)') +
+        '<div class="block"><pre class="body-text">' + _bH(sp.image_brief) + '</pre></div>' : '') +
+
+      _schemaHead('Avoid') +
+      '<ul class="constraint-list" style="margin:8px 0 8px 20px">' +
+      ['Stock photo look','Fake smiles','Influencer poses','Overly polished kitchen',
+       'AI hands / extra fingers','Weird or unrealistic groceries',
+       'Phone UI if prohibited','Gradients','Glassmorphism',
+       'Surreal or studio lighting','Unrealistic food','Defeat or shame tone'].map(function(a){
+         return '<li>' + a + '</li>';
+       }).join('') +
+      '</ul>' +
+
+      _schemaHead('Claude Design Prompt') +
+      '<div class="block"><pre id="img_schema_prompt" class="body-text">' +
+        'Render this as a realistic, conversion-first image composition for ' + _bH(platform + ' / ' + layoutType) + '.\n' +
+        'Follow the image schema exactly.\n' +
+        'Do not invent new claims, props, UI, copy, or visual metaphors.\n' +
+        'Prioritize emotional recognition, clean text hierarchy, and mobile readability.\n\n' +
+        'Funnel stage: ' + _bH(lpSection) + ' — ' + _bH(_imgPurpose.slice(0, 120)) +
+      '</pre>' +
+      '<button onclick="copyField(\'img_schema_prompt\')" style="display:block;width:100%;background:#FF0000;color:#FFFFFF;border:none;padding:10px 24px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;margin-top:8px">Copy Image Schema Prompt</button>' +
+      '</div>';
+
+    sImageSchema = section('IMAGE SCHEMA', _imgSchemaHtml);
   }
 
-  // ── IMAGE GENERATION PROMPT section ───────────────────────────────────────
-  var sImgGen = '';
-  if (!isEmail && !isVideo) {
-    var imgPrompt = 'Warm realistic kitchen photography, ' + (emotionIn || 'exhausted') + ' woman 32-44, ' +
-      'natural light, busy family kitchen, ' + lpSection + ' stage visual, ' +
-      'easyChef Pro brand — no phone visible' + (phoneOk ? '' : ', NO phone in frame') + ', ' +
-      'no staged poses, no stock photo aesthetic, no gradients, no glassmorphism, ' +
-      'documentary style, Canon 5D natural colors';
-    sImgGen = section('IMAGE GENERATION PROMPT',
-      block('Midjourney / Flux / Ideogram', imgPrompt, 'imgprompt') +
-      '<div class="field"><span class="label">Style</span><span class="value">--style raw --ar ' + (plat==='pinterest'?'2:3':plat==='facebook'?'4:5':'1:1') + ' --q 2</span></div>'
-    );
-  }
-
-// ── CLAUDE DESIGN PROMPT + INSTRUCTIONS section ───────────────────────────
+  // ── CLAUDE DESIGN PROMPT + INSTRUCTIONS section ───────────────────────────
   // Logo URL from CcSettings (append_setting LOGO_URL to populate)
   var _cdLogoUrl = '';
   try {
@@ -2194,6 +2332,8 @@ function renderBriefHtml(assetId) {
     field('Publish Date', pubDate + (pubTime ? '  ' + pubTime : ''), 'dpub') +
     field('Day / Week', 'Day ' + day + '  ·  Week ' + week, 'dday') +
     field('DL ID', dlId, 'ddl') +
+    field('LP Destination', _lpUrl, 'dlp') +
+    (_utmUrl ? field('UTM URL', _utmUrl, 'dutm_full') : '') +
     field('UTM String', utmDisplay, 'dutm') +
     field('Status', status, 'dst') +
     (blockedBy ? field('Blocked By', blockedBy, 'dblk') : '')
@@ -2247,8 +2387,7 @@ function renderBriefHtml(assetId) {
     sEmailBody +
     sVideo +
     sDesign +
-    sVisual +
-    sImgGen +
+    sImageSchema +
     sClaudeDesign +
     sFigma +
     sPerfMeta +
