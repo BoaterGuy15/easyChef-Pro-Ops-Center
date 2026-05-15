@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help Us Build easyChef Pro For Your Kitchen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --red:     #FF0000;
+    --red-10:  rgba(255,0,0,0.08);
+    --red-18:  rgba(255,0,0,0.18);
+    --beige:   #F6EFE8;
+    --black:   #000000;
+    --white:   #FFFFFF;
+    --text:    #000000;
+    --muted:   #555555;
+    --border:  rgba(0,0,0,0.12);
+    --card:    #FFFFFF;
+    --radius:  12px;
+    --font-head: 'Proza Libre', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+  body { font-family: var(--font-body); background: var(--beige); color: var(--text); min-height: 100vh; padding: 0 0 80px; }
+
+  /* Header */
+  .header { background: var(--white); border-bottom: 1px solid var(--border); padding: 18px 24px; display: flex; align-items: center; justify-content: center; }
+  .wordmark { font-family: var(--font-head); font-size: 22px; font-weight: 700; color: var(--red); letter-spacing: -0.3px; }
+  .wordmark em { color: var(--black); font-style: normal; }
+
+  /* Hero */
+  .hero { max-width: 600px; margin: 0 auto; padding: 40px 24px 28px; }
+  .hero h1 { font-family: var(--font-head); font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 12px; color: var(--black); }
+  .hero p { font-size: 15px; line-height: 1.65; color: var(--muted); }
+  .time-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--red-10); color: var(--red); font-size: 12px; font-weight: 600; border-radius: 20px; padding: 5px 13px; margin-bottom: 18px; border: 1px solid var(--red-18); letter-spacing: 0.2px; }
+
+  /* Cards */
+  .form-wrap { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 14px; }
+
+  /* Section labels */
+  .sec-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--red); margin-bottom: 6px; }
+  .sec-title { font-family: var(--font-head); font-size: 18px; font-weight: 700; color: var(--black); margin-bottom: 4px; }
+  .sec-desc { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+
+  /* Text inputs */
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--black); margin-bottom: 7px; }
+  .field input[type="text"],
+  .field input[type="email"],
+  .field textarea {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 15px; font-family: var(--font-body);
+    background: var(--beige); color: var(--text);
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--red); }
+  .field textarea { resize: vertical; min-height: 90px; }
+
+  /* Store grid */
+  .store-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .store-chip { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--beige); transition: all 0.12s; }
+  .store-chip:hover { border-color: var(--red); background: var(--red-10); }
+  .store-chip.selected { border-color: var(--red); background: var(--red-10); }
+  .store-chip input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--red); flex-shrink: 0; }
+  .store-chip span { font-size: 13px; font-weight: 500; color: var(--text); }
+  .walmart-flag { display: none; margin-top: 12px; padding: 10px 14px; background: var(--red-10); border: 1px solid var(--red-18); border-radius: 8px; font-size: 13px; color: var(--red); font-weight: 500; line-height: 1.4; }
+  .walmart-flag.show { display: block; }
+
+  /* Yes/No buttons */
+  .yn-list { display: flex; flex-direction: column; gap: 10px; }
+  .yn-row-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--beige); }
+  .yn-row-item .q-label { font-size: 14px; line-height: 1.4; color: var(--text); flex: 1; }
+  .yn-pair { display: flex; gap: 6px; flex-shrink: 0; }
+  .yn-btn { padding: 6px 18px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--white); color: var(--text); font-family: var(--font-body); transition: all 0.12s; }
+  .yn-btn.yes.on { background: var(--red); color: var(--white); border-color: var(--red); }
+  .yn-btn.no.on  { background: var(--black); color: var(--white); border-color: var(--black); }
+  .yn-btn:hover:not(.on) { border-color: var(--red); }
+  #dietary-extra { display: none; margin-top: 10px; }
+  #dietary-extra.show { display: block; }
+
+  /* Submit */
+  .submit-wrap { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+  .cta-btn { width: 100%; padding: 16px; background: var(--red); color: var(--white); border: none; border-radius: 10px; font-family: var(--font-head); font-size: 17px; font-weight: 700; cursor: pointer; letter-spacing: 0.2px; transition: opacity 0.15s; }
+  .cta-btn:hover { opacity: 0.88; }
+  .cta-btn:disabled { background: #ccc; cursor: not-allowed; opacity: 1; }
+  .submit-note { text-align: center; font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+  .submit-note.err { color: var(--red); }
+
+  /* Success */
+  .success { display: none; max-width: 540px; margin: 60px auto; padding: 0 24px; text-align: center; }
+  .success.show { display: block; }
+  .success-mark { width: 56px; height: 56px; background: var(--red); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .success-mark svg { width: 28px; height: 28px; }
+  .success h2 { font-family: var(--font-head); font-size: 26px; font-weight: 700; margin-bottom: 12px; color: var(--black); }
+  .success p { font-size: 15px; color: var(--muted); line-height: 1.65; }
+
+  @media (max-width: 400px) {
+    .store-grid { grid-template-columns: 1fr; }
+    .yn-row-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <img src="/assets/logo.png" alt="easyChef Pro" style="height:38px;width:auto;display:block;">
+</header>
+
+<div class="hero">
+  <div class="time-pill">3 minutes &nbsp;·&nbsp; Yes or No</div>
+  <h1>Help us build easyChef Pro for your kitchen.</h1>
+  <p>Your answers shape the app. We read every response personally.</p>
+</div>
+
+<form id="aq-form" class="form-wrap" onsubmit="return false;">
+
+  <div class="card">
+    <div class="field">
+      <label for="first_name">First name</label>
+      <input type="text" id="first_name" placeholder="Taylor" autocomplete="given-name">
+    </div>
+    <div class="field">
+      <label for="email">Email address</label>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+  </div>
+
+  <!-- Section A -->
+  <div class="card">
+    <div class="sec-tag">Section A</div>
+    <div class="sec-title">Where do you shop?</div>
+    <div class="sec-desc">Select all stores where you do your grocery shopping.</div>
+    <div class="store-grid">
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Walmart"><span>Walmart</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Target"><span>Target</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Kroger"><span>Kroger</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Costco"><span>Costco</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Sam's Club"><span>Sam's Club</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Aldi"><span>Aldi</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Trader Joe's"><span>Trader Joe's</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Whole Foods"><span>Whole Foods</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Publix"><span>Publix</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="HEB"><span>HEB</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Safeway / Albertsons"><span>Safeway / Albertsons</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Meijer"><span>Meijer</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Food Lion"><span>Food Lion</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Amazon Fresh"><span>Amazon Fresh</span></label>
+      <label class="store-chip" onclick="toggleStore(this)"><input type="checkbox" value="Instacart"><span>Instacart</span></label>
+    </div>
+    <div style="margin-top:10px">
+      <input type="text" id="store_other" placeholder="Other store…" style="width:100%;padding:10px 14px;border:1.5px solid rgba(0,0,0,0.12);border-radius:8px;font-size:14px;font-family:var(--font-body);background:var(--beige)">
+    </div>
+    <div class="walmart-flag" id="walmart-flag">
+      easyChef Pro's product database currently covers Walmart products — you're a great match for alpha access.
+    </div>
+  </div>
+
+  <!-- Section B -->
+  <div class="card">
+    <div class="sec-tag">Section B</div>
+    <div class="sec-title">Cooking &amp; meal habits</div>
+    <div class="sec-desc">Yes or no. Be honest — there are no wrong answers.</div>
+    <div class="yn-list">
+      <div class="yn-row-item">
+        <div class="q-label">Do you cook dinner at home most nights of the week?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="b1_cooks_home"           data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="b1_cooks_home"           data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you struggle to decide what to make for dinner most evenings?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="b2_dinner_struggle"      data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="b2_dinner_struggle"      data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you often order takeout because you couldn't figure out what to cook?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="b3_takeout"              data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="b3_takeout"              data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you regularly throw away groceries that expired before you used them?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="b4_waste_groceries"      data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="b4_waste_groceries"      data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you have a weekly meal plan most weeks?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="b5_meal_plan"            data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="b5_meal_plan"            data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you find it hard to figure out what to cook from what's in your fridge?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="b6_fridge_confusion"     data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="b6_fridge_confusion"     data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you cook for children under 18?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="b7_cooks_for_kids"       data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="b7_cooks_for_kids"       data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you have any dietary restrictions in your household?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="b8_dietary_restrictions" data-v="yes" onclick="yn(this);document.getElementById('dietary-extra').classList.add('show')">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="b8_dietary_restrictions" data-v="no"  onclick="yn(this);document.getElementById('dietary-extra').classList.remove('show')">No</button>
+        </div>
+      </div>
+      <div id="dietary-extra">
+        <input type="text" id="dietary_details" placeholder="e.g. gluten-free, dairy-free, nut allergy…" style="width:100%;padding:10px 14px;border:1.5px solid rgba(0,0,0,0.12);border-radius:8px;font-size:14px;font-family:var(--font-body);background:var(--beige)">
+      </div>
+    </div>
+  </div>
+
+  <!-- Section C -->
+  <div class="card">
+    <div class="sec-tag">Section C</div>
+    <div class="sec-title">Lifestyle</div>
+    <div class="sec-desc">A few more yes or no questions.</div>
+    <div class="yn-list">
+      <div class="yn-row-item">
+        <div class="q-label">Is managing your household grocery budget a priority?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="c1_budget_priority"    data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="c1_budget_priority"    data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you use a smartphone for shopping lists or recipes?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="c2_smartphone_lists"   data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="c2_smartphone_lists"   data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Have you ever used a meal planning app?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="c3_meal_planning_app"  data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="c3_meal_planning_app"  data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Have you ever used a pantry tracking app?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="c4_pantry_app"         data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="c4_pantry_app"         data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Would you describe yourself as a busy parent or caregiver?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="c5_busy_parent"        data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="c5_busy_parent"        data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Do you feel like you waste money on food that goes unused?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="c6_food_waste_money"   data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="c6_food_waste_money"   data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+      <div class="yn-row-item">
+        <div class="q-label">Are you comfortable trying a new app if it solves a real problem?</div>
+        <div class="yn-pair">
+          <button type="button" class="yn-btn yes" data-f="c7_try_new_app"        data-v="yes" onclick="yn(this)">Yes</button>
+          <button type="button" class="yn-btn no"  data-f="c7_try_new_app"        data-v="no"  onclick="yn(this)">No</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section D -->
+  <div class="card">
+    <div class="sec-tag">Section D</div>
+    <div class="sec-title">Anything else?</div>
+    <div class="sec-desc">Tell us anything about your kitchen, your shopping, or your food routine.</div>
+    <div class="field" style="margin-bottom:0">
+      <textarea id="d_comments" rows="3" placeholder="Optional — but we read every word."></textarea>
+    </div>
+  </div>
+
+</form>
+
+<div class="submit-wrap">
+  <button class="cta-btn" id="submit-btn" onclick="submitForm()">Submit answers &rarr;</button>
+  <div class="submit-note" id="submit-note"></div>
+</div>
+
+<div class="success" id="success">
+  <div class="success-mark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <h2>Thank you — we got it.</h2>
+  <p>I'll review your answers personally and be in touch within a few days.<br><br>— Taylor</p>
+</div>
+
+<script>
+var GAS = window.GAS_EXEC_URL || '';
+var YN = {};
+
+function toggleStore(el) {
+  el.classList.toggle('selected');
+  var wm = Array.from(document.querySelectorAll('.store-chip.selected input')).some(function(c){ return c.value === 'Walmart'; });
+  document.getElementById('walmart-flag').classList.toggle('show', wm);
+}
+
+function yn(btn) {
+  var f = btn.dataset.f, v = btn.dataset.v;
+  YN[f] = v;
+  btn.closest('.yn-pair').querySelectorAll('.yn-btn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+}
+
+(function(){
+  var p = new URLSearchParams(location.search);
+  var e = p.get('e') || p.get('email'), n = p.get('n') || p.get('name');
+  if (e) document.getElementById('email').value = e;
+  if (n) document.getElementById('first_name').value = n;
+})();
+
+function submitForm() {
+  var btn = document.getElementById('submit-btn'), note = document.getElementById('submit-note');
+  btn.disabled = true; note.textContent = 'Sending…'; note.className = 'submit-note';
+  var stores = Array.from(document.querySelectorAll('.store-chip.selected input')).map(function(c){ return c.value; });
+  var other = (document.getElementById('store_other').value || '').trim();
+  if (other) stores.push(other);
+  var data = {
+    first_name: (document.getElementById('first_name').value||'').trim(),
+    email:      (document.getElementById('email').value||'').trim(),
+    stores: stores, walmart_shopper: stores.indexOf('Walmart') >= 0,
+    b1_cooks_home: YN.b1_cooks_home||'', b2_dinner_struggle: YN.b2_dinner_struggle||'',
+    b3_takeout: YN.b3_takeout||'', b4_waste_groceries: YN.b4_waste_groceries||'',
+    b5_meal_plan: YN.b5_meal_plan||'', b6_fridge_confusion: YN.b6_fridge_confusion||'',
+    b7_cooks_for_kids: YN.b7_cooks_for_kids||'', b8_dietary_restrictions: YN.b8_dietary_restrictions||'',
+    dietary_details: (document.getElementById('dietary_details').value||'').trim(),
+    c1_budget_priority: YN.c1_budget_priority||'', c2_smartphone_lists: YN.c2_smartphone_lists||'',
+    c3_meal_planning_app: YN.c3_meal_planning_app||'', c4_pantry_app: YN.c4_pantry_app||'',
+    c5_busy_parent: YN.c5_busy_parent||'', c6_food_waste_money: YN.c6_food_waste_money||'',
+    c7_try_new_app: YN.c7_try_new_app||'',
+    d_comments: (document.getElementById('d_comments').value||'').trim()
+  };
+  fetch(GAS, { method:'POST', body: JSON.stringify({ action:'submit_alpha_questionnaire', data:data }) })
+    .then(function(r){ return r.json(); })
+    .then(function(r){
+      if (r.ok) {
+        ['aq-form','.hero','.submit-wrap'].forEach(function(s){ var el=document.querySelector(s); if(el) el.style.display='none'; });
+        document.getElementById('success').classList.add('show');
+      } else { throw new Error(); }
+    })
+    .catch(function(){ note.textContent='Something went wrong — please try again.'; note.className='submit-note err'; btn.disabled=false; });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You're on the list · easyChef Pro</title>
+<meta name="description" content="You're on the founding family waitlist. Early access July 1.">
+<link rel="canonical" href="https://easychefpro.com/thank-you">
+<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<!-- GA4 -->
+<script>
+(function(){
+  if (!window.ANALYTICS || !window.ANALYTICS.ga4) return;
+  var s = document.createElement('script');
+  s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=' + window.ANALYTICS.ga4;
+  document.head.appendChild(s);
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', window.ANALYTICS.ga4);
+  // Conversion event
+  gtag('event', 'waitlist_signup', { event_category: 'conversion' });
+})();
+</script>
+<!-- Clarity -->
+<script>
+(function(){
+  if (!window.ANALYTICS || !window.ANALYTICS.clarity) return;
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src='https://www.clarity.ms/tag/'+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window,document,'clarity','script',window.ANALYTICS.clarity);
+})();
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --red: #FF0000;
+    --beige: #F6EFE8;
+    --black: #000000;
+    --white: #FFFFFF;
+    --border: #E0D8CE;
+    --muted: #555;
+    --radius: 12px;
+    --font-head: 'Proza Libre', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  body { font-family: var(--font-body); background: var(--beige); color: var(--black); min-height: 100vh; display: flex; flex-direction: column; }
+
+  .nav { background: var(--white); border-bottom: 1px solid var(--border); padding: 16px 24px; text-align: center; }
+  .wordmark { font-family: var(--font-head); font-size: 20px; font-weight: 700; color: var(--red); display: inline-block; }
+  .wordmark em { font-style: normal; color: var(--black); }
+
+  .main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+  .card { max-width: 560px; width: 100%; text-align: center; }
+
+  .check-wrap { margin-bottom: 28px; }
+
+  .card h1 { font-family: var(--font-head); font-size: clamp(28px, 6vw, 42px); font-weight: 700; line-height: 1.15; margin-bottom: 14px; }
+  .card h1 em { font-style: normal; color: var(--red); }
+  .card .sub { font-size: 17px; line-height: 1.6; color: var(--muted); margin-bottom: 32px; }
+
+  /* What happens next */
+  .next-steps { text-align: left; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 32px; }
+  .next-steps h3 { font-family: var(--font-head); font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+  .next-step { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+  .next-step:last-child { margin-bottom: 0; }
+  .step-num { width: 28px; height: 28px; background: var(--red); color: var(--white); border-radius: 50%; font-size: 13px; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .step-text { font-size: 15px; line-height: 1.5; }
+  .step-text strong { font-weight: 600; display: block; margin-bottom: 2px; }
+  .step-text span { color: var(--muted); font-size: 14px; }
+
+  /* Share section */
+  .share-section { background: var(--black); border-radius: var(--radius); padding: 28px 24px; margin-bottom: 24px; }
+  .share-section h3 { font-family: var(--font-head); font-size: 20px; font-weight: 700; color: var(--white); margin-bottom: 10px; }
+  .share-section .share-sub { color: #888; font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
+  .referral-url { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .referral-url span { font-size: 13px; color: #aaa; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .copy-btn { background: var(--red); color: var(--white); border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: var(--font-body); transition: background 0.15s; flex-shrink: 0; }
+  .copy-btn:hover { background: #CC0000; }
+  .copy-btn.copied { background: #22c55e; }
+  .share-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .share-btn { flex: 1; min-width: 120px; padding: 12px 16px; border: 1.5px solid #333; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: var(--white); font-family: var(--font-body); transition: all 0.15s; text-decoration: none; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .share-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* Referral note */
+  .referral-note { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  .footer { background: var(--white); border-top: 1px solid var(--border); padding: 16px 24px; text-align: center; }
+  .footer p { font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <img src="/assets/logo.png" alt="easyChef Pro" style="height:38px;width:auto;display:block;margin:0 auto;">
+</nav>
+
+<main class="main">
+  <div class="card">
+
+    <div class="check-wrap">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="36" cy="36" r="36" fill="#FF0000" fill-opacity="0.08"/>
+        <circle cx="36" cy="36" r="26" fill="#FF0000" fill-opacity="0.12"/>
+        <path d="M22 36.5L30.5 45L50 26" stroke="#FF0000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <h1>You're in the <em>founding family.</em></h1>
+    <p class="sub" id="sub-text">Early access opens July 1. We'll email you the moment the doors open.</p>
+
+    <div class="next-steps">
+      <h3>What happens next</h3>
+      <div class="next-step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <strong>Confirmation email</strong>
+          <span>Check your inbox — you'll get a confirmation from Taylor within a few minutes.</span>
+        </div>
+      </div>
+      <div class="next-step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <strong>Early access on July 1</strong>
+          <span>Founding families get in first. You'll receive your access link before anyone else.</span>
+        </div>
+      </div>
+      <div class="next-step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <strong>Founding price locked — $7.99/month forever</strong>
+          <span>First 5,000 families lock in the founding price. After that, it's $19.99/month.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="share-section">
+      <h3>Know a mom who needs this?</h3>
+      <p class="share-sub">Every family you refer moves up the list. Share your link and help close the founding 5,000.</p>
+      <div class="referral-url">
+        <span id="referral-url-text">https://easychefpro.com/lp/waitlist-a</span>
+        <button class="copy-btn" id="copy-btn" onclick="copyLink()">Copy</button>
+      </div>
+      <div class="share-btns">
+        <a id="share-fb" href="#" class="share-btn" onclick="shareFacebook(event)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          Facebook
+        </a>
+        <a id="share-tw" href="#" class="share-btn" onclick="shareTwitter(event)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          X / Twitter
+        </a>
+        <a id="share-sms" href="#" class="share-btn" onclick="shareSMS(event)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Text a friend
+        </a>
+      </div>
+    </div>
+
+    <p class="referral-note" id="ref-note">Share the link above with friends. Every referral helps close the founding 5,000 spots.</p>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <p>© 2026 Digital Galactica Labs · easyChef Pro · <a href="/privacy" style="color:#888">Privacy</a> · <a href="/terms" style="color:#888">Terms</a></p>
+</footer>
+
+<script>
+var params    = new URLSearchParams(window.location.search);
+var src       = params.get('src') || 'waitlist-a';
+var email     = params.get('e')   || '';
+
+// Route A vs B messaging
+var isB = (src === 'waitlist-b');
+var shareUrl = 'https://easychefpro.com/lp/' + src;
+
+if (isB) {
+  document.getElementById('sub-text').textContent = 'Dinner is figured out from here. Early access opens July 1 — we\'ll send your link the moment the doors open.';
+}
+
+// Set referral URL
+document.getElementById('referral-url-text').textContent = shareUrl;
+
+function copyLink() {
+  navigator.clipboard.writeText(shareUrl).then(function(){
+    var btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  }).catch(function(){
+    var el = document.createElement('textarea');
+    el.value = shareUrl; document.body.appendChild(el);
+    el.select(); document.execCommand('copy'); document.body.removeChild(el);
+    var btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function shareFacebook(e) {
+  e.preventDefault();
+  window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl), '_blank', 'width=600,height=400');
+}
+
+function shareTwitter(e) {
+  e.preventDefault();
+  var text = isB
+    ? 'I just joined the founding family for easyChef Pro — daily dinner figured out. Join free before July 1 👇'
+    : 'I just joined the founding family for easyChef Pro — closes the $111/month invisible grocery leak. Join free 👇';
+  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(shareUrl), '_blank', 'width=600,height=400');
+}
+
+function shareSMS(e) {
+  e.preventDefault();
+  var text = isB
+    ? 'I just joined the founding family for easyChef Pro — daily dinner figured out before you even open the fridge. Free to join before July 1: ' + shareUrl
+    : 'I just joined the founding family for easyChef Pro — closes the $111/month invisible grocery leak. Free to join: ' + shareUrl;
+  window.location.href = 'sms:?body=' + encodeURIComponent(text);
+}
+</script>
+</body>
+</html>
