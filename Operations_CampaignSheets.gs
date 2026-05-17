@@ -29,12 +29,15 @@ var _CC_TAB = {
   LP_INVENTORY:   'LPInventory',
   THEME_LIBRARY:  'ThemeLibrary',
   SETTINGS:       'CcSettings',
-  BRAND_DOCTRINE:  'BrandDoctrine',
-  CAMP_STRATEGY:   'CampaignStrategy',
-  ASSET_LIFECYCLE:   'AssetLifecycle',
-  VIDEO_PRODUCTION:  'VideoProduction',
-  VIDEO_IDEA_BANK:   'VideoIdeaBank',
-  LIFE_STAGES:       'LifeStages'
+  BRAND_DOCTRINE:       'BrandDoctrine',
+  CAMP_STRATEGY:        'CampaignStrategy',
+  ASSET_LIFECYCLE:      'AssetLifecycle',
+  VIDEO_PRODUCTION:     'VideoProduction',
+  VIDEO_IDEA_BANK:      'VideoIdeaBank',
+  LIFE_STAGES:          'LifeStages',
+  MASTER_POSITIONING:   'MasterPositioning',
+  STAGE_GATES:          'StageGates',
+  RETENTION_MILESTONES: 'RetentionMilestones'
 };
 
 var _CC_HDR = {
@@ -79,7 +82,10 @@ var _CC_HDR = {
     'funnel_stage','subject_angle','body_theme','role','seq_template_id',
     'design_brief',
     'lp_section_source','emotional_stage','claim_set','loop_stage','dl_id',
-    'claude_design_url','full_email_body'
+    'claude_design_url','full_email_body',
+    'positioning_id','positioning_version','stage_number','variant','world',
+    'generated_by','approved_by_ml','approved_at','klaviyo_flow_id','sent_at',
+    'open_rate_actual','ctr_actual'
   ],
   CampaignTypes: [
     'id','cta_type','label','cta_text','destination_url','destination_label',
@@ -96,7 +102,10 @@ var _CC_HDR = {
     'image_brief','image_url','scheduled_date','scheduled_time','status','dl_id','utm_url','posted_url',
     'design_brief',
     'lp_section_source','lp_headline_connection','emotional_state','emotional_destination','loop_stage',
-    'claude_design_url'
+    'claude_design_url',
+    'positioning_id','positioning_version','stage_number','persona','emotion',
+    'generated_by','optimised_by','rendered_by','brief_version','figma_owner',
+    'deploy_url','approved_by','approved_at'
   ],
   LandingPages: [
     'id','campaign_id','icp_code','slug','full_url','title_tag','meta_description',
@@ -206,6 +215,46 @@ var _CC_HDR = {
   LifeStages: [
     'life_stage_id','current_chapter','next_chapter',
     'stage_recognition_line','next_stage_bridge','adaptation_copy','active'
+  ],
+  MasterPositioning: [
+    'positioning_id','campaign_id','icp_code',
+    'theme_slug','theme_name','version','status',
+    'approved_by','approved_at','locked',
+    'who_she_is','what_she_wants','core_problem',
+    'core_truth','master_story','supporting_truth',
+    'what_we_say','why_she_believes_it',
+    'proof_point','feeling_sold',
+    'primary_objection','objection_answer',
+    'emotional_arc',
+    'stage_1_awareness_job',
+    'stage_2_education_job',
+    'stage_3_consideration_job',
+    'stage_4_conversion_job',
+    'stage_5_retention_job',
+    'lp_angle','cta_language',
+    'approved_claims_ref',
+    'created_at','updated_at','notes'
+  ],
+  StageGates: [
+    'gate_id','campaign_id','positioning_id',
+    'stage_number','stage_name','emotional_job',
+    'weeks','date_start','date_end',
+    'metric_1_name','metric_1_target','metric_1_actual',
+    'metric_2_name','metric_2_target','metric_2_actual',
+    'metric_3_name','metric_3_target','metric_3_actual',
+    'gate_status','reviewed_by','reviewed_at','decision',
+    'unlock_event','unlock_actions',
+    'social_posts','email_assets','persona_rotation',
+    'notes','created_at','updated_at'
+  ],
+  RetentionMilestones: [
+    'milestone_id','campaign_id','positioning_id',
+    'milestone_number','milestone_name',
+    'firebase_trigger_event','description',
+    'target_rate','amber_rate','red_rate',
+    'target_day','email_trigger','push_trigger',
+    'success_action','failure_action',
+    'conditions','actual_rate','status','notes'
   ]
 };
 
@@ -4810,4 +4859,346 @@ function seedGovernanceTabs() {
   _seedCampaignStrategy(ss.getSheetByName(_CC_TAB.CAMP_STRATEGY));
   Logger.log('[seedGovernanceTabs] Done');
   return { ok: true, message: 'BrandDoctrine (15 rules) + CampaignStrategy (2 strategies) seeded' };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GOVERNANCE LAYER — MasterPositioning + StageGates + RetentionMilestones
+// ══════════════════════════════════════════════════════════════════════════════
+
+function _setupMasterPositioning() {
+  var ss    = _getCampaignSpreadsheet();
+  var name  = _CC_TAB.MASTER_POSITIONING;
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  var r = sheet.getRange(1, 1, 1, _CC_HDR.MasterPositioning.length);
+  r.setValues([_CC_HDR.MasterPositioning]);
+  r.setBackground('#0B0D10');
+  r.setFontColor('#C9A84C');
+  r.setFontWeight('bold');
+  r.setFontSize(9);
+  r.setFontFamily('Courier New');
+  sheet.setFrozenRows(1);
+  for (var i = 1; i <= _CC_HDR.MasterPositioning.length; i++) sheet.setColumnWidth(i, 160);
+  Logger.log('[_setupMasterPositioning] done — ' + _CC_HDR.MasterPositioning.length + ' columns');
+  return { ok: true, tab: name, columns: _CC_HDR.MasterPositioning.length };
+}
+
+function getMasterPositioning(positioning_id) {
+  if (!positioning_id) return null;
+  var sheet   = _getCCSheet(_CC_TAB.MASTER_POSITIONING);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  var hdr  = _CC_HDR.MasterPositioning;
+  var data = sheet.getRange(2, 1, lastRow - 1, hdr.length).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]) === String(positioning_id)) {
+      var obj = {};
+      hdr.forEach(function(h, j) { obj[h] = data[i][j] === null ? '' : String(data[i][j]); });
+      return obj;
+    }
+  }
+  return null;
+}
+
+function getMasterPositioningByCampaign(campaign_id) {
+  if (!campaign_id) return [];
+  var sheet   = _getCCSheet(_CC_TAB.MASTER_POSITIONING);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var hdr    = _CC_HDR.MasterPositioning;
+  var cidIdx = hdr.indexOf('campaign_id');
+  var data   = sheet.getRange(2, 1, lastRow - 1, hdr.length).getValues();
+  var results = [];
+  data.forEach(function(row) {
+    if (String(row[cidIdx]) === String(campaign_id)) {
+      var obj = {};
+      hdr.forEach(function(h, j) { obj[h] = row[j] === null ? '' : String(row[j]); });
+      results.push(obj);
+    }
+  });
+  return results;
+}
+
+function saveMasterPositioning(positioning) {
+  if (!positioning || !positioning.campaign_id) return { ok: false, error: 'campaign_id required' };
+  var sheet = _getCCSheet(_CC_TAB.MASTER_POSITIONING);
+  var hdr   = _CC_HDR.MasterPositioning;
+  var now   = _ccNow();
+
+  if (!positioning.positioning_id) {
+    positioning.positioning_id = 'MP-' + positioning.campaign_id + '-' + Date.now();
+  }
+  if (!positioning.version)    positioning.version    = '1';
+  if (!positioning.status)     positioning.status     = 'DRAFT';
+  if (!positioning.created_at) positioning.created_at = now;
+  positioning.updated_at = now;
+
+  var row = hdr.map(function(h) { return positioning[h] !== undefined ? positioning[h] : ''; });
+  _ccUpsert(sheet, hdr, positioning.positioning_id, row);
+  Logger.log('[saveMasterPositioning] ' + positioning.positioning_id);
+  return { ok: true, positioning_id: positioning.positioning_id };
+}
+
+function lockMasterPositioning(positioning_id) {
+  var mp = getMasterPositioning(positioning_id);
+  if (!mp) return { ok: false, error: 'positioning not found: ' + positioning_id };
+  mp.locked     = 'TRUE';
+  mp.status     = 'APPROVED';
+  mp.updated_at = _ccNow();
+  return saveMasterPositioning(mp);
+}
+
+// ── StageGates ────────────────────────────────────────────────────────────────
+
+function _setupStageGates() {
+  var ss    = _getCampaignSpreadsheet();
+  var name  = _CC_TAB.STAGE_GATES;
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  var r = sheet.getRange(1, 1, 1, _CC_HDR.StageGates.length);
+  r.setValues([_CC_HDR.StageGates]);
+  r.setBackground('#0B0D10');
+  r.setFontColor('#C9A84C');
+  r.setFontWeight('bold');
+  r.setFontSize(9);
+  r.setFontFamily('Courier New');
+  sheet.setFrozenRows(1);
+  for (var i = 1; i <= _CC_HDR.StageGates.length; i++) sheet.setColumnWidth(i, 160);
+  Logger.log('[_setupStageGates] done — ' + _CC_HDR.StageGates.length + ' columns');
+  return { ok: true, tab: name, columns: _CC_HDR.StageGates.length };
+}
+
+function seedStageGates(campaign_id, positioning_id) {
+  if (!campaign_id) return { ok: false, error: 'campaign_id required' };
+  var sheet = _getCCSheet(_CC_TAB.STAGE_GATES);
+  var hdr   = _CC_HDR.StageGates;
+  var now   = _ccNow();
+
+  var stages = [
+    {
+      stage_number:   '1',
+      stage_name:     'Stage 1 Awareness',
+      emotional_job:  'exhausted → frustrated',
+      weeks:          '2',
+      metric_1_name:  'email_open_rate',   metric_1_target: '45%',
+      metric_2_name:  'reach',             metric_2_target: '25000',
+      metric_3_name:  '',                  metric_3_target: '',
+      unlock_event:   'email_open_rate>=45% AND reach>=25000',
+      unlock_actions: JSON.stringify([
+        'activate SEQ-2',
+        'unlock consideration assets',
+        'brief Searah posts 3-5',
+        'notify marketing lead'
+      ]),
+      social_posts: '1-2', email_assets: 'SEQ-1', persona_rotation: 'super_mom'
+    },
+    {
+      stage_number:   '2',
+      stage_name:     'Stage 2 Education',
+      emotional_job:  'frustrated → activated',
+      weeks:          '2',
+      metric_1_name:  'email_ctr',         metric_1_target: '15%',
+      metric_2_name:  'lp_visitors',       metric_2_target: '3000',
+      metric_3_name:  '',                  metric_3_target: '',
+      unlock_event:   'email_ctr>=15% AND lp_visitors>=3000',
+      unlock_actions: JSON.stringify([
+        'activate SEQ-2-E3 A/B test',
+        'unlock conversion assets',
+        'brief Searah posts 6-7',
+        'notify JR ab test live'
+      ]),
+      social_posts: '3-4', email_assets: 'SEQ-2', persona_rotation: 'super_mom,budget_family'
+    },
+    {
+      stage_number:   '3',
+      stage_name:     'Stage 3 Consideration',
+      emotional_job:  'activated → curious',
+      weeks:          '2',
+      metric_1_name:  'returning_visitors', metric_1_target: '20%',
+      metric_2_name:  '',                   metric_2_target: '',
+      metric_3_name:  '',                   metric_3_target: '',
+      unlock_event:   'returning_visitors>=20%',
+      unlock_actions: JSON.stringify([
+        'activate SEQ-3 urgency',
+        'unlock conversion posts',
+        'set founding price scarcity counter'
+      ]),
+      social_posts: '5', email_assets: 'SEQ-3', persona_rotation: 'super_mom,health_optimizer'
+    },
+    {
+      stage_number:   '4',
+      stage_name:     'Stage 4 Conversion',
+      emotional_job:  'curious → relieved → proud',
+      weeks:          '2',
+      metric_1_name:  'waitlist_signup_completed', metric_1_target: 'TRUE',
+      metric_2_name:  '',                           metric_2_target: '',
+      metric_3_name:  '',                           metric_3_target: '',
+      unlock_event:   'waitlist_signup_completed=TRUE',
+      unlock_actions: JSON.stringify([
+        'activate SEQ-4 launch day',
+        'switch blueprint A to B',
+        'activate app store assets'
+      ]),
+      social_posts: '6', email_assets: 'SEQ-4', persona_rotation: 'all'
+    },
+    {
+      stage_number:   '5',
+      stage_name:     'Stage 5 Retention',
+      emotional_job:  'proud → peaceful',
+      weeks:          '4',
+      metric_1_name:  'first_strike_rate',    metric_1_target: '45%',
+      metric_2_name:  'tipping_point_rate',   metric_2_target: '60%',
+      metric_3_name:  'paid_conversion',      metric_3_target: '40%',
+      unlock_event:   'first_strike_rate>=45% AND tipping_point_rate>=60% AND paid_conversion>=40%',
+      unlock_actions: JSON.stringify([
+        'show paywall',
+        'activate founding price offer',
+        'fire subscription_started'
+      ]),
+      social_posts: '7', email_assets: 'SEQ-5', persona_rotation: 'all'
+    }
+  ];
+
+  var existingGateIds = [];
+  if (sheet.getLastRow() >= 2) {
+    existingGateIds = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1)
+      .getValues().map(function(r) { return String(r[0]); });
+  }
+
+  var added = 0;
+  stages.forEach(function(s) {
+    var gate_id = 'SG-' + campaign_id + '-' + s.stage_number;
+    if (existingGateIds.indexOf(gate_id) > -1) return;
+    var row = hdr.map(function(h) {
+      if (h === 'gate_id')         return gate_id;
+      if (h === 'campaign_id')     return campaign_id;
+      if (h === 'positioning_id')  return positioning_id || '';
+      if (h === 'gate_status')     return 'LOCKED';
+      if (h === 'created_at')      return now;
+      if (h === 'updated_at')      return now;
+      return s[h] !== undefined ? s[h] : '';
+    });
+    var rng = sheet.getRange(sheet.getLastRow() + 1, 1, 1, hdr.length);
+    rng.setNumberFormat('@');
+    rng.setValues([row]);
+    added++;
+  });
+
+  Logger.log('[seedStageGates] campaign=' + campaign_id + ' added=' + added);
+  return { ok: true, campaign_id: campaign_id, gates_added: added };
+}
+
+// ── RetentionMilestones ───────────────────────────────────────────────────────
+
+function _setupRetentionMilestones() {
+  var ss    = _getCampaignSpreadsheet();
+  var name  = _CC_TAB.RETENTION_MILESTONES;
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  var r = sheet.getRange(1, 1, 1, _CC_HDR.RetentionMilestones.length);
+  r.setValues([_CC_HDR.RetentionMilestones]);
+  r.setBackground('#0B0D10');
+  r.setFontColor('#C9A84C');
+  r.setFontWeight('bold');
+  r.setFontSize(9);
+  r.setFontFamily('Courier New');
+  sheet.setFrozenRows(1);
+  for (var i = 1; i <= _CC_HDR.RetentionMilestones.length; i++) sheet.setColumnWidth(i, 160);
+
+  var hdr      = _CC_HDR.RetentionMilestones;
+  var existing = sheet.getLastRow() >= 2
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().map(function(r) { return String(r[0]); })
+    : [];
+
+  var milestones = [
+    {
+      milestone_id:            'RM-001',
+      milestone_number:        '1',
+      milestone_name:          'Three-Ingredient Start',
+      firebase_trigger_event:  'first_open',
+      description:             'User opens app for first time and generates their first recipe',
+      target_rate:             '80%',
+      amber_rate:              '60%',
+      red_rate:                '<60%',
+      target_day:              'Day 0 — immediate',
+      email_trigger:           '',
+      push_trigger:            '',
+      success_action:          'UNLOCK_RECIPE_FEED',
+      failure_action:          'SEND_ONBOARDING_PUSH',
+      conditions:              'first_open=true AND recipe_generated=true',
+      actual_rate:             '',
+      status:                  'PENDING',
+      notes:                   ''
+    },
+    {
+      milestone_id:            'RM-002',
+      milestone_number:        '2',
+      milestone_name:          'First Strike',
+      firebase_trigger_event:  'first_strike_achieved',
+      description:             'User has cooked 1 meal from the app within 7 days',
+      target_rate:             '45%',
+      amber_rate:              '30%',
+      red_rate:                '<30%',
+      target_day:              'Day 7',
+      email_trigger:           'L-04 at Day 7 if not hit',
+      push_trigger:            'lapse_day_3 + lapse_day_7',
+      success_action:          'ADVANCE_TO_TIPPING_POINT',
+      failure_action:          'TRIGGER_LAPSE_SEQUENCE',
+      conditions:              'meals_cooked>=1 within 7 days',
+      actual_rate:             '',
+      status:                  'PENDING',
+      notes:                   ''
+    },
+    {
+      milestone_id:            'RM-003',
+      milestone_number:        '3',
+      milestone_name:          'Tipping Point',
+      firebase_trigger_event:  'tipping_point_reached',
+      description:             'User hits all three habit markers — meals cooked, spoilage saves, pantry items — AND logic required',
+      target_rate:             '60%',
+      amber_rate:              '40%',
+      red_rate:                '<40%',
+      target_day:              'Day 30',
+      email_trigger:           '',
+      push_trigger:            '',
+      success_action:          'SHOW_PAYWALL',
+      failure_action:          'TRIGGER_RECOVERY_EMAIL',
+      conditions:              'meals_cooked>=3 AND spoilage_saves>=1 AND pantry_items>=20',
+      actual_rate:             '',
+      status:                  'PENDING',
+      notes:                   'ALL THREE conditions required — AND logic, not OR'
+    },
+    {
+      milestone_id:            'RM-004',
+      milestone_number:        '4',
+      milestone_name:          'Paid Conversion',
+      firebase_trigger_event:  'subscription_started',
+      description:             'User converts to paid subscription within 7 days of hitting Tipping Point',
+      target_rate:             '40%',
+      amber_rate:              '25%',
+      red_rate:                '<25%',
+      target_day:              'Within 7 days of Tipping Point',
+      email_trigger:           'L-10 through L-13 recovery',
+      push_trigger:            '',
+      success_action:          'CONFIRM_SUBSCRIPTION',
+      failure_action:          'TRIGGER_L10_RECOVERY_SEQUENCE',
+      conditions:              'subscription_started=true within 7 days of tipping_point_reached',
+      actual_rate:             '',
+      status:                  'PENDING',
+      notes:                   ''
+    }
+  ];
+
+  var added = 0;
+  milestones.forEach(function(m) {
+    if (existing.indexOf(m.milestone_id) > -1) return;
+    var row = hdr.map(function(h) { return m[h] !== undefined ? m[h] : ''; });
+    var rng = sheet.getRange(sheet.getLastRow() + 1, 1, 1, hdr.length);
+    rng.setNumberFormat('@');
+    rng.setValues([row]);
+    added++;
+  });
+
+  Logger.log('[_setupRetentionMilestones] done — added=' + added);
+  return { ok: true, tab: name, milestones_added: added };
 }

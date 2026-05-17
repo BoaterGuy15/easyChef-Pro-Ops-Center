@@ -21896,10 +21896,11 @@ var _ccChannelsLoaded=false;
 var _ccDataLoaded=false;
 var _ccLastPosts=[];
 var _ccLastEmails=[];
-var _ccWizardStep=1;
+var _ccWizardStep=0;
 var _ccWizardDone={};
 var _ccWizardEditReturn=0;
 var _ccWizardSumms={};
+var _mpCurrentPositioning=null;  // active MasterPositioning object
 var _ccBaseImages={};   // original generated image per post (for Replace Phone Screen)
 var _ccThemeLib={};         // theme library cache keyed by icp_code
 var _ccLastIcpForThemes=''; // tracks ICP changes to reload theme picker
@@ -22921,7 +22922,17 @@ function _ccExtendBriefWithTheme(brief) {
   ext.problem_angle    = t.problem_angle    || ext.problem_angle    || '';
   ext.agitate_angle    = t.agitate_angle    || ext.agitate_angle    || '';
   if (t.urgency_trigger && !ext.urgency_trigger) ext.urgency_trigger = t.urgency_trigger;
-  console.log('[THEME CTX RESULT]', JSON.stringify({icp_entry:ext.icp_entry,hook_angle:ext.hook_angle,problem_angle:ext.problem_angle,agitate_angle:ext.agitate_angle,feature_hook:ext.feature_hook,emotional_entry:ext.emotional_entry,emotional_payoff:ext.emotional_payoff,app_feature:ext.app_feature,app_screen_label:ext.app_screen_label}));
+  // MasterPositioning fields — override ThemeLibrary when present
+  if (_mpCurrentPositioning) {
+    var mp = _mpCurrentPositioning;
+    ext.masterPositioning    = mp;
+    ext.positioning_id       = mp.positioning_id      || ext.positioning_id       || '';
+    ext.positioning_version  = mp.version             || ext.positioning_version  || '';
+    if (mp.who_she_is)         ext.icp_entry          = mp.who_she_is;
+    if (mp.feeling_sold)       ext.emotional_payoff   = mp.feeling_sold;
+    if (mp.proof_point)        ext.feature_proof      = mp.proof_point;
+  }
+  console.log('[THEME CTX RESULT]', JSON.stringify({icp_entry:ext.icp_entry,hook_angle:ext.hook_angle,problem_angle:ext.problem_angle,agitate_angle:ext.agitate_angle,feature_hook:ext.feature_hook,emotional_entry:ext.emotional_entry,emotional_payoff:ext.emotional_payoff,app_feature:ext.app_feature,app_screen_label:ext.app_screen_label,positioning_id:ext.positioning_id}));
   return ext;
 }
 
@@ -29331,9 +29342,342 @@ function _ccUpdateProgressRail(){
   var rail=document.getElementById('cc-progress-rail');
   if(rail) rail.innerHTML=_ccRenderProgressRail();
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STEP 0 — MASTER POSITIONING
+// ══════════════════════════════════════════════════════════════════════════════
+
+var _mpIcpList=[];
+var _mpThemeList=[];
+
+function _ccRenderStep0(){
+  var mf='font-family:\'DM Mono\',monospace;';
+  var fStyle='width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 11px;font-size:11px;'+mf+'color:var(--text);outline:none;margin-bottom:10px;';
+  var taStyle=fStyle+'resize:vertical;min-height:60px;display:block;line-height:1.5;';
+  var labelStyle='font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);'+mf+'display:block;margin-bottom:3px;';
+
+  return '<div style="background:#0B0D10;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px">'+
+    '<span style="background:#C9A84C;color:#0B0D10;padding:2px 10px;border-radius:12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;'+mf+'">Step 0</span>'+
+    '<div>'+
+      '<div style="font-size:13px;font-weight:700;color:#C9A84C;'+mf+'">Master Positioning</div>'+
+      '<div style="font-size:10px;color:var(--muted);'+mf+'">Define the campaign roof before generating any asset.</div>'+
+    '</div>'+
+  '</div>'+
+  '<div style="padding:18px 20px">'+
+    // ICP + Theme dropdowns
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">'+
+      '<div>'+
+        '<label style="'+labelStyle+'">Target ICP</label>'+
+        '<select id="mp-icp-select" onchange="_mpLoadThemes(this.value)" style="'+fStyle+'background:var(--surface)">'+
+          '<option value="">— select ICP —</option>'+
+        '</select>'+
+      '</div>'+
+      '<div>'+
+        '<label style="'+labelStyle+'">Campaign Theme</label>'+
+        '<select id="mp-theme-select" onchange="_mpOnThemeSelect(this.value)" style="'+fStyle+'background:var(--surface)">'+
+          '<option value="">— select theme —</option>'+
+        '</select>'+
+      '</div>'+
+    '</div>'+
+    // Theme preview card
+    '<div id="mp-theme-preview" style="display:none;padding:10px 14px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.25);border-radius:8px;margin-bottom:16px;font-size:11px;'+mf+'">'+
+      '<div id="mp-preview-entry" style="color:var(--text);margin-bottom:4px"></div>'+
+      '<div id="mp-preview-hook" style="color:var(--muted)"></div>'+
+    '</div>'+
+    // Generate button
+    '<button id="mp-gen-btn" onclick="_mpGenerate()" style="background:#FF0000;border:none;color:#fff;padding:9px 22px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;'+mf+'letter-spacing:0.05em;margin-bottom:20px">✦ Generate Positioning Draft</button>'+
+    '<div id="mp-gen-status" style="font-size:11px;color:var(--muted);'+mf+'margin-bottom:16px;display:none"></div>'+
+    // Form — hidden until generation runs
+    '<div id="mp-form" style="display:none">'+
+      // WHO SHE IS — amber warning box
+      '<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:12px 14px;margin-bottom:14px">'+
+        '<label style="'+labelStyle+'color:#f59e0b">WHO SHE IS — describe a specific moment, not a demographic</label>'+
+        '<textarea id="mp-who-she-is" rows="4" placeholder="It is 6:30 PM on a Tuesday. She has ground beef, tortillas, and cheese in the fridge. She does not know she already has everything for Taco Tuesday. She is opening DoorDash." style="'+taStyle+'border-color:rgba(245,158,11,0.4)"></textarea>'+
+      '</div>'+
+      '<label style="'+labelStyle+'">WHAT SHE WANTS</label>'+
+      '<input id="mp-what-she-wants" type="text" style="'+fStyle+'">'+
+      '<label style="'+labelStyle+'">CORE PROBLEM</label>'+
+      '<input id="mp-core-problem" type="text" style="'+fStyle+'">'+
+      '<label style="'+labelStyle+'">CORE TRUTH</label>'+
+      '<textarea id="mp-core-truth" rows="2" style="'+taStyle+'"></textarea>'+
+      '<label style="'+labelStyle+'">MASTER STORY</label>'+
+      '<textarea id="mp-master-story" rows="3" style="'+taStyle+'"></textarea>'+
+      '<label style="'+labelStyle+'">WHAT WE SAY</label>'+
+      '<textarea id="mp-what-we-say" rows="2" style="'+taStyle+'"></textarea>'+
+      '<label style="'+labelStyle+'">PROOF POINT</label>'+
+      '<input id="mp-proof-point" type="text" style="'+fStyle+'">'+
+      // FEELING SOLD — green box
+      '<div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:12px 14px;margin-bottom:14px">'+
+        '<label style="'+labelStyle+'color:#22c55e">FEELING SOLD — emotional state AFTER the product does its job</label>'+
+        '<textarea id="mp-feeling-sold" rows="2" style="'+taStyle+'border-color:rgba(34,197,94,0.35)"></textarea>'+
+      '</div>'+
+      '<label style="'+labelStyle+'">EMOTIONAL ARC (7 emotions — exhausted → frustrated → activated → curious → relieved → proud → peaceful)</label>'+
+      '<input id="mp-emotional-arc" type="text" style="'+fStyle+'">'+
+      // Stage jobs
+      '<label style="'+labelStyle+'margin-top:6px">STAGE 1 — AWARENESS JOB</label>'+
+      '<textarea id="mp-stage-1" rows="2" style="'+taStyle+'"></textarea>'+
+      '<label style="'+labelStyle+'">STAGE 2 — EDUCATION JOB</label>'+
+      '<textarea id="mp-stage-2" rows="2" style="'+taStyle+'"></textarea>'+
+      '<label style="'+labelStyle+'">STAGE 3 — CONSIDERATION JOB</label>'+
+      '<textarea id="mp-stage-3" rows="2" style="'+taStyle+'"></textarea>'+
+      '<label style="'+labelStyle+'">STAGE 4 — CONVERSION JOB</label>'+
+      '<textarea id="mp-stage-4" rows="2" style="'+taStyle+'"></textarea>'+
+      '<label style="'+labelStyle+'">STAGE 5 — RETENTION JOB (Three-Ingredient Start → First Strike → Tipping Point → Paywall)</label>'+
+      '<textarea id="mp-stage-5" rows="2" style="'+taStyle+'"></textarea>'+
+      // Objection grid
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:10px">'+
+        '<div>'+
+          '<label style="'+labelStyle+'">PRIMARY OBJECTION</label>'+
+          '<textarea id="mp-primary-objection" rows="2" style="'+taStyle+'"></textarea>'+
+        '</div>'+
+        '<div>'+
+          '<label style="'+labelStyle+'">OBJECTION ANSWER</label>'+
+          '<textarea id="mp-objection-answer" rows="2" style="'+taStyle+'"></textarea>'+
+        '</div>'+
+      '</div>'+
+      '<label style="'+labelStyle+'">LP ANGLE</label>'+
+      '<input id="mp-lp-angle" type="text" style="'+fStyle+'">'+
+      '<label style="'+labelStyle+'">CTA LANGUAGE</label>'+
+      '<input id="mp-cta-language" type="text" placeholder="Join the waitlist free — early access July 1" style="'+fStyle+'">'+
+      // Approval block
+      '<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+        '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;'+mf+'color:var(--text)">'+
+          '<input type="checkbox" id="mp-ml-approved" style="width:15px;height:15px;accent-color:#C9A84C;cursor:pointer">'+
+          'ML Approved'+
+        '</label>'+
+        '<button onclick="_mpSave()" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 18px;border-radius:6px;font-size:11px;cursor:pointer;'+mf+'">Save Draft</button>'+
+        '<button onclick="_mpLock()" style="background:#0B0D10;border:1px solid #C9A84C;color:#C9A84C;padding:7px 18px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">Approve + Lock</button>'+
+        '<div style="flex:1;min-width:8px"></div>'+
+        '<button onclick="_mpAdvanceToKickstart()" style="background:#FF0000;border:none;color:#fff;padding:8px 22px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;'+mf+'">→ Next: Campaign Kickstart</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+function _mpInitStep0(){
+  // Load ICP dropdown
+  if(_mpIcpList.length){_mpPopulateIcpDropdown();return;}
+  fetch(CONFIG.sheetsUrl+'?action=icp_profiles_read')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      _mpIcpList=d.icpProfiles||[];
+      _mpPopulateIcpDropdown();
+    }).catch(function(e){console.warn('[MP] ICP load failed',e);});
+}
+
+function _mpPopulateIcpDropdown(){
+  var sel=document.getElementById('mp-icp-select');
+  if(!sel) return;
+  _mpIcpList.forEach(function(icp){
+    var o=document.createElement('option');
+    o.value=icp.code||icp.id||'';
+    o.textContent=icp.name||icp.code||'';
+    sel.appendChild(o);
+  });
+  // Pre-select from _campBrief
+  var cur=(_campBrief.icp||'').toLowerCase().replace(/\s+/g,'_');
+  if(cur){sel.value=cur;_mpLoadThemes(cur);}
+}
+
+function _mpLoadThemes(icp_code){
+  if(!icp_code) return;
+  var sel=document.getElementById('mp-theme-select');
+  if(sel){sel.innerHTML='<option value="">Loading…</option>';}
+  fetch(CONFIG.sheetsUrl+'?action=theme_library_read&icp_code='+encodeURIComponent(icp_code))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      _mpThemeList=d.themes||[];
+      if(!sel) return;
+      sel.innerHTML='<option value="">— select theme —</option>';
+      _mpThemeList.forEach(function(t){
+        var o=document.createElement('option');
+        o.value=t.theme_slug||t.id||'';
+        o.textContent=t.theme_name||t.theme_slug||'';
+        sel.appendChild(o);
+      });
+    }).catch(function(e){console.warn('[MP] theme load failed',e);});
+}
+
+function _mpOnThemeSelect(slug){
+  if(!slug){
+    var card=document.getElementById('mp-theme-preview');
+    if(card) card.style.display='none';
+    return;
+  }
+  var t=null;
+  for(var i=0;i<_mpThemeList.length;i++){
+    if((_mpThemeList[i].theme_slug||_mpThemeList[i].id||'')=== slug){t=_mpThemeList[i];break;}
+  }
+  if(!t) return;
+  var card=document.getElementById('mp-theme-preview');
+  var eEl=document.getElementById('mp-preview-entry');
+  var hEl=document.getElementById('mp-preview-hook');
+  if(card){card.style.display='block';}
+  if(eEl){eEl.textContent='Entry: '+(t.emotional_entry||'—');}
+  if(hEl){hEl.textContent='Hook: '+(t.feature_hook||'—');}
+  // Wire theme into _campBrief so later steps can use it
+  _campBrief.theme=t.theme_name||slug;
+  _campBrief.themeData=t;
+  _ccSelectedTheme=t;
+}
+
+function _mpGenerate(){
+  var icp=document.getElementById('mp-icp-select');
+  var thm=document.getElementById('mp-theme-select');
+  var icpCode=(icp?icp.value:'')||(_campBrief.icp||'');
+  var thmSlug=thm?thm.value:'';
+  var themeRow=null;
+  for(var i=0;i<_mpThemeList.length;i++){
+    if((_mpThemeList[i].theme_slug||'')=== thmSlug){themeRow=_mpThemeList[i];break;}
+  }
+  var icpRow=null;
+  for(var j=0;j<_mpIcpList.length;j++){
+    if((_mpIcpList[j].code||_mpIcpList[j].id||'')=== icpCode){icpRow=_mpIcpList[j];break;}
+  }
+  var btn=document.getElementById('mp-gen-btn');
+  var st=document.getElementById('mp-gen-status');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Generating…';}
+  if(st){st.style.display='block';st.textContent='Calling Claude — this takes 10–20 seconds…';}
+
+  var payload={
+    action:'master_positioning_generate',
+    campaign_id:_campBrief.id||'EC-2026-001',
+    icp_code:icpCode,
+    theme_slug:thmSlug,
+    theme_name:themeRow?themeRow.theme_name||'':'',
+    themeData:themeRow||{},
+    icpData:icpRow||{}
+  };
+
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(btn){btn.disabled=false;btn.textContent='✦ Generate Positioning Draft';}
+      if(!d.ok){
+        if(st){st.textContent='Error: '+(d.error||d.result&&d.result.error||'Unknown error');}
+        return;
+      }
+      if(st){st.style.display='none';}
+      var pos=d.positioning||d.result&&d.result.positioning||{};
+      _mpCurrentPositioning=pos;
+      _campBrief.positioning_id=pos.positioning_id||'';
+      _campBrief.masterPositioning=pos;
+      _mpPopulateForm(pos);
+      var form=document.getElementById('mp-form');
+      if(form) form.style.display='block';
+    })
+    .catch(function(e){
+      if(btn){btn.disabled=false;btn.textContent='✦ Generate Positioning Draft';}
+      if(st){st.textContent='Network error: '+e.message;}
+    });
+}
+
+function _mpPopulateForm(p){
+  var map={
+    'mp-who-she-is':       p.who_she_is             ||'',
+    'mp-what-she-wants':   p.what_she_wants          ||'',
+    'mp-core-problem':     p.core_problem            ||'',
+    'mp-core-truth':       p.core_truth              ||'',
+    'mp-master-story':     p.master_story            ||'',
+    'mp-what-we-say':      p.what_we_say             ||'',
+    'mp-proof-point':      p.proof_point             ||'',
+    'mp-feeling-sold':     p.feeling_sold            ||'',
+    'mp-emotional-arc':    p.emotional_arc           ||'',
+    'mp-stage-1':          p.stage_1_awareness_job   ||'',
+    'mp-stage-2':          p.stage_2_education_job   ||'',
+    'mp-stage-3':          p.stage_3_consideration_job||'',
+    'mp-stage-4':          p.stage_4_conversion_job  ||'',
+    'mp-stage-5':          p.stage_5_retention_job   ||'',
+    'mp-primary-objection':p.primary_objection       ||'',
+    'mp-objection-answer': p.objection_answer        ||'',
+    'mp-lp-angle':         p.lp_angle                ||'',
+    'mp-cta-language':     p.cta_language            ||''
+  };
+  Object.keys(map).forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.value=map[id];
+  });
+}
+
+function _mpReadForm(){
+  function v(id){var el=document.getElementById(id);return el?el.value||'';}
+  return {
+    who_she_is:              v('mp-who-she-is'),
+    what_she_wants:          v('mp-what-she-wants'),
+    core_problem:            v('mp-core-problem'),
+    core_truth:              v('mp-core-truth'),
+    master_story:            v('mp-master-story'),
+    what_we_say:             v('mp-what-we-say'),
+    proof_point:             v('mp-proof-point'),
+    feeling_sold:            v('mp-feeling-sold'),
+    emotional_arc:           v('mp-emotional-arc'),
+    stage_1_awareness_job:   v('mp-stage-1'),
+    stage_2_education_job:   v('mp-stage-2'),
+    stage_3_consideration_job:v('mp-stage-3'),
+    stage_4_conversion_job:  v('mp-stage-4'),
+    stage_5_retention_job:   v('mp-stage-5'),
+    primary_objection:       v('mp-primary-objection'),
+    objection_answer:        v('mp-objection-answer'),
+    lp_angle:                v('mp-lp-angle'),
+    cta_language:            v('mp-cta-language')
+  };
+}
+
+function _mpSave(){
+  var form=_mpReadForm();
+  var pos=Object.assign({},_mpCurrentPositioning||{},form,{
+    campaign_id:_campBrief.id||'EC-2026-001'
+  });
+  fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'master_positioning_save',positioning:pos})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        var id=(d.result&&d.result.positioning_id)||pos.positioning_id||'';
+        _mpCurrentPositioning=Object.assign(pos,{positioning_id:id});
+        _campBrief.positioning_id=id;
+        _campBrief.masterPositioning=_mpCurrentPositioning;
+        _showToast('<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:#22c55e">✓ Positioning saved — '+id+'</span>',3000);
+      } else {
+        _showToast('<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:#ef4444">Save failed: '+(d.error||'unknown')+'</span>',4000);
+      }
+    });
+}
+
+function _mpLock(){
+  var approved=document.getElementById('mp-ml-approved');
+  if(!approved||!approved.checked){
+    _showToast('<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:#f59e0b">⚠ Check the ML Approved box before locking.</span>',3000);
+    return;
+  }
+  _mpSave();
+  setTimeout(function(){
+    var id=(_mpCurrentPositioning&&_mpCurrentPositioning.positioning_id)||(_campBrief.positioning_id||'');
+    if(!id){_showToast('<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:#ef4444">No positioning_id — save first.</span>',3000);return;}
+    fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'master_positioning_lock',positioning_id:id})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(!d.ok){_showToast('<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:#ef4444">Lock failed: '+(d.error||'unknown')+'</span>',4000);return;}
+        _showToast('<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:#C9A84C;font-weight:700">🔒 Positioning LOCKED — '+id+'</span>',4000);
+        // Seed stage gates
+        fetch(CONFIG.sheetsUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'seed_stage_gates',campaign_id:_campBrief.id||'EC-2026-001',positioning_id:id})})
+          .then(function(r){return r.json();})
+          .then(function(g){console.log('[MP] stage gates seeded',g);});
+      });
+  },400);
+}
+
+function _mpAdvanceToKickstart(){
+  if(!_campBrief.positioning_id&&!(_mpCurrentPositioning&&_mpCurrentPositioning.positioning_id)){
+    _showToast('<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:#f59e0b">⚠ Generate and save a positioning first.</span>',3000);
+    return;
+  }
+  var id=_campBrief.positioning_id||(_mpCurrentPositioning&&_mpCurrentPositioning.positioning_id)||'';
+  _ccWizardAdvance(1,'✓ Positioning: '+id);
+}
+
 function _ccRenderWizardBar(){
   var steps=[
-    {n:1,lbl:'Theme'},{n:2,lbl:'LP'},{n:3,lbl:'Kickstart'},{n:4,lbl:'Brief'},
+    {n:0,lbl:'Position'},{n:1,lbl:'Theme'},{n:2,lbl:'LP'},{n:3,lbl:'Kickstart'},{n:4,lbl:'Brief'},
     {n:5,lbl:'Assets'},{n:6,lbl:'Calendar'}
   ];
   var stepsHtml=steps.map(function(s,i){
@@ -29378,6 +29722,8 @@ function _ccWizardAdvance(toStep,summary){
   var nextBody=document.getElementById('cc-step-'+toStep+'-body');
   if(nextEl) nextEl.style.display='block';
   // Lazy-render step content
+  // Step 0 = Master Positioning
+  if(toStep===0&&nextBody){ nextBody.innerHTML=_ccRenderStep0(); _mpInitStep0(); }
   // Step 1 = Theme picker (re-render on Edit)
   if(toStep===1&&nextBody){
     var _tpCode=(_campBrief.icp||'super_mom').toLowerCase().replace(/\s+/g,'_');
@@ -29740,7 +30086,7 @@ function _campaignsRenderInner(root){
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
         '<div>'+
           '<div style="font-size:18px;font-weight:700;color:var(--text)">📣 Campaign Center</div>'+
-          '<div style="font-size:12px;color:var(--muted);margin-top:2px">Theme → LP → Kickstart → Brief → Assets → Calendar</div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px">Position → Theme → LP → Kickstart → Brief → Assets → Calendar</div>'+
         '</div>'+
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
           '<button id="cc-run-full-btn" onclick="_ccRunFullCampaign(\'EC-2026-002\')" style="background:var(--gold);border:none;color:#000;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'DM Mono\',monospace;white-space:nowrap">⚡ Run Full Campaign — EC-2026-002</button>'+
@@ -29788,6 +30134,14 @@ function _campaignsRenderInner(root){
       // ── Wizard step bar ────────────────────────────────────────────────────
       '<div id="cc-wizard-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:20px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">'+
         _ccRenderWizardBar()+
+      '</div>'+
+      // ── Step 0: Master Positioning ────────────────────────────────────────
+      '<div id="cc-step-0" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">'+
+        sHdr(0,'Master Positioning — define the campaign roof before generating any asset')+
+        '<div id="cc-step-0-summ" '+summBar+'></div>'+
+        '<div id="cc-step-0-body" style="padding:20px">'+
+          '<div id="cc-step0-init"><div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace">Loading…</div></div>'+
+        '</div>'+
       '</div>'+
       // ── Step 1: Theme ─────────────────────────────────────────────────────
       '<div id="cc-step-1" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">'+
@@ -29845,15 +30199,11 @@ function _campaignsRenderInner(root){
   var _pr=document.getElementById('cc-progress-rail');
   if(_pr){_pr.style.display='block';_pr.innerHTML=_ccRenderProgressRail();}
   _campSwitchTab(_campActiveTab);
-  // Init Step 1 theme picker on first render
+  // Init Step 0 on first render
   setTimeout(function(){
-    var _icp=(_campBrief.icp||'super_mom').toLowerCase().replace(/\s+/g,'_');
-    var _s1p=document.getElementById('cc-step1-theme-picker');
-    if(!_s1p) return;
-    if(_ccThemeLib[_icp]){
-      _s1p.innerHTML=_ccRenderThemeCards(_ccThemeLib[_icp],_campBrief.theme||'');
-      if(_campBrief.theme){var _n=document.getElementById('cc-step1-theme-next');if(_n)_n.style.display='block';}
-    } else { _ccLoadThemeLibrary(_campBrief.icp||'super_mom'); }
+    var _s0b=document.getElementById('cc-step-0-body');
+    if(_s0b) _s0b.innerHTML=_ccRenderStep0();
+    _mpInitStep0();
   },0);
 }
 function _campSwitchTab(t){

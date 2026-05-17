@@ -414,6 +414,13 @@ function doGet(e) {
     if(e.parameter.action === 'folders_read') return respond({ok:true, folders: _getFolderDefs()});
     if(e.parameter.action === 'icp_profiles_read') return respond({ok:true, icpProfiles: getIcpProfiles()});
     if(e.parameter.action === 'approved_claims_read') return respond({ok:true, claims: getApprovedClaims()});
+    if(e.parameter.action === 'master_positioning_read') {
+      var _mpId  = e.parameter.positioning_id || '';
+      var _mpCid = e.parameter.campaign_id    || '';
+      if (_mpId)  return respond({ ok:true, positioning: getMasterPositioning(_mpId) });
+      if (_mpCid) return respond({ ok:true, positionings: getMasterPositioningByCampaign(_mpCid) });
+      return respond({ ok:false, error:'positioning_id or campaign_id required' });
+    }
     if(e.parameter.action === 'get_settings') return respond({ok:true, settings:getCcSettings()});
     if(e.parameter.action === 'folder_list') {
       var _fid=e.parameter.folderId||'';
@@ -2211,6 +2218,25 @@ function doPost(e) {
       var _ccdt = clearCampaignDataTabs();
       return respond({ ok:_ccdt.ok, result:_ccdt, log: Logger.getLog() });
     }
+
+    // ── GOVERNANCE LAYER ────────────────────────────────────────────────────
+    if(body.action === 'master_positioning_save') {
+      var _mps = saveMasterPositioning(body.positioning || body);
+      return respond({ ok:_mps.ok, result:_mps, log: Logger.getLog() });
+    }
+    if(body.action === 'master_positioning_lock') {
+      var _mpl = lockMasterPositioning(body.positioning_id || '');
+      return respond({ ok:_mpl.ok, result:_mpl, log: Logger.getLog() });
+    }
+    if(body.action === 'master_positioning_generate') {
+      var _mpg = generateMasterPositioning(body);
+      return respond({ ok:_mpg.ok, result:_mpg, positioning: _mpg.positioning || null, log: Logger.getLog() });
+    }
+    if(body.action === 'seed_stage_gates') {
+      var _ssg = seedStageGates(body.campaign_id || '', body.positioning_id || '');
+      return respond({ ok:_ssg.ok, result:_ssg, log: Logger.getLog() });
+    }
+    // ── END GOVERNANCE LAYER ─────────────────────────────────────────────────
 
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');
