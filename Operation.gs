@@ -623,7 +623,7 @@ function doPost(e) {
     if(veraResult) return veraResult;
 
     // ── Ping — confirms GAS is alive and CORS headers are present ─────────
-    if(body.action === 'ping') return respond({ ok:true, pong:true, version:'@351', ts:new Date().toISOString() });
+    if(body.action === 'ping') return respond({ ok:true, pong:true, version:'@799', ts:new Date().toISOString() });
 
     if(body.action === 'agenda_write') { setAgendaItem({ id:body.id||'', title:body.title||'', detail:body.detail||'', decision:body.decision||'', checked:body.checked||'false', owner:body.owner||'', deadline:body.deadline||'', category:body.category||'Manual', taskId:body.taskId||'', flag:body.flag||'', actionPlan:body.actionPlan||'', taskPlan:body.taskPlan||'', taskPlans:typeof body.taskPlans==='string'?JSON.parse(body.taskPlans||'[]'):body.taskPlans||[] }); return respond({ ok: true }); }
     if(body.action === 'anthropic') return callAnthropic(body);
@@ -2219,6 +2219,23 @@ function doPost(e) {
       return respond({ ok:_ccdt.ok, result:_ccdt, log: Logger.getLog() });
     }
 
+    // ── GOVERNANCE LAYER SETUP ──────────────────────────────────────────────
+    if(body.action === 'setup_master_positioning') {
+      var _smp = _setupMasterPositioning();
+      return respond({ ok:_smp.ok, result:_smp, log: Logger.getLog() });
+    }
+    if(body.action === 'setup_stage_gates') {
+      var _sstg = _setupStageGates();
+      return respond({ ok:_sstg.ok, result:_sstg, log: Logger.getLog() });
+    }
+    if(body.action === 'setup_retention_milestones') {
+      var _srm = _setupRetentionMilestones();
+      return respond({ ok:_srm.ok, result:_srm, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_governance_headers') {
+      var _rgh = repairSheetHeaders(['MasterPositioning','StageGates','RetentionMilestones','SocialPosts','EmailSequences']);
+      return respond({ ok:_rgh.ok, result:_rgh, log: Logger.getLog() });
+    }
     // ── GOVERNANCE LAYER ────────────────────────────────────────────────────
     if(body.action === 'master_positioning_save') {
       var _mps = saveMasterPositioning(body.positioning || body);
