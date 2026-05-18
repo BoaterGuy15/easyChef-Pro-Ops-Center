@@ -2028,3 +2028,177 @@ function testNewColumns() {
 
   Logger.log('=== Done ===');
 }
+
+
+// ── P4: Export emails as Google Docs (one doc per sequence) ───────────────────
+
+
+// ── P4: Export social posts as Google Docs (one doc per platform) ─────────────
+
+
+// ── P4 safe helper ────────────────────────────────────────────────────────────
+function _dpairSafe(body, label, value) {
+  var safeVal = (value !== null && value !== undefined && String(value).trim() !== '') ? String(value) : '—';
+  _dpair(body, label, safeVal);
+}
+
+// ── P4: Export emails as Google Docs (one doc per sequence) ───────────────────
+
+function exportEmailsAsDocs(campaignId, folderIdOverride) {
+  try {
+    var emails = getEmailSequences(campaignId);
+    if (!emails.length) return { ok: false, error: 'no emails for ' + campaignId };
+
+    var rootId = folderIdOverride || '';
+    if (!rootId) {
+      try {
+        var _fs = _getCcSetting('CAMPAIGN_FOLDER_ID');
+        rootId = (_fs && _fs.length) ? _fs[0].label : '';
+      } catch(ce) {}
+    }
+    var rootFolder  = rootId ? DriveApp.getFolderById(rootId) : DriveApp.getFolderById(_CAMPAIGNS_ROOT_ID);
+    var emailFolder = getOrCreateFolder(rootFolder, '03_Email');
+
+    var seqMap = {};
+    emails.forEach(function(e) {
+      var code = e.sequence_code || 'OTHER';
+      if (!seqMap[code]) seqMap[code] = [];
+      seqMap[code].push(e);
+    });
+
+    var seqNames = {
+      'SEQ-1': 'Welcome Sequence',
+      'SEQ-2': 'Nurture Sequence',
+      'SEQ-3': 'Launch Sequence',
+      'SEQ-4': 'Retention Sequence'
+    };
+    var docUrls = {};
+
+    Object.keys(seqMap).sort().forEach(function(seqCode) {
+      var seqs    = seqMap[seqCode];
+      var seqName = seqNames[seqCode] || seqCode;
+      var doc     = _newDoc(seqCode + ' — ' + seqName + ' — ' + campaignId, emailFolder);
+      var body    = doc.getBody();
+
+      _docBrandHeader(body, 'easyChef Pro: ' + seqCode + ' — ' + seqName, '');
+      _dh1(body, seqCode + ' — ' + seqName);
+      _dpairSafe(body, 'Campaign',    campaignId);
+      _dpairSafe(body, 'Email count', String(seqs.length));
+      body.appendParagraph('');
+
+      seqs.sort(function(a, b) { return (a.email_number || 0) - (b.email_number || 0); });
+
+      seqs.forEach(function(e) {
+        _docDivider(body);
+        var subj = e.subject_line || '(no subject)';
+        _dh2(body, 'Email ' + (e.email_number || '?') + ' — ' + subj);
+        _dpairSafe(body, 'ID',             e.id            || '—');
+        _dpairSafe(body, 'Send Day',       String(e.send_day || '0'));
+        _dpairSafe(body, 'ICP',            e.icp_code       || '—');
+        _dpairSafe(body, 'Variant',        e.variant        || '—');
+        _dpairSafe(body, 'Funnel Stage',   e.funnel_stage   || '—');
+        _dpairSafe(body, 'Emotional',      e.emotional_stage|| '—');
+        _dpairSafe(body, 'DL ID',          e.dl_id          || '—');
+        body.appendParagraph('');
+        _dpairSafe(body, 'Subject', e.subject_line || '—');
+        _dpairSafe(body, 'Preview', e.preview_text || '—');
+        body.appendParagraph('');
+
+        _dh2(body, 'Body');
+        var hasFull = e.full_email_body && String(e.full_email_body).trim().length > 10;
+        if (hasFull) {
+          _docBodyPara(body, String(e.full_email_body));
+        } else {
+          if (e.body_hook)    _dpairSafe(body, 'Hook',    e.body_hook);
+          if (e.body_problem) _dpairSafe(body, 'Problem', e.body_problem);
+          if (e.body_agitate) _dpairSafe(body, 'Agitate', e.body_agitate);
+          if (e.body_solve)   _dpairSafe(body, 'Solve',   e.body_solve);
+          if (e.body_value)   _dpairSafe(body, 'Value',   e.body_value);
+          if (e.body_proof)   _dpairSafe(body, 'Proof',   e.body_proof);
+          if (e.body_cta)     _dpairSafe(body, 'CTA',     e.body_cta);
+        }
+        body.appendParagraph('');
+      });
+
+      _docBrandFooter(body);
+      doc.saveAndClose();
+      docUrls[seqCode] = DriveApp.getFileById(doc.getId()).getUrl();
+      Logger.log('[exportEmailsAsDocs] ' + seqCode + ' -> ' + doc.getId());
+    });
+
+    return { ok: true, folder_url: emailFolder.getUrl(), doc_urls: docUrls, email_count: emails.length };
+  } catch(e) {
+    Logger.log('[exportEmailsAsDocs] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── P4: Export social posts as Google Docs (one doc per platform) ─────────────
+
+function exportSocialAsDocs(campaignId, folderIdOverride) {
+  try {
+    var posts = getSocialPosts(campaignId);
+    if (!posts.length) return { ok: false, error: 'no posts for ' + campaignId };
+
+    var rootId2 = folderIdOverride || '';
+    if (!rootId2) {
+      try {
+        var _fs2 = _getCcSetting('CAMPAIGN_FOLDER_ID');
+        rootId2 = (_fs2 && _fs2.length) ? _fs2[0].label : '';
+      } catch(ce) {}
+    }
+    var rootFolder2  = rootId2 ? DriveApp.getFolderById(rootId2) : DriveApp.getFolderById(_CAMPAIGNS_ROOT_ID);
+    var socialFolder = getOrCreateFolder(rootFolder2, '04_Social');
+
+    var platMap = {};
+    posts.forEach(function(p) {
+      var plat = p.platform || 'Other';
+      if (!platMap[plat]) platMap[plat] = [];
+      platMap[plat].push(p);
+    });
+
+    var docUrls   = {};
+    var platforms = ['Facebook','Instagram','TikTok','YouTube','Pinterest','Nextdoor','X'];
+
+    platforms.forEach(function(plat) {
+      var platPosts = platMap[plat];
+      if (!platPosts || !platPosts.length) return;
+
+      var doc  = _newDoc(plat + ' — Posts — ' + campaignId, socialFolder);
+      var body = doc.getBody();
+
+      _docBrandHeader(body, 'easyChef Pro: ' + plat + ' Posts', '');
+      _dh1(body, plat + ' Posts');
+      _dpairSafe(body, 'Campaign',   campaignId);
+      _dpairSafe(body, 'Post count', String(platPosts.length));
+      body.appendParagraph('');
+
+      platPosts.forEach(function(p) {
+        _docDivider(body);
+        var stageLabel = p.loop_stage || p.funnel_stage || 'arc';
+        _dh2(body, (p.id || 'post') + ' — ' + stageLabel);
+        _dpairSafe(body, 'ID',         p.id             || '—');
+        _dpairSafe(body, 'Scheduled',  p.scheduled_date || '—');
+        _dpairSafe(body, 'Loop Stage', p.loop_stage     || '—');
+        _dpairSafe(body, 'Emotional',  (p.emotional_state || '—') + ' to ' + (p.emotional_destination || '—'));
+        _dpairSafe(body, 'DL ID',      p.dl_id          || '—');
+        body.appendParagraph('');
+        _dpairSafe(body, 'Hook', p.hook      || '—');
+        _dpairSafe(body, 'Body', p.body_copy || '—');
+        _dpairSafe(body, 'CTA',  p.cta       || '—');
+        if (p.hashtags) _dpairSafe(body, 'Hashtags', p.hashtags);
+        body.appendParagraph('');
+      });
+
+      _docBrandFooter(body);
+      doc.saveAndClose();
+      docUrls[plat] = DriveApp.getFileById(doc.getId()).getUrl();
+      Logger.log('[exportSocialAsDocs] ' + plat + ' -> ' + doc.getId());
+    });
+
+    return { ok: true, folder_url: socialFolder.getUrl(), doc_urls: docUrls, post_count: posts.length };
+  } catch(e) {
+    Logger.log('[exportSocialAsDocs] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

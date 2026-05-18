@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Campaign Cockpit</title>
+  <script src="/config.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -452,70 +453,6 @@
       .kpi-grid { grid-template-columns: 1fr 1fr; }
       .dash-cols { grid-template-columns: 1fr; }
     }
-
-    /* ── Assets tab — day/stage selector ──────────────────────────────────── */
-    .stage-strip { display:flex; gap:6px; margin-bottom:14px; overflow-x:auto; padding-bottom:2px; }
-    .stage-btn { background:#FFFFFF; border:1px solid rgba(0,0,0,0.12); color:#555; padding:7px 14px; border-radius:999px; font-family:var(--font-head); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:all 0.15s; flex-shrink:0; }
-    .stage-btn:hover { border-color:rgba(0,0,0,0.25); color:#111; }
-    .stage-btn.active { background:#FF0000; border-color:#FF0000; color:#FFFFFF; }
-
-    /* ── Asset card ───────────────────────────────────────────────────────── */
-    .asset-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; }
-    .asset-card { background:#FFFFFF; border:1px solid rgba(0,0,0,0.08); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
-    .asset-card-head { display:flex; align-items:center; gap:8px; }
-    .asset-stage-tag { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#FF0000; background:rgba(255,0,0,0.07); border:1px solid rgba(255,0,0,0.18); border-radius:4px; padding:2px 7px; flex-shrink:0; }
-    .asset-date-tag  { font-size:10px; color:#888; margin-left:auto; }
-    .asset-hook  { font-size:13px; font-weight:600; color:#111; line-height:1.4; font-family:var(--font-head); }
-    .asset-body  { font-size:12px; color:#444; line-height:1.5; }
-    .asset-body.truncated { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-    .asset-meta-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:2px; }
-    .asset-meta-pill { font-size:10px; color:#666; background:#F6EFE8; border-radius:4px; padding:2px 7px; }
-    .asset-meta-pill a { color:inherit; text-decoration:none; }
-    .asset-meta-pill a:hover { color:#FF0000; }
-    .asset-expand-btn { background:none; border:none; color:#888; font-size:11px; cursor:pointer; padding:0; font-family:inherit; margin-top:-4px; text-align:left; }
-    .asset-expand-btn:hover { color:#FF0000; }
-    .asset-brief-wrap { background:#F6EFE8; border-radius:6px; padding:8px 10px; }
-    .asset-brief-label { font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:#888; font-weight:600; margin-bottom:4px; }
-    .asset-brief-text { font-size:11px; color:#555; line-height:1.5; }
-    .phone-rule-tag { font-size:9px; color:#b45309; background:rgba(180,83,9,0.08); border:1px solid rgba(180,83,9,0.2); border-radius:4px; padding:2px 6px; }
-    .phone-rule-ok  { font-size:9px; color:#16a34a; background:rgba(22,163,74,0.08); border:1px solid rgba(22,163,74,0.2); border-radius:4px; padding:2px 6px; }
-
-    /* ── Emails tab ───────────────────────────────────────────────────────── */
-    .email-filter-strip { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
-    .email-filter-btn { background:#FFFFFF; border:1px solid rgba(0,0,0,0.12); color:#555; padding:5px 12px; border-radius:999px; font-family:var(--font-body); font-size:11px; font-weight:500; cursor:pointer; transition:all 0.15s; }
-    .email-filter-btn:hover { border-color:rgba(0,0,0,0.25); }
-    .email-filter-btn.active { background:#111; border-color:#111; color:#FFF; }
-    .email-cards { display:flex; flex-direction:column; gap:10px; }
-    .email-card { background:#FFFFFF; border:1px solid rgba(0,0,0,0.08); border-radius:12px; padding:14px 16px; }
-    .email-card-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
-    .email-card-id   { font-size:10px; font-weight:700; font-family:monospace; color:#888; }
-    .email-arc-tag   { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#7c3aed; background:rgba(124,58,237,0.07); border:1px solid rgba(124,58,237,0.18); border-radius:4px; padding:2px 7px; }
-    .email-icp-tag   { font-size:9px; font-weight:600; color:#555; background:#F6EFE8; border-radius:4px; padding:2px 7px; }
-    .email-ml-tag    { font-size:9px; font-weight:700; color:#16a34a; background:rgba(22,163,74,0.08); border:1px solid rgba(22,163,74,0.2); border-radius:4px; padding:2px 7px; }
-    .email-ml-pending{ font-size:9px; font-weight:700; color:#b45309; background:rgba(180,83,9,0.08); border:1px solid rgba(180,83,9,0.2); border-radius:4px; padding:2px 7px; }
-    .email-subj  { font-size:14px; font-weight:700; color:#111; line-height:1.3; font-family:var(--font-head); margin-bottom:3px; }
-    .email-prev  { font-size:12px; color:#666; font-style:italic; margin-bottom:8px; }
-    .email-wc-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-    .email-wc-val { font-size:12px; font-weight:600; }
-    .email-wc-tgt { font-size:11px; color:#888; }
-    .email-wc-over { color:#dc2626; }
-    .email-wc-ok   { color:#16a34a; }
-    .email-wc-warn { color:#b45309; }
-    .email-body-toggle { background:none; border:1px solid rgba(0,0,0,0.10); color:#555; padding:5px 10px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit; transition:all 0.12s; width:100%; text-align:left; margin-top:4px; }
-    .email-body-toggle:hover { border-color:rgba(0,0,0,0.25); color:#111; }
-    .email-body-area { background:#F6EFE8; border-radius:6px; padding:12px; margin-top:6px; font-size:12px; color:#333; line-height:1.6; white-space:pre-wrap; display:none; }
-    .email-section-divider { display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap; }
-    .email-sect-tag { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; padding:2px 6px; border-radius:3px; }
-    .sect-hook    { background:rgba(22,163,74,0.10);  color:#15803d; }
-    .sect-problem { background:rgba(220,38,38,0.08);  color:#b91c1c; }
-    .sect-agitate { background:rgba(220,38,38,0.14);  color:#991b1b; }
-    .sect-solve   { background:rgba(22,163,74,0.14);  color:#166534; }
-    .sect-value   { background:rgba(124,58,237,0.08); color:#6d28d9; }
-    .sect-proof   { background:rgba(180,83,9,0.10);   color:#92400e; }
-    .sect-cta     { background:rgba(255,0,0,0.10);    color:#FF0000; }
-    .sect-missing { background:rgba(220,38,38,0.14); color:#b91c1c; border:1px dashed rgba(220,38,38,0.4); }
-    .email-pos-info { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
-    .email-pos-pill { font-size:9px; color:#888; background:#F6EFE8; border-radius:4px; padding:2px 7px; font-family:monospace; }
   </style>
 </head>
 <body>
@@ -536,7 +473,7 @@
   <div class="cockpit-layout">
 
     <!-- Floating filter panels — draggable, magnet-snap -->
-    <div class="filter-panel fp-hidden fp-collapsed" id="fpanel-platform">
+    <div class="filter-panel fp-hidden" id="fpanel-platform">
       <div class="fp-handle" onmousedown="fpDown(event,'platform')" ontouchstart="fpTouch(event,'platform')">
         <span class="fp-grip">⠿</span>Platform
         <span class="active-count" id="active-count"></span>
@@ -545,23 +482,23 @@
       <div class="fg-pills" id="fp-platform"></div>
       <button class="clear-btn" id="clear-btn" onclick="clearFilters()" style="display:none">✕ Clear All</button>
     </div>
-    <div class="filter-panel fp-hidden fp-collapsed" id="fpanel-status">
+    <div class="filter-panel fp-hidden" id="fpanel-status">
       <div class="fp-handle" onmousedown="fpDown(event,'status')" ontouchstart="fpTouch(event,'status')"><span class="fp-grip">⠿</span>Status<button class="fp-toggle" id="fptgl-status" onclick="toggleFPanel('status');event.stopPropagation()">+</button></div>
       <div class="fg-pills" id="fp-status"></div>
     </div>
-    <div class="filter-panel fp-hidden fp-collapsed" id="fpanel-emotion">
+    <div class="filter-panel fp-hidden" id="fpanel-emotion">
       <div class="fp-handle" onmousedown="fpDown(event,'emotion')" ontouchstart="fpTouch(event,'emotion')"><span class="fp-grip">⠿</span>Emotion<button class="fp-toggle" id="fptgl-emotion" onclick="toggleFPanel('emotion');event.stopPropagation()">+</button></div>
       <div class="fg-pills" id="fp-emotion"></div>
     </div>
-    <div class="filter-panel fp-hidden fp-collapsed" id="fpanel-funnel">
+    <div class="filter-panel fp-hidden" id="fpanel-funnel">
       <div class="fp-handle" onmousedown="fpDown(event,'funnel')" ontouchstart="fpTouch(event,'funnel')"><span class="fp-grip">⠿</span>Funnel Stage<button class="fp-toggle" id="fptgl-funnel" onclick="toggleFPanel('funnel');event.stopPropagation()">+</button></div>
       <div class="fg-pills" id="fp-funnel"></div>
     </div>
-    <div class="filter-panel fp-hidden fp-collapsed" id="fpanel-week">
+    <div class="filter-panel fp-hidden" id="fpanel-week">
       <div class="fp-handle" onmousedown="fpDown(event,'week')" ontouchstart="fpTouch(event,'week')"><span class="fp-grip">⠿</span>Week<button class="fp-toggle" id="fptgl-week" onclick="toggleFPanel('week');event.stopPropagation()">+</button></div>
       <div class="fg-pills" id="fp-week"></div>
     </div>
-    <div class="filter-panel fp-hidden fp-collapsed" id="fpanel-seq">
+    <div class="filter-panel fp-hidden" id="fpanel-seq">
       <div class="fp-handle" onmousedown="fpDown(event,'seq')" ontouchstart="fpTouch(event,'seq')"><span class="fp-grip">⠿</span>Sequence<button class="fp-toggle" id="fptgl-seq" onclick="toggleFPanel('seq');event.stopPropagation()">+</button></div>
       <div class="fg-pills" id="fp-seq"></div>
     </div>
@@ -569,19 +506,15 @@
     <!-- Main -->
     <div class="main">
       <div class="tab-bar">
-        <button class="tab active" id="tab-dash"   onclick="switchTab('dash')">Dashboard</button>
-        <button class="tab"        id="tab-cal"    onclick="switchTab('cal')">Calendar</button>
-        <button class="tab"        id="tab-assets" onclick="switchTab('assets')">Assets</button>
-        <button class="tab"        id="tab-emails" onclick="switchTab('emails')">Emails</button>
-        <button class="tab"        id="tab-flow"   onclick="switchTab('flow')">Campaign Flow</button>
-        <button class="tab"        id="tab-lp"     onclick="switchTab('lp')">LP Studio</button>
+        <button class="tab active" id="tab-dash" onclick="switchTab('dash')">Dashboard</button>
+        <button class="tab"        id="tab-cal"  onclick="switchTab('cal')">Calendar</button>
+        <button class="tab"        id="tab-flow" onclick="switchTab('flow')">Campaign Flow</button>
+        <button class="tab"        id="tab-lp"   onclick="switchTab('lp')">LP Studio</button>
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
-      <div id="panel-cal"    style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
-      <div id="panel-assets" style="display:none"><div class="loading">Loading assets<span class="dot-anim"></span></div></div>
-      <div id="panel-emails" style="display:none"><div class="loading">Loading emails<span class="dot-anim"></span></div></div>
-      <div id="panel-flow"   style="display:none"><div class="loading">Loading flow<span class="dot-anim"></span></div></div>
-      <div id="panel-lp"     style="display:none"><div class="loading">Loading LP Studio<span class="dot-anim"></span></div></div>
+      <div id="panel-cal"  style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
+      <div id="panel-flow" style="display:none"><div class="loading">Loading flow<span class="dot-anim"></span></div></div>
+      <div id="panel-lp"   style="display:none"><div class="loading">Loading LP Studio<span class="dot-anim"></span></div></div>
     </div>
   </div>
 
@@ -787,8 +720,8 @@
       renderSeqPills();
     }
     function loadFilterDefs(){
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'get_cockpit_filter_defs'})
+        .then(function(r){
           if(!r||!r.ok)return;
           ['platform','status','emotion','funnel','week'].forEach(function(k){
             FILTER_DEFS[k]=(r[k]||[]).map(function(v){return{v:v,l:toLabel(k,v)};});
@@ -799,8 +732,7 @@
           renderSidebar();
           loadSeqMeta();
         })
-        .withFailureHandler(function(){})
-        .getCockpitFilterDefs();
+        .catch(function(){});
     }
 
     var DOW=['Su','Mo','Tu','We','Th','Fr','Sa'];
@@ -811,8 +743,8 @@
     var _activeSheetId  = localStorage.getItem('ecp_active_sheet_id') || '';
 
     function loadAccounts() {
-      google.script.run
-        .withSuccessHandler(function(r) {
+      gasCall({action:'get_accounts'})
+        .then(function(r) {
           if (!r || !r.ok) return;
           var sel = document.getElementById('account-select');
           if (!sel) return;
@@ -843,8 +775,7 @@
           }
           loadSetupCheck();
         })
-        .withFailureHandler(function() {})
-        .getAccounts();
+        .catch(function() {});
     }
 
     // ── New Account modal ─────────────────────────────────────────────────────
@@ -859,8 +790,8 @@
       var btn = document.getElementById('na-submit-btn');
       if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
       // Populate template picker
-      google.script.run
-        .withSuccessHandler(function(r) {
+      gasCall({action:'get_templates', template_type:'account'})
+        .then(function(r) {
           _acctTemplates = (r && r.ok) ? (r.templates || []) : [];
           var sel = document.getElementById('na-template-select');
           if (!sel) return;
@@ -877,11 +808,10 @@
             });
           }
         })
-        .withFailureHandler(function() {
+        .catch(function() {
           _acctTemplates = [];
           document.getElementById('na-template-warn').style.display = '';
-        })
-        .getTemplates('account');
+        });
       setTimeout(function() { var el = document.getElementById('na-name'); if (el) el.focus(); }, 50);
     }
 
@@ -909,8 +839,8 @@
       var btn = document.getElementById('na-submit-btn');
       btn.disabled = true; btn.textContent = 'Creating…';
       document.getElementById('na-status').textContent = '';
-      google.script.run
-        .withSuccessHandler(function(r) {
+      gasCall({action:'clone_account', account_name:name, account_id:id, template_file_id:templateFileId||null, sheet_id:_activeSheetId})
+        .then(function(r) {
           if (r && r.ok) {
             document.getElementById('na-status').textContent = '✓ Created';
             btn.textContent = '✓ Done';
@@ -923,11 +853,10 @@
             document.getElementById('na-status').textContent = 'Error: ' + ((r && r.error) || 'unknown');
           }
         })
-        .withFailureHandler(function() {
+        .catch(function() {
           btn.disabled = false; btn.textContent = 'Create Account';
           document.getElementById('na-status').textContent = 'Connection error.';
-        })
-        .cloneAccount(name, id, templateFileId || null);
+        });
     }
 
     // ── OB Campaign Generator ──────────────────────────────────────────────────
@@ -957,8 +886,9 @@
       var ticker  = setInterval(function() { elapsed++; status.textContent = '⏳ Running… ' + elapsed + 's'; }, 1000);
       status.textContent = '⏳ Starting…';
       btn.textContent = 'Running…';
-      var call = google.script.run
-        .withSuccessHandler(function(r) {
+      var _obActs = {runOBCampaignFull:'run_ob_campaign_full', seedOBCalendar:'seed_ob_calendar', generateOBCampaign:'generate_ob_campaign'};
+      gasCall({action:_obActs[fnName]||'run_ob_campaign_full', campaign_id:campaignId, sheet_id:_activeSheetId, icp_codes:icpCodes||null})
+        .then(function(r) {
           clearInterval(ticker);
           if (r && r.ok !== false) {
             var parts = ['✓ Done'];
@@ -974,14 +904,11 @@
             btn.disabled = false; btn.textContent = 'Run';
           }
         })
-        .withFailureHandler(function() {
+        .catch(function() {
           clearInterval(ticker);
           status.textContent = 'Connection error.';
           btn.disabled = false; btn.textContent = 'Run';
         });
-      if (fnName === 'runOBCampaignFull')   call.runOBCampaignFull(campaignId, _activeSheetId, icpCodes);
-      else if (fnName === 'seedOBCalendar') call.seedOBCalendar(campaignId, _activeSheetId, false, icpCodes);
-      else                                  call.generateOBCampaign(campaignId, _activeSheetId, icpCodes);
     }
 
     function switchAccount(accountId) {
@@ -1024,8 +951,8 @@
 
     function loadSetupCheck() {
       if (!_activeSheetId) return;
-      google.script.run
-        .withSuccessHandler(function(r) {
+      gasCall({action:'check_account_setup', sheet_id:_activeSheetId})
+        .then(function(r) {
           _setupStatus = (r && r.ok) ? r : null;
           // Re-render dashboard if it's already showing so checklist updates immediately
           if (dashData && activeTab === 'dash') {
@@ -1033,8 +960,7 @@
             renderDash(dashData, all);
           }
         })
-        .withFailureHandler(function() { _setupStatus = null; })
-        .checkAccountSetup(_activeSheetId);
+        .catch(function() { _setupStatus = null; });
     }
 
     function _buildSetupChecklist(status) {
@@ -1179,8 +1105,8 @@
 
     function loadSeqMeta(campaignId){
       var cid = campaignId || (_activeCampaign === 'all' ? 'EC-2026-001' : _activeCampaign) || 'EC-2026-001';
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'email_sequences_read', campaign_id:cid})
+        .then(function(r){
           if(!r||!r.ok) return;
           var meta = {};
           (r.sequences||[]).forEach(function(s){
@@ -1206,8 +1132,7 @@
           _seqEmailCache = {};
           (r.sequences||[]).forEach(function(s){ if(s.id) _seqEmailCache[s.id] = s; });
         })
-        .withFailureHandler(function(){})
-        .getEmailSequences(cid);
+        .catch(function(){});
     }
 
     function showSeqInfo(code, btn, evt){
@@ -1271,15 +1196,13 @@
       _saveScroll();
       activeTab=tab;
       _saveTab(tab);
-      ['dash','cal','assets','emails','flow','lp'].forEach(function(t){
+      ['dash','cal','flow','lp'].forEach(function(t){
         document.getElementById('tab-'+t).className='tab'+(tab===t?' active':'');
         document.getElementById('panel-'+t).style.display=tab===t?'':'none';
       });
-      if(tab==='cal')    applyAndRender();
-      if(tab==='flow')   renderFlow();
-      if(tab==='lp')     loadLPStudio();
-      if(tab==='assets') loadAssetsTab();
-      if(tab==='emails') loadEmailsTab();
+      if(tab==='cal') applyAndRender();
+      if(tab==='flow') renderFlow();
+      if(tab==='lp') loadLPStudio();
       setTimeout(_restoreScroll,50);
     }
 
@@ -1605,8 +1528,13 @@
       var btn = document.getElementById('lps1-btn');
       btn.disabled = true; btn.textContent = 'Creating…';
       status.textContent = '';
-      google.script.run
-        .withSuccessHandler(function(r) {
+      gasCall({action:'create_lp_entry', campaign_id:cid, slug:slug, full_url:url,
+          lp_variant:     document.getElementById('lps1-variant').value,
+          page_type:      document.getElementById('lps1-type').value,
+          icp_codes:      (document.getElementById('lps1-icp').value || '').trim(),
+          campaign_angle: (document.getElementById('lps1-angle').value || '').trim(),
+          thank_you_url:  (document.getElementById('lps1-ty').value || '').trim()})
+        .then(function(r) {
           btn.disabled = false; btn.textContent = 'Create LP Entry →';
           if (!r || !r.ok) { status.innerHTML = '<span style="color:#dc2626">Error: ' + ((r && r.error) || 'unknown') + '</span>'; return; }
           _lpWizard.lp = r.lp;
@@ -1616,19 +1544,9 @@
           _unlockLPStep(2);
           _refreshLPFunnel();
         })
-        .withFailureHandler(function() {
+        .catch(function() {
           btn.disabled = false; btn.textContent = 'Create LP Entry →';
           status.innerHTML = '<span style="color:#dc2626">Connection error.</span>';
-        })
-        .createLPEntry({
-          campaign_id:    cid,
-          slug:           slug,
-          full_url:       url,
-          lp_variant:     document.getElementById('lps1-variant').value,
-          page_type:      document.getElementById('lps1-type').value,
-          icp_codes:      (document.getElementById('lps1-icp').value || '').trim(),
-          campaign_angle: (document.getElementById('lps1-angle').value || '').trim(),
-          thank_you_url:  (document.getElementById('lps1-ty').value || '').trim()
         });
     }
 
@@ -1641,8 +1559,14 @@
       var btn = document.getElementById('lps2-btn');
       btn.disabled = true; btn.textContent = 'Generating…';
       status.textContent = '';
-      google.script.run
-        .withSuccessHandler(function(r) {
+      gasCall({action:'generate_dls_for_lp',
+          campaign_id: _lpWizard.lp.campaigns_using,
+          lp_id:       _lpWizard.lp.id,
+          full_url:    _lpWizard.lp.full_url,
+          lp_variant:  _lpWizard.lp.lp_variant,
+          icp_code:    _lpWizard.lp.icp_codes,
+          platforms:   platforms})
+        .then(function(r) {
           btn.disabled = false; btn.textContent = 'Generate Deep Links →';
           if (!r || !r.ok) { status.innerHTML = '<span style="color:#dc2626">Error: ' + ((r && r.error) || 'unknown') + '</span>'; return; }
           _lpWizard.dls = r.dl_ids;
@@ -1651,17 +1575,9 @@
           _unlockLPStep(3);
           _refreshLPFunnel();
         })
-        .withFailureHandler(function() {
+        .catch(function() {
           btn.disabled = false; btn.textContent = 'Generate Deep Links →';
           status.innerHTML = '<span style="color:#dc2626">Connection error.</span>';
-        })
-        .generateDLsForLP({
-          campaign_id: _lpWizard.lp.campaigns_using,
-          lp_id:       _lpWizard.lp.id,
-          full_url:    _lpWizard.lp.full_url,
-          lp_variant:  _lpWizard.lp.lp_variant,
-          icp_code:    _lpWizard.lp.icp_codes,
-          platforms:   platforms
         });
     }
 
@@ -1671,8 +1587,8 @@
       var btn    = document.getElementById('lps3-btn');
       btn.disabled = true; btn.textContent = 'Generating copy…';
       status.innerHTML = '<span style="color:#888">AI is writing your LP — ~30s per section…</span>';
-      google.script.run
-        .withSuccessHandler(function(r) {
+      gasCall({action:'generate_lp_spine', campaign_id:_lpWizard.lp.campaigns_using, lp_variant:_lpWizard.lp.lp_variant, icp_code:_lpWizard.lp.icp_codes})
+        .then(function(r) {
           btn.disabled = false; btn.textContent = 'Generate LP Copy →';
           if (!r || !r.ok) { status.innerHTML = '<span style="color:#dc2626">Error: ' + ((r && r.error) || 'unknown') + '</span>'; return; }
           _lpWizard.copy = r;
@@ -1683,11 +1599,10 @@
           var cid = document.getElementById('lps4-convert-id');
           if (cid && !cid.value && r.ab_experiment_id) cid.value = r.ab_experiment_id;
         })
-        .withFailureHandler(function() {
+        .catch(function() {
           btn.disabled = false; btn.textContent = 'Generate LP Copy →';
           status.innerHTML = '<span style="color:#dc2626">Connection error.</span>';
-        })
-        .generateLPSpine(_lpWizard.lp.campaigns_using, { lp_variant: _lpWizard.lp.lp_variant, icp_code: _lpWizard.lp.icp_codes });
+        });
     }
 
     function submitLPStep4() {
@@ -1696,18 +1611,7 @@
       var btn    = document.getElementById('lps4-btn');
       btn.disabled = true; btn.textContent = 'Saving…';
       status.textContent = '';
-      google.script.run
-        .withSuccessHandler(function(r) {
-          btn.disabled = false; btn.textContent = 'Save Tracking →';
-          if (!r || !r.ok) { status.innerHTML = '<span style="color:#dc2626">Error: ' + ((r && r.error) || 'unknown') + '</span>'; return; }
-          status.innerHTML = '<span style="color:#16a34a">✓ Tracking IDs saved to LP record.</span>';
-          _refreshLPFunnel();
-        })
-        .withFailureHandler(function() {
-          btn.disabled = false; btn.textContent = 'Save Tracking →';
-          status.innerHTML = '<span style="color:#dc2626">Connection error.</span>';
-        })
-        .updateLPEntry({
+      gasCall({action:'update_lp_entry',
           id:                    _lpWizard.lp.id,
           tracking_convert_id:   (document.getElementById('lps4-convert-id').value  || '').trim(),
           convert_experiment_id: (document.getElementById('lps4-convert-id').value  || '').trim(),
@@ -1715,7 +1619,16 @@
           tracking_ga4_id:       (document.getElementById('lps4-ga4-id').value      || '').trim(),
           ga4_installed:         document.getElementById('lps4-ga4-on').checked,
           tracking_clarity_id:   (document.getElementById('lps4-clarity-id').value  || '').trim(),
-          clarity_installed:     document.getElementById('lps4-clarity-on').checked
+          clarity_installed:     document.getElementById('lps4-clarity-on').checked})
+        .then(function(r) {
+          btn.disabled = false; btn.textContent = 'Save Tracking →';
+          if (!r || !r.ok) { status.innerHTML = '<span style="color:#dc2626">Error: ' + ((r && r.error) || 'unknown') + '</span>'; return; }
+          status.innerHTML = '<span style="color:#16a34a">✓ Tracking IDs saved to LP record.</span>';
+          _refreshLPFunnel();
+        })
+        .catch(function() {
+          btn.disabled = false; btn.textContent = 'Save Tracking →';
+          status.innerHTML = '<span style="color:#dc2626">Connection error.</span>';
         });
     }
 
@@ -1723,8 +1636,8 @@
       var wrap = document.getElementById('lp-funnel-wrap');
       if (!wrap) return;
       if (_activeCampaign === 'all') {
-        google.script.run
-          .withSuccessHandler(function(r) {
+        gasCall({action:'get_all_funnels', sheet_id:_activeSheetId})
+          .then(function(r) {
             var w = document.getElementById('lp-funnel-wrap');
             if (!w) return;
             if (!r || !r.ok || !r.funnels || !r.funnels.length) {
@@ -1735,24 +1648,22 @@
               return _renderFunnelBlock(item.account_id, item.account_name, item.funnel);
             }).join('');
           })
-          .withFailureHandler(function() {
+          .catch(function() {
             var w = document.getElementById('lp-funnel-wrap');
             if (w) w.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:12px 0">Failed to load funnels.</div>';
-          })
-          .getAllCampaignFunnels();
+          });
       } else {
-        google.script.run
-          .withSuccessHandler(function(r) {
+        gasCall({action:'get_campaign_funnel', campaign_id:_activeCampaign, sheet_id:_activeSheetId})
+          .then(function(r) {
             var w = document.getElementById('lp-funnel-wrap');
             if (!w) return;
             if (!r || !r.ok) { w.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:12px 0">Failed to load funnel.</div>'; return; }
             w.innerHTML = _renderFunnelBlock(_activeCampaign, _activeCampaign, r);
           })
-          .withFailureHandler(function() {
+          .catch(function() {
             var w = document.getElementById('lp-funnel-wrap');
             if (w) w.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:12px 0">Failed to load funnel.</div>';
-          })
-          .getCampaignFunnel(_activeCampaign);
+          });
       }
     }
 
@@ -1928,8 +1839,8 @@
     function fixDupHooks(dateKey) {
       var btn=event.target;
       btn.textContent='Fixing…';btn.disabled=true;
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'fix_duplicate_hooks', date_key:dateKey, campaign_id:_activeCampaign, sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok&&r.result&&r.result.fixed>0){
             btn.textContent='✓ Fixed '+r.result.fixed;
             btn.style.background='#f0fdf4';btn.style.color='#16a34a';btn.style.borderColor='#16a34a';
@@ -1940,8 +1851,7 @@
             alert('Fix failed: '+(r&&r.result&&r.result.error||'unknown error'));
           }
         })
-        .withFailureHandler(function(e){btn.textContent='Error';btn.disabled=false;alert('Fix failed: '+e);})
-        .fixDuplicateHooksAction(dateKey,_activeCampaign);
+        .catch(function(e){btn.textContent='Error';btn.disabled=false;alert('Fix failed: '+e);});
     }
 
     var _DOW=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
@@ -2298,14 +2208,13 @@
       }
       document.getElementById('tp-overlay').style.display = 'flex';
       document.getElementById('tp-list').innerHTML = '<div style="color:#aaa;font-size:12px;text-align:center;padding:24px 0">Loading…</div>';
-      google.script.run
-        .withSuccessHandler(function(r) {
+      gasCall({action:'get_templates', sheet_id:_activeSheetId})
+        .then(function(r) {
           _renderTPList((r && r.ok) ? (r.templates || []) : []);
         })
-        .withFailureHandler(function() {
+        .catch(function() {
           document.getElementById('tp-list').innerHTML = '<div style="color:#dc2626;font-size:12px;text-align:center;padding:16px 0">Failed to load templates.</div>';
-        })
-        .getTemplates();
+        });
     }
 
     function closeTPModal() {
@@ -2451,8 +2360,8 @@
       var btn=document.getElementById('move-confirm-btn');
       btn.textContent='Moving…';
       btn.disabled=true;
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'move_asset', asset_id:m.assetId, calendar_id:m.calendarId, new_date:m.toDate, sheet_id:_activeSheetId})
+        .then(function(r){
           document.getElementById('move-overlay').classList.remove('open');
           _pendingMove=null;
           if(r&&r.ok){
@@ -2462,12 +2371,11 @@
             alert('Move failed: '+(r&&r.error?r.error:'Unknown error'));
           }
         })
-        .withFailureHandler(function(err){
+        .catch(function(err){
           document.getElementById('move-overlay').classList.remove('open');
           _pendingMove=null;
-          alert('Move failed: '+err.message);
-        })
-        .processRequest({action:'move_asset', asset_id:m.assetId, calendar_id:m.calendarId, new_date:m.toDate});
+          alert('Move failed: '+(err&&err.message?err.message:String(err)));
+        });
     }
     function _applyMoveLocally(assetId, fromDate, toDate){
       if(!calData||!calData.days) return;
@@ -2796,8 +2704,8 @@
       var msg=document.getElementById('pm-gen-msg-'+assetId);
       if(btn){btn.disabled=true;btn.innerHTML='⏳ Generating…<span class="pm-link-tag">ai</span>';}
       if(msg){msg.style.color='#666';msg.textContent='Calling Claude API — usually 15–30 sec…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'generate_design_for_asset', asset_id:assetId, sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok&&r.url){
             if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].claude_design_url=r.url;
             if(msg){msg.style.color='#32d74b';msg.textContent='✓ Design generated';}
@@ -2808,19 +2716,18 @@
             if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+errMsg;}
           }
         })
-        .withFailureHandler(function(err){
+        .catch(function(err){
           if(btn){btn.disabled=false;btn.innerHTML='✦ Generate Design<span class="pm-link-tag">ai</span>';}
           if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
-        })
-        .generateDesignForAsset(assetId);
+        });
     }
     function copyForClaudeDesign(assetId){
       var btn=document.getElementById('pm-cdcopy-btn-'+assetId);
       var msg=document.getElementById('pm-gen-msg-'+assetId);
       if(btn){btn.disabled=true;btn.innerHTML='⏳ Building…<span class="pm-link-tag">claude</span>';}
       if(msg){msg.style.color='#666';msg.textContent='Assembling prompt…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'get_claude_design_prompt', asset_id:assetId, sheet_id:_activeSheetId})
+        .then(function(r){
           if(btn){btn.disabled=false;btn.innerHTML='⎘ Claude Design<span class="pm-link-tag">claude</span>';}
           if(r&&r.ok&&r.prompt){
             navigator.clipboard.writeText(r.prompt).then(function(){
@@ -2835,19 +2742,18 @@
             if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+errMsg;}
           }
         })
-        .withFailureHandler(function(err){
+        .catch(function(err){
           if(btn){btn.disabled=false;btn.innerHTML='⎘ Claude Design<span class="pm-link-tag">claude</span>';}
           if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
-        })
-        .getClaudeDesignPrompt(assetId);
+        });
     }
     function writeEmail(assetId){
       var btn=document.getElementById('pm-email-btn-'+assetId);
       var msg=document.getElementById('pm-gen-msg-'+assetId);
       if(btn){btn.disabled=true;btn.innerHTML='⏳ Writing…<span class="pm-link-tag">ai</span>';}
       if(msg){msg.style.color='#666';msg.textContent='Calling Claude — usually 20–40 sec for 1,500 words…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'generate_email_body', asset_id:assetId, sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok&&r.full_email_body){
             if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].full_email_body=r.full_email_body;
             if(msg){msg.style.color='#32d74b';msg.textContent='✓ Email written — '+r.word_count+' words';}
@@ -2858,11 +2764,10 @@
             if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+errMsg;}
           }
         })
-        .withFailureHandler(function(err){
+        .catch(function(err){
           if(btn){btn.disabled=false;btn.innerHTML='✦ Write Email<span class="pm-link-tag">ai</span>';}
           if(msg){msg.style.color='#ff453a';msg.textContent='Connection error: '+(err&&err.message?err.message:String(err));}
-        })
-        .generateEmailBody(assetId);
+        });
     }
     function toggleEmailBody(assetId){
       var area=document.getElementById('pm-eb-area-'+assetId);
@@ -2888,8 +2793,8 @@
       var msg=document.getElementById('pm-gen-msg-'+assetId);
       if(btn){btn.disabled=true;btn.innerHTML='⏳ Pushing…<span class="pm-link-tag">pages</span>';}
       if(msg){msg.style.color='#666';msg.textContent='Pushing to GitHub Pages…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'save_design_to_github', asset_id:assetId, sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok&&r.url){
             if(msg){msg.style.color='#32d74b';msg.textContent='✓ Live at '+r.url;}
             if(btn){btn.disabled=false;btn.innerHTML='✓ On GitHub<span class="pm-link-tag">pages</span>';}
@@ -2899,18 +2804,17 @@
             if(btn){btn.disabled=false;btn.innerHTML='↑ GitHub<span class="pm-link-tag">pages</span>';}
           }
         })
-        .withFailureHandler(function(err){
+        .catch(function(err){
           if(btn){btn.disabled=false;btn.innerHTML='↑ GitHub<span class="pm-link-tag">pages</span>';}
           if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+(err&&err.message?err.message:String(err));}
-        })
-        .saveDesignToGithub(assetId);
+        });
     }
     function copyDesignHtml(assetId){
       var btn=document.getElementById('pm-cphtml-btn-'+assetId);
       var msg=document.getElementById('pm-gen-msg-'+assetId);
       if(btn){btn.disabled=true;btn.innerHTML='⏳ Reading…<span class="pm-link-tag">claude</span>';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'get_design_html', asset_id:assetId, sheet_id:_activeSheetId})
+        .then(function(r){
           if(btn){btn.disabled=false;btn.innerHTML='⎘ Copy HTML<span class="pm-link-tag">claude</span>';}
           if(r&&r.html){
             var text=r.html;
@@ -2928,11 +2832,10 @@
             if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+((r&&r.error)||'unknown');}
           }
         })
-        .withFailureHandler(function(err){
+        .catch(function(err){
           if(btn){btn.disabled=false;btn.innerHTML='⎘ Copy HTML<span class="pm-link-tag">claude</span>';}
           if(msg){msg.style.color='#ff453a';msg.textContent='Error: '+(err&&err.message?err.message:String(err));}
-        })
-        .getDesignHtml(assetId);
+        });
     }
     function _fbCopy(text){
       var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';
@@ -2954,8 +2857,8 @@
       if(!html){if(msg){msg.style.color='#ff453a';msg.textContent='Paste HTML first.';}return;}
       if(btn)btn.disabled=true;
       if(msg){msg.style.color='#666';msg.textContent='Saving…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'save_design_to_drive', asset_id:assetId, html:html, sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok&&r.url){
             if(POST_REGISTRY[assetId])POST_REGISTRY[assetId].claude_design_url=r.url;
             if(msg){msg.style.color='#32d74b';msg.textContent='✓ Saved';}
@@ -2966,8 +2869,7 @@
             if(btn)btn.disabled=false;
           }
         })
-        .withFailureHandler(function(){if(btn)btn.disabled=false;if(msg){msg.style.color='#ff453a';msg.textContent='Connection error';}})
-        .saveDesignToDrive(assetId, html);
+        .catch(function(){if(btn)btn.disabled=false;if(msg){msg.style.color='#ff453a';msg.textContent='Connection error';}});
     }
     function _fmtPlatform(p){var m={instagram:'Instagram',tiktok:'TikTok',pinterest:'Pinterest',facebook:'Facebook',email:'Email'};return m[(p||'').toLowerCase()]||p||'—';}
     function _fmtDate(dk,time){if(!dk)return '—';var parts=dk.split('-'),d=new Date(+parts[0],+parts[1]-1,+parts[2]);var ds=MONTHS[d.getMonth()]+' '+d.getDate()+', 2026';return time?ds+' · '+time:ds;}
@@ -2989,8 +2891,8 @@
       _saveAuthor(author);
       if(btn) btn.disabled=true;
       if(msg){msg.style.color='#666';msg.textContent='Saving…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'append_content_cal_note', asset_id:assetId, text:text, author:author, sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok){
             if(POST_REGISTRY[assetId]) POST_REGISTRY[assetId].notes=r.result.notes;
             openPostModal(assetId);
@@ -2999,20 +2901,19 @@
             // Fire Klaviyo + Figma in the background — best effort, non-blocking
             var p=POST_REGISTRY[assetId]||{};
             var sheetUrl=SHEET_ID&&SHEET_GID&&p.sheet_row?'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid='+SHEET_GID+'&range=A'+p.sheet_row:'';
-            google.script.run.klaviyoTrackNote(assetId,p.platform||'',text,author,p.brief_doc_url||'',sheetUrl);
-            if(p.figma_url) google.script.run.figmaPostComment(p.figma_url,'['+author+'] '+text);
+            gasCall({action:'klaviyo_track_note', asset_id:assetId, platform:p.platform||'', text:text, author:author, brief_doc_url:p.brief_doc_url||'', sheet_url:sheetUrl});
+            if(p.figma_url) gasCall({action:'figma_post_comment', figma_url:p.figma_url, comment:'['+author+'] '+text});
           } else {
             if(btn) btn.disabled=false;
             var m=document.getElementById('pm-note-msg');
             if(m){m.style.color='#ff453a';m.textContent='Error: '+(r&&r.result&&r.result.error?r.result.error:'unknown');}
           }
         })
-        .withFailureHandler(function(){
+        .catch(function(){
           if(btn) btn.disabled=false;
           var m=document.getElementById('pm-note-msg');
           if(m){m.style.color='#ff453a';m.textContent='Connection error';}
-        })
-        .appendContentCalNote(assetId, text, author);
+        });
     }
 
     // ── Status update ─────────────────────────────────────────────────────────
@@ -3031,8 +2932,8 @@
     function updatePostField(assetId, field, value){
       var msg=document.getElementById('pm-save-msg');
       if(msg){msg.style.color='#666';msg.textContent='Saving…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'update_content_cal_field', asset_id:assetId, field:field, value:value, sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok){
             if(POST_REGISTRY[assetId]) POST_REGISTRY[assetId][field]=value;
             openPostModal(assetId);
@@ -3042,29 +2943,27 @@
             // Fire Klaviyo status event — best effort
             var p=POST_REGISTRY[assetId]||{};
             var sheetUrl=SHEET_ID&&SHEET_GID&&p.sheet_row?'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit#gid='+SHEET_GID+'&range=A'+p.sheet_row:'';
-            google.script.run.klaviyoTrackStatusUpdate(assetId,p.platform||'',field,value,p.brief_doc_url||'',sheetUrl);
+            gasCall({action:'klaviyo_track_status', asset_id:assetId, platform:p.platform||'', field:field, value:value, brief_doc_url:p.brief_doc_url||'', sheet_url:sheetUrl});
           } else {
             var m=document.getElementById('pm-save-msg');
             if(m){m.style.color='#ff453a';m.textContent='Error: '+(r&&r.error?r.error:'unknown');}
           }
         })
-        .withFailureHandler(function(e){
+        .catch(function(e){
           var m=document.getElementById('pm-save-msg');
           if(m){m.style.color='#ff453a';m.textContent='Connection error';}
-        })
-        .updateContentCalField(assetId, field, value);
+        });
     }
 
     // ── Load ──────────────────────────────────────────────────────────────────
     function loadDashboard(){
-      google.script.run
-        .withSuccessHandler(function(r){if(r&&r.ok){dashData=r;if(!hasFilters()){var all=getAllPosts();renderDash(r,all);}}else{document.getElementById('panel-dash').innerHTML='<div class="loading">Error.</div><button class="btn" onclick="load()" style="margin-top:12px">&#8635; Retry</button>';} })
-        .withFailureHandler(function(){document.getElementById('panel-dash').innerHTML='<div class="loading">Connection error.</div><button class="btn" onclick="load()" style="margin-top:12px">&#8635; Retry</button>';})
-        .getCampaignDashboard(_activeCampaign, _activeSheetId);
+      gasCall({action:'get_campaign_dashboard', campaign_id:_activeCampaign, sheet_id:_activeSheetId})
+        .then(function(r){if(r&&r.ok){dashData=r;if(!hasFilters()){var all=getAllPosts();renderDash(r,all);}}else{document.getElementById('panel-dash').innerHTML='<div class="loading">Error.</div><button class="btn" onclick="load()" style="margin-top:12px">&#8635; Retry</button>';} })
+        .catch(function(){document.getElementById('panel-dash').innerHTML='<div class="loading">Connection error.</div><button class="btn" onclick="load()" style="margin-top:12px">&#8635; Retry</button>';});
     }
     function loadCalendar(){
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'get_campaign_calendar', campaign_id:_activeCampaign, sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok){
             calData=r;
             if(r.sheet_id)SHEET_ID=r.sheet_id;
@@ -3077,8 +2976,7 @@
             applyAndRender();
           }
         })
-        .withFailureHandler(function(){})
-        .getCampaignCalendar(_activeCampaign, _activeSheetId);
+        .catch(function(){});
     }
     function load(){
       document.getElementById('tagline').innerHTML=_activeCampaign+' &nbsp;·&nbsp; Refreshing<span class="dot-anim"></span>';
@@ -3091,8 +2989,8 @@
       if(panel) panel.innerHTML='<div class="loading">Syncing posts → calendar<span class="dot-anim"></span></div>';
       var btn=document.getElementById('cal-sync-btn');
       if(btn){btn.disabled=true;btn.textContent='⏳ Syncing…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'seed_all_campaigns_content_calendar', sheet_id:_activeSheetId})
+        .then(function(r){
           var btn2=document.getElementById('cal-sync-btn');
           if(btn2){btn2.disabled=false;btn2.textContent='↻ Sync';}
           if(r&&r.ok){
@@ -3106,31 +3004,29 @@
             loadCalendar();
           }
         })
-        .withFailureHandler(function(e){
+        .catch(function(e){
           var btn3=document.getElementById('cal-sync-btn');
           if(btn3){btn3.disabled=false;btn3.textContent='↻ Sync';}
           var flash3=document.getElementById('cal-sync-msg');
           if(flash3){flash3.textContent='Connection error';flash3.style.color='#ff453a';}
           loadCalendar();
-        })
-        .seedAllCampaignsContentCalendar();
+        });
     }
 
     // ── Repair stale blocked status ──────────────────────────────────
     function repairBlocked(){
       var btn=document.getElementById('repair-btn');
       if(btn){btn.disabled=true;btn.textContent='⏳ Fixing…';}
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'repair_creative_status', campaign_id:_activeCampaign, sheet_id:_activeSheetId})
+        .then(function(r){
           var msg=r&&r.ok?('✓ Fixed '+(r.result&&r.result.fixed||0)+' rows — reloading…'):'Repair failed.';
           var color=r&&r.ok?'#32d74b':'#ff453a';
           if(btn){btn.disabled=false;btn.textContent=msg;btn.style.color=color;btn.style.borderColor=color;}
           if(r&&r.ok){setTimeout(function(){load();},1500);}
         })
-        .withFailureHandler(function(){
+        .catch(function(){
           if(btn){btn.disabled=false;btn.textContent='Repair error';btn.style.color='#ff453a';}
-        })
-        .repairCreativeStatus(_activeCampaign);
+        });
     }
 
     // ── Populate brief_doc_url for all ContentCalendar rows ──────────
@@ -3139,8 +3035,8 @@
       if(btn){btn.disabled=true;btn.textContent='⏳ Populating…';}
       var _total=0;
       function _run(){
-        google.script.run
-          .withSuccessHandler(function(r){
+        gasCall({action:'generate_content_cal_brief_docs', campaign_id:_activeCampaign, force:!!force, sheet_id:_activeSheetId})
+          .then(function(r){
             if(r&&r.ok){
               _total+=(r.created||0);
               if(r.remaining>0){
@@ -3155,18 +3051,17 @@
               if(btn){btn.disabled=false;btn.textContent='Error — see logs';btn.style.color='#ff453a';}
             }
           })
-          .withFailureHandler(function(e){
+          .catch(function(e){
             if(btn){btn.disabled=false;btn.textContent='Failed: '+(e&&e.message||'unknown');btn.style.color='#ff453a';}
-          })
-          .generateContentCalBriefDocs(_activeCampaign,{force:!!force});
+          });
       }
       _run();
     }
 
     // ── Figma token expiry banner ────────────────────────────────────
     function checkFigmaToken(){
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'check_figma_token'})
+        .then(function(r){
           if(!r||!r.set) return;
           var days=r.days_left;
           if(days>14) return;
@@ -3184,24 +3079,23 @@
           bar.appendChild(x);
           document.body.prepend(bar);
         })
-        .withFailureHandler(function(){})
-        .figmaTokenStatus();
+        .catch(function(){});
     }
 
 
     function loadMilestones(){
-      if(typeof google==='undefined'||!google.script) return;
-      google.script.run.withSuccessHandler(function(r){
-        MILESTONES_BY_DATE={};
-        if(r&&r.ok&&r.milestones){
-          r.milestones.forEach(function(ms){
-            var dk=ms.date;
-            if(!MILESTONES_BY_DATE[dk]) MILESTONES_BY_DATE[dk]=[];
-            MILESTONES_BY_DATE[dk].push(ms);
-          });
-        }
-        renderCal(_lastCalSrc||calData);
-      }).withFailureHandler(function(){}).getCampaignMilestones(_activeCampaign||'all', _activeSheetId);
+      gasCall({action:'get_milestones', campaign_id:_activeCampaign||'all', sheet_id:_activeSheetId})
+        .then(function(r){
+          MILESTONES_BY_DATE={};
+          if(r&&r.ok&&r.milestones){
+            r.milestones.forEach(function(ms){
+              var dk=ms.date;
+              if(!MILESTONES_BY_DATE[dk]) MILESTONES_BY_DATE[dk]=[];
+              MILESTONES_BY_DATE[dk].push(ms);
+            });
+          }
+          renderCal(_lastCalSrc||calData);
+        }).catch(function(){});
     }
 
     var _msCurColor='#FF0000';
@@ -3240,8 +3134,11 @@
       if(!title){ msg.style.color='#ff453a'; msg.textContent='Title is required.'; return; }
       if(!date){ msg.style.color='#ff453a'; msg.textContent='Date is required.'; return; }
       btn.disabled=true; msg.style.color='#aaa'; msg.textContent='Saving…';
-      google.script.run
-        .withSuccessHandler(function(r){
+      gasCall({action:'add_milestone',
+          title:title, date:date, color:_msCurColor,
+          type:'custom', campaign_id:_activeCampaign||'EC-2026-001', created_by:author,
+          sheet_id:_activeSheetId})
+        .then(function(r){
           if(r&&r.ok){
             msg.style.color='#32d74b'; msg.textContent='Milestone added!';
             setTimeout(function(){ closeMsModal(); loadMilestones(); },900);
@@ -3249,16 +3146,26 @@
             msg.style.color='#ff453a'; msg.textContent='Error saving.'; btn.disabled=false;
           }
         })
-        .withFailureHandler(function(e){
+        .catch(function(e){
           msg.style.color='#ff453a'; msg.textContent='Error: '+(e&&e.message?e.message:'unknown'); btn.disabled=false;
-        })
-        .addCampaignMilestone({
-          title:title, date:date, color:_msCurColor,
-          type:'custom', campaign_id:_activeCampaign||'EC-2026-001', created_by:author
         });
     }
 
     // ── Draggable filter panels ───────────────────────────────────────────────
+    // ── Firebase fetch helper (replaces google.script.run) ────────────────────
+    function gasCall(payload) {
+      return fetch(window.GAS_EXEC_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      }).then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d && d.result && typeof d.result === 'object') {
+          Object.keys(d.result).forEach(function(k) { if (d[k] === undefined) d[k] = d.result[k]; });
+        }
+        return d;
+      });
+    }
     var FP_IDS  = ['platform','status','emotion','funnel','week','seq'];
     var FP_POS  = {};   // id → {x,y}
     var FP_DRAG = null; // {id,offX,offY}
@@ -3326,16 +3233,12 @@
         });
       } catch(e) {}
       // Background sync from GAS — updates positions if they differ
-      if (typeof google !== 'undefined' && google.script) {
-        google.script.run
-          .withSuccessHandler(function(r) {
-            var sp = null;
-            try { if (r && r.positions) sp = JSON.parse(r.positions); } catch(e) {}
-            if (sp && Object.keys(sp).length) { _applyPanelPos(sp); }
-          })
-          .withFailureHandler(function() {})
-          .loadPanelPositions();
-      }
+      gasCall({action:'load_panel_positions', sheet_id:_activeSheetId})
+        .then(function(r) {
+          var sp = null;
+          try { if (r && r.positions) sp = JSON.parse(r.positions); } catch(e) {}
+          if (sp && Object.keys(sp).length) { _applyPanelPos(sp); }
+        }).catch(function() {});
     }
 
     function _applyFP(id) {
@@ -3430,14 +3333,9 @@
       FP_DRAG = null;
       var _posJson = JSON.stringify(FP_POS);
       try { localStorage.setItem('ecp_fp_pos', _posJson); } catch(e) {}
-      if (typeof google !== 'undefined' && google.script) {
-        google.script.run
-          .withSuccessHandler(function(r){
-            if (r && r.ok) { _fpToast('Layout saved'); }
-          })
-          .withFailureHandler(function(){})
-          .savePanelPositions(_posJson);
-      }
+      gasCall({action:'save_panel_positions', positions_json:_posJson, sheet_id:_activeSheetId})
+        .then(function(r){ if(r&&r.ok) _fpToast('Layout saved'); })
+        .catch(function(){});
     }
     document.addEventListener('mouseup',     _fpUp);
     document.addEventListener('touchend',    _fpUp);
@@ -3581,278 +3479,20 @@
     _attachResize(document.getElementById('day-popup'), 'ecp_popup_pos');
     _attachResize(document.getElementById('pm-card'),   'ecp_pm_pos');
 
-    // ── Assets Tab ────────────────────────────────────────────────────────────
-    var _assetsCache = null;   // array of full SocialPost objects
-    var _assetsLoaded = false;
-    var _activeAssetStage = 'hook';
-    var _STAGES_ORDER = ['hook','problem','agitate','solve','value','proof','cta'];
-    var _STAGE_LABELS = {hook:'Hook',problem:'Problem',agitate:'Agitate',solve:'Solve',value:'Value',proof:'Proof',cta:'CTA'};
-    var _PHONE_STAGES = ['solve','value','proof','cta']; // phone appears Day 4+
-
-    function loadAssetsTab(){
-      var panel = document.getElementById('panel-assets');
-      if(_assetsLoaded && _assetsCache){renderAssetsTab();return;}
-      panel.innerHTML = '<div class="loading">Loading social posts<span class="dot-anim"></span></div>';
-      google.script.run
-        .withSuccessHandler(function(posts){
-          _assetsCache = posts || [];
-          _assetsLoaded = true;
-          renderAssetsTab();
-        })
-        .withFailureHandler(function(e){
-          document.getElementById('panel-assets').innerHTML = '<div class="loading">Error loading posts.</div>';
-        })
-        .getSocialPosts(_activeCampaign);
-    }
-
-    function renderAssetsTab(){
-      var panel = document.getElementById('panel-assets');
-      var posts = (_assetsCache||[]).filter(function(p){
-        return (p.campaign_id||'') === _activeCampaign || _activeCampaign === 'all';
-      });
-
-      // Stage selector strip
-      var stageHtml = _STAGES_ORDER.map(function(s){
-        var cnt = posts.filter(function(p){return (p.loop_stage||'').toLowerCase()===s;}).length;
-        return '<button class="stage-btn'+(s===_activeAssetStage?' active':'')+'" onclick="selectAssetStage(\''+s+'\')">'
-          +_STAGE_LABELS[s]+'<span style="font-size:10px;opacity:0.7;margin-left:5px">('+cnt+')</span>'+'</button>';
-      }).join('');
-      stageHtml = '<div class="stage-strip">'+stageHtml+'<button class="stage-btn'+((!_activeAssetStage||_activeAssetStage==='all')?' active':'')+'" onclick="selectAssetStage(\'all\')">All</button></div>';
-
-      // Filter by selected stage
-      var filtered = _activeAssetStage && _activeAssetStage !== 'all'
-        ? posts.filter(function(p){return (p.loop_stage||'').toLowerCase()===_activeAssetStage;})
-        : posts;
-
-      // Platform order
-      var platOrder = ['Facebook','Instagram','TikTok','YouTube','Pinterest','Nextdoor','X'];
-      filtered.sort(function(a,b){
-        var ai=platOrder.indexOf(a.platform), bi=platOrder.indexOf(b.platform);
-        return (ai<0?99:ai)-(bi<0?99:bi);
-      });
-
-      var isPhoneStage = _PHONE_STAGES.indexOf(_activeAssetStage) >= 0;
-      var phoneRuleHtml = '<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">'
-        + '<span style="font-size:11px;color:#888">Phone rule:</span>'
-        + (isPhoneStage
-          ? '<span class="phone-rule-ok">✓ Phone appears this stage</span>'
-          : '<span class="phone-rule-tag">No phone — hooks 1–3 only</span>')
-        + '</div>';
-
-      var cardsHtml = filtered.length === 0
-        ? '<div style="color:#888;font-size:13px;padding:20px 0">No posts for this stage.</div>'
-        : '<div class="asset-grid">'+filtered.map(function(p){ return _renderAssetCard(p); }).join('')+'</div>';
-
-      panel.innerHTML = stageHtml + phoneRuleHtml + cardsHtml;
-    }
-
-    function _renderAssetCard(p){
-      var platChip = '<span class="plat-chip '+platformClass(p.platform)+'">'+platformLabel(p.platform)+'</span>';
-      var stageTag = p.loop_stage ? '<span class="asset-stage-tag">'+p.loop_stage+'</span>' : '';
-      var dateTag  = p.scheduled_date ? '<span class="asset-date-tag">'+p.scheduled_date+'</span>' : '';
-      var statusDot = STATUS_DOT_COLOR[p.status]||'#3a3a3a';
-      var statusSpan = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+statusDot+'"></span>';
-
-      var hookText  = (p.hook||'').trim();
-      var bodyText  = (p.body_copy||'').trim();
-      var imgBrief  = (p.image_brief||'').trim();
-      var dlId      = (p.dl_id||'').trim();
-      var utmUrl    = (p.utm_url||'').trim();
-      var hashtags  = (p.hashtags||'').trim();
-
-      var hookHtml  = hookText  ? '<div class="asset-hook">'+_esc(hookText)+'</div>' : '';
-      var bodyHtml  = bodyText
-        ? '<div class="asset-body truncated" id="ab-body-'+_esc(p.id)+'">'+_esc(bodyText)+'</div>'
-          +'<button class="asset-expand-btn" onclick="_toggleAssetBody(\''+_esc(p.id)+'\',this)">▸ Show full copy</button>'
-        : '';
-
-      var metaPills = '';
-      if(dlId)    metaPills += '<span class="asset-meta-pill">DL: '+_esc(dlId)+'</span>';
-      if(utmUrl)  metaPills += '<span class="asset-meta-pill"><a href="'+utmUrl+'" target="_blank">↗ UTM</a></span>';
-      if(hashtags) metaPills += '<span class="asset-meta-pill" style="color:#7c3aed">'+_esc(hashtags.slice(0,40))+'</span>';
-
-      var briefHtml = imgBrief
-        ? '<div class="asset-brief-wrap" id="ab-brief-'+_esc(p.id)+'" style="display:none">'
-          +'<div class="asset-brief-label">Image Brief</div>'
-          +'<div class="asset-brief-text">'+_esc(imgBrief)+'</div></div>'
-          +'<button class="asset-expand-btn" onclick="_toggleAssetBrief(\''+_esc(p.id)+'\',this)">▸ Image brief</button>'
-        : '';
-
-      return '<div class="asset-card">'
-        +'<div class="asset-card-head">'+platChip+stageTag+statusSpan+dateTag+'</div>'
-        +hookHtml
-        +bodyHtml
-        +(metaPills ? '<div class="asset-meta-row">'+metaPills+'</div>' : '')
-        +briefHtml
-        +'<div style="margin-top:2px"><button class="pm-link generate" style="font-size:10px;padding:3px 9px" onclick="openPostModal(\''+_esc(p.id)+'\')">↗ Open Detail</button></div>'
-        +'</div>';
-    }
-
-    function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-    function _toggleAssetBody(id,btn){
-      var el=document.getElementById('ab-body-'+id);
-      if(!el) return;
-      var open=el.classList.contains('truncated');
-      el.classList.toggle('truncated',!open);
-      btn.textContent=open?'▾ Collapse':'▸ Show full copy';
-    }
-    function _toggleAssetBrief(id,btn){
-      var el=document.getElementById('ab-brief-'+id);
-      if(!el) return;
-      var open=el.style.display!=='none';
-      el.style.display=open?'none':'block';
-      btn.textContent=open?'▸ Image brief':'▾ Image brief';
-    }
-
-    function selectAssetStage(stage){
-      _activeAssetStage=stage;
-      renderAssetsTab();
-    }
-
-    // ── Emails Tab ────────────────────────────────────────────────────────────
-    var _emailsCache = null;
-    var _emailsLoaded = false;
-    var _activeEmailFilter = 'all'; // 'all','SEQ-1','SEQ-2','SEQ-3','SEQ-4','A','B'
-
-    function loadEmailsTab(){
-      var panel = document.getElementById('panel-emails');
-      if(_emailsLoaded && _emailsCache){renderEmailsTab();return;}
-      panel.innerHTML = '<div class="loading">Loading email sequences<span class="dot-anim"></span></div>';
-      google.script.run
-        .withSuccessHandler(function(seqs){
-          _emailsCache = (seqs||[]).filter(function(s){
-            return s.campaign_id === _activeCampaign || _activeCampaign === 'all';
-          }).filter(function(s){
-            var sc = s.sequence_code||'';
-            return sc==='SEQ-1'||sc==='SEQ-2'||sc==='SEQ-3'||sc==='SEQ-4';
-          });
-          _emailsLoaded = true;
-          renderEmailsTab();
-        })
-        .withFailureHandler(function(){
-          document.getElementById('panel-emails').innerHTML='<div class="loading">Error loading emails.</div>';
-        })
-        .getEmailSequences(_activeCampaign);
-    }
-
-    function renderEmailsTab(){
-      var panel = document.getElementById('panel-emails');
-      var seqs = _emailsCache||[];
-
-      // Filter buttons
-      var seqFilters = ['all','SEQ-1','SEQ-2','SEQ-3','SEQ-4','A variant','B variant'];
-      var filterHtml = seqFilters.map(function(f){
-        var key=f==='A variant'?'A':(f==='B variant'?'B':f);
-        var on=_activeEmailFilter===key;
-        return '<button class="email-filter-btn'+(on?' active':'')+'" onclick="selectEmailFilter(\''+key+'\')">'+f+'</button>';
-      }).join('');
-
-      // Apply filter
-      var filtered = seqs.filter(function(s){
-        if(_activeEmailFilter==='all') return true;
-        if(_activeEmailFilter==='A') return (s.icp_code||'').indexOf('money')>=0||(s.variant||s.id||'').indexOf('-A')>=0;
-        if(_activeEmailFilter==='B') return (s.icp_code||'').indexOf('time')>=0||(s.variant||s.id||'').indexOf('-B')>=0;
-        return (s.sequence_code||'')=== _activeEmailFilter;
-      });
-
-      // Sort: SEQ-1→4, E1→E5, A before B
-      filtered.sort(function(a,b){
-        var ai=a.id||'', bi=b.id||'';
-        if(ai<bi) return -1; if(ai>bi) return 1; return 0;
-      });
-
-      var cardsHtml = filtered.length===0
-        ? '<div style="color:#888;font-size:13px;padding:20px 0">No emails match this filter.</div>'
-        : '<div class="email-cards">'+filtered.map(function(s){return _renderEmailCard(s);}).join('')+'</div>';
-
-      panel.innerHTML = '<div class="email-filter-strip">'+filterHtml+'</div>'+cardsHtml;
-    }
-
-    function _renderEmailCard(s){
-      var isMoney = (s.icp_code||'').indexOf('money')>=0;
-      var variant  = (s.id||'').slice(-1); // last char = A or B
-      var arcBadge  = s.emotional_stage ? '<span class="email-arc-tag">'+_esc(s.emotional_stage)+'</span>' : '';
-      var icpBadge  = s.icp_code ? '<span class="email-icp-tag">'+_esc(s.icp_code)+'</span>' : '';
-      var mlStatus  = s.approved_by_ml
-        ? '<span class="email-ml-tag">✓ ML Approved</span>'
-        : '<span class="email-ml-pending">ML Pending</span>';
-
-      // Word count
-      var bodyText = s.full_email_body || [s.body_hook,s.body_problem,s.body_agitate,s.body_solve,s.body_value,s.body_proof,s.body_cta].filter(Boolean).join('\n\n');
-      var wc = bodyText ? bodyText.split(/\s+/).filter(Boolean).length : 0;
-      var tgtStr = s.target_word_count||'';
-      var tgtMax = tgtStr ? parseInt(tgtStr.split('-')[1]||tgtStr.split('-')[0]||'0') : 0;
-      var tgtMin = tgtStr ? parseInt(tgtStr.split('-')[0]||'0') : 0;
-      var wcClass = (tgtMax&&wc>tgtMax) ? 'email-wc-over' : (tgtMax&&wc>=tgtMin) ? 'email-wc-ok' : (tgtMax?'email-wc-warn':'');
-      var wcHtml  = '<div class="email-wc-row">'
-        +'<span class="email-wc-val '+wcClass+'">'+wc+' words</span>'
-        +(tgtStr?'<span class="email-wc-tgt">target '+tgtStr+'</span>':'')
-        +(tgtMax&&wc>tgtMax?'<span style="font-size:10px;color:#dc2626">⚠ over</span>':'')
-        +'</div>';
-
-      // Section indicators
-      var sects = ['hook','problem','agitate','solve','value','proof','cta'];
-      var sectHtml = '<div class="email-section-divider">'+sects.map(function(k){
-        var val = s['body_'+k]||'';
-        var cls = val ? 'email-sect-tag sect-'+k : 'email-sect-tag sect-missing';
-        return '<span class="'+cls+'">'+k+(val?'':' ✕')+'</span>';
-      }).join('')+'</div>';
-
-      // Safe ID for DOM
-      var safeId = (s.id||'').replace(/[^a-zA-Z0-9_-]/g,'_');
-      var hasBody = bodyText && bodyText.length > 0;
-      var bodyToggle = hasBody
-        ? '<button class="email-body-toggle" onclick="_toggleEmailBody(\''+safeId+'\',this)">▸ Full email body ('+wc+' words)</button>'
-          +'<div class="email-body-area" id="em-body-'+safeId+'">'+_esc(bodyText)+'</div>'
-        : '<div style="color:#dc2626;font-size:11px;margin-top:4px">⚠ No email body assembled yet</div>';
-
-      var posHtml = '<div class="email-pos-info">'
-        +(s.positioning_id?'<span class="email-pos-pill">pos: '+_esc(s.positioning_id.slice(-8))+'</span>':'')
-        +(s.send_day!==undefined&&s.send_day!==''?'<span class="email-pos-pill">Day '+s.send_day+'</span>':'')
-        +(s.klaviyo_flow_id?'<span class="email-pos-pill">klav: '+_esc(s.klaviyo_flow_id)+'</span>':'')
-        +'</div>';
-
-      return '<div class="email-card">'
-        +'<div class="email-card-head">'
-          +'<span class="email-card-id">'+_esc(s.id||'—')+'</span>'
-          +arcBadge+icpBadge+mlStatus
-        +'</div>'
-        +'<div class="email-subj">'+_esc(s.subject_line||'(no subject)')+'</div>'
-        +(s.preview_text?'<div class="email-prev">'+_esc(s.preview_text)+'</div>':'')
-        +wcHtml
-        +sectHtml
-        +bodyToggle
-        +posHtml
-        +'</div>';
-    }
-
-    function _toggleEmailBody(safeId, btn){
-      var el=document.getElementById('em-body-'+safeId);
-      if(!el) return;
-      var open=el.style.display==='block';
-      el.style.display=open?'none':'block';
-      var wc=parseInt((btn.textContent.match(/\d+/)||['0'])[0]);
-      btn.textContent=open?'▸ Full email body ('+wc+' words)':'▾ Collapse email body';
-    }
-
-    function selectEmailFilter(key){
-      _activeEmailFilter=key;
-      renderEmailsTab();
-    }
-
     _restoreFilters();
     renderSidebar();
     loadAccounts();
     loadFilterDefs();
     // Restore tab from last session before data loads so correct panel shows during loading
     var _savedTab=localStorage.getItem('ecp_active_tab');
-    if(_savedTab&&['dash','cal','assets','emails','flow','lp'].indexOf(_savedTab)>=0){
+    if(_savedTab&&['dash','cal','flow'].indexOf(_savedTab)>=0){
       activeTab=_savedTab;
-      ['dash','cal','assets','emails','flow','lp'].forEach(function(t){
-        document.getElementById('tab-'+t).className='tab'+(_savedTab===t?' active':'');
-        document.getElementById('panel-'+t).style.display=_savedTab===t?'':'none';
-      });
+      document.getElementById('tab-dash').className='tab'+(_savedTab==='dash'?' active':'');
+      document.getElementById('tab-cal').className='tab'+(_savedTab==='cal'?' active':'');
+      document.getElementById('tab-flow').className='tab'+(_savedTab==='flow'?' active':'');
+      document.getElementById('panel-dash').style.display=_savedTab==='dash'?'':'none';
+      document.getElementById('panel-cal').style.display=_savedTab==='cal'?'':'none';
+      document.getElementById('panel-flow').style.display=_savedTab==='flow'?'':'none';
     }
     _scrollRestorePending=true;
     window.addEventListener('scroll',function(){clearTimeout(_scrollTimer);_scrollTimer=setTimeout(_saveScroll,200);},{passive:true});

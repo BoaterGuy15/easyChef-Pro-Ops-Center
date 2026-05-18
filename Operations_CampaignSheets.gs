@@ -1957,7 +1957,19 @@ function setEmailSequence(item) {
     item.full_email_body   !== undefined ? item.full_email_body   : (ex ? ex[32] : ''),
     item.icp_code           !== undefined ? item.icp_code           : (ex ? ex[33] : ''),
     item.segment            !== undefined ? item.segment            : (ex ? ex[34] : ''),
-    item.target_word_count  !== undefined ? item.target_word_count  : (ex ? ex[35] : '')
+    item.target_word_count  !== undefined ? item.target_word_count  : (ex ? ex[35] : ''),
+    item.positioning_id     !== undefined ? item.positioning_id     : (ex ? ex[36] : ''),
+    item.positioning_version !== undefined ? item.positioning_version : (ex ? ex[37] : ''),
+    item.stage_number       !== undefined ? item.stage_number       : (ex ? ex[38] : ''),
+    item.variant            !== undefined ? item.variant            : (ex ? ex[39] : ''),
+    item.world              !== undefined ? item.world              : (ex ? ex[40] : ''),
+    item.generated_by       !== undefined ? item.generated_by       : (ex ? ex[41] : ''),
+    item.approved_by_ml     !== undefined ? item.approved_by_ml     : (ex ? ex[42] : ''),
+    item.approved_at        !== undefined ? item.approved_at        : (ex ? ex[43] : ''),
+    item.klaviyo_flow_id    !== undefined ? item.klaviyo_flow_id    : (ex ? ex[44] : ''),
+    item.sent_at            !== undefined ? item.sent_at            : (ex ? ex[45] : ''),
+    item.open_rate_actual   !== undefined ? item.open_rate_actual   : (ex ? ex[46] : ''),
+    item.ctr_actual         !== undefined ? item.ctr_actual         : (ex ? ex[47] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -5013,6 +5025,26 @@ function getBrandDoctrine(ruleId) {
   return null;
 }
 
+function patchBrandDoctrine(ruleId, conditions) {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.BRAND_DOCTRINE);
+    var last  = sheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'BrandDoctrine tab empty' };
+    var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === ruleId) {
+        sheet.getRange(i + 2, 5).setValue(JSON.stringify(conditions));
+        Logger.log('[patchBrandDoctrine] updated ' + ruleId);
+        return { ok: true, rule_id: ruleId };
+      }
+    }
+    return { ok: false, error: 'rule_id not found: ' + ruleId };
+  } catch(e) {
+    Logger.log('[patchBrandDoctrine] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 function getCampaignStrategy(strategyId) {
   try {
     var sheet = _getCCSheet(_CC_TAB.CAMP_STRATEGY);
@@ -5694,4 +5726,344 @@ function _setupRetentionMilestones() {
 
   Logger.log('[_setupRetentionMilestones] done — added=' + added);
   return { ok: true, tab: name, milestones_added: added };
+}
+
+// ── One-time repair: fix destination_url domain in DeepLinkRegistry ───────────
+// Run once from Apps Script editor. Replaces easychefpro.com/lp/ with
+// launch.easychefpro.com/lp/ on every row. Safe to re-run (idempotent).
+function repairDlDestinationUrls() {
+  var ss     = _getCampaignSpreadsheet();
+  var sheet  = ss.getSheetByName(_CC_TAB.DL);
+  if (!sheet) { Logger.log('[repairDlDestinationUrls] DeepLinkRegistry tab not found'); return; }
+
+  var last = sheet.getLastRow();
+  if (last < 2) { Logger.log('[repairDlDestinationUrls] no data rows'); return; }
+
+  var urlCol = _CC_HDR.DeepLinkRegistry.indexOf('destination_url') + 1; // 1-based
+  var range  = sheet.getRange(2, urlCol, last - 1, 1);
+  var vals   = range.getValues();
+
+  var OLD = 'https://easychefpro.com/lp/';
+  var NEW = 'https://launch.easychefpro.com/lp/';
+  var fixed = 0;
+
+  vals = vals.map(function(row) {
+    var url = row[0];
+    if (typeof url === 'string' && url.indexOf(OLD) === 0) {
+      fixed++;
+      return [url.replace(OLD, NEW)];
+    }
+    return row;
+  });
+
+  range.setValues(vals);
+  Logger.log('[repairDlDestinationUrls] fixed=' + fixed + ' of ' + (last - 1) + ' rows');
+  return { ok: true, fixed: fixed, total: last - 1 };
+}
+
+// ── Session 12 Part A: stamp emotional_stage + icp_code + positioning_id ─────
+// Applies locked Master Positioning arc to all 30 Klaviyo emails in EC-2026-001.
+// emotional_stage = per-email from 7-stage arc; icp_code = A→super_mom_money, B→super_mom_time
+// Safe to re-run (idempotent — overwrites with same values).
+function bulkUpdateEmailMetadata(campaignId) {
+  var EMOTION_MAP = {
+    'SEQ-1-E1': 'exhausted',
+    'SEQ-1-E2': 'frustrated',
+    'SEQ-1-E3': 'activated',
+    'SEQ-2-E1': 'curious',
+    'SEQ-2-E2': 'curious',
+    'SEQ-2-E3': 'curious',
+    'SEQ-2-E4': 'relieved',
+    'SEQ-2-E5': 'relieved',
+    'SEQ-3-E1': 'activated',
+    'SEQ-3-E2': 'proud',
+    'SEQ-3-E3': 'proud',
+    'SEQ-3-E4': 'proud',
+    'SEQ-4-E1': 'proud',
+    'SEQ-4-E2': 'peaceful',
+    'SEQ-4-E3': 'peaceful'
+  };
+  var POSITIONING_ID = 'MP-EC-2026-001-1779066831282';
+  var hdrs     = _CC_HDR.EmailSequences;
+  var sheet    = _getCCSheet(_CC_TAB.EMAIL);
+  var last     = sheet.getLastRow();
+  if (last < 2) return { ok: false, error: 'no rows' };
+
+  var data = sheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+  var idCol      = hdrs.indexOf('id');
+  var cidCol     = hdrs.indexOf('campaign_id');
+  var emotionCol = hdrs.indexOf('emotional_stage');
+  var icpCol     = hdrs.indexOf('icp_code');
+  var posCol     = hdrs.indexOf('positioning_id');
+
+  var updated = 0;
+  var skipped = 0;
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row[idCol] || String(row[cidCol]) !== campaignId) { skipped++; continue; }
+    var id = String(row[idCol]);
+    var m  = id.match(/SEQ-\d+-E\d+/);
+    if (!m) { skipped++; continue; }
+    var emotion = EMOTION_MAP[m[0]];
+    if (!emotion) { skipped++; continue; }
+    var variant = id.slice(-1).toUpperCase();
+    data[i][emotionCol] = emotion;
+    data[i][icpCol]     = variant === 'A' ? 'super_mom_money' : 'super_mom_time';
+    data[i][posCol]     = POSITIONING_ID;
+    updated++;
+  }
+  sheet.getRange(2, 1, last - 1, hdrs.length).setValues(data);
+  Logger.log('[bulkUpdateEmailMetadata] updated=' + updated + ' skipped=' + skipped);
+  return { ok: true, updated: updated, skipped: skipped };
+}
+
+// ── Patch hook text on hook-stage posts by platform (Session 12) ──────────────
+// Finds all SocialPosts for campaignId with emotional_state='exhausted', updates
+// hook field for each platform listed in platformMap. Safe to re-run.
+function patchSocialHooks(campaignId, platformMap) {
+  var hdrs      = _CC_HDR.SocialPosts;
+  var sheet     = _getCCSheet(_CC_TAB.SOCIAL);
+  var last      = sheet.getLastRow();
+  if (last < 2) return { ok: false, error: 'no rows' };
+
+  var data      = sheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+  var idCol       = hdrs.indexOf('id');
+  var cidCol      = hdrs.indexOf('campaign_id');
+  var platCol     = hdrs.indexOf('platform');
+  var hookCol     = hdrs.indexOf('hook');
+  var loopStgCol  = hdrs.indexOf('loop_stage');
+
+  var updated = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row[idCol]) continue;
+    if (String(row[cidCol]) !== campaignId) continue;
+    if (String(row[loopStgCol]).toLowerCase() !== 'hook') continue;
+    var plat = String(row[platCol]);
+    if (platformMap.hasOwnProperty(plat)) {
+      data[i][hookCol] = platformMap[plat];
+      updated.push(String(row[idCol]));
+    }
+  }
+  if (updated.length > 0) {
+    sheet.getRange(2, 1, last - 1, hdrs.length).setValues(data);
+  }
+  Logger.log('[patchSocialHooks] updated=' + updated.length + ' ids=' + updated.join(','));
+  return { ok: true, updated: updated };
+}
+
+// ── Append a single row to ApprovedClaims ─────────────────────────────────────
+function appendApprovedClaim(claim) {
+  var hdrs  = _CC_HDR.ApprovedClaims;
+  var sheet = _getCCSheet(_CC_TAB.CLAIMS);
+  var row   = hdrs.map(function(h) { return claim[h] !== undefined ? claim[h] : ''; });
+  sheet.appendRow(row);
+  Logger.log('[appendApprovedClaim] appended id=' + claim.id);
+  return { ok: true, id: claim.id };
+}
+
+// ── Remove fabricated testimonials from social post body_copy ─────────────────
+// Finds posts with "Sarah from Denver" (a doctrine violation) and replaces the
+// offending sentence with approved generic language. Safe to re-run.
+function removeFabricatedTestimonials(campaignId) {
+  var FABRICATED  = 'Sarah from Denver';
+  var REPLACEMENT = 'Households we tracked saw real results — $1,336 back in their annual budget on average.';
+  var hdrs     = _CC_HDR.SocialPosts;
+  var sheet    = _getCCSheet(_CC_TAB.SOCIAL);
+  var last     = sheet.getLastRow();
+  if (last < 2) return { ok: false, error: 'no rows' };
+
+  var data     = sheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+  var idCol    = hdrs.indexOf('id');
+  var cidCol   = hdrs.indexOf('campaign_id');
+  var bodyCol  = hdrs.indexOf('body_copy');
+
+  var fixed = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row[idCol]) continue;
+    if (campaignId && String(row[cidCol]) !== campaignId) continue;
+    var body = String(row[bodyCol] || '');
+    if (body.indexOf(FABRICATED) === -1) continue;
+    // Replace the Sarah sentence (ends at the period after her quote block)
+    data[i][bodyCol] = body.replace(
+      /Sarah from Denver[^.]*\.[^.]*\.[^.]*\./,
+      REPLACEMENT
+    );
+    fixed.push(String(row[idCol]));
+  }
+  if (fixed.length > 0) {
+    sheet.getRange(2, 1, last - 1, hdrs.length).setValues(data);
+  }
+  Logger.log('[removeFabricatedTestimonials] fixed=' + fixed.length + ' ids=' + fixed.join(','));
+  return { ok: true, fixed: fixed };
+}
+
+// ── Set arc-based target_word_count on all 30 Klaviyo emails ─────────────────
+// Applies word count targets per the Session 12 email length decision.
+// Hook shorter and punchier; value/solve give her room to believe.
+function bulkSetEmailWordCounts(campaignId) {
+  var WC_MAP = {
+    'SEQ-1-E1': 150,
+    'SEQ-1-E2': 200,
+    'SEQ-1-E3': 200,
+    'SEQ-2-E1': 200,
+    'SEQ-2-E2': 220,
+    'SEQ-2-E3': 220,
+    'SEQ-2-E4': 220,
+    'SEQ-2-E5': 220,
+    'SEQ-3-E1': 200,
+    'SEQ-3-E2': 200,
+    'SEQ-3-E3': 200,
+    'SEQ-3-E4': 200,
+    'SEQ-4-E1': 175,
+    'SEQ-4-E2': 175,
+    'SEQ-4-E3': 175
+  };
+  var hdrs   = _CC_HDR.EmailSequences;
+  var sheet  = _getCCSheet(_CC_TAB.EMAIL);
+  var last   = sheet.getLastRow();
+  if (last < 2) return { ok: false, error: 'no rows' };
+
+  var data   = sheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+  var idCol  = hdrs.indexOf('id');
+  var cidCol = hdrs.indexOf('campaign_id');
+  var wcCol  = hdrs.indexOf('target_word_count');
+
+  var updated = 0;
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row[idCol] || String(row[cidCol]) !== campaignId) continue;
+    var id = String(row[idCol]);
+    var m  = id.match(/SEQ-\d+-E\d+/);
+    if (!m) continue;
+    var wc = WC_MAP[m[0]];
+    if (!wc) continue;
+    data[i][wcCol] = wc;
+    updated++;
+  }
+  sheet.getRange(2, 1, last - 1, hdrs.length).setValues(data);
+  Logger.log('[bulkSetEmailWordCounts] updated=' + updated);
+  return { ok: true, updated: updated };
+}
+
+// ── Patch arbitrary fields on a single email sequence row ─────────────────────
+// Merges fields into the existing row and writes back. Any field in
+// _CC_HDR.EmailSequences can be updated. Returns the updated id.
+function patchEmailFieldById(emailId, fields) {
+  var seqs = getEmailSequences('');  // read all campaigns
+  var seq  = null;
+  for (var i = 0; i < seqs.length; i++) {
+    if (String(seqs[i].id) === String(emailId)) { seq = seqs[i]; break; }
+  }
+  if (!seq) return { ok: false, error: 'email not found: ' + emailId };
+  var merged = {};
+  for (var k in seq) { merged[k] = seq[k]; }
+  for (var f in fields) { merged[f] = fields[f]; }
+  setEmailSequence(merged);
+  Logger.log('[patchEmailFieldById] patched id=' + emailId + ' fields=' + Object.keys(fields).join(','));
+  return { ok: true, id: emailId };
+}
+
+// ── Bulk-patch social post fields by ID ───────────────────────────────────────
+// patches: array of { id, hook, body_copy, image_brief } — only truthy fields written
+function bulkPatchSocialPosts(patches) {
+  var sheet   = _getCCSheet(_CC_TAB.SOCIAL);
+  var headers = _CC_HDR.SocialPosts;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: false, error: 'no rows' };
+  var allVals = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+
+  var idCol = headers.indexOf('id');
+  var patchMap = {};
+  patches.forEach(function(p) { patchMap[String(p.id)] = p; });
+
+  var updated = 0;
+  for (var r = 0; r < allVals.length; r++) {
+    var rowId = String(allVals[r][idCol]);
+    var patch = patchMap[rowId];
+    if (!patch) continue;
+    var rowNum = r + 2;
+    var fieldsPatched = [];
+    Object.keys(patch).forEach(function(field) {
+      if (field === 'id') return;
+      var col = headers.indexOf(field);
+      if (col < 0) return;
+      sheet.getRange(rowNum, col + 1).setValue(patch[field]);
+      fieldsPatched.push(field);
+    });
+    Logger.log('[bulkPatchSocialPosts] patched id=' + rowId + ' fields=' + fieldsPatched.join(','));
+    updated++;
+  }
+  return { ok: true, updated: updated };
+}
+
+// ── Part C: fix SEQ-3 E2-A claim + assemble full_email_body for 29 emails ─────
+// 1. Replaces "$144/year" with "$111/month" in SEQ-3 E2-A (urgency register fix).
+// 2. Assembles full_email_body by joining non-empty body sections in arc order.
+//    Skips rows that already have full_email_body content.
+function assembleEmailBodies(campaignId) {
+  var hdrs      = _CC_HDR.EmailSequences;
+  var sheet     = _getCCSheet(_CC_TAB.EMAIL);
+  var last      = sheet.getLastRow();
+  if (last < 2) return { ok: false, error: 'no rows' };
+
+  var data      = sheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+  var idCol     = hdrs.indexOf('id');
+  var cidCol    = hdrs.indexOf('campaign_id');
+  var hookCol   = hdrs.indexOf('body_hook');
+  var probCol   = hdrs.indexOf('body_problem');
+  var agitCol   = hdrs.indexOf('body_agitate');
+  var solvCol   = hdrs.indexOf('body_solve');
+  var valCol    = hdrs.indexOf('body_value');
+  var proofCol  = hdrs.indexOf('body_proof');
+  var ctaCol    = hdrs.indexOf('body_cta');
+  var fullCol   = hdrs.indexOf('full_email_body');
+
+  var SECTION_COLS = [hookCol, probCol, agitCol, solvCol, valCol, proofCol, ctaCol];
+  var FIX_ID       = campaignId + '-SEQ-3-E2-A';
+
+  var assembled = 0;
+  var fixApplied = false;
+
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var id  = String(row[idCol] || '');
+    if (!id || String(row[cidCol]) !== campaignId) continue;
+
+    // Step 1 — apply claim fix on SEQ-3 E2-A in all text fields
+    if (id === FIX_ID) {
+      SECTION_COLS.concat([fullCol]).forEach(function(col) {
+        if (col < 0) return;
+        var t = String(data[i][col] || '');
+        if (t.indexOf('$144/year') !== -1) {
+          // Rewrite sentence to urgency/monthly register
+          data[i][col] = t.replace(
+            /\$144\/year/g,
+            '$111\/month'
+          ).replace(
+            /saves you \$111\/month per year/g,
+            'stops \$111 leaving your wallet this month'
+          );
+          fixApplied = true;
+        }
+      });
+    }
+
+    // Step 2 — assemble full_email_body if empty
+    if (String(row[fullCol] || '').length > 50) continue;
+
+    var parts = SECTION_COLS.map(function(col) {
+      return col >= 0 ? String(data[i][col] || '').trim() : '';
+    }).filter(function(s) { return s.length > 0; });
+
+    if (parts.length === 0) continue;
+
+    data[i][fullCol] = parts.join('\n\n');
+    assembled++;
+  }
+
+  sheet.getRange(2, 1, last - 1, hdrs.length).setValues(data);
+  Logger.log('[assembleEmailBodies] assembled=' + assembled + ' fix_applied=' + fixApplied);
+  return { ok: true, assembled: assembled, fix_applied: fixApplied };
 }

@@ -61,10 +61,11 @@ function _cvtGetOrCreateSheet(name, headers) {
  * Reads api_key and secret_key from CcSettings tab (key column).
  */
 function signConvertRequest(method, path, body) {
-  var apiKey    = _cvtReadSetting('convert_api_key');
-  var secretKey = _cvtReadSetting('convert_secret_key');
+  var _sp      = PropertiesService.getScriptProperties();
+  var apiKey   = (_sp.getProperty('convert_api_key')    || '').trim() || _cvtReadSetting('convert_api_key');
+  var secretKey= (_sp.getProperty('convert_secret_key') || '').trim() || _cvtReadSetting('convert_secret_key');
   if (!apiKey || !secretKey) {
-    throw new Error('convert_api_key / convert_secret_key not found in CcSettings tab (key column)');
+    throw new Error('convert_api_key / convert_secret_key not found in Script Properties or CcSettings tab');
   }
   var timestamp = String(Date.now());
   var canonical = method.toUpperCase() + '\n' + path + '\n' + timestamp + '\n' + (body || '');
@@ -428,4 +429,156 @@ function scheduledConvertSync() {
     Logger.log('[ConvertSync] Scheduled sync ERROR: ' + e.message);
     throw e;
   }
+}
+
+
+// ── P7 — FUNCTION 6: activateConvertExperiment ───────────────────────────────
+/**
+ * Sets experiment status to 'active' via Convert.com API PATCH.
+ * Reads experiment ID from CcSettings (convert_experiment_id) or uses default.
+ */
+function activateConvertExperiment(experimentId) {
+  if (!experimentId) {
+    experimentId = _cvtReadSetting('convert_experiment_id') || '100140422';
+  }
+  var path    = 'accounts/' + _CONVERT_ACCOUNT_ID + '/experiments/' + experimentId;
+  var body    = JSON.stringify({ status: 'active' });
+  var headers = signConvertRequest('PATCH', '/' + path, body);
+  try {
+    var resp = UrlFetchApp.fetch(_CONVERT_BASE_URL + path, {
+      method:             'PATCH',
+      headers:            headers,
+      payload:            body,
+      muteHttpExceptions: true
+    });
+    var code = resp.getResponseCode();
+    var text = resp.getContentText();
+    Logger.log('[activateConvertExperiment] ' + experimentId + ' -> HTTP ' + code);
+    if (code === 200 || code === 201 || code === 204) {
+      return { ok: true, experiment_id: experimentId, status: 'active', response_code: code };
+    }
+    return { ok: false, error: 'HTTP ' + code + ': ' + text.substring(0, 300), experiment_id: experimentId };
+  } catch(e) {
+    Logger.log('[activateConvertExperiment] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── P7 — FUNCTION 7: setConvertAudienceFilter ─────────────────────────────────
+/**
+ * Patches the Convert.com experiment to add utm_medium=email audience condition.
+ * Uses Convert.com v1 PATCH endpoint.
+ * Audience filter prevents non-email traffic from entering the experiment.
+ */
+function setConvertAudienceFilter(experimentId, utmMedium) {
+  if (!experimentId) {
+    experimentId = _cvtReadSetting('convert_experiment_id') || '100140422';
+  }
+  utmMedium = utmMedium || 'email';
+  var path = 'accounts/' + _CONVERT_ACCOUNT_ID + '/experiments/' + experimentId;
+  var body = JSON.stringify({
+    audiences: [{
+      name:  'utm_medium=' + utmMedium + ' visitors',
+      rules: [{
+        type:     'utm_parameter',
+        param:    'utm_medium',
+        operator: 'equals',
+        value:    utmMedium
+      }]
+    }]
+  });
+  var headers = signConvertRequest('PATCH', '/' + path, body);
+  try {
+    var resp = UrlFetchApp.fetch(_CONVERT_BASE_URL + path, {
+      method:             'PATCH',
+      headers:            headers,
+      payload:            body,
+      muteHttpExceptions: true
+    });
+    var code = resp.getResponseCode();
+    var text = resp.getContentText();
+    Logger.log('[setConvertAudienceFilter] ' + experimentId + ' utm_medium=' + utmMedium + ' -> HTTP ' + code);
+    if (code === 200 || code === 201 || code === 204) {
+      return { ok: true, experiment_id: experimentId, audience_filter: 'utm_medium=' + utmMedium, response_code: code };
+    }
+    return { ok: false, error: 'HTTP ' + code + ': ' + text.substring(0, 300) };
+  } catch(e) {
+    Logger.log('[setConvertAudienceFilter] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── P7 — FUNCTION 8: confirmConvertGoal ──────────────────────────────────────
+/**
+ * Fetches experiment config and checks whether goal 100154109 is attached.
+ * Returns { ok, goal_attached, goal_id, experiment_id, status }
+ */
+function confirmConvertGoal(experimentId, goalId) {
+  if (!experimentId) {
+    experimentId = _cvtReadSetting('convert_experiment_id') || '100140422';
+  }
+  goalId = String(goalId || '100154109');
+  var path    = 'accounts/' + _CONVERT_ACCOUNT_ID + '/experiments/' + experimentId;
+  var headers = signConvertRequest('GET', '/' + path, '');
+  try {
+    var resp = UrlFetchApp.fetch(_CONVERT_BASE_URL + path, {
+      method:             'get',
+      headers:            headers,
+      muteHttpExceptions: true
+    });
+    var code = resp.getResponseCode();
+    if (code !== 200) {
+      return { ok: false, error: 'HTTP ' + code + ': ' + resp.getContentText().substring(0, 200) };
+    }
+    var data = {};
+    try { data = JSON.parse(resp.getContentText()); } catch(pe) {}
+    var goals    = data.goals || data.experiment_goals || [];
+    var goalIds  = goals.map(function(g) { return String(g.id || g.goal_id || g); });
+    var attached = goalIds.indexOf(goalId) !== -1;
+    Logger.log('[confirmConvertGoal] ' + experimentId + ' goal ' + goalId + ': ' + (attached ? 'ATTACHED' : 'NOT ATTACHED') + ' | all_goals: ' + goalIds.join(','));
+    return {
+      ok:            true,
+      goal_attached: attached,
+      goal_id:       goalId,
+      experiment_id: experimentId,
+      all_goal_ids:  goalIds,
+      status:        String(data.status || data.experiment_status || 'unknown')
+    };
+  } catch(e) {
+    Logger.log('[confirmConvertGoal] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── P7 — FUNCTION 9: runConvertP7Setup ───────────────────────────────────────
+/**
+ * Convenience function: runs the full P7 setup in sequence:
+ * 1. Activate experiment 100140422
+ * 2. Set utm_medium=email audience filter
+ * 3. Confirm goal 100154109 attached
+ * Returns a summary object.
+ */
+function runConvertP7Setup(experimentId, goalId) {
+  experimentId = experimentId || '100140422';
+  goalId       = goalId       || '100154109';
+  var result = {
+    experiment_id: experimentId,
+    goal_id:       goalId,
+    activate:      null,
+    audience:      null,
+    goal_check:    null
+  };
+  Logger.log('[runConvertP7Setup] START exp=' + experimentId + ' goal=' + goalId);
+
+  result.activate   = activateConvertExperiment(experimentId);
+  result.audience   = setConvertAudienceFilter(experimentId, 'email');
+  result.goal_check = confirmConvertGoal(experimentId, goalId);
+
+  var allOk = !!(result.activate && result.activate.ok) &&
+              !!(result.goal_check && result.goal_check.ok);
+  Logger.log('[runConvertP7Setup] DONE activate=' + (result.activate && result.activate.ok) +
+    ' audience=' + (result.audience && result.audience.ok) +
+    ' goal_attached=' + (result.goal_check && result.goal_check.goal_attached));
+
+  return { ok: allOk, result: result };
 }

@@ -414,12 +414,22 @@ function doGet(e) {
     if(e.parameter.action === 'folders_read') return respond({ok:true, folders: _getFolderDefs()});
     if(e.parameter.action === 'icp_profiles_read') return respond({ok:true, icpProfiles: getIcpProfiles()});
     if(e.parameter.action === 'approved_claims_read') return respond({ok:true, claims: getApprovedClaims()});
+    if(e.parameter.action === 'get_design_tokens') {
+      var _dtSec = e.parameter.section || '';
+      return respond({ ok:true, tokens: getDesignTokens(_dtSec || undefined) });
+    }
     if(e.parameter.action === 'master_positioning_read') {
       var _mpId  = e.parameter.positioning_id || '';
       var _mpCid = e.parameter.campaign_id    || '';
       if (_mpId)  return respond({ ok:true, positioning: getMasterPositioning(_mpId) });
       if (_mpCid) return respond({ ok:true, positionings: getMasterPositioningByCampaign(_mpCid) });
       return respond({ ok:false, error:'positioning_id or campaign_id required' });
+    }
+    if(e.parameter.action === 'social_posts_read') {
+      var _spAll = getSocialPosts(e.parameter.campaign_id || '');
+      var _plat  = e.parameter.platform || '';
+      if (_plat) _spAll = _spAll.filter(function(p){ return String(p.platform) === _plat; });
+      return respond({ ok:true, posts: _spAll });
     }
     if(e.parameter.action === 'get_settings') return respond({ok:true, settings:getCcSettings()});
     if(e.parameter.action === 'folder_list') {
@@ -799,6 +809,14 @@ function doPost(e) {
     if(body.action === 'campaign_brief_write')   { setCampaignBrief(body.brief); return respond({ ok:true }); }
     if(body.action === 'campaign_save_draft') return respond(saveCampaignDraft(body));
     if(body.action === 'export_to_drive')    return respond(exportCampaignToDrive(body.brief||{}, body.copy||{}, body.posts||[], body.lp||null, body.emails||[]));
+    if(body.action === 'export_emails_as_docs') {
+      var _ead = exportEmailsAsDocs(body.campaign_id || '', body.folder_id || '');
+      return respond({ ok:_ead.ok, result:_ead, log: Logger.getLog() });
+    }
+    if(body.action === 'export_social_as_docs') {
+      var _esd = exportSocialAsDocs(body.campaign_id || '', body.folder_id || '');
+      return respond({ ok:_esd.ok, result:_esd, log: Logger.getLog() });
+    }
     if(body.action === 'run_drive_export') {
       var _rdeCid = (body.campaign_id || '').trim();
       if (!_rdeCid) return respond({ ok:false, error:'campaign_id required' });
@@ -829,6 +847,22 @@ function doPost(e) {
       var _cvtResult = syncConvertToSheet(body.campaignId || '');
       return respond({ ok:true, result: _cvtResult, log: Logger.getLog() });
     }
+    if(body.action === 'activate_convert_experiment') {
+      var _ace = activateConvertExperiment(body.experiment_id || '');
+      return respond({ ok:_ace.ok, result:_ace, log: Logger.getLog() });
+    }
+    if(body.action === 'set_convert_audience_filter') {
+      var _caf = setConvertAudienceFilter(body.experiment_id || '', body.utm_medium || 'email');
+      return respond({ ok:_caf.ok, result:_caf, log: Logger.getLog() });
+    }
+    if(body.action === 'confirm_convert_goal') {
+      var _ccg = confirmConvertGoal(body.experiment_id || '', body.goal_id || '100154109');
+      return respond({ ok:_ccg.ok, result:_ccg, log: Logger.getLog() });
+    }
+    if(body.action === 'run_convert_p7_setup') {
+      var _p7 = runConvertP7Setup(body.experiment_id || '100140422', body.goal_id || '100154109');
+      return respond({ ok:_p7.ok, result:_p7, log: Logger.getLog() });
+    }
     if(body.action === 'update_convert_id') {
       updateConvertExperimentId();
       return respond({ ok:true, message: 'Convert ID updated to 100140422' });
@@ -844,6 +878,18 @@ function doPost(e) {
     if(body.action === 'seed_approved_claims') {
       var _claimsResult = seedApprovedClaims();
       return respond({ ok:true, result: _claimsResult, log: Logger.getLog() });
+    }
+    if(body.action === 'patch_social_image_briefs') {
+      var _psib = patchSocialImageBriefs(body.campaign_id || '');
+      return respond({ ok:_psib.ok, result:_psib, log: Logger.getLog() });
+    }
+    if(body.action === 'write_design_tokens_tab') {
+      var _wdt = writeDesignTokensTab();
+      return respond({ ok:_wdt.ok, result:_wdt, log: Logger.getLog() });
+    }
+    if(body.action === 'write_figma_storyboard_doc') {
+      var _wfs = writeFigmaStoryboardDoc(body.campaign_id || '', body.folder_id || '');
+      return respond({ ok:_wfs.ok, result:_wfs, log: Logger.getLog() });
     }
     if(body.action === 'generate_brief_docs') {
       var _bdResult = generateBriefDocs(body.campaign_id || '');
@@ -2311,6 +2357,14 @@ function doPost(e) {
     // ── Image Pipeline + Klaviyo ──────────────────────────────────────────────────
     if(body.action === 'klaviyo_push_sequence')  return respond(klaviyoPushSequence(body));
     if(body.action === 'klaviyo_get_lists')      return respond(klaviyoGetLists());
+    if(body.action === 'klaviyo_build_flows') {
+      var _kbf = klaviyoBuildFlows(body.campaign_id || '', body.list_id || '');
+      return respond({ ok:_kbf.ok, result:_kbf, log: Logger.getLog() });
+    }
+    if(body.action === 'klaviyo_get_dl_id_mapping') {
+      var _kdl = klaviyoGetEmailDlIdMapping(body.campaign_id || '');
+      return respond({ ok:_kdl.ok, result:_kdl, log: Logger.getLog() });
+    }
 
     
 
@@ -2344,6 +2398,10 @@ function doPost(e) {
     if(body.action === 'seed_governance_rows') {
       var _sgr = seedGovernanceRows();
       return respond({ ok:_sgr.ok, result:_sgr, log: Logger.getLog() });
+    }
+    if(body.action === 'patch_brand_doctrine') {
+      var _pbd = patchBrandDoctrine(body.rule_id || '', body.conditions || {});
+      return respond({ ok:_pbd.ok, result:_pbd, log: Logger.getLog() });
     }
     if(body.action === 'update_master_reference') {
       var _umr = updateMasterReference({
@@ -2419,6 +2477,42 @@ function doPost(e) {
     if(body.action === 'repair_governance_headers') {
       var _rgh = repairSheetHeaders(['MasterPositioning','StageGates','RetentionMilestones','SocialPosts','EmailSequences']);
       return respond({ ok:_rgh.ok, result:_rgh, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_dl_destination_urls') {
+      var _rdl = repairDlDestinationUrls();
+      return respond({ ok:true, result:_rdl, log: Logger.getLog() });
+    }
+    if(body.action === 'bulk_update_email_metadata') {
+      var _bue = bulkUpdateEmailMetadata(body.campaign_id || 'EC-2026-001');
+      return respond({ ok:true, result:_bue, log: Logger.getLog() });
+    }
+    if(body.action === 'patch_social_hooks') {
+      var _psh = patchSocialHooks(body.campaign_id || 'EC-2026-001', body.platform_map || {});
+      return respond({ ok:true, result:_psh, log: Logger.getLog() });
+    }
+    if(body.action === 'append_approved_claim') {
+      var _aac = appendApprovedClaim(body.claim || {});
+      return respond({ ok:true, result:_aac, log: Logger.getLog() });
+    }
+    if(body.action === 'remove_fabricated_testimonials') {
+      var _rft = removeFabricatedTestimonials(body.campaign_id || 'EC-2026-001');
+      return respond({ ok:true, result:_rft, log: Logger.getLog() });
+    }
+    if(body.action === 'bulk_set_email_word_counts') {
+      var _bwc = bulkSetEmailWordCounts(body.campaign_id || 'EC-2026-001');
+      return respond({ ok:true, result:_bwc, log: Logger.getLog() });
+    }
+    if(body.action === 'assemble_email_bodies') {
+      var _aeb = assembleEmailBodies(body.campaign_id || 'EC-2026-001');
+      return respond({ ok:true, result:_aeb, log: Logger.getLog() });
+    }
+    if(body.action === 'patch_email_fields') {
+      var _pef = patchEmailFieldById(body.email_id || '', body.fields || {});
+      return respond({ ok:_pef.ok, result:_pef, log: Logger.getLog() });
+    }
+    if(body.action === 'bulk_patch_social_posts') {
+      var _bpsp = bulkPatchSocialPosts(body.patches || []);
+      return respond({ ok:_bpsp.ok, result:_bpsp, log: Logger.getLog() });
     }
     // ── GOVERNANCE LAYER ────────────────────────────────────────────────────
     if(body.action === 'master_positioning_save') {
