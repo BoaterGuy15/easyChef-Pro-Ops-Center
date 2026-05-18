@@ -65,13 +65,21 @@ function _klfErr(result) {
 
 // Read campaign start date from CcSettings; default 2026-05-27
 function _klfStartDate() {
-  var raw = _cvtReadSetting('campaign_start_date');
-  return raw ? new Date(raw) : new Date('2026-05-27T09:00:00Z');
+  var raw = _getCcSetting('campaign_start_date') || _cvtReadSetting('campaign_start_date');
+  return raw ? new Date(raw) : new Date('2026-05-27');
 }
 
-// Compute ISO send datetime from send_day offset
+// Compute ISO send datetime from send_day offset.
+// Reads campaign_send_hour (default 9) and campaign_timezone_offset (default -4 = EDT)
+// from CcSettings so send times always reflect local time, not UTC.
+// Example: hour=9, tzOff=-4 → utcHour=13 → 9am EDT = 1pm UTC.
 function _klfSendAt(sendDay) {
-  var d = new Date(_klfStartDate().getTime() + Number(sendDay) * 86400000);
+  var tzOff = Number(_getCcSetting('campaign_timezone_offset') || '') || -4;
+  var hour  = Number(_getCcSetting('campaign_send_hour') || '') || 9;
+  var start = _klfStartDate();
+  var utcMidnight = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  var utcSendHour = (hour - tzOff + 24) % 24;
+  var d = new Date(utcMidnight + Number(sendDay) * 86400000 + utcSendHour * 3600000);
   return d.toISOString().replace('.000Z', 'Z');
 }
 
@@ -442,7 +450,7 @@ function klaviyoSubscribeWaitlistSignup(email, lpVariant) {
     var createResult = _klfFetch('POST', 'profiles/', {
       data: {
         type:       'profile',
-        attributes: { email: email, properties: { icp_code: icpCode } }
+        attributes: { email: email, properties: { icp_code: icpCode, founder_status: 'waitlist' } }
       }
     });
 
@@ -452,13 +460,13 @@ function klaviyoSubscribeWaitlistSignup(email, lpVariant) {
     } else if (createResult.code === 409) {
       var dupErr = createResult.data && createResult.data.errors && createResult.data.errors[0];
       profileId = dupErr && dupErr.meta && dupErr.meta.duplicate_profile_id;
-      // Update icp_code on the existing profile
+      // Update icp_code + founder_status on the existing profile
       if (profileId) {
         _klfFetch('PATCH', 'profiles/' + profileId + '/', {
           data: {
             type:       'profile',
             id:          profileId,
-            attributes: { properties: { icp_code: icpCode } }
+            attributes: { properties: { icp_code: icpCode, founder_status: 'waitlist' } }
           }
         });
       }
@@ -499,6 +507,96 @@ function klaviyoBuildFlowA() {
 function klaviyoBuildFlowB() {
   Logger.log('[KLF] Building Flow B (super_mom_time)');
   return _klfBuildFlow('super_mom_time', 'B');
+}
+
+// ── FUNCTION 10 — klaviyoSetFounderStatus ────────────────────────────────────
+// Rule 5: Update founder_status on a Klaviyo profile.
+// Valid values: 'waitlist' | 'installed' | 'founding_member'
+function klaviyoSetFounderStatus(profileId, status) {
+  try {
+    if (!profileId || !status) return { ok: false, error: 'profileId and status required' };
+    var result = _klfFetch('PATCH', 'profiles/' + profileId + '/', {
+      data: {
+        type:       'profile',
+        id:          profileId,
+        attributes: { properties: { founder_status: status } }
+      }
+    });
+    return { ok: result.code === 200, code: result.code };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── FUNCTION 11 — klaviyoCreateFounderSuppressionSegment ─────────────────────
+// Rule 4: Creates "Already a Founder" segment — all profiles in list TebDTM.
+// Segment ID saved to CcSettings as klaviyo_suppression_segment_id.
+function klaviyoCreateFounderSuppressionSegment() {
+  try {
+    var existingId = _klfReadSetting('klaviyo_suppression_segment_id');
+    if (existingId) return { ok: true, segment_id: existingId, existed: true };
+    var result = _klfFetch('POST', 'segments/', {
+      data: {
+        type: 'segment',
+        attributes: {
+          name: 'Already a Founder',
+          definition: {
+            condition_groups: [{
+              conditions: [{
+                type:     'profile-membership',
+                list_id:  _KLF_LIST_ID,
+                operator: 'is-in'
+              }]
+            }]
+          }
+        }
+      }
+    });
+    if (result.code === 201 || result.code === 200) {
+      var segId = result.data && result.data.data && result.data.data.id;
+      if (segId) {
+        _klfSaveSetting('klaviyo_suppression_segment_id', segId, 'Already a Founder');
+        return { ok: true, segment_id: segId, created: true };
+      }
+    }
+    return { ok: false, error: _klfErr(result), code: result.code };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── FUNCTION 12 — klaviyoDeleteScheduledCampaigns ────────────────────────────
+// Cancels and deletes all EC-2026-001 scheduled campaigns so they can be
+// recreated via klaviyoScheduleCampaigns() after timezone/date fixes.
+function klaviyoDeleteScheduledCampaigns() {
+  try {
+    var results = { ok: true, found: 0, deleted: 0, errors: [], campaign_ids: [] };
+    var listResult = _klfFetch('GET', 'campaigns/?filter=equals(status,"scheduled")&page[size]=50&fields[campaign]=name,status');
+    if (listResult.code !== 200) return { ok: false, error: _klfErr(listResult) };
+    var allCamps = (listResult.data && listResult.data.data) || [];
+    var ours = allCamps.filter(function(c) {
+      return String((c.attributes && c.attributes.name) || '').indexOf('EC-2026-001') === 0;
+    });
+    results.found = ours.length;
+    ours.forEach(function(c) {
+      var campId = c.id;
+      results.campaign_ids.push(campId);
+      // Cancel first (Klaviyo requires cancel before delete for scheduled campaigns)
+      _klfFetch('POST', 'campaigns/' + campId + '/campaign-cancel/');
+      var delResult = _klfFetch('DELETE', 'campaigns/' + campId + '/');
+      if (delResult.code === 204 || delResult.code === 200) {
+        results.deleted++;
+        Logger.log('[KLF] Deleted campaign: ' + campId + ' — ' + (c.attributes && c.attributes.name));
+      } else {
+        results.errors.push({ id: campId, error: _klfErr(delResult) });
+        Logger.log('[KLF] Delete failed: ' + campId + ' → ' + _klfErr(delResult));
+      }
+    });
+    Logger.log('[KLF] klaviyoDeleteScheduledCampaigns: ' + results.deleted + '/' + results.found + ' deleted');
+    return results;
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // ── FUNCTION 9 — klaviyoScheduleCampaigns ────────────────────────────────────
@@ -574,7 +672,7 @@ function klaviyoScheduleCampaigns() {
             type: 'campaign',
             attributes: {
               name:     campName,
-              audiences: { included: [item.segId], excluded: [] },
+              audiences: { included: [item.segId], excluded: [_KLF_LIST_ID] },
               send_options: { use_smart_sending: false },
               tracking_options: {
                 is_tracking_opens:  true,

@@ -2384,6 +2384,14 @@ function doPost(e) {
       var _kdl = klaviyoGetEmailDlIdMapping(body.campaign_id || '');
       return respond({ ok:_kdl.ok, result:_kdl, log: Logger.getLog() });
     }
+    if(body.action === 'klaviyo_set_founder_status') {
+      if(!body.profile_id || !body.status) return respond({ok:false,error:'profile_id and status required'});
+      return respond(klaviyoSetFounderStatus(body.profile_id, body.status));
+    }
+    if(body.action === 'klaviyo_create_suppression_segment')
+      return respond(klaviyoCreateFounderSuppressionSegment());
+    if(body.action === 'klaviyo_delete_campaigns')
+      return respond(klaviyoDeleteScheduledCampaigns());
 
     
 
