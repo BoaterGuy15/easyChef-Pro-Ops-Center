@@ -2166,8 +2166,8 @@ function doPost(e) {
       if (_ucl >= 2) {
         var _ucv2 = _ucs.getRange(2,1,_ucl-1,2).getValues();
         for(var _ui=0;_ui<_ucv2.length;_ui++) {
-          if(String(_ucv2[_ui][1]) === _uck) {
-            _ucs.getRange(_ui+2,3,1,1).setValue(String(_ucv));
+          if(String(_ucv2[_ui][1]).toLowerCase() === _uck.toLowerCase()) {
+            _ucs.getRange(_ui+2,4,1,1).setValue(String(_ucv));
             try { CacheService.getScriptCache().remove('cc_settings_v1'); } catch(e) {}
             _found = true; break;
           }

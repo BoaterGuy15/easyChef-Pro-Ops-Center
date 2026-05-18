@@ -61,21 +61,15 @@ function _cvtGetOrCreateSheet(name, headers) {
  * Reads api_key and secret_key from CcSettings tab (key column).
  */
 function signConvertRequest(method, path, body) {
-  var _sp      = PropertiesService.getScriptProperties();
-  var apiKey   = (_sp.getProperty('convert_api_key')    || '').trim() || _cvtReadSetting('convert_api_key');
-  var secretKey= (_sp.getProperty('convert_secret_key') || '').trim() || _cvtReadSetting('convert_secret_key');
-  if (!apiKey || !secretKey) {
-    throw new Error('convert_api_key / convert_secret_key not found in Script Properties or CcSettings tab');
+  var apiKey    = _cvtReadSetting('convert_api_key');
+  var secretKey = _cvtReadSetting('convert_secret_key');
+  if (!apiKey) {
+    throw new Error('convert_api_key not found in CcSettings tab');
   }
-  var timestamp = String(Date.now());
-  var canonical = method.toUpperCase() + '\n' + path + '\n' + timestamp + '\n' + (body || '');
-  var sigBytes  = Utilities.computeHmacSha256Signature(canonical, secretKey);
-  var signature = _cvtBytesToHex(sigBytes);
+  // Convert.com API v1 — Bearer token auth
   return {
-    'X-Convert-Api-Key':   apiKey,
-    'X-Convert-Timestamp': timestamp,
-    'X-Convert-Signature': signature,
-    'Content-Type':        'application/json'
+    'Authorization': 'Bearer ' + apiKey,
+    'Content-Type':  'application/json'
   };
 }
 
