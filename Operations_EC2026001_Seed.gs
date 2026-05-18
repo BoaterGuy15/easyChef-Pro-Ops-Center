@@ -2217,14 +2217,17 @@ function _computeBlockedReason(r, H) {
   if (status === 'published' || status === 'reported') return '';
   if (approval === 'approved' && finalUrl) return '';
 
-  // 'generated' is the initial state — content is still being created, no blocking yet
+  // 'generated' workflow status means content exists but design work hasn't started — no block
+  if (status === 'generated') return '';
+  // creative_status 'generated' = same initial state
   if (creative === 'generated') return '';
 
   var reasons = [];
   if (!dlId) reasons.push('missing dl_id');
 
   if (creative === 'in_figma') {
-    reasons.push(!figmaId ? 'figma_file_id not recorded' : 'in production');
+    // figma_file_id column not in schema — treat as in production (not a dashboard blocker)
+    if (figmaId) reasons.push('in production');
   } else if (creative === 'designer_review') {
     reasons.push('awaiting designer sign-off');
   } else if (creative === 'approved' && approval === 'pending') {
@@ -2599,7 +2602,133 @@ function getBlockedAssets(campaignId) {
   }
 }
 
-function getCampaignDashboard(campaignId) {
+// ── One-time repair: clear stale creative_status / blocked_by values ──────────
+// Rows with creative_status != 'generated' from old Figma-assignment code get
+// reset to 'generated'. The blocked_by column is cleared for all non-published rows.
+// Uses two bulk column writes (not per-row) so it completes in ~2-3 seconds.
+function repairCreativeStatus(campaignId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+    var sheet   = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var last    = sheet.getLastRow();
+    if (last < 2) return { ok: true, fixed: 0 };
+
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {};
+    headers.forEach(function(h, i) { H[h] = i; });
+    var data = sheet.getRange(2, 1, last - 1, headers.length).getValues();
+
+    var creativeCol  = H.creative_status + 1;   // 1-indexed for setValues
+    var blockedByCol = H.blocked_by      + 1;
+    var newCreative  = [];
+    var newBlocked   = [];
+    var fixed        = 0;
+
+    for (var i = 0; i < data.length; i++) {
+      var r        = data[i];
+      var camp     = String(r[H.campaign_id] || '');
+      var status   = String(r[H.status]      || '');
+      var creative = String(r[H.creative_status] || '');
+      var blk      = String(r[H.blocked_by]  || '');
+
+      // Keep existing values for rows that don't belong to this campaign or are done
+      if (!r[0] || camp !== campaignId || status === 'published' || status === 'reported') {
+        newCreative.push([creative]);
+        newBlocked.push([blk]);
+        continue;
+      }
+
+      // Reset creative_status to 'generated' and clear blocked_by
+      var needsFix = (creative !== 'generated') || (blk !== '');
+      newCreative.push(['generated']);
+      newBlocked.push(['']);
+      if (needsFix) fixed++;
+    }
+
+    sheet.getRange(2, creativeCol,  data.length, 1).setValues(newCreative);
+    sheet.getRange(2, blockedByCol, data.length, 1).setValues(newBlocked);
+
+    Logger.log('[repairCreativeStatus] campaign:' + campaignId + ' fixed:' + fixed);
+    return { ok: true, fixed: fixed };
+  } catch(e) {
+    Logger.log('[repairCreativeStatus] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Repair: back-fill sequence_code into ContentCalendar email rows ──────────
+// Reads asset_id → sequence_code from EmailSequences tab, then bulk-writes
+// the sequence_code column for any ContentCalendar email row that has it empty.
+function repairEmailSequenceCodes(campaignId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+    // Build asset_id → seq_code map from EmailSequences
+    var emSh   = _getCCSheet(_CC_TAB.EMAIL);
+    var emLast = emSh.getLastRow();
+    if (emLast < 2) return { ok: false, error: 'EmailSequences empty' };
+    var emHdrs = _CC_HDR.EmailSequences;
+    var EH = {}; emHdrs.forEach(function(h, i) { EH[h] = i; });
+    var safeCols = Math.min(emHdrs.length, emSh.getLastColumn());
+    var emData = emSh.getRange(2, 1, emLast - 1, safeCols).getValues();
+    var seqMap = {};
+    emData.forEach(function(r) {
+      var id   = String(r[EH.id]             || '').trim();
+      var camp = String(r[EH.campaign_id]    || '').trim();
+      var seq  = String(r[EH.sequence_code]  || '').trim();
+      if (id && camp === campaignId && seq) seqMap[id] = seq;
+    });
+
+    // Write sequence_code into ContentCalendar for matching email rows
+    var ccSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var ccLast  = ccSheet.getLastRow();
+    if (ccLast < 2) return { ok: false, error: 'ContentCalendar empty' };
+    var headers = _CC_HDR[_CC_TAB.CONTENT_CAL];
+    var H = {}; headers.forEach(function(h, i) { H[h] = i; });
+    var seqCol  = H.sequence_code + 1;  // 1-indexed
+    var data    = ccSheet.getRange(2, 1, ccLast - 1, headers.length).getValues();
+    var newSeq  = [];
+    var fixed   = 0;
+
+    data.forEach(function(r) {
+      var assetId  = String(r[H.asset_id]    || '');
+      var camp     = String(r[H.campaign_id] || '');
+      var platform = String(r[H.platform]    || '');
+      var existing = String(r[H.sequence_code] || '');
+      if (camp === campaignId && platform.toLowerCase() === 'email' && !existing && seqMap[assetId]) {
+        newSeq.push([seqMap[assetId]]);
+        fixed++;
+      } else {
+        newSeq.push([existing]);
+      }
+    });
+
+    ccSheet.getRange(2, seqCol, data.length, 1).setValues(newSeq);
+    Logger.log('[repairEmailSequenceCodes] campaign:' + campaignId + ' fixed:' + fixed);
+    return { ok: true, fixed: fixed };
+  } catch(e) {
+    Logger.log('[repairEmailSequenceCodes] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function fixDuplicateHooksAction(dateKey, campaignId) {
+  return fixDuplicateHooks(dateKey, campaignId);
+}
+
+function seedAccountRegistry() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty('CAMPAIGN_SHEETS_ID');
+    if (!sheetId) return { ok: false, error: 'CAMPAIGN_SHEETS_ID not set in ScriptProperties' };
+    var result = registerAccount('EC-2026-001', 'easyChef Pro', sheetId, 'active');
+    return { ok: result.ok, account: result.account, error: result.error };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function getCampaignDashboard(campaignId, sheetId) {
+  _REQUEST_SHEET_ID = sheetId || null;
   try {
     var allCampaigns = (!campaignId || campaignId === 'all');
     campaignId = allCampaigns ? 'all' : campaignId;
@@ -2714,7 +2843,8 @@ function getCampaignDashboard(campaignId) {
 
 // â”€â”€ Calendar feed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function getCampaignCalendar(campaignId) {
+function getCampaignCalendar(campaignId, sheetId) {
+  _REQUEST_SHEET_ID = sheetId || null;
   try {
     var allCampaigns = (!campaignId || campaignId === 'all');
     campaignId = allCampaigns ? 'all' : campaignId;
@@ -2725,26 +2855,8 @@ function getCampaignCalendar(campaignId) {
     var sheetId  = ccSheet.getParent().getId();
     var sheetGid = ccSheet.getSheetId();
 
-    // Build dl_id â†’ design_brief URL map from SocialPosts
-    var spMap = {};
-    try {
-      var spSheet2 = _getCCSheet(_CC_TAB.SOCIAL);
-      var spLast2  = spSheet2.getLastRow();
-      if (spLast2 >= 2) {
-        var spHdrs2 = _CC_HDR[_CC_TAB.SOCIAL];
-        var spH2 = {};
-        spHdrs2.forEach(function(h, i) { spH2[h] = i; });
-        var spData2 = spSheet2.getRange(2, 1, spLast2 - 1, spHdrs2.length).getValues();
-        spData2.forEach(function(row) {
-          var dlId2     = String(row[spH2.dl_id]       || '');
-          var briefUrl2 = String(row[spH2.design_brief] || '');
-          if (dlId2 && briefUrl2) spMap[dlId2] = briefUrl2;
-        });
-      }
-    } catch(se) { Logger.log('[getCampaignCalendar] spMap error: ' + se.message); }
-
-    // Build asset_id → full_email_body map from EmailSequences
-    var emBodyMap = {};
+    // Build asset_id → full_email_body and subject_line maps from EmailSequences
+    var emBodyMap = {}, emSubjectMap = {};
     try {
       var emSheet2 = _getCCSheet(_CC_TAB.EMAIL);
       var emLast2  = emSheet2.getLastRow();
@@ -2752,16 +2864,38 @@ function getCampaignCalendar(campaignId) {
         var emAllHdrs = emSheet2.getRange(1, 1, 1, emSheet2.getLastColumn()).getValues()[0];
         var emIdIdx   = emAllHdrs.indexOf('id');
         var emBodyIdx = emAllHdrs.indexOf('full_email_body');
-        if (emIdIdx >= 0 && emBodyIdx >= 0) {
+        var emSubjIdx = emAllHdrs.indexOf('subject_line');
+        if (emIdIdx >= 0) {
           var emData2 = emSheet2.getRange(2, 1, emLast2 - 1, emSheet2.getLastColumn()).getValues();
           emData2.forEach(function(row) {
-            var eid  = String(row[emIdIdx]   || '');
-            var body = String(row[emBodyIdx] || '');
-            if (eid && body) emBodyMap[eid] = body;
+            var eid  = String(row[emIdIdx] || '');
+            if (!eid) return;
+            if (emBodyIdx >= 0) { var body = String(row[emBodyIdx] || ''); if (body) emBodyMap[eid] = body; }
+            if (emSubjIdx >= 0) { var subj = String(row[emSubjIdx] || ''); if (subj) emSubjectMap[eid] = subj; }
           });
         }
       }
     } catch(ee) { Logger.log('[getCampaignCalendar] emBodyMap error: ' + ee.message); }
+
+    // Build asset_id → hook map from SocialPosts
+    var socialHookMap = {};
+    try {
+      var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+      var spLast  = spSheet.getLastRow();
+      if (spLast >= 2) {
+        var spHdrs  = spSheet.getRange(1, 1, 1, spSheet.getLastColumn()).getValues()[0];
+        var spIdIdx = spHdrs.indexOf('id');
+        var spHkIdx = spHdrs.indexOf('hook');
+        if (spIdIdx >= 0 && spHkIdx >= 0) {
+          var spData = spSheet.getRange(2, 1, spLast - 1, spSheet.getLastColumn()).getValues();
+          spData.forEach(function(row) {
+            var sid  = String(row[spIdIdx] || '');
+            var hook = String(row[spHkIdx] || '');
+            if (sid && hook) socialHookMap[sid] = hook;
+          });
+        }
+      }
+    } catch(se) { Logger.log('[getCampaignCalendar] socialHookMap error: ' + se.message); }
 
     // Build platform → Figma template URL map from CcSettings
     var _figmaMap = {};
@@ -2811,7 +2945,7 @@ function getCampaignCalendar(campaignId) {
       var pubTime     = String(r[H.publish_time]    || '');
       var day         = Number(r[H.day]             || 0);
       var week        = Number(r[H.week]            || 0);
-      var briefDocUrl     = String(r[H.brief_doc_url]     || '') || (dlId ? (spMap[dlId] || '') : '');
+      var briefDocUrl     = String(r[H.brief_doc_url]     || '');
       var claudeDesignUrl = String(r[H.claude_design_url] || '');
       var seqCode         = H.sequence_code !== undefined ? String(r[H.sequence_code] || '') : '';
       var blockedReason = _computeBlockedReason(r, H);
@@ -2829,6 +2963,8 @@ function getCampaignCalendar(campaignId) {
         figma_url: figmaUrl, brief_doc_url: briefDocUrl, claude_design_url: claudeDesignUrl,
         notes: notes, sheet_row: sheetRow,
         full_email_body: emBodyMap[assetId] || '',
+        subject_line: emSubjectMap[assetId] || '',
+        caption: socialHookMap[assetId] || String(r[H.caption] || ''),
         sequence_code: seqCode
       });
       days[dateKey].total++;
@@ -2846,8 +2982,25 @@ function getCampaignCalendar(campaignId) {
     var cidSet = {};
     data.forEach(function(r) { if(r[0]) cidSet[String(r[H.campaign_id]||'')] = true; });
     var campaignIds = Object.keys(cidSet).filter(function(c){ return c; }).sort();
+    // Build LP links from LPInventory — LIVE only, filtered to this campaign
+    var lpLinks = [];
+    try {
+      getLPInventory('LIVE').forEach(function(lp) {
+        if (!lp.full_url) return;
+        if (campaignId && lp.campaigns_using && String(lp.campaigns_using).indexOf(campaignId) === -1) return;
+        var variant = String(lp.lp_variant || '').toUpperCase();
+        var label = variant ? 'LP-' + variant : (lp.slug || lp.id || '').replace(/lp[-/]/i,'').toUpperCase();
+        if (label) lpLinks.push({ label: label, url: lp.full_url });
+      });
+    } catch(lpErr) { Logger.log('[getCampaignCalendar] lpLinks: ' + lpErr.message); }
+    // Roadmap doc URL from CcSettings
+    var roadmapUrl = null;
+    try {
+      var _rdRows = _getCcSetting('ROADMAP_DOC_ID');
+      if (_rdRows.length) roadmapUrl = 'https://docs.google.com/document/d/' + _rdRows[0].label + '/edit';
+    } catch(e) {}
     Logger.log('[getCampaignCalendar] ' + Object.keys(days).length + ' days, campaigns: ' + campaignIds.join(','));
-    return { ok: true, campaign: campaignId, days: days, sheet_id: sheetId, sheet_gid: sheetGid, drive_folder_url: driveFolders[campaignId] || null, campaign_ids: campaignIds };
+    return { ok: true, campaign: campaignId, days: days, sheet_id: sheetId, sheet_gid: sheetGid, drive_folder_url: driveFolders[campaignId] || null, campaign_ids: campaignIds, lp_links: lpLinks, roadmap_url: roadmapUrl };
   } catch(e) {
     Logger.log('[getCampaignCalendar] ERROR: ' + e.message);
     return { ok: false, error: e.message };
@@ -6655,6 +6808,616 @@ function syncEC2026001CalFields(opts) {
     return { ok: true, updated: updated, skipped: skipped, no_match: noMatch };
   } catch(e) {
     Logger.log('[syncEC2026001CalFields] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+
+// ── DL uniqueness gate ────────────────────────────────────────────────────────
+function isDlIdUnique(dlId) {
+  try {
+    var tabs = [_CC_TAB.DL, _CC_TAB.SOCIAL, _CC_TAB.EMAIL, _CC_TAB.PAGES];
+    for (var t = 0; t < tabs.length; t++) {
+      var sh = _getCCSheet(tabs[t]);
+      if (!sh) continue;
+      var vals = sh.getDataRange().getValues();
+      var hdrs = vals[0].map(function(h) { return String(h).trim(); });
+      var col  = hdrs.indexOf('dl_id');
+      if (col < 0) continue;
+      for (var r = 1; r < vals.length; r++) {
+        if (String(vals[r][col] || '') === dlId) return false;
+      }
+    }
+    return true;
+  } catch(e) {
+    Logger.log('[isDlIdUnique] ERROR: ' + e.message);
+    return false;
+  }
+}
+
+function getNextDlId(prefix) {
+  try {
+    var tabs = [_CC_TAB.DL, _CC_TAB.SOCIAL, _CC_TAB.EMAIL, _CC_TAB.PAGES];
+    var maxN = 0;
+    for (var t = 0; t < tabs.length; t++) {
+      var sh = _getCCSheet(tabs[t]);
+      if (!sh) continue;
+      var vals = sh.getDataRange().getValues();
+      var hdrs = vals[0].map(function(h) { return String(h).trim(); });
+      var col  = hdrs.indexOf('dl_id');
+      if (col < 0) continue;
+      for (var r = 1; r < vals.length; r++) {
+        var m = String(vals[r][col] || '').match(/^DL-([A-Z]{2})-(\d+)$/);
+        if (m && m[1] === prefix) {
+          var n = parseInt(m[2], 10);
+          if (n > maxN) maxN = n;
+        }
+      }
+    }
+    var guard = 0;
+    do {
+      maxN++;
+      guard++;
+      if (guard > 200) { Logger.log('[getNextDlId] guard limit hit for prefix ' + prefix); return null; }
+    } while (!isDlIdUnique('DL-' + prefix + '-' + ('000' + maxN).slice(-4)));
+    return 'DL-' + prefix + '-' + ('000' + maxN).slice(-4);
+  } catch(e) {
+    Logger.log('[getNextDlId] ERROR: ' + e.message);
+    return null;
+  }
+}
+
+function auditDlUniqueness(campaignId) {
+  campaignId = campaignId || 'EC-2026-001';
+  try {
+    var tabs = [_CC_TAB.DL, _CC_TAB.SOCIAL, _CC_TAB.EMAIL];
+    var violations = [];
+    for (var t = 0; t < tabs.length; t++) {
+      var sh = _getCCSheet(tabs[t]);
+      if (!sh) continue;
+      var vals = sh.getDataRange().getValues();
+      var hdrs = vals[0].map(function(h) { return String(h).trim(); });
+      var dlCol  = hdrs.indexOf('dl_id');
+      var utmCol = hdrs.indexOf('utm_url');
+      var cidCol = hdrs.indexOf('campaign_id');
+      var seen_dl = {}, seen_utm = {};
+      for (var r = 1; r < vals.length; r++) {
+        var cid = cidCol >= 0 ? String(vals[r][cidCol] || '') : '';
+        if (cid && cid !== campaignId) continue;
+        var dlId = dlCol >= 0 ? String(vals[r][dlCol] || '') : '';
+        var utm  = utmCol >= 0 ? String(vals[r][utmCol] || '') : '';
+        if (dlId) {
+          if (seen_dl[dlId]) { violations.push({ type: 'duplicate_dl_id', value: dlId, tab: tabs[t] }); }
+          else { seen_dl[dlId] = true; }
+        }
+        if (utm) {
+          if (seen_utm[utm]) { violations.push({ type: 'duplicate_utm_url', value: utm.slice(0, 60), tab: tabs[t] }); }
+          else { seen_utm[utm] = true; }
+        }
+      }
+    }
+    var ok = violations.length === 0;
+    if (ok) Logger.log('[auditDlUniqueness] CLEAN');
+    else violations.forEach(function(v) { Logger.log('[auditDlUniqueness] VIOLATION: ' + JSON.stringify(v)); });
+    return { ok: ok, violations: violations, summary: ok ? 'CLEAN' : violations.length + ' violation(s)' };
+  } catch(e) {
+    Logger.log('[auditDlUniqueness] ERROR: ' + e.message);
+    return { ok: false, violations: [], summary: 'audit_error: ' + e.message };
+  }
+}
+
+function repairEC2026001Dates() {
+  try {
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var hdrs = _CC_HDR.ContentCalendar;
+    var H = {};
+    hdrs.forEach(function(h, i) { H[h] = i; });
+    var last = calSheet.getLastRow();
+    var data = calSheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+    var START = new Date('2026-05-27T12:00:00');
+    var fixed = 0, skipped = 0, report = [];
+    for (var i = 0; i < data.length; i++) {
+      var cid = String(data[i][H.campaign_id] || '');
+      if (cid !== 'EC-2026-001') continue;
+      var existDate = data[i][H.publish_date];
+      if (existDate && String(existDate).trim() !== '') continue;
+      var day = parseInt(data[i][H.day] || 0, 10);
+      if (!day) { skipped++; continue; }
+      var d = new Date(START.getTime() + (day - 1) * 86400000);
+      calSheet.getRange(i + 2, H.publish_date + 1).setValue(d);
+      fixed++;
+      report.push({ row: i + 2, day: day, date: Utilities.formatDate(d, 'America/Los_Angeles', 'yyyy-MM-dd') });
+    }
+    Logger.log('[repairEC2026001Dates] fixed=' + fixed + ' skipped=' + skipped);
+    return { ok: true, fixed: fixed, skipped: skipped, rows: report };
+  } catch(e) {
+    Logger.log('[repairEC2026001Dates] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function repairEC2026001EmailDates() {
+  try {
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var hdrs = _CC_HDR.ContentCalendar;
+    var H = {};
+    hdrs.forEach(function(h, i) { H[h] = i; });
+    var last = calSheet.getLastRow();
+    var data = calSheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+    var FIXES = {
+      'EC-2026-001-SEQ-1-E1-A': { day: 1,  date: new Date('2026-05-27T12:00:00') },
+      'EC-2026-001-SEQ-1-E1-B': { day: 1,  date: new Date('2026-05-27T12:00:00') },
+      'EC-2026-001-SEQ-3-E1-A': { day: 2,  date: new Date('2026-05-28T12:00:00') },
+      'EC-2026-001-SEQ-3-E1-B': { day: 2,  date: new Date('2026-05-28T12:00:00') },
+      'EC-2026-001-SEQ-4-E1-A': { day: 36, date: new Date('2026-07-01T12:00:00') },
+      'EC-2026-001-SEQ-4-E1-B': { day: 36, date: new Date('2026-07-01T12:00:00') }
+    };
+    var fixed = 0, report = [];
+    for (var i = 0; i < data.length; i++) {
+      var aid = String(data[i][H.asset_id] || '');
+      if (!FIXES[aid]) continue;
+      var fix = FIXES[aid];
+      calSheet.getRange(i + 2, H.publish_date + 1).setValue(fix.date);
+      calSheet.getRange(i + 2, H.day + 1).setValue(fix.day);
+      fixed++;
+      report.push({ asset_id: aid, row: i + 2, day: fix.day });
+    }
+    Logger.log('[repairEC2026001EmailDates] fixed=' + fixed);
+    return { ok: true, fixed: fixed, rows: report };
+  } catch(e) {
+    Logger.log('[repairEC2026001EmailDates] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// fixDuplicateHooks: finds social posts on a given date with identical hooks across platforms,
+// calls Claude to generate platform-specific rewrites, and writes them back to SocialPosts.
+function fixDuplicateHooks(dateKey, campaignId) {
+  try {
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spHdrs  = _CC_HDR.SocialPosts;
+    var H = {}; spHdrs.forEach(function(h, i) { H[h] = i; });
+    var last = spSheet.getLastRow();
+    if (last < 2) return { ok: false, error: 'No social posts' };
+    var data = spSheet.getRange(2, 1, last - 1, spHdrs.length).getValues();
+
+    // Collect posts scheduled on dateKey
+    var datePosts = [];
+    for (var i = 0; i < data.length; i++) {
+      var r = data[i];
+      if (!r[0]) continue;
+      if (campaignId && String(r[H.campaign_id]) !== campaignId) continue;
+      var sd = r[H.scheduled_date];
+      var ds = '';
+      if (sd) { try { var d = sd instanceof Date ? sd : new Date(String(sd)); if (!isNaN(d.getTime())) ds = Utilities.formatDate(d, 'America/Los_Angeles', 'yyyy-MM-dd'); } catch(e2) {} }
+      if (ds !== dateKey) continue;
+      datePosts.push({ rowNum: i + 2, id: String(r[H.id]), platform: String(r[H.platform]), hook: String(r[H.hook] || '') });
+    }
+    if (!datePosts.length) return { ok: false, error: 'No posts found for ' + dateKey };
+
+    // Group by hook — only groups with 2+ platforms need fixing
+    var hookGroups = {};
+    datePosts.forEach(function(p) { if (!p.hook) return; if (!hookGroups[p.hook]) hookGroups[p.hook] = []; hookGroups[p.hook].push(p); });
+
+    var fixed = 0, allResults = [];
+    Object.keys(hookGroups).forEach(function(hook) {
+      var group = hookGroups[hook];
+      if (group.length < 2) return;
+      var platforms = group.map(function(p) { return p.platform; });
+
+      var sysPrompt = 'You are a social media copywriter for easyChef Pro — an AI meal planning app that eliminates food waste and dinner stress. Write hooks that feel native to each platform.';
+      var userPrompt = 'Original hook (currently identical on all platforms — must be differentiated):\n"' + hook + '"\n\n' +
+        'Rewrite for each platform. Each version must have unique phrasing — no shared sentences.\n\n' +
+        'Platforms: ' + platforms.join(', ') + '\n\n' +
+        'Guidelines:\n' +
+        '- Facebook: conversational, question or story format, 20-30 words\n' +
+        '- Instagram: punchy, visual language, 1-2 emojis ok, 10-15 words\n' +
+        '- TikTok: first 3 words stop the scroll, casual, 8-12 words\n' +
+        '- Pinterest: keyword-rich, benefit-focused, 10-15 words\n' +
+        '- X: under 100 chars, punchy, no hashtags\n' +
+        '- Nextdoor: neighborhood/family framing, community tone, 15-20 words\n\n' +
+        'Return ONLY valid JSON with the platform names as keys. Example:\n{"Facebook":"...","Instagram":"..."}\n' +
+        'Include only the platforms listed. No explanation, no markdown.';
+
+      var result = _callCopyModel(sysPrompt, userPrompt, 800);
+      if (!result.ok) { allResults.push({ hook: hook, error: result.error }); return; }
+
+      var newHooks = {};
+      try {
+        var clean = result.content.trim();
+        var s = clean.indexOf('{'), e = clean.lastIndexOf('}');
+        if (s >= 0 && e > s) clean = clean.substring(s, e + 1);
+        newHooks = JSON.parse(clean);
+      } catch(pe) { allResults.push({ hook: hook, error: 'JSON parse: ' + pe.message }); return; }
+
+      group.forEach(function(p) {
+        var nh = newHooks[p.platform];
+        if (!nh) return;
+        setSocialPost({ id: p.id, hook: nh });
+        fixed++;
+        allResults.push({ id: p.id, platform: p.platform, old_hook: hook, new_hook: nh });
+      });
+    });
+
+    Logger.log('[fixDuplicateHooks] dateKey=' + dateKey + ' fixed=' + fixed);
+    return { ok: true, fixed: fixed, results: allResults };
+  } catch(e) {
+    Logger.log('[fixDuplicateHooks] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// repairEC2026001Seq3Cal: sets correct day/week/date for all 8 SEQ-3 ContentCalendar rows.
+// SEQ-3 is the urgency/CTA sequence — fires weeks 3-5 (Day 15-30) not weeks 1-2.
+function repairEC2026001Seq3Cal() {
+  try {
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var hdrs = _CC_HDR.ContentCalendar;
+    var H = {}; hdrs.forEach(function(h, i) { H[h] = i; });
+    var last = calSheet.getLastRow();
+    var data = calSheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+    var FIXES = {
+      'EC-2026-001-SEQ-3-E1-A': { day: 15, week: 3, date: new Date('2026-06-10T12:00:00') },
+      'EC-2026-001-SEQ-3-E1-B': { day: 15, week: 3, date: new Date('2026-06-10T12:00:00') },
+      'EC-2026-001-SEQ-3-E2-A': { day: 20, week: 3, date: new Date('2026-06-15T12:00:00') },
+      'EC-2026-001-SEQ-3-E2-B': { day: 20, week: 3, date: new Date('2026-06-15T12:00:00') },
+      'EC-2026-001-SEQ-3-E3-A': { day: 25, week: 4, date: new Date('2026-06-20T12:00:00') },
+      'EC-2026-001-SEQ-3-E3-B': { day: 25, week: 4, date: new Date('2026-06-20T12:00:00') },
+      'EC-2026-001-SEQ-3-E4-A': { day: 30, week: 5, date: new Date('2026-06-25T12:00:00') },
+      'EC-2026-001-SEQ-3-E4-B': { day: 30, week: 5, date: new Date('2026-06-25T12:00:00') }
+    };
+    var fixed = 0, report = [];
+    for (var i = 0; i < data.length; i++) {
+      var aid = String(data[i][H.asset_id] || '');
+      if (!FIXES[aid]) continue;
+      var fix = FIXES[aid];
+      calSheet.getRange(i + 2, H.publish_date + 1).setValue(fix.date);
+      calSheet.getRange(i + 2, H.day         + 1).setValue(fix.day);
+      calSheet.getRange(i + 2, H.week        + 1).setValue(fix.week);
+      fixed++;
+      report.push({ asset_id: aid, row: i + 2, day: fix.day, week: fix.week });
+    }
+    Logger.log('[repairEC2026001Seq3Cal] fixed=' + fixed);
+    return { ok: true, fixed: fixed, rows: report };
+  } catch(e) {
+    Logger.log('[repairEC2026001Seq3Cal] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// repairEC2026001Seq4Cal: sets correct day/week/date/funnel_stage for all 6 SEQ-4
+// ContentCalendar rows. SEQ-4 fires post-launch (Jul 1+) so needs week=6.
+function repairEC2026001Seq4Cal() {
+  try {
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var hdrs = _CC_HDR.ContentCalendar;
+    var H = {}; hdrs.forEach(function(h, i) { H[h] = i; });
+    var last = calSheet.getLastRow();
+    var data = calSheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+    var FIXES = {
+      'EC-2026-001-SEQ-4-E1-A': { day: 36, week: 6, funnel_stage: 'hook',    date: new Date('2026-07-01T12:00:00') },
+      'EC-2026-001-SEQ-4-E1-B': { day: 36, week: 6, funnel_stage: 'hook',    date: new Date('2026-07-01T12:00:00') },
+      'EC-2026-001-SEQ-4-E2-A': { day: 37, week: 6, funnel_stage: 'solve',   date: new Date('2026-07-02T12:00:00') },
+      'EC-2026-001-SEQ-4-E2-B': { day: 37, week: 6, funnel_stage: 'solve',   date: new Date('2026-07-02T12:00:00') },
+      'EC-2026-001-SEQ-4-E3-A': { day: 39, week: 6, funnel_stage: 'cta',     date: new Date('2026-07-04T12:00:00') },
+      'EC-2026-001-SEQ-4-E3-B': { day: 39, week: 6, funnel_stage: 'cta',     date: new Date('2026-07-04T12:00:00') }
+    };
+    var fixed = 0, report = [];
+    for (var i = 0; i < data.length; i++) {
+      var aid = String(data[i][H.asset_id] || '');
+      if (!FIXES[aid]) continue;
+      var fix = FIXES[aid];
+      calSheet.getRange(i + 2, H.publish_date  + 1).setValue(fix.date);
+      calSheet.getRange(i + 2, H.day           + 1).setValue(fix.day);
+      calSheet.getRange(i + 2, H.week          + 1).setValue(fix.week);
+      calSheet.getRange(i + 2, H.funnel_stage  + 1).setValue(fix.funnel_stage);
+      fixed++;
+      report.push({ asset_id: aid, row: i + 2, day: fix.day, week: fix.week, funnel_stage: fix.funnel_stage });
+    }
+    Logger.log('[repairEC2026001Seq4Cal] fixed=' + fixed);
+    return { ok: true, fixed: fixed, rows: report };
+  } catch(e) {
+    Logger.log('[repairEC2026001Seq4Cal] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// repairEC2026001EmailFunnelStages: patches funnel_stage, day, week, publish_date
+// on the 6 SEQ-1 ContentCalendar rows that were seeded with wrong funnel stages.
+// Run via doPost: { "action": "repair_ec2026001_email_funnel_stages" }
+function repairEC2026001EmailFunnelStages() {
+  try {
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var hdrs = _CC_HDR.ContentCalendar;
+    var H = {};
+    hdrs.forEach(function(h, i) { H[h] = i; });
+    var last = calSheet.getLastRow();
+    var data = calSheet.getRange(2, 1, last - 1, hdrs.length).getValues();
+    var FIXES = {
+      'EC-2026-001-SEQ-1-E1-A': { funnel_stage: 'hook',    day: 1, week: 1, date: new Date('2026-05-27T12:00:00') },
+      'EC-2026-001-SEQ-1-E1-B': { funnel_stage: 'hook',    day: 1, week: 1, date: new Date('2026-05-27T12:00:00') },
+      'EC-2026-001-SEQ-1-E2-A': { funnel_stage: 'problem', day: 3, week: 1, date: new Date('2026-05-29T12:00:00') },
+      'EC-2026-001-SEQ-1-E2-B': { funnel_stage: 'problem', day: 3, week: 1, date: new Date('2026-05-29T12:00:00') },
+      'EC-2026-001-SEQ-1-E3-A': { funnel_stage: 'agitate', day: 6, week: 1, date: new Date('2026-06-01T12:00:00') },
+      'EC-2026-001-SEQ-1-E3-B': { funnel_stage: 'agitate', day: 6, week: 1, date: new Date('2026-06-01T12:00:00') }
+    };
+    var fixed = 0, report = [];
+    for (var i = 0; i < data.length; i++) {
+      var aid = String(data[i][H.asset_id] || '');
+      if (!FIXES[aid]) continue;
+      var fix = FIXES[aid];
+      calSheet.getRange(i + 2, H.funnel_stage + 1).setValue(fix.funnel_stage);
+      calSheet.getRange(i + 2, H.day + 1).setValue(fix.day);
+      calSheet.getRange(i + 2, H.week + 1).setValue(fix.week);
+      calSheet.getRange(i + 2, H.publish_date + 1).setValue(fix.date);
+      fixed++;
+      report.push({ asset_id: aid, row: i + 2, funnel_stage: fix.funnel_stage, day: fix.day });
+    }
+    Logger.log('[repairEC2026001EmailFunnelStages] fixed=' + fixed);
+    return { ok: true, fixed: fixed, rows: report };
+  } catch(e) {
+    Logger.log('[repairEC2026001EmailFunnelStages] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// assignEC2026001EmailDlIds: assigns DL-EM-xxxx IDs to email rows missing dl_id.
+// Run via doPost: { "action": "assign_ec2026001_email_dl_ids" }
+function assignEC2026001EmailDlIds(opts) {
+  opts = opts || {};
+  var force = !!(opts.force);
+  try {
+    var now = _ccNow();
+    var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+    var emHdrs  = _CC_HDR.EmailSequences;
+    var H = {};
+    emHdrs.forEach(function(h, i) { H[h] = i; });
+    var data = emSheet.getDataRange().getValues();
+    var dlSheet  = _getCCSheet(_CC_TAB.DL);
+    var newDlRows = [], updated = 0, skipped = 0;
+    for (var ri = 1; ri < data.length; ri++) {
+      var row = data[ri];
+      if (String(row[H['campaign_id']]) !== 'EC-2026-001') continue;
+      var existing = String(row[H['dl_id']] || '');
+      if (existing && !force) { skipped++; continue; }
+      var emailId   = String(row[H['id']] || '');
+      var isB       = emailId.slice(-2) === '-B';
+      var lpVariant = isB ? 'waitlist-b' : 'waitlist-a';
+      var lpUrl     = 'https://easychefpro.com/lp/' + lpVariant;
+      var subject   = String(row[H['subject_line']] || '');
+      var utmSlug   = subject.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+      var dlId = getNextDlId('EM');
+      if (!dlId) { Logger.log('[assignEC2026001EmailDlIds] getNextDlId null at row ' + (ri + 1)); continue; }
+      var utmContent = dlId + '|' + utmSlug;
+      var utmUrl     = lpUrl + '?utm_source=email&utm_medium=email&utm_campaign=ec-2026-001&utm_content=' + encodeURIComponent(utmContent);
+      emSheet.getRange(ri + 1, H['dl_id'] + 1).setValue(dlId);
+      updated++;
+      newDlRows.push([dlId, utmContent, 'EC-2026-001', 'Email', lpUrl, 'email', 'email', 'ec-2026-001', 'active', now, '', 'system', subject.slice(0, 60)]);
+    }
+    if (newDlRows.length > 0) {
+      var dlStart = dlSheet.getLastRow() + 1;
+      dlSheet.getRange(dlStart, 1, newDlRows.length, 13).setValues(newDlRows);
+    }
+    Logger.log('[assignEC2026001EmailDlIds] updated=' + updated + ' skipped=' + skipped + ' dl_registered=' + newDlRows.length);
+    return { ok: true, updated: updated, skipped: skipped, dl_registered: newDlRows.length };
+  } catch(e) {
+    Logger.log('[assignEC2026001EmailDlIds] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// fixEC2026001EmailStages: corrects SEQ-2 funnel stage labels and SEQ-4-E1-B subject.
+// SEQ-2: E1=solve(TRACK), E2=value(TRACK-value), E3=solve(PLAN), E4=value(loop), E5=proof
+// SEQ-4-E1-B: new subject = "Tonight, your kitchen changes."
+// Run via doPost: { "action": "fix_ec2026001_email_stages" }
+function fixEC2026001EmailStages() {
+  try {
+    var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+    var hdrs = _CC_HDR.EmailSequences;
+    var H = {};
+    hdrs.forEach(function(h, i) { H[h] = i; });
+    var data = emSheet.getDataRange().getValues();
+    var FIXES = {
+      'EC-2026-001-SEQ-2-E1-A': { funnel_stage: 'solve', body_theme: 'TRACK-solve' },
+      'EC-2026-001-SEQ-2-E1-B': { funnel_stage: 'solve', body_theme: 'TRACK-solve' },
+      'EC-2026-001-SEQ-2-E2-A': { funnel_stage: 'value', body_theme: 'TRACK-value' },
+      'EC-2026-001-SEQ-2-E2-B': { funnel_stage: 'value', body_theme: 'TRACK-value' },
+      'EC-2026-001-SEQ-2-E3-A': { funnel_stage: 'solve', body_theme: 'PLAN-solve' },
+      'EC-2026-001-SEQ-2-E3-B': { funnel_stage: 'solve', body_theme: 'PLAN-solve' },
+      'EC-2026-001-SEQ-2-E4-A': { funnel_stage: 'value', body_theme: 'loop-value' },
+      'EC-2026-001-SEQ-2-E4-B': { funnel_stage: 'value', body_theme: 'loop-value' },
+      'EC-2026-001-SEQ-4-E1-B': { subject_line: 'Tonight, your kitchen changes.' }
+    };
+    var fixed = 0, report = [];
+    for (var i = 0; i < data.length; i++) {
+      var eid = String(data[i][H.id] || '');
+      if (!FIXES[eid]) continue;
+      var fix = FIXES[eid];
+      if (fix.funnel_stage !== undefined) emSheet.getRange(i + 2, H.funnel_stage + 1).setValue(fix.funnel_stage);
+      if (fix.body_theme   !== undefined) emSheet.getRange(i + 2, H.body_theme   + 1).setValue(fix.body_theme);
+      if (fix.subject_line !== undefined) emSheet.getRange(i + 2, H.subject_line + 1).setValue(fix.subject_line);
+      fixed++;
+      report.push({ id: eid, row: i + 2, changes: JSON.stringify(fix) });
+    }
+    Logger.log('[fixEC2026001EmailStages] fixed=' + fixed);
+    return { ok: true, fixed: fixed, rows: report };
+  } catch(e) {
+    Logger.log('[fixEC2026001EmailStages] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// addEC2026001SEQ4Emails: adds SEQ-4-E2 and SEQ-4-E3 to EmailSequences + ContentCalendar.
+// E2 Day 1 (Jul 2): solve — first 5 minutes guidance
+// E3 Day 3 (Jul 4): cta  — founding price locks tonight
+// Run via doPost: { "action": "add_ec2026001_seq4_emails" }
+function addEC2026001SEQ4Emails() {
+  try {
+    var now = _ccNow();
+    var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+    var emHdrs  = _CC_HDR.EmailSequences;
+    var H = {};
+    emHdrs.forEach(function(h, i) { H[h] = i; });
+    var existingIds = emSheet.getDataRange().getValues().slice(1).map(function(r) { return String(r[H.id] || ''); });
+    var NEW_EMAILS = [
+      {
+        id: 'EC-2026-001-SEQ-4-E2-A', campaign_id: 'EC-2026-001', sequence_code: 'SEQ-4', email_number: 2,
+        subject_line: 'Here is your first 5 minutes.', preview_text: 'One scan. Dinner decided. The loop is closed.',
+        funnel_stage: 'solve', body_theme: 'first-strike', send_day: 1, trigger_event: 'july_1_launch',
+        status: 'draft', body_cta: 'Open easyChef Pro now'
+      },
+      {
+        id: 'EC-2026-001-SEQ-4-E2-B', campaign_id: 'EC-2026-001', sequence_code: 'SEQ-4', email_number: 2,
+        subject_line: '5 minutes to close the loop.', preview_text: 'Your first scan. Your first decision-free dinner.',
+        funnel_stage: 'solve', body_theme: 'first-strike', send_day: 1, trigger_event: 'july_1_launch',
+        status: 'draft', body_cta: 'Open easyChef Pro now'
+      },
+      {
+        id: 'EC-2026-001-SEQ-4-E3-A', campaign_id: 'EC-2026-001', sequence_code: 'SEQ-4', email_number: 3,
+        subject_line: 'Founding price locks tonight.', preview_text: '$7.99 forever ends at midnight. Last chance.',
+        funnel_stage: 'cta', body_theme: 'urgency-final', send_day: 3, trigger_event: 'july_1_launch',
+        status: 'draft', body_cta: 'Lock in $7.99 forever before midnight'
+      },
+      {
+        id: 'EC-2026-001-SEQ-4-E3-B', campaign_id: 'EC-2026-001', sequence_code: 'SEQ-4', email_number: 3,
+        subject_line: 'Tonight it locks. $7.99 forever.', preview_text: 'Founding price expires at midnight. Your kitchen is ready.',
+        funnel_stage: 'cta', body_theme: 'urgency-final', send_day: 3, trigger_event: 'july_1_launch',
+        status: 'draft', body_cta: 'Lock in $7.99 forever before midnight'
+      }
+    ];
+    var addedEm = 0, skippedEm = 0;
+    var emRows = [];
+    NEW_EMAILS.forEach(function(em) {
+      if (existingIds.indexOf(em.id) >= 0) { skippedEm++; return; }
+      var r = new Array(emHdrs.length).fill('');
+      r[H.id]            = em.id;
+      r[H.campaign_id]   = em.campaign_id;
+      r[H.sequence_code] = em.sequence_code;
+      r[H.email_number]  = em.email_number;
+      r[H.subject_line]  = em.subject_line;
+      r[H.preview_text]  = em.preview_text;
+      r[H.funnel_stage]  = em.funnel_stage;
+      r[H.body_theme]    = em.body_theme;
+      r[H.send_day]      = em.send_day;
+      r[H.trigger_event] = em.trigger_event;
+      r[H.status]        = em.status;
+      r[H.body_cta]      = em.body_cta;
+      r[H.approved]      = false;
+      emRows.push(r);
+      addedEm++;
+    });
+    if (emRows.length > 0) {
+      emSheet.getRange(emSheet.getLastRow() + 1, 1, emRows.length, emHdrs.length).setValues(emRows);
+    }
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var _calAllData = calSheet.getDataRange().getValues();
+    var _calHdrRow  = _calAllData[0].map(function(h) { return String(h).trim(); });
+    var HC = {};
+    _calHdrRow.forEach(function(h, i) { HC[h] = i; });
+    var existCalIds = _calAllData.slice(1).map(function(r) { return String(r[HC.asset_id] || ''); });
+    var CAL_META = {
+      'EC-2026-001-SEQ-4-E2-A': { date: new Date('2026-07-02T12:00:00'), day: 37, week: 6, subject: 'Here is your first 5 minutes.' },
+      'EC-2026-001-SEQ-4-E2-B': { date: new Date('2026-07-02T12:00:00'), day: 37, week: 6, subject: '5 minutes to close the loop.' },
+      'EC-2026-001-SEQ-4-E3-A': { date: new Date('2026-07-04T12:00:00'), day: 39, week: 6, subject: 'Founding price locks tonight.' },
+      'EC-2026-001-SEQ-4-E3-B': { date: new Date('2026-07-04T12:00:00'), day: 39, week: 6, subject: 'Tonight it locks. $7.99 forever.' }
+    };
+    var addedCal = 0;
+    var calRows = [];
+    NEW_EMAILS.forEach(function(em) {
+      if (existCalIds.indexOf(em.id) >= 0) return;
+      var meta = CAL_META[em.id];
+      if (!meta) return;
+      var r = new Array(_calHdrRow.length).fill('');
+      r[HC.calendar_id]     = 'CAL-' + em.id;
+      r[HC.asset_id]        = em.id;
+      r[HC.campaign_id]     = em.campaign_id;
+      r[HC.platform]        = 'Email';
+      r[HC.publish_date]    = meta.date;
+      r[HC.publish_time]    = '08:00';
+      r[HC.timezone]        = 'America/Los_Angeles';
+      r[HC.status]          = 'generated';
+      r[HC.approval_status] = 'pending';
+      r[HC.creative_status] = 'generated';
+      r[HC.caption]         = meta.subject;
+      r[HC.day]             = meta.day;
+      r[HC.week]            = meta.week;
+      r[HC.funnel_stage]    = em.funnel_stage;
+      r[HC.sequence_code]   = em.sequence_code;
+      r[HC.created_at]      = now;
+      calRows.push(r);
+      addedCal++;
+    });
+    if (calRows.length > 0) {
+      calSheet.getRange(calSheet.getLastRow() + 1, 1, calRows.length, _calHdrRow.length).setValues(calRows);
+    }
+    Logger.log('[addEC2026001SEQ4Emails] addedEm=' + addedEm + ' skippedEm=' + skippedEm + ' addedCal=' + addedCal);
+    return { ok: true, added_emails: addedEm, skipped: skippedEm, added_cal: addedCal };
+  } catch(e) {
+    Logger.log('[addEC2026001SEQ4Emails] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function repairEmailCalendarRows() {
+  try {
+    var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+    var seqSheet = _getCCSheet(_CC_TAB.EMAIL);
+
+    // Build subject line map from EmailSequences: {seq_id: subject_line}
+    var seqData   = seqSheet.getDataRange().getValues();
+    var seqHdrs   = seqData[0].map(function(h) { return String(h).trim(); });
+    var idCol     = seqHdrs.indexOf('id');
+    var subjCol   = seqHdrs.indexOf('subject_line');
+    var subjMap   = {};
+    for (var i = 1; i < seqData.length; i++) {
+      var sid = String(seqData[i][idCol] || '');
+      var sub = String(seqData[i][subjCol] || '');
+      if (sid) subjMap[sid] = sub;
+    }
+
+    // Read ContentCalendar in full
+    var calData  = calSheet.getDataRange().getValues();
+    var calHdrs  = calData[0].map(function(h) { return String(h).trim(); });
+    var calIdCol  = calHdrs.indexOf('calendar_id');
+    var calAidCol = calHdrs.indexOf('asset_id');
+    var calCapCol = calHdrs.indexOf('caption');
+    if (calIdCol < 0 || calAidCol < 0 || calCapCol < 0) {
+      return { ok: false, error: 'Required columns not found in ContentCalendar' };
+    }
+
+    var fixed = 0, renamed = 0;
+    for (var r = 1; r < calData.length; r++) {
+      var assetId = String(calData[r][calAidCol] || '');
+      if (!assetId.match(/^EC-2026-001-SEQ-/)) continue;
+
+      var changed = false;
+      var calId   = String(calData[r][calIdCol] || '');
+
+      // Step 1: enforce canonical cc-<assetId> pattern (handles CAL- prefix, integer, blank, etc.)
+      var _canonical = 'cc-' + assetId;
+      if (calId !== _canonical) {
+        calData[r][calIdCol] = _canonical;
+        renamed++;
+        changed = true;
+      }
+
+      // Step 2: update caption from subject line map
+      var subj = subjMap[assetId] || '';
+      if (subj && String(calData[r][calCapCol]) !== subj) {
+        calData[r][calCapCol] = subj;
+        changed = true;
+      }
+
+      if (changed) {
+        calSheet.getRange(r + 1, 1, 1, calData[r].length).setValues([calData[r]]);
+        fixed++;
+      }
+    }
+
+    Logger.log('[repairEmailCalendarRows] fixed=' + fixed + ' renamed=' + renamed);
+    return { ok: true, fixed: fixed, renamed: renamed };
+  } catch(e) {
+    Logger.log('[repairEmailCalendarRows] ERROR: ' + e.message);
     return { ok: false, error: e.message };
   }
 }

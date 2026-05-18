@@ -611,6 +611,9 @@ function doPost(e) {
       });
     }
 
+    // Route all requests to the correct account sheet when sheet_id is provided
+    if (body.sheet_id) { try { _REQUEST_SHEET_ID = body.sheet_id; } catch(_) {} }
+
     // ── VERA ACTIONS ──
     var veraResult = handleVeraAction(body);
     if(veraResult) return veraResult;
@@ -888,6 +891,16 @@ function doPost(e) {
       var _gdhResult = getDesignHtml(body.asset_id || '');
       return respond({ ok: _gdhResult.ok, result: _gdhResult, log: Logger.getLog() });
     }
+    if(body.action === 'get_claude_design_prompt') {
+      var _cdpResult = getClaudeDesignPrompt(body.asset_id || '');
+      return respond({ ok: _cdpResult.ok !== false, prompt: _cdpResult.prompt || '', result: _cdpResult, log: Logger.getLog() });
+    }
+    if(body.action === 'load_panel_positions') {
+      return respond(loadPanelPositions());
+    }
+    if(body.action === 'save_panel_positions') {
+      return respond(savePanelPositions(body.positions_json || '{}'));
+    }
     if(body.action === 'save_design_to_github') {
       var _sdghResult = saveDesignToGithub(body.asset_id || '');
       return respond({ ok: _sdghResult.ok, result: _sdghResult, log: Logger.getLog() });
@@ -1058,6 +1071,34 @@ function doPost(e) {
       var _calSync = syncEC2026001CalFields({ force: !!(body.force), campaign_id: body.campaign_id });
       return respond({ ok:_calSync.ok, result:_calSync, log: Logger.getLog() });
     }
+    if(body.action === 'repair_ec2026001_dates') {
+      var _drResult = repairEC2026001Dates();
+      return respond({ ok:_drResult.ok, result:_drResult, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_ec2026001_email_dates') {
+      var _emdrResult = repairEC2026001EmailDates();
+      return respond({ ok:_emdrResult.ok, result:_emdrResult, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_ec2026001_email_funnel_stages') {
+      var _fsResult = repairEC2026001EmailFunnelStages();
+      return respond({ ok:_fsResult.ok, result:_fsResult, log: Logger.getLog() });
+    }
+    if(body.action === 'assign_ec2026001_email_dl_ids') {
+      var _emdlResult = assignEC2026001EmailDlIds({ force: !!(body.force) });
+      return respond({ ok:_emdlResult.ok, result:_emdlResult, log: Logger.getLog() });
+    }
+    if(body.action === 'audit_dl_uniqueness') {
+      var _auditResult = auditDlUniqueness(body.campaign_id || 'EC-2026-001');
+      return respond({ ok:_auditResult.ok, result:_auditResult, log: Logger.getLog() });
+    }
+    if(body.action === 'fix_ec2026001_email_stages') {
+      var _stgResult = fixEC2026001EmailStages();
+      return respond({ ok:_stgResult.ok, result:_stgResult, log: Logger.getLog() });
+    }
+    if(body.action === 'add_ec2026001_seq4_emails') {
+      var _seq4Result = addEC2026001SEQ4Emails();
+      return respond({ ok:_seq4Result.ok, result:_seq4Result, log: Logger.getLog() });
+    }
     if(body.action === 'seed_ec2026001_emails') {
       var _emResult = seedEC2026001Emails();
       return respond({ ok:_emResult.ok, result:_emResult, log: Logger.getLog() });
@@ -1073,6 +1114,76 @@ function doPost(e) {
     if(body.action === 'seed_ec2026001_complete') {
       var _complResult = seedEC2026001Complete();
       return respond({ ok:_complResult.ok, result:_complResult, log: Logger.getLog() });
+    }
+    if(body.action === 'get_accounts') {
+      return respond(getAccounts());
+    }
+    if(body.action === 'register_account') {
+      var _raResult = registerAccount(body.account_id, body.account_name, body.sheet_id, body.status);
+      return respond(_raResult);
+    }
+    if(body.action === 'deregister_account') {
+      return respond(deregisterAccount(body.account_id));
+    }
+    if(body.action === 'seed_account_registry') {
+      return respond(seedAccountRegistry());
+    }
+    if(body.action === 'check_account_setup') {
+      return respond(checkAccountSetup(body.sheet_id));
+    }
+    if(body.action === 'seed_ob_calendar') {
+      return respond(seedOBCalendar(body.campaign_id, body.sheet_id, body.force, body.icp_codes));
+    }
+    if(body.action === 'generate_ob_campaign') {
+      return respond(generateOBCampaign(body.campaign_id, body.sheet_id, body.icp_codes));
+    }
+    if(body.action === 'run_ob_campaign_full') {
+      return respond(runOBCampaignFull(body.campaign_id, body.sheet_id, body.icp_codes));
+    }
+    if(body.action === 'purge_ob_campaign') {
+      return respond(purgeOBCampaign(body.campaign_id, body.sheet_id));
+    }
+    if(body.action === 'get_templates') {
+      return respond(getTemplates(body.type));
+    }
+    if(body.action === 'register_template') {
+      return respond(registerTemplate(body.id, body.name, body.type, body.file_id, body.description, body.status));
+    }
+    if(body.action === 'deregister_template') {
+      return respond(deregisterTemplate(body.id));
+    }
+    if(body.action === 'create_account_template') {
+      return respond(createAccountTemplate());
+    }
+    if(body.action === 'clone_account') {
+      return respond(cloneAccount(body.account_name, body.account_id, body.template_file_id));
+    }
+    if(body.action === 'get_all_funnels') {
+      return respond(getAllCampaignFunnels());
+    }
+    if(body.action === 'create_lp_entry') {
+      return respond(createLPEntry(body));
+    }
+    if(body.action === 'generate_dls_for_lp') {
+      return respond(generateDLsForLP(body));
+    }
+    if(body.action === 'generate_lp_copy') {
+      return respond(generateLPSpine(body.campaign_id, { lp_variant: body.lp_variant, icp_code: body.icp_code }));
+    }
+    if(body.action === 'update_lp_entry') {
+      return respond(updateLPEntry(body));
+    }
+    if(body.action === 'fix_duplicate_hooks') {
+      var _fdhResult = fixDuplicateHooks(body.date_key, body.campaign_id);
+      return respond({ ok:_fdhResult.ok, result:_fdhResult, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_ec2026001_seq3_cal') {
+      var _s3Result = repairEC2026001Seq3Cal();
+      return respond({ ok:_s3Result.ok, result:_s3Result, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_ec2026001_seq4_cal') {
+      var _s4Result = repairEC2026001Seq4Cal();
+      return respond({ ok:_s4Result.ok, result:_s4Result, log: Logger.getLog() });
     }
     if(body.action === 'fix_ec2026001_emails') {
       var _fixResult = fixEC2026001Emails();
@@ -1229,6 +1340,7 @@ function doPost(e) {
       var _sacResult = seedAllCampaignsContentCalendar();
       return respond({ ok:_sacResult.ok, total_seeded:_sacResult.total_seeded, by_campaign:_sacResult.by_campaign, error:_sacResult.error||null, log:Logger.getLog() });
     }
+    if(body.action === 'repair_email_calendar_rows') return respond(repairEmailCalendarRows());
     if(body.action === 'repair_ec2026002_social_posts') {
       // If EC-2026-002 rows are missing, seed them first
       var _ec2Check = getSocialPosts('EC-2026-002') || [];
@@ -1460,6 +1572,62 @@ function doPost(e) {
       var _bl = getBlockedAssets(body.campaign_id);
       return respond({ ok:_bl.ok, result:_bl, log: Logger.getLog() });
     }
+    if(body.action === 'repair_creative_status') {
+      var _rc = repairCreativeStatus(body.campaign_id);
+      return respond({ ok:_rc.ok, result:_rc, log: Logger.getLog() });
+    }
+    if(body.action === 'repair_email_sequence_codes') {
+      var _resc = repairEmailSequenceCodes(body.campaign_id);
+      return respond({ ok:_resc.ok, result:_resc, log: Logger.getLog() });
+    }
+
+    if(body.action === 'remove_ghost_email_stubs') {
+      try {
+        var _ghostPattern = /^ec001-sp-/i;
+        var _ghostSS = _getCampaignSpreadsheet();
+        var _ghostDeleted = { social_posts: 0, content_calendar: 0, ids: [] };
+
+        // Delete from SocialPosts
+        var _spSheet = _ghostSS.getSheetByName('SocialPosts');
+        if (_spSheet && _spSheet.getLastRow() >= 2) {
+          var _spHdrs = _spSheet.getRange(1, 1, 1, _spSheet.getLastColumn()).getValues()[0].map(function(h){return String(h).trim();});
+          var _spIdIdx = _spHdrs.indexOf('id');
+          var _spPlIdx = _spHdrs.indexOf('platform');
+          var _spData  = _spSheet.getRange(2, 1, _spSheet.getLastRow()-1, _spSheet.getLastColumn()).getValues();
+          for (var _si = _spData.length-1; _si >= 0; _si--) {
+            var _sid = String(_spData[_si][_spIdIdx]||'');
+            var _spl = String(_spData[_si][_spPlIdx]||'').toLowerCase();
+            if (_spl === 'email' && _ghostPattern.test(_sid)) {
+              _spSheet.deleteRow(_si + 2);
+              _ghostDeleted.social_posts++;
+              _ghostDeleted.ids.push(_sid);
+            }
+          }
+        }
+
+        // Delete from ContentCalendar
+        var _ccGhSheet = _ghostSS.getSheetByName('ContentCalendar');
+        if (_ccGhSheet && _ccGhSheet.getLastRow() >= 2) {
+          var _ccGhHdrs = _ccGhSheet.getRange(1, 1, 1, _ccGhSheet.getLastColumn()).getValues()[0].map(function(h){return String(h).trim();});
+          var _ccGhAIdx = _ccGhHdrs.indexOf('asset_id');
+          var _ccGhPIdx = _ccGhHdrs.indexOf('platform');
+          var _ccGhData = _ccGhSheet.getRange(2, 1, _ccGhSheet.getLastRow()-1, _ccGhSheet.getLastColumn()).getValues();
+          for (var _ci = _ccGhData.length-1; _ci >= 0; _ci--) {
+            var _caid = String(_ccGhData[_ci][_ccGhAIdx]||'');
+            var _cpla = String(_ccGhData[_ci][_ccGhPIdx]||'').toLowerCase();
+            if (_cpla === 'email' && _ghostPattern.test(_caid)) {
+              _ccGhSheet.deleteRow(_ci + 2);
+              _ghostDeleted.content_calendar++;
+            }
+          }
+        }
+
+        Logger.log('[remove_ghost_email_stubs] sp:'+_ghostDeleted.social_posts+' cc:'+_ghostDeleted.content_calendar);
+        return respond({ ok:true, result:_ghostDeleted, log:Logger.getLog() });
+      } catch(_ghe) {
+        return respond({ ok:false, error:_ghe.message, log:Logger.getLog() });
+      }
+    }
 
     // ── System health check — run at every session start ──────────────────────
     if(body.action === 'system_health_check') {
@@ -1509,16 +1677,18 @@ function doPost(e) {
           }
         }
 
-        // AI model state + ROADMAP_DOC_ID — direct sheet read, no _getCcSetting
+        // AI model state + ROADMAP_DOC_ID + CURRENT_DEPLOY — direct sheet read, no _getCcSetting
         var _hGptActive = 'unknown';
         var _hRoadmapId = '';
+        var _hDeployVersion = '@unknown';
         var _hCcSettingsSheet = _getCCSheet(_CC_TAB.SETTINGS);
         if (_hCcSettingsSheet && _hCcSettingsSheet.getLastRow() >= 2) {
           var _hCcVals = _hCcSettingsSheet.getRange(2,1,_hCcSettingsSheet.getLastRow()-1,3).getValues();
           _hCcVals.forEach(function(r) {
             var _rKey = String(r[1]);
-            if (_rKey === 'GPT4O_ACTIVE') _hGptActive = String(r[2]);
-            if (_rKey === 'ROADMAP_DOC_ID') _hRoadmapId = String(r[2]);
+            if (_rKey === 'GPT4O_ACTIVE')   _hGptActive     = String(r[2]);
+            if (_rKey === 'ROADMAP_DOC_ID') _hRoadmapId     = String(r[2]);
+            if (_rKey === 'CURRENT_DEPLOY') _hDeployVersion = String(r[2]);
           });
         }
 
@@ -1538,7 +1708,7 @@ function doPost(e) {
 
         var health = {
           campaign_id:      _hcid,
-          deploy:           '@678',
+          deploy:           _hDeployVersion,
           sheet_id:         _hss.getId(),
           content_calendar: _ccTotal,
           social_posts:     _spTotal,
@@ -1550,6 +1720,7 @@ function doPost(e) {
           lp_spine:         _hSpine ? 'POPULATED' : 'MISSING',
           gpt4o_active:     _hGptActive,
           roadmap_doc_id:   _hRoadmapId,
+          dl_audit:         '',
           red: []
         };
 
@@ -1557,6 +1728,13 @@ function doPost(e) {
         if (_hBlocked > 0)    health.red.push('BLOCKED_ASSETS: ' + _hBlocked + ' rows have blocked_by set');
         if (_hBriefDocs === 0) health.red.push('BRIEF_DOCS: 0 brief_doc_url populated — run generate_content_cal_brief_docs');
         if (!_hRoadmapId)     health.red.push('ROADMAP_DOC_ID not in CcSettings — run append_setting to add it');
+        try {
+          var _dlAudit = auditDlUniqueness(_hcid);
+          health.dl_audit = _dlAudit.summary;
+          if (!_dlAudit.ok) _dlAudit.violations.forEach(function(v) {
+            health.red.push('DL_UNIQUENESS: ' + v.type + ' value=' + v.value);
+          });
+        } catch(_dae) { health.dl_audit = 'audit_error: ' + _dae.message; }
 
         Logger.log('[system_health_check] ' + JSON.stringify(health));
         return respond({ ok:true, health: health, log: Logger.getLog() });
@@ -1598,6 +1776,7 @@ function doPost(e) {
       var _calr = getCampaignCalendar(body.campaign_id);
       return respond({ ok:_calr.ok, result:_calr, log: Logger.getLog() });
     }
+    if(body.action === 'move_asset') { return respond(moveAsset(body)); }
     if(body.action === 'get_cockpit_filter_defs') {
       var _fd = getCockpitFilterDefs();
       return respond({ ok:_fd.ok, result:_fd, log: Logger.getLog() });
@@ -1619,6 +1798,11 @@ function doPost(e) {
     // ── Email Sequences ───────────────────────────────────────────────────────────
     if(body.action === 'email_sequences_read')   return respond({ ok:true, sequences: getEmailSequences(body.campaign_id||'') });
     if(body.action === 'email_sequences_write')  { setEmailSequence(body.sequence); return respond({ ok:true }); }
+    if(body.action === 'patch_seq_meta')         return respond(patchSeqMeta(body.campaign_id||'EC-2026-001', body.patches||[]));
+    if(body.action === 'patch_seq_word_counts')      return respond(patchSeqWordCounts(body.campaign_id||'EC-2026-001'));
+    if(body.action === 'submit_alpha_questionnaire') return respond(submitAlphaQuestionnaire(body.data||{}));
+    if(body.action === 'submit_alpha_feedback')      return respond(submitAlphaFeedback(body.data||{}));
+    if(body.action === 'submit_waitlist_signup')     return respond(submitWaitlistSignup(body.data||{}));
 
     // ── UTM Generator ────────────────────────────────────────────────────────────
     if(body.action === 'generate_utm_urls') return respond(generateUtmUrls(body));
@@ -3992,6 +4176,47 @@ function _testAllApiKeys() {
   Logger.log('All key checks complete.');
 }
 
+
+// ── Cockpit panel position persistence — stored in CcSettings sheet row SYSTEM/PANEL_POSITIONS ──
+function savePanelPositions(posJson) {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.SETTINGS);
+    var last  = sheet.getLastRow();
+    if (last >= 2) {
+      var vals = sheet.getRange(2, 1, last - 1, 2).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        if (String(vals[i][0]).toUpperCase() === 'SYSTEM' && String(vals[i][1]) === 'PANEL_POSITIONS') {
+          sheet.getRange(i + 2, 3).setValue(String(posJson || '{}'));
+          try { CacheService.getScriptCache().remove('cc_settings_v1'); } catch(e2) {}
+          return { ok: true };
+        }
+      }
+    }
+    sheet.appendRow(['SYSTEM', 'PANEL_POSITIONS', String(posJson || '{}'), 'Cockpit filter panel layout', true]);
+    try { CacheService.getScriptCache().remove('cc_settings_v1'); } catch(e2) {}
+    return { ok: true };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+function loadPanelPositions() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.SETTINGS);
+    var last  = sheet.getLastRow();
+    if (last >= 2) {
+      var vals = sheet.getRange(2, 1, last - 1, 3).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        if (String(vals[i][0]).toUpperCase() === 'SYSTEM' && String(vals[i][1]) === 'PANEL_POSITIONS') {
+          return { ok: true, positions: String(vals[i][2] || '{}') };
+        }
+      }
+    }
+    return { ok: true, positions: '{}' };
+  } catch(e) {
+    return { ok: false, positions: '{}' };
+  }
+}
 
 function respond(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);

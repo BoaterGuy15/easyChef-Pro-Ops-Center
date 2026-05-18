@@ -1,4 +1,4 @@
-// clasp auto-deploy test — May 5, 2026
+﻿// clasp auto-deploy test — May 5, 2026
 // ─────────────────────────────────────────────────────────────────────────────
 // Operations_CampaignSheets.gs
 // Manages the "easyChef Pro — Campaign Center" Google Sheet.
@@ -34,7 +34,11 @@ var _CC_TAB = {
   ASSET_LIFECYCLE:   'AssetLifecycle',
   VIDEO_PRODUCTION:  'VideoProduction',
   VIDEO_IDEA_BANK:   'VideoIdeaBank',
-  LIFE_STAGES:       'LifeStages'
+  LIFE_STAGES:       'LifeStages',
+  MILESTONES:        'Milestones',
+  ALPHA_Q:           'AlphaQuestionnaire',
+  ALPHA_FB:          'AlphaFeedback',
+  WAITLIST:          'WaitlistSignups'
 };
 
 var _CC_HDR = {
@@ -79,7 +83,8 @@ var _CC_HDR = {
     'funnel_stage','subject_angle','body_theme','role','seq_template_id',
     'design_brief',
     'lp_section_source','emotional_stage','claim_set','loop_stage','dl_id',
-    'claude_design_url','full_email_body'
+    'claude_design_url','full_email_body',
+    'icp_code','segment','target_word_count'
   ],
   CampaignTypes: [
     'id','cta_type','label','cta_text','destination_url','destination_label',
@@ -120,6 +125,7 @@ var _CC_HDR = {
     'page_type','thank_you_url',
     'hero_subheadline',
     'section_problem','section_agitate','section_solve','section_value','section_proof','section_cta',
+    'section_hook','section_lifecycle',
     'tracking_convert_id','tracking_clarity_id','tracking_ga4_id',
     'qa_passed','pushed_to_production',
     'convert_experiment_id','shared_by_campaigns','last_traffic_date'
@@ -206,12 +212,47 @@ var _CC_HDR = {
   LifeStages: [
     'life_stage_id','current_chapter','next_chapter',
     'stage_recognition_line','next_stage_bridge','adaptation_copy','active'
+  ],
+  Milestones: [
+    'id','campaign_id','title','date','type','color','created_at','created_by'
+  ],
+  AlphaQuestionnaire: [
+    'id','submitted_at','first_name','email',
+    'stores','walmart_shopper',
+    'b1_cooks_home','b2_dinner_struggle','b3_takeout','b4_waste_groceries',
+    'b5_meal_plan','b6_fridge_confusion','b7_cooks_for_kids','b8_dietary_restrictions',
+    'dietary_details',
+    'c1_budget_priority','c2_smartphone_lists','c3_meal_planning_app','c4_pantry_app',
+    'c5_busy_parent','c6_food_waste_money','c7_try_new_app',
+    'd_comments',
+    'priority_candidate','status'
+  ],
+  AlphaFeedback: [
+    'id','submitted_at','first_name','email',
+    'q1_tasks_completed',
+    'q1_task_onboarding','q1_task_add_pantry','q1_task_create_recipe','q1_task_shopping_cart',
+    'q2_confusing',
+    'q3_useful',
+    'q4_recommend','q4_recommend_why',
+    'q5_fix_before_launch',
+    'status'
+  ],
+  WaitlistSignups: [
+    'id','submitted_at','email','lp_variant','lp_slug','campaign_id',
+    'utm_source','utm_medium','utm_campaign','referrer','status'
   ]
 };
 
 // ── Spreadsheet access ────────────────────────────────────────────────────────
 
+// Set by getCampaignCalendar / getCampaignDashboard / getCampaignMilestones
+// to route all sheet reads to a specific account's sheet for that call.
+var _REQUEST_SHEET_ID = null;
+
 function _getCampaignSpreadsheet() {
+  if (_REQUEST_SHEET_ID) {
+    try { return SpreadsheetApp.openById(_REQUEST_SHEET_ID); } catch (e) {}
+  }
   var props = PropertiesService.getScriptProperties();
   var ssId  = props.getProperty(_CC_SS_ID_KEY);
   if (ssId) {
@@ -220,6 +261,179 @@ function _getCampaignSpreadsheet() {
   var ss = SpreadsheetApp.create(_CC_SS_NAME);
   props.setProperty(_CC_SS_ID_KEY, ss.getId());
   return ss;
+}
+
+// ── Account Registry (ScriptProperties key: ACCOUNTS_REGISTRY) ───────────────
+// Registry is a JSON array: [{id, name, sheet_id, status, created_at}, ...]
+
+var _ACCOUNTS_REG_KEY = 'ACCOUNTS_REGISTRY';
+
+function getAccounts() {
+  try {
+    var raw = PropertiesService.getScriptProperties().getProperty(_ACCOUNTS_REG_KEY);
+    var accounts = raw ? JSON.parse(raw) : [];
+    return { ok: true, accounts: accounts };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function registerAccount(id, name, sheetId, status) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var raw = props.getProperty(_ACCOUNTS_REG_KEY);
+    var accounts = raw ? JSON.parse(raw) : [];
+    var idx = accounts.findIndex(function(a) { return a.id === id; });
+    var entry = { id: id, name: name, sheet_id: sheetId, status: status || 'active', created_at: new Date().toISOString() };
+    if (idx >= 0) { accounts[idx] = entry; } else { accounts.push(entry); }
+    props.setProperty(_ACCOUNTS_REG_KEY, JSON.stringify(accounts));
+    return { ok: true, account: entry };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function deregisterAccount(id) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var raw = props.getProperty(_ACCOUNTS_REG_KEY);
+    var accounts = raw ? JSON.parse(raw) : [];
+    accounts = accounts.filter(function(a) { return a.id !== id; });
+    props.setProperty(_ACCOUNTS_REG_KEY, JSON.stringify(accounts));
+    return { ok: true, removed: id };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// ── Template Registry (ScriptProperties key: TEMPLATES_REGISTRY) ─────────────
+// Registry is a JSON array: [{id, name, type, file_id, description, status, created_at}]
+// type: 'account' | 'campaign'
+// Adding a template = registerTemplate() call — no code changes ever.
+
+var _TEMPLATES_REG_KEY = 'TEMPLATES_REGISTRY';
+
+function getTemplates(type) {
+  try {
+    var raw = PropertiesService.getScriptProperties().getProperty(_TEMPLATES_REG_KEY);
+    var templates = raw ? JSON.parse(raw) : [];
+    if (type) templates = templates.filter(function(t) { return t.type === type; });
+    return { ok: true, templates: templates };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function registerTemplate(id, name, type, fileId, description, status) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var raw = props.getProperty(_TEMPLATES_REG_KEY);
+    var templates = raw ? JSON.parse(raw) : [];
+    var idx = templates.findIndex(function(t) { return t.id === id; });
+    var entry = { id: id, name: name, type: type || 'account', file_id: fileId, description: description || '', status: status || 'active', created_at: new Date().toISOString() };
+    if (idx >= 0) { templates[idx] = entry; } else { templates.push(entry); }
+    props.setProperty(_TEMPLATES_REG_KEY, JSON.stringify(templates));
+    return { ok: true, template: entry };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function deregisterTemplate(id) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var raw = props.getProperty(_TEMPLATES_REG_KEY);
+    var templates = raw ? JSON.parse(raw) : [];
+    templates = templates.filter(function(t) { return t.id !== id; });
+    props.setProperty(_TEMPLATES_REG_KEY, JSON.stringify(templates));
+    return { ok: true, removed: id };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// ── Account Template ──────────────────────────────────────────────────────────
+// Tabs whose data rows are cleared when creating a template (structure kept).
+var _TEMPLATE_DATA_TABS = [
+  'ContentCalendar','SocialPosts','EmailSequences','DeepLinkRegistry',
+  'CampaignBriefs','GeneratedCopy','LandingPages','CampaignMetrics',
+  'ScheduledPosts','LPInventory','Milestones','VideoProduction','VideoIdeaBank'
+];
+
+function createAccountTemplate() {
+  try {
+    var ss     = _getCampaignSpreadsheet();
+    var ssFile = DriveApp.getFileById(ss.getId());
+    var copy   = ssFile.makeCopy('easyChef Pro — Account Template');
+    var tplSs  = SpreadsheetApp.openById(copy.getId());
+
+    _TEMPLATE_DATA_TABS.forEach(function(tabName) {
+      var sheet = tplSs.getSheetByName(tabName);
+      if (sheet && sheet.getLastRow() > 1) {
+        var numRows = sheet.getLastRow() - 1;
+        var numCols = sheet.getLastColumn() || 1;
+        sheet.getRange(2, 1, numRows, numCols).clearContent();
+      }
+    });
+
+    var fileId = copy.getId();
+    var result = registerTemplate('acct-default', 'Default Account', 'account', fileId, 'Blank account structure — all tabs, headers only, no data', 'active');
+    return { ok: result.ok, template: result.template, error: result.error };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function cloneAccount(newName, newId, templateId) {
+  try {
+    // If no templateId provided, use first active account template from registry
+    if (!templateId) {
+      var tplResult = getTemplates('account');
+      var active = (tplResult.templates || []).filter(function(t) { return t.status === 'active'; });
+      if (!active.length) return { ok: false, error: 'No account templates in registry — run create_account_template first' };
+      templateId = active[0].file_id;
+    }
+    var tplFile    = DriveApp.getFileById(templateId);
+    var newFile    = tplFile.makeCopy(newName + ' — Campaign Center');
+    var newSheetId = newFile.getId();
+    var accountId  = newId || ('AC-' + newName.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 8) + '-' + new Date().getFullYear());
+    var result = registerAccount(accountId, newName, newSheetId, 'active');
+    return { ok: result.ok, account: result.account, error: result.error };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// ── Account Setup Check ───────────────────────────────────────────────────────
+// Checks whether the five required data sets are populated in an account sheet.
+// "Complete" = the tab exists and has at least one data row.
+// Nothing is hardcoded — tab names come from _CC_TAB, no field names referenced.
+
+function checkAccountSetup(sheetId) {
+  _REQUEST_SHEET_ID = sheetId || null;
+  try {
+    var ss   = _getCampaignSpreadsheet();
+    var ssId = ss.getId();
+    var REQUIRED = [
+      { key: 'branding',     tab: _CC_TAB.BRAND_DOCTRINE, label: 'Branding' },
+      { key: 'icp_profiles', tab: _CC_TAB.ICP,            label: 'ICP Profiles' },
+      { key: 'claims',       tab: _CC_TAB.CLAIMS,         label: 'Claims' },
+      { key: 'milestones',   tab: _CC_TAB.MILESTONES,     label: 'Milestones' },
+      { key: 'life_stages',  tab: _CC_TAB.LIFE_STAGES,    label: 'Life Stages' }
+    ];
+    var checks = [];
+    var allComplete = true;
+    REQUIRED.forEach(function(req) {
+      var sheet = ss.getSheetByName(req.tab);
+      var gid = sheet ? sheet.getSheetId() : null;
+      var complete = !!(sheet && sheet.getLastRow() > 1);
+      checks.push({ key: req.key, label: req.label, tab: req.tab, complete: complete, gid: gid });
+      if (!complete) allComplete = false;
+    });
+    return { ok: true, all_complete: allComplete, sheet_id: ssId, checks: checks };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 function _getCCSheet(tabName) {
@@ -1628,7 +1842,10 @@ function _seqRowToObj(r) {
     loop_stage:        r[29] || '',
     dl_id:             r[30] || '',
     claude_design_url: r[31] || '',
-    full_email_body:   r[32] || ''
+    full_email_body:   r[32] || '',
+    icp_code:           r[33] || '',
+    segment:            r[34] || '',
+    target_word_count:  r[35] || ''
   };
 }
 
@@ -1688,9 +1905,138 @@ function setEmailSequence(item) {
     item.loop_stage        !== undefined ? item.loop_stage        : (ex ? ex[29] : ''),
     item.dl_id             !== undefined ? item.dl_id             : (ex ? ex[30] : ''),
     item.claude_design_url !== undefined ? item.claude_design_url : (ex ? ex[31] : ''),
-    item.full_email_body   !== undefined ? item.full_email_body   : (ex ? ex[32] : '')
+    item.full_email_body   !== undefined ? item.full_email_body   : (ex ? ex[32] : ''),
+    item.icp_code           !== undefined ? item.icp_code           : (ex ? ex[33] : ''),
+    item.segment            !== undefined ? item.segment            : (ex ? ex[34] : ''),
+    item.target_word_count  !== undefined ? item.target_word_count  : (ex ? ex[35] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
+}
+
+var _SEQ_WORD_COUNT_TARGETS = {
+  'SEQ-1':       '150-200',
+  'SEQ-2':       '200-300',
+  'SEQ-3':       '100-150',
+  'SEQ-4':       '150-200',
+  'ALPHA':       '100-150',
+  'BETA':        '100-150',
+  'OB-A':        '100-150',
+  'OB-B':        '100-150',
+  'OB-ORGANIC':  '100-150',
+  'Onboarding':  '100-150'
+};
+
+function patchSeqWordCounts(campaignId) {
+  var seqs = getEmailSequences(campaignId);
+  var updated = 0;
+  seqs.forEach(function(seq) {
+    var target = _SEQ_WORD_COUNT_TARGETS[seq.sequence_code];
+    if (!target || seq.target_word_count === target) return;
+    var merged = {};
+    for (var k in seq) { merged[k] = seq[k]; }
+    merged.target_word_count = target;
+    setEmailSequence(merged);
+    updated++;
+  });
+  return { ok: true, updated: updated };
+}
+
+function patchSeqMeta(campaignId, patches) {
+  // patches: [{sequence_code, icp_code, segment}, ...]
+  var seqs = getEmailSequences(campaignId);
+  var patchMap = {};
+  patches.forEach(function(p){ patchMap[p.sequence_code] = p; });
+  var updated = 0;
+  seqs.forEach(function(seq){
+    var p = patchMap[seq.sequence_code];
+    if (!p) return;
+    var merged = {};
+    for (var k in seq) { merged[k] = seq[k]; }
+    merged.icp_code = p.icp_code;
+    merged.segment  = p.segment;
+    setEmailSequence(merged);
+    updated++;
+  });
+  return {ok: true, updated: updated};
+}
+
+// ── AlphaQuestionnaire ────────────────────────────────────────────────────────
+
+function submitAlphaQuestionnaire(data) {
+  var sheet = _getCCSheet(_CC_TAB.ALPHA_Q);
+  var hdrs  = _CC_HDR.AlphaQuestionnaire;
+  var id    = 'AQ-' + new Date().getTime();
+  var isPriority = data.walmart_shopper === true || data.walmart_shopper === 'true';
+  var row = [
+    id,
+    _ccNow(),
+    data.first_name   || '',
+    data.email        || '',
+    (data.stores      || []).join(', '),
+    isPriority ? 'TRUE' : 'FALSE',
+    data.b1_cooks_home          || '', data.b2_dinner_struggle   || '',
+    data.b3_takeout             || '', data.b4_waste_groceries   || '',
+    data.b5_meal_plan           || '', data.b6_fridge_confusion  || '',
+    data.b7_cooks_for_kids      || '', data.b8_dietary_restrictions || '',
+    data.dietary_details        || '',
+    data.c1_budget_priority     || '', data.c2_smartphone_lists  || '',
+    data.c3_meal_planning_app   || '', data.c4_pantry_app        || '',
+    data.c5_busy_parent         || '', data.c6_food_waste_money  || '',
+    data.c7_try_new_app         || '',
+    data.d_comments             || '',
+    isPriority ? 'TRUE' : 'FALSE',
+    'new'
+  ];
+  _ccUpsert(sheet, hdrs, id, row);
+  return { ok: true, id: id, priority: isPriority };
+}
+
+// ── AlphaFeedback ─────────────────────────────────────────────────────────────
+
+function submitAlphaFeedback(data) {
+  var sheet = _getCCSheet(_CC_TAB.ALPHA_FB);
+  var hdrs  = _CC_HDR.AlphaFeedback;
+  var id    = 'AF-' + new Date().getTime();
+  var row = [
+    id,
+    _ccNow(),
+    data.first_name            || '',
+    data.email                 || '',
+    data.q1_tasks_completed    || '',
+    data.q1_task_onboarding    || '',
+    data.q1_task_add_pantry    || '',
+    data.q1_task_create_recipe || '',
+    data.q1_task_shopping_cart || '',
+    data.q2_confusing          || '',
+    data.q3_useful             || '',
+    data.q4_recommend          || '',
+    data.q4_recommend_why      || '',
+    data.q5_fix_before_launch  || '',
+    'new'
+  ];
+  _ccUpsert(sheet, hdrs, id, row);
+  return { ok: true, id: id };
+}
+
+function submitWaitlistSignup(data) {
+  var sheet = _getCCSheet(_CC_TAB.WAITLIST);
+  var hdrs  = _CC_HDR.WaitlistSignups;
+  var id    = 'WL-' + new Date().getTime();
+  var row = [
+    id,
+    _ccNow(),
+    data.email        || '',
+    data.lp_variant   || '',
+    data.lp_slug      || '',
+    data.campaign_id  || 'EC-2026-001',
+    data.utm_source   || '',
+    data.utm_medium   || '',
+    data.utm_campaign || '',
+    data.referrer     || '',
+    'new'
+  ];
+  _ccUpsert(sheet, hdrs, id, row);
+  return { ok: true, id: id };
 }
 
 // ── SocialPosts ───────────────────────────────────────────────────────────────
@@ -3230,6 +3576,51 @@ function setContentCalendarEntry(item) {
 }
 
 /**
+ * Moves a single asset to a new publish date.
+ * Updates ContentCalendar.publish_date and SocialPosts.scheduled_date.
+ * body: { asset_id, calendar_id, new_date: 'YYYY-MM-DD' }
+ */
+function moveAsset(body) {
+  var calendarId = String(body.calendar_id || '');
+  var assetId    = String(body.asset_id || '');
+  var newDate    = String(body.new_date || '');
+  if (!newDate) return {ok:false, error:'new_date required'};
+  try {
+    if (calendarId) {
+      var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
+      var calHdr   = _CC_HDR[_CC_TAB.CONTENT_CAL];
+      var dateCol  = calHdr.indexOf('publish_date') + 1;
+      if (dateCol > 0) {
+        var calRows = calSheet.getDataRange().getValues();
+        for (var i = 1; i < calRows.length; i++) {
+          if (String(calRows[i][0]) === calendarId) {
+            calSheet.getRange(i + 1, dateCol).setValue(newDate);
+            break;
+          }
+        }
+      }
+    }
+    if (assetId) {
+      var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+      var spHdr   = _CC_HDR.SocialPosts;
+      var sdCol   = spHdr.indexOf('scheduled_date') + 1;
+      if (sdCol > 0) {
+        var spRows = spSheet.getDataRange().getValues();
+        for (var j = 1; j < spRows.length; j++) {
+          if (String(spRows[j][0]) === assetId) {
+            spSheet.getRange(j + 1, sdCol).setValue(newDate);
+            break;
+          }
+        }
+      }
+    }
+    return {ok:true, asset_id:assetId, calendar_id:calendarId, new_date:newDate};
+  } catch(e) {
+    return {ok:false, error:e.message};
+  }
+}
+
+/**
  * Bulk-writes calendar entries from a build_full_sequence result.
  * body: { campaign_id, publish_day, calendar: [{day, emails:[], posts:[]}] }
  */
@@ -3466,6 +3857,8 @@ function _lpInvRowToObj(r) {
     section_value:        String(r[39] || ''),
     section_proof:        String(r[40] || ''),
     section_cta:          String(r[41] || ''),
+    section_hook:         String(r[50] || ''),
+    section_lifecycle:    String(r[51] || ''),
     tracking_convert_id:  String(r[42] || ''),
     tracking_clarity_id:  String(r[43] || ''),
     tracking_ga4_id:      String(r[44] || ''),
@@ -3612,7 +4005,10 @@ function getCampaignFunnel(campaignId) {
     funnelFlow.push({
       step: 2, label: 'Coming Soon Gate',
       description: 'Root easychefpro.com 302 → /coming-soon · captures early intent',
-      pages: pages.coming_soon.map(function(p) { return { id: p.id, url: p.full_url, status: p.status }; })
+      pages: pages.coming_soon.map(function(p) { return { id: p.id, url: p.full_url, status: p.status,
+        clarity_installed: p.clarity_installed, tracking_clarity_id: p.tracking_clarity_id,
+        ga4_installed: p.ga4_installed, tracking_ga4_id: p.tracking_ga4_id,
+        convert_installed: p.convert_installed, tracking_convert_id: p.tracking_convert_id||p.convert_experiment_id }; })
     });
   }
 
@@ -3623,7 +4019,10 @@ function getCampaignFunnel(campaignId) {
     pages: pages.waitlist_lp.map(function(p) {
       return { id: p.id, slug: p.slug, url: p.full_url, variant: p.lp_variant,
                icp: p.icp_codes, angle: p.campaign_angle, status: p.status,
-               thank_you_url: p.thank_you_url };
+               thank_you_url: p.thank_you_url,
+               clarity_installed: p.clarity_installed, tracking_clarity_id: p.tracking_clarity_id,
+               ga4_installed: p.ga4_installed, tracking_ga4_id: p.tracking_ga4_id,
+               convert_installed: p.convert_installed, tracking_convert_id: p.tracking_convert_id||p.convert_experiment_id };
     }),
     dl_ids: (dlByChannel['Facebook'] || []).concat(dlByChannel['Instagram'] || [])
       .slice(0, 3).map(function(d) { return d.dl_id; })
@@ -3644,7 +4043,10 @@ function getCampaignFunnel(campaignId) {
     step: 5, label: 'Thank-You Pages',
     description: 'Post-conversion confirmation · query param routes A vs B variant',
     pages: pages.thank_you.map(function(p) {
-      return { id: p.id, url: p.full_url, variant: p.lp_variant || p.notes, status: p.status };
+      return { id: p.id, url: p.full_url, variant: p.lp_variant || p.notes, status: p.status,
+               clarity_installed: p.clarity_installed, tracking_clarity_id: p.tracking_clarity_id,
+               ga4_installed: p.ga4_installed, tracking_ga4_id: p.tracking_ga4_id,
+               convert_installed: p.convert_installed, tracking_convert_id: p.tracking_convert_id||p.convert_experiment_id };
     })
   });
 
@@ -3665,6 +4067,68 @@ function getCampaignFunnel(campaignId) {
     email_sequences: emailSeqs,
     generated_at: _ccNow()
   };
+}
+
+// ── All-campaign funnel aggregator ───────────────────────────────────────────
+function getAllCampaignFunnels() {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('ACCOUNTS_REGISTRY');
+  var accounts = raw ? JSON.parse(raw) : [];
+  var funnels = [];
+  accounts
+    .filter(function(a) { return a.status === 'active'; })
+    .forEach(function(a) {
+      var prevId = _REQUEST_SHEET_ID;
+      try {
+        _REQUEST_SHEET_ID = a.sheet_id || null;
+        var f = getCampaignFunnel(a.id);
+        funnels.push({ account_id: a.id, account_name: a.name, funnel: f });
+      } catch(e) {
+        funnels.push({ account_id: a.id, account_name: a.name, funnel: { ok: false, error: String(e) } });
+      } finally {
+        _REQUEST_SHEET_ID = prevId;
+      }
+    });
+  return { ok: true, funnels: funnels };
+}
+
+// ── Create a new LP inventory entry ──────────────────────────────────────────
+function createLPEntry(params) {
+  if (!params || !params.campaign_id) return { ok: false, error: 'campaign_id required' };
+  var slug    = (params.slug || '').replace(/^\//, '');
+  var variant = (params.lp_variant || '').toLowerCase();
+  var id      = params.id || ('lp-' + params.campaign_id.toLowerCase().replace(/[^a-z0-9]/g, '-') + (variant ? '-' + variant : '') + '-' + new Date().getTime().toString(36));
+  var fullUrl = params.full_url || (slug ? 'https://easychefpro.com/' + slug : '');
+  var entry = {
+    id:              id,
+    slug:            slug,
+    full_url:        fullUrl,
+    campaign_type:   params.campaign_type  || 'pre_launch',
+    icp_codes:       params.icp_codes      || '',
+    campaign_angle:  params.campaign_angle || '',
+    lp_variant:      params.lp_variant     || '',
+    page_type:       params.page_type      || 'waitlist_lp',
+    thank_you_url:   params.thank_you_url  || '',
+    campaigns_using: params.campaign_id,
+    status:          'PENDING_DEV',
+    notes:           params.notes          || ''
+  };
+  try {
+    setLPInventoryEntry(entry);
+    return { ok: true, lp: entry };
+  } catch(e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+function updateLPEntry(params) {
+  if (!params || !params.id) return { ok: false, error: 'id required' };
+  try {
+    setLPInventoryEntry(params);
+    return { ok: true, lp_id: params.id };
+  } catch(e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 function setLPInventoryEntry(item) {
@@ -3717,8 +4181,8 @@ function setLPInventoryEntry(item) {
     item.page_type            !== undefined ? item.page_type            : (ex ? ex[33] : 'waitlist_lp'),
     item.thank_you_url        !== undefined ? item.thank_you_url        : (ex ? ex[34] : ''),
     item.hero_subheadline     !== undefined ? item.hero_subheadline     : (ex ? ex[35] : ''),
-    item.section_problem      !== undefined ? item.section_problem      : (ex ? ex[36] : ''),
-    item.section_agitate      !== undefined ? item.section_agitate      : (ex ? ex[37] : ''),
+    item.section_problem       !== undefined ? item.section_problem       : (ex ? ex[36] : ''),
+    item.section_agitate       !== undefined ? item.section_agitate       : (ex ? ex[37] : ''),
     item.section_solve        !== undefined ? item.section_solve        : (ex ? ex[38] : ''),
     item.section_value        !== undefined ? item.section_value        : (ex ? ex[39] : ''),
     item.section_proof        !== undefined ? item.section_proof        : (ex ? ex[40] : ''),
@@ -3730,7 +4194,9 @@ function setLPInventoryEntry(item) {
     item.pushed_to_production !== undefined ? item.pushed_to_production : (ex ? ex[46] : false),
     item.convert_experiment_id !== undefined ? item.convert_experiment_id : (ex ? ex[47] : ''),
     item.shared_by_campaigns  !== undefined ? item.shared_by_campaigns  : (ex ? ex[48] : ''),
-    item.last_traffic_date    !== undefined ? item.last_traffic_date    : (ex ? ex[49] : '')
+    item.last_traffic_date    !== undefined ? item.last_traffic_date    : (ex ? ex[49] : ''),
+    item.section_hook         !== undefined ? item.section_hook         : (ex ? ex[50] : ''),
+    item.section_lifecycle    !== undefined ? item.section_lifecycle    : (ex ? ex[51] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -4425,7 +4891,9 @@ function _seedBrandDoctrine(sheet) {
     ['THEME_FOOD_RULE_001', 'visual_progression', 'hard', true,
       '{"appears_from_post":4,"posts_exempt":[1,2,3]}'],
     ['IMAGE_GENDER_RULE_001', 'visual_progression', 'hard', true,
-      '{"subject_word_position":3,"rule":"If copy describes a woman, image subject must be a woman. Gender word must appear in first 3 words of SUBJECT line in image brief."}']
+      '{"subject_word_position":3,"rule":"If copy describes a woman, image subject must be a woman. Gender word must appear in first 3 words of SUBJECT line in image brief."}'],
+    ['BRAND_VISUAL_TOKENS_001', 'visual_identity', 'hard', true,
+      '{"primary_red":"#FF0000","beige":"#F6EFE8","black":"#000000","white":"#FFFFFF","cta_button_color":"#FF0000","cta_button_text":"#FFFFFF","headline_font":"Proza Libre","body_font":"Inter","shadow":"none","border_radius_pill":"999px","spacing_unit":"8px"}']
   ];
   if (rows.length > 0) sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   Logger.log('[_seedBrandDoctrine] Seeded ' + rows.length + ' rules');
@@ -4438,11 +4906,36 @@ function _seedCampaignStrategy(sheet) {
     ['EMOTIONAL_ARC_001', 'emotional_progression', true,
       '{"stages":[{"stage":"hook","emotion":"exhausted"},{"stage":"problem","emotion":"frustrated"},{"stage":"agitate","emotion":"activated"},{"stage":"solve","emotion":"curious"},{"stage":"value","emotion":"relieved"},{"stage":"proof","emotion":"trusting"},{"stage":"cta","emotion":"happy"}]}'],
     ['SEQ_EMOTION_001', 'email_emotion_map', true,
-      '{"SEQ-1":{"emotion":"exhausted"},"SEQ-2":{"emotion":"relieved"},"SEQ-3":{"emotion":"activated"},"SEQ-4":{"emotion":"proud_excited","override_note":"NEVER map SEQ-4 to hook or exhausted"}}']
+      '{"SEQ-1":{"emotion":"exhausted"},"SEQ-2":{"emotion":"relieved"},"SEQ-3":{"emotion":"activated"},"SEQ-4":{"emotion":"proud_excited","override_note":"NEVER map SEQ-4 to hook or exhausted"}}'],
+    ['SOCIAL_DERIVATION_001', 'arc_sequence', true,
+      JSON.stringify({
+        arc_order: [
+          {position:1,stage:'hook',      emotional_job:'recognition',       emotion_entry:'unaware',          emotion_exit:'recognised',       phone:false, lp_section:'hook'},
+          {position:2,stage:'problem',   emotional_job:'validation',         emotion_entry:'recognised',       emotion_exit:'understood',       phone:false, lp_section:'problem'},
+          {position:3,stage:'agitate',   emotional_job:'tension',            emotion_entry:'understood',       emotion_exit:'activated',        phone:false, lp_section:'agitate'},
+          {position:4,stage:'solve',     emotional_job:'inevitability',      emotion_entry:'activated',        emotion_exit:'curious',          phone:true,  lp_section:'solve'},
+          {position:5,stage:'value',     emotional_job:'relief',             emotion_entry:'relieved',         emotion_exit:'calm',             phone:true,  lp_section:'value'},
+          {position:6,stage:'lifecycle', emotional_job:'identity_alignment', emotion_entry:'calm',             emotion_exit:'identity_aligned', phone:true,  lp_section:'lifecycle'},
+          {position:7,stage:'proof',     emotional_job:'trust',              emotion_entry:'identity_aligned', emotion_exit:'trusting',         phone:true,  lp_section:'proof'},
+          {position:8,stage:'cta',       emotional_job:'belonging',          emotion_entry:'trusting',         emotion_exit:'belonging',        phone:true,  lp_section:'cta'}
+        ],
+        rule: 'Every channel runs this arc in this order. Roles never swap. Source: Campaign Creation Playbook Sections 08, 11, Law 8.'
+      })]
   ].forEach(function(row) {
-    if (existing.indexOf(row[0]) === -1) sheet.appendRow(row);
+    if (existing.indexOf(row[0]) === -1) {
+      sheet.appendRow(row);
+    } else {
+      // Upsert: overwrite existing row so values stay current
+      var allRows = sheet.getDataRange().getValues();
+      for (var ui = 1; ui < allRows.length; ui++) {
+        if (String(allRows[ui][0]) === row[0]) {
+          sheet.getRange(ui + 1, 1, 1, row.length).setValues([row]);
+          break;
+        }
+      }
+    }
   });
-  Logger.log('[_seedCampaignStrategy] Seeded ' + 2 + ' strategies');
+  Logger.log('[_seedCampaignStrategy] Seeded/updated 3 strategies including SOCIAL_DERIVATION_001');
 }
 
 // ── Governance reader functions ───────────────────────────────────────────────

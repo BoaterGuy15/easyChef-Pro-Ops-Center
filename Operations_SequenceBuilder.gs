@@ -454,7 +454,9 @@ function buildEmailCalendar(brief, copy) {
         ? 'APPROVED CLAIMS FOR ' + wf.stage.toUpperCase() + ' (exact wording only — no other numbers): ' + _emStageClaims + '\n'
         : 'NUMBERS POLICY: Do not invent figures. Only use dollar amounts that appear in the proof_bar above.\n';
 
+      var _emailSkillPfx = (typeof _getSkillBlock === 'function') ? _getSkillBlock('email') + '\n---\n\n' : '';
       var systemPrompt =
+        _emailSkillPfx +
         getMasterSystemPrompt('email_full', emailCtx) +
         '=== EMAIL SEQUENCE RULES ===\n' +
         'From name: Taylor at easyChef Pro\n' +
@@ -780,7 +782,9 @@ function buildSocialCalendar(brief, copy) {
             'This grounds the copy in something specific — never write generic "dinner" or "meal".\n\n';
         }
 
+        var _skillPfx = (typeof _getSkillBlock === 'function') ? _getSkillBlock('social') + '\n---\n\n' : '';
         var systemPrompt =
+          _skillPfx +
           getMasterSystemPrompt('social_post_' + stage, postCtx) +
           '=== PLATFORM ===\n' +
           (channelRules || platformNote) + '\n\n' +

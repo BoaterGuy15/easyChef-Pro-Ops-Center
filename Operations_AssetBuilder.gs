@@ -2215,6 +2215,12 @@ function buildSocialPosts(brief, copy) {
     'CTA for every post: ' + ctaConf.cta + '\n' +
     'Loss aversion angle: ' + ctaConf.loss + '\n' +
     'The 7-step sequence never changes. Only the CTA destination changes by campaign type.\n\n' +
+    '=== CROSS-PLATFORM UNIQUENESS RULE ===\n' +
+    'Multiple platforms are being written for the same campaign day. Each platform MUST have\n' +
+    'completely unique copy — no shared sentences, no shared hooks, no shared phrases.\n' +
+    'If posts for Facebook, Instagram, TikTok, Pinterest, X, and Nextdoor are all generated\n' +
+    'on the same day, each one must feel like it was written from scratch for that platform.\n' +
+    'Never repeat a sentence or hook verbatim across platforms.\n\n' +
     '=== PLATFORM REQUIREMENTS ===\n' +
     'Optimal length: ' + (brief.platform_optimal_chars || '') + ' characters\n' +
     'Hashtags: ' + (brief.use_hashtags
@@ -3022,8 +3028,15 @@ function _getSkillBlock(contentType) {
     ''
   ].join('\n');
 
+  // OVERRIDE RULE: This skill provides the design framework (layout rules, UX guidelines,
+  // anti-patterns, canvas structure, WCAG enforcement). BRAND_VISUAL_TOKENS_001 provides
+  // the final colors, fonts, and spacing for easyChef Pro. Any color, font, or spacing
+  // the skill suggests is superseded by what BRAND_VISUAL_TOKENS_001 specifies.
+  // Skill = HOW to design well. Doctrine = WHAT the brand looks like. Doctrine always wins.
   var design = [
     '## SKILL: UI/UX Design (from .agents/ui-ux-pro-max-skill — v2.5.0)',
+    '> Brand doctrine overrides this skill on all color, font, and spacing decisions.',
+    '> The skill provides the design framework. BRAND_VISUAL_TOKENS_001 provides the final values.',
     'You are a world-class UI/UX visual designer. Apply these principles to every design output.',
     '',
     '### Product Profile: Recipe & Cooking / Lifestyle App (easyChef Pro)',
@@ -3031,6 +3044,18 @@ function _getSkillBlock(contentType) {
     'Palette mood: Bold accent (#FF0000) on warm neutral base (#F6EFE8). High contrast. Never muddy.',
     'Typography mood: Trustworthy + approachable. Strong headline weight (700+), clean body (400).',
     'Key effects: Smooth transitions 200-300ms. Subtle box-shadow. Gentle hover states.',
+    '',
+    '### EMOJI BAN — No Exceptions',
+    'NEVER use emoji characters as visual elements, icons, or decorative elements.',
+    'Emojis render inconsistently across platforms and break at small sizes.',
+    'Use CSS-only shapes, SVG paths, or styled text characters instead.',
+    '',
+    '### BRAND COLOR LOCK — Applies to Every Element',
+    'ALL visual elements — including illustrations, shapes, icons, backgrounds, and decorative elements — must use only:',
+    '  Allowed: #FF0000 · #F6EFE8 · #000000 · #FFFFFF',
+    '  Tints/shades: rgba(255,0,0,X) or rgba(0,0,0,X) for opacity variations',
+    'NEVER use: pinks, greens, blues, tans, purples, yellows, or any color outside the brand palette',
+    'If a visual element needs color variation — use opacity of #FF0000 or #000000 only.',
     '',
     '### Anti-Patterns — Never Use',
     '- Neon or unrelated gradient colors',
