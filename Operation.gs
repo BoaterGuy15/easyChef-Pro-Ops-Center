@@ -1797,6 +1797,17 @@ function doPost(e) {
     }
 
     // ── Append session log line to permanent Roadmap doc ──────────────────────
+    if(body.action === 'write_to_doc') {
+      try {
+        if(!body.doc_id||!body.text) return respond({ok:false,error:'doc_id and text required'});
+        var _wtdDoc  = DocumentApp.openById(body.doc_id);
+        var _wtdBody = _wtdDoc.getBody();
+        if(body.heading) _wtdBody.appendParagraph(body.heading).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+        _wtdBody.appendParagraph(body.text);
+        _wtdDoc.saveAndClose();
+        return respond({ok:true, doc_id:body.doc_id});
+      } catch(e) { return respond({ok:false,error:e.message}); }
+    }
     if(body.action === 'append_session_log') {
       try {
         var _aslLine = body.line || '';
