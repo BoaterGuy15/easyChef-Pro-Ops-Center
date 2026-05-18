@@ -90,7 +90,12 @@ The Campaign Center Sheet is the source of truth for all governance rules — no
 clasp push
 clasp version "description"
 clasp deploy --deploymentId AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ --versionNumber NNN --description "description"
+clasp deploy --deploymentId AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg --versionNumber NNN --description "description"
 ```
+
+**ALWAYS deploy to BOTH deployment IDs** — both serve live traffic.
+- `AKfycbxgwJT_...` — ops deployment (CLAUDE.md primary)
+- `AKfycbz1MwFg8...` — live endpoint (what `ops-dashboard.html` CONFIG.sheetsUrl calls, what MCP server calls)
 
 Or: `.\deploy.ps1 -Deploy`
 
@@ -141,15 +146,106 @@ Submodule: `.agents/ui-ux-pro-max-skill/` (git submodule: `nextlevelbuilder/ui-u
 
 **DGL easyChef Pro Ops Center** — internal operations dashboard for Digital Galactica Labs tracking the easyChef Pro product launch (target: July 1, 2026).
 
-**Tech stack:** GAS backend (clasp), single `cockpit.html` frontend (vanilla JS, inline CSS, no frameworks).
+**Tech stack:** GAS backend (clasp), single `cockpit.html` frontend (vanilla JS, inline CSS, no frameworks), Node.js MCP server (`cockpit-mcp-server.js`) for conversational Claude access.
 
 **Key GAS files:**
 - `Operation.gs` — action router (all POST body.action routes)
-- `Operations_AssetBuilder.gs` — `getMasterSystemPrompt`, `_callCopyModel`, `_getSkillBlock`
+- `Operations_AssetBuilder.gs` — `getMasterSystemPrompt`, `_callCopyModel`, `_getSkillBlock`, `_buildBriefStoryCtx`
 - `Operations_SequenceBuilder.gs` — `buildSocialCalendar`, `buildEmailSequence`
 - `Operations_EC2026001_Seed.gs` — EC-2026-001 seeder, `_computeBlockedReason`
 - `Operations_CampaignSheets.gs` — `_CC_HDR`, `_CC_TAB`, all sheet read/write helpers
 - `Operations_Milestones.gs` — `seedCampaignMilestones`, `getCampaignMilestones`, `addCampaignMilestone`
+- `Operations_MasterBrief.gs` — `generateMasterPositioning()` — calls `claude-sonnet-4-20250514`, max_tokens 1500
+
+---
+
+## GOVERNANCE LAYER — @800 (built May 16 2026)
+
+Three new tabs in Campaign Center Sheet. Run setup functions once after adding new campaigns.
+
+### MasterPositioning tab (34 columns)
+- `_setupMasterPositioning()` — creates tab with gold-on-dark headers, font size 9
+- `getMasterPositioning(positioning_id)` — fetch by ID
+- `getMasterPositioningByCampaign(campaign_id)` — fetch all for campaign
+- `saveMasterPositioning(positioning)` — upsert by positioning_id
+- `lockMasterPositioning(positioning_id)` — sets status=APPROVED, locked=TRUE
+- `generateMasterPositioning(params)` in `Operations_MasterBrief.gs` — calls Claude, returns full object
+- **Positioning ID format:** `MP-{campaign_id}-{timestamp}`
+- **Hard gates in system prompt:** WHO SHE IS must be a specific moment · MASTER STORY locked · FEELING SOLD = after-state · 7-emotion arc · stage_5 must reference retention milestones
+
+### StageGates tab (30 columns)
+- `_setupStageGates()` — creates tab
+- `seedStageGates(campaign_id, positioning_id)` — seeds 5 rows, idempotent
+- **Gate ID format:** `SG-{campaign_id}-{stage_number}`
+- **Stage thresholds:** Stage 1: open_rate≥45% + reach≥25K · Stage 2: ctr≥15% + lp_visitors≥3K · Stage 3: returning≥20% · Stage 4: waitlist_completed · Stage 5: first_strike≥45% + tipping_point≥60% + paid_conversion≥40%
+- **POST handler:** `seed_stage_gates` · `advance_stage_gate`
+
+### RetentionMilestones tab (19 columns)
+- `_setupRetentionMilestones()` — creates tab + seeds 4 rows
+- RM-001 Three-Ingredient Start (Day 0, target 80%) · RM-002 First Strike (Day 7, target 45%) · RM-003 Tipping Point (Day 30, target 60%, AND logic) · RM-004 Paid Conversion (within 7d of TP, target 40%)
+- Tipping Point conditions: `meals_cooked>=3 AND spoilage_saves>=1 AND pantry_items>=20` — all three required
+
+### AssetLineage fields
+- **SocialPosts** gained 13 new columns: `positioning_id, positioning_version, stage_number, persona, emotion, generated_by, optimised_by, rendered_by, brief_version, figma_owner, deploy_url, approved_by, approved_at`
+- **EmailSequences** gained 12 new columns: `positioning_id, positioning_version, stage_number, variant, world, generated_by, approved_by_ml, approved_at, klaviyo_flow_id, sent_at, open_rate_actual, ctr_actual`
+- Run `repairSheetHeaders(['SocialPosts','EmailSequences'])` if columns are missing on existing tabs
+
+### Step 0 in Campaign Wizard
+- Step 0 "Position" now appears before Step 1 "Theme" in the wizard bar
+- `_mpCurrentPositioning` — global holding the active positioning object
+- `_mpGenerate()` → `master_positioning_generate` → populates all form fields
+- `_mpLock()` → checks ML Approved checkbox → calls `master_positioning_lock` → calls `seed_stage_gates`
+- `_ccExtendBriefWithTheme()` updated: MasterPositioning fields override ThemeLibrary when `_mpCurrentPositioning` is set
+- `_buildBriefStoryCtx()` updated: `mp.who_she_is`, `mp.feeling_sold`, `mp.proof_point`, `mp.master_story`, `mp.what_we_say`, `mp.core_truth` take precedence
+
+### New POST actions (Operation.gs)
+`setup_master_positioning` · `setup_stage_gates` · `setup_retention_milestones` · `repair_governance_headers` · `master_positioning_save` · `master_positioning_lock` · `master_positioning_generate` · `seed_stage_gates` · `advance_stage_gate` · `update_milestone_status`
+
+### New GET actions (Operation.gs)
+`master_positioning_read` (params: positioning_id OR campaign_id)
+
+---
+
+## MCP SERVER — `cockpit-mcp-server.js`
+
+Node.js MCP server that wraps all cockpit endpoints so Claude can operate the campaign center conversationally — no UI clicking required.
+
+**File:** `cockpit-mcp-server.js` (root of repo)
+**Config:** `cockpit-mcp-server-config.json`
+**Run:** `npm run cockpit-mcp` or `node cockpit-mcp-server.js`
+**Protocol:** stdio (MCP standard)
+**SDK:** `@modelcontextprotocol/sdk` v1.29+
+
+**COCKPIT_URL** (env var or hardcoded default):
+`https://script.google.com/macros/s/AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg/exec`
+
+**20 registered tools:**
+
+| Group | Tools |
+|---|---|
+| System | `cockpit_ping`, `get_icp_profiles`, `get_approved_claims` |
+| Master Positioning | `get_master_positioning`, `generate_master_positioning`, `save_master_positioning`, `lock_master_positioning` |
+| Theme Library | `get_themes` |
+| Campaign | `run_kickstart`, `get_campaign` |
+| Assets | `build_social_posts`, `build_email_sequence`, `generate_image` |
+| Stage Gates | `get_stage_gates`, `advance_stage_gate`, `seed_stage_gates` |
+| UTM + Tracking | `generate_utms`, `activate_dl_id`, `get_campaign_metrics` |
+| Retention | `get_retention_milestones`, `update_milestone_status` |
+| Calendar | `build_campaign_calendar`, `export_calendar_csv` |
+
+**To connect to Claude Code** — add to `~/.claude/settings.json`:
+```json
+{
+  "mcpServers": {
+    "easychef-cockpit": {
+      "command": "node",
+      "args": ["/Users/taylor/easyChef-Pro-Ops-Center/cockpit-mcp-server.js"]
+    }
+  }
+}
+```
+
+**`node_modules/` is excluded from clasp push** via `.claspignore` — never remove that entry.
 
 ---
 
@@ -163,4 +259,4 @@ Submodule: `.agents/ui-ux-pro-max-skill/` (git submodule: `nextlevelbuilder/ui-u
 
 ---
 
-Current state: deploy @724 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · BRANDING.md updated · Session 2 light mode complete
+Current state: deploy @800 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete (MasterPositioning + StageGates + RetentionMilestones + Step 0 UI)

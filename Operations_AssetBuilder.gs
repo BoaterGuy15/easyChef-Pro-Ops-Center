@@ -318,18 +318,20 @@ function _resolveIcpCode(icpCode, ctx) {
 }
 
 function _buildBriefStoryCtx(brief) {
-  var t = brief.themeData || {};
+  var t  = brief.themeData       || {};
+  var mp = brief.masterPositioning || {};
+
   return {
     icp_code:         brief.icp              || '',
-    icp_entry:        t.emotional_entry      || brief.icp_entry        || '',
+    icp_entry:        mp.who_she_is          || t.emotional_entry      || brief.icp_entry        || '',
     theme:            brief.theme            || '',
     theme_food:       t.food_type            || brief.theme_food       || '',
     app_feature:      t.app_feature          || brief.app_feature      || '',
     app_screen_label: t.app_screen_label     || brief.app_screen_label || '',
     feature_hook:     t.feature_hook         || brief.feature_hook     || '',
-    feature_proof:    t.feature_proof        || brief.feature_proof    || '',
-    emotional_entry:  t.emotional_entry      || brief.emotional_entry  || '',
-    emotional_payoff: t.emotional_payoff     || brief.emotional_payoff || '',
+    feature_proof:    mp.proof_point         || t.feature_proof        || brief.feature_proof    || '',
+    emotional_entry:  mp.who_she_is          || t.emotional_entry      || brief.emotional_entry  || '',
+    emotional_payoff: mp.feeling_sold        || t.emotional_payoff     || brief.emotional_payoff || '',
     campaign_angle:   brief.campaign_angle   || 'savings',
     hook_angle:       t.hook_angle           || brief.hook_angle       || '',
     problem_angle:    t.problem_angle        || brief.problem_angle    || '',
@@ -340,7 +342,17 @@ function _buildBriefStoryCtx(brief) {
     blueprint:        brief.blueprint        || '',
     lp_variant:       brief.lp_variant       || '',
     lp_slug:          brief.lp_slug          || brief.slug             || '',
-    campaign_id:      brief.id               || brief.campaign_id      || ''
+    campaign_id:      brief.id               || brief.campaign_id      || '',
+    // MasterPositioning overrides — take precedence over ThemeLibrary when present
+    who_she_is:       mp.who_she_is          || '',
+    what_she_wants:   mp.what_she_wants      || '',
+    core_truth:       mp.core_truth          || '',
+    master_story:     mp.master_story        || '',
+    what_we_say:      mp.what_we_say         || '',
+    feeling_sold:     mp.feeling_sold        || t.emotional_payoff     || '',
+    proof_point:      mp.proof_point         || t.feature_proof        || '',
+    positioning_id:   mp.positioning_id      || brief.positioning_id   || '',
+    positioning_version: mp.version          || ''
   };
 }
 
