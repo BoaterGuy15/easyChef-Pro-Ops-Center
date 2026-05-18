@@ -55,20 +55,49 @@ function _cvtGetOrCreateSheet(name, headers) {
   return sh;
 }
 
-// ── FUNCTION 1 — signConvertRequest ──────────────────────────────────────────
-/**
- * Builds HMAC-SHA256 signed headers for a Convert.com API request.
- * Reads api_key and secret_key from CcSettings tab (key column).
- */
-function signConvertRequest(method, path, body) {
-  var apiKey    = _cvtReadSetting('convert_api_key');
-  var secretKey = _cvtReadSetting('convert_secret_key');
-  if (!apiKey) {
-    throw new Error('convert_api_key not found in CcSettings tab');
+// ── FUNCTION 1 — OAuth2 token + signConvertRequest ───────────────────────────
+
+// Fetches a Convert.com OAuth2 access token using client credentials grant.
+// Reads convert_client_id + convert_client_secret from Script Properties.
+// Caches the token in CacheService for its lifetime minus a 60-second buffer.
+function _cvtGetAccessToken() {
+  var cache  = CacheService.getScriptCache();
+  var cached = cache.get('cvt_oauth_token');
+  if (cached) return cached;
+
+  var sp           = PropertiesService.getScriptProperties();
+  var clientId     = (sp.getProperty('convert_client_id')     || '').trim();
+  var clientSecret = (sp.getProperty('convert_client_secret') || '').trim();
+  if (!clientId || !clientSecret) {
+    throw new Error('convert_client_id / convert_client_secret not found in Script Properties');
   }
-  // Convert.com API v1 — Bearer token auth
+
+  var resp = UrlFetchApp.fetch('https://api.convert.com/api/v1/oauth2/token', {
+    method:             'post',
+    headers:            { 'Content-Type': 'application/x-www-form-urlencoded' },
+    payload:            'grant_type=client_credentials'
+                      + '&client_id='     + encodeURIComponent(clientId)
+                      + '&client_secret=' + encodeURIComponent(clientSecret),
+    muteHttpExceptions: true
+  });
+
+  var code = resp.getResponseCode();
+  var text = resp.getContentText();
+  if (code !== 200) {
+    throw new Error('Convert.com OAuth2 token error ' + code + ': ' + text.substring(0, 300));
+  }
+
+  var data      = JSON.parse(text);
+  var token     = data.access_token;
+  var expiresIn = Number(data.expires_in || 3600);
+  cache.put('cvt_oauth_token', token, Math.min(expiresIn - 60, 21600));
+  Logger.log('[ConvertSync] OAuth2 token acquired, expires_in=' + expiresIn);
+  return token;
+}
+
+function signConvertRequest(method, path, body) {
   return {
-    'Authorization': 'Bearer ' + apiKey,
+    'Authorization': 'Bearer ' + _cvtGetAccessToken(),
     'Content-Type':  'application/json'
   };
 }

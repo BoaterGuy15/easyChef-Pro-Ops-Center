@@ -1272,7 +1272,7 @@ function _buildLpReferenceHtml(brief, copy, lp, posts, emails, genDate, lpBrief)
 
   // ── FOOTER ──
   + '<div class="footer">easyChef Pro &nbsp;&middot;&nbsp; Digital Galactica Labs LLC &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; Generated '
-  + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
+  + _h(genDate) + ' &nbsp;&middot;&nbsp; launch.easychefpro.com &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
   + '</body>\n</html>';
 }
 
@@ -1402,7 +1402,7 @@ function _buildSocialPostsHtml(brief, posts, genDate, postBriefs) {
   + '</div>\n\n'
   + cardsHtml
   + '<div class="footer">easyChef Pro &nbsp;&middot;&nbsp; Digital Galactica Labs LLC &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; Generated '
-  + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
+  + _h(genDate) + ' &nbsp;&middot;&nbsp; launch.easychefpro.com &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
   + '</body>\n</html>';
 }
 
@@ -1571,7 +1571,7 @@ function _buildEmailSeqsHtml(brief, emails, genDate, emailBriefs) {
   + '</div>\n\n'
   + seqsHtml
   + '<div class="footer">easyChef Pro &nbsp;&middot;&nbsp; Digital Galactica Labs LLC &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; Generated '
-  + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
+  + _h(genDate) + ' &nbsp;&middot;&nbsp; launch.easychefpro.com &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC</div>\n\n'
   + '</body>\n</html>';
 }
 
@@ -1747,7 +1747,7 @@ function _buildBriefHtml(brief, copy, dlEntries, genDate) {
   // FOOTER
   + '<div class="footer">\n'
   + '  easyChef Pro &nbsp;&middot;&nbsp; Digital Galactica Labs LLC &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp;\n'
-  + '  Generated ' + _h(genDate) + ' &nbsp;&middot;&nbsp; ops.dgl.dev &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC\n'
+  + '  Generated ' + _h(genDate) + ' &nbsp;&middot;&nbsp; launch.easychefpro.com &nbsp;&middot;&nbsp; &copy; 2026 Digital Galactica Labs LLC\n'
   + '</div>\n\n'
   + '</body>\n</html>';
 }
