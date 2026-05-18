@@ -453,6 +453,25 @@
       .kpi-grid { grid-template-columns: 1fr 1fr; }
       .dash-cols { grid-template-columns: 1fr; }
     }
+    /* ── Email Campaigns tab ─────────────────────────────────────────────────── */
+    .ec-section-title{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#888;margin:0 0 12px;display:flex;align-items:center;gap:10px}
+    .ec-section-title span{font-weight:500;color:#aaa;letter-spacing:0;text-transform:none}
+    .ec-flow-table,.ec-camp-table{width:100%;border-collapse:collapse;margin-bottom:28px}
+    .ec-flow-table th,.ec-camp-table th{font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#aaa;text-align:left;padding:6px 10px 6px 0;border-bottom:1px solid rgba(0,0,0,0.08);white-space:nowrap}
+    .ec-flow-table td,.ec-camp-table td{font-size:12px;color:#333;padding:9px 10px 9px 0;border-bottom:1px solid rgba(0,0,0,0.05);vertical-align:middle}
+    .ec-flow-name{font-weight:700;color:#111}
+    .ec-id-pill{font-family:monospace;font-size:10px;color:#888;background:#F6EFE8;padding:2px 7px;border-radius:4px;white-space:nowrap}
+    .ec-status-draft{font-size:9px;font-weight:700;color:#4338ca;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:4px;padding:2px 8px;white-space:nowrap}
+    .ec-status-live{font-size:9px;font-weight:700;color:#15803d;background:rgba(22,163,74,0.10);border:1px solid rgba(22,163,74,0.25);border-radius:4px;padding:2px 8px;white-space:nowrap}
+    .ec-status-manual{font-size:9px;font-weight:700;color:#b45309;background:rgba(180,83,9,0.08);border:1px solid rgba(180,83,9,0.2);border-radius:4px;padding:2px 8px;white-space:nowrap}
+    .ec-status-cancelled{font-size:9px;font-weight:700;color:#dc2626;background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.2);border-radius:4px;padding:2px 8px;white-space:nowrap}
+    .ec-trigger{font-size:11px;color:#555}
+    .ec-klav-link{font-size:10px;color:#888;text-decoration:none;border-bottom:1px dotted #ccc}
+    .ec-klav-link:hover{color:#111;border-color:#111}
+    .ec-camp-name{font-weight:600;color:#111;font-size:12px}
+    .ec-camp-subject{font-size:11px;color:#888;margin-top:1px}
+    .ec-send-date{white-space:nowrap;font-size:11px}
+    .ec-send-time{font-size:10px;color:#aaa}
   </style>
 </head>
 <body>
@@ -506,15 +525,17 @@
     <!-- Main -->
     <div class="main">
       <div class="tab-bar">
-        <button class="tab active" id="tab-dash" onclick="switchTab('dash')">Dashboard</button>
-        <button class="tab"        id="tab-cal"  onclick="switchTab('cal')">Calendar</button>
-        <button class="tab"        id="tab-flow" onclick="switchTab('flow')">Campaign Flow</button>
-        <button class="tab"        id="tab-lp"   onclick="switchTab('lp')">LP Studio</button>
+        <button class="tab active" id="tab-dash"   onclick="switchTab('dash')">Dashboard</button>
+        <button class="tab"        id="tab-cal"    onclick="switchTab('cal')">Calendar</button>
+        <button class="tab"        id="tab-flow"   onclick="switchTab('flow')">Campaign Flow</button>
+        <button class="tab"        id="tab-ecamps" onclick="switchTab('ecamps')">Email Campaigns</button>
+        <button class="tab"        id="tab-lp"     onclick="switchTab('lp')">LP Studio</button>
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
-      <div id="panel-cal"  style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
-      <div id="panel-flow" style="display:none"><div class="loading">Loading flow<span class="dot-anim"></span></div></div>
-      <div id="panel-lp"   style="display:none"><div class="loading">Loading LP Studio<span class="dot-anim"></span></div></div>
+      <div id="panel-cal"    style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
+      <div id="panel-flow"   style="display:none"><div class="loading">Loading flow<span class="dot-anim"></span></div></div>
+      <div id="panel-ecamps" style="display:none"><div class="loading">Loading email campaigns<span class="dot-anim"></span></div></div>
+      <div id="panel-lp"     style="display:none"><div class="loading">Loading LP Studio<span class="dot-anim"></span></div></div>
     </div>
   </div>
 
@@ -1196,14 +1217,70 @@
       _saveScroll();
       activeTab=tab;
       _saveTab(tab);
-      ['dash','cal','flow','lp'].forEach(function(t){
+      ['dash','cal','flow','ecamps','lp'].forEach(function(t){
         document.getElementById('tab-'+t).className='tab'+(tab===t?' active':'');
         document.getElementById('panel-'+t).style.display=tab===t?'':'none';
       });
       if(tab==='cal') applyAndRender();
       if(tab==='flow') renderFlow();
       if(tab==='lp') loadLPStudio();
+      if(tab==='ecamps') loadEmailCampsTab();
       setTimeout(_restoreScroll,50);
+    }
+
+    // ── Email Campaigns Tab ────────────────────────────────────────────────────
+    var _ecampsCache=null, _ecampsLoaded=false;
+    function loadEmailCampsTab(){
+      var panel=document.getElementById('panel-ecamps');
+      if(_ecampsLoaded && _ecampsCache){ renderEmailCampsTab(); return; }
+      panel.innerHTML='<div class="loading">Fetching live data from Klaviyo<span class="dot-anim"></span></div>';
+      gasCall({action:'get_klaviyo_campaigns_board',campaign_id:_activeCampaign||'EC-2026-001'})
+        .then(function(result){
+          if(!result||!result.ok){
+            panel.innerHTML='<div class="loading">Error: '+_esc((result&&result.error)||'unknown')+'</div>';
+            return;
+          }
+          _ecampsCache=result; _ecampsLoaded=true; renderEmailCampsTab();
+        })
+        .catch(function(){ panel.innerHTML='<div class="loading">Connection error.</div>'; });
+    }
+    function renderEmailCampsTab(){
+      var panel=document.getElementById('panel-ecamps');
+      var data=_ecampsCache||{flows:[],campaigns:[]};
+      var flowRows=(data.flows||[]).map(function(f){
+        var sc=f.status==='live'?'ec-status-live':f.status==='unknown'?'ec-status-manual':'ec-status-draft';
+        var kurl=f.id?'https://www.klaviyo.com/flows/'+f.id+'/flow-actions':'';
+        var trig=f.trigger_name?(f.trigger_name+(f.trigger_id?' · '+f.trigger_id:'')):f.trigger_id||'—';
+        return '<tr><td><span class="ec-flow-name">'+_esc(f.label)+'</span></td>'
+          +'<td>'+(f.id?'<span class="ec-id-pill">'+_esc(f.id)+'</span>':'<span style="color:#dc2626;font-size:10px">no ID</span>')+'</td>'
+          +'<td style="text-align:center">'+_esc(String(f.steps||'—'))+'</td>'
+          +'<td><span class="'+sc+'">'+_esc((f.status||'draft').toUpperCase())+'</span></td>'
+          +'<td class="ec-trigger">'+_esc(trig)+'</td>'
+          +'<td style="white-space:nowrap;font-size:11px;color:#555">'+_esc(f.go_live||'—')+'</td>'
+          +'<td>'+(kurl?'<a class="ec-klav-link" href="'+kurl+'" target="_blank">View &rarr;</a>':'')+'</td></tr>';
+      }).join('');
+      var flowSection='<div class="ec-section-title">Flows <span>'+(data.flows||[]).length+' flows · live from Klaviyo API</span></div>'
+        +'<table class="ec-flow-table"><thead><tr><th>Flow</th><th>ID</th><th style="text-align:center">Steps</th><th>Status</th><th>Trigger</th><th>Go-live</th><th></th></tr></thead>'
+        +'<tbody>'+flowRows+'</tbody></table>';
+      var camps=data.campaigns||[];
+      var campRows=camps.map(function(c){
+        var sc=c.status==='scheduled'||c.status==='sent'?'ec-status-live':c.status==='cancelled'?'ec-status-cancelled':'ec-status-draft';
+        var kurl='https://www.klaviyo.com/campaigns/'+c.id+'/edit';
+        var sendHtml='—';
+        if(c.scheduled_at){var d=new Date(c.scheduled_at);sendHtml='<div class="ec-send-date">'+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'</div><div class="ec-send-time">'+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'})+'</div>';}
+        return '<tr><td><div class="ec-camp-name">'+_esc(c.name||'—')+'</div>'+(c.subject?'<div class="ec-camp-subject">'+_esc(c.subject)+'</div>':'')+'</td>'
+          +'<td>'+sendHtml+'</td>'
+          +'<td><span class="ec-id-pill">'+_esc(c.id||'—')+'</span></td>'
+          +'<td><span class="'+sc+'">'+_esc((c.status||'draft').toUpperCase())+'</span></td>'
+          +'<td>'+(c.template_id?'<span class="ec-id-pill">'+_esc(c.template_id)+'</span>':'—')+'</td>'
+          +'<td>'+(c.dl_id?'<span class="ec-id-pill">'+_esc(c.dl_id)+'</span>':'—')+'</td>'
+          +'<td><a class="ec-klav-link" href="'+kurl+'" target="_blank">View &rarr;</a></td></tr>';
+      }).join('');
+      var campSection='<div class="ec-section-title" style="margin-top:8px">Scheduled Campaigns <span>'+camps.length+' campaigns · live from Klaviyo API</span></div>'
+        +(camps.length===0?'<div style="color:#888;font-size:13px;padding:12px 0">No EC-2026-001 campaigns found in Klaviyo.</div>'
+          :'<div style="overflow-x:auto"><table class="ec-camp-table"><thead><tr><th>Campaign</th><th>Send Date</th><th>ID</th><th>Status</th><th>Template</th><th>DL ID</th><th></th></tr></thead><tbody>'+campRows+'</tbody></table></div>');
+      var refreshBtn='<div style="text-align:right;margin-bottom:14px"><button onclick="_ecampsLoaded=false;loadEmailCampsTab()" style="background:none;border:1px solid rgba(0,0,0,0.12);color:#555;padding:5px 12px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer;">Refresh</button></div>';
+      panel.innerHTML=refreshBtn+flowSection+campSection;
     }
 
     // ── Apply & render ────────────────────────────────────────────────────────

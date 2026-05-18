@@ -765,6 +765,93 @@ function getKlaviyoCampaignsBoard(campaignId) {
   }
 }
 
+// ── backfillFlowMessageIds ───────────────────────────────────────────────────
+// Reads all 5 Klaviyo flows, extracts flow-message IDs, writes back to klaviyo_id
+// in EmailSequences. Matches by template ID (seq_template_id ↔ template on message).
+function backfillFlowMessageIds(campaignId) {
+  var cid = campaignId || 'EC-2026-001';
+  var flows = [
+    { id: _cvtReadSetting('klaviyo_flow_id_a'),     seq: 'SEQ-1' },
+    { id: _cvtReadSetting('klaviyo_flow_id_b'),     seq: 'SEQ-2' },
+    { id: _cvtReadSetting('klaviyo_flow_id_alpha'), seq: 'ALPHA' },
+    { id: _cvtReadSetting('klaviyo_flow_id_ob'),    seq: 'OB'    },
+    { id: _cvtReadSetting('klaviyo_flow_id_org'),   seq: 'ORG'   }
+  ];
+
+  // Build lookup: template_id → flow_message_id from Klaviyo
+  // Uses relationship endpoint flows/{id}/flow-actions/ for reliable traversal
+  var tmplToMsg = {};
+  var rawActions = [];
+  var apiErrors = [];
+  flows.forEach(function(f) {
+    if (!f.id) { apiErrors.push({ seq: f.seq, error: 'no flow ID' }); return; }
+    // Use relationship endpoint — more reliable than filter query
+    var ar = _klfFetch('GET', 'flows/' + f.id + '/flow-actions/?page[size]=50');
+    if (ar.code !== 200 || !ar.data || !ar.data.data) {
+      apiErrors.push({ seq: f.seq, flow_id: f.id, code: ar.code, error: _klfErr(ar) });
+      return;
+    }
+    ar.data.data.forEach(function(action) {
+      if ((action.attributes && action.attributes.action_type) !== 'SEND_EMAIL') return;
+      var actionId = action.id;
+      Utilities.sleep(300); // avoid Klaviyo rate limit
+      // Get flow-messages — no &include=template (not supported here); relationships.template still present
+      var mr = _klfFetch('GET', 'flow-actions/' + actionId + '/flow-messages/?page[size]=10');
+      if (mr.code !== 200 || !mr.data || !mr.data.data) {
+        apiErrors.push({ action_id: actionId, code: mr.code, error: _klfErr(mr) });
+        return;
+      }
+      mr.data.data.forEach(function(msg) {
+        var msgId = msg.id;
+        var name  = (msg.attributes && msg.attributes.name) || '';
+        // Template ID from relationships linkage (always present, no include needed)
+        var tplRel = msg.relationships && msg.relationships.template && msg.relationships.template.data;
+        var tplId  = tplRel ? tplRel.id : '';
+        rawActions.push({ seq: f.seq, action_id: actionId, msg_id: msgId, name: name, template_id: tplId });
+        if (tplId) tmplToMsg[tplId] = { msg_id: msgId, name: name, seq: f.seq };
+      });
+    });
+  });
+
+  // Build position lookup: { 'SEQ-1': ['T3y6Qj','UcWVJb',...], 'ALPHA': [...] }
+  // Klaviyo copies templates on flow assignment so template IDs diverge — match by position instead
+  var posLookup = {};
+  rawActions.forEach(function(ra) {
+    if (!posLookup[ra.seq]) posLookup[ra.seq] = [];
+    posLookup[ra.seq].push(ra); // already in order (Email #1, #2, ...)
+  });
+
+  // Read EmailSequences and update klaviyo_id by position
+  // ID format: EC-2026-001-{SEQ_CODE}-E{NUM} or EC-2026-001-{SEQ_CODE}-E{NUM}-{VARIANT}
+  // Seq code mapping: SEQ-1→SEQ-1, SEQ-2→SEQ-2, ALPHA→ALPHA, OB→OB, ORG→ORG
+  var seqs = getEmailSequences(cid);
+  var updated = [], notFound = [], skipped = [];
+  seqs.forEach(function(s) {
+    if (s.klaviyo_id) return; // already set
+    var id = s.id || '';
+    // Parse seq code and email number from ID
+    // Patterns: ...-SEQ-1-E2-A, ...-ALPHA-E4, ...-OB-E1-B
+    var m = id.match(/-(SEQ-\d+|ALPHA|OB|ORG|BETA|QST)-E(\d+)/i);
+    if (!m) { skipped.push({ id: id, reason: 'no pattern match' }); return; }
+    var seqCode = m[1].toUpperCase();
+    var pos     = parseInt(m[2], 10); // 1-based
+    var actions = posLookup[seqCode];
+    if (!actions || !actions[pos - 1]) {
+      notFound.push({ id: id, seq: seqCode, pos: pos, reason: 'no flow-message at this position' });
+      return;
+    }
+    var ra = actions[pos - 1];
+    var updated_seq = {};
+    Object.keys(s).forEach(function(k){ updated_seq[k] = s[k]; });
+    updated_seq.klaviyo_id = ra.msg_id;
+    setEmailSequence(updated_seq);
+    updated.push({ id: s.id, msg_id: ra.msg_id, name: ra.name, seq: seqCode, pos: pos });
+  });
+
+  Logger.log('[backfillFlowMessageIds] updated=' + updated.length + ' notFound=' + notFound.length + ' skipped=' + skipped.length + ' api_errors=' + apiErrors.length);
+  return { ok: true, updated: updated, not_found: notFound, skipped: skipped, raw_actions: rawActions, api_errors: apiErrors };
+}
+
 // ── FUNCTION 9 — klaviyoScheduleCampaigns ────────────────────────────────────
 // Creates 14 scheduled campaigns: SEQ-3 (4 pairs) + SEQ-4 (3 pairs)
 // Each pair = one campaign for Variant A + one for Variant B.

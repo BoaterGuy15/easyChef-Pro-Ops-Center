@@ -2374,6 +2374,12 @@ function doPost(e) {
       var _kbfOk = !!(_kbfA.ok && _kbfB.ok);
       return respond({ ok:_kbfOk, result:{ flow_a:_kbfA, flow_b:_kbfB }, log: Logger.getLog() });
     }
+    if(body.action === 'get_klaviyo_campaigns_board') {
+      return respond(getKlaviyoCampaignsBoard(body.campaign_id || 'EC-2026-001'));
+    }
+    if(body.action === 'backfill_flow_message_ids') {
+      return respond(backfillFlowMessageIds(body.campaign_id || 'EC-2026-001'));
+    }
     if(body.action === 'klaviyo_schedule_campaigns') {
       var _ksc = klaviyoScheduleCampaigns();
       return respond({ ok:_ksc.ok, result:_ksc, log: Logger.getLog() });
