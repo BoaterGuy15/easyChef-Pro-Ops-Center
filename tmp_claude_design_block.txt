@@ -1,0 +1,70 @@
+
+  // ── CLAUDE DESIGN PROMPT + INSTRUCTIONS section ───────────────────────────
+  // Logo URL from CcSettings (append_setting LOGO_URL to populate)
+  var _cdLogoUrl = '';
+  try {
+    var _cdLogoArr = _getCcSetting('LOGO_URL');
+    if (_cdLogoArr && _cdLogoArr.length > 0 && _cdLogoArr[0].label) _cdLogoUrl = String(_cdLogoArr[0].label);
+  } catch(_le) {}
+
+  // Assemble prompt — dynamically from sheet data, nothing hardcoded
+  var _cdPrompt = '';
+  if (isEmail && em) {
+    // Email design prompt
+    var _emParts    = [em.body_hook, em.body_problem, em.body_agitate, em.body_solve, em.body_value, em.body_proof, em.body_cta].filter(Boolean);
+    var _emAllText  = _emParts.join(' ');
+    var _emSents    = _emAllText.match(/[^.!?]+[.!?]+\s*/g) || [_emAllText.slice(0, 160)];
+    var _emFirst3   = _emSents.slice(0, 3).join('').trim();
+    _cdPrompt =
+      'Design an HTML email for easyChef Pro — ' + (em.sequence_code || seqCode || 'SEQ-1') + ' · ' + (funnel || 'hook') + '\n\n' +
+      'SUBJECT: ' + (em.subject_line || '') + '\n' +
+      'PREVIEW: ' + (em.preview_text || '') + '\n\n' +
+      'LAYOUT: red accent bar top · logo · hero line · body · red CTA pill · footer\n' +
+      'WIDTH: 600px desktop · 375px mobile\n' +
+      'BRAND: #FF0000 · #F6EFE8 · #000000 · Proza Libre headings · Inter body\n' +
+      (_cdLogoUrl ? 'LOGO: ' + _cdLogoUrl + ' — centered top of email, max-width 200px\n' : '') +
+      '\nCOPY:\n' + _emFirst3 + '\n' +
+      'CTA: "' + (em.body_cta || '') + '"';
+  } else if (sp) {
+    // Social post design prompt
+    var _spSents  = (sp.body_copy || '').match(/[^.!?]+[.!?]+\s*/g) || [(sp.body_copy || '').slice(0, 120)];
+    var _spFirst2 = _spSents.slice(0, 2).join('').trim();
+    _cdPrompt =
+      'Design a ' + platform + ' ' + layoutType + ' for easyChef Pro.\n\n' +
+      'CANVAS: ' + frameSize + ' · 8pt spacing · 24px margins\n' +
+      'PHONE RULE: ' + (phoneOk ? 'PHONE VISIBLE' : 'NO PHONE in frame') + '\n' +
+      (_cdLogoUrl ? 'LOGO: ' + _cdLogoUrl + ' — top-left, 120px wide\n' : '') +
+      '\nCOPY:\nHook: "' + (sp.hook || '') + '"\n' +
+      'Body: "' + _spFirst2 + '"\n' +
+      'CTA: "' + (sp.cta || '') + '"\n' +
+      (sp.hashtags ? 'Hashtags: ' + sp.hashtags + '\n' : '') +
+      '\nBRAND: #FF0000 red · #F6EFE8 beige · #000000 black · Proza Libre headlines · Inter body\n' +
+      'CTA style: pill button · red · white text · bottom of card · no shadow\n' +
+      '\nIMAGE: ' + (sp.image_brief || 'warm realistic kitchen photography') + ' · warm realistic photography · no staged aesthetics · no gradients\n' +
+      'MOOD: ' + (emotionIn || '') + '\n' +
+      'AVOID: blue tones · studio lighting · fake smiles · glassmorphism\n' +
+      '\nLAYOUT: hook text dominant top · photo zone 65% · CTA bottom';
+  }
+
+  var sClaudeDesign = '';
+  if (_cdPrompt) {
+    var _cdGenUrl = GAS_URL + '?action=generate_design_for_asset&asset_id=' + encodeURIComponent(assetId);
+    var _cdInner =
+      '<div style="margin-bottom:16px">' +
+      '<pre id="cdprompt" style="white-space:pre-wrap;word-break:break-word;background:#f9f5f1;padding:14px;border-radius:6px;font-family:Inter,sans-serif;font-size:12px;color:#000;line-height:1.6;margin-bottom:10px;border:1px solid #ede5db">' + _bH(_cdPrompt) + '</pre>' +
+      '<button onclick="copyField(\'cdprompt\')" style="display:block;width:100%;background:#FF0000;color:#FFFFFF;border:none;padding:12px 24px;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:0.3px;margin-bottom:6px">Copy for Claude Design</button>' +
+      '</div>';
+    if (!isEmail) {
+      _cdInner +=
+        '<div class="field"><span class="label">Render Constraints</span>' +
+        '<ul class="constraint-list">' +
+        '<li>Clean conversion-first social card</li>' +
+        '<li>Mobile-first  ·  ' + layoutType + '</li>' +
+        '<li>No gradients  ·  no glassmorphism  ·  no shadows</li>' +
+        '<li>Hook text dominant at top  ·  CTA bottom pill</li>' +
+        '<li>DL: ' + _bH(dlId || '—') + '</li>' +
+        '</ul></div>' +
+        '<a href="' + _cdGenUrl + '" target="_blank" class="action-btn">Generate Design for this Asset</a>';
+    }
+    sClaudeDesign = section('CLAUDE DESIGN INSTRUCTIONS', _cdInner);
+  }

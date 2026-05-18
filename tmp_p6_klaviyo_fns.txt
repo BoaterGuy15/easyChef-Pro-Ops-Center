@@ -1,0 +1,142 @@
+
+// ── P6: Build Klaviyo Flows A+B ───────────────────────────────────────────────
+/**
+ * Creates two Klaviyo flows (ICP-A and ICP-B) in draft status.
+ * Groups emails by icp_code: 'frustrated' → Flow A, 'peaceful' → Flow B.
+ * Saves klaviyo_flow_id back to EmailSequences tab for each email.
+ * Returns { ok, flows_created, flow_ids, emails_updated }
+ */
+function klaviyoBuildFlows(campaignId, listId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+    var emails = getEmailSequences(campaignId);
+    if (!emails.length) return { ok: false, error: 'no emails for ' + campaignId };
+
+    // Resolve list ID — passed in, or first active CcSetting, or fall back to known ID
+    var triggerListId = listId || '';
+    if (!triggerListId) {
+      try {
+        var _kls = _getCcSetting('KLAVIYO_LIST_ID');
+        triggerListId = (_kls && _kls.length) ? _kls[0].label : '';
+      } catch(ke) {}
+    }
+    if (!triggerListId) triggerListId = 'TebDTM'; // Prelaunch Emails list
+
+    // Group emails by variant (icp_code)
+    var groupA = []; // frustrated
+    var groupB = []; // peaceful
+    emails.forEach(function(e) {
+      var icp = String(e.icp_code || '').toLowerCase();
+      if (icp === 'frustrated' || icp === 'a') {
+        groupA.push(e);
+      } else if (icp === 'peaceful' || icp === 'b') {
+        groupB.push(e);
+      } else {
+        groupA.push(e); // default to A
+      }
+    });
+
+    var flowDefs = [
+      { label: 'A', name: 'easyChef Pro Flow A — Founding Price (frustrated) — ' + campaignId, emails: groupA },
+      { label: 'B', name: 'easyChef Pro Flow B — Life Change (peaceful) — ' + campaignId,       emails: groupB }
+    ];
+
+    var headers = _klHeaders();
+    var flowResults = [];
+    var emailsUpdated = 0;
+
+    flowDefs.forEach(function(fd) {
+      if (!fd.emails.length) return;
+
+      // Create flow in Klaviyo
+      var payload = JSON.stringify({
+        data: {
+          type: 'flow',
+          attributes: {
+            name:   fd.name,
+            status: 'draft',
+            trigger_type: 'list',
+            trigger: { list: { id: triggerListId } }
+          }
+        }
+      });
+
+      var resp = UrlFetchApp.fetch(_KL_BASE + '/flows/', {
+        method:             'POST',
+        headers:            headers,
+        payload:            payload,
+        muteHttpExceptions: true
+      });
+
+      var code = resp.getResponseCode();
+      var data = {};
+      try { data = JSON.parse(resp.getContentText()); } catch(e) {}
+
+      var flowId = (data.data && data.data.id) ? String(data.data.id) : null;
+
+      if ((code === 201 || code === 200) && flowId) {
+        flowResults.push({ variant: fd.label, flow_id: flowId, flow_name: fd.name, email_count: fd.emails.length });
+
+        // Write flow ID back to EmailSequences tab
+        var sheet    = _getCCSheet(_CC_TAB.EMAIL);
+        var headers2 = _CC_HDR.EmailSequences;
+        var klFlowCol = headers2.indexOf('klaviyo_flow_id') + 1; // 1-based
+        var idCol     = 1; // email.id is column 1
+        if (klFlowCol > 0) {
+          var lastRow = sheet.getLastRow();
+          if (lastRow >= 2) {
+            var idVals = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
+            var emailIdSet = {};
+            fd.emails.forEach(function(e) { emailIdSet[e.id] = true; });
+            for (var ri = 0; ri < idVals.length; ri++) {
+              if (emailIdSet[String(idVals[ri][0])]) {
+                sheet.getRange(ri + 2, klFlowCol).setValue(flowId);
+                emailsUpdated++;
+              }
+            }
+          }
+        }
+
+        Logger.log('[klaviyoBuildFlows] Flow ' + fd.label + ' created: ' + flowId + ' (' + fd.emails.length + ' emails)');
+      } else {
+        var errDetail = (data.errors && data.errors[0] && data.errors[0].detail) || ('HTTP ' + code);
+        flowResults.push({ variant: fd.label, flow_id: null, error: errDetail });
+        Logger.log('[klaviyoBuildFlows] Flow ' + fd.label + ' FAILED: ' + errDetail);
+      }
+    });
+
+    var flowsCreated = flowResults.filter(function(f) { return f.flow_id; }).length;
+    return { ok: true, flows_created: flowsCreated, flow_ids: flowResults, emails_updated: emailsUpdated, trigger_list_id: triggerListId };
+  } catch(e) {
+    Logger.log('[klaviyoBuildFlows] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── P6: Register email DL-IDs as Klaviyo profile property suggestions ─────────
+/**
+ * Returns a formatted table of all campaign emails with their DL_IDs
+ * so they can be used as utm_content in Klaviyo email CTA links.
+ * Call this to get the mapping — used in manual Klaviyo template setup.
+ */
+function klaviyoGetEmailDlIdMapping(campaignId) {
+  try {
+    var emails = getEmailSequences(campaignId || 'EC-2026-001');
+    var rows = emails.map(function(e) {
+      return {
+        email_id:      e.id,
+        sequence_code: e.sequence_code,
+        email_number:  e.email_number,
+        icp_code:      e.icp_code,
+        variant:       e.variant,
+        subject_line:  e.subject_line,
+        dl_id:         e.dl_id,
+        utm_content:   e.dl_id || '',
+        send_day:      e.send_day
+      };
+    }).filter(function(r) { return r.dl_id; });
+    return { ok: true, mapping: rows, count: rows.length };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}

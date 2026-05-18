@@ -56,22 +56,27 @@ function _cvtGetOrCreateSheet(name, headers) {
 }
 
 // ── FUNCTION 1 — signConvertRequest ──────────────────────────────────────────
-// Convert.com Authentication Type: requestSigning
-// Signs with HMAC-SHA256: canonical = "METHOD\npath\ntimestamp"
-// Authorization: Convert-HMAC-SHA256 key=<key>,timestamp=<ts>,signature=<sig>
+// Convert.com Authentication Type: requestSigning (confirmed format from Convert support)
+// SignString = ApplicationID + "\n" + ExpiresTimestamp + "\n" + RequestURL + "\n" + RequestBody
+// ExpiresTimestamp = Unix seconds + 30 (30-second window)
+// ApplicationID = convert_api_key   ApplicationSecretKey = convert_secret_key
 function signConvertRequest(method, path, body) {
   var apiKey    = _cvtReadSetting('convert_api_key');
   var secretKey = _cvtReadSetting('convert_secret_key');
   if (!apiKey || !secretKey) {
     throw new Error('convert_api_key / convert_secret_key not found in CcSettings');
   }
-  var timestamp = String(Math.floor(Date.now() / 1000));
-  var canonical = method.toUpperCase() + '\n' + path + '\n' + timestamp;
+  var expires   = String(Math.floor(Date.now() / 1000 + 30));
+  var fullUrl   = _CONVERT_BASE_URL + path.replace(/^\//, '');
+  var bodyStr   = body || '';
+  var canonical = apiKey + '\n' + expires + '\n' + fullUrl + '\n' + bodyStr;
   var sigBytes  = Utilities.computeHmacSha256Signature(canonical, secretKey);
   var signature = _cvtBytesToHex(sigBytes);
   return {
-    'Authorization': 'Convert-HMAC-SHA256 key=' + apiKey + ',timestamp=' + timestamp + ',signature=' + signature,
-    'Content-Type':  'application/json'
+    'Authorization':  'Convert-HMAC-SHA256 Signature=' + signature,
+    'Application-ID': apiKey,
+    'Expires':        expires,
+    'Content-Type':   'application/json'
   };
 }
 

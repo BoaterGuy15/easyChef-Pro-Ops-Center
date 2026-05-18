@@ -1,0 +1,33 @@
+
+    /* ── Calendar 2.0 ──────────────────────────────────────────────────────── */
+    .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .cal-nav-left { display:flex; align-items:center; gap:8px; }
+    .cal-nav-title { font-size:15px; font-weight:700; letter-spacing:-0.2px; min-width:130px; text-align:center; }
+    .cal-nav-btn { background:#1e1e22; border:1px solid #2a2a2e; color:#aaa; width:30px; height:30px; border-radius:8px; font-size:16px; cursor:pointer; font-family:inherit; transition:all 0.12s; display:flex; align-items:center; justify-content:center; }
+    .cal-nav-btn:hover { background:#2a2a2e; color:#f0f0f0; }
+    .cal-today-btn { background:transparent; border:1px solid #2a2a2e; color:#555; padding:4px 10px; border-radius:6px; font-size:10px; font-weight:600; cursor:pointer; font-family:inherit; letter-spacing:0.3px; transition:all 0.12s; }
+    .cal-today-btn:hover { border-color:#0a84ff; color:#0a84ff; }
+    .add-ms-btn { background:rgba(255,69,58,0.1); border:1px solid rgba(255,69,58,0.35); color:#ff453a; padding:5px 12px; border-radius:8px; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; transition:all 0.12s; }
+    .add-ms-btn:hover { background:rgba(255,69,58,0.22); }
+    .cal-day { aspect-ratio:unset !important; min-height:72px; }
+    .cal-date.date-red { color:#FF0000 !important; font-weight:800 !important; }
+    .cal-pills { display:flex; flex-wrap:wrap; gap:2px; flex:1; align-content:flex-start; padding-top:2px; }
+    .cal-pill { font-size:8px; font-weight:700; padding:1px 4px; border-radius:3px; letter-spacing:0.2px; line-height:14px; cursor:pointer; }
+    .cal-ms-banner { display:block; width:100%; font-size:8px; font-weight:700; padding:2px 4px; border-radius:3px; margin-bottom:2px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:0.2px; line-height:14px; }
+    /* Milestone modal */
+    .ms-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:50; display:none; align-items:center; justify-content:center; padding:20px; }
+    .ms-overlay.open { display:flex; }
+    .ms-card { background:#1a1a1e; border:1px solid #2a2a2e; border-radius:16px; width:100%; max-width:380px; box-shadow:0 24px 64px rgba(0,0,0,0.7); }
+    .ms-head { padding:14px 18px 10px; border-bottom:1px solid #2a2a2e; display:flex; align-items:center; justify-content:space-between; }
+    .ms-htitle { font-size:15px; font-weight:700; }
+    .ms-xbtn { background:#2a2a2e; border:none; color:#888; width:28px; height:28px; border-radius:50%; font-size:13px; cursor:pointer; font-family:inherit; }
+    .ms-body { padding:16px 18px 20px; display:flex; flex-direction:column; gap:12px; }
+    .ms-lbl { font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:#555; margin-bottom:4px; font-weight:600; display:block; }
+    .ms-inp { width:100%; background:#0e0e10; border:1px solid #2a2a2e; border-radius:8px; color:#e0e0e0; font-family:inherit; font-size:13px; padding:9px 12px; outline:none; box-sizing:border-box; transition:border-color 0.12s; }
+    .ms-inp:focus { border-color:#0a84ff; }
+    .ms-swatches { display:flex; gap:8px; }
+    .ms-swatch { width:30px; height:30px; border-radius:7px; cursor:pointer; border:2px solid transparent; transition:all 0.12s; flex-shrink:0; }
+    .ms-swatch.on { border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,0.15); }
+    .ms-savebtn { background:#FF0000; border:none; color:#fff; padding:11px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; width:100%; }
+    .ms-savebtn:disabled { background:#222; color:#444; cursor:default; }
+    .ms-msg { font-size:11px; min-height:16px; color:#32d74b; text-align:center; }

@@ -1,0 +1,153 @@
+
+// ── P4: Export emails as Google Docs (one doc per sequence) ───────────────────
+
+function exportEmailsAsDocs(campaignId, folderIdOverride) {
+  try {
+    var emails = getEmailSequences(campaignId);
+    if (!emails.length) return { ok: false, error: 'no emails for ' + campaignId };
+
+    var rootId = folderIdOverride || '';
+    if (!rootId) {
+      try {
+        var _fs = _getCcSetting('CAMPAIGN_FOLDER_ID');
+        rootId = (_fs && _fs.length) ? _fs[0].label : '';
+      } catch(ce) {}
+    }
+    var rootFolder = rootId ? DriveApp.getFolderById(rootId) : DriveApp.getFolderById(_CAMPAIGNS_ROOT_ID);
+    var emailFolder = getOrCreateFolder(rootFolder, '03_Email');
+
+    var seqMap = {};
+    emails.forEach(function(e) {
+      var code = e.sequence_code || 'OTHER';
+      if (!seqMap[code]) seqMap[code] = [];
+      seqMap[code].push(e);
+    });
+
+    var seqNames = { 'SEQ-1':'Welcome Sequence', 'SEQ-2':'Nurture Sequence', 'SEQ-3':'Launch Sequence', 'SEQ-4':'Retention Sequence' };
+    var docUrls  = {};
+
+    Object.keys(seqMap).sort().forEach(function(seqCode) {
+      var seqs    = seqMap[seqCode];
+      var seqName = seqNames[seqCode] || seqCode;
+      var doc     = _newDoc(seqCode + ' — ' + seqName + ' — ' + campaignId, emailFolder);
+      var body    = doc.getBody();
+
+      _docBrandHeader(body, 'easyChef Pro · ' + seqCode + ' — ' + seqName, '');
+      _dh1(body, seqCode + ' — ' + seqName);
+      _dpair(body, 'Campaign', campaignId);
+      _dpair(body, 'Email count', String(seqs.length));
+      body.appendParagraph('');
+
+      seqs.sort(function(a, b) { return (a.email_number || 0) - (b.email_number || 0); });
+
+      seqs.forEach(function(e) {
+        _docDivider(body);
+        _dh2(body, 'Email ' + (e.email_number || '?') + ' · ' + (e.subject_line || ''));
+        _dpair(body, 'ID',              e.id || '');
+        _dpair(body, 'Send Day',        String(e.send_day || ''));
+        _dpair(body, 'ICP / Variant',   (e.icp_code || '') + ' · ' + (e.variant || ''));
+        _dpair(body, 'Funnel Stage',    e.funnel_stage    || '');
+        _dpair(body, 'Emotional Stage', e.emotional_stage || '');
+        _dpair(body, 'DL ID',           e.dl_id           || '');
+        body.appendParagraph('');
+        _dpair(body, 'Subject', e.subject_line || '');
+        _dpair(body, 'Preview', e.preview_text || '');
+        body.appendParagraph('');
+
+        if (e.full_email_body && e.full_email_body.length > 10) {
+          _dh2(body, 'Full Body');
+          _docBodyPara(body, e.full_email_body);
+        } else {
+          _dh2(body, 'Body Sections');
+          if (e.body_hook)    _dpair(body, 'Hook',    e.body_hook);
+          if (e.body_problem) _dpair(body, 'Problem', e.body_problem);
+          if (e.body_agitate) _dpair(body, 'Agitate', e.body_agitate);
+          if (e.body_solve)   _dpair(body, 'Solve',   e.body_solve);
+          if (e.body_value)   _dpair(body, 'Value',   e.body_value);
+          if (e.body_proof)   _dpair(body, 'Proof',   e.body_proof);
+          if (e.body_cta)     _dpair(body, 'CTA',     e.body_cta);
+        }
+        body.appendParagraph('');
+      });
+
+      _docBrandFooter(body);
+      doc.saveAndClose();
+      docUrls[seqCode] = DriveApp.getFileById(doc.getId()).getUrl();
+      Logger.log('[exportEmailsAsDocs] ' + seqCode + ' -> ' + doc.getId());
+    });
+
+    return { ok: true, folder_url: emailFolder.getUrl(), doc_urls: docUrls, email_count: emails.length };
+  } catch(e) {
+    Logger.log('[exportEmailsAsDocs] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── P4: Export social posts as Google Docs (one doc per platform) ─────────────
+
+function exportSocialAsDocs(campaignId, folderIdOverride) {
+  try {
+    var posts = getSocialPosts(campaignId);
+    if (!posts.length) return { ok: false, error: 'no posts for ' + campaignId };
+
+    var rootId = folderIdOverride || '';
+    if (!rootId) {
+      try {
+        var _fs2 = _getCcSetting('CAMPAIGN_FOLDER_ID');
+        rootId = (_fs2 && _fs2.length) ? _fs2[0].label : '';
+      } catch(ce) {}
+    }
+    var rootFolder   = rootId ? DriveApp.getFolderById(rootId) : DriveApp.getFolderById(_CAMPAIGNS_ROOT_ID);
+    var socialFolder = getOrCreateFolder(rootFolder, '04_Social');
+
+    var platMap = {};
+    posts.forEach(function(p) {
+      var plat = p.platform || 'Other';
+      if (!platMap[plat]) platMap[plat] = [];
+      platMap[plat].push(p);
+    });
+
+    var docUrls   = {};
+    var platforms = ['Facebook','Instagram','TikTok','YouTube','Pinterest','Nextdoor','X'];
+
+    platforms.forEach(function(plat) {
+      var platPosts = platMap[plat];
+      if (!platPosts || !platPosts.length) return;
+
+      var doc  = _newDoc(plat + ' — Posts — ' + campaignId, socialFolder);
+      var body = doc.getBody();
+
+      _docBrandHeader(body, 'easyChef Pro · ' + plat + ' Posts', '');
+      _dh1(body, plat + ' — Posts');
+      _dpair(body, 'Campaign',   campaignId);
+      _dpair(body, 'Post count', String(platPosts.length));
+      body.appendParagraph('');
+
+      platPosts.forEach(function(p) {
+        _docDivider(body);
+        _dh2(body, (p.id || '') + ' · ' + (p.loop_stage || p.funnel_stage || ''));
+        _dpair(body, 'ID',              p.id             || '');
+        _dpair(body, 'Scheduled',       p.scheduled_date || '');
+        _dpair(body, 'Loop Stage',      p.loop_stage     || '');
+        _dpair(body, 'Emotional',       (p.emotional_state || '') + ' → ' + (p.emotional_destination || ''));
+        _dpair(body, 'DL ID',           p.dl_id          || '');
+        body.appendParagraph('');
+        _dpair(body, 'Hook', p.hook      || '');
+        _dpair(body, 'Body', p.body_copy || '');
+        _dpair(body, 'CTA',  p.cta       || '');
+        if (p.hashtags) _dpair(body, 'Hashtags', p.hashtags);
+        body.appendParagraph('');
+      });
+
+      _docBrandFooter(body);
+      doc.saveAndClose();
+      docUrls[plat] = DriveApp.getFileById(doc.getId()).getUrl();
+      Logger.log('[exportSocialAsDocs] ' + plat + ' -> ' + doc.getId());
+    });
+
+    return { ok: true, folder_url: socialFolder.getUrl(), doc_urls: docUrls, post_count: posts.length };
+  } catch(e) {
+    Logger.log('[exportSocialAsDocs] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

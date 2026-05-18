@@ -1,0 +1,132 @@
+
+// ── writeSessionHandoffDoc ─────────────────────────────────────────────────────
+/**
+ * Creates a Session 13+14 Handoff Google Doc with completion table and open items.
+ * Places it in the campaign folder / 00_Handoffs subfolder.
+ */
+function writeSessionHandoffDoc(campaignId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+
+    // Locate folder
+    var rootFolderIds = _getCcSetting('CAMPAIGN_FOLDER_ID');
+    var rootId = (rootFolderIds && rootFolderIds.length) ? rootFolderIds[0].label : _CAMPAIGNS_ROOT_ID;
+    var rootFolder = DriveApp.getFolderById(rootId);
+    var handoffFolder = getOrCreateFolder(rootFolder, '00_Handoffs');
+
+    var doc = DocumentApp.create('Session 13+14 Handoff — easyChef Pro — May 17 2026');
+    DriveApp.getFileById(doc.getId()).moveTo(handoffFolder);
+
+    var body = doc.getBody();
+    body.clear();
+
+    _docBrandHeader(body, 'SESSION 13+14 HANDOFF', 'easyChef Pro — ' + campaignId);
+
+    _dh1(body, 'CAMPAIGN STATE (as of May 17, 2026)');
+    _dpair(body, 'Deploy', '@821');
+    _dpair(body, 'Sheet', '1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE');
+    _dpair(body, 'Health', 'ALL GREEN — 0 RED systems, 0 blocked');
+    _dpair(body, 'LP Spine', 'POPULATED');
+    _dpair(body, 'Social Posts', '198');
+    _dpair(body, 'Email Sequences', '55');
+    _dpair(body, 'Deep Links', '263 (CLEAN)');
+    _dpair(body, 'Brief Docs', '221');
+    _dpair(body, 'Master Positioning', 'LOCKED — MP-EC-2026-001-1779066831282');
+    _dpair(body, 'Stage Gates', '5 seeded');
+
+    _docDivider(body);
+
+    _dh1(body, 'COMPLETION TABLE — SESSIONS 13+14');
+
+    _dh2(body, 'P2: Email Audit');
+    _dpair(body, 'Status', 'DONE');
+    _dpair(body, 'Detail', '12/12 patches applied — 8 subject/preview/body fixes + 4 word-count trims. All 55 emails ≤target length.');
+
+    _dh2(body, 'P3: SOT Writeback');
+    _dpair(body, 'Status', 'DONE');
+    _dpair(body, 'Detail', 'Brand Doctrine audit complete. PRECISION_RULES_001 updated with AC-012 ROI figures. DESIGN_BRIEF_RULES_001 $111/month claim removed. patch_brand_doctrine action added @815.');
+    _dpair(body, 'Manual Step', 'Paste Part 2 from Session 13 handoff into AI Campaign Assistant Reference v3.0 (doc 14ZJTe2mdOOfJOgMMFT29jdTo8TiQcRYiXHBBH3jRKaM) at LOCKED CONSTANTS section.');
+
+    _dh2(body, 'P4: Drive Export');
+    _dpair(body, 'Status', 'DONE');
+    _dpair(body, 'Email folder', 'https://drive.google.com/drive/folders/1rEBE8XocXl3yC5_aiKIsD6VJC5hU2avj');
+    _dpair(body, 'SEQ-1 doc', 'https://docs.google.com/document/d/1Kx5uBImefovx5as6XP6lq1JgPCNcemRPdllCF9WWU1s');
+    _dpair(body, 'SEQ-2 doc', 'https://docs.google.com/document/d/11_8BtBvtyVUPFhBDssdK3kXvEHbmta78dYW5-ECF4zY');
+    _dpair(body, 'SEQ-3 doc', 'https://docs.google.com/document/d/1ZFGnSnjIEWNcA9fJ0D_er2jV72D7Htf6V-SB8p3Mpto');
+    _dpair(body, 'SEQ-4 doc', 'https://docs.google.com/document/d/1jiKDIP8qka6QGSJJ6eBMm-6rVyM4QnenkyBDd7ncWdM');
+    _dpair(body, 'ALPHA doc', 'https://docs.google.com/document/d/1uBaVcByXO4G3rdz-ZF8Kp8PBLQYGfXdJMAJ6d-KAGQ0');
+    _dpair(body, 'BETA doc', 'https://docs.google.com/document/d/1cvasmgKhuz4cmN10n-KNz4554wpqSo2KQjJhEKfHfo8');
+    _dpair(body, 'Social folder', 'https://drive.google.com/drive/folders/1uyRMH9baljj0wcslzgl-ruR2Hym4Fifb');
+    _dpair(body, 'Facebook doc', 'https://docs.google.com/document/d/1P5x_sukDGkBb_-TT2-melZ8W28vOgA9DhWpA1ptLSUU');
+    _dpair(body, 'Instagram doc', 'https://docs.google.com/document/d/123qCYII6CeB1xC9nXmYvq2gEaTCRkW1XOrrfZCqWafw');
+    _dpair(body, 'TikTok doc', 'https://docs.google.com/document/d/1rtOqcKNLog7ftUeqQqgcsj5WA2xKl116Gc1GTupVgbU');
+    _dpair(body, 'YouTube doc', 'https://docs.google.com/document/d/1STdHhD5knaH8VrOiN25Duln8SCr_tozAHzhHh1K_EqA');
+    _dpair(body, 'Pinterest doc', 'https://docs.google.com/document/d/1lMpFzyLSvGSenl52HNvck5iP7MIa2mlTvCxG2DtWwUo');
+    _dpair(body, 'Nextdoor doc', 'https://docs.google.com/document/d/1dirMCqJmL5dRcIp7Y9RocESdedKDhDNO3DCwDHbWXag');
+    _dpair(body, 'X (Twitter) doc', 'https://docs.google.com/document/d/1FieiULj416bZGod3gR_Q8Em9waDsz0JgHf81ei2RMVo');
+    _dpair(body, 'Permissions', 'All docs set to comments-only');
+
+    _dh2(body, 'P6: Klaviyo Build');
+    _dpair(body, 'Status', 'PARTIAL — API blocked, manual steps required');
+    _dpair(body, 'Blocker', 'Klaviyo removed POST /api/flows/ from their API (returns "No valid revisions found for method" on all revision dates including 2024-07-15 and 2024-10-15).');
+    _dpair(body, 'DL-ID Mapping', 'Call action klaviyo_get_dl_id_mapping (campaign_id: EC-2026-001) to get all 35 emails with their DL_IDs for utm_content.');
+    _dpair(body, 'Trigger List ID', 'TebDTM (Prelaunch Emails list)');
+    _dpair(body, 'Manual Step 1', 'Log into Klaviyo dashboard. Create Flow A: "easyChef Pro Flow A — Founding Price (frustrated)" — trigger: List TebDTM.');
+    _dpair(body, 'Manual Step 2', 'Create Flow B: "easyChef Pro Flow B — Life Change (peaceful)" — trigger: List TebDTM.');
+    _dpair(body, 'Manual Step 3', 'In each email template CTA link, set utm_content = the DL_ID from the mapping table.');
+    _dpair(body, 'Manual Step 4', 'Ensure utm_content passes to GA4 via GTM data layer push on CTA click.');
+
+    _dh2(body, 'P7: Convert.com');
+    _dpair(body, 'Status', 'BUILT — BLOCKED on credentials');
+    _dpair(body, 'Experiment ID', '100140422');
+    _dpair(body, 'Goal ID', '100154109');
+    _dpair(body, 'Account ID', '10019256');
+    _dpair(body, 'Functions deployed', 'activateConvertExperiment · setConvertAudienceFilter · confirmConvertGoal · runConvertP7Setup');
+    _dpair(body, 'Blocker', 'convert_api_key and convert_secret_key not in CcSettings tab.');
+    _dpair(body, 'Fix Step 1', 'Open Campaign Center Sheet → CcSettings tab.');
+    _dpair(body, 'Fix Step 2', 'Add row: column B = convert_api_key, column D = <your API key>.');
+    _dpair(body, 'Fix Step 3', 'Add row: column B = convert_secret_key, column D = <your secret key>.');
+    _dpair(body, 'Fix Step 4', 'Run: POST action=run_convert_p7_setup with experiment_id=100140422 and goal_id=100154109.');
+
+    _dh2(body, 'Design Briefs');
+    _dpair(body, 'Status', 'DONE');
+    _dpair(body, 'image_brief', '198 social posts patched with 5-element briefs (MOOD · CANVAS · SUBJECT · BACKGROUND · TEXT)');
+    _dpair(body, 'DesignTokens tab', '35 rows written to Campaign Center Sheet — brand colors, typography, platform specs, arc mood map');
+    _dpair(body, 'Figma Storyboard doc', 'https://docs.google.com/document/d/1yAkIo_-c01EEwBMEFHpqFkd5oJwRErFyRWoYUPzqXTk');
+    _dpair(body, 'TikTok frames', '8 frames — sp-211 through sp-218');
+    _dpair(body, 'YouTube frames', '8 frames — sp-219 through sp-226');
+    _dpair(body, 'Brand templates', '7 platform sizes defined in DesignTokens tab (FB 1080×1080 · IG 1080×1080 · TT 1080×1920 · YT 1280×720 · PIN 1000×1500 · ND 1200×628 · X 1200×675)');
+
+    _docDivider(body);
+
+    _dh1(body, 'OPEN ITEMS — NEXT SESSION');
+    _dpair(body, '1', 'P6 Klaviyo — Manual: Create Flows A+B in dashboard. Use klaviyo_get_dl_id_mapping for utm_content values.');
+    _dpair(body, '2', 'P7 Convert.com — Add API credentials to CcSettings, then run run_convert_p7_setup.');
+    _dpair(body, '3', 'P3 Manual — Paste Part 2 into AI Campaign Assistant Reference v3.0 at LOCKED CONSTANTS.');
+    _dpair(body, '4', 'Klaviyo GET /lists/ works — verify TebDTM list ID is correct for campaign.');
+    _dpair(body, '5', 'Campaign launch target: July 1, 2026.');
+
+    _docDivider(body);
+
+    _dh1(body, 'FILES MODIFIED IN SESSIONS 13+14');
+    _dpair(body, 'Operations_DriveExport.gs', '_dpairSafe · exportEmailsAsDocs · exportSocialAsDocs');
+    _dpair(body, 'Operations_KlaviyoSync.gs', '_KL_REVISION updated · klaviyoBuildFlows · klaviyoGetEmailDlIdMapping');
+    _dpair(body, 'Operations_ConvertSync.gs', 'activateConvertExperiment · setConvertAudienceFilter · confirmConvertGoal · runConvertP7Setup');
+    _dpair(body, 'Operations_DesignBriefs.gs', 'NEW FILE — patchSocialImageBriefs · writeDesignTokensTab · writeFigmaStoryboardDoc');
+    _dpair(body, 'Operation.gs', '11 new action handlers added (export_emails_as_docs · export_social_as_docs · klaviyo_build_flows · klaviyo_get_dl_id_mapping · activate_convert_experiment · set_convert_audience_filter · confirm_convert_goal · run_convert_p7_setup · patch_social_image_briefs · write_design_tokens_tab · write_figma_storyboard_doc)');
+    _dpair(body, 'CLAUDE.md', 'Current state updated to @821');
+
+    _docBrandFooter(body, 'Session 14 — May 17 2026 — easyChef Pro Ops');
+
+    doc.saveAndClose();
+
+    var file = DriveApp.getFileById(doc.getId());
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT);
+
+    return { ok: true, doc_url: 'https://docs.google.com/document/d/' + doc.getId() + '/edit', doc_id: doc.getId() };
+
+  } catch(e) {
+    Logger.log('[writeSessionHandoffDoc] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

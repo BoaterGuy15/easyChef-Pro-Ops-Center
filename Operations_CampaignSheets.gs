@@ -2097,6 +2097,15 @@ function submitWaitlistSignup(data) {
     'new'
   ];
   _ccUpsert(sheet, hdrs, id, row);
+
+  // Wire Klaviyo — create/update profile with icp_code + add to list TebDTM
+  // Failure is non-fatal: sheet save is already committed above
+  try {
+    klaviyoSubscribeWaitlistSignup(data.email || '', data.lp_variant || 'a');
+  } catch(klfErr) {
+    Logger.log('[WL] Klaviyo subscribe failed (non-fatal): ' + klfErr.message);
+  }
+
   return { ok: true, id: id };
 }
 

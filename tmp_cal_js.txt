@@ -1,0 +1,106 @@
+    // ── Calendar 2.0 ──────────────────────────────────────────────────────────
+    function isoDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+
+    var calViewYear=2026, calViewMonth=4; // May 2026 (month is 0-indexed)
+    var MILESTONES_BY_DATE={};
+    var PILL_BG={
+      'Facebook':'rgba(74,158,255,0.22)','Instagram':'rgba(225,48,108,0.22)',
+      'Pinterest':'rgba(230,0,35,0.20)','TikTok':'rgba(170,170,170,0.16)',
+      'X':'rgba(200,200,200,0.14)','Email':'rgba(10,132,255,0.22)',
+      'Nextdoor':'rgba(76,175,80,0.20)','YouTube':'rgba(255,48,64,0.22)'
+    };
+    var PILL_FG={
+      'Facebook':'#4a9eff','Instagram':'#e1306c','Pinterest':'#ff4858',
+      'TikTok':'#aaa','X':'#bbb','Email':'#0a84ff',
+      'Nextdoor':'#4caf50','YouTube':'#ff3040'
+    };
+    var PILL_AB={
+      'Facebook':'FB','Instagram':'IG','Pinterest':'PIN',
+      'TikTok':'TT','X':'X','Email':'EM','Nextdoor':'ND','YouTube':'YT'
+    };
+    var RED_DATES={'2026-05-27':true,'2026-07-01':true};
+    var CAM_START_ISO='2026-05-27', CAM_END_ISO='2026-06-30';
+    var CAL_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    function prevMonth(){calViewMonth--;if(calViewMonth<0){calViewMonth=11;calViewYear--;}renderCal(calData);}
+    function nextMonth(){calViewMonth++;if(calViewMonth>11){calViewMonth=0;calViewYear++;}renderCal(calData);}
+    function goToday(){var n=new Date();calViewYear=n.getFullYear();calViewMonth=n.getMonth();renderCal(calData);}
+
+    function renderCal(data){
+      var pc=document.getElementById('panel-cal'); if(!pc) return;
+      if(!data||!data.days){
+        pc.innerHTML='<div class="loading" style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0">No calendar data.<br><button onclick="syncCalendar()" style="background:rgba(10,132,255,0.12);border:1px solid #0a84ff;color:#0a84ff;padding:7px 20px;border-radius:7px;font-size:12px;cursor:pointer;margin-top:8px">Sync Posts</button></div>';
+        return;
+      }
+      var days=data.days, allDays=calData?calData.days:{};
+      var today=isoDate(new Date()), hasF=hasFilters();
+      var firstDay=new Date(calViewYear,calViewMonth,1);
+      var daysInMonth=new Date(calViewYear,calViewMonth+1,0).getDate();
+      var startDow=firstDay.getDay();
+
+      var nav='<div class="cal-nav">'+
+        '<div class="cal-nav-left">'+
+          '<button class="cal-nav-btn" onclick="prevMonth()">&#8249;</button>'+
+          '<span class="cal-nav-title">'+CAL_MONTH_NAMES[calViewMonth]+' '+calViewYear+'</span>'+
+          '<button class="cal-nav-btn" onclick="nextMonth()">&#8250;</button>'+
+          '<button class="cal-today-btn" onclick="goToday()">Today</button>'+
+        '</div>'+
+        '<button class="add-ms-btn" onclick="openMsModal()">+ Milestone</button>'+
+      '</div>';
+
+      var dowHtml=DOW.map(function(d){return '<div class="cal-dow-cell">'+d+'</div>';}).join('');
+      var cells='';
+      for(var b=0;b<startDow;b++) cells+='<div class="cal-day outside"></div>';
+
+      for(var d=1;d<=daysInMonth;d++){
+        var curD=new Date(calViewYear,calViewMonth,d);
+        var dk=isoDate(curD);
+        var inC=dk>=CAM_START_ISO&&dk<=CAM_END_ISO;
+        var isT=dk===today;
+        var isRed=!!RED_DATES[dk];
+        var dayObj=days[dk]||null;
+        var origDay=allDays[dk]||null;
+
+        var cls='cal-day'+(inC?' in-campaign':'')+(isT?' is-today':'');
+        if(dayObj){
+          if(dayObj.blocked>0&&dayObj.blocked===dayObj.total) cls+=' has-blocked';
+          else if(dayObj.published===dayObj.total&&dayObj.total>0) cls+=' all-published';
+        } else if(inC&&origDay&&hasF) cls+=' filtered-empty';
+
+        var msList=MILESTONES_BY_DATE[dk]||[];
+        var msHtml='';
+        msList.forEach(function(ms){
+          msHtml+='<span class="cal-ms-banner" style="background:'+ms.color+'">'+ms.title+'</span>';
+        });
+
+        var pillsHtml='';
+        if(dayObj&&dayObj.posts&&dayObj.posts.length){
+          var platMap={};
+          dayObj.posts.forEach(function(p){
+            var pl=p.platform||'';
+            if(!platMap[pl]||p.blocked) platMap[pl]=p;
+          });
+          Object.keys(platMap).sort().forEach(function(pl){
+            var p2=platMap[pl];
+            var bg2=PILL_BG[pl]||'rgba(100,100,100,0.18)';
+            var fg2=p2.blocked?'#ff453a':(PILL_FG[pl]||'#888');
+            var ab=PILL_AB[pl]||pl.slice(0,2).toUpperCase();
+            pillsHtml+='<span class="cal-pill" style="background:'+bg2+';color:'+fg2+'" title="'+pl+'">'+ab+'</span>';
+          });
+        }
+
+        var oc2=(inC&&dayObj)||msList.length?' onclick="openSheet(\''+dk+'\')"':'';
+        var dateCls='cal-date'+(isRed?' date-red':'');
+        cells+='<div class="'+cls+'"'+oc2+'>'+
+          '<div class="'+dateCls+'">'+d+'</div>'+
+          msHtml+
+          '<div class="cal-pills">'+pillsHtml+'</div>'+
+        '</div>';
+      }
+
+      pc.innerHTML=nav+
+        '<div class="cal-dow">'+dowHtml+'</div>'+
+        '<div class="cal-grid">'+cells+'</div>'+
+        (hasF?'<div style="text-align:center;padding:8px 0;font-size:11px;color:#0a84ff">Filtered &nbsp;·&nbsp; <button onclick="clearFilters()" style="background:none;border:none;color:#ff453a;font-size:11px;cursor:pointer;font-family:inherit">Clear</button></div>':'');
+    }
+

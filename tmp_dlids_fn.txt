@@ -1,0 +1,106 @@
+
+// Surgical DL ID + UTM URL assignment (dl_id + utm_url only, no other field changes)
+// Run via doPost: { "action": "assign_ec2026001_dl_ids" }
+// Skips rows that already have dl_id unless force:true is passed.
+
+function assignEC2026001DlIds(opts) {
+  opts = opts || {};
+  var force = !!(opts.force);
+  try {
+    var now = _ccNow();
+
+    var PREFIX_MAP = {
+      'Facebook':  'FB', 'Instagram': 'IG', 'X': 'XT',
+      'Pinterest': 'PT', 'Nextdoor':  'ND', 'Email': 'EM',
+      'TikTok':    'TK', 'YouTube':   'YT'
+    };
+    var UTM_MAP = {
+      'Facebook':  { source: 'facebook',  medium: 'social'  },
+      'Instagram': { source: 'instagram', medium: 'social'  },
+      'X':         { source: 'twitter',   medium: 'social'  },
+      'Pinterest': { source: 'pinterest', medium: 'social'  },
+      'Nextdoor':  { source: 'nextdoor',  medium: 'social'  },
+      'Email':     { source: 'email',     medium: 'email'   },
+      'TikTok':    { source: 'tiktok',    medium: 'social'  },
+      'YouTube':   { source: 'youtube',   medium: 'video'   }
+    };
+
+    var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+    var spData  = spSheet.getDataRange().getValues();
+    var spHdrs  = spData[0].map(function(h) { return String(h).trim(); });
+    var COL     = {};
+    spHdrs.forEach(function(h, i) { COL[h] = i; });
+
+    var dlSheet = _getCCSheet(_CC_TAB.DL);
+    var dlData  = dlSheet.getDataRange().getValues();
+    var dlHdrs  = dlData[0].map(function(h) { return String(h).trim(); });
+    var dlIdCol = dlHdrs.indexOf('dl_id');
+    var allPfx  = ['FB','IG','XT','PT','ND','EM','TK','YT'];
+    var maxN    = {};
+    allPfx.forEach(function(p) { maxN[p] = 0; });
+
+    for (var di = 1; di < dlData.length; di++) {
+      var existId = String(dlData[di][dlIdCol] || '');
+      var m = existId.match(/^DL-([A-Z]{2})-(\d+)$/);
+      if (m && maxN.hasOwnProperty(m[1])) {
+        var n = parseInt(m[2], 10);
+        if (n > maxN[m[1]]) maxN[m[1]] = n;
+      }
+    }
+
+    var ctr = {};
+    allPfx.forEach(function(p) { ctr[p] = maxN[p]; });
+    var _nextDl = function(pfx) {
+      ctr[pfx]++;
+      return 'DL-' + pfx + '-' + ('000' + ctr[pfx]).slice(-4);
+    };
+
+    var newDlRows = [], updated = 0, skipped = 0;
+
+    for (var ri = 1; ri < spData.length; ri++) {
+      var row = spData[ri];
+      if (String(row[COL['campaign_id']]) !== 'EC-2026-001') continue;
+      var existing = String(row[COL['dl_id']] || '');
+      if (existing && !force) { skipped++; continue; }
+
+      var platform = String(row[COL['platform']] || 'Facebook');
+      var pfx      = PREFIX_MAP[platform] || 'FB';
+      var utmP     = UTM_MAP[platform]    || UTM_MAP['Facebook'];
+      var hookText = String(row[COL['hook']] || '');
+      var assetId  = String(row[COL['id']] || '');
+      var postNum  = parseInt((assetId.match(/(\d+)$/) || [0, 0])[1], 10);
+      var lpVariant = (postNum % 2 === 1) ? 'waitlist-a' : 'waitlist-b';
+      var lpUrl    = 'https://easychefpro.com/lp/' + lpVariant;
+
+      var dlId      = _nextDl(pfx);
+      var utmSlug   = String(hookText).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+      var utmContent = dlId + '|' + utmSlug;
+      var utmUrl    = lpUrl +
+                      '?utm_source='   + utmP.source +
+                      '&utm_medium='   + utmP.medium +
+                      '&utm_campaign=ec-2026-001' +
+                      '&utm_content='  + encodeURIComponent(utmContent);
+
+      spSheet.getRange(ri + 1, COL['dl_id']  + 1).setValue(dlId);
+      spSheet.getRange(ri + 1, COL['utm_url'] + 1).setValue(utmUrl);
+      updated++;
+
+      newDlRows.push([
+        dlId, utmContent, 'EC-2026-001', platform, lpUrl,
+        utmP.source, utmP.medium, 'ec-2026-001', 'active',
+        now, '', 'system', hookText.slice(0, 60)
+      ]);
+    }
+
+    if (newDlRows.length > 0) {
+      var dlStart = dlSheet.getLastRow() + 1;
+      dlSheet.getRange(dlStart, 1, newDlRows.length, 13).setValues(newDlRows);
+    }
+
+    Logger.log('[assignEC2026001DlIds] updated=' + updated + ' skipped=' + skipped + ' dl_registered=' + newDlRows.length);
+    return { ok: true, updated: updated, skipped: skipped, dl_registered: newDlRows.length };
+  } catch(e) {
+    Logger.log('[assignEC2026001DlIds] ERROR: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

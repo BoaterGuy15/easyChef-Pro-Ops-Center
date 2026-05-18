@@ -1,0 +1,321 @@
+    // ── LP Studio ─────────────────────────────────────────────────────────────
+    var _lpWizard = { lp: null, dls: null, copy: null };
+    var _LP_PLATFORMS = ['Facebook','Instagram','Pinterest','Nextdoor','X','TikTok','YouTube','Email'];
+    var _LP_DEFAULT_PLATFORMS = ['Facebook','Instagram','Pinterest','Nextdoor'];
+
+    function loadLPStudio() {
+      var panel = document.getElementById('panel-lp');
+      _lpWizard = { lp: null, dls: null, copy: null };
+      _renderLPStudioShell(panel);
+      _loadLPFunnelSection();
+    }
+
+    function _renderLPStudioShell(panel) {
+      var cid = _activeCampaign !== 'all' ? _activeCampaign : '';
+      var platformCheckboxes = _LP_PLATFORMS.map(function(p) {
+        var chk = _LP_DEFAULT_PLATFORMS.indexOf(p) !== -1 ? ' checked' : '';
+        return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#111;cursor:pointer;margin:3px 8px 3px 0">'
+          + '<input type="checkbox" value="' + p + '"' + chk + ' style="cursor:pointer"> ' + p + '</label>';
+      }).join('');
+      panel.innerHTML =
+        '<div id="lp-funnel-wrap"><div class="loading" style="padding:20px 0">Loading funnels<span class="dot-anim"></span></div></div>'
+        + '<div style="margin:20px 0 16px;display:flex;align-items:center;gap:12px">'
+        +   '<div style="flex:1;height:1px;background:rgba(0,0,0,0.08)"></div>'
+        +   '<span style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:#888;font-weight:600">Create New LP</span>'
+        +   '<div style="flex:1;height:1px;background:rgba(0,0,0,0.08)"></div>'
+        + '</div>'
+        // Step 1
+        + '<div class="card" id="lp-s1-card">'
+        +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
+        +     '<span style="background:#FF0000;color:#fff;font-size:10px;font-weight:700;padding:2px 9px;border-radius:999px">STEP 1</span>'
+        +     '<span style="font-size:14px;font-weight:700;color:#111">Create LP Entry</span>'
+        +   '</div>'
+        +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +     '<div><label class="ms-lbl">Campaign ID</label>'
+        +       '<input class="ms-inp" id="lps1-campaign" value="' + cid + '" placeholder="e.g. EC-2026-001"/></div>'
+        +     '<div><label class="ms-lbl">Page Type</label>'
+        +       '<select class="ms-inp" id="lps1-type" style="cursor:pointer">'
+        +         '<option value="waitlist_lp">Waitlist LP</option>'
+        +         '<option value="coming_soon">Coming Soon</option>'
+        +         '<option value="thank_you">Thank You</option>'
+        +       '</select></div>'
+        +     '<div><label class="ms-lbl">Variant</label>'
+        +       '<select class="ms-inp" id="lps1-variant" style="cursor:pointer">'
+        +         '<option value="A">A</option><option value="B">B</option>'
+        +         '<option value="C">C</option><option value="">None</option>'
+        +       '</select></div>'
+        +     '<div><label class="ms-lbl">Slug <span style="font-weight:400;color:#aaa">(no leading /)</span></label>'
+        +       '<input class="ms-inp" id="lps1-slug" placeholder="e.g. lp/waitlist-c" oninput="lps1AutoUrl()"/></div>'
+        +     '<div style="grid-column:1/-1"><label class="ms-lbl">Full URL <span style="font-weight:400;color:#aaa">(auto-built from slug)</span></label>'
+        +       '<input class="ms-inp" id="lps1-url" placeholder="https://easychefpro.com/lp/…" style="font-family:monospace;font-size:12px"/></div>'
+        +     '<div><label class="ms-lbl">ICP Code</label>'
+        +       '<input class="ms-inp" id="lps1-icp" placeholder="e.g. super_mom"/></div>'
+        +     '<div><label class="ms-lbl">Campaign Angle</label>'
+        +       '<input class="ms-inp" id="lps1-angle" placeholder="e.g. savings"/></div>'
+        +     '<div style="grid-column:1/-1"><label class="ms-lbl">Thank You URL</label>'
+        +       '<input class="ms-inp" id="lps1-ty" placeholder="https://easychefpro.com/thank-you?src=…" style="font-family:monospace;font-size:12px"/></div>'
+        +   '</div>'
+        +   '<div style="margin-top:14px">'
+        +     '<button id="lps1-btn" onclick="submitLPStep1()" class="btn" style="width:100%;background:#111;color:#fff;border-color:#111">Create LP Entry →</button>'
+        +   '</div>'
+        +   '<div id="lps1-status" style="margin-top:10px;font-size:11px;color:#555;min-height:16px"></div>'
+        + '</div>'
+        // Step 2 (locked)
+        + '<div class="card" id="lp-s2-card" style="margin-top:10px;opacity:0.4;pointer-events:none">'
+        +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
+        +     '<span id="lps2-badge" style="background:#ccc;color:#fff;font-size:10px;font-weight:700;padding:2px 9px;border-radius:999px">STEP 2</span>'
+        +     '<span style="font-size:14px;font-weight:700;color:#111">Generate UTM Deep Links</span>'
+        +   '</div>'
+        +   '<div style="font-size:11px;color:#888;margin-bottom:10px">'
+        +     'LP: <span id="lps2-lp-label" style="color:#111;font-family:monospace">—</span>'
+        +     ' &nbsp;·&nbsp; URL: <span id="lps2-url-label" style="color:#111;font-family:monospace;font-size:11px">—</span>'
+        +   '</div>'
+        +   '<div><label class="ms-lbl">Platforms</label>'
+        +     '<div id="lps2-platforms" style="margin-top:6px">' + platformCheckboxes + '</div>'
+        +   '</div>'
+        +   '<div style="margin-top:14px">'
+        +     '<button id="lps2-btn" onclick="submitLPStep2()" class="btn" style="width:100%;background:#111;color:#fff;border-color:#111">Generate Deep Links →</button>'
+        +   '</div>'
+        +   '<div id="lps2-status" style="margin-top:10px;font-size:11px;color:#555;min-height:16px"></div>'
+        + '</div>'
+        // Step 3 (locked)
+        + '<div class="card" id="lp-s3-card" style="margin-top:10px;opacity:0.4;pointer-events:none">'
+        +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
+        +     '<span id="lps3-badge" style="background:#ccc;color:#fff;font-size:10px;font-weight:700;padding:2px 9px;border-radius:999px">STEP 3</span>'
+        +     '<span style="font-size:14px;font-weight:700;color:#111">Build Page</span>'
+        +   '</div>'
+        +   '<div style="font-size:11px;color:#888;margin-bottom:12px">Generates AI copy from your LP spine and writes it to the LandingPages tab.</div>'
+        +   '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+        +     '<button id="lps3-btn" onclick="submitLPStep3()" class="btn" style="flex:1;min-width:160px;background:#111;color:#fff;border-color:#111">Generate LP Copy →</button>'
+        +     '<button class="btn" style="flex:1;min-width:140px;opacity:0.5;cursor:not-allowed" disabled title="Deploy pipeline coming soon">Deploy to GoDaddy ↗</button>'
+        +   '</div>'
+        +   '<div id="lps3-status" style="margin-top:10px;font-size:11px;color:#555;min-height:16px"></div>'
+        + '</div>';
+    }
+
+    function lps1AutoUrl() {
+      var slug = (document.getElementById('lps1-slug').value || '').replace(/^\//, '');
+      document.getElementById('lps1-url').value = slug ? 'https://easychefpro.com/' + slug : '';
+      var ty = document.getElementById('lps1-ty');
+      var variant = document.getElementById('lps1-variant').value;
+      if (slug && !ty.value) {
+        var leaf = slug.split('/').pop();
+        ty.value = 'https://easychefpro.com/thank-you' + (leaf ? '?src=' + leaf : '');
+      }
+    }
+
+    function _unlockLPStep(n) {
+      var card  = document.getElementById('lp-s' + n + '-card');
+      var badge = document.getElementById('lps' + n + '-badge');
+      if (card)  { card.style.opacity = '1'; card.style.pointerEvents = ''; }
+      if (badge) badge.style.background = '#FF0000';
+    }
+
+    function submitLPStep1() {
+      var cid    = (document.getElementById('lps1-campaign').value || '').trim();
+      var slug   = (document.getElementById('lps1-slug').value || '').trim().replace(/^\//, '');
+      var url    = (document.getElementById('lps1-url').value || '').trim();
+      var status = document.getElementById('lps1-status');
+      if (!cid)  { status.innerHTML = '<span style="color:#dc2626">Campaign ID required.</span>'; return; }
+      if (!slug) { status.innerHTML = '<span style="color:#dc2626">Slug required.</span>'; return; }
+      var btn = document.getElementById('lps1-btn');
+      btn.disabled = true; btn.textContent = 'Creating…';
+      status.textContent = '';
+      google.script.run
+        .withSuccessHandler(function(r) {
+          btn.disabled = false; btn.textContent = 'Create LP Entry →';
+          if (!r || !r.ok) { status.innerHTML = '<span style="color:#dc2626">Error: ' + ((r && r.error) || 'unknown') + '</span>'; return; }
+          _lpWizard.lp = r.lp;
+          status.innerHTML = '<span style="color:#16a34a">✓ Created: <strong>' + r.lp.id + '</strong></span>';
+          document.getElementById('lps2-lp-label').textContent = r.lp.id;
+          document.getElementById('lps2-url-label').textContent = r.lp.full_url || '—';
+          _unlockLPStep(2);
+          _refreshLPFunnel();
+        })
+        .withFailureHandler(function() {
+          btn.disabled = false; btn.textContent = 'Create LP Entry →';
+          status.innerHTML = '<span style="color:#dc2626">Connection error.</span>';
+        })
+        .createLPEntry({
+          campaign_id:    cid,
+          slug:           slug,
+          full_url:       url,
+          lp_variant:     document.getElementById('lps1-variant').value,
+          page_type:      document.getElementById('lps1-type').value,
+          icp_codes:      (document.getElementById('lps1-icp').value || '').trim(),
+          campaign_angle: (document.getElementById('lps1-angle').value || '').trim(),
+          thank_you_url:  (document.getElementById('lps1-ty').value || '').trim()
+        });
+    }
+
+    function submitLPStep2() {
+      if (!_lpWizard.lp) return;
+      var boxes     = document.querySelectorAll('#lps2-platforms input[type=checkbox]:checked');
+      var platforms = Array.prototype.map.call(boxes, function(cb) { return cb.value; });
+      var status    = document.getElementById('lps2-status');
+      if (!platforms.length) { status.innerHTML = '<span style="color:#dc2626">Select at least one platform.</span>'; return; }
+      var btn = document.getElementById('lps2-btn');
+      btn.disabled = true; btn.textContent = 'Generating…';
+      status.textContent = '';
+      google.script.run
+        .withSuccessHandler(function(r) {
+          btn.disabled = false; btn.textContent = 'Generate Deep Links →';
+          if (!r || !r.ok) { status.innerHTML = '<span style="color:#dc2626">Error: ' + ((r && r.error) || 'unknown') + '</span>'; return; }
+          _lpWizard.dls = r.dl_ids;
+          var ids = r.dl_ids.map(function(d) { return d.dl_id; }).join(', ');
+          status.innerHTML = '<span style="color:#16a34a">✓ ' + r.count + ' DL_IDs generated: <strong>' + ids + '</strong></span>';
+          _unlockLPStep(3);
+          _refreshLPFunnel();
+        })
+        .withFailureHandler(function() {
+          btn.disabled = false; btn.textContent = 'Generate Deep Links →';
+          status.innerHTML = '<span style="color:#dc2626">Connection error.</span>';
+        })
+        .generateDLsForLP({
+          campaign_id: _lpWizard.lp.campaigns_using,
+          lp_id:       _lpWizard.lp.id,
+          full_url:    _lpWizard.lp.full_url,
+          lp_variant:  _lpWizard.lp.lp_variant,
+          icp_code:    _lpWizard.lp.icp_codes,
+          platforms:   platforms
+        });
+    }
+
+    function submitLPStep3() {
+      if (!_lpWizard.lp) return;
+      var status = document.getElementById('lps3-status');
+      var btn    = document.getElementById('lps3-btn');
+      btn.disabled = true; btn.textContent = 'Generating copy…';
+      status.innerHTML = '<span style="color:#888">AI is writing your LP — ~30s per section…</span>';
+      google.script.run
+        .withSuccessHandler(function(r) {
+          btn.disabled = false; btn.textContent = 'Generate LP Copy →';
+          if (!r || !r.ok) { status.innerHTML = '<span style="color:#dc2626">Error: ' + ((r && r.error) || 'unknown') + '</span>'; return; }
+          _lpWizard.copy = r;
+          var secs = r.sections_generated || (r.spine ? Object.keys(r.spine).length : '?');
+          status.innerHTML = '<span style="color:#16a34a">✓ ' + secs + ' sections generated and written to LandingPages tab.</span>';
+        })
+        .withFailureHandler(function() {
+          btn.disabled = false; btn.textContent = 'Generate LP Copy →';
+          status.innerHTML = '<span style="color:#dc2626">Connection error.</span>';
+        })
+        .generateLPSpine(_lpWizard.lp.campaigns_using, { lp_variant: _lpWizard.lp.lp_variant, icp_code: _lpWizard.lp.icp_codes });
+    }
+
+    function _loadLPFunnelSection() {
+      var wrap = document.getElementById('lp-funnel-wrap');
+      if (!wrap) return;
+      if (_activeCampaign === 'all') {
+        google.script.run
+          .withSuccessHandler(function(r) {
+            var w = document.getElementById('lp-funnel-wrap');
+            if (!w) return;
+            if (!r || !r.ok || !r.funnels || !r.funnels.length) {
+              w.innerHTML = '<div style="color:#aaa;font-size:12px;padding:12px 0">No campaigns registered yet.</div>';
+              return;
+            }
+            w.innerHTML = r.funnels.map(function(item) {
+              return _renderFunnelBlock(item.account_id, item.account_name, item.funnel);
+            }).join('');
+          })
+          .withFailureHandler(function() {
+            var w = document.getElementById('lp-funnel-wrap');
+            if (w) w.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:12px 0">Failed to load funnels.</div>';
+          })
+          .getAllCampaignFunnels();
+      } else {
+        google.script.run
+          .withSuccessHandler(function(r) {
+            var w = document.getElementById('lp-funnel-wrap');
+            if (!w) return;
+            if (!r || !r.ok) { w.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:12px 0">Failed to load funnel.</div>'; return; }
+            w.innerHTML = _renderFunnelBlock(_activeCampaign, _activeCampaign, r);
+          })
+          .withFailureHandler(function() {
+            var w = document.getElementById('lp-funnel-wrap');
+            if (w) w.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:12px 0">Failed to load funnel.</div>';
+          })
+          .getCampaignFunnel(_activeCampaign);
+      }
+    }
+
+    function _refreshLPFunnel() {
+      var wrap = document.getElementById('lp-funnel-wrap');
+      if (!wrap) return;
+      wrap.innerHTML = '<div style="color:#888;font-size:11px;padding:8px 0">Refreshing funnel…</div>';
+      _loadLPFunnelSection();
+    }
+
+    function _renderFunnelBlock(campaignId, campaignName, funnelData) {
+      var ok       = funnelData && funnelData.ok;
+      var inner    = ok ? _buildLPFunnelHtml(funnelData) : '<span style="color:#dc2626;font-size:11px">' + ((funnelData && funnelData.error) || 'Error') + '</span>';
+      var dlTotal  = (ok && funnelData.deep_link_summary && funnelData.deep_link_summary.total) || 0;
+      var seqCount = ok ? Object.keys(funnelData.email_sequences || {}).length : 0;
+      var label    = (campaignName && campaignName !== campaignId) ? ' <span style="font-size:11px;color:#888">' + campaignName + '</span>' : '';
+      return '<div class="card" style="margin-bottom:10px">'
+        + '<div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none" '
+        +   'onclick="var b=this.nextElementSibling;b.style.display=b.style.display===\'none\'?\'\':\' none\';this.querySelector(\'.fbk-arr\').textContent=b.style.display===\'none\'?\'▶\':\'▼\'">'
+        +   '<span class="fbk-arr" style="color:#888;font-size:10px;flex-shrink:0;width:12px">▼</span>'
+        +   '<span style="font-size:13px;font-weight:700;color:#111;font-family:var(--font-head)">' + campaignId + '</span>' + label
+        +   '<span style="font-size:10px;background:#F6EFE8;color:#555;padding:2px 8px;border-radius:999px;margin-left:auto;flex-shrink:0">' + dlTotal + ' DLs · ' + seqCount + ' seqs</span>'
+        + '</div>'
+        + '<div style="margin-top:10px">' + inner + '</div>'
+        + '</div>';
+    }
+
+    function _buildLPFunnelHtml(r) {
+      var f = r, html = '';
+      var stepIcons = ['📡','🚪','🎯','📧','✅'];
+      (f.funnel_flow || []).forEach(function(step, i) {
+        html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.06)">';
+        html += '<div style="font-size:18px;line-height:1;flex-shrink:0">' + (stepIcons[i] || '→') + '</div>';
+        html += '<div style="flex:1;min-width:0">';
+        html += '<div style="font-size:12px;font-weight:700;color:#111;margin-bottom:2px">Step ' + step.step + ' — ' + step.label + '</div>';
+        html += '<div style="font-size:11px;color:#888;margin-bottom:4px">' + (step.description || '') + '</div>';
+        if (step.pages && step.pages.length) {
+          step.pages.forEach(function(pg) {
+            var sc = pg.status === 'LIVE' ? '#16a34a' : '#b45309';
+            html += '<div style="display:flex;align-items:center;gap:6px;margin-top:3px">'
+              + '<span style="width:6px;height:6px;border-radius:50%;background:' + sc + ';flex-shrink:0;display:inline-block"></span>'
+              + '<span style="font-size:11px;color:#555">' + (pg.url || pg.slug || pg.id || '') + '</span>';
+            if (pg.variant) html += '<span style="font-size:9px;background:rgba(124,58,237,0.10);color:#7c3aed;padding:1px 5px;border-radius:3px">Variant ' + pg.variant + '</span>';
+            html += '<span style="font-size:9px;color:#888">' + (pg.status || '') + '</span>';
+            if (pg.thank_you_url) html += '<span style="font-size:9px;color:#aaa;margin-left:4px">→ ' + pg.thank_you_url + '</span>';
+            html += '</div>';
+          });
+        }
+        if (step.deep_links && Object.keys(step.deep_links).length) {
+          html += '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">';
+          Object.keys(step.deep_links).forEach(function(ch) {
+            html += '<span style="font-size:9px;background:#F6EFE8;color:#555;padding:1px 6px;border-radius:3px;border:1px solid rgba(0,0,0,0.08)">' + ch + ': ' + step.deep_links[ch] + '</span>';
+          });
+          html += '</div>';
+        }
+        if (step.sequences && step.sequences.length) {
+          step.sequences.forEach(function(seq) {
+            html += '<div style="font-size:11px;color:#888;margin-top:3px">' + seq.code + ' · ' + seq.email_count + ' emails</div>';
+          });
+        }
+        if (step.post_counts && Object.keys(step.post_counts).length) {
+          html += '<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">';
+          Object.keys(step.post_counts).forEach(function(pl) {
+            var pc = step.post_counts[pl];
+            html += '<span style="font-size:9px;background:#F6EFE8;color:#555;padding:1px 6px;border-radius:3px;border:1px solid rgba(0,0,0,0.08)">' + pl + ': ' + pc.total + ' posts</span>';
+          });
+          html += '</div>';
+        }
+        html += '</div></div>';
+      });
+      if (f.deep_link_summary) {
+        html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.08);display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+        html += '<span style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px">Deep Links</span>';
+        html += '<span style="font-size:11px;color:#555">Total: <strong style="color:#111">' + (f.deep_link_summary.total || 0) + '</strong></span>';
+        var byC = f.deep_link_summary.by_channel || {};
+        Object.keys(byC).forEach(function(ch) {
+          html += '<span style="font-size:9px;background:#F6EFE8;color:#555;padding:1px 6px;border-radius:3px;border:1px solid rgba(0,0,0,0.08)">' + ch + ': ' + byC[ch] + '</span>';
+        });
+        html += '</div>';
+      }
+      return html || '<span style="color:#555">No funnel data yet.</span>';
+    }
+

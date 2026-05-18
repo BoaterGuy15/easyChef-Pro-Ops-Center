@@ -1,0 +1,303 @@
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Operations_DesignBriefs.gs
+// Design brief generation — 5-element image_brief for all social posts.
+// DesignTokens tab write.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Design token constants (easyChef Pro brand) ───────────────────────────────
+
+var _DT_PLATFORM_SPECS = {
+  'Facebook':  { canvas:'1080×1080', safe:'80px', ratio:'1:1', format:'JPG/PNG', max_mb:4 },
+  'Instagram': { canvas:'1080×1080', safe:'80px', ratio:'1:1', format:'JPG/PNG', max_mb:4 },
+  'TikTok':    { canvas:'1080×1920', safe:'100px', ratio:'9:16', format:'MP4/JPG', max_mb:4 },
+  'YouTube':   { canvas:'1280×720',  safe:'80px', ratio:'16:9', format:'JPG/PNG', max_mb:2 },
+  'Pinterest': { canvas:'1000×1500', safe:'60px', ratio:'2:3', format:'JPG/PNG', max_mb:20 },
+  'Nextdoor':  { canvas:'1200×628',  safe:'80px', ratio:'1.91:1', format:'JPG/PNG', max_mb:4 },
+  'X':         { canvas:'1200×675',  safe:'80px', ratio:'16:9', format:'JPG/PNG', max_mb:5 }
+};
+
+var _DT_MOOD_MAP = {
+  'exhausted':    'raw documentary, natural window light, unsaturated palette',
+  'frustrated':   'real-life chaos, harsh overhead, high contrast, gritty',
+  'activated':    'tension + motion blur, warm accent light, mid-contrast',
+  'curious':      'clean discovery, soft diffused, warm white balance',
+  'relieved':     'calm confidence, golden-hour soft, low noise',
+  'trusting':     'social proof warmth, community composition, warm tones',
+  'happy':        'celebration pop, bright natural, Brand Red accent',
+  'peaceful':     'quiet minimalism, soft morning light, pastel warmth'
+};
+
+var _DT_LOOP_SUBJECT = {
+  'hook':     'real mom staring at open fridge, tired expression',
+  'problem':  'pile of groceries on counter, overwhelmed posture',
+  'agitate':  'family at dinner table with takeout bags, stressed',
+  'solve':    'easyChef Pro interface on phone, ingredients visible',
+  'value':    'organized pantry or meal prep flat-lay, clean kitchen',
+  'proof':    'before/after side-by-side or happy family at table',
+  'cta':      'woman holding phone with app open, confident smile'
+};
+
+var _DT_LOOP_BACKGROUND = {
+  'hook':    'cluttered kitchen counter, natural light',
+  'problem': 'full grocery bags on floor, boxes stacked',
+  'agitate': 'restaurant delivery bags, clock visible',
+  'solve':   'clean kitchen background, organized shelves',
+  'value':   'tidy pantry or meal-prepped containers in fridge',
+  'proof':   'warm home kitchen, family photos visible',
+  'cta':     'bright minimal kitchen, single plant or accent'
+};
+
+var _DT_PLATFORM_TEXT = {
+  'Facebook':  'readable headline overlay, Brand Red badge, 60% text-free',
+  'Instagram': 'minimal text, clean font, text in safe zone only',
+  'TikTok':    'large bold hook text top-third, sticker-style CTA bottom',
+  'YouTube':   'thumbnail headline ≤5 words, face + text combo preferred',
+  'Pinterest': 'title text top, brand URL bottom, serif accent',
+  'Nextdoor':  'neighborhood trust badge, local detail text visible',
+  'X':         'data point callout or stat overlay, minimal clutter'
+};
+
+// ── patchSocialImageBriefs ───────────────────────────────────────────────────
+/**
+ * Generates a 5-element image_brief for every social post and writes it back
+ * to the SocialPosts tab image_brief column.
+ * Returns { ok, patched, skipped }
+ */
+function patchSocialImageBriefs(campaignId) {
+  try {
+    campaignId = campaignId || 'EC-2026-001';
+    var sheet   = _getCCSheet(_CC_TAB.SOCIAL);
+    var headers = _CC_HDR.SocialPosts;
+    var ibCol   = headers.indexOf('image_brief') + 1; // 1-based
+    if (ibCol < 1) return { ok: false, error: 'image_brief column not found' };
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'no rows in SocialPosts' };
+
+    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    var patched = 0;
+    var skipped = 0;
+
+    rows.forEach(function(r, idx) {
+      if (!r[0]) return; // skip blank rows
+      var cid = String(r[headers.indexOf('campaign_id')] || '');
+      if (campaignId && cid && cid !== campaignId) { skipped++; return; }
+
+      var platform  = String(r[headers.indexOf('platform')]        || '');
+      var loopStage = String(r[headers.indexOf('loop_stage')]      || 'hook').toLowerCase();
+      var emState   = String(r[headers.indexOf('emotional_state')] || 'exhausted').toLowerCase();
+
+      var spec     = _DT_PLATFORM_SPECS[platform]   || _DT_PLATFORM_SPECS['Facebook'];
+      var mood     = _DT_MOOD_MAP[emState]           || _DT_MOOD_MAP['exhausted'];
+      var subject  = _DT_LOOP_SUBJECT[loopStage]     || _DT_LOOP_SUBJECT['hook'];
+      var bg       = _DT_LOOP_BACKGROUND[loopStage]  || _DT_LOOP_BACKGROUND['hook'];
+      var textRule = _DT_PLATFORM_TEXT[platform]     || _DT_PLATFORM_TEXT['Facebook'];
+
+      var brief =
+        '1. MOOD: '        + mood         + '\n' +
+        '2. CANVAS: '      + spec.canvas  + ' (' + spec.ratio + ') · safe zone ' + spec.safe + '\n' +
+        '3. SUBJECT: '     + subject      + '\n' +
+        '4. BACKGROUND: '  + bg           + '\n' +
+        '5. TEXT: '        + textRule;
+
+      sheet.getRange(idx + 2, ibCol).setValue(brief);
+      patched++;
+    });
+
+    Logger.log('[patchSocialImageBriefs] patched=' + patched + ' skipped=' + skipped);
+    return { ok: true, patched: patched, skipped: skipped };
+  } catch(e) {
+    Logger.log('[patchSocialImageBriefs] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── writeDesignTokensTab ─────────────────────────────────────────────────────
+/**
+ * Creates (or overwrites) a "DesignTokens" tab in the Campaign Center Sheet.
+ * Writes brand color, typography, and platform spec tokens.
+ */
+function writeDesignTokensTab() {
+  try {
+    var ss    = _getCampaignSpreadsheet();
+    var tabName = 'DesignTokens';
+    var sh    = ss.getSheetByName(tabName);
+    if (sh) {
+      sh.clearContents();
+    } else {
+      sh = ss.insertSheet(tabName);
+    }
+
+    // Style header row
+    function hdrRow(sh, row, vals, bg, fg) {
+      var r = sh.getRange(row, 1, 1, vals.length);
+      r.setValues([vals]);
+      r.setBackground(bg || '#c62828').setFontColor(fg || '#ffffff');
+      r.setFontWeight('bold').setFontFamily('Arial').setFontSize(10);
+    }
+
+    var curRow = 1;
+
+    // ── Section 1: Brand Colors ──────────────────────────────────────────────
+    hdrRow(sh, curRow, ['TOKEN','VALUE','USAGE','WCAG AA SAFE'], '#212121', '#ffffff'); curRow++;
+    var colorTokens = [
+      ['color.brand.red',   '#FF0000', 'CTAs, badges, borders, active state', 'Yes — on white text'],
+      ['color.brand.white', '#FFFFFF', 'Background, primary surface',         'Yes — on dark/red'],
+      ['color.brand.beige', '#F6EFE8', 'Secondary surface, section bg',       'Yes — on dark text'],
+      ['color.brand.dark',  '#000000', 'Primary text, headlines',             'Yes — on white/beige'],
+      ['color.brand.grey',  '#666666', 'Secondary text, metadata, captions',  'Yes — on white bg'],
+      ['color.brand.body',  '#333333', 'Body text, paragraphs',               'Yes — on white bg']
+    ];
+    colorTokens.forEach(function(row) {
+      var r = sh.getRange(curRow, 1, 1, row.length);
+      r.setValues([row]);
+      r.setFontFamily('Arial').setFontSize(9);
+      curRow++;
+    });
+    curRow++;
+
+    // ── Section 2: Typography ────────────────────────────────────────────────
+    hdrRow(sh, curRow, ['TOKEN','VALUE','USAGE',''], '#37474f', '#ffffff'); curRow++;
+    var typoTokens = [
+      ['font.family.heading', 'Arial Bold', 'Headlines, section titles, H1-H2',   ''],
+      ['font.family.body',    'Arial',      'Body copy, captions, labels',         ''],
+      ['font.size.h1',        '24px',       'Page/doc headline',                   ''],
+      ['font.size.h2',        '18px',       'Section heading',                     ''],
+      ['font.size.body',      '14px',       'Standard body text',                  ''],
+      ['font.size.caption',   '11px',       'Labels, metadata, legal',             ''],
+      ['font.weight.bold',    '700',        'Headlines, emphasis',                 ''],
+      ['font.weight.normal',  '400',        'Body, captions',                      '']
+    ];
+    typoTokens.forEach(function(row) {
+      var r = sh.getRange(curRow, 1, 1, row.length);
+      r.setValues([row]);
+      r.setFontFamily('Arial').setFontSize(9);
+      curRow++;
+    });
+    curRow++;
+
+    // ── Section 3: Platform Specs ────────────────────────────────────────────
+    hdrRow(sh, curRow, ['PLATFORM','CANVAS','SAFE ZONE','RATIO','FORMAT','MAX MB'], '#1b5e20', '#ffffff'); curRow++;
+    var platKeys = ['Facebook','Instagram','TikTok','YouTube','Pinterest','Nextdoor','X'];
+    platKeys.forEach(function(plat) {
+      var spec = _DT_PLATFORM_SPECS[plat];
+      var r = sh.getRange(curRow, 1, 1, 6);
+      r.setValues([[plat, spec.canvas, spec.safe, spec.ratio, spec.format, spec.max_mb]]);
+      r.setFontFamily('Arial').setFontSize(9);
+      curRow++;
+    });
+    curRow++;
+
+    // ── Section 4: Arc Stage → Visual Mood ──────────────────────────────────
+    hdrRow(sh, curRow, ['ARC STAGE','EMOTIONAL STATE','VISUAL MOOD / LIGHTING',''], '#4a148c', '#ffffff'); curRow++;
+    var arcTokens = [
+      ['hook',    'exhausted',  _DT_MOOD_MAP['exhausted'],  ''],
+      ['problem', 'frustrated', _DT_MOOD_MAP['frustrated'], ''],
+      ['agitate', 'activated',  _DT_MOOD_MAP['activated'],  ''],
+      ['solve',   'curious',    _DT_MOOD_MAP['curious'],    ''],
+      ['value',   'relieved',   _DT_MOOD_MAP['relieved'],   ''],
+      ['proof',   'trusting',   _DT_MOOD_MAP['trusting'],   ''],
+      ['cta',     'happy',      _DT_MOOD_MAP['happy'],      '']
+    ];
+    arcTokens.forEach(function(row) {
+      var r = sh.getRange(curRow, 1, 1, row.length);
+      r.setValues([row]);
+      r.setFontFamily('Arial').setFontSize(9);
+      curRow++;
+    });
+
+    sh.setFrozenRows(0);
+    sh.autoResizeColumns(1, 4);
+    Logger.log('[writeDesignTokensTab] wrote ' + (curRow - 1) + ' rows');
+    return { ok: true, rows_written: curRow - 1 };
+  } catch(e) {
+    Logger.log('[writeDesignTokensTab] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── writeFigmaStoryboardDoc ──────────────────────────────────────────────────
+/**
+ * Creates a Figma storyboard reference Google Doc for TikTok (sp-211–218)
+ * and YouTube (sp-219–226) in the campaign Drive folder.
+ * Returns { ok, doc_url }
+ */
+function writeFigmaStoryboardDoc(campaignId, folderIdOverride) {
+  try {
+    campaignId  = campaignId || 'EC-2026-001';
+    var rootId  = folderIdOverride || '';
+    if (!rootId) {
+      try {
+        var _fs = _getCcSetting('CAMPAIGN_FOLDER_ID');
+        rootId  = (_fs && _fs.length) ? _fs[0].label : '';
+      } catch(ce) {}
+    }
+    var rootFolder = rootId ? DriveApp.getFolderById(rootId) : DriveApp.getFolderById(_CAMPAIGNS_ROOT_ID);
+    var designFolder = getOrCreateFolder(rootFolder, '05_DesignBriefs');
+
+    var posts = getSocialPosts(campaignId);
+    var tkPosts = posts.filter(function(p) { return p.platform === 'TikTok'; }).slice(0, 8);
+    var ytPosts = posts.filter(function(p) { return p.platform === 'YouTube'; }).slice(0, 8);
+
+    var doc  = _newDoc('Figma Storyboard — TikTok + YouTube — ' + campaignId, designFolder);
+    var body = doc.getBody();
+
+    _docBrandHeader(body, 'easyChef Pro: Figma Storyboard Reference', '');
+    _dh1(body, 'Figma Storyboard — TikTok + YouTube');
+    _dpairSafe(body, 'Campaign',    campaignId);
+    _dpairSafe(body, 'Platforms',   'TikTok (9:16 · 1080×1920) · YouTube (16:9 · 1280×720)');
+    _dpairSafe(body, 'Safe zone',   '100px TikTok · 80px YouTube');
+    body.appendParagraph('');
+
+    _dh2(body, 'TikTok Storyboard — Posts sp-211 to sp-218');
+    _dpairSafe(body, 'Canvas',      '1080×1920 (9:16 vertical, full-bleed)');
+    _dpairSafe(body, 'Font',        'Arial Bold headlines — large, top-third hook text');
+    _dpairSafe(body, 'Safe zone',   '100px all sides — text/UI elements must stay inside');
+    _dpairSafe(body, 'CTA sticker', 'Bottom quarter · Brand Red · rounded rect · ≤6 words');
+    body.appendParagraph('');
+
+    tkPosts.forEach(function(p, i) {
+      _docDivider(body);
+      _dh2(body, 'Frame ' + (i + 1) + ' — ' + (p.id || 'sp-' + (211 + i)));
+      _dpairSafe(body, 'Loop Stage',    p.loop_stage     || '—');
+      _dpairSafe(body, 'Emotional',     (p.emotional_state||'—') + ' → ' + (p.emotional_destination||'—'));
+      _dpairSafe(body, 'Hook',          p.hook           || '—');
+      _dpairSafe(body, 'Body',          p.body_copy      || '—');
+      _dpairSafe(body, 'CTA',           p.cta            || '—');
+      _dpairSafe(body, 'Image Brief',   p.image_brief    || '(generate after image_brief patch)');
+      _dpairSafe(body, 'DL ID',         p.dl_id          || '—');
+      body.appendParagraph('');
+    });
+
+    _dh2(body, 'YouTube Storyboard — Posts sp-219 to sp-226');
+    _dpairSafe(body, 'Canvas',      '1280×720 (16:9 thumbnail)');
+    _dpairSafe(body, 'Font',        'Arial Bold ≤5 words — right-side or bottom overlay');
+    _dpairSafe(body, 'Safe zone',   '80px all sides');
+    _dpairSafe(body, 'Style',       'Face + text combo · clear face visible in thumbnail');
+    body.appendParagraph('');
+
+    ytPosts.forEach(function(p, i) {
+      _docDivider(body);
+      _dh2(body, 'Frame ' + (i + 1) + ' — ' + (p.id || 'sp-' + (219 + i)));
+      _dpairSafe(body, 'Loop Stage',    p.loop_stage     || '—');
+      _dpairSafe(body, 'Emotional',     (p.emotional_state||'—') + ' → ' + (p.emotional_destination||'—'));
+      _dpairSafe(body, 'Hook',          p.hook           || '—');
+      _dpairSafe(body, 'Body',          p.body_copy      || '—');
+      _dpairSafe(body, 'CTA',           p.cta            || '—');
+      _dpairSafe(body, 'Image Brief',   p.image_brief    || '(generate after image_brief patch)');
+      _dpairSafe(body, 'DL ID',         p.dl_id          || '—');
+      body.appendParagraph('');
+    });
+
+    _docBrandFooter(body);
+    doc.saveAndClose();
+
+    var docUrl = DriveApp.getFileById(doc.getId()).getUrl();
+    Logger.log('[writeFigmaStoryboardDoc] ' + doc.getId());
+    return { ok: true, doc_url: docUrl, tk_frames: tkPosts.length, yt_frames: ytPosts.length };
+  } catch(e) {
+    Logger.log('[writeFigmaStoryboardDoc] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}

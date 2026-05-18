@@ -2358,8 +2358,27 @@ function doPost(e) {
     if(body.action === 'klaviyo_push_sequence')  return respond(klaviyoPushSequence(body));
     if(body.action === 'klaviyo_get_lists')      return respond(klaviyoGetLists());
     if(body.action === 'klaviyo_build_flows') {
-      var _kbf = klaviyoBuildFlows(body.campaign_id || '', body.list_id || '');
-      return respond({ ok:_kbf.ok, result:_kbf, log: Logger.getLog() });
+      var _kbfA = klaviyoBuildFlowA();
+      var _kbfB = klaviyoBuildFlowB();
+      var _kbfOk = !!(_kbfA.ok && _kbfB.ok);
+      return respond({ ok:_kbfOk, result:{ flow_a:_kbfA, flow_b:_kbfB }, log: Logger.getLog() });
+    }
+    if(body.action === 'klaviyo_schedule_campaigns') {
+      var _ksc = klaviyoScheduleCampaigns();
+      return respond({ ok:_ksc.ok, result:_ksc, log: Logger.getLog() });
+    }
+    if(body.action === 'set_script_property') {
+      if(!body.key || !body.value) return respond({ok:false,error:'key and value required'});
+      PropertiesService.getScriptProperties().setProperty(String(body.key), String(body.value));
+      return respond({ok:true, key: String(body.key), set: true});
+    }
+    if(body.action === 'klaviyo_set_live') {
+      var _kflIdA = _cvtReadSetting('klaviyo_flow_id_a');
+      var _kflIdB = _cvtReadSetting('klaviyo_flow_id_b');
+      var _kflStatus = body.status || 'live';
+      var _kflRA = _kflIdA ? klaviyoSetFlowStatus(_kflIdA, _kflStatus) : { ok:false, error:'klaviyo_flow_id_a not in CcSettings' };
+      var _kflRB = _kflIdB ? klaviyoSetFlowStatus(_kflIdB, _kflStatus) : { ok:false, error:'klaviyo_flow_id_b not in CcSettings' };
+      return respond({ ok:!!(_kflRA.ok && _kflRB.ok), result:{ flow_a:_kflRA, flow_b:_kflRB }, log: Logger.getLog() });
     }
     if(body.action === 'klaviyo_get_dl_id_mapping') {
       var _kdl = klaviyoGetEmailDlIdMapping(body.campaign_id || '');

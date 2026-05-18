@@ -1,0 +1,29 @@
+
+  <!-- Add Milestone modal -->
+  <div class="ms-overlay" id="ms-overlay" onclick="if(event.target===this)closeMsModal()">
+    <div class="ms-card">
+      <div class="ms-head">
+        <span class="ms-htitle">Add Milestone</span>
+        <button class="ms-xbtn" onclick="closeMsModal()">&#x2715;</button>
+      </div>
+      <div class="ms-body">
+        <div><label class="ms-lbl">Title</label><input class="ms-inp" id="ms-title" placeholder="e.g. Content deadline, Review, Launch…" /></div>
+        <div><label class="ms-lbl">Date</label><input class="ms-inp" id="ms-date" type="date" /></div>
+        <div>
+          <label class="ms-lbl">Color</label>
+          <div class="ms-swatches">
+            <div class="ms-swatch on" style="background:#FF0000" data-color="#FF0000" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#ff9500" data-color="#ff9500" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#0a84ff" data-color="#0a84ff" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#32d74b" data-color="#32d74b" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#bf5af2" data-color="#bf5af2" onclick="selectMsColor(this)"></div>
+            <div class="ms-swatch" style="background:#ffd60a" data-color="#ffd60a" onclick="selectMsColor(this)"></div>
+          </div>
+        </div>
+        <div><label class="ms-lbl">Your name</label><input class="ms-inp" id="ms-author" placeholder="Name" /></div>
+        <button class="ms-savebtn" id="ms-savebtn" onclick="submitMilestone()">Add Milestone</button>
+        <div class="ms-msg" id="ms-msg"></div>
+      </div>
+    </div>
+  </div>
+

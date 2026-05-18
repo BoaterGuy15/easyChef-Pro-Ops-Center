@@ -1,0 +1,70 @@
+
+    function loadMilestones(){
+      if(typeof google==='undefined'||!google.script) return;
+      google.script.run.withSuccessHandler(function(r){
+        MILESTONES_BY_DATE={};
+        if(r&&r.ok&&r.milestones){
+          r.milestones.forEach(function(ms){
+            var dk=ms.date;
+            if(!MILESTONES_BY_DATE[dk]) MILESTONES_BY_DATE[dk]=[];
+            MILESTONES_BY_DATE[dk].push(ms);
+          });
+        }
+        renderCal(calData);
+      }).withFailureHandler(function(){}).getMilestones(_activeCampaign||'all');
+    }
+
+    var _msCurColor='#FF0000';
+
+    function openMsModal(){
+      var ov=document.getElementById('ms-overlay'); if(!ov) return;
+      var today=isoDate(new Date());
+      document.getElementById('ms-date').value=today;
+      document.getElementById('ms-title').value='';
+      document.getElementById('ms-author').value='';
+      document.getElementById('ms-msg').textContent='';
+      var btn=document.getElementById('ms-savebtn'); if(btn) btn.disabled=false;
+      _msCurColor='#FF0000';
+      var sw=ov.querySelectorAll('.ms-swatch');
+      sw.forEach(function(s){ s.classList.remove('on'); });
+      if(sw.length) sw[0].classList.add('on');
+      ov.classList.add('open');
+    }
+
+    function closeMsModal(){
+      var ov=document.getElementById('ms-overlay'); if(ov) ov.classList.remove('open');
+    }
+
+    function selectMsColor(el){
+      document.querySelectorAll('.ms-swatch').forEach(function(s){ s.classList.remove('on'); });
+      el.classList.add('on');
+      _msCurColor=el.getAttribute('data-color')||'#FF0000';
+    }
+
+    function submitMilestone(){
+      var title=(document.getElementById('ms-title').value||'').trim();
+      var date=(document.getElementById('ms-date').value||'').trim();
+      var author=(document.getElementById('ms-author').value||'').trim();
+      var msg=document.getElementById('ms-msg');
+      var btn=document.getElementById('ms-savebtn');
+      if(!title){ msg.style.color='#ff453a'; msg.textContent='Title is required.'; return; }
+      if(!date){ msg.style.color='#ff453a'; msg.textContent='Date is required.'; return; }
+      btn.disabled=true; msg.style.color='#aaa'; msg.textContent='Saving…';
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.ok){
+            msg.style.color='#32d74b'; msg.textContent='Milestone added!';
+            setTimeout(function(){ closeMsModal(); loadMilestones(); },900);
+          } else {
+            msg.style.color='#ff453a'; msg.textContent='Error saving.'; btn.disabled=false;
+          }
+        })
+        .withFailureHandler(function(e){
+          msg.style.color='#ff453a'; msg.textContent='Error: '+(e&&e.message?e.message:'unknown'); btn.disabled=false;
+        })
+        .addMilestone({
+          title:title, date:date, color:_msCurColor,
+          type:'custom', campaign_id:_activeCampaign||'EC-2026-001', created_by:author
+        });
+    }
+
