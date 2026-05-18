@@ -256,7 +256,87 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 - **Always describe the planned change before making it**
 - Commit message format: `feat: description` or `fix: description`
 - GAS edits with JS content: write to .txt files, use Python for string splicing (PowerShell can't hold JS in here-strings)
+- **Klaviyo verified sender: `hello@easychefpro.com`** — all campaigns/flows use this FROM address
+- **Template assignment for campaigns**: use `POST /api/campaign-message-assign-template/` with `data.type=campaign-message`, `data.id=MSG_ID`, `data.relationships.template` — NOT PATCH relationships (blocked in 2025-04-15)
+- **Flow-message from_label**: `PATCH /api/flow-messages/{id}/` is read-only (405) in all revisions — update via Klaviyo UI only
 
 ---
 
-Current state: deploy @847 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 263 DL_IDs repaired · P6 Klaviyo DONE: Flow A (RhpezG) + Flow B (V6H2wF) built @836 · 16 templates saved to sheet · 14 scheduled campaigns LIVE @847: SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 — all at 9am EDT (13:00 UTC), TebDTM excluded on all audiences · LP→Klaviyo wire DONE @839 · founder_status=waitlist written on every signup @841 · klaviyo_set_live ready (run May 27) · OPEN: manual flow step wiring in Klaviyo UI (add 8 delay+email steps per flow) · "Already a Founder" segment — create manually in Klaviyo UI (condition: founder_status = waitlist) · GAS_URL must be set in LP HTML for live traffic · _getCcSetting returns array NOT scalar — use _cvtReadSetting for single value reads in KlaviyoFlows · BrandDoctrine confirmed 29 rows — get_doctrine_rows requires body.ids array · P7 Convert.com: 401 pending support
+## SYSTEM IDs MASTER REFERENCE
+
+### Klaviyo Flows
+| Flow | ID | Sequence | Trigger | Steps |
+|---|---|---|---|---|
+| Flow A — Prelaunch | XfqUtU | SEQ-1 | List TebDTM | 8 |
+| Flow B — Prelaunch | XCyc4m | SEQ-2 | List TebDTM | 8 |
+| Alpha | QYwGdj | ALPHA | List UPRemk | 6 |
+| OB Standard | TNSTZr | OB | List Tgv7Jc (EC OB Launch Day) | 5 |
+| Organic Welcome | VnfgA4 | ORG | List TpXCkr (EC Organic Welcome) | 3 |
+
+### Klaviyo Lists
+| List | ID | Purpose |
+|---|---|---|
+| Prelaunch Emails | TebDTM | Main waitlist — triggers Flow A + B |
+| EC Alpha Users | UPRemk | Alpha — triggers Alpha flow |
+| EC Organic Welcome | TpXCkr | /coming-soon signups — triggers ORG flow |
+| EC OB Launch Day | Tgv7Jc | Launch day — triggers OB Standard flow |
+
+### Klaviyo Segments
+| Segment | ID | Purpose |
+|---|---|---|
+| Already a Founder (suppression) | XJYckK | Exclude from campaigns |
+| Variant A (super_mom_money) | read from CcSettings `klaviyo_segment_id_a` | SEQ-3/4 campaign audiences |
+| Variant B (super_mom_time) | read from CcSettings `klaviyo_segment_id_b` | SEQ-3/4 campaign audiences |
+
+### 14 Scheduled Campaigns (SEQ-3 + SEQ-4)
+| ID | Key | Send Date |
+|---|---|---|
+| 01KRYG1BMA0TDGCGFP9FXW4A9A | SEQ-3-E1-A | Jun 11 2026 9am EDT |
+| 01KRYEYMTM24KAH1MD46F0B134 | SEQ-3-E1-B | Jun 11 2026 9am EDT |
+| 01KRYEYQV2FWE26165ZTM8919T | SEQ-3-E2-A | Jun 16 2026 9am EDT |
+| 01KRYEYTSADV8XWKCGG6F1QPFA | SEQ-3-E2-B | Jun 16 2026 9am EDT |
+| 01KRYEYXZ6TDV30WFES05FZBSS | SEQ-3-E3-A | Jun 21 2026 9am EDT |
+| 01KRYEZ1EXY7VFFJCTFRTY7524 | SEQ-3-E3-B | Jun 21 2026 9am EDT |
+| 01KRYEZ4RXCFVWBN091FGSCYHY | SEQ-3-E4-A | Jun 26 2026 9am EDT |
+| 01KRYEZ7B1PCTRQH47P2AHB7CZ | SEQ-3-E4-B | Jun 26 2026 9am EDT |
+| 01KRYEZA34YDQ9KMQ46TY0YYP7 | SEQ-4-E1-A | Jul 2 2026 9am EDT |
+| 01KRYEZCFJZDYD01MBSNJX0TJQ | SEQ-4-E1-B | Jul 2 2026 9am EDT |
+| 01KRYEZH56R1JQEH3XFAPCE5V0 | SEQ-4-E2-A | Jul 3 2026 9am EDT |
+| 01KRYEZKWF0MEJSTDC597BJMFE | SEQ-4-E2-B | Jul 3 2026 9am EDT |
+| 01KRYEZQ1P9NTJCP5AAM3H6K0H | SEQ-4-E3-A | Jul 5 2026 9am EDT |
+| 01KRYEZSV982T3G1NED6V9KS8M | SEQ-4-E3-B | Jul 5 2026 9am EDT |
+
+### GAS Endpoints
+| Name | Deployment ID |
+|---|---|
+| Ops (primary) | `AKfycbxgwJT_MZigRzZ7sYuULrnxMB1ITfU_2TUCfpSfqJJDbgme1rTsWjf7RaiHQFQOJuOPbQ` |
+| Live / MCP (primary traffic) | `AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg` |
+
+### URLs
+| Property | URL |
+|---|---|
+| Cockpit | https://launch.easychefpro.com/cockpit |
+| LP-A (waitlist — money angle) | https://launch.easychefpro.com/lp/waitlist-a.html |
+| LP-B (waitlist — time angle) | https://launch.easychefpro.com/lp/waitlist-b.html |
+| Coming Soon | https://launch.easychefpro.com/coming-soon |
+| Alpha Feedback | https://launch.easychefpro.com/alpha-feedback |
+| Alpha Questionnaire | https://launch.easychefpro.com/alpha-questionnaire · DL-QST-001 |
+| Thank You | https://launch.easychefpro.com/thank-you |
+| ops.dgl.dev | https://ops.dgl.dev (→ launch.easychefpro.com via Firebase) |
+
+### Analytics & Testing
+| Tool | ID |
+|---|---|
+| GA4 | G-Q4DYEEXFKV |
+| Microsoft Clarity | wjxhprug80 |
+| Convert.com Experiment | 100140422 |
+
+### Flow Email IDs (Open Items)
+| Email | flow-message ID | Open Item |
+|---|---|---|
+| Alpha-E4 | SGjjnq | from_label → "Taylor from easyChef Pro" (Klaviyo UI) |
+| OB-E5 | UTEuxT | from_label → "Taylor from easyChef Pro" (Klaviyo UI) |
+
+---
+
+Current state: deploy @853 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 263 DL_IDs CLEAN · Full email system COMPLETE: 5 flows wired · 14 campaigns SCHEDULED (SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 9am EDT) · 51 email rows all have seq_template_id · klaviyoScheduleCampaigns() fixed — uses campaign-message-assign-template endpoint · Klaviyo sender confirmed hello@easychefpro.com · suppression segment XJYckK active · organic routing /coming-soon → TpXCkr · alpha_selected → UPRemk · founder_status=waitlist on every signup · klaviyo_set_live ready (run May 27) · 106 ApprovedClaims ALL ACTIVE incl AC-011 + AC-012 · Alpha questionnaire live at /alpha-questionnaire (AQ-1778829826031 response confirmed) · DL-QST-001 registered · _getCcSetting returns array NOT scalar — use _cvtReadSetting · OPEN: Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" via Klaviyo UI only

@@ -1909,6 +1909,58 @@ function getEmailSequences(campaignId) {
   return rows.filter(function(r) { return r.campaign_id === campaignId; });
 }
 
+// Returns all email sequences + resolved flow metadata for the Email Board tab.
+// Reads flow IDs from CcSettings (zero hardcoded).
+function getEmailBoardData(campaignId) {
+  // 'all' is a UI sentinel — treat it as null so getEmailSequences returns every row
+  var emails = getEmailSequences((!campaignId || campaignId === 'all') ? null : campaignId);
+
+  var flowA    = _cvtReadSetting('klaviyo_flow_id_a');
+  var flowB    = _cvtReadSetting('klaviyo_flow_id_b');
+  var flowOb   = _cvtReadSetting('klaviyo_flow_id_ob');
+  var flowAlpha = _cvtReadSetting('klaviyo_flow_id_alpha');
+  var flowOrg  = _cvtReadSetting('klaviyo_flow_id_org');
+  var obListId = _cvtReadSetting('klaviyo_ob_list_id');
+  var orgListId = _cvtReadSetting('klaviyo_organic_list_id');
+  var alphaListId = 'UPRemk';  // EC Alpha Users — hardcoded only here since no CcSettings key
+
+  var flows = [
+    { key:'flow_a',     label:'Flow A — SEQ-1',        id: flowA,     seq:'SEQ-1',  trigger:'TebDTM (Prelaunch Emails)',          trigger_id:'TebDTM',   steps:8,  status:'draft', go_live:'2026-05-27' },
+    { key:'flow_b',     label:'Flow B — SEQ-2',        id: flowB,     seq:'SEQ-2',  trigger:'TebDTM (Prelaunch Emails)',          trigger_id:'TebDTM',   steps:8,  status:'draft', go_live:'2026-05-27' },
+    { key:'flow_alpha', label:'Alpha Flow',            id: flowAlpha, seq:'ALPHA',  trigger:'EC Alpha Users (' + alphaListId + ')', trigger_id:alphaListId, steps:6, status:'draft', go_live:'On alpha_selected' },
+    { key:'flow_ob',    label:'OB Standard Onboarding',id: flowOb,    seq:'OB',     trigger:'EC OB Launch Day (' + obListId + ')',  trigger_id:obListId,   steps:5,  status:'draft', go_live:'2026-07-01' },
+    { key:'flow_org',   label:'Organic Welcome',       id: flowOrg,   seq:'ORG',    trigger:'EC Organic Welcome (' + orgListId + ')', trigger_id:orgListId, steps:3, status:'draft', go_live:'On /coming-soon signup' }
+  ];
+
+  var seqToFlow = {
+    'SEQ-1': flowA,
+    'SEQ-2': flowB,
+    'ALPHA': flowAlpha,
+    'OB':    flowOb,
+    'ORG':   flowOrg
+  };
+
+  var enriched = emails.map(function(e) {
+    var hasTmpl  = !!(e.seq_template_id || '').toString().trim();
+    var flowId   = e.klaviyo_flow_id || seqToFlow[e.sequence_code] || '';
+    var wireStatus;
+    if (hasTmpl && flowId) {
+      wireStatus = 'WIRED';
+    } else if (hasTmpl) {
+      wireStatus = 'TEMPLATE_ONLY';
+    } else if (flowId) {
+      wireStatus = 'DRAFT';
+    } else {
+      wireStatus = 'MISSING';
+    }
+    e.wire_status       = wireStatus;
+    e.resolved_flow_id  = flowId;
+    return e;
+  });
+
+  return { ok: true, flows: flows, emails: enriched };
+}
+
 function setEmailSequence(item) {
   if (!item || !item.id) return;
   var sheet   = _getCCSheet(_CC_TAB.EMAIL);

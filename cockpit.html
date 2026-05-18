@@ -516,6 +516,46 @@
     .sect-missing { background:rgba(220,38,38,0.14); color:#b91c1c; border:1px dashed rgba(220,38,38,0.4); }
     .email-pos-info { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
     .email-pos-pill { font-size:9px; color:#888; background:#F6EFE8; border-radius:4px; padding:2px 7px; font-family:monospace; }
+    /* Wire status badges */
+    .badge-wired         { font-size:9px; font-weight:700; letter-spacing:0.08em; padding:2px 7px; border-radius:4px; background:rgba(22,163,74,0.10); color:#15803d; border:1px solid rgba(22,163,74,0.25); }
+    .badge-template-only { font-size:9px; font-weight:700; letter-spacing:0.08em; padding:2px 7px; border-radius:4px; background:rgba(180,83,9,0.08); color:#92400e; border:1px solid rgba(180,83,9,0.25); }
+    .badge-missing       { font-size:9px; font-weight:700; letter-spacing:0.08em; padding:2px 7px; border-radius:4px; background:rgba(220,38,38,0.08); color:#b91c1c; border:1px solid rgba(220,38,38,0.25); }
+    .badge-draft         { font-size:9px; font-weight:700; letter-spacing:0.08em; padding:2px 7px; border-radius:4px; background:rgba(99,102,241,0.08); color:#4338ca; border:1px solid rgba(99,102,241,0.2); }
+    /* Flow status panel */
+    .email-flow-panel { background:#FFFFFF; border:1px solid rgba(0,0,0,0.08); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+    .efp-title { font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#888; margin-bottom:10px; }
+    .efp-rows { display:flex; flex-direction:column; gap:7px; }
+    .efp-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .efp-name { font-size:12px; font-weight:700; color:#111; min-width:180px; }
+    .efp-id { font-size:10px; font-family:monospace; color:#888; background:#F6EFE8; padding:2px 6px; border-radius:4px; }
+    .efp-meta { font-size:11px; color:#666; }
+    .efp-status-draft { font-size:9px; font-weight:700; color:#4338ca; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:4px; padding:2px 7px; }
+    .efp-status-live  { font-size:9px; font-weight:700; color:#15803d; background:rgba(22,163,74,0.10); border:1px solid rgba(22,163,74,0.25); border-radius:4px; padding:2px 7px; }
+    .efp-trigger { font-size:10px; color:#888; font-family:monospace; }
+    .email-group-header { font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#888; padding:6px 0 4px; border-bottom:1px solid rgba(0,0,0,0.06); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+    .email-group-count  { font-size:9px; font-weight:600; color:#aaa; }
+    /* ── Email Campaigns tab ──────────────────────────────────────────────────── */
+    .ec-section-title { font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#888; margin:0 0 12px; display:flex; align-items:center; gap:10px; }
+    .ec-section-title span { font-weight:500; color:#aaa; letter-spacing:0; text-transform:none; }
+    .ec-flow-table { width:100%; border-collapse:collapse; margin-bottom:28px; }
+    .ec-flow-table th { font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#aaa; text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid rgba(0,0,0,0.08); white-space:nowrap; }
+    .ec-flow-table td { font-size:12px; color:#333; padding:9px 10px 9px 0; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; }
+    .ec-flow-name { font-weight:700; color:#111; }
+    .ec-id-pill { font-family:monospace; font-size:10px; color:#888; background:#F6EFE8; padding:2px 7px; border-radius:4px; white-space:nowrap; }
+    .ec-status-draft { font-size:9px; font-weight:700; color:#4338ca; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:4px; padding:2px 8px; white-space:nowrap; }
+    .ec-status-live  { font-size:9px; font-weight:700; color:#15803d; background:rgba(22,163,74,0.10); border:1px solid rgba(22,163,74,0.25); border-radius:4px; padding:2px 8px; white-space:nowrap; }
+    .ec-status-manual { font-size:9px; font-weight:700; color:#b45309; background:rgba(180,83,9,0.08); border:1px solid rgba(180,83,9,0.2); border-radius:4px; padding:2px 8px; white-space:nowrap; }
+    .ec-status-cancelled { font-size:9px; font-weight:700; color:#dc2626; background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); border-radius:4px; padding:2px 8px; white-space:nowrap; }
+    .ec-trigger { font-size:11px; color:#555; }
+    .ec-klav-link { font-size:10px; color:#888; text-decoration:none; border-bottom:1px dotted #ccc; }
+    .ec-klav-link:hover { color:#111; border-color:#111; }
+    .ec-camp-table { width:100%; border-collapse:collapse; }
+    .ec-camp-table th { font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#aaa; text-align:left; padding:6px 10px 6px 0; border-bottom:1px solid rgba(0,0,0,0.08); white-space:nowrap; }
+    .ec-camp-table td { font-size:12px; color:#333; padding:8px 10px 8px 0; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:top; }
+    .ec-camp-name { font-weight:600; color:#111; font-size:12px; }
+    .ec-camp-subject { font-size:11px; color:#888; margin-top:1px; }
+    .ec-send-date { white-space:nowrap; font-size:11px; }
+    .ec-send-time { font-size:10px; color:#aaa; }
   </style>
 </head>
 <body>
@@ -572,14 +612,16 @@
         <button class="tab active" id="tab-dash"   onclick="switchTab('dash')">Dashboard</button>
         <button class="tab"        id="tab-cal"    onclick="switchTab('cal')">Calendar</button>
         <button class="tab"        id="tab-assets" onclick="switchTab('assets')">Assets</button>
-        <button class="tab"        id="tab-emails" onclick="switchTab('emails')">Emails</button>
-        <button class="tab"        id="tab-flow"   onclick="switchTab('flow')">Campaign Flow</button>
+        <button class="tab"        id="tab-emails"  onclick="switchTab('emails')">Emails</button>
+        <button class="tab"        id="tab-ecamps"  onclick="switchTab('ecamps')">Email Campaigns</button>
+        <button class="tab"        id="tab-flow"    onclick="switchTab('flow')">Campaign Flow</button>
         <button class="tab"        id="tab-lp"     onclick="switchTab('lp')">LP Studio</button>
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
       <div id="panel-cal"    style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
       <div id="panel-assets" style="display:none"><div class="loading">Loading assets<span class="dot-anim"></span></div></div>
       <div id="panel-emails" style="display:none"><div class="loading">Loading emails<span class="dot-anim"></span></div></div>
+      <div id="panel-ecamps" style="display:none"><div class="loading">Loading email campaigns<span class="dot-anim"></span></div></div>
       <div id="panel-flow"   style="display:none"><div class="loading">Loading flow<span class="dot-anim"></span></div></div>
       <div id="panel-lp"     style="display:none"><div class="loading">Loading LP Studio<span class="dot-anim"></span></div></div>
     </div>
@@ -1271,7 +1313,7 @@
       _saveScroll();
       activeTab=tab;
       _saveTab(tab);
-      ['dash','cal','assets','emails','flow','lp'].forEach(function(t){
+      ['dash','cal','assets','emails','ecamps','flow','lp'].forEach(function(t){
         document.getElementById('tab-'+t).className='tab'+(tab===t?' active':'');
         document.getElementById('panel-'+t).style.display=tab===t?'':'none';
       });
@@ -1280,6 +1322,7 @@
       if(tab==='lp')     loadLPStudio();
       if(tab==='assets') loadAssetsTab();
       if(tab==='emails') loadEmailsTab();
+      if(tab==='ecamps') loadEmailCampsTab();
       setTimeout(_restoreScroll,50);
     }
 
@@ -3711,72 +3754,140 @@
     }
 
     // ── Emails Tab ────────────────────────────────────────────────────────────
-    var _emailsCache = null;
+    var _emailsCache  = null;   // { flows:[], emails:[] }
     var _emailsLoaded = false;
-    var _activeEmailFilter = 'all'; // 'all','SEQ-1','SEQ-2','SEQ-3','SEQ-4','A','B'
+    var _activeEmailFilter = 'all';
 
     function loadEmailsTab(){
       var panel = document.getElementById('panel-emails');
       if(_emailsLoaded && _emailsCache){renderEmailsTab();return;}
-      panel.innerHTML = '<div class="loading">Loading email sequences<span class="dot-anim"></span></div>';
+      panel.innerHTML = '<div class="loading">Loading email board<span class="dot-anim"></span></div>';
       google.script.run
-        .withSuccessHandler(function(seqs){
-          _emailsCache = (seqs||[]).filter(function(s){
-            return s.campaign_id === _activeCampaign || _activeCampaign === 'all';
-          }).filter(function(s){
-            var sc = s.sequence_code||'';
-            return sc==='SEQ-1'||sc==='SEQ-2'||sc==='SEQ-3'||sc==='SEQ-4';
-          });
+        .withSuccessHandler(function(result){
+          if(!result || !result.ok){ document.getElementById('panel-emails').innerHTML='<div class="loading">Error loading email board.</div>'; return; }
+          var camp = _activeCampaign;
+          _emailsCache = {
+            flows:  result.flows  || [],
+            emails: (result.emails || []).filter(function(s){ return camp==='all' || s.campaign_id===camp; })
+          };
           _emailsLoaded = true;
           renderEmailsTab();
         })
         .withFailureHandler(function(){
-          document.getElementById('panel-emails').innerHTML='<div class="loading">Error loading emails.</div>';
+          document.getElementById('panel-emails').innerHTML='<div class="loading">Error loading email board.</div>';
         })
-        .getEmailSequences(_activeCampaign);
+        .getEmailBoardData(_activeCampaign);
     }
 
     function renderEmailsTab(){
-      var panel = document.getElementById('panel-emails');
-      var seqs = _emailsCache||[];
+      var panel  = document.getElementById('panel-emails');
+      var data   = _emailsCache || { flows:[], emails:[] };
+      var flows  = data.flows;
+      var emails = data.emails;
 
-      // Filter buttons
-      var seqFilters = ['all','SEQ-1','SEQ-2','SEQ-3','SEQ-4','A variant','B variant'];
-      var filterHtml = seqFilters.map(function(f){
-        var key=f==='A variant'?'A':(f==='B variant'?'B':f);
-        var on=_activeEmailFilter===key;
-        return '<button class="email-filter-btn'+(on?' active':'')+'" onclick="selectEmailFilter(\''+key+'\')">'+f+'</button>';
+      // Flow panel
+      var flowPanel = _renderFlowPanel(flows);
+
+      // All distinct sequence codes present
+      var allCodes = [];
+      emails.forEach(function(e){ var c=e.sequence_code||''; if(c && allCodes.indexOf(c)<0) allCodes.push(c); });
+      allCodes.sort();
+
+      // Filter strip
+      var filterDefs = [{key:'all',label:'All ('+emails.length+')'}];
+      allCodes.forEach(function(c){ filterDefs.push({key:c,label:c}); });
+      filterDefs.push({key:'A',label:'A variant'},{key:'B',label:'B variant'});
+      filterDefs.push({key:'WIRED',label:'Wired'},{key:'MISSING',label:'Missing'});
+      var filterHtml = filterDefs.map(function(f){
+        var on = _activeEmailFilter===f.key;
+        return '<button class="email-filter-btn'+(on?' active':'')+'" onclick="selectEmailFilter(\''+f.key+'\')">'+f.label+'</button>';
       }).join('');
 
       // Apply filter
-      var filtered = seqs.filter(function(s){
-        if(_activeEmailFilter==='all') return true;
-        if(_activeEmailFilter==='A') return (s.icp_code||'').indexOf('money')>=0||(s.variant||s.id||'').indexOf('-A')>=0;
-        if(_activeEmailFilter==='B') return (s.icp_code||'').indexOf('time')>=0||(s.variant||s.id||'').indexOf('-B')>=0;
-        return (s.sequence_code||'')=== _activeEmailFilter;
+      var filtered = emails.filter(function(s){
+        var f = _activeEmailFilter;
+        if(f==='all') return true;
+        if(f==='A') return (s.id||'').slice(-2)==='-A'||(s.icp_code||'').indexOf('money')>=0;
+        if(f==='B') return (s.id||'').slice(-2)==='-B'||(s.icp_code||'').indexOf('time')>=0;
+        if(f==='WIRED')   return s.wire_status==='WIRED';
+        if(f==='MISSING') return s.wire_status==='MISSING';
+        return (s.sequence_code||'')===f;
       });
 
-      // Sort: SEQ-1→4, E1→E5, A before B
+      // Sort by sequence_code order then email ID
+      var seqOrder = {'SEQ-1':1,'SEQ-2':2,'SEQ-3':3,'SEQ-4':4,'QST':5,'ALPHA':6,'OB':7,'ORG':8,'BETA':9};
       filtered.sort(function(a,b){
+        var ao = seqOrder[a.sequence_code]||99, bo = seqOrder[b.sequence_code]||99;
+        if(ao!==bo) return ao-bo;
         var ai=a.id||'', bi=b.id||'';
-        if(ai<bi) return -1; if(ai>bi) return 1; return 0;
+        return ai<bi?-1:ai>bi?1:0;
       });
 
+      // Group by sequence_code
+      var groups = [];
+      var groupMap = {};
+      filtered.forEach(function(e){
+        var sc = e.sequence_code||'(none)';
+        if(!groupMap[sc]){ groupMap[sc]={seq:sc, emails:[]}; groups.push(groupMap[sc]); }
+        groupMap[sc].emails.push(e);
+      });
+
+      // Render groups
       var cardsHtml = filtered.length===0
         ? '<div style="color:#888;font-size:13px;padding:20px 0">No emails match this filter.</div>'
-        : '<div class="email-cards">'+filtered.map(function(s){return _renderEmailCard(s);}).join('')+'</div>';
+        : groups.map(function(g){
+            var flowId = _seqToFlowId(g.seq, flows);
+            var wiredCount = g.emails.filter(function(e){ return e.wire_status==='WIRED'; }).length;
+            var header = '<div class="email-group-header">'
+              +'<span>'+_esc(g.seq)+'</span>'
+              +(flowId?'<span class="efp-id">'+_esc(flowId)+'</span>':'')
+              +'<span class="email-group-count">'+g.emails.length+' emails · '+wiredCount+' wired</span>'
+              +'</div>';
+            return '<div style="margin-bottom:18px;">'+header
+              +'<div class="email-cards">'+g.emails.map(function(e){ return _renderEmailCard(e); }).join('')+'</div>'
+              +'</div>';
+          }).join('');
 
-      panel.innerHTML = '<div class="email-filter-strip">'+filterHtml+'</div>'+cardsHtml;
+      panel.innerHTML = flowPanel
+        + '<div class="email-filter-strip">'+filterHtml+'</div>'
+        + cardsHtml;
+    }
+
+    function _seqToFlowId(seqCode, flows){
+      for(var i=0;i<flows.length;i++){
+        if(flows[i].seq===seqCode) return flows[i].id||'';
+      }
+      return '';
+    }
+
+    function _renderFlowPanel(flows){
+      if(!flows||!flows.length) return '';
+      var rows = flows.map(function(f){
+        var statusCls = f.status==='live' ? 'efp-status-live' : 'efp-status-draft';
+        var statusLbl = f.status==='live' ? 'LIVE' : 'DRAFT';
+        return '<div class="efp-row">'
+          +'<span class="efp-name">'+_esc(f.label)+'</span>'
+          +(f.id?'<span class="efp-id">'+_esc(f.id)+'</span>':'<span style="font-size:10px;color:#dc2626">no ID</span>')
+          +'<span class="efp-meta">'+f.steps+' steps</span>'
+          +'<span class="'+statusCls+'">'+statusLbl+'</span>'
+          +'<span class="efp-trigger">'+_esc(f.trigger||'')+'</span>'
+          +(f.go_live?'<span class="efp-meta" style="color:#aaa;">go-live: '+_esc(f.go_live)+'</span>':'')
+          +'</div>';
+      }).join('');
+      return '<div class="email-flow-panel"><div class="efp-title">Klaviyo Flows</div><div class="efp-rows">'+rows+'</div></div>';
     }
 
     function _renderEmailCard(s){
-      var isMoney = (s.icp_code||'').indexOf('money')>=0;
-      var variant  = (s.id||'').slice(-1); // last char = A or B
       var arcBadge  = s.emotional_stage ? '<span class="email-arc-tag">'+_esc(s.emotional_stage)+'</span>' : '';
       var icpBadge  = s.icp_code ? '<span class="email-icp-tag">'+_esc(s.icp_code)+'</span>' : '';
       var mlStatus  = s.approved_by_ml
-        ? '<span class="email-ml-tag">✓ ML Approved</span>'
+        ? '<span class="email-ml-tag">ML Approved</span>'
         : '<span class="email-ml-pending">ML Pending</span>';
+
+      // Wire status badge
+      var wsCls = {WIRED:'badge-wired', TEMPLATE_ONLY:'badge-template-only', MISSING:'badge-missing', DRAFT:'badge-draft'}[s.wire_status||'MISSING']||'badge-missing';
+      var wsLbl = {WIRED:'WIRED', TEMPLATE_ONLY:'TEMPLATE ONLY', MISSING:'MISSING', DRAFT:'DRAFT'}[s.wire_status||'MISSING']||'MISSING';
+      var wsBadge = '<span class="'+wsCls+'">'+wsLbl+'</span>';
 
       // Word count
       var bodyText = s.full_email_body || [s.body_hook,s.body_problem,s.body_agitate,s.body_solve,s.body_value,s.body_proof,s.body_cta].filter(Boolean).join('\n\n');
@@ -3788,7 +3899,7 @@
       var wcHtml  = '<div class="email-wc-row">'
         +'<span class="email-wc-val '+wcClass+'">'+wc+' words</span>'
         +(tgtStr?'<span class="email-wc-tgt">target '+tgtStr+'</span>':'')
-        +(tgtMax&&wc>tgtMax?'<span style="font-size:10px;color:#dc2626">⚠ over</span>':'')
+        +(tgtMax&&wc>tgtMax?'<span style="font-size:10px;color:#dc2626"> over</span>':'')
         +'</div>';
 
       // Section indicators
@@ -3796,27 +3907,32 @@
       var sectHtml = '<div class="email-section-divider">'+sects.map(function(k){
         var val = s['body_'+k]||'';
         var cls = val ? 'email-sect-tag sect-'+k : 'email-sect-tag sect-missing';
-        return '<span class="'+cls+'">'+k+(val?'':' ✕')+'</span>';
+        return '<span class="'+cls+'">'+k+(val?'':' x')+'</span>';
       }).join('')+'</div>';
 
       // Safe ID for DOM
       var safeId = (s.id||'').replace(/[^a-zA-Z0-9_-]/g,'_');
       var hasBody = bodyText && bodyText.length > 0;
       var bodyToggle = hasBody
-        ? '<button class="email-body-toggle" onclick="_toggleEmailBody(\''+safeId+'\',this)">▸ Full email body ('+wc+' words)</button>'
+        ? '<button class="email-body-toggle" onclick="_toggleEmailBody(\''+safeId+'\',this)">+ Full email body ('+wc+' words)</button>'
           +'<div class="email-body-area" id="em-body-'+safeId+'">'+_esc(bodyText)+'</div>'
-        : '<div style="color:#dc2626;font-size:11px;margin-top:4px">⚠ No email body assembled yet</div>';
+        : '<div style="color:#dc2626;font-size:11px;margin-top:4px">No email body assembled yet</div>';
 
+      // Position/meta pills
+      var tmplId = s.seq_template_id || s.klaviyo_id || '';
+      var flowId = s.resolved_flow_id || s.klaviyo_flow_id || '';
+      var sendDay = s.send_day !== undefined && s.send_day !== '' ? s.send_day : null;
       var posHtml = '<div class="email-pos-info">'
-        +(s.positioning_id?'<span class="email-pos-pill">pos: '+_esc(s.positioning_id.slice(-8))+'</span>':'')
-        +(s.send_day!==undefined&&s.send_day!==''?'<span class="email-pos-pill">Day '+s.send_day+'</span>':'')
-        +(s.klaviyo_flow_id?'<span class="email-pos-pill">klav: '+_esc(s.klaviyo_flow_id)+'</span>':'')
+        +(tmplId?'<span class="email-pos-pill">tmpl: '+_esc(tmplId)+'</span>':'')
+        +(flowId?'<span class="email-pos-pill">flow: '+_esc(flowId)+'</span>':'')
+        +(sendDay!==null?'<span class="email-pos-pill">Day '+sendDay+'</span>':'')
+        +(s.positioning_id?'<span class="email-pos-pill">pos: '+_esc((s.positioning_id||'').slice(-8))+'</span>':'')
         +'</div>';
 
       return '<div class="email-card">'
         +'<div class="email-card-head">'
           +'<span class="email-card-id">'+_esc(s.id||'—')+'</span>'
-          +arcBadge+icpBadge+mlStatus
+          +wsBadge+arcBadge+icpBadge+mlStatus
         +'</div>'
         +'<div class="email-subj">'+_esc(s.subject_line||'(no subject)')+'</div>'
         +(s.preview_text?'<div class="email-prev">'+_esc(s.preview_text)+'</div>':'')
@@ -3833,12 +3949,118 @@
       var open=el.style.display==='block';
       el.style.display=open?'none':'block';
       var wc=parseInt((btn.textContent.match(/\d+/)||['0'])[0]);
-      btn.textContent=open?'▸ Full email body ('+wc+' words)':'▾ Collapse email body';
+      btn.textContent=open?'+ Full email body ('+wc+' words)':'- Collapse email body';
     }
 
     function selectEmailFilter(key){
       _activeEmailFilter=key;
       renderEmailsTab();
+    }
+
+    // ── Email Campaigns Tab ────────────────────────────────────────────────────
+    var _ecampsCache  = null;
+    var _ecampsLoaded = false;
+
+    function loadEmailCampsTab(){
+      var panel = document.getElementById('panel-ecamps');
+      if(_ecampsLoaded && _ecampsCache){ renderEmailCampsTab(); return; }
+      panel.innerHTML = '<div class="loading">Fetching live data from Klaviyo<span class="dot-anim"></span></div>';
+      google.script.run
+        .withSuccessHandler(function(result){
+          if(!result || !result.ok){
+            document.getElementById('panel-ecamps').innerHTML = '<div class="loading">Error: '+(result&&result.error?_esc(result.error):'unknown')+'</div>';
+            return;
+          }
+          _ecampsCache  = result;
+          _ecampsLoaded = true;
+          renderEmailCampsTab();
+        })
+        .withFailureHandler(function(e){
+          document.getElementById('panel-ecamps').innerHTML = '<div class="loading">Error loading campaigns.</div>';
+        })
+        .getKlaviyoCampaignsBoard(_activeCampaign);
+    }
+
+    function renderEmailCampsTab(){
+      var panel = document.getElementById('panel-ecamps');
+      var data  = _ecampsCache || { flows:[], campaigns:[] };
+
+      // ── Section 1: Flows ──────────────────────────────────────────────────
+      var flowRows = (data.flows||[]).map(function(f){
+        var statusCls = f.status === 'live'    ? 'ec-status-live'
+                      : f.status === 'manual'  ? 'ec-status-manual'
+                      : f.status === 'unknown' ? 'ec-status-manual'
+                      : 'ec-status-draft';
+        var statusLbl = (f.status || 'draft').toUpperCase();
+        var klavUrl   = f.id ? 'https://www.klaviyo.com/flows/' + f.id + '/flow-actions' : '';
+        var trigger   = f.trigger_name ? (f.trigger_name + (f.trigger_id ? ' · ' + f.trigger_id : '')) : (f.trigger_id || '—');
+        return '<tr>'
+          + '<td><span class="ec-flow-name">'+_esc(f.label)+'</span></td>'
+          + '<td>'+(f.id ? '<span class="ec-id-pill">'+_esc(f.id)+'</span>' : '<span style="color:#dc2626;font-size:10px">no ID</span>')+'</td>'
+          + '<td style="text-align:center">'+_esc(String(f.steps||'—'))+'</td>'
+          + '<td><span class="'+statusCls+'">'+_esc(statusLbl)+'</span></td>'
+          + '<td class="ec-trigger">'+_esc(trigger)+'</td>'
+          + '<td style="white-space:nowrap;font-size:11px;color:#555">'+_esc(f.go_live||'—')+'</td>'
+          + '<td>'+(klavUrl ? '<a class="ec-klav-link" href="'+klavUrl+'" target="_blank">View &rarr;</a>' : '')+'</td>'
+          + '</tr>';
+      }).join('');
+
+      var flowSection = '<div class="ec-section-title">Flows <span>'+data.flows.length+' flows · live status from Klaviyo API</span></div>'
+        + '<table class="ec-flow-table">'
+        + '<thead><tr>'
+          + '<th>Flow</th><th>ID</th><th style="text-align:center">Steps</th>'
+          + '<th>Status</th><th>Trigger</th><th>Go-live</th><th></th>'
+        + '</tr></thead>'
+        + '<tbody>'+flowRows+'</tbody>'
+        + '</table>';
+
+      // ── Section 2: Scheduled Campaigns ───────────────────────────────────
+      var camps = data.campaigns || [];
+      var campRows = camps.map(function(c){
+        var statusCls = c.status === 'scheduled'  ? 'ec-status-live'
+                      : c.status === 'cancelled'  ? 'ec-status-cancelled'
+                      : c.status === 'sent'       ? 'ec-status-live'
+                      : 'ec-status-draft';
+        var statusLbl = (c.status || 'draft').toUpperCase();
+        var klavUrl   = 'https://www.klaviyo.com/campaigns/' + c.id + '/edit';
+
+        // Format send date
+        var sendHtml = '—';
+        if (c.scheduled_at) {
+          var d = new Date(c.scheduled_at);
+          var dateStr = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+          var timeStr = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+          sendHtml = '<div class="ec-send-date">'+dateStr+'</div><div class="ec-send-time">'+timeStr+'</div>';
+        }
+
+        var nameHtml = '<div class="ec-camp-name">'+_esc(c.name||'—')+'</div>'
+          +(c.subject ? '<div class="ec-camp-subject">'+_esc(c.subject)+'</div>' : '');
+
+        return '<tr>'
+          + '<td>'+nameHtml+'</td>'
+          + '<td>'+sendHtml+'</td>'
+          + '<td><span class="ec-id-pill">'+_esc(c.id||'—')+'</span></td>'
+          + '<td><span class="'+statusCls+'">'+_esc(statusLbl)+'</span></td>'
+          + '<td>'+(c.template_id ? '<span class="ec-id-pill">'+_esc(c.template_id)+'</span>' : '—')+'</td>'
+          + '<td>'+(c.dl_id ? '<span class="ec-id-pill">'+_esc(c.dl_id)+'</span>' : '—')+'</td>'
+          + '<td><a class="ec-klav-link" href="'+klavUrl+'" target="_blank">View &rarr;</a></td>'
+          + '</tr>';
+      }).join('');
+
+      var campSection = '<div class="ec-section-title" style="margin-top:8px">Scheduled Campaigns <span>'+camps.length+' campaigns · live from Klaviyo API</span></div>'
+        + (camps.length === 0
+            ? '<div style="color:#888;font-size:13px;padding:12px 0">No EC-2026-001 campaigns found in Klaviyo.</div>'
+            : '<div style="overflow-x:auto"><table class="ec-camp-table">'
+              + '<thead><tr><th>Campaign</th><th>Send Date</th><th>ID</th><th>Status</th><th>Template</th><th>DL ID</th><th></th></tr></thead>'
+              + '<tbody>'+campRows+'</tbody>'
+              + '</table></div>');
+
+      var refreshBtn = '<div style="text-align:right;margin-bottom:14px">'
+        + '<button onclick="_ecampsLoaded=false;loadEmailCampsTab()" '
+        + 'style="background:none;border:1px solid rgba(0,0,0,0.12);color:#555;padding:5px 12px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer;">Refresh</button>'
+        + '</div>';
+
+      panel.innerHTML = refreshBtn + flowSection + campSection;
     }
 
     _restoreFilters();
@@ -3847,9 +4069,9 @@
     loadFilterDefs();
     // Restore tab from last session before data loads so correct panel shows during loading
     var _savedTab=localStorage.getItem('ecp_active_tab');
-    if(_savedTab&&['dash','cal','assets','emails','flow','lp'].indexOf(_savedTab)>=0){
+    if(_savedTab&&['dash','cal','assets','emails','ecamps','flow','lp'].indexOf(_savedTab)>=0){
       activeTab=_savedTab;
-      ['dash','cal','assets','emails','flow','lp'].forEach(function(t){
+      ['dash','cal','assets','emails','ecamps','flow','lp'].forEach(function(t){
         document.getElementById('tab-'+t).className='tab'+(_savedTab===t?' active':'');
         document.getElementById('panel-'+t).style.display=_savedTab===t?'':'none';
       });

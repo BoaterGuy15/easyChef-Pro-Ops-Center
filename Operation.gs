@@ -2392,8 +2392,16 @@ function doPost(e) {
       return respond(klaviyoCreateFounderSuppressionSegment());
     if(body.action === 'klaviyo_delete_campaigns')
       return respond(klaviyoDeleteScheduledCampaigns());
+    if(body.action === 'klaviyo_build_sequence_templates') {
+      if(!body.sequence_code) return respond({ok:false,error:'sequence_code required'});
+      return respond(klaviyoBuildSequenceTemplates(body.sequence_code));
+    }
+    if(body.action === 'klaviyo_patch_template') {
+      if(!body.template_id||!body.find_url||!body.replace_url) return respond({ok:false,error:'template_id, find_url, replace_url required'});
+      return respond(_klfPatchTemplate(body.template_id, body.find_url, body.replace_url));
+    }
 
-    
+
 
     if(body.action === 'theme_library_write') {
       var _tlId = setThemeLibraryRow(body.theme || body);

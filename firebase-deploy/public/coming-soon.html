@@ -104,12 +104,66 @@
 
     <div class="cta-block">
       <p class="cta-date">Early access opens <strong>July 1, 2026</strong>. Founding price locks in forever.</p>
-      <a class="btn" href="/lp/waitlist-a">Lock in $7.99/month &mdash; founding price</a>
+      <div id="cs-form" style="display:flex;gap:8px;max-width:420px;margin:0 auto 12px;">
+        <input id="cs-email" type="email" placeholder="Your email address"
+          style="flex:1;padding:13px 16px;border:1.5px solid #E0D8CE;border-radius:8px;font-size:15px;font-family:inherit;background:#fff;color:#000;outline:none;">
+        <button onclick="csSubmit()" id="cs-btn"
+          style="padding:13px 20px;background:#FF0000;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;">
+          Get early access
+        </button>
+      </div>
+      <p id="cs-msg" style="font-size:13px;color:#555;min-height:18px;text-align:center;"></p>
       <p class="btn-note">First 5,000 families only &middot; No credit card required</p>
     </div>
 
   </div>
 </main>
 <footer class="footer">&copy; 2026 Digital Galactica Labs &middot; <a href="mailto:hello@easychefpro.com" style="color:inherit;">hello@easychefpro.com</a></footer>
+<script>
+var CS_GAS_URL = (window.GAS_EXEC_URL || 'https://script.google.com/macros/s/AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg/exec');
+function csSubmit() {
+  var email = document.getElementById('cs-email').value.trim();
+  var msg   = document.getElementById('cs-msg');
+  var btn   = document.getElementById('cs-btn');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    msg.style.color = '#FF0000';
+    msg.textContent = 'Please enter a valid email address.';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  msg.style.color = '#555';
+  msg.textContent = '';
+  fetch(CS_GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'submit_waitlist_signup',
+      data: { email: email, lp_variant: 'organic', lp_slug: 'coming-soon', campaign_id: 'EC-2026-001' }
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.ok) {
+      document.getElementById('cs-form').style.display = 'none';
+      msg.style.color = '#228B22';
+      msg.textContent = "You're on the early notice list. I'll be in touch.";
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Get early access';
+      msg.style.color = '#FF0000';
+      msg.textContent = 'Something went wrong — please try again.';
+    }
+  })
+  .catch(function(){
+    btn.disabled = false;
+    btn.textContent = 'Get early access';
+    msg.style.color = '#FF0000';
+    msg.textContent = 'Something went wrong — please try again.';
+  });
+}
+document.getElementById('cs-email').addEventListener('keydown', function(e){
+  if (e.key === 'Enter') csSubmit();
+});
+</script>
 </body>
 </html>
