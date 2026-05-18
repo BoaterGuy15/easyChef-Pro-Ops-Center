@@ -63,19 +63,25 @@ function _klfErr(result) {
   return 'HTTP ' + result.code + ': ' + result.text.slice(0, 200);
 }
 
-// Read campaign start date from CcSettings; default 2026-05-27
+// Read campaign start date from CcSettings; default May 27 2026.
+// Uses _cvtReadSetting (returns scalar string) not _getCcSetting (returns array).
 function _klfStartDate() {
-  var raw = _getCcSetting('campaign_start_date') || _cvtReadSetting('campaign_start_date');
-  return raw ? new Date(raw) : new Date('2026-05-27');
+  var raw = _cvtReadSetting('campaign_start_date');
+  if (raw) {
+    var d = new Date(raw);
+    if (!isNaN(d.getTime())) return d;
+    Logger.log('[KLF] _klfStartDate: unparseable "' + raw + '", using default');
+  }
+  return new Date(Date.UTC(2026, 4, 27)); // May 27 2026 midnight UTC
 }
 
 // Compute ISO send datetime from send_day offset.
 // Reads campaign_send_hour (default 9) and campaign_timezone_offset (default -4 = EDT)
-// from CcSettings so send times always reflect local time, not UTC.
+// from CcSettings. Uses _cvtReadSetting which returns a scalar string value.
 // Example: hour=9, tzOff=-4 → utcHour=13 → 9am EDT = 1pm UTC.
 function _klfSendAt(sendDay) {
-  var tzOff = Number(_getCcSetting('campaign_timezone_offset') || '') || -4;
-  var hour  = Number(_getCcSetting('campaign_send_hour') || '') || 9;
+  var tzOff = Number(_cvtReadSetting('campaign_timezone_offset') || '') || -4;
+  var hour  = Number(_cvtReadSetting('campaign_send_hour') || '') || 9;
   var start = _klfStartDate();
   var utcMidnight = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
   var utcSendHour = (hour - tzOff + 24) % 24;
@@ -543,9 +549,10 @@ function klaviyoCreateFounderSuppressionSegment() {
           definition: {
             condition_groups: [{
               conditions: [{
-                type:     'profile-membership',
-                list_id:  _KLF_LIST_ID,
-                operator: 'is-in'
+                type:             'profile-property',
+                profile_property: 'founder_status',
+                operator:         'equals',
+                value:             'waitlist'
               }]
             }]
           }
@@ -571,7 +578,7 @@ function klaviyoCreateFounderSuppressionSegment() {
 function klaviyoDeleteScheduledCampaigns() {
   try {
     var results = { ok: true, found: 0, deleted: 0, errors: [], campaign_ids: [] };
-    var listResult = _klfFetch('GET', 'campaigns/?filter=equals(status,"scheduled")&page[size]=50&fields[campaign]=name,status');
+    var listResult = _klfFetch('GET', "campaigns/?filter=equals(messages.channel,'email')&page[size]=50&fields[campaign]=name,status");
     if (listResult.code !== 200) return { ok: false, error: _klfErr(listResult) };
     var allCamps = (listResult.data && listResult.data.data) || [];
     var ours = allCamps.filter(function(c) {
@@ -672,7 +679,7 @@ function klaviyoScheduleCampaigns() {
             type: 'campaign',
             attributes: {
               name:     campName,
-              audiences: { included: [item.segId], excluded: [_KLF_LIST_ID] },
+              audiences: { included: [item.segId], excluded: item.segId === _KLF_LIST_ID ? [] : [_KLF_LIST_ID] },
               send_options: { use_smart_sending: false },
               tracking_options: {
                 is_tracking_opens:  true,
