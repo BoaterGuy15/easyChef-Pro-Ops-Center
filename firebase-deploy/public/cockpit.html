@@ -82,8 +82,9 @@
 
     /* Main */
     .main { flex: 1; min-width: 0; }
-    .tab-bar { display: flex; gap: 4px; margin-bottom: 10px; background: #F6EFE8; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 3px; }
-    .tab { flex: 1; padding: 8px 0; background: transparent; border: none; color: #888; font-size: 14px; font-weight: 600; border-radius: 9px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+    .tab-bar { display: flex; gap: 4px; margin-bottom: 10px; background: #F6EFE8; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 3px; overflow-x: auto; scrollbar-width: none; }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab { flex: 1 0 auto; padding: 8px 12px; background: transparent; border: none; color: #888; font-size: 13px; font-weight: 600; border-radius: 9px; cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
     .tab.active { background: #FFFFFF; color: #111; box-shadow: 0 1px 4px rgba(0,0,0,0.10); }
 
     /* KPIs */
@@ -527,8 +528,8 @@
       <div class="tab-bar">
         <button class="tab active" id="tab-dash"   onclick="switchTab('dash')">Dashboard</button>
         <button class="tab"        id="tab-cal"    onclick="switchTab('cal')">Calendar</button>
-        <button class="tab"        id="tab-flow"   onclick="switchTab('flow')">Campaign Flow</button>
-        <button class="tab"        id="tab-ecamps" onclick="switchTab('ecamps')">Email Campaigns</button>
+        <button class="tab"        id="tab-flow"   onclick="switchTab('flow')">Flow</button>
+        <button class="tab"        id="tab-ecamps" onclick="switchTab('ecamps')">Emails</button>
         <button class="tab"        id="tab-lp"     onclick="switchTab('lp')">LP Studio</button>
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
@@ -694,7 +695,7 @@
         </div>
       </div>
       <div class="ap-body">
-        <iframe id="ap-frame" class="ap-frame" style="display:none" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
+        <iframe id="ap-frame" class="ap-frame" style="display:none" sandbox="allow-scripts allow-popups"></iframe>
         <div id="ap-no-content" class="ap-no-content" style="display:none"></div>
       </div>
     </div>
@@ -1229,6 +1230,7 @@
     }
 
     // ── Email Campaigns Tab ────────────────────────────────────────────────────
+    function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     var _ecampsCache=null, _ecampsLoaded=false;
     function loadEmailCampsTab(){
       var panel=document.getElementById('panel-ecamps');
@@ -1249,7 +1251,7 @@
       var data=_ecampsCache||{flows:[],campaigns:[]};
       var flowRows=(data.flows||[]).map(function(f){
         var sc=f.status==='live'?'ec-status-live':f.status==='unknown'?'ec-status-manual':'ec-status-draft';
-        var kurl=f.id?'https://www.klaviyo.com/flows/'+f.id+'/flow-actions':'';
+        var kurl=f.id?'https://www.klaviyo.com/flow/'+f.id+'/edit':'';
         var trig=f.trigger_name?(f.trigger_name+(f.trigger_id?' · '+f.trigger_id:'')):f.trigger_id||'—';
         return '<tr><td><span class="ec-flow-name">'+_esc(f.label)+'</span></td>'
           +'<td>'+(f.id?'<span class="ec-id-pill">'+_esc(f.id)+'</span>':'<span style="color:#dc2626;font-size:10px">no ID</span>')+'</td>'
