@@ -2707,6 +2707,18 @@ function doPost(e) {
       var _gsd = getSocialDashboard(body.campaign_id || 'EC-2026-001');
       return respond(_gsd);
     }
+    if(body.action === 'export_social_posts_doc') {
+      var _epd = exportSocialPostsDoc(body.date || '2026-05-27', body.campaign_id || 'EC-2026-001');
+      return respond(_epd);
+    }
+    if(body.action === 'social_posts_sample') {
+      var _sh = _getCCSheet(_CC_TAB.SOCIAL);
+      var _hdrs = _CC_HDR.SocialPosts;
+      var _last = _sh.getLastRow();
+      var _rows = _last < 2 ? [] : _sh.getRange(2, 1, Math.min(5, _last - 1), _hdrs.length).getValues();
+      var _sample = _rows.map(function(r){ var o={}; _hdrs.forEach(function(h,j){o[h]=r[j];}); return o; });
+      return respond({ ok:true, total_rows: _last - 1, sample: _sample, headers: _hdrs });
+    }
     // ── END SOCIAL SYNC ───────────────────────────────────────────────────────
 
     const tasks = Array.isArray(body) ? body : body.tasks;

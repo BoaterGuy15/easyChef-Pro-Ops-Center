@@ -51,7 +51,7 @@ function _socialFetch(url, options) {
 
 function _socialReadPost(postId) {
   try {
-    var sh   = _getCCSheet(_CC_TAB.SOCIAL_POSTS);
+    var sh   = _getCCSheet(_CC_TAB.SOCIAL);
     var hdrs = _CC_HDR.SocialPosts;
     var last = sh.getLastRow();
     if (last < 2) return null;
@@ -70,7 +70,7 @@ function _socialReadPost(postId) {
 
 function _socialUpdatePost(postId, updates) {
   try {
-    var sh   = _getCCSheet(_CC_TAB.SOCIAL_POSTS);
+    var sh   = _getCCSheet(_CC_TAB.SOCIAL);
     var hdrs = _CC_HDR.SocialPosts;
     var last = sh.getLastRow();
     if (last < 2) return false;
@@ -91,7 +91,7 @@ function _socialUpdatePost(postId, updates) {
 
 function _socialGetPosts(campaignId, statuses) {
   try {
-    var sh   = _getCCSheet(_CC_TAB.SOCIAL_POSTS);
+    var sh   = _getCCSheet(_CC_TAB.SOCIAL);
     var hdrs = _CC_HDR.SocialPosts;
     var last = sh.getLastRow();
     if (last < 2) return [];
@@ -366,6 +366,128 @@ function getSocialConnectionStatus() {
     status[platform] = { connected: missing.length === 0, missing_keys: missing, keys_needed: keys };
   });
   return status;
+}
+
+// ── MANUAL POSTING EXPORT ─────────────────────────────────────────────────────
+// Creates a Google Doc with copy-paste-ready posts for FB + IG on a given date.
+// date: 'YYYY-MM-DD' string (e.g. '2026-05-27')
+function exportSocialPostsDoc(date, campaignId) {
+  campaignId = campaignId || 'EC-2026-001';
+  date       = date       || '2026-05-27';
+
+  // Normalize target date to midnight for comparison
+  var targetDate = new Date(date + 'T00:00:00');
+  var targetStr  = Utilities.formatDate(targetDate, 'America/New_York', 'yyyy-MM-dd');
+
+  var allPosts = _socialGetPosts(campaignId, []);
+  var dayPosts = allPosts.filter(function(p) {
+    var sd = p.scheduled_date;
+    if (!sd) return false;
+    var d = (sd instanceof Date) ? sd : new Date(sd);
+    if (isNaN(d.getTime())) return false;
+    var ds = Utilities.formatDate(d, 'America/New_York', 'yyyy-MM-dd');
+    return ds === targetStr;
+  });
+
+  // Only FB + IG for this manual export (Meta review pending)
+  var metaPosts = dayPosts.filter(function(p) {
+    var pl = String(p.platform || '').toLowerCase();
+    return pl === 'facebook' || pl === 'instagram';
+  });
+
+  if (!metaPosts.length) {
+    return { ok: false, error: 'No Facebook/Instagram posts found for ' + date, count: dayPosts.length };
+  }
+
+  // Create the Google Doc
+  var docTitle = 'easyChef Pro — Social Posts ' + date + ' (Campaign Day 1 — Manual Posting)';
+  var doc  = DocumentApp.create(docTitle);
+  var body = doc.getBody();
+
+  // Title
+  var titlePara = body.insertParagraph(0, docTitle);
+  titlePara.setHeading(DocumentApp.ParagraphHeading.TITLE);
+
+  body.appendParagraph('Campaign: EC-2026-001 · Date: ' + date + ' · Generated: ' + Utilities.formatDate(new Date(), 'America/New_York', 'MMM d, yyyy h:mm a z'))
+      .setItalic(true);
+  body.appendParagraph('NOTE: Meta API review in progress (10-day wait). Post these manually. Copy each block below exactly as written.')
+      .setBold(true);
+  body.appendHorizontalRule();
+
+  // Group by platform
+  var byPlatform = {};
+  metaPosts.forEach(function(p) {
+    var pl = String(p.platform || '').toLowerCase();
+    if (!byPlatform[pl]) byPlatform[pl] = [];
+    byPlatform[pl].push(p);
+  });
+
+  var platformOrder = ['facebook', 'instagram'];
+  var platformLabel = { facebook: 'FACEBOOK', instagram: 'INSTAGRAM' };
+  var platformNote  = {
+    facebook:  'Post to: facebook.com → Your Page → Create Post',
+    instagram: 'Post to: Instagram app → New Post → caption field'
+  };
+
+  var postIndex = 0;
+  platformOrder.forEach(function(pl) {
+    if (!byPlatform[pl] || !byPlatform[pl].length) return;
+    byPlatform[pl].forEach(function(post) {
+      postIndex++;
+      // Platform header
+      body.appendParagraph(platformLabel[pl] + ' — Post ' + postIndex)
+          .setHeading(DocumentApp.ParagraphHeading.HEADING1);
+      body.appendParagraph(platformNote[pl]).setItalic(true);
+
+      // Image note
+      if (post.image_url && String(post.image_url).indexOf('http') === 0) {
+        body.appendParagraph('IMAGE: ' + post.image_url).setBold(true);
+      } else if (post.image_brief) {
+        body.appendParagraph('IMAGE BRIEF: ' + post.image_brief).setItalic(true);
+      }
+
+      // Hook line (if present)
+      if (post.hook) {
+        body.appendParagraph('Hook: ' + post.hook).setItalic(true);
+      }
+
+      // The actual copy block — bold border, ready to copy
+      body.appendParagraph('── COPY BLOCK (copy everything below this line) ──').setBold(true);
+
+      var fullText = String(post.body_copy || '');
+      var link = _socialBuildLink(post);
+      if (link) fullText += '\n\n' + link;
+      var tags = String(post.hashtags || '');
+      if (tags) fullText += '\n\n' + tags;
+
+      body.appendParagraph(fullText);
+      body.appendParagraph('── END COPY BLOCK ──').setBold(true);
+
+      // Metadata footer (small, for reference)
+      body.appendParagraph('Post ID: ' + (post.id || '—') + ' · Stage: ' + (post.stage_number || '—') + ' · Emotion: ' + (post.emotion || '—') + ' · Status: ' + (post.status || '—'))
+          .setItalic(true).setFontSize(9);
+
+      body.appendHorizontalRule();
+    });
+  });
+
+  // Footer
+  body.appendParagraph('After posting, update status to "posted" in the SocialPosts tab of the Campaign Center Sheet.')
+      .setItalic(true);
+
+  doc.saveAndClose();
+  var docUrl = 'https://docs.google.com/document/d/' + doc.getId() + '/edit';
+  Logger.log('[exportSocialPostsDoc] Created: ' + docUrl);
+
+  return {
+    ok:        true,
+    doc_url:   docUrl,
+    doc_id:    doc.getId(),
+    doc_title: docTitle,
+    post_count: postIndex,
+    date:      date,
+    platforms: Object.keys(byPlatform)
+  };
 }
 
 // ── DASHBOARD DATA ────────────────────────────────────────────────────────────
