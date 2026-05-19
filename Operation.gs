@@ -2713,13 +2713,21 @@ function doPost(e) {
     }
     // ── YOUTUBE OAUTH ──────────────────────────────────────────────────────────
     if(body.action === 'youtube_auth_start') {
-      return respond(youtubeAuthStart());
+      return respond(getYouTubeAuthUrl());
     }
     if(body.action === 'youtube_auth_callback') {
-      return respond(youtubeAuthCallback(body.code || '', body.state || ''));
+      return respond(handleYouTubeOAuthCallback(body.code || ''));
     }
     if(body.action === 'youtube_connection_status') {
       return respond(Object.assign({ ok: true }, youtubeConnectionStatus()));
+    }
+    if(body.action === 'youtube_setup') {
+      var _ysp = PropertiesService.getScriptProperties();
+      if(body.client_id)     _ysp.setProperty('youtube_client_id',     body.client_id);
+      if(body.client_secret) _ysp.setProperty('youtube_client_secret', body.client_secret);
+      if(body.channel_id)    _ysp.setProperty('youtube_channel_id',    body.channel_id);
+      var _yconn = youtubeConnectionStatus();
+      return respond({ ok: true, stored: Object.keys(body).filter(function(k){ return k!=='action'; }), status: _yconn });
     }
     if(body.action === 'social_posts_sample') {
       var _sh = _getCCSheet(_CC_TAB.SOCIAL);

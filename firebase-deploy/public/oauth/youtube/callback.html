@@ -93,7 +93,7 @@
       fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'youtube_auth_callback', code: code, state: state })
+        body: JSON.stringify({ action: 'youtube_auth_callback', code: code })
       })
       .then(function(r) { return r.json(); })
       .then(function(d) {
