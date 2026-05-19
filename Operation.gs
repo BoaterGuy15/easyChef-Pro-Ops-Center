@@ -2711,6 +2711,16 @@ function doPost(e) {
       var _epd = exportSocialPostsDoc(body.date || '2026-05-27', body.campaign_id || 'EC-2026-001');
       return respond(_epd);
     }
+    // ── YOUTUBE OAUTH ──────────────────────────────────────────────────────────
+    if(body.action === 'youtube_auth_start') {
+      return respond(youtubeAuthStart());
+    }
+    if(body.action === 'youtube_auth_callback') {
+      return respond(youtubeAuthCallback(body.code || '', body.state || ''));
+    }
+    if(body.action === 'youtube_connection_status') {
+      return respond(Object.assign({ ok: true }, youtubeConnectionStatus()));
+    }
     if(body.action === 'social_posts_sample') {
       var _sh = _getCCSheet(_CC_TAB.SOCIAL);
       var _hdrs = _CC_HDR.SocialPosts;

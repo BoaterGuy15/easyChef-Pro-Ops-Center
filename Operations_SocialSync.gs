@@ -24,7 +24,7 @@ var _SOCIAL_CRED_KEYS = {
   instagram: ['ig_user_id', 'fb_page_access_token'],
   tiktok:    ['tiktok_access_token', 'tiktok_open_id'],
   pinterest: ['pinterest_access_token', 'pinterest_board_id'],
-  youtube:   ['youtube_access_token', 'youtube_channel_id'],
+  youtube:   ['youtube_refresh_token', 'youtube_channel_id'],
   x:         ['x_api_key', 'x_api_secret', 'x_access_token', 'x_access_secret']
 };
 
@@ -246,21 +246,10 @@ function postToPinterest(postData) {
 }
 
 // ── PLATFORM: YouTube ─────────────────────────────────────────────────────────
-// Posts a Community (text) post. Video upload requires resumable upload — set up separately.
-// NOTE: Community posts require a channel with 500+ subscribers and eligibility.
+// Community posts via OAuth2 (managed by Operations_YouTubeOAuth.gs).
+// Requires youtube_refresh_token in Script Properties (set by running OAuth flow).
 function postToYouTube(postData) {
-  var token     = _ssp('youtube_access_token');
-  var channelId = _ssp('youtube_channel_id');
-  if (!token || !channelId) return { ok: false, error: 'youtube_access_token or youtube_channel_id missing from Script Properties' };
-
-  var text = _socialBuildText(postData);
-  var r = _socialFetch('https://www.googleapis.com/youtube/v3/communityPosts?part=snippet', {
-    method: 'post', contentType: 'application/json',
-    payload: JSON.stringify({ snippet: { type: 'textOriginal', textOriginal: { text: text } } }),
-    headers: { Authorization: 'Bearer ' + token }
-  });
-  if (r.ok && r.body.id) return { ok: true, platform: 'youtube', post_id: r.body.id, post_url: 'https://www.youtube.com/post/' + r.body.id };
-  return { ok: false, error: 'HTTP ' + r.code + ': ' + r.raw };
+  return youtubePostCommunity(postData);
 }
 
 // ── PLATFORM: X / Twitter ─────────────────────────────────────────────────────

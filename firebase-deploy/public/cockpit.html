@@ -1313,6 +1313,30 @@
         .catch(function(){panel.innerHTML='<div class="loading">Connection error.</div>';});
     }
 
+    function _ytConnect(){
+      gasCall({action:'youtube_auth_start'})
+        .then(function(r){
+          if(!r||!r.ok){alert('Error starting YouTube auth: '+(r&&r.error||'unknown'));return;}
+          var popup=window.open(r.auth_url,'youtube_oauth','width=540,height=660,left=200,top=100');
+          var handler=function(e){
+            if(e.data&&e.data.type==='youtube_connected'){
+              window.removeEventListener('message',handler);
+              if(popup&&!popup.closed)popup.close();
+              _socialsLoaded=false;loadSocialsTab();
+            }
+          };
+          window.addEventListener('message',handler);
+          // Fallback poll in case postMessage doesn't fire
+          var poll=setInterval(function(){
+            if(popup&&popup.closed){
+              clearInterval(poll);
+              window.removeEventListener('message',handler);
+              _socialsLoaded=false;loadSocialsTab();
+            }
+          },1500);
+        });
+    }
+
     function _socialsPost(postId){
       if(!confirm('Post "'+postId+'" now?'))return;
       gasCall({action:'social_post_now',post_id:postId})
@@ -1344,6 +1368,14 @@
         var conn=d.connections&&d.connections[p];
         var connected=conn&&conn.connected;
         var missing=conn&&conn.missing_keys&&conn.missing_keys.length?conn.missing_keys.join(', '):'';
+        var actionBtn='';
+        if(!connected){
+          if(p==='youtube'){
+            actionBtn='<button onclick="_ytConnect()" style="margin-top:6px;width:100%;background:#FF0000;color:#fff;border:none;padding:5px 0;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">Connect YouTube</button>';
+          } else if(p==='facebook'||p==='instagram'){
+            actionBtn='<div style="margin-top:5px;font-size:9px;color:#e67e00;font-weight:600">Meta review in progress (~10 days)</div>';
+          }
+        }
         connHtml+='<div style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:10px 12px">'
           +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
           +'<div style="width:10px;height:10px;border-radius:50%;background:'+(connected?'#16a34a':'#dc2626')+'"></div>'
@@ -1352,6 +1384,7 @@
           +'</div>'
           +(connected?'<div style="font-size:10px;color:#888">Credentials configured</div>'
             :'<div style="font-size:9px;color:#aaa;word-break:break-all">'+missing+'</div>')
+          +actionBtn
           +'</div>';
       });
       connHtml+='</div>';
