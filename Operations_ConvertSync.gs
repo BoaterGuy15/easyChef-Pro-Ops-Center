@@ -61,12 +61,14 @@ function _cvtGetOrCreateSheet(name, headers) {
 // ExpiresTimestamp = Unix seconds + 30 (30-second window)
 // ApplicationID = convert_api_key   ApplicationSecretKey = convert_secret_key
 function signConvertRequest(method, path, body) {
-  var apiKey    = _cvtReadSetting('convert_api_key');
-  var secretKey = _cvtReadSetting('convert_secret_key');
+  // Script Properties take precedence over CcSettings (more secure, harder to expose)
+  var sp        = PropertiesService.getScriptProperties();
+  var apiKey    = sp.getProperty('convert_api_key')    || _cvtReadSetting('convert_api_key');
+  var secretKey = sp.getProperty('convert_secret_key') || _cvtReadSetting('convert_secret_key');
   if (!apiKey || !secretKey) {
-    throw new Error('convert_api_key / convert_secret_key not found in CcSettings');
+    throw new Error('convert_api_key / convert_secret_key not found in Script Properties or CcSettings');
   }
-  var expires   = String(Math.floor(Date.now() / 1000 + 30));
+  var expires   = String(Date.now() / 1000 + 30); // float — matches Postman pre-request script
   var fullUrl   = _CONVERT_BASE_URL + path.replace(/^\//, '');
   var bodyStr   = body || '';
   var canonical = apiKey + '\n' + expires + '\n' + fullUrl + '\n' + bodyStr;

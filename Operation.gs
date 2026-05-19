@@ -863,6 +863,42 @@ function doPost(e) {
       var _p7 = runConvertP7Setup(body.experiment_id || '100140422', body.goal_id || '100154109');
       return respond({ ok:_p7.ok, result:_p7, log: Logger.getLog() });
     }
+    if(body.action === 'convert_check_creds') {
+      var _sp = PropertiesService.getScriptProperties();
+      var _spKey = _sp.getProperty('convert_api_key')    || '';
+      var _spSec = _sp.getProperty('convert_secret_key') || '';
+      var _shKey = _cvtReadSetting('convert_api_key');
+      var _shSec = _cvtReadSetting('convert_secret_key');
+      return respond({
+        script_properties: {
+          api_key_exists:  !!_spKey, api_key_length: _spKey.length, api_key_preview: _spKey ? _spKey.substring(0,8)+'...' : 'MISSING',
+          secret_exists:   !!_spSec, secret_length:  _spSec.length, secret_preview:  _spSec ? _spSec.substring(0,8)+'...' : 'MISSING'
+        },
+        cc_settings_sheet: {
+          api_key_exists:  !!_shKey, api_key_length: _shKey.length, api_key_preview: _shKey ? _shKey.substring(0,8)+'...' : 'MISSING',
+          secret_exists:   !!_shSec, secret_length:  _shSec.length, secret_preview:  _shSec ? _shSec.substring(0,8)+'...' : 'MISSING'
+        },
+        active_source: _spKey ? 'script_properties' : (_shKey ? 'cc_settings_sheet' : 'NONE')
+      });
+    }
+    if(body.action === 'convert_debug') {
+      var _cApiKey = _cvtReadSetting('convert_api_key');
+      var _cSecKey = _cvtReadSetting('convert_secret_key');
+      var _cExpId  = body.experiment_id || '100140422';
+      var _cUrl    = 'https://api.convert.com/api/v1/accounts/10019256/experiments/' + _cExpId;
+      var _cExp    = String(Date.now() / 1000 + 30);
+      var _cCanon  = _cApiKey + '\n' + _cExp + '\n' + _cUrl + '\n';
+      return respond({
+        api_key_exists:    !!_cApiKey,
+        api_key_length:    _cApiKey.length,
+        api_key_preview:   _cApiKey.substring(0, 6) + '...',
+        secret_exists:     !!_cSecKey,
+        secret_length:     _cSecKey.length,
+        sign_url:          _cUrl,
+        expires:           _cExp,
+        canonical_preview: _cCanon.substring(0, 80)
+      });
+    }
     if(body.action === 'update_convert_id') {
       updateConvertExperimentId();
       return respond({ ok:true, message: 'Convert ID updated to 100140422' });
