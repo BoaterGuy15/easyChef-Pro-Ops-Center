@@ -1402,6 +1402,7 @@
       document.getElementById('panel-dash').innerHTML=
         _buildSetupChecklist(_setupStatus)+
         buildKpiStrip(d)+buildPipe2(d)+
+        buildLaunchTimeline()+
         '<div class="dash-cols">'+
           '<div class="dash-col">'+
             '<div class="card"><div class="card-title">Pipeline Status</div>'+pipeBars+'</div>'+
@@ -1910,6 +1911,58 @@
         return pill+(i<stages.length-1?'<span class="pipe2-arrow">&#8594;</span>':'');
       }).join('');
       return '<div class="pipe2-row"><span class="pipe2-label">PIPELINE</span>'+html+'</div>';
+    }
+
+    // ── Launch Timeline card ─────────────────────────────────────────────────
+    function buildLaunchTimeline() {
+      var milestones = [
+        { date:'2026-05-20', label:'JR Email Handoff',       note:'Emails in Klaviyo for JR review' },
+        { date:'2026-05-27', label:'Pre-Launch Go-Live',      note:'Run klaviyo_set_live · SEQ-1/2 flows start' },
+        { date:'2026-05-28', label:'QST-E1 Broadcast',        note:'Auto-sends to all TebDTM at 9am EDT (VyNxs4)' },
+        { date:'2026-06-03', label:'Questionnaire Closes',    note:'Taylor reviews AlphaApplications · tags alpha_selected' },
+        { date:'2026-06-08', label:'Alpha App Access',        note:'Tag profiles → UPRemk → Alpha flow fires' },
+        { date:'2026-06-22', label:'Alpha Feedback Emails',   note:'Auto — Day 14 from app access' },
+        { date:'2026-06-29', label:'Beta Invites',            note:'Add to SfHgFY · BETA flow triggers' },
+        { date:'2026-07-01', label:'PUBLIC LAUNCH',           note:'TebDTM → Tgv7Jc · OB flow · founding pricing live' }
+      ];
+      var today = new Date(); today.setHours(0,0,0,0);
+      var nextIdx = -1;
+      for (var i = 0; i < milestones.length; i++) {
+        if (new Date(milestones[i].date+'T00:00:00') >= today) { nextIdx = i; break; }
+      }
+      var rows = milestones.map(function(m, i) {
+        var mDate = new Date(m.date+'T00:00:00');
+        var diff  = Math.round((mDate - today) / 86400000);
+        var past  = diff < 0, next = (i === nextIdx), launch = (i === milestones.length-1);
+        var dot   = past ? '#16a34a' : next ? '#FF0000' : 'rgba(0,0,0,0.18)';
+        var dotEx = next ? ';box-shadow:0 0 0 3px rgba(255,0,0,0.15)' : '';
+        var lc    = past ? '#aaa' : '#333';
+        var lw    = next || launch ? '700' : '500';
+        var lf    = (launch && !past) ? 'var(--font-head)' : 'var(--font-body)';
+        var badge = past
+          ? '<span style="font-size:9px;font-weight:600;color:#16a34a;background:rgba(22,163,74,0.1);padding:2px 7px;border-radius:999px;flex-shrink:0">DONE</span>'
+          : next
+            ? '<span style="font-size:9px;font-weight:700;color:#fff;background:#FF0000;padding:2px 8px;border-radius:999px;flex-shrink:0">'+(diff===0?'TODAY':diff+'d')+'</span>'
+            : '<span style="font-size:9px;color:#bbb;padding:2px 7px;flex-shrink:0">'+diff+'d</span>';
+        var sep = i < milestones.length-1 ? 'border-bottom:1px solid rgba(0,0,0,0.05);' : '';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;'+sep+'">'
+          +'<span style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex-shrink:0'+dotEx+'"></span>'
+          +'<span style="width:50px;font-size:10px;color:#aaa;font-family:monospace;flex-shrink:0">'+m.date.slice(5).replace('-','/')+'</span>'
+          +'<span style="flex:1;min-width:0">'
+            +'<span style="font-size:12px;font-weight:'+lw+';color:'+lc+';font-family:'+lf+'">'+m.label+'</span>'
+            +((!past||next)?'<div style="font-size:10px;color:#bbb;margin-top:1px">'+m.note+'</div>':'')
+          +'</span>'
+          +badge+'</div>';
+      }).join('');
+      var launchDate = new Date('2026-07-01T00:00:00');
+      var dtl = Math.max(0, Math.round((launchDate-today)/86400000));
+      var dtlLabel = dtl===0 ? 'LAUNCH DAY' : dtl+' days to launch';
+      return '<div class="card" style="margin-bottom:12px">'
+        +'<div class="card-title" style="display:flex;align-items:center;justify-content:space-between">'
+          +'Launch Timeline'
+          +'<span style="font-size:10px;font-weight:700;color:#FF0000;text-transform:none;letter-spacing:0;font-family:var(--font-body)">'+dtlLabel+'</span>'
+        +'</div>'
+        +rows+'</div>';
     }
 
     // ── Campaign Flow / Timeline Swimlane ────────────────────────────────────

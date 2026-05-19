@@ -2101,7 +2101,11 @@ function submitAlphaQuestionnaire(data) {
     'new'
   ];
   _ccUpsert(sheet, hdrs, id, row);
-  return { ok: true, id: id, priority: isPriority };
+  var klfResult = { ok: false };
+  if (data.email) {
+    klfResult = klaviyoSubscribeQuestionnaire(data.email, data.first_name || '');
+  }
+  return { ok: true, id: id, priority: isPriority, klaviyo: klfResult };
 }
 
 // ── AlphaFeedback ─────────────────────────────────────────────────────────────

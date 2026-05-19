@@ -184,35 +184,43 @@ function _klfGetOrCreateSegment(segmentKey, segmentName, icpCode) {
   var stored = _klfReadSetting(segmentKey);
   if (stored) { Logger.log('[KLF] Segment cached: ' + segmentKey + '=' + stored); return { ok: true, segment_id: stored }; }
 
-  // Create segment via API
-  var result = _klfFetch('POST', 'segments/', {
-    data: {
-      type: 'segment',
-      attributes: {
-        name: segmentName,
-        definition: {
-          condition_groups: [{
-            conditions: [{
-              type:             'profile-property',
-              profile_property: 'icp_code',
-              operator:         'equals',
-              value:             icpCode
-            }]
-          }]
-        }
-      }
-    }
-  });
+  // Create segment via API — two format attempts for custom property compatibility
+  var payloads = [
+    // Format A: 2025-04-15 custom property format
+    { data: { type: 'segment', attributes: { name: segmentName, definition: { condition_groups: [{
+      conditions: [{ type: 'PROFILE', property: 'icp_code', operator: 'EQUALS', value: icpCode }]
+    }] } } } },
+    // Format B: older profile-property format
+    { data: { type: 'segment', attributes: { name: segmentName, definition: { condition_groups: [{
+      conditions: [{ type: 'profile-property', profile_property: 'icp_code', operator: 'equals', value: icpCode }]
+    }] } } } }
+  ];
 
-  if (result.code === 201 || result.code === 200) {
+  var result = null;
+  for (var pi = 0; pi < payloads.length; pi++) {
+    result = _klfFetch('POST', 'segments/', payloads[pi]);
+    if (result.code === 201 || result.code === 200) break;
+    Logger.log('[KLF] Segment format ' + pi + ' failed (' + result.code + '): ' + _klfErr(result));
+  }
+
+  if (result && (result.code === 201 || result.code === 200)) {
     var id = result.data && result.data.data && result.data.data.id;
     _klfSaveSetting(segmentKey, id, segmentName);
     Logger.log('[KLF] Segment created: ' + id + ' — ' + segmentName);
     return { ok: true, segment_id: id };
   }
 
-  // Fallback: use list TebDTM if segment creation fails
-  Logger.log('[KLF] Segment create failed (' + _klfErr(result) + '), falling back to list ' + _KLF_LIST_ID);
+  // Final fallback: create a variant-specific list and use it as the audience
+  Logger.log('[KLF] All segment formats failed — creating variant list for ' + segmentKey);
+  var listName = segmentKey === 'klaviyo_segment_id_a' ? 'EC Variant A (Money)' : 'EC Variant B (Time)';
+  var lr = klaviyoCreateList(listName);
+  if (lr.ok) {
+    _klfSaveSetting(segmentKey, lr.list_id, listName + ' (list fallback)');
+    Logger.log('[KLF] Variant list created: ' + lr.list_id + ' — ' + listName);
+    return { ok: true, segment_id: lr.list_id, list_fallback: true, list_id: lr.list_id };
+  }
+  // Absolute last resort
+  Logger.log('[KLF] List create also failed — using TebDTM fallback');
   return { ok: true, segment_id: _KLF_LIST_ID, fallback: true };
 }
 
@@ -413,6 +421,22 @@ function klaviyoSetFlowStatus(flowId, status) {
   }
 }
 
+// ── klaviyoGetFlowStatuses ────────────────────────────────────────────────────
+function klaviyoGetFlowStatuses() {
+  var flowIds = ['XfqUtU', 'XCyc4m', 'QYwGdj', 'TNSTZr', 'VnfgA4', 'Tr87zQ', 'SpiMfa'];
+  var results = [];
+  flowIds.forEach(function(id) {
+    var r = _klfFetch('GET', 'flows/' + id + '/?fields[flow]=name,status,trigger_type');
+    if (r.code === 200 && r.data && r.data.data) {
+      var attrs = r.data.data.attributes || {};
+      results.push({ id: id, name: attrs.name || '', status: attrs.status || '', trigger_type: attrs.trigger_type || '' });
+    } else {
+      results.push({ id: id, error: r.code + ': ' + _klfErr(r) });
+    }
+  });
+  return { ok: true, flows: results };
+}
+
 // ── FUNCTION 6 — _klfBuildFlow (shared) ──────────────────────────────────────
 function _klfBuildFlow(icpCode, flowLabel) {
   var flowName = 'EC-2026-001 · Flow ' + flowLabel + ' · ' +
@@ -556,22 +580,178 @@ function klaviyoSubscribeWaitlistSignup(email, lpVariant) {
       return { ok: false, error: 'Profile create/lookup failed (HTTP ' + createResult.code + ')' };
     }
 
-    // Step 2: Add profile to target list — 204 = success, 400 = already a member (both ok)
+    // Step 2: Add profile to primary list (TebDTM or TpXCkr)
     var listResult = _klfFetch('POST', 'lists/' + targetListId + '/relationships/profiles/', {
       data: [{ type: 'profile', id: profileId }]
     });
     var addedToList = listResult.code === 204 || listResult.code === 200 || listResult.code === 400;
 
-    Logger.log('[KLF] Subscribe: ' + email + ' icp=' + icpCode + ' profile=' + profileId + ' list=' + targetListId + ' http=' + listResult.code);
+    // Step 3: Also add to variant-specific list (UQTdyL for A, VpgZPZ for B)
+    // These lists drive SEQ-3/4 campaign audiences
+    var variantListId = null;
+    if (!isOrganic) {
+      variantListId = icpCode === 'super_mom_money'
+        ? (_cvtReadSetting('klaviyo_segment_id_a') || '')
+        : (_cvtReadSetting('klaviyo_segment_id_b') || '');
+      if (variantListId && variantListId !== _KLF_LIST_ID) {
+        _klfFetch('POST', 'lists/' + variantListId + '/relationships/profiles/', {
+          data: [{ type: 'profile', id: profileId }]
+        });
+      }
+    }
+
+    Logger.log('[KLF] Subscribe: ' + email + ' icp=' + icpCode + ' profile=' + profileId + ' list=' + targetListId + ' variant_list=' + (variantListId || 'n/a') + ' http=' + listResult.code);
     return {
       ok:           true,
       profile_id:   profileId,
       icp_code:     icpCode,
       list_id:      targetListId,
+      variant_list_id: variantListId,
       added_to_list: addedToList
     };
   } catch(e) {
     Logger.log('[KLF] klaviyoSubscribeWaitlistSignup error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoCheckSignup — e2e diagnostic ──────────────────────────────────────
+// Returns profile properties + list membership for a given email.
+// Used for end-to-end system tests.
+function klaviyoCheckSignup(email) {
+  try {
+    if (!email) return { ok: false, error: 'email required' };
+
+    // Step 1: Find profile by email
+    var pr = _klfFetch('GET', 'profiles/?filter=equals(email,' + encodeURIComponent(JSON.stringify(email)) + ')&fields[profile]=email,first_name,properties&page[size]=1');
+    if (pr.code !== 200) return { ok: false, error: 'profiles GET ' + pr.code + ': ' + _klfErr(pr) };
+    var profiles = pr.data && pr.data.data;
+    if (!profiles || !profiles.length) return { ok: false, error: 'profile not found for ' + email };
+
+    var profile    = profiles[0];
+    var profileId  = profile.id;
+    var props      = (profile.attributes && profile.attributes.properties) || {};
+    var firstName  = (profile.attributes && profile.attributes.first_name) || '';
+
+    // Step 2: Get list membership via relationships endpoint
+    Utilities.sleep(300);
+    var lr = _klfFetch('GET', 'profiles/' + profileId + '/relationships/lists/?page[size]=50');
+    var listIds = [];
+    if (lr.code === 200 && lr.data && lr.data.data) {
+      listIds = lr.data.data.map(function(l) { return l.id; });
+    }
+    var onTebDTM = listIds.indexOf('TebDTM') !== -1;
+    var onTpXCkr = listIds.indexOf('TpXCkr') !== -1;
+    var onUPRemk = listIds.indexOf('UPRemk') !== -1;
+    var onUQTdyL = listIds.indexOf('UQTdyL') !== -1;
+    var onVpgZPZ = listIds.indexOf('VpgZPZ') !== -1;
+    var onWBbASK = listIds.indexOf('WBbASK') !== -1;
+    var lists    = listIds.map(function(id) { return { id: id }; });
+
+    // Step 3: Check recent events (include=metric to get event name from relationship)
+    Utilities.sleep(200);
+    var er = _klfFetch('GET', 'events/?filter=equals(profile_id,%22' + profileId + '%22)&sort=-datetime&page[size]=10&include=metric');
+    var events = [];
+    var eventsCode = er.code;
+    if (er.code === 200 && er.data && er.data.data) {
+      // Build metric name lookup from included
+      var metricNames = {};
+      if (er.data.included) {
+        er.data.included.forEach(function(inc) {
+          if (inc.type === 'metric' && inc.id) {
+            metricNames[inc.id] = (inc.attributes && inc.attributes.name) || inc.id;
+          }
+        });
+      }
+      events = er.data.data.map(function(e) {
+        var metricId = e.relationships && e.relationships.metric && e.relationships.metric.data && e.relationships.metric.data.id;
+        return {
+          name:     metricNames[metricId] || metricId || 'unknown',
+          datetime: (e.attributes && e.attributes.datetime) || ''
+        };
+      });
+    }
+
+    return {
+      ok:         true,
+      email:      email,
+      profile_id: profileId,
+      first_name: firstName,
+      icp_code:        props.icp_code        || null,
+      founder_status:  props.founder_status  || null,
+      lp_variant:      props.lp_variant      || null,
+      alpha_selected:  props.alpha_selected  || null,
+      lists:      lists,
+      list_checks: {
+        TebDTM_prelaunch: onTebDTM,
+        TpXCkr_organic:   onTpXCkr,
+        UPRemk_alpha:     onUPRemk,
+        UQTdyL_varA:      onUQTdyL,
+        VpgZPZ_varB:      onVpgZPZ,
+        WBbASK_qst:       onWBbASK
+      },
+      recent_events:  events,
+      events_status:  eventsCode
+    };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── FUNCTION 7b — klaviyoSubscribeQuestionnaire ──────────────────────────────
+// Called on alpha questionnaire submit.
+// Creates/updates Klaviyo profile with lp_variant='questionnaire' + alpha_selected='true',
+// then adds to list WBbASK (EC QST Submitted) which triggers the QST Confirm flow.
+function klaviyoSubscribeQuestionnaire(email, firstName) {
+  try {
+    if (!email) return { ok: false, error: 'No email provided' };
+
+    var createResult = _klfFetch('POST', 'profiles/', {
+      data: {
+        type:       'profile',
+        attributes: {
+          email:      email,
+          first_name: firstName || '',
+          properties: { lp_variant: 'questionnaire', alpha_selected: 'true' }
+        }
+      }
+    });
+
+    var profileId = null;
+    if (createResult.code === 201) {
+      profileId = createResult.data && createResult.data.data && createResult.data.data.id;
+    } else if (createResult.code === 409) {
+      var dupErr = createResult.data && createResult.data.errors && createResult.data.errors[0];
+      profileId = dupErr && dupErr.meta && dupErr.meta.duplicate_profile_id;
+      if (profileId) {
+        _klfFetch('PATCH', 'profiles/' + profileId + '/', {
+          data: {
+            type:       'profile',
+            id:          profileId,
+            attributes: {
+              first_name: firstName || '',
+              properties: { lp_variant: 'questionnaire', alpha_selected: 'true' }
+            }
+          }
+        });
+      }
+    }
+
+    if (!profileId) {
+      Logger.log('[KLF] QST Subscribe: no profile ID for ' + email + ' (HTTP ' + createResult.code + ')');
+      return { ok: false, error: 'Profile create/lookup failed (HTTP ' + createResult.code + ')' };
+    }
+
+    var qstListId = _cvtReadSetting('klaviyo_qst_list_id') || 'WBbASK';
+    var listResult = _klfFetch('POST', 'lists/' + qstListId + '/relationships/profiles/', {
+      data: [{ type: 'profile', id: profileId }]
+    });
+    var added = listResult.code === 204 || listResult.code === 200 || listResult.code === 400;
+
+    Logger.log('[KLF] QST Subscribe: ' + email + ' profile=' + profileId + ' list=' + qstListId + ' http=' + listResult.code);
+    return { ok: true, profile_id: profileId, list_id: qstListId, added_to_list: added };
+  } catch(e) {
+    Logger.log('[KLF] klaviyoSubscribeQuestionnaire error: ' + e.message);
     return { ok: false, error: e.message };
   }
 }
@@ -704,9 +884,12 @@ function getKlaviyoCampaignsBoard(campaignId) {
     var flowDefs = [
       { key:'flow_a',     label:'Flow A — SEQ-1',        id: _cvtReadSetting('klaviyo_flow_id_a'),     seq:'SEQ-1',  trigger_id:'TebDTM',  trigger_name:'Prelaunch Emails',     steps:8,  go_live:'2026-05-27' },
       { key:'flow_b',     label:'Flow B — SEQ-2',        id: _cvtReadSetting('klaviyo_flow_id_b'),     seq:'SEQ-2',  trigger_id:'TebDTM',  trigger_name:'Prelaunch Emails',     steps:8,  go_live:'2026-05-27' },
-      { key:'flow_alpha', label:'Alpha Flow',                 id: _cvtReadSetting('klaviyo_flow_id_alpha'), seq:'ALPHA',  trigger_id:'UPRemk',  trigger_name:'EC Alpha Users',       steps:6,  go_live:'On alpha_selected' },
-      { key:'flow_ob',    label:'OB Standard Onboarding',     id: _cvtReadSetting('klaviyo_flow_id_ob'),    seq:'OB',     trigger_id:obListId,  trigger_name:'EC OB Launch Day',     steps:5,  go_live:'2026-07-01' },
-      { key:'flow_org',   label:'Organic Welcome',            id: _cvtReadSetting('klaviyo_flow_id_org'),   seq:'ORG',    trigger_id:orgListId, trigger_name:'EC Organic Welcome',   steps:3,  go_live:'On /coming-soon' }
+      { key:'flow_alpha',      label:'Alpha Flow',                  id: _cvtReadSetting('klaviyo_flow_id_alpha'),      seq:'ALPHA', trigger_id:'UPRemk',  trigger_name:'EC Alpha Users',        steps:6, go_live:'Jun 8 — tag alpha_selected' },
+      { key:'flow_ob',         label:'OB Standard Onboarding',      id: _cvtReadSetting('klaviyo_flow_id_ob'),         seq:'OB',    trigger_id:obListId,  trigger_name:'EC OB Launch Day',      steps:5, go_live:'2026-07-01' },
+      { key:'flow_org',        label:'Organic Welcome',              id: _cvtReadSetting('klaviyo_flow_id_org'),        seq:'ORG',   trigger_id:orgListId, trigger_name:'EC Organic Welcome',    steps:3, go_live:'On /coming-soon signup' },
+      { key:'flow_beta',       label:'BETA Onboarding',              id: _cvtReadSetting('klaviyo_flow_id_beta'),       seq:'BETA',  trigger_id:'SfHgFY',  trigger_name:'EC Beta Users',         steps:4, go_live:'Jun 29 — manual add' },
+      { key:'flow_qst',        label:'QST Confirm',                  id: _cvtReadSetting('klaviyo_flow_id_qst'),        seq:'QST',   trigger_id:'WBbASK',  trigger_name:'EC QST Submitted',      steps:1, go_live:'2026-05-28' },
+      { key:'flow_qst_invite', label:'QST Invitation — Day 14',      id: _cvtReadSetting('klaviyo_flow_id_qst_invite'), seq:'—',     trigger_id:'TebDTM',  trigger_name:'Prelaunch Emails',      steps:1, go_live:'2026-05-28' }
     ];
 
     // Live flow status from Klaviyo
@@ -765,6 +948,678 @@ function getKlaviyoCampaignsBoard(campaignId) {
   }
 }
 
+// ── klaviyoCreateList ─────────────────────────────────────────────────────────
+function klaviyoCreateList(listName) {
+  var result = _klfFetch('POST', 'lists/', {
+    data: { type: 'list', attributes: { name: listName } }
+  });
+  if (result.code === 201 || result.code === 200) {
+    var id = result.data && result.data.data && result.data.data.id;
+    return { ok: true, list_id: id, name: listName };
+  }
+  return { ok: false, error: _klfErr(result), code: result.code };
+}
+
+// ── klaviyoGetSegments ────────────────────────────────────────────────────────
+function klaviyoGetSegments() {
+  var result = _klfFetch('GET', 'segments/?page[size]=10&fields[segment]=name,created,updated');
+  if (result.code !== 200 || !result.data || !result.data.data) {
+    return { ok: false, error: _klfErr(result), code: result.code };
+  }
+  var segs = result.data.data.map(function(s) {
+    return { id: s.id, name: (s.attributes && s.attributes.name) || '', created: (s.attributes && s.attributes.created) || '' };
+  });
+  return { ok: true, segments: segs };
+}
+
+// ── klaviyoWireCampaignSegments ───────────────────────────────────────────────
+// Updates all 14 SEQ-3/4 campaigns with correct audience segment + suppression exclusion.
+function klaviyoWireCampaignSegments() {
+  var segAId = _cvtReadSetting('klaviyo_segment_id_a');
+  var segBId = _cvtReadSetting('klaviyo_segment_id_b');
+  var suppId = _cvtReadSetting('klaviyo_suppression_segment_id') || 'XJYckK';
+  if (!segAId || !segBId) return { ok: false, error: 'Segments missing — run klaviyo_create_segments first' };
+
+  var campMap = [
+    { id: '01KRYG1BMA0TDGCGFP9FXW4A9A', variant: 'A' },
+    { id: '01KRYEYMTM24KAH1MD46F0B134', variant: 'B' },
+    { id: '01KRYEYQV2FWE26165ZTM8919T', variant: 'A' },
+    { id: '01KRYEYTSADV8XWKCGG6F1QPFA', variant: 'B' },
+    { id: '01KRYEYXZ6TDV30WFES05FZBSS', variant: 'A' },
+    { id: '01KRYEZ1EXY7VFFJCTFRTY7524', variant: 'B' },
+    { id: '01KRYEZ4RXCFVWBN091FGSCYHY', variant: 'A' },
+    { id: '01KRYEZ7B1PCTRQH47P2AHB7CZ', variant: 'B' },
+    { id: '01KRYEZA34YDQ9KMQ46TY0YYP7', variant: 'A' },
+    { id: '01KRYEZCFJZDYD01MBSNJX0TJQ', variant: 'B' },
+    { id: '01KRYEZH56R1JQEH3XFAPCE5V0', variant: 'A' },
+    { id: '01KRYEZKWF0MEJSTDC597BJMFE', variant: 'B' },
+    { id: '01KRYEZQ1P9NTJCP5AAM3H6K0H', variant: 'A' },
+    { id: '01KRYEZSV982T3G1NED6V9KS8M', variant: 'B' }
+  ];
+
+  var updated = [], errors = [];
+  campMap.forEach(function(c) {
+    Utilities.sleep(300);
+    var segId = c.variant === 'A' ? segAId : segBId;
+    var r = _klfFetch('PATCH', 'campaigns/' + c.id + '/', {
+      data: { type: 'campaign', id: c.id, attributes: {
+        audiences: { included: [segId], excluded: [suppId] }
+      }}
+    });
+    if (r.code === 200 || r.code === 204) {
+      updated.push({ id: c.id, variant: c.variant, seg_id: segId });
+    } else {
+      errors.push({ id: c.id, variant: c.variant, code: r.code, error: _klfErr(r) });
+    }
+  });
+  return { ok: errors.length === 0, updated: updated.length, errors: errors, seg_a: segAId, seg_b: segBId, suppression: suppId };
+}
+
+// ── klaviyoRewireAudiences ────────────────────────────────────────────────────
+// Cancels the send-job on each scheduled campaign, updates the audience to the
+// correct variant list, then re-posts the send-job (uses the stored send_strategy).
+function klaviyoRewireAudiences() {
+  var segAId = _cvtReadSetting('klaviyo_segment_id_a');
+  var segBId = _cvtReadSetting('klaviyo_segment_id_b');
+  var suppId = _cvtReadSetting('klaviyo_suppression_segment_id') || 'XJYckK';
+  if (!segAId || !segBId) return { ok: false, error: 'Run klaviyo_create_segments first' };
+
+  var campMap = [
+    { id: '01KRYG1BMA0TDGCGFP9FXW4A9A', variant: 'A' },
+    { id: '01KRYEYMTM24KAH1MD46F0B134', variant: 'B' },
+    { id: '01KRYEYQV2FWE26165ZTM8919T', variant: 'A' },
+    { id: '01KRYEYTSADV8XWKCGG6F1QPFA', variant: 'B' },
+    { id: '01KRYEYXZ6TDV30WFES05FZBSS', variant: 'A' },
+    { id: '01KRYEZ1EXY7VFFJCTFRTY7524', variant: 'B' },
+    { id: '01KRYEZ4RXCFVWBN091FGSCYHY', variant: 'A' },
+    { id: '01KRYEZ7B1PCTRQH47P2AHB7CZ', variant: 'B' },
+    { id: '01KRYEZA34YDQ9KMQ46TY0YYP7', variant: 'A' },
+    { id: '01KRYEZCFJZDYD01MBSNJX0TJQ', variant: 'B' },
+    { id: '01KRYEZH56R1JQEH3XFAPCE5V0', variant: 'A' },
+    { id: '01KRYEZKWF0MEJSTDC597BJMFE', variant: 'B' },
+    { id: '01KRYEZQ1P9NTJCP5AAM3H6K0H', variant: 'A' },
+    { id: '01KRYEZSV982T3G1NED6V9KS8M', variant: 'B' }
+  ];
+
+  var results = [];
+  campMap.forEach(function(c) {
+    var segId = c.variant === 'A' ? segAId : segBId;
+    var step = {};
+
+    // 1: Find send-job for this campaign
+    Utilities.sleep(300);
+    var sjr = _klfFetch('GET', 'campaign-send-jobs/?filter=equals(campaign_id,%27' + c.id + '%27)&page[size]=1');
+    var sjId = null;
+    if (sjr.code === 200 && sjr.data && sjr.data.data && sjr.data.data.length > 0) {
+      sjId = sjr.data.data[0].id;
+    }
+    step.sj_found = !!sjId;
+
+    // 2: Delete send-job (back to draft)
+    if (sjId) {
+      Utilities.sleep(200);
+      var dr = _klfFetch('DELETE', 'campaign-send-jobs/' + sjId + '/');
+      step.sj_deleted = (dr.code === 200 || dr.code === 204 || dr.code === 202);
+    }
+
+    // 3: Patch audience (campaign now in draft)
+    Utilities.sleep(300);
+    var pr = _klfFetch('PATCH', 'campaigns/' + c.id + '/', {
+      data: { type: 'campaign', id: c.id, attributes: {
+        audiences: { included: [segId], excluded: [suppId] }
+      }}
+    });
+    step.audience_updated = (pr.code === 200 || pr.code === 204);
+    if (!step.audience_updated) step.audience_error = _klfErr(pr);
+
+    // 4: Re-post send-job (uses stored send_strategy.datetime)
+    Utilities.sleep(300);
+    var nr = _klfFetch('POST', 'campaign-send-jobs/', {
+      data: { type: 'campaign-send-job', attributes: {},
+        relationships: { campaign: { data: { type: 'campaign', id: c.id } } }
+      }
+    });
+    step.rescheduled = (nr.code === 201 || nr.code === 200);
+    if (!step.rescheduled) step.reschedule_error = _klfErr(nr);
+
+    results.push({ id: c.id, variant: c.variant, seg_id: segId, steps: step });
+    Logger.log('[rewireAudiences] ' + c.id + ' variant=' + c.variant + ' patched=' + step.audience_updated + ' rescheduled=' + step.rescheduled);
+  });
+
+  var successCount = results.filter(function(r) { return r.steps.rescheduled; }).length;
+  return { ok: successCount === campMap.length, total: campMap.length, success: successCount, results: results };
+}
+
+// ── _klfFetchRev — revision-overridable fetch ─────────────────────────────────
+function _klfFetchRev(method, path, payload, revision) {
+  var key = _klfApiKey();
+  if (!key) return { code: 0, data: {}, text: 'no api key' };
+  var options = {
+    method:  method,
+    headers: {
+      'Authorization': 'Klaviyo-API-Key ' + key,
+      'revision':      revision || _KLF_REVISION,
+      'Content-Type':  'application/json',
+      'Accept':        'application/json'
+    },
+    muteHttpExceptions: true
+  };
+  if (payload !== undefined && payload !== null) options.payload = JSON.stringify(payload);
+  var resp = UrlFetchApp.fetch(_KLF_BASE + '/' + path, options);
+  var code = resp.getResponseCode();
+  var text = resp.getContentText();
+  Logger.log('[KLF rev=' + revision + '] ' + method + ' /' + path + ' → ' + code);
+  var data = {};
+  if (text) { try { data = JSON.parse(text); } catch(e) {} }
+  return { code: code, data: data, text: text };
+}
+
+// ── _klfWireStepFromTemplate — wire a single flow step using an existing template ─
+// Skips template creation. Tries flow-actions POST (DELAY + EMAIL) then flow-message POST.
+// Returns detailed codes so callers can diagnose failures.
+function _klfWireStepFromTemplate(flowId, delayDays, templateId, emailData) {
+  try {
+    var delayActionId = null;
+    var delayCode     = 'skipped';
+    var delayErr      = null;
+
+    if (delayDays > 0) {
+      var dr = _klfFetch('POST', 'flow-actions/', {
+        data: {
+          type: 'flow-action',
+          attributes: {
+            action_type: 'DELAY',
+            settings: { delay: Number(delayDays), delay_unit: 'DAYS' }
+          },
+          relationships: { flow: { data: { type: 'flow', id: flowId } } }
+        }
+      });
+      delayCode = dr.code;
+      if (dr.code === 201 || dr.code === 200) {
+        delayActionId = dr.data && dr.data.data && dr.data.data.id;
+      } else {
+        delayErr = _klfErr(dr);
+        Logger.log('[KLF] WireStep delay → ' + dr.code + ' ' + delayErr);
+      }
+    }
+
+    var er = _klfFetch('POST', 'flow-actions/', {
+      data: {
+        type: 'flow-action',
+        attributes: { action_type: 'EMAIL', status: 'draft' },
+        relationships: { flow: { data: { type: 'flow', id: flowId } } }
+      }
+    });
+    var emailCode     = er.code;
+    var emailActionId = null;
+    var emailErr      = null;
+
+    if (er.code === 201 || er.code === 200) {
+      emailActionId = er.data && er.data.data && er.data.data.id;
+      var fmr = _klfFetch('POST', 'flow-messages/', {
+        data: {
+          type: 'flow-message',
+          attributes: {
+            channel: 'email',
+            content: {
+              subject:      emailData.subject      || '',
+              preview_text: emailData.preview_text || '',
+              from_email:   _KLF_FROM_EMAIL,
+              from_label:   _KLF_FROM_NAME
+            }
+          },
+          relationships: {
+            'flow-action': { data: { type: 'flow-action', id: emailActionId } },
+            template:      { data: { type: 'template',    id: templateId    } }
+          }
+        }
+      });
+      Logger.log('[KLF] WireStep flow-message → ' + fmr.code);
+    } else {
+      emailErr = _klfErr(er);
+      Logger.log('[KLF] WireStep email action → ' + er.code + ' ' + emailErr);
+    }
+
+    return {
+      ok:              !!emailActionId,
+      api_wired:       !!emailActionId,
+      delay_action_id: delayActionId,
+      delay_code:      delayCode,
+      delay_err:       delayErr,
+      email_action_id: emailActionId,
+      email_code:      emailCode,
+      email_err:       emailErr
+    };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoWireBetaFlowSteps — TASK 1 ────────────────────────────────────────
+// Wires 4 steps into existing BETA flow (Tr87zQ) using already-created templates.
+// Templates from klaviyoBuildBetaFlow: Sb62kA, TXvTR5, TkuRes, WijzCM.
+function klaviyoWireBetaFlowSteps() {
+  try {
+    var flowId    = _cvtReadSetting('klaviyo_flow_id_beta') || 'Tr87zQ';
+    var allEmails = getEmailSequences(_KLF_CAMPAIGN_ID);
+    var betaEmails = allEmails.filter(function(e) { return String(e.sequence_code) === 'BETA'; })
+      .sort(function(a, b) { return Number(a.email_number||0) - Number(b.email_number||0); });
+    if (!betaEmails.length) return { ok: false, error: 'No BETA emails in EmailSequences' };
+
+    var delayMap = { 1: 0, 2: 1, 3: 2, 4: 7 };
+    var steps    = [];
+    betaEmails.forEach(function(email) {
+      var num        = Number(email.email_number) || 1;
+      var delay      = (delayMap[num] !== undefined) ? delayMap[num] : 1;
+      var templateId = String(email.seq_template_id || '');
+      if (!templateId) {
+        steps.push({ email_id: email.id, error: 'no seq_template_id — run klaviyoBuildBetaFlow first' });
+        return;
+      }
+      Utilities.sleep(500);
+      var r = _klfWireStepFromTemplate(flowId, delay, templateId, {
+        subject:      String(email.subject_line || ''),
+        preview_text: String(email.preview_text || ''),
+        utm_campaign: 'beta_onboarding',
+        utm_content:  String(email.dl_id || '')
+      });
+      steps.push({
+        email_id:   email.id,
+        email_num:  num,
+        delay:      delay,
+        template_id: templateId,
+        ok:         r.ok,
+        api_wired:  r.api_wired,
+        delay_code: r.delay_code,
+        email_code: r.email_code,
+        error:      r.error || r.email_err || null
+      });
+    });
+
+    var wired = steps.filter(function(s) { return s.api_wired; }).length;
+    return { ok: wired > 0, flow_id: flowId, wired: wired, total: steps.length, steps: steps };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// ── klaviyoWireQstFlowSteps — TASK 2 ─────────────────────────────────────────
+// Wires QST-E2 (delay=0) into existing QST flow (SpiMfa) using template XLArLB.
+function klaviyoWireQstFlowSteps() {
+  try {
+    var flowId    = _cvtReadSetting('klaviyo_flow_id_qst') || 'SpiMfa';
+    var allEmails = getEmailSequences(_KLF_CAMPAIGN_ID);
+    var qstE2     = null;
+    for (var i = 0; i < allEmails.length; i++) {
+      if (allEmails[i].id === 'EC-2026-001-QST-E2') { qstE2 = allEmails[i]; break; }
+    }
+    if (!qstE2) return { ok: false, error: 'QST-E2 not found in EmailSequences' };
+    var templateId = String(qstE2.seq_template_id || '');
+    if (!templateId) return { ok: false, error: 'QST-E2 has no seq_template_id — run klaviyoBuildQstFlow first' };
+
+    var r = _klfWireStepFromTemplate(flowId, 0, templateId, {
+      subject:      String(qstE2.subject_line || ''),
+      preview_text: String(qstE2.preview_text || ''),
+      utm_campaign: 'qst_confirm',
+      utm_content:  String(qstE2.dl_id || 'DL-EM-0067')
+    });
+    return {
+      ok:          r.ok,
+      flow_id:     flowId,
+      template_id: templateId,
+      api_wired:   r.api_wired,
+      delay_code:  r.delay_code,
+      email_code:  r.email_code,
+      error:       r.error || r.email_err || null
+    };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// ── klaviyoFixCampaignExclusions — TASK 3 ─────────────────────────────────────
+// For each of the 14 scheduled campaigns:
+//   1. Cancel (removes scheduled lock so audiences can be patched)
+//   2. PATCH audiences: included=[UQTdyL or VpgZPZ], excluded=[XJYckK]
+//   3. Reschedule via POST campaign-send-jobs with data.id=campaignId (uses stored send_strategy)
+function klaviyoFixCampaignExclusions() {
+  var segAId = _cvtReadSetting('klaviyo_segment_id_a') || 'UQTdyL';
+  var segBId = _cvtReadSetting('klaviyo_segment_id_b') || 'VpgZPZ';
+  var suppId = _cvtReadSetting('klaviyo_suppression_segment_id') || 'XJYckK';
+
+  var campMap = [
+    { id: '01KRYG1BMA0TDGCGFP9FXW4A9A', variant: 'A', key: 'SEQ-3-E1-A' },
+    { id: '01KRYEYMTM24KAH1MD46F0B134', variant: 'B', key: 'SEQ-3-E1-B' },
+    { id: '01KRYEYQV2FWE26165ZTM8919T', variant: 'A', key: 'SEQ-3-E2-A' },
+    { id: '01KRYEYTSADV8XWKCGG6F1QPFA', variant: 'B', key: 'SEQ-3-E2-B' },
+    { id: '01KRYEYXZ6TDV30WFES05FZBSS', variant: 'A', key: 'SEQ-3-E3-A' },
+    { id: '01KRYEZ1EXY7VFFJCTFRTY7524', variant: 'B', key: 'SEQ-3-E3-B' },
+    { id: '01KRYEZ4RXCFVWBN091FGSCYHY', variant: 'A', key: 'SEQ-3-E4-A' },
+    { id: '01KRYEZ7B1PCTRQH47P2AHB7CZ', variant: 'B', key: 'SEQ-3-E4-B' },
+    { id: '01KRYEZA34YDQ9KMQ46TY0YYP7', variant: 'A', key: 'SEQ-4-E1-A' },
+    { id: '01KRYEZCFJZDYD01MBSNJX0TJQ', variant: 'B', key: 'SEQ-4-E1-B' },
+    { id: '01KRYEZH56R1JQEH3XFAPCE5V0', variant: 'A', key: 'SEQ-4-E2-A' },
+    { id: '01KRYEZKWF0MEJSTDC597BJMFE', variant: 'B', key: 'SEQ-4-E2-B' },
+    { id: '01KRYEZQ1P9NTJCP5AAM3H6K0H', variant: 'A', key: 'SEQ-4-E3-A' },
+    { id: '01KRYEZSV982T3G1NED6V9KS8M', variant: 'B', key: 'SEQ-4-E3-B' }
+  ];
+
+  var results = [];
+  campMap.forEach(function(c) {
+    var segId = c.variant === 'A' ? segAId : segBId;
+    var step  = { id: c.id, key: c.key, variant: c.variant, seg_id: segId };
+    Utilities.sleep(400);
+
+    // Step 1: Cancel to remove scheduled lock
+    var cr = _klfFetch('POST', 'campaigns/' + c.id + '/campaign-cancel/');
+    step.cancel_code  = cr.code;
+    step.cancelled    = (cr.code >= 200 && cr.code < 300);
+
+    // Step 2: Patch audiences (included=variant list, excluded=suppression segment)
+    Utilities.sleep(300);
+    var pr = _klfFetch('PATCH', 'campaigns/' + c.id + '/', {
+      data: {
+        type: 'campaign',
+        id:   c.id,
+        attributes: {
+          audiences: { included: [segId], excluded: [suppId] }
+        }
+      }
+    });
+    step.patch_code       = pr.code;
+    step.audience_updated = (pr.code === 200 || pr.code === 204);
+    if (!step.audience_updated) step.audience_error = _klfErr(pr);
+
+    // Step 3: Reschedule — data.id = campaign_id (not relationships per Klaviyo 2025-04-15)
+    Utilities.sleep(300);
+    var nr = _klfFetch('POST', 'campaign-send-jobs/', {
+      data: { type: 'campaign-send-job', id: c.id }
+    });
+    step.reschedule_code = nr.code;
+    step.rescheduled     = (nr.code === 201 || nr.code === 200 || nr.code === 202);
+    if (!step.rescheduled) step.reschedule_error = _klfErr(nr);
+
+    results.push(step);
+    Logger.log('[fixExclusions] ' + c.key + ' cancel=' + step.cancel_code + ' patch=' + step.patch_code + ' reschedule=' + step.reschedule_code);
+  });
+
+  var success = results.filter(function(r) { return r.audience_updated && r.rescheduled; }).length;
+  return { ok: success === campMap.length, total: campMap.length, success: success, results: results };
+}
+
+// ── klaviyoRecreateCampaigns — TASK 3 (delete + recreate with correct audiences) ─
+// Audiences PATCH is locked to "draft" only, and the cancel endpoint is 404 in
+// Klaviyo 2025-04-15. Only path: DELETE old campaign + POST new with correct audiences.
+// Reads klaviyo_id + seq_template_id from EmailSequences. Writes new campaign ID back.
+function klaviyoRecreateCampaigns() {
+  var segAId = _cvtReadSetting('klaviyo_segment_id_a') || 'UQTdyL';
+  var segBId = _cvtReadSetting('klaviyo_segment_id_b') || 'VpgZPZ';
+  var suppId = _cvtReadSetting('klaviyo_suppression_segment_id') || 'XJYckK';
+
+  var allEmails  = getEmailSequences(_KLF_CAMPAIGN_ID);
+  var campEmails = allEmails.filter(function(e) {
+    return _KLF_CAMP_SEQS.indexOf(String(e.sequence_code)) !== -1;
+  });
+  if (!campEmails.length) return { ok: false, error: 'No SEQ-3/4 emails found in EmailSequences' };
+
+  var results = [];
+  campEmails.forEach(function(email) {
+    var oldCampId  = String(email.klaviyo_id  || '');
+    var templateId = String(email.seq_template_id || '');
+    var variant    = (String(email.icp_code || '') === 'super_mom_money') ? 'A' : 'B';
+    var segId      = variant === 'A' ? segAId : segBId;
+    var row        = { email_id: email.id, variant: variant, old_camp_id: oldCampId };
+
+    if (!oldCampId)  { row.error = 'no klaviyo_id in sheet';    results.push(row); return; }
+    if (!templateId) { row.error = 'no seq_template_id in sheet'; results.push(row); return; }
+    Utilities.sleep(400);
+
+    // Step 1: GET existing campaign for name + send_strategy.datetime
+    var gr = _klfFetch('GET', 'campaigns/' + oldCampId + '/?fields[campaign]=name,send_strategy');
+    if (gr.code !== 200) { row.error = 'GET ' + gr.code + ': ' + _klfErr(gr); results.push(row); return; }
+    var campAttrs = (gr.data && gr.data.data && gr.data.data.attributes) || {};
+    var campName  = campAttrs.name || ('EC-2026-001 · ' + email.sequence_code + ' · Variant ' + variant);
+    var sendDt    = campAttrs.send_strategy && campAttrs.send_strategy.datetime;
+    row.camp_name = campName;
+    row.send_dt   = sendDt;
+
+    // Step 2a: Find and delete the send-job so campaign reverts to draft
+    // The campaign-send-jobs filter query returns 0; use campaign relationship endpoint instead.
+    Utilities.sleep(200);
+    var sjPath = 'campaigns/' + oldCampId + '/campaign-send-jobs/';
+    var sjr = _klfFetch('GET', sjPath);
+    row.sj_code = sjr.code;
+    if (sjr.code === 200 && sjr.data && sjr.data.data && sjr.data.data.length) {
+      var sjId = sjr.data.data[0].id;
+      row.sj_id = sjId;
+      Utilities.sleep(200);
+      var sdr = _klfFetch('DELETE', 'campaign-send-jobs/' + sjId + '/');
+      row.sj_delete_code = sdr.code;
+      Utilities.sleep(300); // allow status to propagate
+    } else {
+      // Fallback: try POST /api/campaign-cancel-jobs/ with data.id pattern
+      Utilities.sleep(200);
+      var cjr = _klfFetch('POST', 'campaign-cancel-jobs/', {
+        data: { type: 'campaign-cancel-job', id: oldCampId }
+      });
+      row.cancel_job_code = cjr.code;
+      Utilities.sleep(300);
+    }
+
+    // Step 2b: DELETE old campaign (should succeed now that it's in draft)
+    Utilities.sleep(200);
+    var dr = _klfFetch('DELETE', 'campaigns/' + oldCampId + '/');
+    row.delete_code = dr.code;
+    if (dr.code !== 204 && dr.code !== 200) {
+      row.error = 'DELETE ' + dr.code + ': ' + _klfErr(dr); results.push(row); return;
+    }
+
+    // Step 3: CREATE replacement with correct audiences + same name/send_strategy
+    Utilities.sleep(300);
+    var newCamp = _klfFetch('POST', 'campaigns/', {
+      data: {
+        type: 'campaign',
+        attributes: {
+          name:      campName,
+          audiences: { included: [segId], excluded: [suppId] },
+          send_options:     { use_smart_sending: false },
+          tracking_options: { is_tracking_opens: true, is_tracking_clicks: true },
+          send_strategy:    { method: 'static', datetime: sendDt },
+          'campaign-messages': {
+            data: [{ type: 'campaign-message', attributes: { definition: { channel: 'email' } } }]
+          }
+        }
+      }
+    });
+    row.create_code = newCamp.code;
+    if (newCamp.code !== 201 && newCamp.code !== 200) {
+      row.error = 'CREATE ' + newCamp.code + ': ' + _klfErr(newCamp); results.push(row); return;
+    }
+    var newCampId = newCamp.data && newCamp.data.data && newCamp.data.data.id;
+    row.new_camp_id = newCampId;
+
+    // Step 4: Get new campaign-message ID (from response or separate GET)
+    var newMsgId = null;
+    try {
+      var rd = newCamp.data.data.relationships;
+      var md = rd && rd['campaign-messages'] && rd['campaign-messages'].data;
+      if (md && md.length) newMsgId = md[0].id;
+    } catch(re) {}
+    if (!newMsgId && newCampId) {
+      Utilities.sleep(200);
+      var mf = _klfFetch('GET', 'campaigns/' + newCampId + '/campaign-messages/');
+      if (mf.code === 200 && mf.data.data && mf.data.data.length) newMsgId = mf.data.data[0].id;
+    }
+    row.new_msg_id = newMsgId;
+
+    if (newMsgId) {
+      // Step 5: Patch message content (subject, preview, from)
+      Utilities.sleep(200);
+      _klfFetch('PATCH', 'campaign-messages/' + newMsgId + '/', {
+        data: {
+          type: 'campaign-message', id: newMsgId,
+          attributes: {
+            definition: {
+              channel: 'email',
+              content: {
+                subject:      String(email.subject_line || ''),
+                preview_text: String(email.preview_text || ''),
+                from_email:   _KLF_FROM_EMAIL,
+                from_label:   _KLF_FROM_NAME
+              }
+            }
+          }
+        }
+      });
+
+      // Step 6: Assign template
+      Utilities.sleep(200);
+      var ar = _klfFetch('POST', 'campaign-message-assign-template/', {
+        data: {
+          type: 'campaign-message', id: newMsgId,
+          relationships: { template: { data: { type: 'template', id: templateId } } }
+        }
+      });
+      row.assign_code = ar.code;
+    }
+
+    // Step 7: Write new campaign ID back to EmailSequences sheet
+    if (newCampId) _klfWriteBack(email.id, 'klaviyo_id', newCampId);
+
+    row.ok = !!newCampId;
+    results.push(row);
+    Logger.log('[recreateCampaigns] ' + email.id + ' old=' + oldCampId + ' new=' + newCampId + ' ok=' + row.ok);
+  });
+
+  var success = results.filter(function(r) { return r.ok; }).length;
+  return { ok: success === campEmails.length, total: campEmails.length, success: success, results: results };
+}
+
+// ── klaviyoTryFromLabel — TASK 4 ──────────────────────────────────────────────
+// Attempts PATCH on a flow-message across multiple API revisions.
+// PATCH /api/flow-messages/{id}/ is read-only (405) in all tested revisions —
+// documented in feedback_klaviyo_api_quirks.md. This exhaustively confirms.
+function klaviyoTryFromLabel(flowMsgId, fromLabel) {
+  var revisions = ['2024-10-15', '2024-07-15', '2024-05-15', '2024-02-15', '2023-10-15', '2025-04-15'];
+  var results   = [];
+  revisions.forEach(function(rev) {
+    Utilities.sleep(200);
+    var r = _klfFetchRev('PATCH', 'flow-messages/' + flowMsgId + '/', {
+      data: {
+        type: 'flow-message',
+        id:   flowMsgId,
+        attributes: { content: { from_label: fromLabel } }
+      }
+    }, rev);
+    results.push({ revision: rev, code: r.code, ok: (r.code >= 200 && r.code < 300), error: r.code >= 300 ? _klfErr(r) : null });
+    Logger.log('[tryFromLabel] ' + flowMsgId + ' rev=' + rev + ' → ' + r.code);
+  });
+  var success = results.filter(function(r) { return r.ok; });
+  return {
+    flow_msg_id:   flowMsgId,
+    from_label:    fromLabel,
+    tried:         results,
+    success_count: success.length,
+    ok:            success.length > 0,
+    verdict:       success.length > 0 ? 'PATCHED via rev ' + success[0].revision : 'UI-only — 405 on all revisions'
+  };
+}
+
+// ── klaviyoBuildBetaFlow ──────────────────────────────────────────────────────
+// Creates EC Beta Users list + flow + 4 email steps (day 0,1,3,10).
+function klaviyoBuildBetaFlow() {
+  try {
+    // List
+    var betaListId = _cvtReadSetting('klaviyo_beta_list_id');
+    if (!betaListId) {
+      var lr = klaviyoCreateList('EC Beta Users');
+      if (!lr.ok) return { ok: false, error: 'List create failed: ' + lr.error };
+      betaListId = lr.list_id;
+      _klfSaveSetting('klaviyo_beta_list_id', betaListId, 'EC Beta Users');
+    }
+
+    // Flow shell
+    var flowId = _cvtReadSetting('klaviyo_flow_id_beta') || null;
+    if (!flowId) {
+      var fr = klaviyoCreateFlow('EC-2026-001 · BETA · Beta Tester Onboarding', betaListId, null);
+      flowId = fr.flow_id || null;
+      if (flowId) _klfSaveSetting('klaviyo_flow_id_beta', flowId, 'EC-2026-001 BETA Flow');
+    }
+
+    // Emails ordered by email_number, delays = gap from previous step
+    var allEmails = getEmailSequences(_KLF_CAMPAIGN_ID);
+    var betaEmails = allEmails.filter(function(e) { return e.sequence_code === 'BETA'; })
+      .sort(function(a, b) { return Number(a.email_number||0) - Number(b.email_number||0); });
+    if (!betaEmails.length) return { ok: false, error: 'No BETA emails in EmailSequences' };
+
+    // send_day: 0,1,3,10 → inter-step delays: 0,1,2,7
+    var delayMap = { 1: 0, 2: 1, 3: 2, 4: 7 };
+    var steps = [];
+    betaEmails.forEach(function(email) {
+      var delay = delayMap[Number(email.email_number)||1];
+      if (delay === undefined) delay = 1;
+      Utilities.sleep(400);
+      var result = flowId
+        ? klaviyoAddEmailStep(flowId, delay, {
+            email_id: email.id, subject: String(email.subject_line||''),
+            preview_text: String(email.preview_text||''), html_body: _klfHtml(email),
+            from_name: _KLF_FROM_NAME, from_email: _KLF_FROM_EMAIL,
+            utm_source: 'klaviyo', utm_medium: 'email',
+            utm_campaign: 'beta_onboarding', utm_content: String(email.dl_id||'')
+          })
+        : { ok: false, error: 'No flow ID', template_id: null };
+      if (result.template_id) _klfWriteBack(email.id, 'seq_template_id', result.template_id);
+      steps.push({ email_id: email.id, delay: delay, ok: result.ok, template_id: result.template_id, api_wired: result.api_wired });
+    });
+
+    return { ok: true, flow_id: flowId, list_id: betaListId, steps: steps,
+      note: flowId ? 'Flow + steps created — set live in Klaviyo UI after review' : 'Templates created — create flow manually in Klaviyo UI' };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// ── klaviyoBuildQstFlow ───────────────────────────────────────────────────────
+// Creates EC QST Submitted list + 1-step flow for QST-E2 (immediate confirm).
+// Trigger: user added to "EC QST Submitted" list after questionnaire submit.
+function klaviyoBuildQstFlow() {
+  try {
+    // List
+    var qstListId = _cvtReadSetting('klaviyo_qst_list_id');
+    if (!qstListId) {
+      var lr = klaviyoCreateList('EC QST Submitted');
+      if (!lr.ok) return { ok: false, error: 'List create failed: ' + lr.error };
+      qstListId = lr.list_id;
+      _klfSaveSetting('klaviyo_qst_list_id', qstListId, 'EC QST Submitted');
+    }
+
+    // Flow shell
+    var flowId = _cvtReadSetting('klaviyo_flow_id_qst') || null;
+    if (!flowId) {
+      var fr = klaviyoCreateFlow('EC-2026-001 · QST · Questionnaire Confirm', qstListId, null);
+      flowId = fr.flow_id || null;
+      if (flowId) _klfSaveSetting('klaviyo_flow_id_qst', flowId, 'EC-2026-001 QST Flow');
+    }
+
+    // QST-E2 step (day 0, immediate)
+    var allEmails = getEmailSequences(_KLF_CAMPAIGN_ID);
+    var qstE2 = null;
+    for (var i = 0; i < allEmails.length; i++) {
+      if (allEmails[i].id === 'EC-2026-001-QST-E2') { qstE2 = allEmails[i]; break; }
+    }
+    if (!qstE2) return { ok: false, error: 'QST-E2 not found in EmailSequences' };
+
+    var result = flowId
+      ? klaviyoAddEmailStep(flowId, 0, {
+          email_id: qstE2.id, subject: String(qstE2.subject_line||''),
+          preview_text: String(qstE2.preview_text||''), html_body: _klfHtml(qstE2),
+          from_name: _KLF_FROM_NAME, from_email: _KLF_FROM_EMAIL,
+          utm_source: 'klaviyo', utm_medium: 'email',
+          utm_campaign: 'qst_confirm', utm_content: String(qstE2.dl_id||'DL-EM-0067')
+        })
+      : { ok: false, error: 'No flow ID', template_id: null };
+    if (result.template_id) _klfWriteBack(qstE2.id, 'seq_template_id', result.template_id);
+
+    return { ok: result.ok || !!result.template_id, flow_id: flowId, list_id: qstListId,
+      qst_e2: { ok: result.ok, template_id: result.template_id, api_wired: result.api_wired },
+      note: 'Wire questionnaire submit handler to add profile to list ' + qstListId };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
 // ── backfillFlowMessageIds ───────────────────────────────────────────────────
 // Reads all 5 Klaviyo flows, extracts flow-message IDs, writes back to klaviyo_id
 // in EmailSequences. Matches by template ID (seq_template_id ↔ template on message).
@@ -775,7 +1630,9 @@ function backfillFlowMessageIds(campaignId) {
     { id: _cvtReadSetting('klaviyo_flow_id_b'),     seq: 'SEQ-2' },
     { id: _cvtReadSetting('klaviyo_flow_id_alpha'), seq: 'ALPHA' },
     { id: _cvtReadSetting('klaviyo_flow_id_ob'),    seq: 'OB'    },
-    { id: _cvtReadSetting('klaviyo_flow_id_org'),   seq: 'ORG'   }
+    { id: _cvtReadSetting('klaviyo_flow_id_org'),   seq: 'ORG'   },
+    { id: _cvtReadSetting('klaviyo_flow_id_beta'),  seq: 'BETA'  },
+    { id: _cvtReadSetting('klaviyo_flow_id_qst'),   seq: 'QST'   }
   ];
 
   // Build lookup: template_id → flow_message_id from Klaviyo
@@ -1035,6 +1892,232 @@ function klaviyoScheduleCampaigns() {
     return results;
   } catch(e) {
     Logger.log('[KLF] klaviyoScheduleCampaigns error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoScheduleQstBroadcast ───────────────────────────────────────────────
+// One-time broadcast of QST-E1 (template VyNxs4) to all TebDTM members.
+// Excludes XJYckK (Already a Founder suppression segment).
+// Scheduled: May 20 2026 9am EDT (13:00 UTC).
+// Covers existing waitlist members who are already past Day 14 from signup.
+function klaviyoScheduleQstBroadcast() {
+  try {
+    var campName  = 'EC-2026-001 · QST-E1 · TebDTM Broadcast · May 20';
+    var sendAt    = '2026-05-20T13:00:00+00:00'; // 9am EDT
+    var templateId = 'VyNxs4';
+
+    var campResult = _klfFetch('POST', 'campaigns/', {
+      data: {
+        type: 'campaign',
+        attributes: {
+          name: campName,
+          audiences: {
+            included: [_KLF_LIST_ID],  // TebDTM
+            excluded: ['XJYckK']       // Already a Founder suppression
+          },
+          send_options:     { use_smart_sending: false },
+          tracking_options: { is_tracking_opens: true, is_tracking_clicks: true },
+          send_strategy:    { method: 'static', datetime: sendAt },
+          'campaign-messages': {
+            data: [{ type: 'campaign-message', attributes: { definition: { channel: 'email' } } }]
+          }
+        }
+      }
+    });
+
+    if (campResult.code !== 201 && campResult.code !== 200) {
+      return { ok: false, step: 'create_campaign', error: _klfErr(campResult), http: campResult.code };
+    }
+
+    var campId = campResult.data && campResult.data.data && campResult.data.data.id;
+
+    // Extract message ID from response
+    var msgId = null;
+    try {
+      var rels = campResult.data.data.relationships;
+      var msgData = rels && rels['campaign-messages'] && rels['campaign-messages'].data;
+      if (msgData && msgData.length) msgId = msgData[0].id;
+    } catch(e) {}
+
+    // Fallback: fetch message from campaigns endpoint
+    if (!msgId) {
+      var msgFetch = _klfFetch('GET', 'campaigns/' + campId + '/campaign-messages/');
+      if (msgFetch.code === 200 && msgFetch.data && msgFetch.data.data && msgFetch.data.data.length) {
+        msgId = msgFetch.data.data[0].id;
+      }
+    }
+
+    if (!msgId) return { ok: false, step: 'get_msg_id', error: 'message ID not found', camp_id: campId };
+
+    // Assign template VyNxs4 via dedicated endpoint
+    var tplResult = _klfFetch('POST', 'campaign-message-assign-template/', {
+      data: {
+        type: 'campaign-message',
+        id:   msgId,
+        relationships: { template: { data: { type: 'template', id: templateId } } }
+      }
+    });
+
+    var tplOk = (tplResult.code === 200 || tplResult.code === 204 || tplResult.code === 201);
+
+    return {
+      ok:               true,
+      camp_id:          campId,
+      msg_id:           msgId,
+      template_id:      templateId,
+      template_assigned: tplOk,
+      template_code:    tplResult.code,
+      send_at:          sendAt,
+      audience_list:    _KLF_LIST_ID,
+      exclusion_seg:    'XJYckK'
+    };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoBuildQstInviteFlow ─────────────────────────────────────────────────
+// Creates a new flow shell triggered by TebDTM list add.
+// Action steps (14-day delay + QST-E1 email VyNxs4) must be added in Klaviyo UI
+// — POST /api/flow-actions/ returns 405 in all API revisions.
+// Run klaviyo_set_live after wiring steps in UI to make it live.
+function klaviyoBuildQstInviteFlow() {
+  try {
+    var flowName = 'EC-2026-001 · QST Invitation · Day 14';
+    var flowResult = klaviyoCreateFlow(flowName, _KLF_LIST_ID);
+
+    if (!flowResult.ok) {
+      return {
+        ok: false,
+        error: flowResult.error,
+        manual_flow_required: true,
+        note: 'Create flow manually in Klaviyo UI with trigger: Added to List TebDTM'
+      };
+    }
+
+    return {
+      ok:        true,
+      flow_id:   flowResult.flow_id,
+      flow_name: flowName,
+      trigger:   'Added to List — TebDTM (' + _KLF_LIST_ID + ')',
+      status:    'draft',
+      next_steps: [
+        'In Klaviyo UI: open flow ' + flowResult.flow_id,
+        'Add step: DELAY 14 days',
+        'Add step: EMAIL — template VyNxs4 (QST-E1)',
+        'Save and exit',
+        'Run {"action":"klaviyo_set_live"} to go live'
+      ]
+    };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoRescheduleQstBroadcast ─────────────────────────────────────────────
+// Reschedules the QST-E1 TebDTM broadcast to a new send date.
+// Tries PATCH first (works on draft); falls back to cancel+delete+recreate if locked.
+function klaviyoRescheduleQstBroadcast(campaignId, newSendAt) {
+  try {
+    if (!campaignId) return { ok: false, error: 'campaignId required' };
+    if (!newSendAt)  return { ok: false, error: 'newSendAt required (ISO 8601 with offset)' };
+
+    // Step 1: Try PATCH on send_strategy
+    var nameSlice  = newSendAt.slice(5, 10).replace('-', '/');
+    var patchResult = _klfFetch('PATCH', 'campaigns/' + campaignId + '/', {
+      data: {
+        type: 'campaign',
+        id:   campaignId,
+        attributes: {
+          name:          'EC-2026-001 · QST-E1 · TebDTM Broadcast · ' + nameSlice,
+          send_strategy: { method: 'static', datetime: newSendAt }
+        }
+      }
+    });
+
+    if (patchResult.code === 200) {
+      return { ok: true, action: 'patched', campaign_id: campaignId, new_send_at: newSendAt };
+    }
+
+    Logger.log('[KLF] Campaign PATCH → HTTP ' + patchResult.code + ' — trying cancel+delete+recreate');
+
+    // Step 2: Cancel job
+    var cancelResult = _klfFetch('POST', 'campaign-cancel-jobs/', {
+      data: {
+        type: 'campaign-cancel-job',
+        attributes: {},
+        relationships: { campaign: { data: { type: 'campaign', id: campaignId } } }
+      }
+    });
+    Logger.log('[KLF] Cancel job → HTTP ' + cancelResult.code);
+    Utilities.sleep(1000);
+
+    // Step 3: Delete
+    var deleteResult = _klfFetch('DELETE', 'campaigns/' + campaignId + '/');
+    Logger.log('[KLF] Delete → HTTP ' + deleteResult.code);
+
+    if (deleteResult.code !== 204 && deleteResult.code !== 200) {
+      return {
+        ok:          false,
+        action:      'manual_required',
+        patch_code:  patchResult.code,
+        cancel_code: cancelResult.code,
+        delete_code: deleteResult.code,
+        old_camp_id: campaignId,
+        note:        'Cancel old broadcast manually in Klaviyo UI, then run klaviyo_schedule_qst_broadcast'
+      };
+    }
+
+    // Step 4: Recreate at new date
+    var campResult = _klfFetch('POST', 'campaigns/', {
+      data: {
+        type: 'campaign',
+        attributes: {
+          name: 'EC-2026-001 · QST-E1 · TebDTM Broadcast · ' + nameSlice,
+          audiences:        { included: [_KLF_LIST_ID], excluded: ['XJYckK'] },
+          send_options:     { use_smart_sending: false },
+          tracking_options: { is_tracking_opens: true, is_tracking_clicks: true },
+          send_strategy:    { method: 'static', datetime: newSendAt },
+          'campaign-messages': { data: [{ type: 'campaign-message', attributes: { definition: { channel: 'email' } } }] }
+        }
+      }
+    });
+
+    if (campResult.code !== 201 && campResult.code !== 200) {
+      return { ok: false, action: 'recreate_failed', error: _klfErr(campResult) };
+    }
+
+    var newCampId = campResult.data && campResult.data.data && campResult.data.data.id;
+    var newMsgId  = null;
+    try {
+      var rels2 = campResult.data.data.relationships;
+      var md2   = rels2 && rels2['campaign-messages'] && rels2['campaign-messages'].data;
+      if (md2 && md2.length) newMsgId = md2[0].id;
+    } catch(ex) {}
+    if (!newMsgId) {
+      var mf = _klfFetch('GET', 'campaigns/' + newCampId + '/campaign-messages/');
+      if (mf.code === 200 && mf.data && mf.data.data && mf.data.data.length) newMsgId = mf.data.data[0].id;
+    }
+
+    var tplOk = false;
+    if (newMsgId) {
+      var tplRes = _klfFetch('POST', 'campaign-message-assign-template/', {
+        data: { type: 'campaign-message', id: newMsgId,
+          relationships: { template: { data: { type: 'template', id: 'VyNxs4' } } } }
+      });
+      tplOk = (tplRes.code === 200 || tplRes.code === 204 || tplRes.code === 201);
+    }
+
+    return {
+      ok:                true,
+      action:            'recreated',
+      old_camp_id:       campaignId,
+      new_camp_id:       newCampId,
+      template_assigned: tplOk,
+      new_send_at:       newSendAt
+    };
+  } catch(e) {
     return { ok: false, error: e.message };
   }
 }

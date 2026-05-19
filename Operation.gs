@@ -2380,6 +2380,59 @@ function doPost(e) {
     if(body.action === 'backfill_flow_message_ids') {
       return respond(backfillFlowMessageIds(body.campaign_id || 'EC-2026-001'));
     }
+    if(body.action === 'klaviyo_create_segments') {
+      var _csA = _klfGetOrCreateSegment('klaviyo_segment_id_a','EC-2026-001 — Variant A (super_mom_money)','super_mom_money');
+      var _csB = _klfGetOrCreateSegment('klaviyo_segment_id_b','EC-2026-001 — Variant B (super_mom_time)','super_mom_time');
+      return respond({ ok: _csA.ok && _csB.ok, segment_a: _csA, segment_b: _csB, log: Logger.getLog() });
+    }
+    if(body.action === 'klaviyo_get_segments') {
+      return respond(klaviyoGetSegments());
+    }
+    if(body.action === 'klaviyo_wire_campaign_segments') {
+      return respond(klaviyoWireCampaignSegments());
+    }
+    if(body.action === 'klaviyo_rewire_audiences') {
+      return respond(klaviyoRewireAudiences());
+    }
+    if(body.action === 'klaviyo_build_beta_flow') {
+      return respond(klaviyoBuildBetaFlow());
+    }
+    if(body.action === 'klaviyo_build_qst_flow') {
+      return respond(klaviyoBuildQstFlow());
+    }
+    if(body.action === 'klaviyo_wire_beta_flow_steps') {
+      return respond(klaviyoWireBetaFlowSteps());
+    }
+    if(body.action === 'klaviyo_wire_qst_flow_steps') {
+      return respond(klaviyoWireQstFlowSteps());
+    }
+    if(body.action === 'klaviyo_fix_campaign_exclusions') {
+      return respond(klaviyoFixCampaignExclusions());
+    }
+    if(body.action === 'klaviyo_recreate_campaigns') {
+      return respond(klaviyoRecreateCampaigns());
+    }
+    if(body.action === 'klaviyo_try_from_label') {
+      return respond(klaviyoTryFromLabel(body.flow_msg_id, body.from_label || 'Taylor from easyChef Pro'));
+    }
+    if(body.action === 'klaviyo_check_signup') {
+      return respond(klaviyoCheckSignup(body.email || ''));
+    }
+    if(body.action === 'klaviyo_get_flow_statuses') {
+      return respond(klaviyoGetFlowStatuses());
+    }
+    if(body.action === 'klaviyo_schedule_qst_broadcast') {
+      return respond(klaviyoScheduleQstBroadcast());
+    }
+    if(body.action === 'klaviyo_build_qst_invite_flow') {
+      return respond(klaviyoBuildQstInviteFlow());
+    }
+    if(body.action === 'klaviyo_reschedule_qst_broadcast') {
+      return respond(klaviyoRescheduleQstBroadcast(body.campaign_id || '', body.send_at || ''));
+    }
+    if(body.action === 'klaviyo_subscribe_test') {
+      return respond(klaviyoSubscribeWaitlistSignup(body.email || '', body.lp_variant || 'a'));
+    }
     if(body.action === 'klaviyo_schedule_campaigns') {
       var _ksc = klaviyoScheduleCampaigns();
       return respond({ ok:_ksc.ok, result:_ksc, log: Logger.getLog() });
@@ -2390,12 +2443,28 @@ function doPost(e) {
       return respond({ok:true, key: String(body.key), set: true});
     }
     if(body.action === 'klaviyo_set_live') {
-      var _kflIdA = _cvtReadSetting('klaviyo_flow_id_a');
-      var _kflIdB = _cvtReadSetting('klaviyo_flow_id_b');
       var _kflStatus = body.status || 'live';
-      var _kflRA = _kflIdA ? klaviyoSetFlowStatus(_kflIdA, _kflStatus) : { ok:false, error:'klaviyo_flow_id_a not in CcSettings' };
-      var _kflRB = _kflIdB ? klaviyoSetFlowStatus(_kflIdB, _kflStatus) : { ok:false, error:'klaviyo_flow_id_b not in CcSettings' };
-      return respond({ ok:!!(_kflRA.ok && _kflRB.ok), result:{ flow_a:_kflRA, flow_b:_kflRB }, log: Logger.getLog() });
+      var _kflFlows = [
+        { key: 'klaviyo_flow_id_a',     label: 'flow_a'     },
+        { key: 'klaviyo_flow_id_b',     label: 'flow_b'     },
+        { key: 'klaviyo_flow_id_alpha', label: 'flow_alpha' },
+        { key: 'klaviyo_flow_id_ob',    label: 'flow_ob'    },
+        { key: 'klaviyo_flow_id_org',   label: 'flow_org'   },
+        { key: 'klaviyo_flow_id_beta',       label: 'flow_beta'       },
+        { key: 'klaviyo_flow_id_qst',        label: 'flow_qst'        },
+        { key: 'klaviyo_flow_id_qst_invite', label: 'flow_qst_invite' }
+      ];
+      var _kflResult = {}, _kflAllOk = true;
+      _kflFlows.forEach(function(f) {
+        var id = _cvtReadSetting(f.key);
+        if (id) {
+          _kflResult[f.label] = klaviyoSetFlowStatus(id, _kflStatus);
+        } else {
+          _kflResult[f.label] = { ok: false, error: f.key + ' not in CcSettings' };
+        }
+        if (!_kflResult[f.label].ok) _kflAllOk = false;
+      });
+      return respond({ ok: _kflAllOk, status: _kflStatus, result: _kflResult, log: Logger.getLog() });
     }
     if(body.action === 'klaviyo_get_dl_id_mapping') {
       var _kdl = klaviyoGetEmailDlIdMapping(body.campaign_id || '');

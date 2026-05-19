@@ -44,6 +44,38 @@ Report back:
 
 ---
 
+## MAY 27 CHECKLIST — Go-Live Day
+
+Run in order:
+
+1. **Wire BETA flow steps in Klaviyo UI** (Tr87zQ) — templates Sb62kA/TXvTR5/TkuRes/WijzCM, delays 0/1/2/7 days
+2. **Wire QST-E2 step in Klaviyo UI** (SpiMfa) — template XLArLB, delay 0
+3. **Wire QST Invitation flow step in Klaviyo UI** (TygRLv) — Step 1: DELAY 14 days · Step 2: EMAIL template VyNxs4
+4. **Update 14 campaign audiences in Klaviyo UI** — A→UQTdyL+excl XJYckK, B→VpgZPZ+excl XJYckK
+5. **Set from_label via Klaviyo UI** — Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) → "Taylor from easyChef Pro"
+6. **Run `klaviyo_set_live`** — sets all 7 flows to live (reads klaviyo_flow_id_a/b/alpha/ob/org/beta/qst from CcSettings):
+   ```
+   {"action":"klaviyo_set_live"}
+   ```
+   Reads 8 flow IDs from CcSettings: klaviyo_flow_id_a/b/alpha/ob/org/beta/qst/qst_invite (TygRLv)
+7. **Run `klaviyo_get_flow_statuses`** — verify all flows show `status: live`
+8. **Run e2e test** — submit a fresh test signup and confirm Flow A E1 triggers within 5 min
+9. **QST-E1 broadcast** — confirm campaign is scheduled for **May 28** 9am EDT (not May 20 — rescheduled @875). Template VyNxs4 · audience TebDTM · excl XJYckK
+
+---
+
+## JULY 1 CHECKLIST — Launch Day
+
+Run in order after confirmed launch:
+
+1. **Add all TebDTM waitlist members to EC OB Launch Day list (Tgv7Jc)** — this triggers the OB Standard flow
+   - Option A: Export TebDTM → import to Tgv7Jc in Klaviyo UI
+   - Option B: Build a GAS action `klaviyo_migrate_list` to copy TebDTM→Tgv7Jc programmatically
+2. **Verify OB flow (TNSTZr)** — confirm OB-E1 sends to migrated members
+3. **Check stage gates** — confirm Stage 1 metrics are tracking
+
+---
+
 ## NEVER DO THESE THINGS
 
 - **Create a new Roadmap doc** — update the permanent one (`1-lfrnWtbKzRBbozXxffR4-DJ-6uD3uqkfWQqSDiSYFI`)
@@ -139,6 +171,21 @@ Submodule: `.agents/ui-ux-pro-max-skill/` (git submodule: `nextlevelbuilder/ui-u
 **For easyChef Pro:** style = Soft UI Evolution · anti-patterns = neon/AI gradients/dark mode/clutter · canvas safe zone ≥80px · WCAG AA contrast enforced.
 
 **Full branding reference:** [`BRANDING.md`](BRANDING.md) — CSS token layer, typography, status colors, generated asset rules, cockpit redesign session log. Read this before any UI or design work.
+
+---
+
+## CONFIRMED LAUNCH TIMELINE
+
+| Date | Event | System action |
+|---|---|---|
+| **May 20** | Hand email campaigns to JR for review | Emails live in Klaviyo — grant JR account access in Klaviyo UI (Settings → Users) |
+| **May 27** | Pre-launch goes live · waitlist opens · social launches · SEQ-1/2 flows start | Run `{"action":"klaviyo_set_live"}` · complete May 27 checklist below |
+| **May 28** | Questionnaire goes live · broadcast to all TebDTM | QST-E1 broadcast (VyNxs4) auto-fires at 9am EDT — campaign ID in CcSettings |
+| **Jun 3** | Questionnaire closes · Taylor reviews responses | Manual — open AlphaApplications tab, review rows, tag `alpha_selected=true` on chosen profiles |
+| **Jun 8** | Alpha users get app access · Alpha flow triggers | Tag chosen profiles → add to UPRemk (EC Alpha Users) → Alpha flow fires automatically |
+| **Jun 22** | Alpha feedback emails fire | Automatic — Alpha-E5 is Day 14 from app access (Jun 8 + 14 = Jun 22) |
+| **Jun 29** | Beta invites go out | Manually add Beta users to SfHgFY (EC Beta Users) → BETA flow triggers |
+| **Jul 1** | Public launch · founding member pricing activates · alpha → advanced features | Add all TebDTM to Tgv7Jc (EC OB Launch Day) → OB flow fires; see July 1 checklist |
 
 ---
 
@@ -272,6 +319,9 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 | Alpha | QYwGdj | ALPHA | List UPRemk | 6 |
 | OB Standard | TNSTZr | OB | List Tgv7Jc (EC OB Launch Day) | 5 |
 | Organic Welcome | VnfgA4 | ORG | List TpXCkr (EC Organic Welcome) | 3 |
+| BETA Onboarding | Tr87zQ | BETA | List SfHgFY (EC Beta Users) | 4 (steps need UI wiring) |
+| QST Confirm | SpiMfa | QST | List WBbASK (EC QST Submitted) | 1 (step needs UI wiring) |
+| QST Invitation | TygRLv | — | List TebDTM (Day 14 from signup) | 1 step needs UI wiring: 14-day delay + VyNxs4 |
 
 ### Klaviyo Lists
 | List | ID | Purpose |
@@ -280,6 +330,10 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 | EC Alpha Users | UPRemk | Alpha — triggers Alpha flow |
 | EC Organic Welcome | TpXCkr | /coming-soon signups — triggers ORG flow |
 | EC OB Launch Day | Tgv7Jc | Launch day — triggers OB Standard flow |
+| EC Beta Users | SfHgFY | Beta testers — triggers BETA flow |
+| EC QST Submitted | WBbASK | Questionnaire submitted — triggers QST flow (add on form submit) |
+| EC Variant A (Money) | UQTdyL | SEQ-3/4 audience — LP-A (super_mom_money) signups |
+| EC Variant B (Time) | VpgZPZ | SEQ-3/4 audience — LP-B (super_mom_time) signups |
 
 ### Klaviyo Segments
 | Segment | ID | Purpose |
@@ -339,4 +393,4 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 
 ---
 
-Current state: deploy @858 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system COMPLETE: 5 flows wired · 14 campaigns SCHEDULED (SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 9am EDT) · 66 EmailSequences rows all have seq_template_id · 31 EmailSequences rows have klaviyo_id (flow-message IDs backfilled) · 6 rows still missing: BETA-E1-E4 + QST-E1-E2 (no Klaviyo flow built yet) · Email Campaigns tab live in Firebase cockpit (get_klaviyo_campaigns_board, 14 campaigns visible) · get_klaviyo_campaigns_board + backfill_flow_message_ids actions registered · klaviyoScheduleCampaigns() fixed — uses campaign-message-assign-template endpoint · Klaviyo sender confirmed hello@easychefpro.com · suppression segment XJYckK active · organic routing /coming-soon → TpXCkr · alpha_selected → UPRemk · founder_status=waitlist on every signup · klaviyo_set_live ready (run May 27) · 111 ApprovedClaims · 33 BrandDoctrine rows · Alpha questionnaire live at /alpha-questionnaire · DL-QST-001 ACTIVE · VyNxs4 CTA patched (utm_content=DL-QST-001) · write_to_doc + klaviyo_patch_template actions added · Session 13/14 handoff doc: 1TLcFJ8Z3J3OuAo74yVVoNMTRR0O5HAYL6UnhaqdMGIY · _getCcSetting returns array NOT scalar — use _cvtReadSetting · backfill uses relationship endpoint + position-based matching (Klaviyo copies template IDs on flow assign) · OPEN: Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" via Klaviyo UI only
+Current state: deploy @876 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 7 flows built · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 2 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa — Klaviyo rejects live without steps) · 14 campaigns SCHEDULED (SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 9am EDT) · 66 EmailSequences rows all have seq_template_id · 31 EmailSequences rows have klaviyo_id (SEQ-1/2/ALPHA/OB/ORG backfilled) · 10 rows still missing klaviyo_id: BETA-E1-E4 + QST-E1-E2 (api_wired=false — need Klaviyo UI step wiring) · LP URLs in CcSettings: lp_url_a/lp_url_b · Variant lists: UQTdyL (Variant A Money), VpgZPZ (Variant B Time) — saved as klaviyo_segment_id_a/b · signup handler adds LP-A signups to UQTdyL + LP-B signups to VpgZPZ · Email Campaigns tab live in Firebase cockpit · klaviyo_set_live UPDATED @874: now sets 8 flows (adds QST Invitation TygRLv); re-run after BETA+QST+QSTInvite steps wired in Klaviyo UI · QST-E1 broadcast SCHEDULED: campaign 01KRYYQ5AXYEG6YGTN9CF3KCR6 → TebDTM · May 20 9am EDT · template VyNxs4 · 111 ApprovedClaims · 33 BrandDoctrine rows · Alpha questionnaire live at /alpha-questionnaire · DL-QST-001 ACTIVE · _getCcSetting returns array NOT scalar — use _cvtReadSetting · E2E test PASS (May 18): all 4 test profiles created correctly, all list memberships confirmed via subscribe_test; flow emails not verified (flows DRAFT by design) · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) using templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step in Klaviyo UI (SpiMfa) using template XLArLB (3) ~~Wire questionnaire form submit → add profile to list WBbASK~~ DONE @863 (4) Update 14 campaign audiences to UQTdyL/VpgZPZ+XJYckK in Klaviyo UI (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" via Klaviyo UI
