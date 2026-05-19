@@ -88,6 +88,8 @@ Run in order after confirmed launch:
 - **Create new GAS functions that duplicate existing ones** — search first
 - **Use PowerShell here-strings for JavaScript content** — write to .txt files, use Python for splicing
 - **Update `update_cc_setting` for a key that doesn't exist** — use `append_setting` for new keys
+- **Use `Content-Type: application/json` in browser fetch calls to GAS** — always use `Content-Type: text/plain` to avoid CORS preflight (GAS doesn't handle OPTIONS). Applies to `gasCall()` in cockpit.html and all OAuth callback pages. This is a permanent rule.
+- **Propose Firebase rewrites to proxy to external URLs** — Firebase Hosting rewrites only support Cloud Functions/Run destinations, not arbitrary external URLs. The CORS fix is always `text/plain`, not a proxy.
 
 ---
 
@@ -367,16 +369,17 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 | Live / MCP (primary traffic) | `AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg` |
 
 ### URLs
-| Property | URL |
-|---|---|
-| Cockpit | https://launch.easychefpro.com/cockpit |
-| LP-A (waitlist — money angle) | https://launch.easychefpro.com/lp/waitlist-a.html |
-| LP-B (waitlist — time angle) | https://launch.easychefpro.com/lp/waitlist-b.html |
-| Coming Soon | https://launch.easychefpro.com/coming-soon |
-| Alpha Feedback | https://launch.easychefpro.com/alpha-feedback |
-| Alpha Questionnaire | https://launch.easychefpro.com/alpha-questionnaire · DL-QST-001 |
-| Thank You | https://launch.easychefpro.com/thank-you |
-| ops.dgl.dev | https://ops.dgl.dev (→ launch.easychefpro.com via Firebase) |
+| Property | URL | Notes |
+|---|---|---|
+| **Cockpit (permanent)** | **https://ops.dgl.dev/cockpit** | **Use this. launch subdomain goes away Jul 1.** |
+| Cockpit (pre-launch alias) | https://launch.easychefpro.com/cockpit | Pre-launch only — redirects via Firebase |
+| LP-A (waitlist — money angle) | https://launch.easychefpro.com/lp/waitlist-a.html | Pre-launch |
+| LP-B (waitlist — time angle) | https://launch.easychefpro.com/lp/waitlist-b.html | Pre-launch |
+| Coming Soon | https://launch.easychefpro.com/coming-soon | Pre-launch |
+| Alpha Feedback | https://launch.easychefpro.com/alpha-feedback | Pre-launch |
+| Alpha Questionnaire | https://launch.easychefpro.com/alpha-questionnaire · DL-QST-001 | Pre-launch |
+| Thank You | https://launch.easychefpro.com/thank-you | Pre-launch |
+| ops.dgl.dev | https://ops.dgl.dev (→ launch.easychefpro.com via Firebase) | Permanent ops domain |
 
 ### Analytics & Testing
 | Tool | ID |
@@ -399,4 +402,4 @@ Credentials correct (API key f49c8b08 + new secret created May 18). Signing form
 
 ---
 
-Current state: deploy @880 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 8 flows · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 3 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa, QST Invite TygRLv) · 14 campaigns SCHEDULED (SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 9am EDT) · QST-E1 broadcast SCHEDULED May 28 · LP scripts fixed: Convert→Clarity→GA4 order on all 3 pages (LP-A/B + thank-you) · Firebase: BOTH projects deployed (staging + prod) · Convert.com API PARKED (see section above) — experiment 100140422 Active confirmed in UI · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step (SpiMfa) template XLArLB (3) Wire QST Invite flow (TygRLv) 14-day delay + VyNxs4 (4) Update 14 campaign audiences to UQTdyL/VpgZPZ+XJYckK in Klaviyo UI (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" (6) Verify Convert.com audience filter utm_medium=email + goal 100154109 in dashboard manually
+Current state: deploy @887 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 8 flows · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 3 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa, QST Invite TygRLv) · 14 campaigns SCHEDULED (SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 9am EDT) · QST-E1 broadcast SCHEDULED May 28 · LP scripts fixed: Convert→Clarity→GA4 order on all 3 pages (LP-A/B + thank-you) · Firebase: BOTH projects deployed (staging + prod) · Convert.com API PARKED (see section above) — experiment 100140422 Active confirmed in UI · PERMANENT CORS FIX: all gasCall() + OAuth callback pages use Content-Type: text/plain — bypasses CORS preflight, works on any domain · Cockpit permanent URL: https://ops.dgl.dev/cockpit (launch.easychefpro.com goes away Jul 1) · Social posting pipeline LIVE @887: Operations_SocialSync.gs (FB/IG/TikTok/Pinterest/YT/X) + Socials cockpit tab + OAuth flows for YT + TikTok · YouTube OAuth: LIVE — credentials stored, test users: Taylor+admin+letscook, Connect button in cockpit — run OAuth flow to get refresh_token · TikTok OAuth: BUILT — getTikTokAuthUrl/handleTikTokCallback/refreshTikTokTokenIfNeeded/postToTikTok; Connect TikTok button in cockpit — PENDING developer account setup at developers.tiktok.com (need client_key + client_secret, then run tiktok_setup action) · May 27 manual posting doc created: https://docs.google.com/document/d/1RL7XtneqBtNK-oUCb3W50U1hQTunRi-BmaK3AUpgFJI/edit · Meta review in progress (~10 days from May 19) · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step (SpiMfa) template XLArLB (3) Wire QST Invite flow (TygRLv) 14-day delay + VyNxs4 (4) Update 14 campaign audiences to UQTdyL/VpgZPZ+XJYckK in Klaviyo UI (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" (6) Verify Convert.com audience filter utm_medium=email + goal 100154109 in dashboard manually · Social remaining: Pinterest (pinterest_access_token+board_id), X (x_api_key+secret+access_token+secret), FB/IG (post-Meta-review)
