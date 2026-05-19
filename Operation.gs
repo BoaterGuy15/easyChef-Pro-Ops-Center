@@ -2721,6 +2721,23 @@ function doPost(e) {
     if(body.action === 'youtube_connection_status') {
       return respond(Object.assign({ ok: true }, youtubeConnectionStatus()));
     }
+    // ── TIKTOK OAUTH ───────────────────────────────────────────────────────────
+    if(body.action === 'tiktok_auth_start') {
+      return respond(getTikTokAuthUrl());
+    }
+    if(body.action === 'tiktok_auth_callback') {
+      return respond(handleTikTokCallback(body.code || ''));
+    }
+    if(body.action === 'tiktok_connection_status') {
+      return respond(Object.assign({ ok: true }, tiktokConnectionStatus()));
+    }
+    if(body.action === 'tiktok_setup') {
+      var _tsp = PropertiesService.getScriptProperties();
+      if(body.client_key)    _tsp.setProperty('tiktok_client_key',    body.client_key);
+      if(body.client_secret) _tsp.setProperty('tiktok_client_secret', body.client_secret);
+      var _tconn = tiktokConnectionStatus();
+      return respond({ ok: true, stored: Object.keys(body).filter(function(k){ return k!=='action'; }), status: _tconn });
+    }
     if(body.action === 'youtube_setup') {
       var _ysp = PropertiesService.getScriptProperties();
       if(body.client_id)     _ysp.setProperty('youtube_client_id',     body.client_id);

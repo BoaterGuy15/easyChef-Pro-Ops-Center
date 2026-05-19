@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube — Connecting...</title>
+  <title>TikTok — Connecting...</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -31,7 +31,6 @@
       margin: 0 auto 20px;
       font-size: 24px;
     }
-    .icon-loading { background: #FEF3C7; }
     .icon-success { background: #DCFCE7; }
     .icon-error   { background: #FEE2E2; }
     h1 { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
@@ -40,7 +39,7 @@
     .spinner {
       width: 40px; height: 40px;
       border: 3px solid #f0ebe4;
-      border-top-color: #FF0000;
+      border-top-color: #010101;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin: 0 auto 20px;
@@ -52,7 +51,7 @@
 <body>
   <div class="card" id="card">
     <div class="spinner"></div>
-    <h1>Connecting YouTube...</h1>
+    <h1>Connecting TikTok...</h1>
     <p class="sub">Exchanging authorization code. This takes a moment.</p>
   </div>
 
@@ -64,12 +63,12 @@
       return m ? decodeURIComponent(m[1]) : '';
     }
 
-    function showSuccess(channelId) {
+    function showSuccess(openId) {
       document.getElementById('card').innerHTML =
         '<div class="icon icon-success">✓</div>'
-        + '<h1>YouTube Connected!</h1>'
-        + '<p class="sub">easyChef Pro is now authorized to post to your YouTube channel.</p>'
-        + (channelId ? '<div class="detail">Channel ID: ' + channelId + '</div>' : '')
+        + '<h1>TikTok Connected!</h1>'
+        + '<p class="sub">easyChef Pro is now authorized to publish to your TikTok account.</p>'
+        + (openId ? '<div class="detail">Open ID: ' + openId + '</div>' : '')
         + '<p class="close-note">You can close this tab and return to the cockpit.</p>';
     }
 
@@ -77,31 +76,29 @@
       document.getElementById('card').innerHTML =
         '<div class="icon icon-error">✕</div>'
         + '<h1>Connection Failed</h1>'
-        + '<p class="sub">Could not connect YouTube. Please try again from the cockpit.</p>'
+        + '<p class="sub">Could not connect TikTok. Please try again from the cockpit.</p>'
         + '<div class="detail">' + String(msg || 'Unknown error').substring(0, 400) + '</div>'
-        + '<p class="close-note">Close this tab and click Connect YouTube again.</p>';
+        + '<p class="close-note">Close this tab and click Connect TikTok again.</p>';
     }
 
     (function() {
       var code  = getParam('code');
-      var state = getParam('state');
       var error = getParam('error');
 
-      if (error) { showError('Google returned: ' + error); return; }
-      if (!code)  { showError('No authorization code received from Google.'); return; }
+      if (error) { showError('TikTok returned: ' + error + ' — ' + getParam('error_description')); return; }
+      if (!code)  { showError('No authorization code received from TikTok.'); return; }
 
       fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'youtube_auth_callback', code: code })
+        body: JSON.stringify({ action: 'tiktok_auth_callback', code: code })
       })
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d && d.ok) {
-          showSuccess(d.channel_id || '');
-          // Notify opener (cockpit) if it's still open
+          showSuccess(d.open_id || '');
           if (window.opener && !window.opener.closed) {
-            try { window.opener.postMessage({ type: 'youtube_connected', channelId: d.channel_id }, '*'); } catch(e) {}
+            try { window.opener.postMessage({ type: 'tiktok_connected', openId: d.open_id }, '*'); } catch(e) {}
           }
         } else {
           showError((d && d.error) || 'Token exchange failed.');

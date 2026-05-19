@@ -22,7 +22,7 @@ var _SOCIAL_API = {
 var _SOCIAL_CRED_KEYS = {
   facebook:  ['fb_page_id', 'fb_page_access_token'],
   instagram: ['ig_user_id', 'fb_page_access_token'],
-  tiktok:    ['tiktok_access_token', 'tiktok_open_id'],
+  tiktok:    ['tiktok_refresh_token', 'tiktok_open_id'],
   pinterest: ['pinterest_access_token', 'pinterest_board_id'],
   youtube:   ['youtube_refresh_token', 'youtube_channel_id'],
   x:         ['x_api_key', 'x_api_secret', 'x_access_token', 'x_access_secret']
@@ -181,41 +181,10 @@ function postToInstagram(postData) {
 }
 
 // ── PLATFORM: TikTok ──────────────────────────────────────────────────────────
-// Uses Content Posting API v2 — requires TikTok Developer approval + Creator account.
-// Supports photo posts via PULL_FROM_URL.
+// Video publishing via OAuth2 (managed by Operations_TikTokOAuth.gs).
+// Requires tiktok_refresh_token in Script Properties (set by running OAuth flow).
 function postToTikTok(postData) {
-  var token  = _ssp('tiktok_access_token');
-  var openId = _ssp('tiktok_open_id');
-  if (!token || !openId) return { ok: false, error: 'tiktok_access_token or tiktok_open_id missing from Script Properties' };
-
-  var hasImage = postData.image_url && String(postData.image_url).indexOf('http') === 0;
-  if (!hasImage) return { ok: false, error: 'TikTok posting requires image_url or video_url. Text-only not supported.' };
-
-  var caption = _socialBuildText(postData, 2200);
-  var payload = {
-    post_info: {
-      title:            caption.substring(0, 150),
-      description:      caption,
-      privacy_level:    'PUBLIC_TO_EVERYONE',
-      disable_duet:     false,
-      disable_stitch:   false,
-      disable_comment:  false
-    },
-    source_info: {
-      source:              'PULL_FROM_URL',
-      photo_cover_index:   0,
-      photo_images:        [String(postData.image_url)]
-    },
-    post_mode:   'DIRECT_POST',
-    media_type:  'PHOTO'
-  };
-  var r = _socialFetch(_SOCIAL_API.tiktok + '/post/publish/content/init/', {
-    method: 'post', contentType: 'application/json',
-    payload: JSON.stringify(payload),
-    headers: { Authorization: 'Bearer ' + token }
-  });
-  if (r.ok && r.body.data) return { ok: true, platform: 'tiktok', post_id: r.body.data.publish_id || '', post_url: '' };
-  return { ok: false, error: 'HTTP ' + r.code + ': ' + r.raw };
+  return tiktokPostFromPostData(postData);
 }
 
 // ── PLATFORM: Pinterest ───────────────────────────────────────────────────────
