@@ -2738,6 +2738,53 @@ function doPost(e) {
       var _tconn = tiktokConnectionStatus();
       return respond({ ok: true, stored: Object.keys(body).filter(function(k){ return k!=='action'; }), status: _tconn });
     }
+    // ── PINTEREST OAUTH ────────────────────────────────────────────────────────
+    if(body.action === 'pinterest_auth_start') {
+      return respond(getPinterestAuthUrl());
+    }
+    if(body.action === 'pinterest_auth_callback') {
+      return respond(handlePinterestCallback(body.code || ''));
+    }
+    if(body.action === 'pinterest_connection_status') {
+      return respond(Object.assign({ ok: true }, pinterestConnectionStatus()));
+    }
+    if(body.action === 'get_pinterest_boards') {
+      var _pnToken = refreshPinterestTokenIfNeeded();
+      if(!_pnToken) return respond({ ok: false, error: 'Not connected — complete Pinterest OAuth flow first' });
+      var _pnBoardsResp = UrlFetchApp.fetch('https://api.pinterest.com/v5/boards?page_size=25', {
+        headers: { Authorization: 'Bearer ' + _pnToken },
+        muteHttpExceptions: true
+      });
+      var _pnBoardsData = {};
+      try { _pnBoardsData = JSON.parse(_pnBoardsResp.getContentText()); } catch(e) {}
+      var _pnBoards = (_pnBoardsData.items || []).map(function(b){
+        return { id: b.id, name: b.name, description: b.description, url: 'https://www.pinterest.com' + b.owner.username + '/' + b.name.toLowerCase().replace(/\s+/g,'-') + '/' };
+      });
+      return respond({ ok: true, boards: _pnBoards, count: _pnBoards.length });
+    }
+    if(body.action === 'pinterest_setup') {
+      var _pnsp = PropertiesService.getScriptProperties();
+      if(body.app_id)     _pnsp.setProperty('pinterest_app_id',     body.app_id);
+      if(body.app_secret) _pnsp.setProperty('pinterest_app_secret', body.app_secret);
+      if(body.board_id)   _pnsp.setProperty('pinterest_board_id',   body.board_id);
+      return respond({ ok: true, stored: Object.keys(body).filter(function(k){ return k!=='action'; }), status: pinterestConnectionStatus() });
+    }
+    // ── X (TWITTER) OAUTH ─────────────────────────────────────────────────────
+    if(body.action === 'x_auth_start') {
+      return respond(getXAuthUrl());
+    }
+    if(body.action === 'x_auth_callback') {
+      return respond(handleXCallback(body.code || ''));
+    }
+    if(body.action === 'x_connection_status') {
+      return respond(Object.assign({ ok: true }, xConnectionStatus()));
+    }
+    if(body.action === 'x_setup') {
+      var _xsp = PropertiesService.getScriptProperties();
+      if(body.client_id)     _xsp.setProperty('x_client_id',     body.client_id);
+      if(body.client_secret) _xsp.setProperty('x_client_secret', body.client_secret);
+      return respond({ ok: true, stored: Object.keys(body).filter(function(k){ return k!=='action'; }), status: xConnectionStatus() });
+    }
     if(body.action === 'youtube_setup') {
       var _ysp = PropertiesService.getScriptProperties();
       if(body.client_id)     _ysp.setProperty('youtube_client_id',     body.client_id);

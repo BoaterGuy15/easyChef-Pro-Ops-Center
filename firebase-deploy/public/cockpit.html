@@ -1356,6 +1356,44 @@
         });
     }
 
+    function _xConnect(){
+      gasCall({action:'x_auth_start'})
+        .then(function(r){
+          if(!r||!r.ok){alert('Error starting X auth: '+(r&&r.error||'unknown'));return;}
+          var popup=window.open(r.auth_url,'x_oauth','width=540,height=720,left=200,top=80');
+          var handler=function(e){
+            if(e.data&&e.data.type==='x_connected'){
+              window.removeEventListener('message',handler);
+              if(popup&&!popup.closed)popup.close();
+              _socialsLoaded=false;loadSocialsTab();
+            }
+          };
+          window.addEventListener('message',handler);
+          var poll=setInterval(function(){
+            if(popup&&popup.closed){clearInterval(poll);window.removeEventListener('message',handler);_socialsLoaded=false;loadSocialsTab();}
+          },1500);
+        });
+    }
+
+    function _pnConnect(){
+      gasCall({action:'pinterest_auth_start'})
+        .then(function(r){
+          if(!r||!r.ok){alert('Error starting Pinterest auth: '+(r&&r.error||'unknown'));return;}
+          var popup=window.open(r.auth_url,'pinterest_oauth','width=540,height=720,left=200,top=80');
+          var handler=function(e){
+            if(e.data&&e.data.type==='pinterest_connected'){
+              window.removeEventListener('message',handler);
+              if(popup&&!popup.closed)popup.close();
+              _socialsLoaded=false;loadSocialsTab();
+            }
+          };
+          window.addEventListener('message',handler);
+          var poll=setInterval(function(){
+            if(popup&&popup.closed){clearInterval(poll);window.removeEventListener('message',handler);_socialsLoaded=false;loadSocialsTab();}
+          },1500);
+        });
+    }
+
     function _socialsPost(postId){
       if(!confirm('Post "'+postId+'" now?'))return;
       gasCall({action:'social_post_now',post_id:postId})
@@ -1393,6 +1431,10 @@
             actionBtn='<button onclick="_ytConnect()" style="margin-top:6px;width:100%;background:#FF0000;color:#fff;border:none;padding:5px 0;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">Connect YouTube</button>';
           } else if(p==='tiktok'){
             actionBtn='<button onclick="_ttConnect()" style="margin-top:6px;width:100%;background:#010101;color:#fff;border:none;padding:5px 0;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">Connect TikTok</button>';
+          } else if(p==='pinterest'){
+            actionBtn='<button onclick="_pnConnect()" style="margin-top:6px;width:100%;background:#E60023;color:#fff;border:none;padding:5px 0;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">Connect Pinterest</button>';
+          } else if(p==='x'){
+            actionBtn='<button onclick="_xConnect()" style="margin-top:6px;width:100%;background:#000000;color:#fff;border:none;padding:5px 0;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">Connect X</button>';
           } else if(p==='facebook'||p==='instagram'){
             actionBtn='<div style="margin-top:5px;font-size:9px;color:#e67e00;font-weight:600">Meta review in progress (~10 days)</div>';
           }
