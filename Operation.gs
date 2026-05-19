@@ -2746,6 +2746,32 @@ function doPost(e) {
       var _yconn = youtubeConnectionStatus();
       return respond({ ok: true, stored: Object.keys(body).filter(function(k){ return k!=='action'; }), status: _yconn });
     }
+    if(body.action === 'add_lp_domain_column') {
+      // Adds 'domain' column to LPInventory tab and fills existing rows with launch.easychefpro.com
+      try {
+        var _lpSh   = _getCCSheet(_CC_TAB.LP_INVENTORY);
+        var _lpLast = _lpSh.getLastRow();
+        if (_lpLast < 1) return respond({ ok: false, error: 'LPInventory tab is empty' });
+        var _lpHdrRow = _lpSh.getRange(1, 1, 1, _lpSh.getLastColumn()).getValues()[0];
+        var _domIdx   = _lpHdrRow.indexOf('domain');
+        if (_domIdx !== -1) {
+          return respond({ ok: true, message: 'domain column already exists at col ' + (_domIdx + 1), rows_updated: 0 });
+        }
+        // Append domain header
+        var _newCol = _lpSh.getLastColumn() + 1;
+        _lpSh.getRange(1, _newCol).setValue('domain');
+        // Fill all data rows with launch.easychefpro.com
+        var _dataRows = _lpLast - 1;
+        if (_dataRows > 0) {
+          var _domVals = [];
+          for (var _di = 0; _di < _dataRows; _di++) { _domVals.push(['launch.easychefpro.com']); }
+          _lpSh.getRange(2, _newCol, _dataRows, 1).setValues(_domVals);
+        }
+        return respond({ ok: true, message: 'domain column added at col ' + _newCol, rows_updated: _dataRows, column_index: _newCol });
+      } catch(_lpe) {
+        return respond({ ok: false, error: _lpe.message });
+      }
+    }
     if(body.action === 'social_posts_sample') {
       var _sh = _getCCSheet(_CC_TAB.SOCIAL);
       var _hdrs = _CC_HDR.SocialPosts;

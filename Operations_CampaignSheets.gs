@@ -137,7 +137,8 @@ var _CC_HDR = {
     'section_hook','section_lifecycle',
     'tracking_convert_id','tracking_clarity_id','tracking_ga4_id',
     'qa_passed','pushed_to_production',
-    'convert_experiment_id','shared_by_campaigns','last_traffic_date'
+    'convert_experiment_id','shared_by_campaigns','last_traffic_date',
+    'domain'
   ],
   Channels: [
     'name','slug_code','utm_medium','utm_source','dl_prefix','status','notes',

@@ -69,16 +69,16 @@ Run in order:
 | Domain | Purpose | Permanent? |
 |---|---|---|
 | `ops.dgl.dev` | Cockpit only — internal ops tool, never public | Yes — permanent |
-| `easychefpro.com` | All customer-facing pages — LPs, forms, thank-you, coming-soon | Yes — permanent |
-| `launch.easychefpro.com` | Temporary pre-launch subdomain | No — **retires July 1** |
+| `launch.easychefpro.com` | All pre-launch pages — stays live permanently as-is | Yes — permanent |
+| `easychefpro.com` | All NEW pages from July 1 onward — post-launch LPs, feature pages, pricing, blog, recipe pages | Yes — permanent |
 
-**LP BUILD RULE: All new LPs build to `easychefpro.com` directly. Never build new LPs on `launch.easychefpro.com`.**
+**LP BUILD RULE:**
+- **Before July 1** → build on `launch.easychefpro.com`
+- **After July 1** → build on `easychefpro.com`
 
-The `launch` subdomain exists only because the main domain wasn't ready at pre-launch setup. Everything on it migrates to `easychefpro.com` on July 1.
+No migration. No redirects. Clean split at July 1. `launch.easychefpro.com` stays live permanently as the pre-launch historical record.
 
-OAuth redirect URIs use BOTH domains during transition:
-- `https://launch.easychefpro.com/oauth/youtube/callback` (active now)
-- `https://easychefpro.com/oauth/youtube/callback` (active post-July 1)
+**LPInventory `domain` column:** all existing LPs = `launch.easychefpro.com` · all future LPs from July 1 = `easychefpro.com`
 
 ---
 
@@ -91,14 +91,7 @@ Run in order after confirmed launch:
    - Option B: Build a GAS action `klaviyo_migrate_list` to copy TebDTM→Tgv7Jc programmatically
 2. **Verify OB flow (TNSTZr)** — confirm OB-E1 sends to migrated members
 3. **Check stage gates** — confirm Stage 1 metrics are tracking
-4. **Migrate all pages from `launch.easychefpro.com` → `easychefpro.com`**
-   - Move LP-A, LP-B, /thank-you, /coming-soon, /alpha-questionnaire, /alpha-feedback to main domain Firebase project
-   - Set up 301 redirects: all `launch.easychefpro.com/*` → `easychefpro.com/*`
-   - Update `lp_url_a` and `lp_url_b` in CcSettings to `easychefpro.com` URLs
-5. **Update 264 DL_ID destinations in DeepLinkRegistry**
-   - Any DL_ID with `launch.easychefpro.com` destination → update to `easychefpro.com`
-   - Run: `{"action":"audit_dl_destinations","old_domain":"launch.easychefpro.com","new_domain":"easychefpro.com"}` (build this action before July 1)
-6. **Update OAuth redirect URIs** — switch primary redirect to `easychefpro.com` in Google Cloud Console and TikTok Developer portal
+4. **Start building new LPs on `easychefpro.com`** — from this point all new pages go to the main domain, not `launch`
 
 ---
 
@@ -116,8 +109,8 @@ Run in order after confirmed launch:
 - **Update `update_cc_setting` for a key that doesn't exist** — use `append_setting` for new keys
 - **Use `Content-Type: application/json` in browser fetch calls to GAS** — always use `Content-Type: text/plain` to avoid CORS preflight (GAS doesn't handle OPTIONS). Applies to `gasCall()` in cockpit.html and all OAuth callback pages. This is a permanent rule.
 - **Propose Firebase rewrites to proxy to external URLs** — Firebase Hosting rewrites only support Cloud Functions/Run destinations, not arbitrary external URLs. The CORS fix is always `text/plain`, not a proxy.
-- **Build new landing pages on `launch.easychefpro.com`** — all new LPs go to `easychefpro.com` directly. The `launch` subdomain retires July 1.
-- **Hardcode `launch.easychefpro.com` in any new DL_IDs or UTM URLs** — use `easychefpro.com` as the destination domain for all new deep links.
+- **Build new LPs on `launch.easychefpro.com` after July 1** — before July 1 use launch subdomain; after July 1 use `easychefpro.com`. Check the current date before choosing the LP domain.
+- **Hardcode `launch.easychefpro.com` in DL_IDs or UTM URLs created after July 1** — use `easychefpro.com` for all new deep links from July 1 onward.
 
 ---
 
@@ -397,16 +390,17 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 | Live / MCP (primary traffic) | `AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg` |
 
 ### URLs
-| Property | URL | Domain | Notes |
-|---|---|---|---|
-| **Cockpit** | **https://ops.dgl.dev/cockpit** | ops.dgl.dev | Permanent — internal only |
-| LP-A (money angle) | https://launch.easychefpro.com/lp/waitlist-a.html → **easychefpro.com/lp/waitlist-a** post-Jul-1 | launch (temp) | Migrates Jul 1 |
-| LP-B (time angle) | https://launch.easychefpro.com/lp/waitlist-b.html → **easychefpro.com/lp/waitlist-b** post-Jul-1 | launch (temp) | Migrates Jul 1 |
-| Coming Soon | https://launch.easychefpro.com/coming-soon → **easychefpro.com/coming-soon** post-Jul-1 | launch (temp) | Migrates Jul 1 |
-| Alpha Feedback | https://launch.easychefpro.com/alpha-feedback → **easychefpro.com/alpha-feedback** post-Jul-1 | launch (temp) | Migrates Jul 1 |
-| Alpha Questionnaire | https://launch.easychefpro.com/alpha-questionnaire · DL-QST-001 → **easychefpro.com/alpha-questionnaire** post-Jul-1 | launch (temp) | Migrates Jul 1 |
-| Thank You | https://launch.easychefpro.com/thank-you → **easychefpro.com/thank-you** post-Jul-1 | launch (temp) | Migrates Jul 1 |
-| All future LPs | **https://easychefpro.com/lp/[slug]** | easychefpro.com | Build here directly — never on launch subdomain |
+| Property | URL | Notes |
+|---|---|---|
+| **Cockpit** | **https://ops.dgl.dev/cockpit** | Internal only — permanent |
+| LP-A (waitlist — money angle) | https://launch.easychefpro.com/lp/waitlist-a.html | Pre-launch · stays here permanently |
+| LP-B (waitlist — time angle) | https://launch.easychefpro.com/lp/waitlist-b.html | Pre-launch · stays here permanently |
+| Coming Soon | https://launch.easychefpro.com/coming-soon | Pre-launch · stays here permanently |
+| Alpha Feedback | https://launch.easychefpro.com/alpha-feedback | Pre-launch · stays here permanently |
+| Alpha Questionnaire | https://launch.easychefpro.com/alpha-questionnaire · DL-QST-001 | Pre-launch · stays here permanently |
+| Thank You | https://launch.easychefpro.com/thank-you | Pre-launch · stays here permanently |
+| ops.dgl.dev | https://ops.dgl.dev (→ launch.easychefpro.com via Firebase) | Permanent ops domain |
+| **All future LPs (post Jul 1)** | **https://easychefpro.com/lp/[slug]** | Build here from July 1 onward |
 
 ### Analytics & Testing
 | Tool | ID |
@@ -429,4 +423,4 @@ Credentials correct (API key f49c8b08 + new secret created May 18). Signing form
 
 ---
 
-Current state: deploy @887 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 8 flows · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 3 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa, QST Invite TygRLv) · 14 campaigns SCHEDULED (SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 9am EDT) · QST-E1 broadcast SCHEDULED May 28 · LP scripts fixed: Convert→Clarity→GA4 order on all 3 pages (LP-A/B + thank-you) · Firebase: BOTH projects deployed (staging + prod) · Convert.com API PARKED (see section above) — experiment 100140422 Active confirmed in UI · PERMANENT CORS FIX: all gasCall() + OAuth callback pages use Content-Type: text/plain — bypasses CORS preflight, works on any domain · Cockpit permanent URL: https://ops.dgl.dev/cockpit (launch.easychefpro.com goes away Jul 1) · Social posting pipeline LIVE @887: Operations_SocialSync.gs (FB/IG/TikTok/Pinterest/YT/X) + Socials cockpit tab + OAuth flows for YT + TikTok · YouTube OAuth: LIVE — credentials stored, test users: Taylor+admin+letscook, Connect button in cockpit — run OAuth flow to get refresh_token · TikTok OAuth: BUILT — getTikTokAuthUrl/handleTikTokCallback/refreshTikTokTokenIfNeeded/postToTikTok; Connect TikTok button in cockpit — PENDING developer account setup at developers.tiktok.com (need client_key + client_secret, then run tiktok_setup action) · May 27 manual posting doc created: https://docs.google.com/document/d/1RL7XtneqBtNK-oUCb3W50U1hQTunRi-BmaK3AUpgFJI/edit · Meta review in progress (~10 days from May 19) · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step (SpiMfa) template XLArLB (3) Wire QST Invite flow (TygRLv) 14-day delay + VyNxs4 (4) Update 14 campaign audiences to UQTdyL/VpgZPZ+XJYckK in Klaviyo UI (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" (6) Verify Convert.com audience filter utm_medium=email + goal 100154109 in dashboard manually · Social remaining: Pinterest (pinterest_access_token+board_id), X (x_api_key+secret+access_token+secret), FB/IG (post-Meta-review)
+Current state: deploy @888 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 8 flows · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 3 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa, QST Invite TygRLv) · 14 campaigns SCHEDULED (SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 9am EDT) · QST-E1 broadcast SCHEDULED May 28 · LP scripts fixed: Convert→Clarity→GA4 order on all 3 pages (LP-A/B + thank-you) · Firebase: BOTH projects deployed (staging + prod) · Convert.com API PARKED (see section above) — experiment 100140422 Active confirmed in UI · PERMANENT CORS FIX: all gasCall() + OAuth callback pages use Content-Type: text/plain — bypasses CORS preflight, works on any domain · Cockpit permanent URL: https://ops.dgl.dev/cockpit (launch.easychefpro.com goes away Jul 1) · Social posting pipeline LIVE @887: Operations_SocialSync.gs (FB/IG/TikTok/Pinterest/YT/X) + Socials cockpit tab + OAuth flows for YT + TikTok · YouTube OAuth: LIVE — credentials stored, test users: Taylor+admin+letscook, Connect button in cockpit — run OAuth flow to get refresh_token · TikTok OAuth: BUILT — getTikTokAuthUrl/handleTikTokCallback/refreshTikTokTokenIfNeeded/postToTikTok; Connect TikTok button in cockpit — PENDING developer account setup at developers.tiktok.com (need client_key + client_secret, then run tiktok_setup action) · May 27 manual posting doc created: https://docs.google.com/document/d/1RL7XtneqBtNK-oUCb3W50U1hQTunRi-BmaK3AUpgFJI/edit · Meta review in progress (~10 days from May 19) · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step (SpiMfa) template XLArLB (3) Wire QST Invite flow (TygRLv) 14-day delay + VyNxs4 (4) Update 14 campaign audiences to UQTdyL/VpgZPZ+XJYckK in Klaviyo UI (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" (6) Verify Convert.com audience filter utm_medium=email + goal 100154109 in dashboard manually · Social remaining: Pinterest (pinterest_access_token+board_id), X (x_api_key+secret+access_token+secret), FB/IG (post-Meta-review)
