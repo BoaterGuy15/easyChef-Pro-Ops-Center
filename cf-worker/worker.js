@@ -46,7 +46,7 @@ export default {
     const toFirebase = [
       '/lp/', '/coming-soon', '/thank-you', '/robots.txt',
       '/llms.txt', '/pricing.md', '/alpha-questionnaire', '/alpha-feedback',
-      '/config.js', '/cockpit', '/assets/',
+      '/config.js', '/cockpit', '/assets/', '/oauth/',
     ].some(p => path === p || path.startsWith(p));
 
     if (toFirebase) {
