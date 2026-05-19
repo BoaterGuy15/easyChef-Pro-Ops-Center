@@ -64,6 +64,24 @@ Run in order:
 
 ---
 
+## DOMAIN ARCHITECTURE — LOCKED
+
+| Domain | Purpose | Permanent? |
+|---|---|---|
+| `ops.dgl.dev` | Cockpit only — internal ops tool, never public | Yes — permanent |
+| `easychefpro.com` | All customer-facing pages — LPs, forms, thank-you, coming-soon | Yes — permanent |
+| `launch.easychefpro.com` | Temporary pre-launch subdomain | No — **retires July 1** |
+
+**LP BUILD RULE: All new LPs build to `easychefpro.com` directly. Never build new LPs on `launch.easychefpro.com`.**
+
+The `launch` subdomain exists only because the main domain wasn't ready at pre-launch setup. Everything on it migrates to `easychefpro.com` on July 1.
+
+OAuth redirect URIs use BOTH domains during transition:
+- `https://launch.easychefpro.com/oauth/youtube/callback` (active now)
+- `https://easychefpro.com/oauth/youtube/callback` (active post-July 1)
+
+---
+
 ## JULY 1 CHECKLIST — Launch Day
 
 Run in order after confirmed launch:
@@ -73,6 +91,14 @@ Run in order after confirmed launch:
    - Option B: Build a GAS action `klaviyo_migrate_list` to copy TebDTM→Tgv7Jc programmatically
 2. **Verify OB flow (TNSTZr)** — confirm OB-E1 sends to migrated members
 3. **Check stage gates** — confirm Stage 1 metrics are tracking
+4. **Migrate all pages from `launch.easychefpro.com` → `easychefpro.com`**
+   - Move LP-A, LP-B, /thank-you, /coming-soon, /alpha-questionnaire, /alpha-feedback to main domain Firebase project
+   - Set up 301 redirects: all `launch.easychefpro.com/*` → `easychefpro.com/*`
+   - Update `lp_url_a` and `lp_url_b` in CcSettings to `easychefpro.com` URLs
+5. **Update 264 DL_ID destinations in DeepLinkRegistry**
+   - Any DL_ID with `launch.easychefpro.com` destination → update to `easychefpro.com`
+   - Run: `{"action":"audit_dl_destinations","old_domain":"launch.easychefpro.com","new_domain":"easychefpro.com"}` (build this action before July 1)
+6. **Update OAuth redirect URIs** — switch primary redirect to `easychefpro.com` in Google Cloud Console and TikTok Developer portal
 
 ---
 
@@ -90,6 +116,8 @@ Run in order after confirmed launch:
 - **Update `update_cc_setting` for a key that doesn't exist** — use `append_setting` for new keys
 - **Use `Content-Type: application/json` in browser fetch calls to GAS** — always use `Content-Type: text/plain` to avoid CORS preflight (GAS doesn't handle OPTIONS). Applies to `gasCall()` in cockpit.html and all OAuth callback pages. This is a permanent rule.
 - **Propose Firebase rewrites to proxy to external URLs** — Firebase Hosting rewrites only support Cloud Functions/Run destinations, not arbitrary external URLs. The CORS fix is always `text/plain`, not a proxy.
+- **Build new landing pages on `launch.easychefpro.com`** — all new LPs go to `easychefpro.com` directly. The `launch` subdomain retires July 1.
+- **Hardcode `launch.easychefpro.com` in any new DL_IDs or UTM URLs** — use `easychefpro.com` as the destination domain for all new deep links.
 
 ---
 
@@ -369,17 +397,16 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 | Live / MCP (primary traffic) | `AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg` |
 
 ### URLs
-| Property | URL | Notes |
-|---|---|---|
-| **Cockpit (permanent)** | **https://ops.dgl.dev/cockpit** | **Use this. launch subdomain goes away Jul 1.** |
-| Cockpit (pre-launch alias) | https://launch.easychefpro.com/cockpit | Pre-launch only — redirects via Firebase |
-| LP-A (waitlist — money angle) | https://launch.easychefpro.com/lp/waitlist-a.html | Pre-launch |
-| LP-B (waitlist — time angle) | https://launch.easychefpro.com/lp/waitlist-b.html | Pre-launch |
-| Coming Soon | https://launch.easychefpro.com/coming-soon | Pre-launch |
-| Alpha Feedback | https://launch.easychefpro.com/alpha-feedback | Pre-launch |
-| Alpha Questionnaire | https://launch.easychefpro.com/alpha-questionnaire · DL-QST-001 | Pre-launch |
-| Thank You | https://launch.easychefpro.com/thank-you | Pre-launch |
-| ops.dgl.dev | https://ops.dgl.dev (→ launch.easychefpro.com via Firebase) | Permanent ops domain |
+| Property | URL | Domain | Notes |
+|---|---|---|---|
+| **Cockpit** | **https://ops.dgl.dev/cockpit** | ops.dgl.dev | Permanent — internal only |
+| LP-A (money angle) | https://launch.easychefpro.com/lp/waitlist-a.html → **easychefpro.com/lp/waitlist-a** post-Jul-1 | launch (temp) | Migrates Jul 1 |
+| LP-B (time angle) | https://launch.easychefpro.com/lp/waitlist-b.html → **easychefpro.com/lp/waitlist-b** post-Jul-1 | launch (temp) | Migrates Jul 1 |
+| Coming Soon | https://launch.easychefpro.com/coming-soon → **easychefpro.com/coming-soon** post-Jul-1 | launch (temp) | Migrates Jul 1 |
+| Alpha Feedback | https://launch.easychefpro.com/alpha-feedback → **easychefpro.com/alpha-feedback** post-Jul-1 | launch (temp) | Migrates Jul 1 |
+| Alpha Questionnaire | https://launch.easychefpro.com/alpha-questionnaire · DL-QST-001 → **easychefpro.com/alpha-questionnaire** post-Jul-1 | launch (temp) | Migrates Jul 1 |
+| Thank You | https://launch.easychefpro.com/thank-you → **easychefpro.com/thank-you** post-Jul-1 | launch (temp) | Migrates Jul 1 |
+| All future LPs | **https://easychefpro.com/lp/[slug]** | easychefpro.com | Build here directly — never on launch subdomain |
 
 ### Analytics & Testing
 | Tool | ID |
