@@ -530,13 +530,15 @@
         <button class="tab"        id="tab-cal"    onclick="switchTab('cal')">Calendar</button>
         <button class="tab"        id="tab-flow"   onclick="switchTab('flow')">Flow</button>
         <button class="tab"        id="tab-ecamps" onclick="switchTab('ecamps')">Emails</button>
-        <button class="tab"        id="tab-lp"     onclick="switchTab('lp')">LP Studio</button>
+        <button class="tab"        id="tab-lp"      onclick="switchTab('lp')">LP Studio</button>
+        <button class="tab"        id="tab-socials" onclick="switchTab('socials')">Socials</button>
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
       <div id="panel-cal"    style="display:none"><div class="loading">Loading calendar<span class="dot-anim"></span></div></div>
       <div id="panel-flow"   style="display:none"><div class="loading">Loading flow<span class="dot-anim"></span></div></div>
       <div id="panel-ecamps" style="display:none"><div class="loading">Loading email campaigns<span class="dot-anim"></span></div></div>
       <div id="panel-lp"     style="display:none"><div class="loading">Loading LP Studio<span class="dot-anim"></span></div></div>
+      <div id="panel-socials" style="display:none"><div class="loading">Loading socials<span class="dot-anim"></span></div></div>
     </div>
   </div>
 
@@ -1218,7 +1220,7 @@
       _saveScroll();
       activeTab=tab;
       _saveTab(tab);
-      ['dash','cal','flow','ecamps','lp'].forEach(function(t){
+      ['dash','cal','flow','ecamps','lp','socials'].forEach(function(t){
         document.getElementById('tab-'+t).className='tab'+(tab===t?' active':'');
         document.getElementById('panel-'+t).style.display=tab===t?'':'none';
       });
@@ -1226,6 +1228,7 @@
       if(tab==='flow') renderFlow();
       if(tab==='lp') loadLPStudio();
       if(tab==='ecamps') loadEmailCampsTab();
+      if(tab==='socials') loadSocialsTab();
       setTimeout(_restoreScroll,50);
     }
 
@@ -1283,6 +1286,156 @@
           :'<div style="overflow-x:auto"><table class="ec-camp-table"><thead><tr><th>Campaign</th><th>Send Date</th><th>ID</th><th>Status</th><th>Template</th><th>DL ID</th><th></th></tr></thead><tbody>'+campRows+'</tbody></table></div>');
       var refreshBtn='<div style="text-align:right;margin-bottom:14px"><button onclick="_ecampsLoaded=false;loadEmailCampsTab()" style="background:none;border:1px solid rgba(0,0,0,0.12);color:#555;padding:5px 12px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer;">Refresh</button></div>';
       panel.innerHTML=refreshBtn+flowSection+campSection;
+    }
+
+    // ── Socials Tab ────────────────────────────────────────────────────────────
+    var _socialsCache=null, _socialsLoaded=false;
+    var _socialsFilter='all';
+
+    var _PLATFORM_META={
+      facebook:  {label:'Facebook',  color:'#1877F2', icon:'f'},
+      instagram: {label:'Instagram', color:'#E1306C', icon:'ig'},
+      tiktok:    {label:'TikTok',    color:'#010101', icon:'tt'},
+      pinterest: {label:'Pinterest', color:'#E60023', icon:'p'},
+      youtube:   {label:'YouTube',   color:'#FF0000', icon:'yt'},
+      x:         {label:'X',         color:'#000000', icon:'x'}
+    };
+
+    function loadSocialsTab(){
+      var panel=document.getElementById('panel-socials');
+      if(_socialsLoaded&&_socialsCache){renderSocialsTab();return;}
+      panel.innerHTML='<div class="loading">Fetching social data<span class="dot-anim"></span></div>';
+      gasCall({action:'get_social_dashboard',campaign_id:_activeCampaign||'EC-2026-001'})
+        .then(function(d){
+          if(!d||!d.ok){panel.innerHTML='<div class="loading">Error loading social data.</div>';return;}
+          _socialsCache=d;_socialsLoaded=true;renderSocialsTab();
+        })
+        .catch(function(){panel.innerHTML='<div class="loading">Connection error.</div>';});
+    }
+
+    function _socialsPost(postId){
+      if(!confirm('Post "'+postId+'" now?'))return;
+      gasCall({action:'social_post_now',post_id:postId})
+        .then(function(r){
+          alert(r.ok?'Posted! '+((r.result&&r.result.post_url)||''):'Error: '+((r.result&&r.result.error)||'unknown'));
+          _socialsLoaded=false;loadSocialsTab();
+        });
+    }
+
+    function _socialsSchedule(postId){
+      var d=prompt('Schedule date (YYYY-MM-DD):');
+      if(!d)return;
+      gasCall({action:'social_schedule_post',post_id:postId,scheduled_date:d})
+        .then(function(r){
+          alert(r.ok?'Scheduled for '+d:'Error: '+(r.result&&r.result.error||'unknown'));
+          _socialsLoaded=false;loadSocialsTab();
+        });
+    }
+
+    function renderSocialsTab(){
+      var panel=document.getElementById('panel-socials');
+      var d=_socialsCache||{connections:{},queue:[],posted:[],errors:[]};
+      var refreshBtn='<div style="text-align:right;margin-bottom:14px"><button onclick="_socialsLoaded=false;loadSocialsTab()" style="background:none;border:1px solid rgba(0,0,0,0.12);color:#555;padding:5px 12px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer;">Refresh</button></div>';
+
+      // Connection status cards
+      var connHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">';
+      Object.keys(_PLATFORM_META).forEach(function(p){
+        var meta=_PLATFORM_META[p];
+        var conn=d.connections&&d.connections[p];
+        var connected=conn&&conn.connected;
+        var missing=conn&&conn.missing_keys&&conn.missing_keys.length?conn.missing_keys.join(', '):'';
+        connHtml+='<div style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:10px 12px">'
+          +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+          +'<div style="width:10px;height:10px;border-radius:50%;background:'+(connected?'#16a34a':'#dc2626')+'"></div>'
+          +'<span style="font-weight:700;font-size:12px;color:'+meta.color+'">'+meta.label+'</span>'
+          +'<span style="margin-left:auto;font-size:10px;font-weight:600;color:'+(connected?'#16a34a':'#dc2626')+'">'+(connected?'CONNECTED':'NOT SET')+'</span>'
+          +'</div>'
+          +(connected?'<div style="font-size:10px;color:#888">Credentials configured</div>'
+            :'<div style="font-size:9px;color:#aaa;word-break:break-all">'+missing+'</div>')
+          +'</div>';
+      });
+      connHtml+='</div>';
+
+      // Platform filter
+      var platforms=['all','facebook','instagram','tiktok','pinterest','youtube','x'];
+      var filterHtml='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">';
+      platforms.forEach(function(p){
+        var active=_socialsFilter===p;
+        var meta=_PLATFORM_META[p]||{label:p.charAt(0).toUpperCase()+p.slice(1),color:'#888'};
+        filterHtml+='<button onclick="_socialsFilter=\''+p+'\';renderSocialsTab()" style="padding:4px 10px;border-radius:20px;border:1px solid '+(active?meta.color:'rgba(0,0,0,0.15)')+';background:'+(active?meta.color:'transparent')+';color:'+(active?'#fff':'#555')+';font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">'+meta.label+'</button>';
+      });
+      filterHtml+='</div>';
+
+      // Post queue table
+      var queue=(d.queue||[]).filter(function(p){return _socialsFilter==='all'||String(p.platform).toLowerCase()===_socialsFilter;});
+      var queueHtml='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin-bottom:8px">Post Queue <span style="font-weight:500;text-transform:none;letter-spacing:0">'+queue.length+' posts</span></div>';
+      if(!queue.length){
+        queueHtml+='<div style="color:#aaa;font-size:13px;padding:12px 0">No queued posts for this filter.</div>';
+      } else {
+        queueHtml+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+          +'<thead><tr style="border-bottom:2px solid #f0ebe4">'
+          +'<th style="text-align:left;padding:6px 8px;color:#888;font-size:10px;text-transform:uppercase">Platform</th>'
+          +'<th style="text-align:left;padding:6px 8px;color:#888;font-size:10px;text-transform:uppercase">Copy</th>'
+          +'<th style="text-align:left;padding:6px 8px;color:#888;font-size:10px;text-transform:uppercase">Image</th>'
+          +'<th style="text-align:left;padding:6px 8px;color:#888;font-size:10px;text-transform:uppercase">Scheduled</th>'
+          +'<th style="text-align:left;padding:6px 8px;color:#888;font-size:10px;text-transform:uppercase">Status</th>'
+          +'<th style="padding:6px 8px"></th>'
+          +'</tr></thead><tbody>';
+        queue.forEach(function(p){
+          var meta=_PLATFORM_META[String(p.platform).toLowerCase()]||{label:p.platform,color:'#888'};
+          var imgHtml=p.image_url&&String(p.image_url).indexOf('http')===0
+            ?'<img src="'+_esc(p.image_url)+'" style="width:40px;height:40px;object-fit:cover;border-radius:4px">'
+            :'<span style="color:#ccc;font-size:10px">none</span>';
+          var dateStr=p.scheduled_date?String(p.scheduled_date).substring(0,10):'—';
+          var sc=String(p.status)==='scheduled'?'#0284c7':String(p.status)==='approved'?'#16a34a':'#888';
+          queueHtml+='<tr style="border-bottom:1px solid #f6efe8">'
+            +'<td style="padding:8px;font-weight:700;color:'+meta.color+';font-size:11px">'+meta.label+'</td>'
+            +'<td style="padding:8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333">'+_esc(String(p.body_copy||'').substring(0,100))+'</td>'
+            +'<td style="padding:8px">'+imgHtml+'</td>'
+            +'<td style="padding:8px;color:#555;font-size:11px">'+dateStr+'</td>'
+            +'<td style="padding:8px"><span style="background:'+sc+'22;color:'+sc+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">'+_esc(p.status||'draft').toUpperCase()+'</span></td>'
+            +'<td style="padding:8px;white-space:nowrap">'
+            +'<button onclick="_socialsPost(\''+_esc(p.id)+'\')" style="background:#FF0000;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;margin-right:4px">Post Now</button>'
+            +'<button onclick="_socialsSchedule(\''+_esc(p.id)+'\')" style="background:none;border:1px solid rgba(0,0,0,0.15);color:#555;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">Schedule</button>'
+            +'</td>'
+            +'</tr>';
+        });
+        queueHtml+='</tbody></table></div>';
+      }
+
+      // Recent posted
+      var posted=(d.posted||[]).filter(function(p){return _socialsFilter==='all'||String(p.platform).toLowerCase()===_socialsFilter;}).slice(0,10);
+      var postedHtml='';
+      if(posted.length){
+        postedHtml='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin:16px 0 8px">Recently Posted</div>'
+          +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+          +'<thead><tr style="border-bottom:2px solid #f0ebe4">'
+          +'<th style="text-align:left;padding:6px 8px;color:#888;font-size:10px;text-transform:uppercase">Platform</th>'
+          +'<th style="text-align:left;padding:6px 8px;color:#888;font-size:10px;text-transform:uppercase">Copy</th>'
+          +'<th style="text-align:left;padding:6px 8px;color:#888;font-size:10px;text-transform:uppercase">Link</th>'
+          +'</tr></thead><tbody>';
+        posted.forEach(function(p){
+          var meta=_PLATFORM_META[String(p.platform).toLowerCase()]||{label:p.platform,color:'#888'};
+          postedHtml+='<tr style="border-bottom:1px solid #f6efe8">'
+            +'<td style="padding:8px;font-weight:700;color:'+meta.color+';font-size:11px">'+meta.label+'</td>'
+            +'<td style="padding:8px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333">'+_esc(String(p.body_copy||'').substring(0,120))+'</td>'
+            +'<td style="padding:8px">'+(p.posted_url&&String(p.posted_url).indexOf('http')===0?'<a href="'+_esc(p.posted_url)+'" target="_blank" style="color:#0284c7;font-size:11px">View</a>':'—')+'</td>'
+            +'</tr>';
+        });
+        postedHtml+='</tbody></table></div>';
+      }
+
+      // Make.com webhook info
+      var webhookHtml='<div style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:12px 14px;margin-top:16px">'
+        +'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#888;font-weight:700;margin-bottom:8px">Make.com Scheduler Webhook</div>'
+        +'<div style="font-size:11px;color:#555;margin-bottom:6px">Point Make.com HTTP module to this URL on your scheduled_date trigger:</div>'
+        +'<code style="display:block;background:#f6efe8;padding:8px;border-radius:6px;font-size:10px;word-break:break-all;color:#333">'+(d.webhook_url||'')+'</code>'
+        +'<div style="font-size:11px;color:#555;margin-top:8px">Payload: <code style="background:#f6efe8;padding:2px 6px;border-radius:4px">{"action":"social_post_now","post_id":"{{post_id}}"}</code></div>'
+        +'</div>';
+
+      panel.innerHTML=refreshBtn
+        +'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#888;font-weight:700;margin-bottom:10px">Platform Connections</div>'
+        +connHtml+filterHtml+queueHtml+postedHtml+webhookHtml;
     }
 
     // ── Apply & render ────────────────────────────────────────────────────────

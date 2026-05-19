@@ -2690,6 +2690,25 @@ function doPost(e) {
     }
     // ── END GOVERNANCE LAYER ─────────────────────────────────────────────────
 
+    // ── SOCIAL SYNC ───────────────────────────────────────────────────────────
+    if(body.action === 'social_post_now') {
+      var _spn = socialPostNow(body.post_id || '');
+      return respond({ ok:_spn.ok, result:_spn, log: Logger.getLog() });
+    }
+    if(body.action === 'social_schedule_post') {
+      var _ssp2 = socialSchedulePost(body.post_id || '', body.scheduled_date || '');
+      return respond({ ok:_ssp2.ok, result:_ssp2, log: Logger.getLog() });
+    }
+    if(body.action === 'social_post_status') {
+      var _sps = _socialReadPost(body.post_id || '');
+      return respond({ ok:!!_sps, post: _sps, log: Logger.getLog() });
+    }
+    if(body.action === 'get_social_dashboard') {
+      var _gsd = getSocialDashboard(body.campaign_id || 'EC-2026-001');
+      return respond(_gsd);
+    }
+    // ── END SOCIAL SYNC ───────────────────────────────────────────────────────
+
     const tasks = Array.isArray(body) ? body : body.tasks;
     if(!Array.isArray(tasks)) throw new Error('Expected task array.');
     setTasks(tasks);
