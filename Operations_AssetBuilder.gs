@@ -641,7 +641,30 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
       sG = '=== FABRICATION PROHIBITION — LANDING PAGE ===\nNEVER invent testimonials, names, user stories, or social proof numbers.\nNEVER use statistics not in the approved claims list.\nApproved figures only: $1,336/year · 69.5% · 30 min · 9 patent-pending technologies · 800,000 products · 10,000 recipe pages · registered dietitians · 10,000 household profiles · built by first responders\n\n'; break;
     case 'email_full':
     case 'email':
-      sG = '=== EMAIL BODY — 7-STEP STRUCTURE ===\nstep1_hook: First line — stops the read, names the moment (1 sentence)\nstep2_problem: Names her exact pain (1-2 sentences)\nstep3_agitate: Makes the cost real — use approved figures (1-2 sentences)\nstep4_solve: Introduces easyChef Pro as the answer (1 sentence)\nstep5_value: Specific outcomes — peace, control, savings (1-2 sentences)\nstep6_proof: One validated stat, exact wording from approved list (1 sentence)\nstep7_cta_text: Outcome-framed CTA line (1 sentence)\nstep7_cta_button: Button label under 6 words\nstep7_ps: P.S. line — urgency or exclusivity angle (1 sentence)\nSEQ-1-E1 RULE: body_cta and step7_cta_button must be empty strings for the welcome email.\n\n'; break;
+      sG = '=== EMAIL_LP_RELATIONSHIP_001 — LOCKED RULE ===\n' +
+           'This email is a SINGLE SCENE inside the master story.\n' +
+           'Do NOT retell the LP. Do NOT repeat the full argument. Do NOT include feature lists, flow bars, or proof stats.\n' +
+           'Isolate ONE observed moment from the ICP\'s life that produces the SO WHAT realization.\n' +
+           'The reader should feel: "This brand understands my life." Not: "I already read this."\n' +
+           'LP = macro narrative (full movie). Email = micro emotional proof (single scene).\n' +
+           'The emotional spine is shared. The scene is always different.\n' +
+           'LP says the complete argument. Email says: "here\'s another moment where you already felt this."\n\n' +
+           'SCENE STRUCTURE (short — 4-5 paragraphs total):\n' +
+           '  P1: Open in the middle of the moment. Specific. Sensory. Name the time, the object, the feeling.\n' +
+           '  P2: The recognition — this is not a one-time thing. The system was always disconnected.\n' +
+           '  P3: One sentence only — easyChef Pro closes that gap. Do not explain how. Do not list features.\n' +
+           '  P4: CTA line — outcome-framed, low friction.\n\n' +
+           'GOOD SCENE EXAMPLES FOR SEQ-1:\n' +
+           '  E1: Groceries Sunday → DoorDash Wednesday (the gap between intention and what actually happened)\n' +
+           '  E2: The cilantro at the back of the fridge (the specific waste moment)\n' +
+           '  E3: Same three meals every week (the rotation fatigue and giving up)\n' +
+           'Each is a different door into the same realization: "Nothing connected. easyChef Pro closes the gap."\n\n' +
+           '=== EMAIL BODY — FIELDS REQUIRED ===\n' +
+           'subject: Subject line — names the scene, not the category\n' +
+           'preview: 1 sentence — continues the scene from subject\n' +
+           'body: Plain text, 4-5 short paragraphs, scene-first, one solve line, one CTA paragraph\n' +
+           'cta_button: Button label under 6 words\n' +
+           'ps: P.S. — urgency or exclusivity, 1 sentence\n\n'; break;
     case 'seo':
       sG = '=== SEO RULES ===\nmeta_title: 50–60 chars exactly. Format: "[Specific Benefit] | easyChef Pro".\nmeta_description: 145–155 chars exactly. Must include one approved stat. Ends with a soft CTA.\nog_title: Under 60 chars.\nog_description: Under 200 chars.\nfocus_keyword: 2–4 word phrase.\nsecondary_keywords: Array of exactly 4 specific phrases.\n\n'; break;
     default: sG = '';
