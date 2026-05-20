@@ -145,22 +145,40 @@ var _STAGE_EMOTIONS = {
   cta:     'Pure peace and satisfaction. The weight is gone. This is the feeling she is buying.'
 };
 
-// ── Master narrative spine — injected into every system prompt ─────────────────
+// ── Master narrative spine — LOCKED. Injected into every system prompt. ──────
 var _MASTER_STORY =
   '=== MASTER STORY — READ THIS FIRST. EVERY WORD YOU WRITE CONNECTS BACK TO THIS. ===\n' +
-  '"Your kitchen is broken. Not because of you. Because no tool ever closed the loop.\n' +
-  'easyChef Pro closes the loop. Your kitchen. In command."\n' +
-  'The ICP\'s kitchen is broken — not her fault — and easyChef Pro is the only tool that closes the full loop.\n' +
+  'Category position: "The app that evolves with your life."\n' +
+  'Master story lines (use exact wording):\n' +
+  '  "The app that evolves with your life."\n' +
+  '  "The problem was never you. The system was disconnected."\n' +
+  '  "Your life changes. Your kitchen should change with it."\n' +
+  'Critical positioning: "Most food apps assume the same person forever.\n' +
+  'easyChef Pro is the system your kitchen was always missing."\n' +
   'This is the narrative spine. Every headline, every hook, every CTA must connect back to it.\n\n';
 
-// ── Category positioning — how to frame easyChef Pro vs competitors ───────────
+// ── Category positioning — LOCKED ────────────────────────────────────────────
 var _CATEGORY_POSITIONING =
   '=== CATEGORY POSITIONING — HOW TO FRAME easyChef Pro ===\n' +
-  '"easyChef Pro is the only food app you need. Not a feature — a category claim.\n' +
-  'Every other app solves one part: the recipe, the grocery list, the budget tracker.\n' +
-  'easyChef Pro closes the full loop: TRACK what you have → PLAN the week → SHOP efficiently → COOK confidently → ZERO waste.\n' +
+  'Category claim: "The app that evolves with your life."\n' +
+  'Most food apps assume the same person forever. easyChef Pro does not.\n' +
+  'easyChef Pro is the system your kitchen was always missing.\n' +
   'Never position against a specific competitor. Position against the broken status quo.\n' +
-  'The enemy is not another app. The enemy is the 6:30 PM panic. The expired spinach. The $1,336 thrown away."\n\n';
+  'The enemy is not another app. The enemy is the 6:30 PM panic. The expired spinach. The $1,336 thrown away.\n\n';
+
+// ── SO WHAT Architecture — LOCKED emotional sequence ─────────────────────────
+var _SO_WHAT_ARCH =
+  '=== SO WHAT ARCHITECTURE — LOCKED EMOTIONAL SEQUENCE ===\n' +
+  'Every campaign builds toward exactly two moments:\n' +
+  '  1. "Oh. THAT\'S why this keeps happening."\n' +
+  '  2. "easyChef Pro is the first thing actually built to solve that."\n\n' +
+  'Emotional flow: Recognition → Realization → Emotional consequence → So what → easyChef Pro closes the gap → Life feels lighter\n\n' +
+  'Rules (non-negotiable):\n' +
+  '  - The observation is ICP-specific. The door changes per theme.\n' +
+  '  - The realization is always the same: disconnected systems.\n' +
+  '  - The resolution is always the same: easyChef Pro closes those gaps.\n' +
+  '  - easyChef Pro = emotional resolution layer. Not the app. Not the feature set. Not the meal planner.\n' +
+  '  - The theme changes the door. The story is always the same.\n\n';
 
 // ── Claim quality rules — every claim must pass this standard ─────────────────
 var _CLAIM_QUALITY_COPY =
@@ -635,6 +653,7 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
   var _phaseGuard      = gov.phaseGuard     || '';
   var _compliance      = gov.compliance     || '';
   var _masterStory     = gov.masterStory    || _MASTER_STORY;
+  var _soWhatArch      = gov.soWhatArch     || _SO_WHAT_ARCH;
   var _categoryPos     = gov.categoryPos    || _CATEGORY_POSITIONING;
   var _fiveApp         = gov.fiveApp        || _5_APP_REPLACEMENT;
   var _sevenStep       = gov.sevenStep      || _7_STEP_FRAMEWORK;
@@ -644,7 +663,8 @@ function _buildMasterPrompt(type, context, icp, theme, brandPlug, urgency, excl,
   var _lpSpine         = gov.lpSpine        || '';
   var _lpClaimScoping  = gov.lpClaimScoping || '';
   var _lifeStage       = gov.lifeStage      || '';
-  return role + '\n\n' + _masterStory + _categoryPos + _brandPosition + _fiveApp + _sevenStep + _claimQuality + _voiceRules + _precisionRules + sD + _arch + sE + sF + sG + _phaseGuard + _compliance + _lifeStage + _lpDoctrine + _lpSpine + _lpClaimScoping;
+  var _brandDoctrine   = gov.brandDoctrine  || '';
+  return role + '\n\n' + _masterStory + _soWhatArch + _categoryPos + _brandPosition + _fiveApp + _sevenStep + _claimQuality + _voiceRules + _brandDoctrine + _precisionRules + sD + _arch + sE + sF + sG + _phaseGuard + _compliance + _lifeStage + _lpDoctrine + _lpSpine + _lpClaimScoping;
 }
 
 // ── Governance compiler functions ─────────────────────────────────────────────
@@ -689,6 +709,82 @@ function _compileVoiceRulesBlock() {
   } catch(e) {
     Logger.log('[_compileVoiceRulesBlock] fallback: ' + e.message);
     return _BRAND_VOICE_RULES;
+  }
+}
+
+// Reads ALL active BrandDoctrine rows except those already compiled by dedicated
+// functions (VOICE_*_001, CLAIM_QUALITY_001, PHONE_VISIBILITY_001).
+// Returns a prompt block with hard rules first, guidelines second.
+function _compileBrandDoctrineBlock() {
+  try {
+    var sheet = _getCCSheet(_CC_TAB.BRAND_DOCTRINE);
+    var last  = sheet.getLastRow();
+    if (last < 2) return '';
+    var rows  = sheet.getRange(2, 1, last - 1, 5).getValues();
+    var HANDLED = {
+      'VOICE_FORBIDDEN_001':    true,
+      'VOICE_REQUIRED_001':     true,
+      'CLAIM_QUALITY_001':      true,
+      'PHONE_VISIBILITY_001':   true,
+      'MASTER_STORY_001':       true,
+      'CATEGORY_POSITION_001':  true,
+      'SO_WHAT_ARCH_001':       true
+    };
+    var hardRules = [];
+    var softRules = [];
+    for (var i = 0; i < rows.length; i++) {
+      var active = String(rows[i][3]).toLowerCase();
+      if (active !== 'true' && active !== '1' && active !== 'yes') continue;
+      var ruleId = String(rows[i][0]);
+      if (HANDLED[ruleId]) continue;
+      var enforcement = String(rows[i][2]).toLowerCase();
+      var ruleType    = String(rows[i][1]);
+      var cond = {};
+      try { cond = JSON.parse(String(rows[i][4] || '{}')); } catch(e) {}
+      var block = _formatDoctrineRule(ruleId, ruleType, enforcement, cond);
+      if (!block) continue;
+      if (enforcement === 'hard') hardRules.push(block);
+      else softRules.push(block);
+    }
+    if (!hardRules.length && !softRules.length) return '';
+    var out = '=== BRAND DOCTRINE — GOVERNANCE RULES (NON-NEGOTIABLE) ===\n';
+    hardRules.forEach(function(b) { out += b; });
+    softRules.forEach(function(b) { out += b; });
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileBrandDoctrineBlock] error: ' + e.message);
+    return '';
+  }
+}
+
+// Formats a single BrandDoctrine rule into a readable prompt block string.
+function _formatDoctrineRule(ruleId, ruleType, enforcement, c) {
+  try {
+    var prefix = enforcement === 'hard' ? '[HARD RULE] ' : '[GUIDELINE] ';
+    var out = prefix + ruleId + ' (' + ruleType + '):\n';
+    if (c.rule)      out += '  ' + c.rule + '\n';
+    if (c.undertone) out += '  Master undertone: "' + c.undertone + '"\n';
+    if (c.usage)     out += '  Usage: ' + c.usage + '\n';
+    if (c.scope)     out += '  Scope: ' + c.scope + '\n';
+    if (c.icp_scope) out += '  ICP scope: ' + c.icp_scope + '\n';
+    // Locked hero lines
+    if (Array.isArray(c.hero_lines) && c.hero_lines.length) {
+      out += '  LOCKED LINES — use exact wording, do not paraphrase:\n';
+      c.hero_lines.forEach(function(l) { out += '    "' + l + '"\n'; });
+    }
+    // Placement rules — nested under c.placements or at top level
+    var pl = (c.placements && typeof c.placements === 'object') ? c.placements : c;
+    if (Array.isArray(pl.forbidden_contexts) && pl.forbidden_contexts.length) {
+      out += '  FORBIDDEN contexts: ' + pl.forbidden_contexts.join(' · ') + '\n';
+    }
+    if (Array.isArray(pl.approved_contexts) && pl.approved_contexts.length) {
+      out += '  APPROVED contexts:  ' + pl.approved_contexts.join(' · ') + '\n';
+    }
+    if (c.rationale) out += '  Rationale: ' + String(c.rationale).substring(0, 200) + '\n';
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_formatDoctrineRule] error for ' + ruleId + ': ' + e.message);
+    return '';
   }
 }
 
@@ -1378,13 +1474,17 @@ function generateLoopCopy(campaignId, postId, options) {
 
 function _compileMasterStoryBlock() {
   try {
-    var strat = getCampaignStrategy('MASTER_STORY_001');
-    if (!strat || !strat.value) return _MASTER_STORY;
-    var v = strat.value;
+    var rule = getBrandDoctrine('MASTER_STORY_001');
+    if (!rule || !rule.conditions) return _MASTER_STORY;
+    var c = rule.conditions;
     var out = '=== MASTER STORY — READ THIS FIRST. EVERY WORD YOU WRITE CONNECTS BACK TO THIS. ===\n';
-    if (v.story)           out += '"' + v.story + '"\n';
-    if (v.narrative_spine) out += v.narrative_spine + '\n';
-    if (v.instruction)     out += v.instruction + '\n';
+    if (c.category_position) out += 'Category position: "' + c.category_position + '"\n';
+    if (Array.isArray(c.story_lines) && c.story_lines.length) {
+      out += 'Master story lines (use exact wording):\n';
+      c.story_lines.forEach(function(l) { out += '  "' + l + '"\n'; });
+    }
+    if (c.critical_positioning) out += 'Critical positioning: "' + c.critical_positioning + '"\n';
+    if (c.instruction) out += c.instruction + '\n';
     return out + '\n';
   } catch(e) {
     Logger.log('[_compileMasterStoryBlock] fallback: ' + e.message);
@@ -1394,18 +1494,40 @@ function _compileMasterStoryBlock() {
 
 function _compileCategoryPositionBlock() {
   try {
-    var strat = getCampaignStrategy('CATEGORY_POSITION_001');
-    if (!strat || !strat.value) return _CATEGORY_POSITIONING;
-    var v = strat.value;
+    var rule = getBrandDoctrine('CATEGORY_POSITION_001');
+    if (!rule || !rule.conditions) return _CATEGORY_POSITIONING;
+    var c = rule.conditions;
     var out = '=== CATEGORY POSITIONING — HOW TO FRAME easyChef Pro ===\n';
-    if (v.headline)   out += '"' + v.headline + '\n';
-    if (v.contrast)   out += v.contrast + '\n';
-    if (v.enemy)      out += v.enemy + '\n';
-    if (v.never_rule) out += 'Never: ' + v.never_rule + '\n';
+    if (c.category_claim)  out += 'Category claim: "' + c.category_claim + '"\n';
+    if (c.contrast)        out += c.contrast + '\n';
+    if (c.positioning)     out += c.positioning + '\n';
+    if (c.enemy)           out += c.enemy + '\n';
+    if (c.never_rule)      out += 'Never: ' + c.never_rule + '\n';
     return out + '\n';
   } catch(e) {
     Logger.log('[_compileCategoryPositionBlock] fallback: ' + e.message);
     return _CATEGORY_POSITIONING;
+  }
+}
+
+function _compileSoWhatArchBlock() {
+  try {
+    var rule = getBrandDoctrine('SO_WHAT_ARCH_001');
+    if (!rule || !rule.conditions) return _SO_WHAT_ARCH;
+    var c = rule.conditions;
+    var out = '=== SO WHAT ARCHITECTURE — LOCKED EMOTIONAL SEQUENCE ===\n';
+    out += 'Every campaign builds toward exactly two moments:\n';
+    if (c.moment_1) out += '  1. "' + c.moment_1 + '"\n';
+    if (c.moment_2) out += '  2. "' + c.moment_2 + '"\n';
+    if (c.emotional_flow) out += '\nEmotional flow: ' + c.emotional_flow + '\n';
+    if (Array.isArray(c.rules) && c.rules.length) {
+      out += '\nRules (non-negotiable):\n';
+      c.rules.forEach(function(r) { out += '  - ' + r + '\n'; });
+    }
+    return out + '\n';
+  } catch(e) {
+    Logger.log('[_compileSoWhatArchBlock] fallback: ' + e.message);
+    return _SO_WHAT_ARCH;
   }
 }
 
@@ -1624,6 +1746,7 @@ function getMasterSystemPrompt(type, context) {
     phaseGuard:      _compilePhaseGuardBlock(),
     compliance:      _compileComplianceBlock(context.themeData || null),
     masterStory:     _compileMasterStoryBlock(),
+    soWhatArch:      _compileSoWhatArchBlock(),
     categoryPos:     _compileCategoryPositionBlock(),
     fiveApp:         _compileFiveAppBlock(),
     sevenStep:       _compileSevenStepBlock(),
@@ -1633,7 +1756,8 @@ function getMasterSystemPrompt(type, context) {
     lpDoctrine:      _lpDoctrineBlock    || '',
     lpSpine:         _lpSpineBlock       || '',
     lpClaimScoping:  _lpClaimScopingBlock || '',
-    lifeStage:       _lifeStageBlock      || ''
+    lifeStage:       _lifeStageBlock      || '',
+    brandDoctrine:   _compileBrandDoctrineBlock()
   };
 
   // Design brief types — art direction only, no copy machinery needed

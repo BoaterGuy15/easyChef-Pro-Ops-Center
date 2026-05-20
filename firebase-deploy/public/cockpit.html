@@ -274,6 +274,8 @@
     .move-detail { font-family:var(--font-body); font-size:14px; color:#222; line-height:1.7; }
     .move-detail strong { color:#000; }
     .move-asset-id { font-family:var(--font-body); font-size:11px; font-weight:600; color:#6B5066; margin-top:6px; letter-spacing:0.02em; }
+    .move-asset-note { font-family:var(--font-body); font-size:11px; color:#16a34a; margin-top:8px; padding:5px 8px; background:rgba(22,163,74,0.08); border-radius:6px; }
+    .move-asset-note.warn { color:#d97706; background:rgba(217,119,6,0.08); }
     .move-warn { font-family:var(--font-body); font-size:11px; color:#888; margin-top:12px; }
     .move-foot { padding:12px 20px 18px; display:flex; gap:10px; justify-content:flex-end; }
     .move-cancel { background:#F6EFE8; border:none; color:#444; padding:9px 18px; border-radius:8px; font-family:var(--font-body); font-size:13px; font-weight:500; cursor:pointer; transition:background 0.12s; }
@@ -529,9 +531,9 @@
       <div class="tab-bar">
         <button class="tab active" id="tab-dash"   onclick="switchTab('dash')">Dashboard</button>
         <button class="tab"        id="tab-cal"    onclick="switchTab('cal')">Calendar</button>
+        <button class="tab"        id="tab-lp"     onclick="switchTab('lp')">LP Studio</button>
         <button class="tab"        id="tab-flow"   onclick="switchTab('flow')">Flow</button>
         <button class="tab"        id="tab-ecamps" onclick="switchTab('ecamps')">Emails</button>
-        <button class="tab"        id="tab-lp"      onclick="switchTab('lp')">LP Studio</button>
         <button class="tab"        id="tab-socials" onclick="switchTab('socials')">Socials</button>
       </div>
       <div id="panel-dash"><div class="loading">Loading<span class="dot-anim"></span></div></div>
@@ -1236,23 +1238,64 @@
     // ── Email Campaigns Tab ────────────────────────────────────────────────────
     function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     var _ecampsCache=null, _ecampsLoaded=false;
+    var _klaviyoConn=null;
+
     function loadEmailCampsTab(){
       var panel=document.getElementById('panel-ecamps');
       if(_ecampsLoaded && _ecampsCache){ renderEmailCampsTab(); return; }
       panel.innerHTML='<div class="loading">Fetching live data from Klaviyo<span class="dot-anim"></span></div>';
-      gasCall({action:'get_klaviyo_campaigns_board',campaign_id:_activeCampaign||'EC-2026-001'})
-        .then(function(result){
-          if(!result||!result.ok){
-            panel.innerHTML='<div class="loading">Error: '+_esc((result&&result.error)||'unknown')+'</div>';
-            return;
-          }
-          _ecampsCache=result; _ecampsLoaded=true; renderEmailCampsTab();
-        })
-        .catch(function(){ panel.innerHTML='<div class="loading">Connection error.</div>'; });
+      Promise.all([
+        gasCall({action:'get_klaviyo_campaigns_board',campaign_id:_activeCampaign||'EC-2026-001'}),
+        gasCall({action:'klaviyo_connection_status'})
+      ]).then(function(results){
+        var result=results[0]; var conn=results[1];
+        if(!result||!result.ok){
+          panel.innerHTML='<div class="loading">Error: '+_esc((result&&result.error)||'unknown')+'</div>';
+          return;
+        }
+        _ecampsCache=result; _ecampsLoaded=true; _klaviyoConn=conn;
+        renderEmailCampsTab();
+      }).catch(function(){ panel.innerHTML='<div class="loading">Connection error.</div>'; });
+    }
+
+    function _klaviyoSaveKey(){
+      var k=document.getElementById('klav-key-input').value.trim();
+      if(!k){alert('Paste your Klaviyo private API key first.');return;}
+      var btn=document.getElementById('klav-key-btn');
+      btn.textContent='Saving…'; btn.disabled=true;
+      gasCall({action:'klaviyo_set_api_key',key:k}).then(function(r){
+        _klaviyoConn=r; _ecampsLoaded=false;
+        loadEmailCampsTab();
+      });
     }
     function renderEmailCampsTab(){
       var panel=document.getElementById('panel-ecamps');
       var data=_ecampsCache||{flows:[],campaigns:[]};
+
+      // ── Klaviyo connection card ─────────────────────────────────────────────
+      var conn=_klaviyoConn||{};
+      var isConn=conn.connected===true;
+      var connCard='<div style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:12px 16px;margin-bottom:16px">'
+        +'<div style="width:12px;height:12px;border-radius:50%;background:'+(isConn?'#16a34a':'#dc2626')+';flex-shrink:0"></div>'
+        +'<div style="flex:1">'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<span style="font-weight:700;font-size:13px;color:#6B2D8B">Klaviyo</span>'
+        +'<span style="font-size:10px;font-weight:700;color:'+(isConn?'#16a34a':'#dc2626')+'">'+(isConn?'CONNECTED':'NOT CONNECTED')+'</span>'
+        +(isConn&&conn.account_name?'<span style="font-size:10px;color:#888">'+_esc(conn.account_name)+'</span>':'')
+        +'</div>'
+        +(isConn?'<div style="font-size:10px;color:#888;margin-top:2px">Private API key active · revision 2025-04-15</div>'
+          :'<div style="font-size:10px;color:#aaa;margin-top:2px">'+(conn.error?_esc(conn.error):'API key not set in Script Properties')+'</div>')
+        +'</div>'
+        +(isConn
+          ?'<button onclick="_ecampsLoaded=false;_klaviyoConn=null;loadEmailCampsTab()" style="background:none;border:1px solid rgba(0,0,0,0.12);color:#555;padding:5px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Refresh</button>'
+          :'<div style="display:flex;gap:6px;align-items:center">'
+            +'<input id="klav-key-input" type="password" placeholder="pk_live_…" style="width:200px;background:#F6EFE8;border:1px solid rgba(0,0,0,0.10);border-radius:6px;color:#111;font-family:inherit;font-size:11px;padding:5px 10px;height:30px">'
+            +'<button id="klav-key-btn" onclick="_klaviyoSaveKey()" style="background:#6B2D8B;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;height:30px">Save Key</button>'
+            +'</div>')
+        +'</div>';
+
+      var refreshBtn='<div style="text-align:right;margin-bottom:14px"><button onclick="_ecampsLoaded=false;loadEmailCampsTab()" style="background:none;border:1px solid rgba(0,0,0,0.12);color:#555;padding:5px 12px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer;">Refresh</button></div>';
+
       var flowRows=(data.flows||[]).map(function(f){
         var sc=f.status==='live'?'ec-status-live':f.status==='unknown'?'ec-status-manual':'ec-status-draft';
         var kurl=f.id?'https://www.klaviyo.com/flow/'+f.id+'/edit':'';
@@ -1286,8 +1329,7 @@
       var campSection='<div class="ec-section-title" style="margin-top:8px">Scheduled Campaigns <span>'+camps.length+' campaigns · live from Klaviyo API</span></div>'
         +(camps.length===0?'<div style="color:#888;font-size:13px;padding:12px 0">No EC-2026-001 campaigns found in Klaviyo.</div>'
           :'<div style="overflow-x:auto"><table class="ec-camp-table"><thead><tr><th>Campaign</th><th>Send Date</th><th>ID</th><th>Status</th><th>Template</th><th>DL ID</th><th></th></tr></thead><tbody>'+campRows+'</tbody></table></div>');
-      var refreshBtn='<div style="text-align:right;margin-bottom:14px"><button onclick="_ecampsLoaded=false;loadEmailCampsTab()" style="background:none;border:1px solid rgba(0,0,0,0.12);color:#555;padding:5px 12px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer;">Refresh</button></div>';
-      panel.innerHTML=refreshBtn+flowSection+campSection;
+      panel.innerHTML=connCard+refreshBtn+flowSection+campSection;
     }
 
     // ── Socials Tab ────────────────────────────────────────────────────────────
@@ -2098,7 +2140,8 @@
     var CHIP_COLOR={
       'Email':'#FF0000','Facebook':'#1877F2','Instagram':'#E1306C',
       'Nextdoor':'#00B243','Pinterest':'#E60023','TikTok':'#000000',
-      'X':'#000000','YouTube':'#FF0000'
+      'X':'#000000','YouTube':'#FF0000',
+      'LP':'#16a34a','Questionnaire':'#d97706','Event':'#d97706'
     };
     var CHIP_ICON={
       'Email':'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="white" stroke-width="1.4" fill="none"/><path d="M1.5 5.5l6.5 4.5 6.5-4.5" stroke="white" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>',
@@ -2330,6 +2373,7 @@
         if(!d||isNaN(d.getTime())) return;
         if(!weekMinDate[wk]||d<weekMinDate[wk]) weekMinDate[wk]=d;
       });
+      _flowWeekMinDate=weekMinDate;
       var WEEKS=Object.keys(weekMinDate).map(Number).sort(function(a,b){return a-b;});
       if(!WEEKS.length){
         pf.innerHTML='<div class="flow-wrap"><p style="padding:24px;color:#999;">No posts with week numbers found.</p></div>'; return;
@@ -2409,18 +2453,67 @@
       });
       ph+='</div>';
 
-      // ── Subscriber journey arc ──────────────────────────────────────────────
-      var arc='<div style="padding:6px 0 2px '+LW+'px;overflow:visible;">';
-      arc+='<div style="position:relative;height:48px;">';
-      arc+='<div style="position:absolute;top:19px;left:3%;right:3%;border-top:1.5px dashed rgba(255,0,0,0.22);pointer-events:none;"></div>';
-      arc+='<div style="display:flex;justify-content:space-around;align-items:flex-start;height:100%;padding:0 2%;">';
-      FLOW_JOURNEY.forEach(function(lbl){
-        arc+='<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">'+
-          '<div style="width:7px;height:7px;border-radius:50%;background:#FF0000;opacity:0.45;margin-top:15px;position:relative;z-index:1;flex-shrink:0;"></div>'+
-          '<span style="font-family:var(--font-body);font-size:8px;color:#6B5066;font-weight:500;white-space:nowrap;line-height:1;">'+lbl+'</span>'+
-        '</div>';
+      // ── Subscriber journey arc — dynamic, aligned to actual week columns ──────
+      // Map each week to its dominant emotional stage from real post data
+      var _wkEmo={};
+      WEEKS.forEach(function(wk){
+        var cnts={};
+        FLOW_ROWS_DEF.forEach(function(row){
+          (matrix[row.id][wk]||[]).forEach(function(p){
+            var e=(p.emotional_stage||p.funnel_stage||'').toLowerCase().replace(/[^a-z]/g,'');
+            if(e) cnts[e]=(cnts[e]||0)+1;
+          });
+        });
+        var mx=0,dom='';
+        Object.keys(cnts).forEach(function(e){if(cnts[e]>mx){mx=cnts[e];dom=e;}});
+        _wkEmo[wk]=dom;
       });
-      arc+='</div></div></div>';
+      // Map emotional stage → journey label
+      var _E2J={hook:'Unaware',problem:'Recognised',agitate:'Activated',solve:'Curious',value:'Relieved',proof:'Trusting',cta:'Belonging',lifecycle:'Belonging'};
+      // Find first week column where each journey label appears
+      var _jFirstWi={}; // journeyLabel → WEEKS index
+      WEEKS.forEach(function(wk,wi){
+        var jl=_E2J[_wkEmo[wk]]||'';
+        if(jl&&_jFirstWi[jl]===undefined) _jFirstWi[jl]=wi;
+      });
+      var _arcHasData=Object.keys(_jFirstWi).length>=3;
+      var arc='';
+      if(_arcHasData){
+        // Dynamic arc — grid-aligned to actual week columns
+        arc='<div style="display:grid;grid-template-columns:'+gc+';padding:4px 0 2px;">';
+        arc+='<div></div>';
+        // Dashed line spans columns 2…N+1
+        var _arcLineStyle='position:absolute;top:11px;left:0;right:0;border-top:1.5px dashed rgba(255,0,0,0.20);pointer-events:none;z-index:0;';
+        WEEKS.forEach(function(wk,wi){
+          var jl=_E2J[_wkEmo[wk]]||'';
+          var isDot=jl&&_jFirstWi[jl]===wi;
+          var isFirst=wi===0,isLast=wi===WEEKS.length-1;
+          var lineLeft=isFirst?'50%':'0',lineRight=isLast?'50%':'0';
+          if(isDot){
+            arc+='<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;position:relative;z-index:1;">'+
+              (isFirst?'':'<div style="position:absolute;top:11px;left:0;right:50%;border-top:1.5px dashed rgba(255,0,0,0.20);z-index:0;"></div>')+
+              (!isLast?'<div style="position:absolute;top:11px;left:50%;right:0;border-top:1.5px dashed rgba(255,0,0,0.20);z-index:0;"></div>':'')+
+              '<div style="width:8px;height:8px;border-radius:50%;background:#FF0000;opacity:0.65;flex-shrink:0;position:relative;z-index:2;box-shadow:0 0 0 3px rgba(255,0,0,0.12);"></div>'+
+              '<span style="font-family:var(--font-body);font-size:8px;color:#6B5066;font-weight:600;white-space:nowrap;line-height:1.2;text-align:center;position:relative;z-index:2;">'+jl+'</span>'+
+            '</div>';
+          } else {
+            arc+='<div style="position:relative;">'+(wi>0&&wi<WEEKS.length?'<div style="position:absolute;top:11px;left:0;right:0;border-top:1.5px dashed rgba(255,0,0,0.15);z-index:0;"></div>':'')+'</div>';
+          }
+        });
+        arc+='</div>';
+      } else {
+        // Fallback: static evenly-distributed arc
+        arc='<div style="padding:6px 0 2px '+LW+'px;overflow:visible;"><div style="position:relative;height:48px;">';
+        arc+='<div style="position:absolute;top:19px;left:3%;right:3%;border-top:1.5px dashed rgba(255,0,0,0.22);pointer-events:none;"></div>';
+        arc+='<div style="display:flex;justify-content:space-around;align-items:flex-start;height:100%;padding:0 2%;">';
+        FLOW_JOURNEY.forEach(function(lbl){
+          arc+='<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">'+
+            '<div style="width:7px;height:7px;border-radius:50%;background:#FF0000;opacity:0.45;margin-top:15px;flex-shrink:0;"></div>'+
+            '<span style="font-family:var(--font-body);font-size:8px;color:#6B5066;font-weight:500;white-space:nowrap;line-height:1;">'+lbl+'</span>'+
+          '</div>';
+        });
+        arc+='</div></div></div>';
+      }
 
       // ── Column headers ──────────────────────────────────────────────────────
       var ch='<div style="display:grid;grid-template-columns:'+gc+';background:#FAFAF8;border-top:1px solid rgba(0,0,0,0.06);border-bottom:2px solid rgba(0,0,0,0.07);">';
@@ -2463,15 +2556,21 @@
 
           var clickAttr='';
           var ctxAttr='';
+          var dragAttr='';
           if(posts.length===1){
             var sid=posts[0].asset_id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+            var sdate=(posts[0].date||'').replace(/'/g,"\\'");
+            var scalid=(posts[0].calendar_id||'').replace(/'/g,"\\'");
+            var splat=(posts[0].platform||'').replace(/'/g,"\\'");
             clickAttr='onclick="openPostModal(\''+sid+'\')"';
             ctxAttr='oncontextmenu="event.preventDefault();event.stopPropagation();openChipCtx(event,\''+sid+'\')"';
+            dragAttr='draggable="true" ondragstart="flowCellDragStart(event,\''+sid+'\','+wk+',\''+sdate+'\',\''+scalid+'\',\''+splat+'\')" ondragend="flowCellDragEnd(event)"';
           } else if(posts.length>1){
             clickAttr='onclick="openFlowCell(\''+row.id+'\','+wk+')"';
             ctxAttr='oncontextmenu="event.preventDefault();event.stopPropagation();openFlowCell(\''+row.id+'\','+wk+')"';
           }
           var hoverAttr=posts.length?' onmouseover="this.style.background=\'rgba(0,0,0,0.04)\'" onmouseout="this.style.background=\''+phaseBg+'\'"':'';
+          var dropAttr='ondragover="flowColDragOver(event)" ondragleave="flowColDragLeave(event)" ondrop="flowColDrop(event,'+wk+')"';
 
           var content='';
           if(posts.length){
@@ -2484,7 +2583,7 @@
             content='<div style="width:12px;height:12px;border-radius:50%;background:rgba(0,0,0,0.05);"></div>';
           }
 
-          rhtml+='<div style="padding:6px;min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:'+phaseBg+';'+bl+cursorSt+'transition:background 0.12s;" '+clickAttr+' '+ctxAttr+hoverAttr+'>'+content+'</div>';
+          rhtml+='<div style="padding:6px;min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:'+phaseBg+';'+bl+cursorSt+'transition:background 0.12s;" '+dragAttr+' '+clickAttr+' '+ctxAttr+' '+hoverAttr+' '+dropAttr+'>'+content+'</div>';
         });
         rhtml+='</div>';
       });
@@ -2689,7 +2788,7 @@
     }
 
     // ── Drag-and-drop asset move ──────────────────────────────────────────
-    var _drag=null, _pendingMove=null;
+    var _drag=null, _pendingMove=null, _flowWeekMinDate={};
 
     function chipDragStart(e){
       var el=e.currentTarget;
@@ -2699,6 +2798,38 @@
       setTimeout(function(){el.classList.add('is-dragging');},0);
     }
     function chipDragEnd(e){e.currentTarget.classList.remove('is-dragging');}
+
+    function flowCellDragStart(e,assetId,fromWeek,fromDate,calId,platform){
+      _drag={assetId:assetId,fromDate:fromDate,fromWeek:fromWeek,calendarId:calId,platform:platform,fromFlow:true};
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',assetId);
+      setTimeout(function(){e.currentTarget.style.opacity='0.45';},0);
+    }
+    function flowCellDragEnd(e){e.currentTarget.style.opacity='';}
+    function flowColDragOver(e){
+      if(!_drag||!_drag.fromFlow) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect='move';
+      e.currentTarget.style.boxShadow='inset 0 0 0 2px rgba(255,0,0,0.4)';
+    }
+    function flowColDragLeave(e){
+      if(!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.style.boxShadow='';
+    }
+    function flowColDrop(e,toWeek){
+      e.preventDefault();
+      e.currentTarget.style.boxShadow='';
+      if(!_drag||!_drag.fromFlow||_drag.fromWeek===toWeek){_drag=null;return;}
+      var fromWkStart=_flowWeekMinDate[_drag.fromWeek];
+      var toWkStart=_flowWeekMinDate[toWeek];
+      if(!fromWkStart||!toWkStart){_drag=null;return;}
+      var origDate=new Date(_drag.fromDate+'T12:00:00');
+      var dayOffset=Math.round((origDate.getTime()-fromWkStart.getTime())/86400000);
+      var newDateObj=new Date(toWkStart.getTime()+dayOffset*86400000);
+      var newDateStr=newDateObj.toISOString().slice(0,10);
+      _pendingMove={assetId:_drag.assetId,calendarId:_drag.calendarId,platform:_drag.platform,fromDate:_drag.fromDate,toDate:newDateStr};
+      _drag=null;
+      _showMoveConfirm(_pendingMove);
+    }
 
     function cellDragOver(e){
       if(!_drag) return;
@@ -2723,11 +2854,21 @@
       return CAL_MONTH_NAMES[d.getMonth()]+' '+d.getDate()+', '+p[0];
     }
     function _showMoveConfirm(m){
+      var _plat=(m.platform||'').toLowerCase();
+      var _id=m.assetId||'';
+      var _atype='social';
+      if(/^DL-/i.test(_id)) _atype='lp';
+      else if(/^EC-\d{4}-\d{3,}-SEQ-[34]/i.test(_id)) _atype='email';
+      else if(_plat==='email') _atype='email_flow';
+      var _note='';
+      if(_atype==='email') _note='<div class="move-asset-note">↻ Will cancel + reschedule in Klaviyo</div>';
+      else if(_atype==='email_flow') _note='<div class="move-asset-note warn">⚠ Flow email — update delay in Klaviyo UI after move</div>';
+      else if(_atype==='lp') _note='<div class="move-asset-note">ℹ LP date noted — no auto-deploy</div>';
       document.getElementById('move-detail').innerHTML=
         'Moving <strong>'+m.platform+'</strong> post<br>'+
         'From &nbsp;<strong>'+_fmtMoveDate(m.fromDate)+'</strong><br>'+
         'To &nbsp;&nbsp;&nbsp;&nbsp;<strong>'+_fmtMoveDate(m.toDate)+'</strong>'+
-        '<div class="move-asset-id">'+m.assetId+'</div>';
+        '<div class="move-asset-id">'+m.assetId+'</div>'+_note;
       var btn=document.getElementById('move-confirm-btn');
       btn.textContent='Confirm Move';
       btn.disabled=false;
@@ -2749,7 +2890,11 @@
           _pendingMove=null;
           if(r&&r.ok){
             _applyMoveLocally(m.assetId, m.fromDate, m.toDate);
-            _showMoveToast('Moved to '+_fmtMoveDate(m.toDate));
+            var _tLines=['Moved to '+_fmtMoveDate(m.toDate)];
+            if(r.klaviyo_rescheduled) _tLines.push('✓ Klaviyo rescheduled');
+            if(r.klaviyo_requires_manual) _tLines.push('⚠ Update Klaviyo manually');
+            if(r.lp_notified) _tLines.push('ℹ LP date noted');
+            _showMoveToast(_tLines.join(' · '));
           } else {
             alert('Move failed: '+(r&&r.error?r.error:'Unknown error'));
           }

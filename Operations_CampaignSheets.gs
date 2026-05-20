@@ -50,7 +50,8 @@ var _CC_HDR = {
     'primary_pain','secondary_pain','value_trigger','loss_aversion',
     'channel_affinity','message_hierarchy','conversion_triggers',
     'utm_campaign_codes','lp_variants','validated','validation_notes',
-    'created_at','updated_at'
+    'created_at','updated_at',
+    'app_features','entry_moment','health_goals','dietary_preferences','shopping_behavior'
   ],
   ApprovedClaims: [
     'id','claim_type','exact_wording','approved','approved_by',
@@ -1317,7 +1318,12 @@ function setIcpProfile(item) {
     item.validated           !== undefined ? item.validated           : (ex ? ex[15] : false),
     item.validation_notes    !== undefined ? item.validation_notes    : (ex ? ex[16] : ''),
     ex ? ex[17] : now,
-    now
+    now,
+    item.app_features        !== undefined ? item.app_features        : (ex ? ex[19] : ''),
+    item.entry_moment        !== undefined ? item.entry_moment        : (ex ? ex[20] : ''),
+    item.health_goals        !== undefined ? item.health_goals        : (ex ? ex[21] : ''),
+    item.dietary_preferences !== undefined ? item.dietary_preferences : (ex ? ex[22] : ''),
+    item.shopping_behavior   !== undefined ? item.shopping_behavior   : (ex ? ex[23] : '')
   ];
   _ccUpsert(sheet, headers, item.id, row);
 }
@@ -3712,7 +3718,25 @@ function moveAsset(body) {
   var assetId    = String(body.asset_id || '');
   var newDate    = String(body.new_date || '');
   if (!newDate) return {ok:false, error:'new_date required'};
+
+  var assetType = _detectAssetType(assetId, String(body.platform || ''));
+  var result = {
+    ok: true,
+    asset_id: assetId,
+    calendar_id: calendarId,
+    new_date: newDate,
+    asset_type: assetType,
+    sheet_updated: false,
+    email_seq_updated: false,
+    klaviyo_rescheduled: false,
+    klaviyo_requires_manual: false,
+    klaviyo_new_id: null,
+    lp_notified: false,
+    error: null
+  };
+
   try {
+    // 1. Always update ContentCalendar.publish_date
     if (calendarId) {
       var calSheet = _getCCSheet(_CC_TAB.CONTENT_CAL);
       var calHdr   = _CC_HDR[_CC_TAB.CONTENT_CAL];
@@ -3722,29 +3746,66 @@ function moveAsset(body) {
         for (var i = 1; i < calRows.length; i++) {
           if (String(calRows[i][0]) === calendarId) {
             calSheet.getRange(i + 1, dateCol).setValue(newDate);
+            result.sheet_updated = true;
             break;
           }
         }
       }
     }
-    if (assetId) {
-      var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
-      var spHdr   = _CC_HDR.SocialPosts;
-      var sdCol   = spHdr.indexOf('scheduled_date') + 1;
-      if (sdCol > 0) {
-        var spRows = spSheet.getDataRange().getValues();
-        for (var j = 1; j < spRows.length; j++) {
-          if (String(spRows[j][0]) === assetId) {
-            spSheet.getRange(j + 1, sdCol).setValue(newDate);
-            break;
+
+    // 2. Route by asset type
+    if (assetType === 'email') {
+      var emResult = _moveEmailCampaignDate(assetId, newDate);
+      result.email_seq_updated        = emResult.seq_updated   || false;
+      result.klaviyo_rescheduled      = emResult.rescheduled   || false;
+      result.klaviyo_requires_manual  = emResult.requires_manual || false;
+      result.klaviyo_new_id           = emResult.new_id        || null;
+      if (emResult.error && !result.error) result.error = emResult.error;
+
+    } else if (assetType === 'email_flow') {
+      result.klaviyo_requires_manual = true;
+      result.error = 'Flow email dates are relative — update delay in Klaviyo UI';
+
+    } else if (assetType === 'lp') {
+      result.lp_notified = true;
+
+    } else {
+      // social — update SocialPosts.scheduled_date
+      if (assetId) {
+        var spSheet = _getCCSheet(_CC_TAB.SOCIAL);
+        var spHdr   = _CC_HDR.SocialPosts;
+        var sdCol   = spHdr.indexOf('scheduled_date') + 1;
+        if (sdCol > 0) {
+          var spRows = spSheet.getDataRange().getValues();
+          for (var j = 1; j < spRows.length; j++) {
+            if (String(spRows[j][0]) === assetId) {
+              spSheet.getRange(j + 1, sdCol).setValue(newDate);
+              break;
+            }
           }
         }
       }
     }
-    return {ok:true, asset_id:assetId, calendar_id:calendarId, new_date:newDate};
+
+    return result;
   } catch(e) {
-    return {ok:false, error:e.message};
+    result.ok = false;
+    result.error = e.message;
+    return result;
   }
+}
+
+function _detectAssetType(assetId, platform) {
+  if (!assetId) return 'social';
+  if (/^DL-/i.test(assetId)) return 'lp';
+  // SEQ-3 / SEQ-4 = broadcast campaigns — can be rescheduled via API
+  if (/^EC-\d{4}-\d{3,}-SEQ-[34]/i.test(assetId)) return 'email';
+  // All other SEQ / flow codes = flow steps — relative delays, UI-only
+  if (/^EC-\d{4}-\d{3,}-SEQ/i.test(assetId)) return 'email_flow';
+  if (/^EC-\d{4}-\d{3,}-(OB|ALPHA|BETA|ORG|QST)/i.test(assetId)) return 'email_flow';
+  // Platform hint fallback
+  if ((platform || '').toLowerCase() === 'email') return 'email_flow';
+  return 'social';
 }
 
 /**
@@ -5107,6 +5168,38 @@ function patchBrandDoctrine(ruleId, conditions) {
     return { ok: false, error: 'rule_id not found: ' + ruleId };
   } catch(e) {
     Logger.log('[patchBrandDoctrine] error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function appendBrandDoctrineRule(rule) {
+  try {
+    if (!rule || !rule.rule_id) return { ok: false, error: 'rule_id required' };
+    var sheet = _getCCSheet(_CC_TAB.BRAND_DOCTRINE);
+    var last  = sheet.getLastRow();
+    var condStr = rule.conditions && typeof rule.conditions === 'object'
+      ? JSON.stringify(rule.conditions)
+      : String(rule.conditions || '{}');
+    if (last >= 2) {
+      var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]) === String(rule.rule_id)) {
+          sheet.getRange(i + 2, 1, 1, 5).setValues([[
+            rule.rule_id,
+            rule.rule_type   || '',
+            rule.enforcement || 'hard',
+            rule.active !== false,
+            condStr
+          ]]);
+          Logger.log('[appendBrandDoctrineRule] updated ' + rule.rule_id);
+          return { ok: true, rule_id: rule.rule_id, action: 'updated' };
+        }
+      }
+    }
+    sheet.appendRow([rule.rule_id, rule.rule_type || 'icp_specific', rule.enforcement || 'hard', rule.active !== false, condStr]);
+    Logger.log('[appendBrandDoctrineRule] appended ' + rule.rule_id);
+    return { ok: true, rule_id: rule.rule_id, action: 'appended' };
+  } catch(e) {
     return { ok: false, error: e.message };
   }
 }

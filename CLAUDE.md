@@ -116,6 +116,7 @@ Run in order after confirmed launch:
 - **Use `getActiveSpreadsheet()`** — always use `_getCampaignSpreadsheet()`
 - **Run `clear_campaign_data_tabs`** without `confirm_clear:true` in the payload
 - **Generate copy without LP spine existing first** — getMasterSystemPrompt returns `LP_SPINE_MISSING:<id>` as a hard gate
+- **Build any LP without first running `read_icp_workup_folder`** — run `{"action":"read_icp_workup_folder"}` before any LP generation to confirm ICP app features are loaded from the workup docs in folder `1OFyrFVwAjDawfZfWHYErsuwDCct-TT93`
 - **Create new GAS functions that duplicate existing ones** — search first
 - **Use PowerShell here-strings for JavaScript content** — write to .txt files, use Python for splicing
 - **Update `update_cc_setting` for a key that doesn't exist** — use `append_setting` for new keys
@@ -123,6 +124,53 @@ Run in order after confirmed launch:
 - **Propose Firebase rewrites to proxy to external URLs** — Firebase Hosting rewrites only support Cloud Functions/Run destinations, not arbitrary external URLs. The CORS fix is always `text/plain`, not a proxy.
 - **Build new LPs on `launch.easychefpro.com` after July 1** — before July 1 use launch subdomain; after July 1 use `easychefpro.com`. Check the current date before choosing the LP domain.
 - **Hardcode `launch.easychefpro.com` in DL_IDs or UTM URLs created after July 1** — use `easychefpro.com` for all new deep links from July 1 onward.
+
+---
+
+## MASTER STORY — LOCKED (MASTER_STORY_001)
+
+Approved May 20 2026 by Taylor. Stored in BrandDoctrine as MASTER_STORY_001 + SO_WHAT_ARCH_001 (enforcement: hard, locked: true).
+Injected into every `getMasterSystemPrompt()` call via `_compileMasterStoryBlock()` + `_compileSoWhatArchBlock()`.
+
+**Category position:** "The app that evolves with your life."
+
+**Master story lines (exact wording — never paraphrase):**
+- "The app that evolves with your life."
+- "The problem was never you. The system was disconnected."
+- "Your life changes. Your kitchen should change with it."
+
+**Critical positioning:** "Most food apps assume the same person forever. easyChef Pro is the system your kitchen was always missing."
+
+**SO WHAT Architecture — locked emotional sequence:**
+Every campaign builds toward two moments:
+1. "Oh. THAT'S why this keeps happening."
+2. "easyChef Pro is the first thing actually built to solve that."
+
+Emotional flow: Recognition → Realization → Emotional consequence → So what → easyChef Pro closes the gap → Life feels lighter
+
+Rules:
+- The observation is ICP-specific. The door changes per theme.
+- The realization is always the same: disconnected systems.
+- The resolution is always the same: easyChef Pro closes those gaps.
+- easyChef Pro = emotional resolution layer. Not the app. Not the feature set. Not the meal planner.
+- **The theme changes the door. The story is always the same.**
+
+---
+
+## APPROVED WEBSITE HERO COPY — LOCKED (HERO_COPY_001)
+
+Approved May 19 2026 by Taylor. Stored in BrandDoctrine as HERO_COPY_001 (enforcement: hard, locked: true).
+
+```
+Line 1: "Your life changes. Your kitchen should change with it."   ← TAGLINE_003
+Line 2: "The problem was never you. The system was disconnected."  ← TAGLINE_002
+Line 3: "easyChef Pro is the system your kitchen was always missing."
+```
+
+- Universal — no ICP restriction. easychefpro.com homepage only.
+- 3-second draw. No "command" language. Full app scope (not dinner-specific).
+- Dev team (Sabri/Moeez) to implement on website homepage.
+- `_compileBrandDoctrineBlock()` in `Operations_AssetBuilder.gs` injects this (and all active doctrine rules) into every `getMasterSystemPrompt()` call.
 
 ---
 
@@ -134,6 +182,7 @@ Copy generation uses **Claude** (`claude-sonnet-4-20250514`), not GPT-4o.
 - Email → `.agents/skills/email-sequence` + `.agents/skills/copywriting` prepended
 - LP → `.agents/skills/page-cro` + `.agents/skills/copywriting`
 - Skills are baked into `_getSkillBlock()` in `Operations_AssetBuilder.gs` at deploy time
+- **All active BrandDoctrine rules injected into every prompt** via `_compileBrandDoctrineBlock()` — wired after `_voiceRules` in `_buildMasterPrompt()`. Gap closed @940: MONEY_MESSAGE_PLACEMENT_001 + MASTER_UNDERTONE_001 + HERO_COPY_001 now reach Claude during every generation.
 
 ---
 
@@ -443,4 +492,4 @@ API working @934. GET experience 200 confirmed.
 
 ---
 
-Current state: deploy @934 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 8 flows · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 3 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa, QST Invite TygRLv) · 15 campaigns SCHEDULED ✅ CLEAN · 14 SEQ-3/4 ALL SCHEDULED ✅ (SEQ-3: Jun 11/16/21/26 · SEQ-4: Jul 2/3/5 · 9am EDT · UQTdyL(A)/VpgZPZ(B) audiences + excl XJYckK · templates assigned) + QST-E1 broadcast (May 28 9am EDT) · UTM tracking: must be set manually in Klaviyo UI (API fully blocked — utm_params + add_utm both 400 in 2025-04-15) · Variant lists seeded: test@digitalgalactica.dev + admin@digitalgalactica.dev in UQTdyL + VpgZPZ (3 members each) — prevents auto-cancel · klaviyoRescheduleSeq34Campaigns fixed @931: clean PATCH (no channel_options) + explicit send-job — production-ready · ContentCalendar + Klaviyo + CLAUDE.md all aligned · klaviyoRescheduleQstBroadcast fixed @903: delete-draft+recreate+subject(from EmailSequences)+send-job(data.id format per 2025-04-15) · LP scripts fixed: Convert→Clarity→GA4 order on all 3 pages (LP-A/B + thank-you) · Firebase: BOTH projects deployed (staging + prod) · Convert.com API PARKED (see section above) — experiment 100140422 Active confirmed in UI · PERMANENT CORS FIX: all gasCall() + OAuth callback pages use Content-Type: text/plain — bypasses CORS preflight, works on any domain · CF Worker fix @889: /oauth/ added to Firebase proxy routes (was blocking OAuth callbacks) · Cockpit permanent URL: https://launch.easychefpro.com/cockpit (ops.dgl.dev/cockpit parked — DNS fix post-launch) · Social posting pipeline LIVE @887: Operations_SocialSync.gs (FB/IG/TikTok/Pinterest/YT/X) + Socials cockpit tab + OAuth flows for YT + TikTok · YouTube OAuth: CONNECTED ✅ — refresh_token stored, channel UChFpPCiD1Zn47sk3pe0CF0A · TikTok OAuth: CONNECTED ✅ (sandbox) — open_id -0000eDgY90YrMFdHJ3ttf5AtclcABc1yRp- · TikTok production swap: when TikTok app review approves, run tiktok_setup with tiktok_prod_client_key (aw6d3tg79eo4k057) + tiktok_prod_client_secret stored in Script Properties · May 27 manual posting doc created: https://docs.google.com/document/d/1RL7XtneqBtNK-oUCb3W50U1hQTunRi-BmaK3AUpgFJI/edit · Meta review in progress (~10 days from May 19) · klaviyo_rewire_audiences PARKED: Klaviyo API (2025-04-15) blocks all cancel/send-job routes on Scheduled campaigns — audiences must be updated manually in Klaviyo UI (see Open UI tasks) · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step (SpiMfa) template XLArLB (3) Wire QST Invite flow (TygRLv) 14-day delay + VyNxs4 (4) Update 14 campaign audiences to UQTdyL(A)/VpgZPZ(B)+excl XJYckK in Klaviyo UI — MUST be done before May 27 (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" (6) Verify Convert.com audience filter utm_medium=email + goal 100154109 in dashboard manually · Pinterest OAuth: CONNECTED ✅ — board: easyChef Pro Recipes (1130403643910185807) · X OAuth: CONNECTED ✅ — refresh_token stored · FB/IG OAuth: BUILT @920 — fb_auth_start/facebook_auth_callback/facebook_connection_status/facebook_setup routes live · /oauth/facebook/callback.html deployed · fb_app_id (1338517714794542) + fb_app_secret stored in Script Properties ✅ · Redirect URIs to add in FB app: https://launch.easychefpro.com/oauth/facebook/callback + https://easychefpro.com/oauth/facebook/callback · waiting for Meta API review approval (~May 29) to go live · TikTok production swap: run tiktok_setup with prod keys after review approves · Convert.com API ✅ LIVE @934 — experiment 100140422 active · goal 100154109 attached · GA4+Clarity connected · syncConvertToSheet ready for daily trigger
+Current state: deploy @942 · MASTER STORY LOCKED: _MASTER_STORY + _CATEGORY_POSITIONING replaced, _SO_WHAT_ARCH constant + _compileSoWhatArchBlock() added + wired into getMasterSystemPrompt() · 3 BrandDoctrine rows written: MASTER_STORY_001 (category position + 3 story lines + critical positioning) · CATEGORY_POSITION_001 (category claim + contrast + positioning + enemy) · SO_WHAT_ARCH_001 (2 campaign moments + emotional flow + 5 rules) · CLAUDE.md MASTER STORY section added · _compileBrandDoctrineBlock() HANDLED list updated (MASTER_STORY_001 + CATEGORY_POSITION_001 + SO_WHAT_ARCH_001 skip double-compilation) · deploy @941 site files — index.astro/coming-soon.astro/about-us.astro updated in Drive · deploy @940 · _compileBrandDoctrineBlock() LIVE: ALL active BrandDoctrine rules injected into every getMasterSystemPrompt() call — gap closed (MONEY_MESSAGE_PLACEMENT_001 + MASTER_UNDERTONE_001 + HERO_COPY_001 now reach Claude during generation) · HERO_COPY_001 LOCKED in BrandDoctrine: L1 "Your life changes. Your kitchen should change with it." (TAGLINE_003) / L2 "The problem was never you. The system was disconnected." (TAGLINE_002) / L3 "easyChef Pro is the system your kitchen was always missing." — universal, no ICP restriction, homepage only · LP-B full rewrite done (firebase deploy PENDING) · website MasterPositioning MP-WEBSITE-001 saved (DRAFT) · dev team notification PENDING (need Sabri/Moeez emails) · deploy @939 · ICPProfiles super_mom_time UPDATED @939: loss_aversion (locked line), message_hierarchy (4-point: dinner/identity/$1336 proof/$7.99 CTA), channel_affinity (TikTok→FB→IG→community), primary_pain (5-10hrs/wk = 10-21 days/year), secondary_pain (Paprika+AnyList fragmentation), conversion_triggers (TikTok fridge scene) · AC-013 APPENDED: time hook stat 5-10hrs/week = 260-520hrs/yr = 10-21 days · BrandDoctrine MONEY_MESSAGE_PLACEMENT_001 APPENDED: $1,336 proof only — never hook for super_mom_time · Bidirectional calendar sync LIVE: moveAsset routes by asset type (_detectAssetType) → social updates SocialPosts.scheduled_date · email (SEQ-3/4) deletes old Klaviyo campaign + recreates with new date via _moveEmailCampaignDate · email_flow returns requires_manual (flow delays are UI-only) · LP sets lp_notified · Move confirm dialog shows downstream scope · Toast shows Klaviyo reschedule result · LP/Questionnaire/Event chip colors added (green/amber) · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 8 flows · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 3 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa, QST Invite TygRLv) · 15 campaigns SCHEDULED ✅ CLEAN · 14 SEQ-3/4 ALL SCHEDULED ✅ (SEQ-3: Jun 11/16/21/26 · SEQ-4: Jul 2/3/5 · 9am EDT · UQTdyL(A)/VpgZPZ(B) audiences + excl XJYckK · templates assigned) + QST-E1 broadcast (May 28 9am EDT) · UTM tracking: must be set manually in Klaviyo UI (API fully blocked — utm_params + add_utm both 400 in 2025-04-15) · Variant lists seeded: test@digitalgalactica.dev + admin@digitalgalactica.dev in UQTdyL + VpgZPZ (3 members each) — prevents auto-cancel · klaviyoRescheduleSeq34Campaigns fixed @931: clean PATCH (no channel_options) + explicit send-job — production-ready · ContentCalendar + Klaviyo + CLAUDE.md all aligned · klaviyoRescheduleQstBroadcast fixed @903: delete-draft+recreate+subject(from EmailSequences)+send-job(data.id format per 2025-04-15) · LP scripts fixed: Convert→Clarity→GA4 order on all 3 pages (LP-A/B + thank-you) · Firebase: BOTH projects deployed (staging + prod) · Convert.com API PARKED (see section above) — experiment 100140422 Active confirmed in UI · PERMANENT CORS FIX: all gasCall() + OAuth callback pages use Content-Type: text/plain — bypasses CORS preflight, works on any domain · CF Worker fix @889: /oauth/ added to Firebase proxy routes (was blocking OAuth callbacks) · Cockpit permanent URL: https://launch.easychefpro.com/cockpit (ops.dgl.dev/cockpit parked — DNS fix post-launch) · Social posting pipeline LIVE @887: Operations_SocialSync.gs (FB/IG/TikTok/Pinterest/YT/X) + Socials cockpit tab + OAuth flows for YT + TikTok · YouTube OAuth: CONNECTED ✅ — refresh_token stored, channel UChFpPCiD1Zn47sk3pe0CF0A · TikTok OAuth: CONNECTED ✅ (sandbox) — open_id -0000eDgY90YrMFdHJ3ttf5AtclcABc1yRp- · TikTok production swap: when TikTok app review approves, run tiktok_setup with tiktok_prod_client_key (aw6d3tg79eo4k057) + tiktok_prod_client_secret stored in Script Properties · May 27 manual posting doc created: https://docs.google.com/document/d/1RL7XtneqBtNK-oUCb3W50U1hQTunRi-BmaK3AUpgFJI/edit · Meta review in progress (~10 days from May 19) · klaviyo_rewire_audiences PARKED: Klaviyo API (2025-04-15) blocks all cancel/send-job routes on Scheduled campaigns — audiences must be updated manually in Klaviyo UI (see Open UI tasks) · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step (SpiMfa) template XLArLB (3) Wire QST Invite flow (TygRLv) 14-day delay + VyNxs4 (4) Update 14 campaign audiences to UQTdyL(A)/VpgZPZ(B)+excl XJYckK in Klaviyo UI — MUST be done before May 27 (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" (6) Verify Convert.com audience filter utm_medium=email + goal 100154109 in dashboard manually · Pinterest OAuth: CONNECTED ✅ — board: easyChef Pro Recipes (1130403643910185807) · X OAuth: CONNECTED ✅ — refresh_token stored · FB/IG OAuth: BUILT @920 — fb_auth_start/facebook_auth_callback/facebook_connection_status/facebook_setup routes live · /oauth/facebook/callback.html deployed · fb_app_id (1338517714794542) + fb_app_secret stored in Script Properties ✅ · Redirect URIs to add in FB app: https://launch.easychefpro.com/oauth/facebook/callback + https://easychefpro.com/oauth/facebook/callback · waiting for Meta API review approval (~May 29) to go live · TikTok production swap: run tiktok_setup with prod keys after review approves · Convert.com API ✅ LIVE @934 — experiment 100140422 active · goal 100154109 attached · GA4+Clarity connected · syncConvertToSheet ready for daily trigger

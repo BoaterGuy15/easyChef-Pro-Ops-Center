@@ -616,6 +616,46 @@ function klaviyoSubscribeWaitlistSignup(email, lpVariant) {
 }
 
 // ── klaviyoAddPlaceholderToVariantLists ───────────────────────────────────────
+// ── klaviyoConnectionStatus ───────────────────────────────────────────────────
+// Checks if klaviyo_private_key is set and valid by calling GET /accounts/.
+// Returns { ok, connected, account_name, account_id, api_key_set, error }
+function klaviyoConnectionStatus() {
+  try {
+    var key = _klfApiKey();
+    if (!key) {
+      return { ok: true, connected: false, api_key_set: false, account_name: null, account_id: null, error: 'klaviyo_private_key not set in Script Properties' };
+    }
+    var r = _klfFetch('GET', 'accounts/', null);
+    if (r.code === 200) {
+      var accounts = (r.data && r.data.data) || [];
+      var acc = accounts[0] || {};
+      var attrs = acc.attributes || {};
+      return {
+        ok:           true,
+        connected:    true,
+        api_key_set:  true,
+        account_name: attrs.contact_information && attrs.contact_information.organization_name
+                      ? attrs.contact_information.organization_name
+                      : (attrs.public_api_key || acc.id || 'Klaviyo'),
+        account_id:   acc.id || null
+      };
+    }
+    return { ok: true, connected: false, api_key_set: true, account_name: null, account_id: null, error: 'API key invalid — HTTP ' + r.code };
+  } catch(e) {
+    return { ok: false, connected: false, api_key_set: false, error: e.message };
+  }
+}
+
+// ── klaviyoSetApiKey ──────────────────────────────────────────────────────────
+// Stores a Klaviyo private API key in Script Properties and verifies it.
+// Returns { ok, connected, account_name }
+function klaviyoSetApiKey(key) {
+  if (!key) return { ok: false, error: 'key required' };
+  PropertiesService.getScriptProperties().setProperty('klaviyo_private_key', String(key).trim());
+  Logger.log('[KLF] klaviyo_private_key updated');
+  return klaviyoConnectionStatus();
+}
+
 // Adds a placeholder profile to UQTdyL (Variant A) and VpgZPZ (Variant B) so
 // campaigns targeting these lists don't auto-cancel due to zero recipients.
 function klaviyoAddPlaceholderToVariantLists() {
@@ -2563,6 +2603,151 @@ function klaviyoRescheduleSeq34Campaigns() {
   } catch(e) {
     Logger.log('[KLF] klaviyoRescheduleSeq34Campaigns error: ' + e.message);
     return { ok: false, error: e.message };
+  }
+}
+
+// ── _klfIsoFromCalDate ────────────────────────────────────────────────────────
+// Convert YYYY-MM-DD to UTC ISO datetime using campaign send hour + timezone.
+// Mirrors _klfSendAt but takes an absolute date instead of a day offset.
+function _klfIsoFromCalDate(dateStr) {
+  var tzOff = Number(_cvtReadSetting('campaign_timezone_offset') || '') || -4;
+  var hour  = Number(_cvtReadSetting('campaign_send_hour') || '') || 9;
+  var parts = dateStr.split('-');
+  var utcMidnight = Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  var utcSendHour = (hour - tzOff + 24) % 24;
+  var d = new Date(utcMidnight + utcSendHour * 3600000);
+  return d.toISOString().replace('.000Z', 'Z');
+}
+
+// ── _moveEmailCampaignDate ────────────────────────────────────────────────────
+// Called by moveAsset when asset_type === 'email' (SEQ-3/4 broadcast campaigns only).
+// Deletes the old Klaviyo campaign (identified by klaviyo_id in EmailSequences),
+// recreates it with the new date, and writes the new Klaviyo ID back to the sheet.
+// Returns: { seq_updated, rescheduled, requires_manual, new_id, error }
+function _moveEmailCampaignDate(assetId, newDate) {
+  var result = { seq_updated: false, rescheduled: false, requires_manual: false, new_id: null, error: null };
+  try {
+    var emSheet = _getCCSheet(_CC_TAB.EMAIL);
+    var emHdrs  = _CC_HDR.EmailSequences;
+    var H = {};
+    emHdrs.forEach(function(h, i) { H[h] = i; });
+
+    var last = emSheet.getLastRow();
+    if (last < 2) { result.requires_manual = true; result.error = 'EmailSequences tab empty'; return result; }
+
+    var rows = emSheet.getRange(2, 1, last - 1, emHdrs.length).getValues();
+    var emailRow = null, rowIndex = -1;
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][H.id]) === assetId) { emailRow = rows[i]; rowIndex = i + 2; break; }
+    }
+
+    if (!emailRow) {
+      result.requires_manual = true;
+      result.error = 'Email sequence ' + assetId + ' not found — reschedule Klaviyo manually';
+      return result;
+    }
+
+    var klvId     = String(emailRow[H.klaviyo_id]     || '');
+    var seqCode   = String(emailRow[H.sequence_code]  || '');
+    var icp       = String(emailRow[H.icp_code]       || '');
+    var tplId     = String(emailRow[H.seq_template_id]|| '');
+    var emailNum  = Number(emailRow[H.email_number]   || 0);
+    var subject   = String(emailRow[H.subject_line]   || '');
+    var preview   = String(emailRow[H.preview_text]   || '');
+    var variant   = icp === 'super_mom_money' ? 'A' : 'B';
+
+    var listAId = _cvtReadSetting('klaviyo_segment_id_a');
+    var listBId = _cvtReadSetting('klaviyo_segment_id_b');
+    var suppId  = _cvtReadSetting('klaviyo_suppression_segment_id');
+    var segId   = icp === 'super_mom_money' ? listAId : listBId;
+
+    if (!segId)  { result.requires_manual = true; result.error = 'Audience segment ID missing from CcSettings'; return result; }
+
+    var sendAt = _klfIsoFromCalDate(newDate);
+
+    // Delete old campaign
+    if (klvId) {
+      var delR = _klfFetch('DELETE', 'campaigns/' + klvId + '/');
+      Logger.log('[moveEmail] DELETE old ' + klvId + ' → ' + delR.code);
+    }
+
+    Utilities.sleep(400);
+
+    // Recreate campaign with new date
+    var campName = 'EC-2026-001 · ' + seqCode + '-E' + emailNum + ' · Variant ' + variant;
+    var campR = _klfFetch('POST', 'campaigns/', {
+      data: { type: 'campaign', attributes: {
+        name: campName,
+        audiences:        { included: [segId], excluded: suppId ? [suppId] : [] },
+        send_options:     { use_smart_sending: false },
+        tracking_options: { is_tracking_opens: true, is_tracking_clicks: true },
+        send_strategy:    { method: 'static', datetime: sendAt },
+        'campaign-messages': { data: [{ type: 'campaign-message', attributes: { definition: { channel: 'email' } } }] }
+      }}
+    });
+
+    if (campR.code !== 201 && campR.code !== 200) {
+      result.requires_manual = true;
+      result.error = 'Failed to create Klaviyo campaign: HTTP ' + campR.code;
+      return result;
+    }
+
+    var newCampId = campR.data && campR.data.data && campR.data.data.id;
+
+    // Get message ID
+    var msgId = null;
+    try {
+      var md = campR.data.data.relationships['campaign-messages'].data;
+      if (md && md.length) msgId = md[0].id;
+    } catch(ex) {}
+    if (!msgId) {
+      var mf = _klfFetch('GET', 'campaigns/' + newCampId + '/campaign-messages/');
+      if (mf.code === 200 && mf.data && mf.data.data && mf.data.data.length) msgId = mf.data.data[0].id;
+    }
+
+    // Patch subject / from
+    var patchOk = false;
+    if (msgId) {
+      var pr = _klfFetch('PATCH', 'campaign-messages/' + msgId + '/', {
+        data: { type: 'campaign-message', id: msgId,
+          attributes: { definition: { channel: 'email', content: {
+            subject: subject, preview_text: preview,
+            from_email: _KLF_FROM_EMAIL, from_label: _KLF_FROM_NAME
+          }}}}
+      });
+      patchOk = (pr.code === 200 || pr.code === 204);
+
+      // Assign template
+      if (tplId) {
+        _klfFetch('POST', 'campaign-message-assign-template/', {
+          data: { type: 'campaign-message', id: msgId,
+            relationships: { template: { data: { type: 'template', id: tplId } } } }
+        });
+      }
+    }
+
+    // Explicit send-job
+    if (newCampId && patchOk) {
+      Utilities.sleep(300);
+      _klfFetch('POST', 'campaign-send-jobs/', { data: { type: 'campaign-send-job', id: newCampId } });
+    }
+
+    // Write new Klaviyo ID back to EmailSequences
+    if (newCampId && rowIndex > 0) {
+      var klvCol = emHdrs.indexOf('klaviyo_id') + 1;
+      if (klvCol > 0) emSheet.getRange(rowIndex, klvCol).setValue(newCampId);
+      result.seq_updated = true;
+    }
+
+    result.rescheduled = true;
+    result.new_id = newCampId;
+    Logger.log('[moveEmail] ' + assetId + ' → new campaign ' + newCampId + ' @ ' + sendAt);
+    return result;
+  } catch(e) {
+    result.error = e.message;
+    result.requires_manual = true;
+    Logger.log('[moveEmail] ERROR: ' + e.message);
+    return result;
   }
 }
 

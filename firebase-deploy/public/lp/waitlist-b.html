@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Daily Dinner Figured Out · easyChef Pro</title>
-<meta name="description" content="easyChef Pro knows what's in your fridge and builds tonight's plan — before you even open the door. Founding families lock in $7.99/month forever.">
-<meta property="og:title" content="Daily dinner figured out. · easyChef Pro">
-<meta property="og:description" content="$1,336/year saved. 30 min fridge to table. 69.5% less food waste. Founding families lock in $7.99 forever.">
+<title>Dinner Decided Before You Open the Fridge · easyChef Pro</title>
+<meta name="description" content="Dinner decided before you open the fridge. easyChef Pro — the kitchen system for working families. Founding families lock in $7.99/month forever.">
+<meta property="og:title" content="Dinner decided before you open the fridge. · easyChef Pro">
+<meta property="og:description" content="Dinner decided. Groceries planned. Kitchen in command. Join the founding family.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://easychefpro.com/lp/waitlist-b">
 <script type="application/ld+json">
@@ -17,7 +17,7 @@
     {"@type":"Question","name":"Will dinner really be decided before I open the fridge?","acceptedAnswer":{"@type":"Answer","text":"The fridge opens. Dinner is already decided. That is a different feeling. easyChef Pro maps what you own, prioritizes by expiration, and has a specific plan ready — before you walk in the door."}},
     {"@type":"Question","name":"How long from fridge to table?","acceptedAnswer":{"@type":"Answer","text":"Fridge to table. Thirty minutes. The plan is already built from what you own — no guessing, no last-minute decisions."}},
     {"@type":"Question","name":"Does it plan meals around what I already have?","acceptedAnswer":{"@type":"Answer","text":"The meal plan starts with what you already have. The shopping list fills in the gaps. You only buy what is actually missing."}},
-    {"@type":"Question","name":"Do I have to log food every day?","acceptedAnswer":{"@type":"Answer","text":"No daily logging. No tracking what you ate. Your kitchen just knows. Scan your groceries in once — your pantry stays updated automatically."}},
+    {"@type":"Question","name":"Do I have to log food every day?","acceptedAnswer":{"@type":"Answer","text":"No daily logging. No tracking what you ate. Your kitchen just knows. Add what you have once — your pantry stays updated automatically."}},
     {"@type":"Question","name":"Is the nutrition data trustworthy?","acceptedAnswer":{"@type":"Answer","text":"Every food in our database was verified by a registered dietitian. Not crowdsourced. Not guessed. 800,000 products. The numbers are right."}},
     {"@type":"Question","name":"What is the founding price?","acceptedAnswer":{"@type":"Answer","text":"$7.99 a month. Locked forever. The first 5,000 families get this rate. After that, it is $19.99."}}
   ]
@@ -119,6 +119,11 @@ body{font-family:var(--fb);background:var(--beige);color:var(--black);min-height
 .value-label{font-family:var(--fh);font-size:20px;font-weight:700;color:var(--black);line-height:1.2;margin-bottom:8px}
 .value-desc{font-size:14px;color:var(--muted);line-height:1.4}
 
+.step-row{display:flex;gap:20px;align-items:flex-start}
+.step-num{min-width:36px;height:36px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-weight:700;color:var(--white);font-size:16px;flex-shrink:0}
+.step-title{font-family:var(--fh);font-size:17px;font-weight:700;color:var(--black);margin-bottom:6px}
+.step-body{font-size:16px;line-height:1.65;color:var(--muted)}
+
 .faq-list{margin-top:24px;display:flex;flex-direction:column;gap:0}
 .faq-item{border-top:1px solid var(--border);padding:18px 0}
 .faq-item:last-child{border-bottom:1px solid var(--border)}
@@ -141,6 +146,7 @@ body{font-family:var(--fb);background:var(--beige);color:var(--black);min-height
 
 @media(max-width:520px){
   .value-grid{grid-template-columns:1fr}
+  .step-row{flex-direction:column;gap:12px}
 }
 </style>
 </head>
@@ -153,117 +159,258 @@ body{font-family:var(--fb);background:var(--beige);color:var(--black);min-height
 
 <div class="ribbon">Founding family price: $7.99/month forever. First 5,000 families only.</div>
 
+<!-- HERO · source: LPInventory lp-waitlist-b · headline + hero_subheadline -->
 <section class="hero" id="join">
-  <div class="eyebrow">Early Access — July 1, 2026</div>
-  <h1>Daily dinner figured out.</h1>
-  <p class="hero-deck">easyChef Pro knows what's in your fridge and builds tonight's plan — before you even open the door.</p>
+  <div class="eyebrow">Founding Access — July 1, 2026</div>
+  <h1>Dinner decided before you open the fridge.</h1>
+  <p class="hero-deck">The 6:30 PM scramble ends the night you use easyChef Pro for the first time.</p>
 
   <div class="form-block" id="hero-form">
     <div class="form-col">
       <input type="email" id="hero-email" placeholder="your@email.com" autocomplete="email">
-      <button class="cta" onclick="submitWaitlist('hero','b')">Get Early Access →</button>
+      <button class="cta" onclick="submitWaitlist('hero','b')">Claim Your Founding Spot →</button>
     </div>
-    <p class="form-fine">Free to join. No credit card. Cancel anytime.</p>
+    <p class="form-fine">Free to join. No credit card. $7.99/month locked forever for founding families.</p>
     <div class="form-msg" id="hero-msg"></div>
   </div>
+
+  <!-- ICP loss_aversion · approved LP subheadline use -->
+  <div class="bq" style="margin-top:28px;margin-bottom:12px">
+    <p>Every night you wing it is an evening you did not choose for your family.</p>
+  </div>
+  <!-- LPInventory urgency_line -->
+  <p style="font-size:13px;color:var(--muted)">First 5,000 founding families. The founding price closes when spots fill.</p>
 </section>
 
 <div class="divider"></div>
 
 <div class="body-wrap">
 
+  <!-- SOUND FAMILIAR · source: LPInventory section_hook + AC-013 time stat -->
   <section class="section">
     <div class="sec-label">Sound familiar?</div>
-    <h2>It's 6:30 PM and you're already exhausted.</h2>
-    <p style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--red);margin-bottom:14px">Every night</p>
-    <p>Fridge full. Five apps open. Still no dinner.</p>
-    <p>You planned. You shopped. You're home. But the decision of what to actually cook still falls on you — every single night — after everything else you carried today.</p>
+    <h2>You're Using Five Apps<br>and Still Guessing</h2>
+    <p>One for recipes, one for groceries, one for the plan — and at 6:30pm you're still staring at the fridge.</p>
+    <p style="font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--red);margin-bottom:14px">Every single night</p>
+    <p>It is 6:30 PM. You have been running since 6:00 AM. You walk through the door and three people immediately need to know what is for dinner. The fridge is full. Nothing is decided. The mental math starts: what cooks fast, what do they all eat, what will not take forty-five minutes. This moment arrives every single evening. It has been arriving for years. Tonight is no different — until it is.</p>
+    <!-- AC-013 · primary time hook for super_mom_time ICP -->
+    <p style="font-family:var(--fh);font-size:19px;font-weight:600;color:var(--black);margin-top:24px">5–10 hours a week. 10–21 full days every year. Standing at that fridge.</p>
   </section>
 
   <div class="divider"></div>
 
+  <!-- THE REAL PROBLEM · source: LPInventory section_problem + section_agitate + master_story -->
   <section class="section">
     <div class="sec-label">The real problem</div>
-    <h2>It's not about effort. You just never had the right system.</h2>
-    <p>You have grocery apps. Recipe apps. Meal kits. None of them know what's in your fridge tonight. None of them plan around what you already own. You're doing all the work — three separate systems just never got connected.</p>
+    <h2>Your kitchen is broken. Not because of you.</h2>
+    <p>The dinner decision does not take five minutes. It takes the mental inventory you have been carrying all day — what is in the fridge, what expires first, what the kids will actually eat, what you have energy for at this hour. That information lives nowhere except your head. And every evening it gets consulted at the worst possible moment: the end of a full day, when you have the least left to give.</p>
+    <p>The 6:30 PM scramble is invisible labor. It lands on one person every night, without acknowledgment, without tools. It is not one bad evening — it is the accumulated weight of hundreds of decisions made under pressure, alone, improvised from scratch. The groceries in the fridge do not know what day it is. They sit there, disconnected from any plan, waiting for someone to make the connection. That someone is always you. And the cost is not dramatic. It is just Tuesday. And Wednesday. And Thursday, again.</p>
+    <!-- AC: one_app -->
     <div class="bq">
-      <p>easyChef Pro isn't another app to manage. It's the system that connects the fridge, the plan, and the shopping list — automatically.</p>
+      <p>Five apps open on your phone. One does what all five should.</p>
     </div>
   </section>
 
   <div class="divider"></div>
 
+  <!-- WHAT IS EASYCHEF PRO · source: LPInventory section_solve + approved claims -->
+  <section class="section">
+    <div class="sec-label">What easyChef Pro is</div>
+    <h2>Not another recipe app. The system that closes the loop.</h2>
+    <p>easyChef Pro carries the decision for you. Tell it what is in your fridge. In thirty seconds, dinner is decided — specific, achievable, built from what you already own. The app maps every item, prioritizes by expiration, and gives you exactly what to make tonight. Fridge to table. Thirty minutes. No mental inventory required.</p>
+    <!-- AC: pantry_first_planning + not_a_meal_planner -->
+    <p>It does not tell you what to cook from an empty pantry. The meal plan starts with what you already have. The shopping list fills in the gaps. You only buy what is actually missing.</p>
+    <!-- AC: closes_the_loop -->
+    <div class="bq">
+      <p>Every other app stops at one step. easyChef Pro closes the whole loop — pantry, plan, and shopping list, automatically.</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- HOW IT WORKS · source: approved claims (dinner_decided, spoilage_prevention, shopping_list_auto) -->
   <section class="section">
     <div class="sec-label">How it works</div>
-    <h2>Dinner decided before you open the fridge.</h2>
-    <p>Scan a receipt — your pantry updates. Open the app — tonight's plan is already there. easyChef Pro knows what you own, what's expiring, and what your family actually eats.</p>
-    <p style="font-family:var(--fh);font-size:18px;font-weight:600;color:var(--black);margin-top:20px">Your pantry. Your meals. Your grocery list. One system.</p>
+    <h2>Three steps. Then it runs itself.</h2>
+    <div style="display:flex;flex-direction:column;gap:28px;margin-top:20px">
+      <div class="step-row">
+        <div class="step-num">1</div>
+        <div>
+          <!-- AC: pantry_build + expiry_tracking -->
+          <div class="step-title">Add what you have. Your pantry is ready.</div>
+          <!-- AC: expiry_tracking + no_food_logging -->
+          <div class="step-body">Search from 800,000+ products to build your pantry in minutes. Everything in your fridge gets a clock — easyChef Pro tracks what you have, how much, and when it expires. Add once and it keeps up from there.</div>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">2</div>
+        <div>
+          <!-- AC: dinner_decided -->
+          <div class="step-title">The fridge opens. Dinner is already decided. That is a different feeling.</div>
+          <!-- AC: spoilage_prevention + schedule_aware -->
+          <div class="step-body">The app matches your pantry to thirty-minute dinners your family actually eats — prioritizing what is about to expire, built around what you already own. The spinach at the back of your fridge is three days from going bad. easyChef Pro already planned dinner around it. Tuesday is your long night. It already knows.</div>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">3</div>
+        <div>
+          <!-- AC: shopping_list_auto -->
+          <div class="step-title">Your shopping list builds itself. What you already have stays off it.</div>
+          <!-- AC: no_duplicate_buying + less_trips -->
+          <div class="step-body">No more buying something you already have two of. No more driving back for one ingredient you forgot. Your pantry is checked before your list is built. One trip. The whole week covered.</div>
+        </div>
+      </div>
+    </div>
+    <!-- AC: full_loop -->
+    <p style="font-family:var(--fh);font-size:18px;font-weight:600;color:var(--black);margin-top:32px">Your pantry. Your meals. Your shopping list. One system. The loop closes every week.</p>
   </section>
 
   <div class="divider"></div>
 
+  <!-- WHAT YOU GET · source: approved claims (features) -->
   <section class="section">
-    <div class="sec-label">How your life changes</div>
-    <h2>Your life changes. Your kitchen changes with you.</h2>
-    <p>Your evenings are yours again. The decision is already made before you walk in the door. Here's what that actually looks like:</p>
+    <div class="sec-label">What you get</div>
+    <!-- AC: one_app -->
+    <h2>Everything the five apps were supposed to do. Together.</h2>
     <div class="value-grid">
       <div class="value-card">
-        <div class="value-label">Your evenings back</div>
-        <div class="value-desc">Dinner decided before you walk in — no guessing, no staring, no scramble</div>
+        <!-- AC: pantry_build + expiry_tracking -->
+        <div class="value-label">Pantry tracker</div>
+        <div class="value-desc">Add what you have once. Your pantry stays updated — every item tracked by quantity and expiration date. easyChef Pro is watching it for you.</div>
       </div>
       <div class="value-card">
-        <div class="value-label">Money stays in</div>
-        <div class="value-desc">What you buy gets used — the grocery leak closes quietly, every week</div>
+        <!-- AC: weekly_meal_plan + schedule_aware -->
+        <div class="value-label">Dinner planner</div>
+        <div class="value-desc">A full week of dinners built from what is already in your kitchen. Tuesday is your long night. easyChef Pro already planned something quick.</div>
       </div>
       <div class="value-card">
-        <div class="value-label">The week is planned</div>
-        <div class="value-desc">Dinners built from what you already own — no extra shopping, no last-minute trips</div>
+        <!-- AC: shopping_list_auto + pantry_first_shopping -->
+        <div class="value-label">Smart shopping list</div>
+        <div class="value-desc">Your pantry is checked before your list is built. You only buy what is actually missing. Exact quantities. Nothing extra ever makes the list.</div>
       </div>
       <div class="value-card">
-        <div class="value-label">One tab open</div>
-        <div class="value-desc">One system instead of five apps — the nightly juggling stops for good</div>
+        <!-- AC: picky_eater + family_memory -->
+        <div class="value-label">Family profile</div>
+        <div class="value-desc">The picky one in your house? easyChef Pro already knows what they will not eat. You told it once. Every dinner since then already knows.</div>
       </div>
     </div>
   </section>
 
-
-
   <div class="divider"></div>
 
+  <!-- WHAT CHANGES · source: LPInventory section_value + value cards -->
   <section class="section">
-    <div class="sec-label">Why families trust it</div>
-    <h2>Built right before anyone paid for it.</h2>
-    <p>Tested across 10,000 real households before a single family paid for it. Fridge to table. Thirty minutes. Consistently. 69.5% less food waste. 800,000 products verified. $7.99 a month. The first night you scan your fridge is the last night the scramble runs on the old system.</p>
+    <div class="sec-label">What changes</div>
+    <h2>This is what your kitchen looks like when the system works.</h2>
+    <p>The 6:30 PM moment changes. You walk through the door and dinner is already figured out. The kids get an answer on the first ask. The thirty minutes you were going to spend deciding become thirty minutes of cooking — and then the evening opens. The mental space you were using to hold the dinner problem all day becomes available for everything else.</p>
+    <div class="value-grid">
+      <div class="value-card">
+        <!-- AC: peaceful_evenings · Message Hierarchy #1 -->
+        <div class="value-label">Your evenings back</div>
+        <div class="value-desc">Walk into the evening already knowing what is for dinner. No guessing. No staring. No scramble.</div>
+      </div>
+      <div class="value-card">
+        <!-- AC: weekly_meal_plan -->
+        <div class="value-label">The week is planned</div>
+        <div class="value-desc">Dinners built from what you already own — no extra shopping, no last-minute trips.</div>
+      </div>
+      <div class="value-card">
+        <!-- AC: one_app -->
+        <div class="value-label">One tab open</div>
+        <div class="value-desc">One system instead of five apps. The nightly juggling stops for good.</div>
+      </div>
+      <div class="value-card">
+        <!-- AC: food_waste · money last per Message Hierarchy -->
+        <div class="value-label">Money stays in</div>
+        <div class="value-desc">What you buy gets used. 69.5% less of it ends up in the trash.</div>
+      </div>
+    </div>
   </section>
 
   <div class="divider"></div>
 
+  <!-- FOUNDING IDENTITY · source: LPInventory exclusivity_line + section_lifecycle -->
+  <section class="section">
+    <div class="sec-label">Who gets this</div>
+    <!-- LPInventory exclusivity_line · Message Hierarchy #2: Founding family identity -->
+    <h2>You found this before everyone else. That means something.</h2>
+    <p>You are not just getting a system for the hard nights. You are becoming the family whose kitchen runs on a plan — one that tracks the pantry, plans the week before Monday, cooks from what you already have, and arrives at 6:30 PM already knowing what is for dinner.</p>
+    <p>The founding families who lock in $7.99 a month are not buying an app. They are buying back their evenings — permanently, at a rate that never changes.</p>
+    <!-- AC: seven_day_trial -->
+    <div class="bq">
+      <p>Seven days. Every feature. No credit card. Your first night is already different.</p>
+    </div>
+    <!-- AC: founding_scarcity -->
+    <p style="font-size:14px;color:var(--muted);margin-top:4px">Founding access closes July 1. After that the price is $19.99/month.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- PROOF · source: LPInventory section_proof · $1,336 in stat cards only — MONEY_MESSAGE_PLACEMENT_001 approved -->
+  <section class="section">
+    <div class="sec-label">Why families trust it</div>
+    <!-- AC: profiles -->
+    <h2>Tested across 10,000 real households before a single family paid for it.</h2>
+    <p>Fridge to table. Thirty minutes. Consistently. The first night you use easyChef Pro is the last night the scramble runs on the old system.</p>
+    <div class="value-grid" style="margin-top:28px">
+      <div class="value-card">
+        <!-- AC: annual_savings · proof section approved per MONEY_MESSAGE_PLACEMENT_001 -->
+        <div class="value-label">$1,336</div>
+        <div class="value-desc">average annual savings per founding family</div>
+      </div>
+      <div class="value-card">
+        <!-- AC: fridge_to_table -->
+        <div class="value-label">30 min</div>
+        <div class="value-desc">fridge to table, consistently</div>
+      </div>
+      <div class="value-card">
+        <!-- AC: food_waste -->
+        <div class="value-label">69.5%</div>
+        <div class="value-desc">less food waste, consistently</div>
+      </div>
+      <div class="value-card">
+        <!-- AC: database -->
+        <div class="value-label">800,000+</div>
+        <div class="value-desc">products verified by a registered dietitian</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- FAQ · answers use approved claim exact wording -->
   <section class="section">
     <div class="sec-label">Questions</div>
     <h2>What people ask before joining.</h2>
     <div class="faq-list">
       <div class="faq-item">
         <div class="faq-q">Will dinner really be decided before I open the fridge?</div>
+        <!-- AC: dinner_decided -->
         <div class="faq-a">The fridge opens. Dinner is already decided. That is a different feeling. easyChef Pro maps what you own, prioritizes by expiration, and has a specific plan ready — before you walk in the door.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q">How long from fridge to table?</div>
+        <!-- AC: fridge_to_table -->
         <div class="faq-a">Fridge to table. Thirty minutes. The plan is already built from what you own — no guessing, no last-minute decisions.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q">Does it plan meals around what I already have?</div>
+        <!-- AC: pantry_first_planning -->
         <div class="faq-a">The meal plan starts with what you already have. The shopping list fills in the gaps. You only buy what is actually missing — nothing else makes the list.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q">Do I have to log food every day?</div>
-        <div class="faq-a">No daily logging. No tracking what you ate. Your kitchen just knows. Scan your groceries in once — your pantry stays updated automatically.</div>
+        <!-- AC: no_food_logging -->
+        <div class="faq-a">No daily logging. No tracking what you ate. Your kitchen just knows. Add what you have once — your pantry stays updated automatically.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q">Is the nutrition data trustworthy?</div>
+        <!-- AC: verified_nutrition + database -->
         <div class="faq-a">Every food in our database was verified by a registered dietitian. Not crowdsourced. Not guessed. 800,000 products. The numbers are right.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q">What is the founding price?</div>
+        <!-- AC: founding_price + founding_scarcity -->
         <div class="faq-a">$7.99 a month. Locked forever. The first 5,000 families get this rate — after that, it is $19.99. Join free now and your rate never changes, no matter what the app grows into.</div>
       </div>
     </div>
@@ -271,17 +418,21 @@ body{font-family:var(--fb);background:var(--beige);color:var(--black);min-height
 
 </div>
 
+<!-- BOTTOM CTA · source: LPInventory section_cta + exclusivity_line · AC: trial_converts -->
 <div class="bottom" id="bottom-join">
   <div class="bottom-inner">
-    <h2>Get early access. Lock in $7.99 forever.</h2>
-    <p class="excl">5,000 founding spots. After July 1 the price is $19.99.</p>
-    <p class="deck">The founding price locks forever for the first 5,000 families. Join free now and your $7.99 rate never changes — no matter what the app grows into.</p>
+    <!-- LPInventory exclusivity_line · Message Hierarchy #2: Founding family identity -->
+    <h2>You found this before everyone else. That means something.</h2>
+    <p class="excl">Founding access closes July 1. 5,000 spots only.</p>
+    <!-- AC: trial_converts + section_cta -->
+    <p class="deck">By Day 7 you have planned meals, used the shopping list, and watched food stop going to waste. The decision makes itself. End the 6:30 PM scramble — tonight is different. Every evening after it is different.</p>
     <div class="form-block" id="bottom-form">
       <div class="form-col">
         <input type="email" id="bottom-email" placeholder="your@email.com" autocomplete="email">
-        <button class="cta" onclick="submitWaitlist('bottom','b')">Get Early Access →</button>
+        <button class="cta" onclick="submitWaitlist('bottom','b')">Claim Your Founding Spot →</button>
       </div>
-      <p class="form-fine" style="color:#555">Free to join. No credit card. Cancel anytime.</p>
+      <!-- AC: seven_day_trial + founding_price -->
+      <p class="form-fine" style="color:#555">7-day free trial. No credit card. $7.99/month locked forever for founding families.</p>
       <div class="form-msg" id="bottom-msg"></div>
     </div>
   </div>

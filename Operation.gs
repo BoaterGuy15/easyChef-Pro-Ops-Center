@@ -793,7 +793,16 @@ function doPost(e) {
     if(body.action === 'campaign_kickstart') return respond(campaignKickstart(body.prompt));
 
     // ── ICP Profiles ──────────────────────────────────────────────────────────────
-    if(body.action === 'icp_profiles_read')      return respond({ ok:true, icpProfiles: getIcpProfiles() });
+    if(body.action === 'icp_profiles_read')         return respond({ ok:true, icpProfiles: getIcpProfiles() });
+    if(body.action === 'read_icp_workup_folder')    return respond(readICPWorkupFolder(body));
+
+    // ── Website file patcher (Drive-side) ─────────────────────────────────────────
+    if(body.action === 'patch_website_files')       return respond(patchWebsiteFiles(body));
+    if(body.action === 'set_icp_profile') {
+      if(!body.profile || !body.profile.id) return respond({ok:false,error:'profile.id required'});
+      setIcpProfile(body.profile);
+      return respond({ok:true, id:body.profile.id, log:Logger.getLog()});
+    }
 
     // ── Approved Claims ───────────────────────────────────────────────────────────
     if(body.action === 'approved_claims_read')   return respond({ ok:true, claims: getApprovedClaims() });
@@ -2454,6 +2463,12 @@ function doPost(e) {
     if(body.action === 'klaviyo_seed_real_profile') {
       return respond(klaviyoSeedRealProfile(body));
     }
+    if(body.action === 'klaviyo_connection_status') {
+      return respond(klaviyoConnectionStatus());
+    }
+    if(body.action === 'klaviyo_set_api_key') {
+      return respond(klaviyoSetApiKey(body.key));
+    }
     if(body.action === 'backfill_flow_message_ids') {
       return respond(backfillFlowMessageIds(body.campaign_id || 'EC-2026-001'));
     }
@@ -2603,6 +2618,9 @@ function doPost(e) {
     if(body.action === 'seed_governance_rows') {
       var _sgr = seedGovernanceRows();
       return respond({ ok:_sgr.ok, result:_sgr, log: Logger.getLog() });
+    }
+    if(body.action === 'append_brand_doctrine') {
+      return respond(appendBrandDoctrineRule(body.rule || {}));
     }
     if(body.action === 'patch_brand_doctrine') {
       var _pbd = patchBrandDoctrine(body.rule_id || '', body.conditions || {});
