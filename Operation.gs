@@ -2489,6 +2489,16 @@ function doPost(e) {
     if(body.action === 'klaviyo_send_test_email') {
       return respond(klaviyoSendTestEmail(body.campaign_key, body.to_email));
     }
+    if(body.action === 'klaviyo_update_template') {
+      return respond(klaviyoUpdateTemplateHtml(body.template_id, body.html));
+    }
+    if(body.action === 'klaviyo_create_template') {
+      return respond(klaviyoCreateNamedTemplate(body.name, body.html));
+    }
+    if(body.action === 'klaviyo_get_template') {
+      var _gtr = _klfFetch('GET', 'templates/' + body.template_id + '/', null);
+      return respond({ ok: _gtr.code === 200, code: _gtr.code, data: _gtr.data });
+    }
     if(body.action === 'klaviyo_build_beta_flow') {
       return respond(klaviyoBuildBetaFlow());
     }

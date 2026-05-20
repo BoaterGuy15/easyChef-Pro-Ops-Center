@@ -178,6 +178,27 @@ function _klfPatchTemplate(templateId, findUrl, replaceUrl) {
   return { ok: false, error: _klfErr(patchResult), code: patchResult.code };
 }
 
+// ── klaviyoUpdateTemplateHtml — replace full HTML on an existing template ─────
+function klaviyoUpdateTemplateHtml(templateId, htmlBody) {
+  if (!templateId) return { ok: false, error: 'template_id required' };
+  if (!htmlBody)   return { ok: false, error: 'html required' };
+  var result = _klfFetch('PATCH', 'templates/' + templateId + '/', {
+    data: { type: 'template', id: templateId, attributes: { html: htmlBody } }
+  });
+  if (result.code === 200 || result.code === 204) {
+    Logger.log('[KLF] Template ' + templateId + ' HTML replaced');
+    return { ok: true, template_id: templateId };
+  }
+  return { ok: false, error: _klfErr(result), code: result.code };
+}
+
+// ── klaviyoCreateNamedTemplate — create new template, return ID ───────────────
+function klaviyoCreateNamedTemplate(name, htmlBody) {
+  if (!name)     return { ok: false, error: 'name required' };
+  if (!htmlBody) return { ok: false, error: 'html required' };
+  return _klfCreateTemplate(name, htmlBody);
+}
+
 // ── FUNCTION 2 — Get or create A/B segments ──────────────────────────────────
 function _klfGetOrCreateSegment(segmentKey, segmentName, icpCode) {
   // Check CcSettings first
