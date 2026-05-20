@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facebook — Connecting...</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #FBF7F3;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 16px;
+      padding: 40px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+    .icon {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 24px;
+    }
+    .icon-success { background: #DCFCE7; }
+    .icon-error   { background: #FEE2E2; }
+    h1 { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+    .sub { font-size: 14px; color: #666; line-height: 1.5; }
+    .detail { font-size: 12px; color: #999; margin-top: 12px; padding: 10px; background: #f6f0ea; border-radius: 8px; text-align: left; word-break: break-all; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #f0ebe4;
+      border-top-color: #1877F2;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .close-note { font-size: 11px; color: #aaa; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="spinner"></div>
+    <h1>Connecting Facebook...</h1>
+    <p class="sub">Exchanging authorization code. This takes a moment.</p>
+  </div>
+
+  <script>
+    var GAS_URL = 'https://script.google.com/macros/s/AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg/exec';
+
+    function getParam(name) {
+      var m = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+      return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function showSuccess(pageName, igId) {
+      var igLine = igId
+        ? '<p class="sub" style="margin-top:8px;">Instagram account <strong>' + igId + '</strong> also connected.</p>'
+        : '<p class="sub" style="margin-top:8px; color:#e67e22;">No Instagram account linked to this page. Connect it in Meta Business Suite.</p>';
+      document.getElementById('card').innerHTML =
+        '<div class="icon icon-success">✓</div>'
+        + '<h1>Facebook Connected!</h1>'
+        + '<p class="sub">easyChef Pro is authorized to post to <strong>' + (pageName || 'your page') + '</strong>.</p>'
+        + igLine
+        + '<p class="close-note">You can close this tab and return to the cockpit.</p>';
+    }
+
+    function showError(msg) {
+      document.getElementById('card').innerHTML =
+        '<div class="icon icon-error">✕</div>'
+        + '<h1>Connection Failed</h1>'
+        + '<p class="sub">Could not connect Facebook. Please try again from the cockpit.</p>'
+        + '<div class="detail">' + String(msg || 'Unknown error').substring(0, 400) + '</div>'
+        + '<p class="close-note">Close this tab and click Connect Facebook again.</p>';
+    }
+
+    (function() {
+      var code  = getParam('code');
+      var error = getParam('error');
+
+      if (error) { showError('Meta returned: ' + error + ' — ' + getParam('error_description')); return; }
+      if (!code)  { showError('No authorization code received from Meta.'); return; }
+
+      fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'facebook_auth_callback', code: code })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d && d.ok) {
+          showSuccess(d.page_name, d.ig_user_id);
+          if (window.opener && !window.opener.closed) {
+            try { window.opener.postMessage({ type: 'facebook_connected', page_name: d.page_name, ig_user_id: d.ig_user_id }, '*'); } catch(e) {}
+          }
+        } else {
+          showError((d && d.error) || 'Token exchange failed.');
+        }
+      })
+      .catch(function(e) { showError('Network error: ' + e.message); });
+    })();
+  </script>
+</body>
+</html>

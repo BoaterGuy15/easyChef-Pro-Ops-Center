@@ -23,9 +23,9 @@ var _SOCIAL_CRED_KEYS = {
   facebook:  ['fb_page_id', 'fb_page_access_token'],
   instagram: ['ig_user_id', 'fb_page_access_token'],
   tiktok:    ['tiktok_refresh_token', 'tiktok_open_id'],
-  pinterest: ['pinterest_access_token', 'pinterest_board_id'],
+  pinterest: ['pinterest_refresh_token', 'pinterest_board_id'],
   youtube:   ['youtube_refresh_token', 'youtube_channel_id'],
-  x:         ['x_api_key', 'x_api_secret', 'x_access_token', 'x_access_secret']
+  x:         ['x_refresh_token']
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -449,12 +449,24 @@ function exportSocialPostsDoc(date, campaignId) {
 }
 
 // ── DASHBOARD DATA ────────────────────────────────────────────────────────────
+function _slimPost(p) {
+  return {
+    id:             p.id,
+    campaign_id:    p.campaign_id,
+    platform:       p.platform,
+    body_copy:      String(p.body_copy   || '').substring(0, 120),
+    image_url:      p.image_url          || '',
+    scheduled_date: p.scheduled_date     || '',
+    status:         p.status             || 'draft'
+  };
+}
+
 function getSocialDashboard(campaignId) {
-  campaignId = campaignId || 'EC-2026-001';
+  if (!campaignId || campaignId === 'all') campaignId = 'EC-2026-001';
   var allPosts = _socialGetPosts(campaignId, []);
-  var queue    = allPosts.filter(function(p) { return ['draft','approved','scheduled'].indexOf(String(p.status)) !== -1; });
-  var posted   = allPosts.filter(function(p) { return String(p.status) === 'posted'; }).slice(0, 30);
-  var errors   = allPosts.filter(function(p) { return String(p.status) === 'error'; }).slice(0, 10);
+  var queue    = allPosts.filter(function(p) { return ['draft','approved','scheduled'].indexOf(String(p.status)) !== -1; }).map(_slimPost);
+  var posted   = allPosts.filter(function(p) { return String(p.status) === 'posted'; }).slice(0, 30).map(_slimPost);
+  var errors   = allPosts.filter(function(p) { return String(p.status) === 'error'; }).slice(0, 10).map(_slimPost);
   var webhookUrl = 'https://script.google.com/macros/s/AKfycbz1MwFg8ujR1QNMDiggRTGqAKYLfTYW6FvfPiAv7-L8DWQKurHSJ_mYGr9h0eqQ5jRBrg/exec';
   return {
     ok:          true,

@@ -380,14 +380,14 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 ### 14 Scheduled Campaigns (SEQ-3 + SEQ-4)
 | ID | Key | Send Date |
 |---|---|---|
-| 01KRYG1BMA0TDGCGFP9FXW4A9A | SEQ-3-E1-A | Jun 11 2026 9am EDT |
-| 01KRYEYMTM24KAH1MD46F0B134 | SEQ-3-E1-B | Jun 11 2026 9am EDT |
-| 01KRYEYQV2FWE26165ZTM8919T | SEQ-3-E2-A | Jun 16 2026 9am EDT |
-| 01KRYEYTSADV8XWKCGG6F1QPFA | SEQ-3-E2-B | Jun 16 2026 9am EDT |
-| 01KRYEYXZ6TDV30WFES05FZBSS | SEQ-3-E3-A | Jun 21 2026 9am EDT |
-| 01KRYEZ1EXY7VFFJCTFRTY7524 | SEQ-3-E3-B | Jun 21 2026 9am EDT |
-| 01KRYEZ4RXCFVWBN091FGSCYHY | SEQ-3-E4-A | Jun 26 2026 9am EDT |
-| 01KRYEZ7B1PCTRQH47P2AHB7CZ | SEQ-3-E4-B | Jun 26 2026 9am EDT |
+| 01KRYG1BMA0TDGCGFP9FXW4A9A | SEQ-3-E1-A | Jun 10 2026 9am EDT |
+| 01KRYEYMTM24KAH1MD46F0B134 | SEQ-3-E1-B | Jun 10 2026 9am EDT |
+| 01KRYEYQV2FWE26165ZTM8919T | SEQ-3-E2-A | Jun 15 2026 9am EDT |
+| 01KRYEYTSADV8XWKCGG6F1QPFA | SEQ-3-E2-B | Jun 15 2026 9am EDT |
+| 01KRYEYXZ6TDV30WFES05FZBSS | SEQ-3-E3-A | Jun 20 2026 9am EDT |
+| 01KRYEZ1EXY7VFFJCTFRTY7524 | SEQ-3-E3-B | Jun 20 2026 9am EDT |
+| 01KRYEZ4RXCFVWBN091FGSCYHY | SEQ-3-E4-A | Jun 25 2026 9am EDT |
+| 01KRYEZ7B1PCTRQH47P2AHB7CZ | SEQ-3-E4-B | Jun 25 2026 9am EDT |
 | 01KRYEZA34YDQ9KMQ46TY0YYP7 | SEQ-4-E1-A | Jul 2 2026 9am EDT |
 | 01KRYEZCFJZDYD01MBSNJX0TJQ | SEQ-4-E1-B | Jul 2 2026 9am EDT |
 | 01KRYEZH56R1JQEH3XFAPCE5V0 | SEQ-4-E2-A | Jul 3 2026 9am EDT |
@@ -404,7 +404,7 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 ### URLs
 | Property | URL | Notes |
 |---|---|---|
-| **Cockpit** | **https://ops.dgl.dev/cockpit** | Internal only — permanent |
+| **Cockpit** | **https://launch.easychefpro.com/cockpit** | Internal only — permanent · ops.dgl.dev/cockpit parked (DNS fix post-launch) |
 | LP-A (waitlist — money angle) | https://launch.easychefpro.com/lp/waitlist-a.html | Pre-launch · stays here permanently |
 | LP-B (waitlist — time angle) | https://launch.easychefpro.com/lp/waitlist-b.html | Pre-launch · stays here permanently |
 | Coming Soon | https://launch.easychefpro.com/coming-soon | Pre-launch · stays here permanently |
@@ -429,10 +429,18 @@ Node.js MCP server that wraps all cockpit endpoints so Claude can operate the ca
 
 ---
 
-## CONVERT.COM API — PARKED
+## CONVERT.COM API — LIVE ✅
 
-Credentials correct (API key f49c8b08 + new secret created May 18). Signing format confirmed by Convert.com support (HMAC-SHA256, ApplicationID+\n+Expires+\n+URL+\n+Body). All endpoints return 401 — account ID `10019256` may be wrong (could be project ID not account ID — check app.convert.com URL path). Experiment 100140422 confirmed Active in Convert.com UI. Audience filter and goal must be verified/set manually in Convert.com dashboard for now. **Do not retry API until account ID is confirmed from the browser URL.** GAS code is ready in `Operations_ConvertSync.gs` — `runConvertP7Setup(100140422, 100154109)` calls all three checks. Script Properties stores: `convert_api_key` = f49c8b08... · `convert_secret_key` = 1859d328...
+API working @934. GET experience 200 confirmed.
+- **Base URL:** `https://api.convert.com/api/v2/`
+- **Account ID:** `10019256` · **Project ID:** `10019672` · **Experience ID:** `100140422`
+- **Auth headers:** `Convert-Application-ID` + `Expires` (integer timestamp) + `Authorization: Convert-HMAC-SHA256 Signature=...`
+- **Signing:** `ApplicationID\nExpiresTimestamp\nFullURL\nBody` — HMAC-SHA256, key = secret as UTF-8 string
+- **Script Properties:** `convert_application_id` = d0f222d0-... · `convert_secret_key` = cb0ac7e0...
+- **GAS actions:** `convert_setup` · `convert_get_experience` · `convert_activate_experience` · `convert_create_goal`
+- **Experience state:** status=active · primary_goal=100154109 (attached) · GA4 G-Q4DYEEXFKV ✅ · Clarity ✅ · 2 variations (1001218068/1001218069) · Bayesian 95% threshold
+- **syncConvertToSheet** — daily trigger reads ExperimentRegistry, writes to ExperimentMetrics tab
 
 ---
 
-Current state: deploy @891 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 8 flows · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 3 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa, QST Invite TygRLv) · 14 campaigns SCHEDULED (SEQ-3 Jun 11/16/21/26 + SEQ-4 Jul 2/3/5 9am EDT) · QST-E1 broadcast SCHEDULED May 28 · LP scripts fixed: Convert→Clarity→GA4 order on all 3 pages (LP-A/B + thank-you) · Firebase: BOTH projects deployed (staging + prod) · Convert.com API PARKED (see section above) — experiment 100140422 Active confirmed in UI · PERMANENT CORS FIX: all gasCall() + OAuth callback pages use Content-Type: text/plain — bypasses CORS preflight, works on any domain · CF Worker fix @889: /oauth/ added to Firebase proxy routes (was blocking OAuth callbacks) · Cockpit permanent URL: https://ops.dgl.dev/cockpit · Social posting pipeline LIVE @887: Operations_SocialSync.gs (FB/IG/TikTok/Pinterest/YT/X) + Socials cockpit tab + OAuth flows for YT + TikTok · YouTube OAuth: CONNECTED ✅ — refresh_token stored, channel UChFpPCiD1Zn47sk3pe0CF0A · TikTok OAuth: CONNECTED ✅ (sandbox) — open_id -0000eDgY90YrMFdHJ3ttf5AtclcABc1yRp- · TikTok production swap: when TikTok app review approves, run tiktok_setup with tiktok_prod_client_key (aw6d3tg79eo4k057) + tiktok_prod_client_secret stored in Script Properties · May 27 manual posting doc created: https://docs.google.com/document/d/1RL7XtneqBtNK-oUCb3W50U1hQTunRi-BmaK3AUpgFJI/edit · Meta review in progress (~10 days from May 19) · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step (SpiMfa) template XLArLB (3) Wire QST Invite flow (TygRLv) 14-day delay + VyNxs4 (4) Update 14 campaign audiences to UQTdyL/VpgZPZ+XJYckK in Klaviyo UI (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" (6) Verify Convert.com audience filter utm_medium=email + goal 100154109 in dashboard manually · Pinterest OAuth: CONNECTED ✅ — board: easyChef Pro Recipes (1130403643910185807) · X OAuth: CONNECTED ✅ — refresh_token stored · Social remaining: FB/IG (post-Meta-review ~May 29) · TikTok production swap: run tiktok_setup with prod keys after review approves
+Current state: deploy @934 · sheet `1zX8sc-YoKXMNmEOJi8YEpGcmOFbh1sA7xSa2evb_VZE` · branch `main` · MCP server live (20 tools) · Governance layer complete · Master Positioning LOCKED (MP-EC-2026-001-1779066831282) · 5 stage gates seeded · 264 DL_IDs CLEAN (incl DL-QST-001 alpha questionnaire) · Full email system: 8 flows · 5 LIVE (Flow A/B/Alpha/OB/ORG) · 3 DRAFT pending UI step wiring (BETA Tr87zQ, QST SpiMfa, QST Invite TygRLv) · 15 campaigns SCHEDULED ✅ CLEAN · 14 SEQ-3/4 ALL SCHEDULED ✅ (SEQ-3: Jun 11/16/21/26 · SEQ-4: Jul 2/3/5 · 9am EDT · UQTdyL(A)/VpgZPZ(B) audiences + excl XJYckK · templates assigned) + QST-E1 broadcast (May 28 9am EDT) · UTM tracking: must be set manually in Klaviyo UI (API fully blocked — utm_params + add_utm both 400 in 2025-04-15) · Variant lists seeded: test@digitalgalactica.dev + admin@digitalgalactica.dev in UQTdyL + VpgZPZ (3 members each) — prevents auto-cancel · klaviyoRescheduleSeq34Campaigns fixed @931: clean PATCH (no channel_options) + explicit send-job — production-ready · ContentCalendar + Klaviyo + CLAUDE.md all aligned · klaviyoRescheduleQstBroadcast fixed @903: delete-draft+recreate+subject(from EmailSequences)+send-job(data.id format per 2025-04-15) · LP scripts fixed: Convert→Clarity→GA4 order on all 3 pages (LP-A/B + thank-you) · Firebase: BOTH projects deployed (staging + prod) · Convert.com API PARKED (see section above) — experiment 100140422 Active confirmed in UI · PERMANENT CORS FIX: all gasCall() + OAuth callback pages use Content-Type: text/plain — bypasses CORS preflight, works on any domain · CF Worker fix @889: /oauth/ added to Firebase proxy routes (was blocking OAuth callbacks) · Cockpit permanent URL: https://launch.easychefpro.com/cockpit (ops.dgl.dev/cockpit parked — DNS fix post-launch) · Social posting pipeline LIVE @887: Operations_SocialSync.gs (FB/IG/TikTok/Pinterest/YT/X) + Socials cockpit tab + OAuth flows for YT + TikTok · YouTube OAuth: CONNECTED ✅ — refresh_token stored, channel UChFpPCiD1Zn47sk3pe0CF0A · TikTok OAuth: CONNECTED ✅ (sandbox) — open_id -0000eDgY90YrMFdHJ3ttf5AtclcABc1yRp- · TikTok production swap: when TikTok app review approves, run tiktok_setup with tiktok_prod_client_key (aw6d3tg79eo4k057) + tiktok_prod_client_secret stored in Script Properties · May 27 manual posting doc created: https://docs.google.com/document/d/1RL7XtneqBtNK-oUCb3W50U1hQTunRi-BmaK3AUpgFJI/edit · Meta review in progress (~10 days from May 19) · klaviyo_rewire_audiences PARKED: Klaviyo API (2025-04-15) blocks all cancel/send-job routes on Scheduled campaigns — audiences must be updated manually in Klaviyo UI (see Open UI tasks) · OPEN UI tasks: (1) Wire BETA flow steps in Klaviyo UI (Tr87zQ) templates Sb62kA/TXvTR5/TkuRes/WijzCM (2) Wire QST-E2 step (SpiMfa) template XLArLB (3) Wire QST Invite flow (TygRLv) 14-day delay + VyNxs4 (4) Update 14 campaign audiences to UQTdyL(A)/VpgZPZ(B)+excl XJYckK in Klaviyo UI — MUST be done before May 27 (5) Alpha-E4 (SGjjnq) + OB-E5 (UTEuxT) from_label → "Taylor from easyChef Pro" (6) Verify Convert.com audience filter utm_medium=email + goal 100154109 in dashboard manually · Pinterest OAuth: CONNECTED ✅ — board: easyChef Pro Recipes (1130403643910185807) · X OAuth: CONNECTED ✅ — refresh_token stored · FB/IG OAuth: BUILT @920 — fb_auth_start/facebook_auth_callback/facebook_connection_status/facebook_setup routes live · /oauth/facebook/callback.html deployed · fb_app_id (1338517714794542) + fb_app_secret stored in Script Properties ✅ · Redirect URIs to add in FB app: https://launch.easychefpro.com/oauth/facebook/callback + https://easychefpro.com/oauth/facebook/callback · waiting for Meta API review approval (~May 29) to go live · TikTok production swap: run tiktok_setup with prod keys after review approves · Convert.com API ✅ LIVE @934 — experiment 100140422 active · goal 100154109 attached · GA4+Clarity connected · syncConvertToSheet ready for daily trigger

@@ -863,6 +863,29 @@ function doPost(e) {
       var _p7 = runConvertP7Setup(body.experiment_id || '100140422', body.goal_id || '100154109');
       return respond({ ok:_p7.ok, result:_p7, log: Logger.getLog() });
     }
+    if(body.action === 'convert_setup') {
+      return respond(convertSetup());
+    }
+    if(body.action === 'convert_get_experience') {
+      return respond(convertGetExperience(body.experience_id || '100140422'));
+    }
+    if(body.action === 'convert_activate_experience') {
+      return respond(convertActivateExperience(body.experience_id || '100140422'));
+    }
+    if(body.action === 'convert_create_goal') {
+      return respond(convertCreateGoal(body.goal_name, body.trigger_url));
+    }
+    if(body.action === 'convert_sign_debug') {
+      var _sp2 = PropertiesService.getScriptProperties();
+      var _appId = _sp2.getProperty('convert_application_id') || '';
+      var _sec   = _sp2.getProperty('convert_secret_key')     || '';
+      var _ts    = String(Math.floor(Date.now() / 1000) + 30);
+      var _url   = 'https://api.convert.com/api/v2/accounts/10019256/projects/10019672/experiences/100140422';
+      var _sign  = _appId + '\n' + _ts + '\n' + _url + '\n' + '';
+      var _bytes = Utilities.computeHmacSha256Signature(_sign, _sec);
+      var _hex   = _bytes.map(function(b){ return ('0'+(b<0?b+256:b).toString(16)).slice(-2); }).join('');
+      return respond({ ok: true, app_id_preview: _appId.substring(0,8)+'...', expires: _ts, url: _url, sign_string_preview: _sign.substring(0,80)+'...', signature_preview: _hex.substring(0,20)+'...' });
+    }
     if(body.action === 'convert_check_creds') {
       var _sp = PropertiesService.getScriptProperties();
       var _spKey = _sp.getProperty('convert_api_key')    || '';
@@ -2413,6 +2436,24 @@ function doPost(e) {
     if(body.action === 'get_klaviyo_campaigns_board') {
       return respond(getKlaviyoCampaignsBoard(body.campaign_id || 'EC-2026-001'));
     }
+    if(body.action === 'klaviyo_cleanup_cancelled_campaigns') {
+      return respond(klaviyoCleanupDraftCancelledCampaigns());
+    }
+    if(body.action === 'klaviyo_add_placeholder_to_variant_lists') {
+      return respond(klaviyoAddPlaceholderToVariantLists());
+    }
+    if(body.action === 'klaviyo_fix_seq3_dates') {
+      return respond(klaviyoFixSeq3Dates());
+    }
+    if(body.action === 'klaviyo_activate_and_clean_campaigns') {
+      return respond(klaviyoActivateAndCleanCampaigns());
+    }
+    if(body.action === 'klaviyo_fix_seq4_messages') {
+      return respond(klaviyoFixSeq4Messages());
+    }
+    if(body.action === 'klaviyo_seed_real_profile') {
+      return respond(klaviyoSeedRealProfile(body));
+    }
     if(body.action === 'backfill_flow_message_ids') {
       return respond(backfillFlowMessageIds(body.campaign_id || 'EC-2026-001'));
     }
@@ -2429,6 +2470,9 @@ function doPost(e) {
     }
     if(body.action === 'klaviyo_rewire_audiences') {
       return respond(klaviyoRewireAudiences());
+    }
+    if(body.action === 'klaviyo_send_test_email') {
+      return respond(klaviyoSendTestEmail(body.campaign_key, body.to_email));
     }
     if(body.action === 'klaviyo_build_beta_flow') {
       return respond(klaviyoBuildBetaFlow());
@@ -2465,6 +2509,10 @@ function doPost(e) {
     }
     if(body.action === 'klaviyo_reschedule_qst_broadcast') {
       return respond(klaviyoRescheduleQstBroadcast(body.campaign_id || '', body.send_at || ''));
+    }
+    if(body.action === 'klaviyo_reschedule_seq34_campaigns') {
+      var _krs = klaviyoRescheduleSeq34Campaigns();
+      return respond({ ok: _krs.ok, result: _krs, log: Logger.getLog() });
     }
     if(body.action === 'klaviyo_subscribe_test') {
       return respond(klaviyoSubscribeWaitlistSignup(body.email || '', body.lp_variant || 'a'));
@@ -2737,6 +2785,22 @@ function doPost(e) {
       if(body.client_secret) _tsp.setProperty('tiktok_client_secret', body.client_secret);
       var _tconn = tiktokConnectionStatus();
       return respond({ ok: true, stored: Object.keys(body).filter(function(k){ return k!=='action'; }), status: _tconn });
+    }
+    // ── FACEBOOK / INSTAGRAM OAUTH ────────────────────────────────────────────
+    if(body.action === 'facebook_auth_start') {
+      return respond(getFacebookAuthUrl());
+    }
+    if(body.action === 'facebook_auth_callback') {
+      return respond(handleFacebookCallback(body.code || ''));
+    }
+    if(body.action === 'facebook_connection_status') {
+      return respond(Object.assign({ ok: true }, facebookConnectionStatus()));
+    }
+    if(body.action === 'facebook_setup') {
+      var _fbsp = PropertiesService.getScriptProperties();
+      if(body.app_id)     _fbsp.setProperty('fb_app_id',     body.app_id);
+      if(body.app_secret) _fbsp.setProperty('fb_app_secret', body.app_secret);
+      return respond({ ok: true, stored: Object.keys(body).filter(function(k){ return k!=='action'; }), status: facebookConnectionStatus() });
     }
     // ── PINTEREST OAUTH ────────────────────────────────────────────────────────
     if(body.action === 'pinterest_auth_start') {

@@ -50,7 +50,7 @@ export default {
     ].some(p => path === p || path.startsWith(p));
 
     if (toFirebase) {
-      return fetch(FIREBASE + path + url.search);
+      return fetch(FIREBASE + path + url.search, { cf: { cacheEverything: false } });
     }
 
     // Everything else — pass through

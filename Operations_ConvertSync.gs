@@ -2,7 +2,9 @@
 // Convert.com API integration — HMAC-SHA256 signed requests, experiment data sync
 
 var _CONVERT_ACCOUNT_ID = '10019256';
-var _CONVERT_BASE_URL   = 'https://api.convert.com/api/v1/';
+var _CONVERT_PROJECT_ID = '10019672';
+var _CONVERT_EXP_ID     = '100140422';
+var _CONVERT_BASE_URL   = 'https://api.convert.com/api/v2/';
 var _EXP_REG_TAB        = 'ExperimentRegistry';
 var _EXP_MET_TAB        = 'ExperimentMetrics';
 var _EXP_MET_HDR = [
@@ -55,31 +57,115 @@ function _cvtGetOrCreateSheet(name, headers) {
   return sh;
 }
 
+// ── FUNCTION 0 — convertSetup ────────────────────────────────────────────────
+// Stores Convert.com credentials in Script Properties.
+// Run once: {"action":"convert_setup"}
+// Confirmed working credentials from Convert.com support + Postman test.
+function convertSetup() {
+  var sp = PropertiesService.getScriptProperties();
+  sp.setProperty('convert_application_id',  'd0f222d0-5606-41fa-a629-7fd6ac62b391');
+  sp.setProperty('convert_secret_key',      'cb0ac7e0e7c42fe67b1f81acc59ee84699202685a47a20375e10d6acf5fcc7f9');
+  Logger.log('[ConvertSync] convertSetup: credentials stored in Script Properties');
+  return { ok: true, stored: ['convert_application_id', 'convert_secret_key'] };
+}
+
 // ── FUNCTION 1 — signConvertRequest ──────────────────────────────────────────
-// Convert.com Authentication Type: requestSigning (confirmed format from Convert support)
-// SignString = ApplicationID + "\n" + ExpiresTimestamp + "\n" + RequestURL + "\n" + RequestBody
-// ExpiresTimestamp = Unix seconds + 30 (30-second window)
-// ApplicationID = convert_api_key   ApplicationSecretKey = convert_secret_key
+// Convert.com Authentication Type: requestSigning (confirmed by support + Postman)
+// SignString  = ApplicationID + "\n" + ExpiresTimestamp + "\n" + RequestURL + "\n" + RequestBody
+// ExpiresTimestamp = Math.floor(Unix seconds + 30)  — must be INTEGER
+// Headers: "Convert-Application-ID", "Expire" (not Expires), "Authorization"
 function signConvertRequest(method, path, body) {
-  // Script Properties take precedence over CcSettings (more secure, harder to expose)
   var sp        = PropertiesService.getScriptProperties();
-  var apiKey    = sp.getProperty('convert_api_key')    || _cvtReadSetting('convert_api_key');
-  var secretKey = sp.getProperty('convert_secret_key') || _cvtReadSetting('convert_secret_key');
+  var apiKey    = sp.getProperty('convert_application_id') || _cvtReadSetting('convert_application_id');
+  var secretKey = sp.getProperty('convert_secret_key')     || _cvtReadSetting('convert_secret_key');
   if (!apiKey || !secretKey) {
-    throw new Error('convert_api_key / convert_secret_key not found in Script Properties or CcSettings');
+    throw new Error('convert_application_id / convert_secret_key not found in Script Properties');
   }
-  var expires   = String(Date.now() / 1000 + 30); // float — matches Postman pre-request script
+  var expires   = String(Math.floor(Date.now() / 1000) + 30); // integer, +30s window
   var fullUrl   = _CONVERT_BASE_URL + path.replace(/^\//, '');
   var bodyStr   = body || '';
   var canonical = apiKey + '\n' + expires + '\n' + fullUrl + '\n' + bodyStr;
   var sigBytes  = Utilities.computeHmacSha256Signature(canonical, secretKey);
   var signature = _cvtBytesToHex(sigBytes);
   return {
-    'Authorization':  'Convert-HMAC-SHA256 Signature=' + signature,
-    'Application-ID': apiKey,
-    'Expires':        expires,
-    'Content-Type':   'application/json'
+    'Authorization':          'Convert-HMAC-SHA256 Signature=' + signature,
+    'Convert-Application-ID': apiKey,
+    'Expires':                expires,
+    'Content-Type':           'application/json'
   };
+}
+
+// ── FUNCTION 1b — convertGetExperience ───────────────────────────────────────
+// GET /accounts/{account_id}/projects/{project_id}/experiences/{experience_id}
+// Confirms API is working and returns raw experience data.
+function convertGetExperience(experienceId) {
+  experienceId = experienceId || _CONVERT_EXP_ID;
+  var path    = 'accounts/' + _CONVERT_ACCOUNT_ID + '/projects/' + _CONVERT_PROJECT_ID + '/experiences/' + experienceId;
+  var headers = signConvertRequest('GET', path, '');
+  var resp    = UrlFetchApp.fetch(_CONVERT_BASE_URL + path, {
+    method:             'get',
+    headers:            headers,
+    muteHttpExceptions: true
+  });
+  var code = resp.getResponseCode();
+  var text = resp.getContentText();
+  Logger.log('[ConvertSync] GET experience ' + experienceId + ' → HTTP ' + code);
+  var data = {};
+  try { data = JSON.parse(text); } catch(e) {}
+  return { ok: code === 200, http: code, experience_id: experienceId, data: data, raw: text.substring(0, 500) };
+}
+
+// ── FUNCTION 1c — convertActivateExperience ───────────────────────────────────
+// POST /accounts/{account_id}/projects/{project_id}/experiences/{experience_id}/update
+// Activates (or updates status of) the experience.
+function convertActivateExperience(experienceId) {
+  experienceId = experienceId || _CONVERT_EXP_ID;
+  var path    = 'accounts/' + _CONVERT_ACCOUNT_ID + '/projects/' + _CONVERT_PROJECT_ID + '/experiences/' + experienceId + '/update';
+  var body    = JSON.stringify({ status: 'active' });
+  var headers = signConvertRequest('POST', path, body);
+  var resp    = UrlFetchApp.fetch(_CONVERT_BASE_URL + path, {
+    method:             'post',
+    headers:            headers,
+    payload:            body,
+    muteHttpExceptions: true
+  });
+  var code = resp.getResponseCode();
+  var text = resp.getContentText();
+  Logger.log('[ConvertSync] POST activate experience ' + experienceId + ' → HTTP ' + code);
+  var data = {};
+  try { data = JSON.parse(text); } catch(e) {}
+  return { ok: code === 200 || code === 201 || code === 204, http: code, experience_id: experienceId, data: data, raw: text.substring(0, 300) };
+}
+
+// ── FUNCTION 1d — convertCreateGoal ──────────────────────────────────────────
+// POST /accounts/{account_id}/projects/{project_id}/goals
+// Creates a pageview goal for the thank-you page (waitlist signup conversion).
+function convertCreateGoal(goalName, triggerUrl) {
+  goalName   = goalName   || 'Waitlist Signup';
+  triggerUrl = triggerUrl || 'https://launch.easychefpro.com/thank-you';
+  var path   = 'accounts/' + _CONVERT_ACCOUNT_ID + '/projects/' + _CONVERT_PROJECT_ID + '/goals';
+  var body   = JSON.stringify({
+    name:      goalName,
+    goal_type: 'page_visit',
+    trigger: {
+      type:  'url',
+      url:   triggerUrl,
+      match: 'contains'
+    }
+  });
+  var headers = signConvertRequest('POST', path, body);
+  var resp    = UrlFetchApp.fetch(_CONVERT_BASE_URL + path, {
+    method:             'post',
+    headers:            headers,
+    payload:            body,
+    muteHttpExceptions: true
+  });
+  var code = resp.getResponseCode();
+  var text = resp.getContentText();
+  Logger.log('[ConvertSync] POST goal "' + goalName + '" → HTTP ' + code);
+  var data = {};
+  try { data = JSON.parse(text); } catch(e) {}
+  return { ok: code === 200 || code === 201, http: code, goal_name: goalName, trigger_url: triggerUrl, data: data, raw: text.substring(0, 300) };
 }
 
 // ── FUNCTION 2 — getConvertExperimentData ────────────────────────────────────

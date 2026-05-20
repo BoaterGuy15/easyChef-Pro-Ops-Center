@@ -615,6 +615,129 @@ function klaviyoSubscribeWaitlistSignup(email, lpVariant) {
   }
 }
 
+// ── klaviyoAddPlaceholderToVariantLists ───────────────────────────────────────
+// Adds a placeholder profile to UQTdyL (Variant A) and VpgZPZ (Variant B) so
+// campaigns targeting these lists don't auto-cancel due to zero recipients.
+function klaviyoAddPlaceholderToVariantLists() {
+  try {
+    var listAId = _cvtReadSetting('klaviyo_segment_id_a');
+    var listBId = _cvtReadSetting('klaviyo_segment_id_b');
+    if (!listAId) return { ok: false, error: 'klaviyo_segment_id_a missing from CcSettings' };
+    if (!listBId) return { ok: false, error: 'klaviyo_segment_id_b missing from CcSettings' };
+
+    var emails = ['test@digitalgalactica.dev', 'admin@digitalgalactica.dev'];
+    var lists  = [{ id: listAId, name: 'UQTdyL Variant A' }, { id: listBId, name: 'VpgZPZ Variant B' }];
+    var results = { ok: true, profiles: [], list_adds: [] };
+
+    // Create or find each profile, then add to both lists
+    emails.forEach(function(email) {
+      var cr = _klfFetch('POST', 'profiles/', {
+        data: { type: 'profile', attributes: { email: email, properties: { placeholder: true } } }
+      });
+      var pid = null;
+      if (cr.code === 201) {
+        pid = cr.data && cr.data.data && cr.data.data.id;
+      } else if (cr.code === 409) {
+        var dupErr = cr.data && cr.data.errors && cr.data.errors[0];
+        pid = dupErr && dupErr.meta && dupErr.meta.duplicate_profile_id;
+      }
+      Logger.log('[KLF] Profile ' + email + ' → HTTP ' + cr.code + ' pid=' + pid);
+      results.profiles.push({ email: email, http: cr.code, profile_id: pid });
+      if (!pid) return;
+
+      lists.forEach(function(list) {
+        var r = _klfFetch('POST', 'lists/' + list.id + '/relationships/profiles/', {
+          data: [{ type: 'profile', id: pid }]
+        });
+        var ok = r.code === 204 || r.code === 200 || r.code === 400;
+        Logger.log('[KLF] Add ' + email + ' to ' + list.name + ' → HTTP ' + r.code);
+        results.list_adds.push({ email: email, list: list.name, list_id: list.id, http: r.code, ok: ok });
+      });
+    });
+
+    // Verify counts after adding
+    Utilities.sleep(1000);
+    lists.forEach(function(list) {
+      var cr = _klfFetch('GET', 'lists/' + list.id + '/profiles/?page[size]=10&fields[profile]=email');
+      var count = (cr.data && cr.data.data && cr.data.data.length) || 0;
+      var total = (cr.data && cr.data.meta && cr.data.meta.total) || count;
+      Logger.log('[KLF] List ' + list.name + ' member count: ' + total);
+      results['count_' + list.id] = total;
+    });
+
+    results.ok = results.list_adds.length > 0;
+    return results;
+  } catch(e) {
+    Logger.log('[KLF] klaviyoAddPlaceholderToVariantLists error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoSeedRealProfile ────────────────────────────────────────────────────
+// Creates/finds a real profile and adds it to UQTdyL, VpgZPZ, and TebDTM.
+// Accepts: { email, first_name, icp_code }
+function klaviyoSeedRealProfile(params) {
+  try {
+    params = params || {};
+    var email     = String(params.email      || '');
+    var firstName = String(params.first_name || '');
+    var icpCode   = String(params.icp_code   || '');
+    if (!email) return { ok: false, error: 'email required' };
+
+    var listAId = _cvtReadSetting('klaviyo_segment_id_a');
+    var listBId = _cvtReadSetting('klaviyo_segment_id_b');
+    if (!listAId) return { ok: false, error: 'klaviyo_segment_id_a missing from CcSettings' };
+    if (!listBId) return { ok: false, error: 'klaviyo_segment_id_b missing from CcSettings' };
+
+    var attrs = { email: email };
+    if (firstName) attrs.first_name = firstName;
+    if (icpCode)   attrs.properties = { icp_code: icpCode };
+
+    // Create or find profile
+    var cr = _klfFetch('POST', 'profiles/', { data: { type: 'profile', attributes: attrs } });
+    var pid = null;
+    if (cr.code === 201) {
+      pid = cr.data && cr.data.data && cr.data.data.id;
+    } else if (cr.code === 409) {
+      var dupErr = cr.data && cr.data.errors && cr.data.errors[0];
+      pid = dupErr && dupErr.meta && dupErr.meta.duplicate_profile_id;
+    }
+    if (!pid) return { ok: false, error: 'Could not create/find profile for ' + email + ' (HTTP ' + cr.code + ')' };
+    Logger.log('[KLF] SeedRealProfile ' + email + ' pid=' + pid);
+
+    // Add to UQTdyL, VpgZPZ, TebDTM
+    var targetLists = [
+      { id: listAId, name: 'UQTdyL Variant A' },
+      { id: listBId, name: 'VpgZPZ Variant B' },
+      { id: 'TebDTM', name: 'TebDTM Prelaunch' }
+    ];
+    var adds = [];
+    targetLists.forEach(function(list) {
+      var r = _klfFetch('POST', 'lists/' + list.id + '/relationships/profiles/', {
+        data: [{ type: 'profile', id: pid }]
+      });
+      var ok = r.code === 204 || r.code === 200 || r.code === 400;
+      Logger.log('[KLF] Add ' + email + ' to ' + list.name + ' → HTTP ' + r.code);
+      adds.push({ list: list.name, list_id: list.id, http: r.code, ok: ok });
+    });
+
+    // Verify list counts
+    Utilities.sleep(1000);
+    var counts = {};
+    [{ id: listAId, name: 'UQTdyL' }, { id: listBId, name: 'VpgZPZ' }].forEach(function(list) {
+      var cr2 = _klfFetch('GET', 'lists/' + list.id + '/profiles/?page[size]=10&fields[profile]=email');
+      var total = (cr2.data && cr2.data.meta && cr2.data.meta.total) ||
+                  (cr2.data && cr2.data.data && cr2.data.data.length) || 0;
+      counts[list.name] = total;
+    });
+
+    return { ok: true, email: email, profile_id: pid, list_adds: adds, list_counts: counts };
+  } catch(e) {
+    Logger.log('[KLF] klaviyoSeedRealProfile error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── klaviyoCheckSignup — e2e diagnostic ──────────────────────────────────────
 // Returns profile properties + list membership for a given email.
 // Used for end-to-end system tests.
@@ -1016,78 +1139,138 @@ function klaviyoWireCampaignSegments() {
 }
 
 // ── klaviyoRewireAudiences ────────────────────────────────────────────────────
-// Cancels the send-job on each scheduled campaign, updates the audience to the
-// correct variant list, then re-posts the send-job (uses the stored send_strategy).
+// Dynamically fetches all Scheduled EC-2026-001 SEQ-3/4 campaigns, then for each:
+//   1. Cancels the send-job (reverts campaign to Draft)
+//   2. Patches audience → Variant A: UQTdyL + excl XJYckK, Variant B: VpgZPZ + excl XJYckK
+//   3. Re-posts the send-job (restores Scheduled status using stored send_strategy.datetime)
+// No hardcoded IDs — fetches live from Klaviyo so it works after any recreate run.
 function klaviyoRewireAudiences() {
-  var segAId = _cvtReadSetting('klaviyo_segment_id_a');
-  var segBId = _cvtReadSetting('klaviyo_segment_id_b');
-  var suppId = _cvtReadSetting('klaviyo_suppression_segment_id') || 'XJYckK';
-  if (!segAId || !segBId) return { ok: false, error: 'Run klaviyo_create_segments first' };
+  try {
+    var listAId = _cvtReadSetting('klaviyo_segment_id_a');
+    var listBId = _cvtReadSetting('klaviyo_segment_id_b');
+    var suppId  = _cvtReadSetting('klaviyo_suppression_segment_id');
+    if (!listAId || !listBId) return { ok: false, error: 'klaviyo_segment_id_a/b missing from CcSettings — add them first' };
+    if (!suppId) return { ok: false, error: 'klaviyo_suppression_segment_id missing from CcSettings' };
 
-  var campMap = [
-    { id: '01KRYG1BMA0TDGCGFP9FXW4A9A', variant: 'A' },
-    { id: '01KRYEYMTM24KAH1MD46F0B134', variant: 'B' },
-    { id: '01KRYEYQV2FWE26165ZTM8919T', variant: 'A' },
-    { id: '01KRYEYTSADV8XWKCGG6F1QPFA', variant: 'B' },
-    { id: '01KRYEYXZ6TDV30WFES05FZBSS', variant: 'A' },
-    { id: '01KRYEZ1EXY7VFFJCTFRTY7524', variant: 'B' },
-    { id: '01KRYEZ4RXCFVWBN091FGSCYHY', variant: 'A' },
-    { id: '01KRYEZ7B1PCTRQH47P2AHB7CZ', variant: 'B' },
-    { id: '01KRYEZA34YDQ9KMQ46TY0YYP7', variant: 'A' },
-    { id: '01KRYEZCFJZDYD01MBSNJX0TJQ', variant: 'B' },
-    { id: '01KRYEZH56R1JQEH3XFAPCE5V0', variant: 'A' },
-    { id: '01KRYEZKWF0MEJSTDC597BJMFE', variant: 'B' },
-    { id: '01KRYEZQ1P9NTJCP5AAM3H6K0H', variant: 'A' },
-    { id: '01KRYEZSV982T3G1NED6V9KS8M', variant: 'B' }
-  ];
-
-  var results = [];
-  campMap.forEach(function(c) {
-    var segId = c.variant === 'A' ? segAId : segBId;
-    var step = {};
-
-    // 1: Find send-job for this campaign
-    Utilities.sleep(300);
-    var sjr = _klfFetch('GET', 'campaign-send-jobs/?filter=equals(campaign_id,%27' + c.id + '%27)&page[size]=1');
-    var sjId = null;
-    if (sjr.code === 200 && sjr.data && sjr.data.data && sjr.data.data.length > 0) {
-      sjId = sjr.data.data[0].id;
-    }
-    step.sj_found = !!sjId;
-
-    // 2: Delete send-job (back to draft)
-    if (sjId) {
-      Utilities.sleep(200);
-      var dr = _klfFetch('DELETE', 'campaign-send-jobs/' + sjId + '/');
-      step.sj_deleted = (dr.code === 200 || dr.code === 204 || dr.code === 202);
+    // Fetch live campaign list — find all Scheduled SEQ-3/4 campaigns
+    var cr = _klfFetch('GET', "campaigns/?filter=equals(messages.channel,'email')&page[size]=50&fields[campaign]=name,status");
+    if (cr.code !== 200 || !cr.data || !cr.data.data) {
+      return { ok: false, error: 'fetch campaigns failed: ' + cr.code };
     }
 
-    // 3: Patch audience (campaign now in draft)
-    Utilities.sleep(300);
-    var pr = _klfFetch('PATCH', 'campaigns/' + c.id + '/', {
-      data: { type: 'campaign', id: c.id, attributes: {
-        audiences: { included: [segId], excluded: [suppId] }
-      }}
+    var seq34 = cr.data.data.filter(function(c) {
+      var name   = String((c.attributes && c.attributes.name) || '');
+      var status = String((c.attributes && c.attributes.status) || '');
+      return name.indexOf('EC-2026-001') === 0 &&
+             (name.indexOf('SEQ-3') !== -1 || name.indexOf('SEQ-4') !== -1) &&
+             status === 'Scheduled';
     });
-    step.audience_updated = (pr.code === 200 || pr.code === 204);
-    if (!step.audience_updated) step.audience_error = _klfErr(pr);
 
-    // 4: Re-post send-job (uses stored send_strategy.datetime)
-    Utilities.sleep(300);
-    var nr = _klfFetch('POST', 'campaign-send-jobs/', {
-      data: { type: 'campaign-send-job', attributes: {},
-        relationships: { campaign: { data: { type: 'campaign', id: c.id } } }
+    if (!seq34.length) return { ok: false, error: 'no Scheduled SEQ-3/4 campaigns found — check Klaviyo board' };
+
+    var results = [];
+    seq34.forEach(function(c) {
+      var campId = c.id;
+      var name   = String((c.attributes && c.attributes.name) || '');
+      var isB    = name.indexOf('Variant B') !== -1;
+      var listId = isB ? listBId : listAId;
+      var step   = { id: campId, name: name, variant: isB ? 'B' : 'A', list: listId };
+
+      // 1: Revert to Draft by deleting the send-job.
+      // Hypothesis: send-job ID = campaign ID (we POST with data.id = campId when scheduling).
+      // Fallback: try PATCH send-job/{campId} with status cancelled.
+      Utilities.sleep(300);
+      var sdr = _klfFetch('DELETE', 'campaign-send-jobs/' + campId + '/');
+      step.cancel_code = sdr.code;
+      step.sj_deleted = (sdr.code === 200 || sdr.code === 204 || sdr.code === 202);
+      if (!step.sj_deleted) {
+        // Fallback: PATCH campaign-send-jobs/{campId}/ to cancel
+        var patchCancel = _klfFetch('PATCH', 'campaign-send-jobs/' + campId + '/', {
+          data: { type: 'campaign-send-job', id: campId, attributes: { status: 'cancelled' } }
+        });
+        step.cancel_code2 = patchCancel.code;
+        step.sj_deleted = (patchCancel.code === 200 || patchCancel.code === 204 || patchCancel.code === 202);
+        if (!step.sj_deleted) step.cancel_error = _klfErr(sdr) + ' | patch: ' + _klfErr(patchCancel);
       }
+      Logger.log('[KLF] rewireAudiences cancel ' + campId + ' delete=' + sdr.code);
+      Utilities.sleep(500);
+
+      // 2: Patch audience → correct list + XJYckK exclusion
+      Utilities.sleep(300);
+      var pr = _klfFetch('PATCH', 'campaigns/' + campId + '/', {
+        data: { type: 'campaign', id: campId, attributes: {
+          audiences: { included: [listId], excluded: [suppId] }
+        }}
+      });
+      step.audience_updated = (pr.code === 200 || pr.code === 204);
+      if (!step.audience_updated) step.audience_error = _klfErr(pr);
+
+      // 3: Re-post send-job — data.id = campaign ID (Klaviyo 2025-04-15 format)
+      Utilities.sleep(300);
+      var nr = _klfFetch('POST', 'campaign-send-jobs/', {
+        data: { type: 'campaign-send-job', id: campId }
+      });
+      step.rescheduled = (nr.code === 200 || nr.code === 201 || nr.code === 202);
+      if (!step.rescheduled) step.reschedule_error = _klfErr(nr);
+
+      results.push(step);
+      Logger.log('[KLF] rewireAudiences ' + name + ' → list=' + listId + ' updated=' + step.audience_updated + ' rescheduled=' + step.rescheduled);
     });
-    step.rescheduled = (nr.code === 201 || nr.code === 200);
-    if (!step.rescheduled) step.reschedule_error = _klfErr(nr);
 
-    results.push({ id: c.id, variant: c.variant, seg_id: segId, steps: step });
-    Logger.log('[rewireAudiences] ' + c.id + ' variant=' + c.variant + ' patched=' + step.audience_updated + ' rescheduled=' + step.rescheduled);
-  });
+    var successCount = results.filter(function(r) { return r.audience_updated && r.rescheduled; }).length;
+    return { ok: successCount === seq34.length, total: seq34.length, success: successCount, results: results, list_a: listAId, list_b: listBId, suppression: suppId };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
 
-  var successCount = results.filter(function(r) { return r.steps.rescheduled; }).length;
-  return { ok: successCount === campMap.length, total: campMap.length, success: successCount, results: results };
+// ── klaviyoSendTestEmail ──────────────────────────────────────────────────────
+// Sends a Klaviyo test email for a SEQ-3/4 campaign to the specified address.
+// Dynamically looks up the campaign by name — no hardcoded IDs.
+// campaignKey: e.g. 'SEQ-3-E1-A' (default), toEmail: defaults to Taylor
+function klaviyoSendTestEmail(campaignKey, toEmail) {
+  try {
+    campaignKey = campaignKey || 'SEQ-3-E1-A';
+    toEmail     = toEmail     || 'Taylor@gatehouseassets.com';
+
+    var variant  = campaignKey.slice(-1);
+    var baseKey  = campaignKey.replace(/-[AB]$/, '');
+    var campName = 'EC-2026-001 · ' + baseKey + ' · Variant ' + variant;
+
+    // Find campaign by exact name
+    var cr = _klfFetch('GET', "campaigns/?filter=equals(messages.channel,'email')&page[size]=50&fields[campaign]=name,status");
+    if (cr.code !== 200 || !cr.data || !cr.data.data) {
+      return { ok: false, error: 'fetch campaigns failed: ' + cr.code };
+    }
+
+    var match = cr.data.data.filter(function(c) {
+      return String((c.attributes && c.attributes.name) || '') === campName;
+    });
+    if (!match.length) return { ok: false, error: 'campaign not found: ' + campName };
+
+    var campId = match[0].id;
+
+    // Get message ID
+    Utilities.sleep(200);
+    var mf = _klfFetch('GET', 'campaigns/' + campId + '/campaign-messages/');
+    if (mf.code !== 200 || !mf.data || !mf.data.data || !mf.data.data.length) {
+      return { ok: false, error: 'no messages on campaign ' + campId };
+    }
+    var msgId = mf.data.data[0].id;
+
+    // Klaviyo does not expose a campaign test-send endpoint in their REST API (2025-04-15).
+    // Use the Klaviyo UI: Campaigns → click campaign → "Send Test" button in message editor.
+    return {
+      ok: false,
+      campaign: campName,
+      camp_id: campId,
+      msg_id: msgId,
+      to: toEmail,
+      error: 'Klaviyo API has no test-send endpoint for campaigns. Use Klaviyo UI: Campaigns → click campaign → Send Test button.'
+    };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // ── _klfFetchRev — revision-overridable fetch ─────────────────────────────────
@@ -2023,21 +2206,121 @@ function klaviyoRescheduleQstBroadcast(campaignId, newSendAt) {
     if (!campaignId) return { ok: false, error: 'campaignId required' };
     if (!newSendAt)  return { ok: false, error: 'newSendAt required (ISO 8601 with offset)' };
 
-    // Step 1: Try PATCH on send_strategy
+    // Step 1: PATCH send_strategy + audiences + options
     var nameSlice  = newSendAt.slice(5, 10).replace('-', '/');
     var patchResult = _klfFetch('PATCH', 'campaigns/' + campaignId + '/', {
       data: {
         type: 'campaign',
         id:   campaignId,
         attributes: {
-          name:          'EC-2026-001 · QST-E1 · TebDTM Broadcast · ' + nameSlice,
-          send_strategy: { method: 'static', datetime: newSendAt }
+          name:             'EC-2026-001 · QST-E1 · TebDTM Broadcast · ' + nameSlice,
+          send_strategy:    { method: 'static', datetime: newSendAt },
+          audiences:        { included: [_KLF_LIST_ID], excluded: ['XJYckK'] },
+          send_options:     { use_smart_sending: false },
+          tracking_options: { is_tracking_opens: true, is_tracking_clicks: true }
         }
       }
     });
 
     if (patchResult.code === 200) {
-      return { ok: true, action: 'patched', campaign_id: campaignId, new_send_at: newSendAt };
+      // Campaign was Draft (PATCH succeeded). DELETE it and recreate with send_strategy
+      // so Klaviyo auto-schedules it — the same pattern proven by the 14 SEQ-3/4 campaigns.
+      // (POST /campaign-send-jobs/ relationships.campaign is not allowed in API rev 2025-04-15)
+      var del2 = _klfFetch('DELETE', 'campaigns/' + campaignId + '/');
+      Logger.log('[KLF] QST-E1 DELETE draft → HTTP ' + del2.code);
+      if (del2.code !== 204 && del2.code !== 200) {
+        return { ok: false, action: 'delete_draft_failed', http: del2.code, error: _klfErr(del2) };
+      }
+      Utilities.sleep(500);
+      var campResult = _klfFetch('POST', 'campaigns/', {
+        data: {
+          type: 'campaign',
+          attributes: {
+            name:             'EC-2026-001 · QST-E1 · TebDTM Broadcast · ' + nameSlice,
+            audiences:        { included: [_KLF_LIST_ID], excluded: ['XJYckK'] },
+            send_options:     { use_smart_sending: false },
+            tracking_options: { is_tracking_opens: true, is_tracking_clicks: true },
+            send_strategy:    { method: 'static', datetime: newSendAt },
+            'campaign-messages': {
+              data: [{ type: 'campaign-message', attributes: { definition: { channel: 'email' } } }]
+            }
+          }
+        }
+      });
+      if (campResult.code !== 201 && campResult.code !== 200) {
+        return { ok: false, action: 'recreate_failed', error: _klfErr(campResult) };
+      }
+      var newCampId = campResult.data && campResult.data.data && campResult.data.data.id;
+      var newMsgId2 = null;
+      try {
+        var rels3 = campResult.data.data.relationships;
+        var md3   = rels3 && rels3['campaign-messages'] && rels3['campaign-messages'].data;
+        if (md3 && md3.length) newMsgId2 = md3[0].id;
+      } catch(ex2) {}
+      if (!newMsgId2) {
+        var mf2 = _klfFetch('GET', 'campaigns/' + newCampId + '/campaign-messages/');
+        if (mf2.code === 200 && mf2.data && mf2.data.data && mf2.data.data.length) newMsgId2 = mf2.data.data[0].id;
+      }
+      // Look up QST-E1 subject/preview from EmailSequences
+      var qstSubject = 'I want to invite you to something';
+      var qstPreview = '';
+      try {
+        var allSeqs = getEmailSequences(_KLF_CAMPAIGN_ID);
+        for (var si = 0; si < allSeqs.length; si++) {
+          var se = allSeqs[si];
+          if (String(se.sequence_code) === 'QST' && Number(se.email_number) === 1) {
+            qstSubject = String(se.subject_line || qstSubject);
+            qstPreview = String(se.preview_text  || '');
+            break;
+          }
+        }
+      } catch(qe) {}
+
+      var tplOk2 = false;
+      if (newMsgId2) {
+        _klfFetch('PATCH', 'campaign-messages/' + newMsgId2 + '/', {
+          data: {
+            type: 'campaign-message',
+            id:   newMsgId2,
+            attributes: {
+              definition: {
+                channel: 'email',
+                content: {
+                  subject:      qstSubject,
+                  preview_text: qstPreview,
+                  from_email:   _KLF_FROM_EMAIL,
+                  from_label:   _KLF_FROM_NAME
+                }
+              }
+            }
+          }
+        });
+        var tplRes2 = _klfFetch('POST', 'campaign-message-assign-template/', {
+          data: {
+            type: 'campaign-message',
+            id:   newMsgId2,
+            relationships: { template: { data: { type: 'template', id: 'VyNxs4' } } }
+          }
+        });
+        tplOk2 = (tplRes2.code === 200 || tplRes2.code === 204 || tplRes2.code === 201);
+        Logger.log('[KLF] QST-E1 assign template VyNxs4 → HTTP ' + tplRes2.code);
+      }
+      // Schedule the new campaign — data.id = campaign_id per Klaviyo 2025-04-15
+      Utilities.sleep(300);
+      var sjRes2 = _klfFetch('POST', 'campaign-send-jobs/', {
+        data: { type: 'campaign-send-job', id: newCampId }
+      });
+      Logger.log('[KLF] QST-E1 send-job POST → HTTP ' + sjRes2.code);
+      return {
+        ok:                true,
+        action:            'recreated',
+        old_camp_id:       campaignId,
+        new_camp_id:       newCampId,
+        new_send_at:       newSendAt,
+        template_ok:       tplOk2,
+        send_job_code:     sjRes2.code,
+        send_job_error:    (sjRes2.code !== 200 && sjRes2.code !== 201 && sjRes2.code !== 202) ? _klfErr(sjRes2) : null
+      };
     }
 
     Logger.log('[KLF] Campaign PATCH → HTTP ' + patchResult.code + ' — trying cancel+delete+recreate');
@@ -2117,6 +2400,463 @@ function klaviyoRescheduleQstBroadcast(campaignId, newSendAt) {
       template_assigned: tplOk,
       new_send_at:       newSendAt
     };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoRescheduleSeq34Campaigns ──────────────────────────────────────────
+// Recreates all 14 SEQ-3/SEQ-4 campaigns with correct send dates (9am EDT).
+// Root cause: original creation set send_strategy.datetime to creation timestamp
+// (~May 18 9:32pm UTC) instead of the correct June/July send dates.
+// Fix: DELETE old campaign → POST new campaign with correct date → assign template.
+// Audiences: Variant A = klaviyo_segment_id_a (UQTdyL), B = klaviyo_segment_id_b (VpgZPZ).
+// Both exclude XJYckK (Already a Founder suppression segment).
+// Recreates all 14 SEQ-3/4 campaigns from scratch using send_day from EmailSequences.
+// Send dates computed via _klfSendAt(send_day) — reads campaign_start_date + timezone from CcSettings.
+// Assumes old campaigns already cancelled/deleted in Klaviyo UI.
+// Does NOT call POST campaign-send-jobs — send_strategy.datetime in campaign POST is sufficient.
+function klaviyoRescheduleSeq34Campaigns() {
+  try {
+    var listAId = _cvtReadSetting('klaviyo_segment_id_a');
+    var listBId = _cvtReadSetting('klaviyo_segment_id_b');
+    var suppId  = _cvtReadSetting('klaviyo_suppression_segment_id');
+    if (!listAId) return { ok: false, error: 'klaviyo_segment_id_a missing from CcSettings' };
+    if (!listBId) return { ok: false, error: 'klaviyo_segment_id_b missing from CcSettings' };
+    if (!suppId)  return { ok: false, error: 'klaviyo_suppression_segment_id missing from CcSettings' };
+
+    var allEmails = getEmailSequences(_KLF_CAMPAIGN_ID);
+    var campEmails = allEmails.filter(function(e) {
+      return _KLF_CAMP_SEQS.indexOf(String(e.sequence_code)) !== -1;
+    });
+
+    // Group into A/B pairs by sequence_code + email_number
+    var pairs = {};
+    campEmails.forEach(function(e) {
+      var key = String(e.sequence_code) + '-E' + String(e.email_number);
+      if (!pairs[key]) pairs[key] = {};
+      var icp = String(e.icp_code || '');
+      if (icp === 'super_mom_money') pairs[key].a = e;
+      else if (icp === 'super_mom_time') pairs[key].b = e;
+    });
+
+    var results = { ok: true, done: 0, errors: [], rows: [] };
+
+    Object.keys(pairs).sort().forEach(function(pairKey) {
+      var pair = pairs[pairKey];
+
+      [{ email: pair.a, variant: 'A', segId: listAId }, { email: pair.b, variant: 'B', segId: listBId }].forEach(function(item) {
+        var email = item.email;
+        if (!email) return;
+
+        var sendAt     = _klfSendAt(Number(email.send_day) || 0);
+        var templateId = String(email.seq_template_id || '');
+        var campName   = 'EC-2026-001 · ' + pairKey + ' · Variant ' + item.variant;
+        var seqCode    = String(email.sequence_code);
+
+        Utilities.sleep(300);
+
+        // POST campaign — send_strategy.datetime schedules it automatically (no send-job needed)
+        var campResult = _klfFetch('POST', 'campaigns/', {
+          data: {
+            type: 'campaign',
+            attributes: {
+              name:             campName,
+              audiences:        { included: [item.segId], excluded: [suppId] },
+              send_options:     { use_smart_sending: false },
+              tracking_options: { is_tracking_opens: true, is_tracking_clicks: true },
+              send_strategy:    { method: 'static', datetime: sendAt },
+              'campaign-messages': {
+                data: [{ type: 'campaign-message', attributes: { definition: { channel: 'email' } } }]
+              }
+            }
+          }
+        });
+
+        if (campResult.code !== 201 && campResult.code !== 200) {
+          results.errors.push(pairKey + '-' + item.variant);
+          results.rows.push({ key: pairKey + '-' + item.variant, ok: false, step: 'create', http: campResult.code, error: _klfErr(campResult) });
+          return;
+        }
+
+        var newCampId = campResult.data && campResult.data.data && campResult.data.data.id;
+
+        // Get message ID
+        var msgId = null;
+        try {
+          var rels = campResult.data.data.relationships;
+          var md   = rels && rels['campaign-messages'] && rels['campaign-messages'].data;
+          if (md && md.length) msgId = md[0].id;
+        } catch(ex) {}
+        if (!msgId) {
+          var mf = _klfFetch('GET', 'campaigns/' + newCampId + '/campaign-messages/');
+          if (mf.code === 200 && mf.data && mf.data.data && mf.data.data.length) msgId = mf.data.data[0].id;
+        }
+
+        // Patch subject/from/preview — no channel_options (utm_params blocked in API 2025-04-15)
+        var patchOk = false;
+        if (msgId) {
+          var pr = _klfFetch('PATCH', 'campaign-messages/' + msgId + '/', {
+            data: {
+              type: 'campaign-message',
+              id:   msgId,
+              attributes: {
+                definition: {
+                  channel: 'email',
+                  content: {
+                    subject:      String(email.subject_line  || ''),
+                    preview_text: String(email.preview_text  || ''),
+                    from_email:   _KLF_FROM_EMAIL,
+                    from_label:   _KLF_FROM_NAME
+                  }
+                }
+              }
+            }
+          });
+          patchOk = (pr.code === 200 || pr.code === 204);
+          Logger.log('[KLF] PATCH message ' + msgId + ' → ' + pr.code);
+        }
+
+        // Assign existing template
+        var tplOk = false;
+        if (msgId && templateId) {
+          var tplRes = _klfFetch('POST', 'campaign-message-assign-template/', {
+            data: { type: 'campaign-message', id: msgId,
+              relationships: { template: { data: { type: 'template', id: templateId } } } }
+          });
+          tplOk = (tplRes.code === 200 || tplRes.code === 201 || tplRes.code === 204);
+          Logger.log('[KLF] assign template ' + templateId + ' → ' + tplRes.code);
+        }
+
+        // Explicit send-job — ensures campaign moves to Scheduled even if auto-schedule didn't fire
+        var sjHttp = null;
+        if (newCampId && patchOk) {
+          Utilities.sleep(300);
+          var sj = _klfFetch('POST', 'campaign-send-jobs/', {
+            data: { type: 'campaign-send-job', id: newCampId }
+          });
+          sjHttp = sj.code;
+          Logger.log('[KLF] send-job ' + newCampId + ' → ' + sj.code);
+        }
+
+        // Write new campaign ID back to sheet
+        if (newCampId) _klfWriteBack(email.id, 'klaviyo_id', newCampId);
+
+        results.done++;
+        results.rows.push({
+          key:         pairKey + '-' + item.variant,
+          ok:          true,
+          new_id:      newCampId,
+          send_at:     sendAt,
+          send_day:    Number(email.send_day) || 0,
+          patch_ok:    patchOk,
+          sj_http:     sjHttp,
+          template_id: templateId,
+          template_ok: tplOk
+        });
+        Logger.log('[KLF] Created ' + pairKey + '-' + item.variant + ': ' + newCampId + ' → ' + sendAt);
+      });
+    });
+
+    Logger.log('[KLF] klaviyoRescheduleSeq34Campaigns done — ' + results.done + ' created, ' + results.errors.length + ' errors');
+    return results;
+  } catch(e) {
+    Logger.log('[KLF] klaviyoRescheduleSeq34Campaigns error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoActivateAndCleanCampaigns ─────────────────────────────────────────
+// 1. POSTs campaign-send-jobs for every Draft EC-2026-001 campaign → Scheduled
+// 2. Deletes every Cancelled EC-2026-001 campaign
+// 3. Attempts to PATCH UTM tracking on each Draft campaign before scheduling
+// 4. Returns final status table
+function klaviyoActivateAndCleanCampaigns() {
+  try {
+    var cr = _klfFetch('GET', "campaigns/?filter=equals(messages.channel,'email')&page[size]=100&fields[campaign]=name,status,send_strategy");
+    if (cr.code !== 200) return { ok: false, error: 'fetch failed: ' + cr.code };
+
+    var campaigns = cr.data && cr.data.data || [];
+    var results = { ok: true, scheduled: [], deleted: [], utm_errors: [], errors: [] };
+
+    campaigns.forEach(function(c) {
+      var name   = String((c.attributes && c.attributes.name) || '');
+      var status = String((c.attributes && c.attributes.status) || '');
+      var isEC   = name.indexOf('EC-2026-001') === 0;
+      if (!isEC) return;
+
+      Utilities.sleep(250);
+
+      // Delete cancelled
+      if (status.toLowerCase().indexOf('cancelled') === 0) {
+        var d = _klfFetch('DELETE', 'campaigns/' + c.id + '/');
+        results.deleted.push({ name: name, id: c.id, http: d.code, ok: d.code === 204 || d.code === 200 || d.code === 404 });
+        Logger.log('[KLF] DELETE cancelled: ' + name + ' → ' + d.code);
+        return;
+      }
+
+      // Schedule drafts
+      if (status === 'Draft') {
+        // Try PATCH UTM on campaign level (add_utm approach)
+        var utmPatch = _klfFetch('PATCH', 'campaigns/' + c.id + '/', {
+          data: {
+            type: 'campaign',
+            id:   c.id,
+            attributes: {
+              tracking_options: {
+                is_tracking_opens:  true,
+                is_tracking_clicks: true,
+                add_utm:  true,
+                utm_params: [
+                  { name: 'utm_source',   value: 'klaviyo' },
+                  { name: 'utm_medium',   value: 'email' },
+                  { name: 'utm_campaign', value: '{{ message.name }}' }
+                ]
+              }
+            }
+          }
+        });
+        if (utmPatch.code !== 200 && utmPatch.code !== 204) {
+          results.utm_errors.push({ name: name, http: utmPatch.code, error: _klfErr(utmPatch) });
+          Logger.log('[KLF] UTM PATCH ' + name + ' → ' + utmPatch.code + ' ' + _klfErr(utmPatch));
+        } else {
+          Logger.log('[KLF] UTM PATCH ' + name + ' → ' + utmPatch.code + ' ✅');
+        }
+
+        Utilities.sleep(250);
+
+        // POST send-job — campaign already has send_strategy.datetime set; Klaviyo schedules at that time
+        var sj = _klfFetch('POST', 'campaign-send-jobs/', {
+          data: { type: 'campaign-send-job', id: c.id }
+        });
+        var sjOk = sj.code === 200 || sj.code === 201 || sj.code === 202;
+        var sendAt = c.attributes && c.attributes.send_strategy && c.attributes.send_strategy.datetime;
+        results.scheduled.push({ name: name, id: c.id, send_at: sendAt || 'unknown', sj_http: sj.code, ok: sjOk });
+        Logger.log('[KLF] SEND-JOB ' + name + ' → ' + sj.code);
+      }
+    });
+
+    return results;
+  } catch(e) {
+    Logger.log('[KLF] klaviyoActivateAndCleanCampaigns error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoFixSeq4Messages ────────────────────────────────────────────────────
+// SEQ-4 campaigns are Draft because their message PATCH failed (channel_options bug).
+// This reads klaviyo_id from EmailSequences, PATCHes subject/from on each message,
+// then POSTs send-jobs to move them to Scheduled.
+function klaviyoFixSeq4Messages() {
+  try {
+    var allEmails = getEmailSequences(_KLF_CAMPAIGN_ID);
+    var seq4 = allEmails.filter(function(e) { return String(e.sequence_code) === 'SEQ-4'; });
+
+    var results = { ok: true, done: 0, errors: [], rows: [] };
+
+    seq4.forEach(function(e) {
+      var campId = String(e.klaviyo_id || '');
+      if (!campId) { results.errors.push(String(e.id) + ': no klaviyo_id'); return; }
+
+      Utilities.sleep(300);
+
+      // Get message ID
+      var msgFetch = _klfFetch('GET', 'campaigns/' + campId + '/campaign-messages/');
+      if (msgFetch.code !== 200 || !msgFetch.data || !msgFetch.data.data || !msgFetch.data.data.length) {
+        results.errors.push(String(e.id) + ': could not get message id (HTTP ' + msgFetch.code + ')');
+        return;
+      }
+      var msgId = msgFetch.data.data[0].id;
+
+      // PATCH subject/from/preview — no channel_options
+      var patchResult = _klfFetch('PATCH', 'campaign-messages/' + msgId + '/', {
+        data: {
+          type: 'campaign-message',
+          id:   msgId,
+          attributes: {
+            definition: {
+              channel: 'email',
+              content: {
+                subject:      String(e.subject_line  || ''),
+                preview_text: String(e.preview_text  || ''),
+                from_email:   _KLF_FROM_EMAIL,
+                from_label:   _KLF_FROM_NAME
+              }
+            }
+          }
+        }
+      });
+      Logger.log('[KLF] PATCH msg ' + String(e.id) + ' → ' + patchResult.code);
+
+      Utilities.sleep(300);
+
+      // POST send-job — now that message is complete, Klaviyo will schedule at send_strategy.datetime
+      var sj = _klfFetch('POST', 'campaign-send-jobs/', {
+        data: { type: 'campaign-send-job', id: campId }
+      });
+      var sjOk = sj.code === 200 || sj.code === 201 || sj.code === 202;
+      Logger.log('[KLF] SEND-JOB ' + String(e.id) + ' → ' + sj.code);
+
+      results.done++;
+      results.rows.push({
+        id:          String(e.id),
+        camp_id:     campId,
+        msg_id:      msgId,
+        patch_http:  patchResult.code,
+        sj_http:     sj.code,
+        ok:          sjOk
+      });
+    });
+
+    return results;
+  } catch(err) {
+    Logger.log('[KLF] klaviyoFixSeq4Messages error: ' + err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+// ── klaviyoFixSeq3Dates ───────────────────────────────────────────────────────
+// Deletes all current SEQ-3 campaigns (any status) and recreates with correct
+// send dates: E1=Jun10 E2=Jun15 E3=Jun20 E4=Jun25 at 9am EDT (13:00 UTC).
+// Audience: UQTdyL (A) / VpgZPZ (B) + exclude XJYckK.
+function klaviyoFixSeq3Dates() {
+  try {
+    var listAId = _cvtReadSetting('klaviyo_segment_id_a');
+    var listBId = _cvtReadSetting('klaviyo_segment_id_b');
+    var suppId  = _cvtReadSetting('klaviyo_suppression_segment_id');
+    if (!listAId || !listBId || !suppId) return { ok: false, error: 'Missing list settings' };
+
+    // Correct send dates for SEQ-3 (9am EDT = 13:00 UTC)
+    var SEQ3_DATES = { '1': '2026-06-10T13:00:00Z', '2': '2026-06-15T13:00:00Z', '3': '2026-06-20T13:00:00Z', '4': '2026-06-25T13:00:00Z' };
+
+    // Step 1: Delete all current SEQ-3 campaigns
+    var cr = _klfFetch('GET', "campaigns/?filter=equals(messages.channel,'email')&page[size]=50&fields[campaign]=name,status");
+    if (cr.code !== 200) return { ok: false, error: 'fetch campaigns failed: ' + cr.code };
+    var deleted = 0;
+    (cr.data.data || []).forEach(function(c) {
+      var name = String((c.attributes && c.attributes.name) || '');
+      if (name.indexOf('EC-2026-001') === 0 && name.indexOf('SEQ-3') !== -1) {
+        Utilities.sleep(250);
+        var d = _klfFetch('DELETE', 'campaigns/' + c.id + '/');
+        if (d.code === 204 || d.code === 200 || d.code === 404) deleted++;
+        Logger.log('[KLF] DELETE SEQ-3 ' + name + ' → ' + d.code);
+      }
+    });
+    Logger.log('[KLF] klaviyoFixSeq3Dates — deleted ' + deleted + ' SEQ-3 campaigns');
+
+    // Step 2: Load SEQ-3 emails from EmailSequences
+    var allEmails = getEmailSequences(_KLF_CAMPAIGN_ID);
+    var seq3 = allEmails.filter(function(e) { return String(e.sequence_code) === 'SEQ-3'; });
+
+    var pairs = {};
+    seq3.forEach(function(e) {
+      var num = String(e.email_number);
+      if (!pairs[num]) pairs[num] = {};
+      var icp = String(e.icp_code || '');
+      if (icp === 'super_mom_money') pairs[num].a = e;
+      else if (icp === 'super_mom_time') pairs[num].b = e;
+    });
+
+    var results = { ok: true, deleted: deleted, done: 0, errors: [], rows: [] };
+
+    Object.keys(pairs).sort().forEach(function(num) {
+      var pair = pairs[num];
+      var sendAt = SEQ3_DATES[num];
+      if (!sendAt) { results.errors.push('SEQ-3-E' + num + ': no date'); return; }
+
+      [{ email: pair.a, variant: 'A', segId: listAId }, { email: pair.b, variant: 'B', segId: listBId }].forEach(function(item) {
+        var email = item.email;
+        if (!email) return;
+        var templateId = String(email.seq_template_id || '');
+        var campName   = 'EC-2026-001 · SEQ-3-E' + num + ' · Variant ' + item.variant;
+
+        Utilities.sleep(300);
+        var campResult = _klfFetch('POST', 'campaigns/', {
+          data: {
+            type: 'campaign',
+            attributes: {
+              name:             campName,
+              audiences:        { included: [item.segId], excluded: [suppId] },
+              send_options:     { use_smart_sending: false },
+              tracking_options: { is_tracking_opens: true, is_tracking_clicks: true },
+              send_strategy:    { method: 'static', datetime: sendAt },
+              'campaign-messages': {
+                data: [{ type: 'campaign-message', attributes: { definition: { channel: 'email' } } }]
+              }
+            }
+          }
+        });
+
+        if (campResult.code !== 201 && campResult.code !== 200) {
+          results.errors.push(campName);
+          results.rows.push({ key: campName, ok: false, http: campResult.code, error: _klfErr(campResult) });
+          return;
+        }
+
+        var newCampId = campResult.data && campResult.data.data && campResult.data.data.id;
+        var msgId = null;
+        try { var rels = campResult.data.data.relationships; var md = rels && rels['campaign-messages'] && rels['campaign-messages'].data; if (md && md.length) msgId = md[0].id; } catch(ex) {}
+        if (!msgId) { var mf = _klfFetch('GET', 'campaigns/' + newCampId + '/campaign-messages/'); if (mf.code === 200 && mf.data && mf.data.data && mf.data.data.length) msgId = mf.data.data[0].id; }
+
+        if (msgId) {
+          _klfFetch('PATCH', 'campaign-messages/' + msgId + '/', {
+            data: { type: 'campaign-message', id: msgId, attributes: { definition: { channel: 'email', content: {
+              subject: String(email.subject_line || ''), preview_text: String(email.preview_text || ''),
+              from_email: _KLF_FROM_EMAIL, from_label: _KLF_FROM_NAME
+            } } } }
+          });
+        }
+
+        var tplOk = false;
+        if (msgId && templateId) {
+          var tplRes = _klfFetch('POST', 'campaign-message-assign-template/', {
+            data: { type: 'campaign-message', id: msgId, relationships: { template: { data: { type: 'template', id: templateId } } } }
+          });
+          tplOk = (tplRes.code === 200 || tplRes.code === 201 || tplRes.code === 204);
+        }
+
+        if (newCampId) _klfWriteBack(email.id, 'klaviyo_id', newCampId);
+        results.done++;
+        results.rows.push({ key: campName, ok: true, new_id: newCampId, send_at: sendAt, template_id: templateId, template_ok: tplOk });
+        Logger.log('[KLF] klaviyoFixSeq3Dates: ' + campName + ' → ' + newCampId + ' ' + sendAt);
+      });
+    });
+
+    return results;
+  } catch(e) {
+    Logger.log('[KLF] klaviyoFixSeq3Dates error: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── klaviyoCleanupDraftCancelledCampaigns ────────────────────────────────────
+// Deletes all Draft and Cancelled EC-2026-001 SEQ-3/4 campaigns.
+// Leaves Scheduled campaigns and the QST-E1 broadcast untouched.
+function klaviyoCleanupDraftCancelledCampaigns() {
+  try {
+    var cr = _klfFetch('GET', "campaigns/?filter=equals(messages.channel,'email')&page[size]=50&fields[campaign]=name,status");
+    if (cr.code !== 200 || !cr.data || !cr.data.data) return { ok: false, error: 'fetch failed: ' + cr.code };
+
+    var toDelete = cr.data.data.filter(function(c) {
+      var name   = String((c.attributes && c.attributes.name) || '');
+      var status = String((c.attributes && c.attributes.status) || '');
+      var isSeq34 = name.indexOf('EC-2026-001') === 0 && (name.indexOf('SEQ-3') !== -1 || name.indexOf('SEQ-4') !== -1);
+      var isDraftOrCancelled = (status === 'Draft' || status === 'Cancelled' || status.indexOf('Cancelled') === 0);
+      return isSeq34 && isDraftOrCancelled;
+    });
+
+    var deleted = 0, errors = [];
+    toDelete.forEach(function(c) {
+      Utilities.sleep(250);
+      var r = _klfFetch('DELETE', 'campaigns/' + c.id + '/');
+      if (r.code === 204 || r.code === 200 || r.code === 404) {
+        deleted++;
+      } else {
+        errors.push({ id: c.id, name: (c.attributes && c.attributes.name) || '', code: r.code, error: _klfErr(r) });
+      }
+    });
+
+    return { ok: true, found: toDelete.length, deleted: deleted, errors: errors };
   } catch(e) {
     return { ok: false, error: e.message };
   }

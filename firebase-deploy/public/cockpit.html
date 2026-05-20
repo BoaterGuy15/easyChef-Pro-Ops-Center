@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Campaign Cockpit</title>
   <script src="/config.js"></script>
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1267,16 +1268,17 @@
       var flowSection='<div class="ec-section-title">Flows <span>'+(data.flows||[]).length+' flows · live from Klaviyo API</span></div>'
         +'<table class="ec-flow-table"><thead><tr><th>Flow</th><th>ID</th><th style="text-align:center">Steps</th><th>Status</th><th>Trigger</th><th>Go-live</th><th></th></tr></thead>'
         +'<tbody>'+flowRows+'</tbody></table>';
-      var camps=data.campaigns||[];
+      var camps=(data.campaigns||[]).filter(function(c){return !(c.status||'').toLowerCase().startsWith('cancelled');});
       var campRows=camps.map(function(c){
-        var sc=c.status==='scheduled'||c.status==='sent'?'ec-status-live':c.status==='cancelled'?'ec-status-cancelled':'ec-status-draft';
-        var kurl='https://www.klaviyo.com/campaigns/'+c.id+'/edit';
+        var st=(c.status||'').toLowerCase();
+        var sc=st==='scheduled'||st==='sent'?'ec-status-live':'ec-status-draft';
+        var kurl=st==='scheduled'?'https://www.klaviyo.com/campaign/'+c.id+'/scheduled':st==='sent'?'https://www.klaviyo.com/campaign/'+c.id+'/sent':'https://www.klaviyo.com/campaigns/email';
         var sendHtml='—';
         if(c.scheduled_at){var d=new Date(c.scheduled_at);sendHtml='<div class="ec-send-date">'+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'</div><div class="ec-send-time">'+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'})+'</div>';}
         return '<tr><td><div class="ec-camp-name">'+_esc(c.name||'—')+'</div>'+(c.subject?'<div class="ec-camp-subject">'+_esc(c.subject)+'</div>':'')+'</td>'
           +'<td>'+sendHtml+'</td>'
           +'<td><span class="ec-id-pill">'+_esc(c.id||'—')+'</span></td>'
-          +'<td><span class="'+sc+'">'+_esc((c.status||'draft').toUpperCase())+'</span></td>'
+          +'<td><span class="'+sc+'">'+_esc(st.toUpperCase()||'DRAFT')+'</span></td>'
           +'<td>'+(c.template_id?'<span class="ec-id-pill">'+_esc(c.template_id)+'</span>':'—')+'</td>'
           +'<td>'+(c.dl_id?'<span class="ec-id-pill">'+_esc(c.dl_id)+'</span>':'—')+'</td>'
           +'<td><a class="ec-klav-link" href="'+kurl+'" target="_blank">View &rarr;</a></td></tr>';
@@ -1305,7 +1307,7 @@
       var panel=document.getElementById('panel-socials');
       if(_socialsLoaded&&_socialsCache){renderSocialsTab();return;}
       panel.innerHTML='<div class="loading">Fetching social data<span class="dot-anim"></span></div>';
-      gasCall({action:'get_social_dashboard',campaign_id:_activeCampaign||'EC-2026-001'})
+      gasCall({action:'get_social_dashboard',campaign_id:(_activeCampaign&&_activeCampaign!=='all')?_activeCampaign:'EC-2026-001'})
         .then(function(d){
           if(!d||!d.ok){panel.innerHTML='<div class="loading">Error loading social data.</div>';return;}
           _socialsCache=d;_socialsLoaded=true;renderSocialsTab();
