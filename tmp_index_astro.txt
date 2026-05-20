@@ -1,0 +1,1527 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { Image } from 'astro:assets';
+import FeatureRow from '../components/FeatureRow.astro';
+import easyChefProLogo from '../assets/icons/figma/logo.svg?raw';
+
+// Visual atoms — only phones/illustrations, NOT text. All copy is real HTML.
+import heroBg from '../assets/figma/hero/home-hero.png';
+import heroPhone from '../assets/figma/homepage-visuals/hero-phone.png';
+import problemSmallPhone from '../assets/figma/homepage-visuals/problem-small-phone.png';
+import problemBigPhone from '../assets/figma/homepage-visuals/problem-big-phone.png';
+import benefits1 from '../assets/figma/homepage-visuals/benefits-1-healthscores.png';
+import benefits2 from '../assets/figma/homepage-visuals/benefits-2-fridge.png';
+import benefits3 from '../assets/figma/homepage-visuals/benefits-3-optimization.png';
+
+import personaHealth from '../assets/figma/personas/persona-health.png';
+import personaBusy from '../assets/figma/personas/persona-busy.png';
+import personaFamily from '../assets/figma/personas/persona-family.png';
+
+import step1 from '../assets/figma/sections/steps/step-1.png';
+import step2 from '../assets/figma/sections/steps/step-2.png';
+import step3 from '../assets/figma/sections/steps/step-3.png';
+import step4 from '../assets/figma/sections/steps/step-4.png';
+import step5 from '../assets/figma/sections/steps/step-5.png';
+import step6 from '../assets/figma/sections/steps/step-6.png';
+import step7 from '../assets/figma/sections/steps/step-7.png';
+
+const steps = [
+  { img: step1, title: 'Start with you',                   desc: 'Dietary needs · health goals · foods you love (and avoid)' },
+  { img: step2, title: 'Build your pantry',                desc: 'Add what you have · search from 800K+ products' },
+  { img: step3, title: 'Find recipes that actually fit',   desc: 'Scored for your nutrition goals · built from what you have' },
+  { img: step4, title: 'Plan the whole week',              desc: 'Meals decided before Monday · built around your pantry and 300K+ recipes' },
+  { img: step5, title: 'Shop with one list',               desc: 'Auto-generated · organized by store aisles · cloud-based and shareable' },
+  { img: step6, title: 'Cook hands-free',                  desc: 'Voice-guided · step by step · no screen touching' },
+  { img: step7, title: 'Watch what changes',               desc: 'Meals tracked · waste reduced · health scores improving' },
+];
+---
+
+<Layout
+  title="easyChef Pro — The World's First Health Operating System"
+  description="Your life changes. Your kitchen should change with it. easyChef Pro connects pantry, recipes, meal plan, grocery list, and health scores in one deterministic system. Join the first 5,000."
+>
+  <!-- Section 1: Hero — Figma background image + HTML text + phone visual -->
+  <section class="home-hero" id="hero" aria-label="Hero">
+    <Image
+      src={heroBg}
+      alt=""
+      role="presentation"
+      class="home-hero__bg"
+      widths={[800, 1200, 1600, 2000, 2880]}
+      sizes="100vw"
+      loading="eager"
+      fetchpriority="high"
+    />
+    <div class="home-hero__inner">
+      <div class="home-hero__text cascade cascade--1">
+        <p class="home-hero__eyebrow">TRACK → PLAN → OPTIMIZE → COOK → SHOP</p>
+        <h1 class="home-hero__headline">
+          <span class="home-hero__headline-line">Your life changes.</span>
+          <span class="home-hero__headline-line home-hero__headline-line--accent">Your kitchen should change with it.</span>
+        </h1>
+        <p class="home-hero__body">
+          The problem was never you. The system was disconnected.
+          easyChef Pro is the system your kitchen was always missing.
+        </p>
+        <p class="home-hero__tag">Dinner decided before you open the fridge.</p>
+        <div class="home-hero__ctas">
+          <a href="#cta" class="cta-primary pulse-ring shimmer-overlay">
+            <span>Get Early Access</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" class="cta-primary__arrow">
+              <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a href="/how-it-works" class="cta-secondary">See How it Works</a>
+        </div>
+      </div>
+      <div class="home-hero__visual cascade cascade--2">
+        <Image
+          src={heroPhone}
+          alt="easyChef Pro app showing today's meal plan with calorie tracking and macro breakdown."
+          class="home-hero__visual-img"
+          widths={[600, 900, 1200, 1650]}
+          sizes="(max-width: 900px) 80vw, 50vw"
+          loading="eager"
+          fetchpriority="high"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: You're Using Five Apps — text+bullets HTML, phones as images -->
+  <section class="problem-section" id="problem" aria-labelledby="problem-h">
+    <div class="problem-section__inner">
+      <h2 id="problem-h" class="problem-section__heading reveal">
+        You're Using Five Apps<br />
+        <em>and Still Guessing</em>
+      </h2>
+
+      <div class="problem-section__cols">
+        <div class="problem-col problem-col--left reveal reveal--left">
+          <ul class="problem-list problem-list--problems">
+            <li>A recipe app that doesn't know your pantry</li>
+            <li>A calorie tracker with data you can't verify</li>
+            <li>A meal planner that ignores your pantry</li>
+            <li>A grocery list that misses half the items</li>
+            <li>Food expiring</li>
+            <li>"AI-powered" recommendations</li>
+          </ul>
+          <div class="problem-phone problem-phone--small">
+            <Image
+              src={problemSmallPhone}
+              alt="A phone showing 5 Apps needed and a grid of nutrition app icons."
+              class="problem-phone__img"
+              widths={[300, 450, 600]}
+              sizes="(max-width: 900px) 60vw, 220px"
+              loading="lazy"
+            />
+          </div>
+        </div>
+
+        <div class="problem-col problem-col--right reveal reveal--right">
+          <div class="problem-phone problem-phone--big">
+            <Image
+              src={problemBigPhone}
+              alt="easyChef Pro app — 5 Problems, 1 solution — with recipe recommendations."
+              class="problem-phone__img"
+              widths={[400, 600, 900, 1300]}
+              sizes="(max-width: 900px) 70vw, 300px"
+              loading="lazy"
+            />
+          </div>
+          <ul class="problem-list problem-list--solutions">
+            <li>Your pantry knows what's expiring and what needs restocking</li>
+            <li>Your meal plan respects your health goals, your budget, AND your fridge</li>
+            <li>Your grocery list only includes what you actually need</li>
+            <li>Every recipe has a health score you can trust and verify</li>
+            <li>Food waste drops because the system plans around what you have</li>
+            <li>Same recipe, same score, every time — no guessing</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Seven Steps — sticky horizontal scrollytelling -->
+  <section class="steps-section" id="steps" aria-label="How it works">
+    <header class="steps-section__heading">
+      <h2 class="steps-section__title reveal">
+        Seven things your kitchen needs<br />
+        <em>One app that does all of them.</em>
+      </h2>
+    </header>
+
+    <div class="steps-scroller" data-steps-scroller>
+      <div class="steps-scroller__sticky">
+        <div class="steps-track" data-steps-track style={`--total: ${steps.length}`}>
+          {steps.map((step, i) => (
+            <article class="step-card" data-step={i + 1}>
+
+              <div class="step-card__title">{step.title}</div>
+              {step.desc && <p class="step-card__desc">{step.desc}</p>}
+              <div class="step-card__img-wrap">
+                <Image
+                  src={step.img}
+                  alt={`Step ${i + 1}: ${step.title}`}
+                  class="step-card__img"
+                  widths={[800, 1200, 1600, 2400]}
+                  sizes="(max-width: 768px) 100vw, 80vw"
+                  loading={i < 2 ? 'eager' : 'lazy'}
+                />
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <nav class="steps-progress" aria-label="Step navigation">
+          {steps.map((step, i) => (
+            <button
+              type="button"
+              class={`steps-progress__dot${i === 0 ? ' is-active' : ''}`}
+              data-step-idx={i}
+              aria-label={`Go to step ${i + 1}: ${step.title}`}
+            >
+              <span class="steps-progress__dot-num">{i + 1}</span>              
+            </button>
+          ))}
+          <div class="steps-progress__bar" aria-hidden="true">
+            <div class="steps-progress__bar-fill" data-steps-bar></div>
+          </div>
+        </nav>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 4: Eat Better, Waste Less, Spend Smarter -->
+  <section class="benefits-section" id="benefits" aria-labelledby="benefits-h">
+    <h2 id="benefits-h" class="section-heading reveal">
+      Eat better, Waste less<br /><em>Spend smarter</em>
+    </h2>
+    <FeatureRow
+      headingMedium="Health scores that make sense"
+      headingRegular=""
+      body="Every recipe scores 0–100 across 30+ nutritional factors, calibrated to your specific goals — heart health, metabolism, digestion, or athletic performance. You see exactly why, every number tied to a nutrient. No black boxes."
+      visual={benefits1}
+      visualAlt="Health Score card showing Heart Focus 75/100, weekly meal stats, and calorie trend."
+      visualSide="right"
+    />
+    <FeatureRow
+      headingMedium="Your fridge stops being a mystery"
+      headingRegular=""
+      body="Your pantry tracks what you have, what's expiring, and what to use soon. Cook something — items deduct automatically. Change the plan — the pantry adjusts. Your shopping list only adds what's actually missing."
+      visual={benefits2}
+      visualAlt="Pantry cards organized by expiration date — 2, 4, and 7 days to expire."
+      visualSide="left"
+    />
+    <FeatureRow
+      headingMedium="Nutrition and budget, optimized together"
+      headingRegular=""
+      body="Every dollar you spend on food has a health score. Your grocery list picks the best-value options that hit your goals. Your meal plan knows what things cost — and plans around it."
+      visual={benefits3}
+      visualAlt="Calorie tracking with macro pills and a 'Generate' meal plan CTA."
+      visualSide="right"
+    />
+  </section>
+
+  <!-- Section 5: Other apps guess, We calculate -->
+  <section class="compare-section" id="compare" aria-labelledby="compare-h">
+    <div class="compare-section__inner">
+      <h2 id="compare-h" class="section-heading reveal">
+        Other apps guess<br /><em>We calculate</em>
+      </h2>
+      <p class="compare-section__body reveal reveal--delay-1">
+        Most apps use AI models that give different answers daily. easyChef Pro
+        uses USDA data and clear math — the same chicken quinoa bowl gets the
+        same score today, tomorrow, and next year. Every number is verifiable.
+      </p>
+      <table class="compare-table reveal reveal--delay-2">
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            <th scope="col" class="compare-table__opp">Typical APPS</th>
+            <th scope="col" class="compare-table__us">
+              <span class="compare-table__brand" role="img" aria-label="easyChef Pro">
+                <Fragment set:html={easyChefProLogo} />
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Data source</th>
+            <td>Crowdsourced, user-submitted</td>
+            <td><strong>USDA-sourced, verified</strong></td>
+          </tr>
+          <tr>
+            <th scope="row">Consistency</th>
+            <td>Different results each time</td>
+            <td><strong>Same input = same output, always</strong></td>
+          </tr>
+          <tr>
+            <th scope="row">Transparency</th>
+            <td>"Trust our AI"</td>
+            <td><strong>Every score fully decomposable</strong></td>
+          </tr>
+          <tr>
+            <th scope="row">Scope</th>
+            <td>One feature (tracking OR planning OR recipes)</td>
+            <td><strong>Complete connected platform</strong></td>
+          </tr>
+          <tr>
+            <th scope="row">Your data</th>
+            <td>Your data</td>
+            <td><strong>Encrypted, never sold, always exportable</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="compare-section__footnote reveal reveal--delay-3">
+        Our technology is protected by 9 US patent filings.
+        <a href="/patents" class="compare-section__link">Learn about our technology →</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- Section 6: Whether You Cook for One or for Four -->
+  <section class="personas-section" id="personas" aria-labelledby="personas-h">
+    <div class="personas-section__inner">
+      <h2 id="personas-h" class="section-heading reveal">
+        Whether You Cook for<br /><em>One or for Four</em>
+      </h2>
+      <div class="personas-grid">
+        <a href="#cta" class="persona-card reveal reveal--delay-1" aria-label="Health-Conscious Individuals — Get a personalized health score for every meal. Learn more.">
+          <Image
+            src={personaHealth}
+            alt=""
+            class="persona-card__img"
+            widths={[400, 600, 800]}
+            sizes="(max-width: 900px) 90vw, 30vw"
+            loading="lazy"
+          />
+        </a>
+        <a href="#cta" class="persona-card reveal reveal--delay-2" aria-label="Busy Professionals — Weekly meal plans in seconds. Learn more.">
+          <Image
+            src={personaBusy}
+            alt=""
+            class="persona-card__img"
+            widths={[400, 600, 800]}
+            sizes="(max-width: 900px) 90vw, 30vw"
+            loading="lazy"
+          />
+        </a>
+        <a href="#cta" class="persona-card reveal reveal--delay-3" aria-label="Families — Manage dietary needs for all family members. Learn more.">
+          <Image
+            src={personaFamily}
+            alt=""
+            class="persona-card__img"
+            widths={[400, 600, 800]}
+            sizes="(max-width: 900px) 90vw, 30vw"
+            loading="lazy"
+          />
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 7: The only app that does all of this -->
+  <section class="onlyapp-section" id="onlyapp" aria-labelledby="onlyapp-h">
+    <div class="onlyapp-section__inner">
+      <h2 id="onlyapp-h" class="section-heading reveal">
+        The only app that<br /><em>does all of this</em>
+      </h2>
+      <p class="onlyapp-section__body reveal reveal--delay-1">
+        Pantry. Recipes. Meal plan. Grocery list. Health scores. Budget.
+        All connected. All in sync.
+      </p>
+      <div class="onlyapp-table-wrap reveal reveal--delay-2">
+        <table class="onlyapp-table">
+          <thead>
+            <tr>
+              <th scope="col">Feature</th>
+              <th scope="col" class="onlyapp-table__us"><span class="onlyapp-table__brand">easyChef <small>PRO</small></span></th>
+              <th scope="col">Cooklist</th>
+              <th scope="col">Paprika</th>
+              <th scope="col">MyFitnessPal</th>
+              <th scope="col">Mealime</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Transparent health scores</th>
+              <td class="onlyapp-table__us"><span class="onlyapp-check" aria-label="Yes">✓</span></td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <th scope="row">Smart pantry with spoilage alerts</th>
+              <td class="onlyapp-table__us"><span class="onlyapp-check" aria-label="Yes">✓</span></td>
+              <td>Partial</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <th scope="row">Budget-optimized grocery lists</th>
+              <td class="onlyapp-table__us"><span class="onlyapp-check" aria-label="Yes">✓</span></td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <th scope="row">Automated meal planning</th>
+              <td class="onlyapp-table__us"><span class="onlyapp-check" aria-label="Yes">✓</span></td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>Basic</td>
+            </tr>
+            <tr>
+              <th scope="row">Complete nutrition history</th>
+              <td class="onlyapp-table__us"><span class="onlyapp-check" aria-label="Yes">✓</span></td>
+              <td>—</td>
+              <td>—</td>
+              <td>Partial</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <th scope="row">Patent-protected technology</th>
+              <td class="onlyapp-table__us"><strong>9 Patents</strong></td>
+              <td>0</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="onlyapp-section__cta reveal reveal--delay-3">
+        <a href="#allinone">See full comparison →</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- Section 8: Join the first 5,000 (HTML for interactivity) -->
+  <section class="cta-section" id="cta" aria-label="Join the first 5,000">
+    <div class="cta-section__inner">
+      <h2 class="cta-section__title reveal">Join the first 5,000.</h2>
+      <p class="cta-section__body reveal reveal--delay-1">
+        Lifetime Pro at 60% off. Priority access when we launch on iOS and Android.
+        A direct line to the team building it.
+      </p>
+      <form class="cta-form reveal reveal--delay-2" method="POST" action="#" data-cta-form>
+        <label class="visually-hidden" for="cta-email">Your email address</label>
+        <div class="cta-form__input-wrap">
+          <svg class="cta-form__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+            <path d="M3 7l9 6 9-6M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#a2a2a2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <input
+            id="cta-email"
+            type="email"
+            name="email"
+            placeholder="your_email@here.com"
+            required
+            autocomplete="email"
+            class="cta-form__input"
+          />
+        </div>
+        <button type="submit" class="cta-form__submit pulse-ring shimmer-overlay">
+          <span>Claim My Spot</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" class="cta-form__arrow">
+            <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+      <p class="cta-section__fineprint reveal reveal--delay-3">
+        No credit card required. No spam. Unsubscribe anytime.<br />
+        Your data is encrypted with AES-256 and TLS 1.3. We never sell your data.
+      </p>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  // ── Email CTA form: stub submit handler ──────────────────────────────────────
+  const form = document.querySelector<HTMLFormElement>('[data-cta-form]');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = form.querySelector<HTMLInputElement>('input[type="email"]');
+      const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (input && submit) {
+        submit.innerHTML = '<span>You\'re in! ✓</span>';
+        submit.disabled = true;
+        input.value = '';
+      }
+    });
+  }
+
+  // ── Steps section: scroll-driven horizontal track ──────────────────────────
+  const scroller = document.querySelector<HTMLElement>('[data-steps-scroller]');
+  const track = document.querySelector<HTMLElement>('[data-steps-track]');
+  const bar = document.querySelector<HTMLElement>('[data-steps-bar]');
+  const dots = Array.from(document.querySelectorAll<HTMLButtonElement>('.steps-progress__dot'));
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('.step-card'));
+
+  if (scroller && track && cards.length > 0) {
+    const total = cards.length;
+    const isDesktop = () => window.matchMedia('(min-width: 769px)').matches;
+
+    let ticking = false;
+    const setActive = (idx: number) => {
+      cards.forEach((c, i) => c.classList.toggle('is-active', i === idx));
+      dots.forEach((d, i) => d.classList.toggle('is-active', i === idx));
+    };
+
+    const updateSteps = () => {
+      if (!isDesktop()) {
+        // Mobile: clear desktop track transform, let the native carousel drive it
+        track.style.removeProperty('--steps-x');
+        // Sync active card with horizontal scroll position of the track
+        const cardWidth = track.clientWidth;
+        const idx = cardWidth > 0
+          ? Math.min(total - 1, Math.max(0, Math.round(track.scrollLeft / cardWidth)))
+          : 0;
+        setActive(idx);
+        if (bar) bar.style.width = `${(idx / Math.max(1, total - 1)) * 100}%`;
+        ticking = false;
+        return;
+      }
+
+      const rect = scroller.getBoundingClientRect();
+      const totalScroll = rect.height - window.innerHeight;
+      const scrolled = Math.min(1, Math.max(0, -rect.top / Math.max(1, totalScroll)));
+      const stepFloat = scrolled * (total - 1);
+      const activeIdx = Math.min(total - 1, Math.round(stepFloat));
+
+      track.style.setProperty('--steps-x', `-${stepFloat * 100}%`);
+      setActive(activeIdx);
+      if (bar) bar.style.width = `${scrolled * 100}%`;
+      ticking = false;
+    };
+
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(updateSteps);
+        ticking = true;
+      }
+    }, { passive: true });
+    window.addEventListener('resize', updateSteps, { passive: true });
+    // Mobile: track's own horizontal scroll updates the active state
+    track.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(updateSteps);
+        ticking = true;
+      }
+    }, { passive: true });
+
+    cards[0].classList.add('is-active');
+    updateSteps();
+
+    // Click a dot to jump
+    dots.forEach((dot, i) => {
+      dot.addEventListener('click', () => {
+        if (isDesktop()) {
+          const rect = scroller.getBoundingClientRect();
+          const totalScroll = rect.height - window.innerHeight;
+          const targetScroll = (i / Math.max(1, total - 1)) * totalScroll;
+          const sectionTop = rect.top + window.scrollY;
+          window.scrollTo({ top: sectionTop + targetScroll, behavior: 'smooth' });
+        } else {
+          // Mobile: scroll the track horizontally
+          track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
+        }
+      });
+    });
+  }
+</script>
+
+<style>
+  /* ── Shared utilities ─────────────────────────────────────────────────────── */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .section-heading {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(32px, 4.6vw, 56px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: #100f0d;
+    text-align: center;
+    margin: 0 0 clamp(32px, 4vw, 56px);
+  }
+  .section-heading em {
+    color: var(--color-brand);
+    font-style: normal;
+    font-weight: 500;
+  }
+
+  /* CTA buttons (reused across sections) */
+  .cta-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 24px;
+    background: var(--color-brand);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    border-radius: 32px;
+    box-shadow: var(--shadow-cta);
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s ease;
+  }
+  .cta-primary:hover { background: #f25147; transform: translateY(-2px); }
+  .cta-primary__arrow { transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+  .cta-primary:hover .cta-primary__arrow { transform: translateX(4px); }
+
+  .cta-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 18px;
+    background: #fff;
+    color: #100f0d;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    letter-spacing: 0.16px;
+    border: 1px solid rgba(161, 14, 5, 0.08);
+    border-radius: 60px;
+    box-shadow: inset 0 -2px 3px rgba(194, 11, 0, 0.17);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .cta-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 -2px 3px rgba(194, 11, 0, 0.17),
+                0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  /* ── Hero — Figma background PNG + HTML text + phone visual ────────────────
+     The exported PNG provides the exact pastel gradient + decorative watermark.
+     Content sits on top via z-index. */
+  .home-hero {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(120px, 11vw, 160px) clamp(20px, 4vw, 64px) clamp(64px, 8vw, 100px);
+  }
+  .home-hero__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
+  }
+  .home-hero__inner {
+    position: relative;
+    z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(32px, 5vw, 80px);
+    align-items: center;
+  }
+  .home-hero__text {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 1.5vw, 20px);
+    max-width: 560px;
+  }
+  .home-hero__eyebrow {
+    font-family: var(--font-modern);
+    font-size: clamp(13px, 1.15vw, 16px);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--color-muted);
+    margin: 0;
+  }
+  .home-hero__headline {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(40px, 5.5vw, 72px);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    color: #100f0d;
+    margin: 0;
+  }
+  .home-hero__headline-line { display: block; }
+  .home-hero__headline-line--accent { color: var(--color-brand); }
+  .home-hero__body {
+    font-family: var(--font-sans);
+    font-size: clamp(14px, 1.1vw, 16px);
+    line-height: 1.55;
+    color: var(--color-muted);
+    margin: 0;
+    max-width: 50ch;
+  }
+  .home-hero__tag {
+    font-family: var(--font-modern);
+    font-size: clamp(14px, 1.15vw, 18px);
+    font-weight: 500;
+    color: var(--color-ink-soft);
+    margin: 0;
+  }
+  .home-hero__ctas {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .home-hero__visual { display: flex; justify-content: center; }
+  .home-hero__visual-img {
+    width: 100%;
+    max-width: 560px;
+    height: auto;
+    animation: hero-breath 9s ease-in-out 1.5s infinite;
+  }
+  @keyframes hero-breath {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-6px) scale(1.005); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .home-hero__visual-img { animation: none; }
+  }
+
+  /* ── Problem section (text bullets HTML, phones as images) ─────────────────── */
+  .problem-section {
+    background: var(--color-bg-cream);
+    padding: clamp(64px, 9vw, 120px) clamp(20px, 4vw, 64px);
+  }
+  .problem-section__inner {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .problem-section__heading {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(32px, 4.6vw, 56px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: #100f0d;
+    text-align: center;
+    margin: 0 0 clamp(48px, 6vw, 80px);
+  }
+  .problem-section__heading em {
+    color: var(--color-brand);
+    font-style: normal;
+    font-weight: 500;
+  }
+  .problem-section__cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(32px, 5vw, 80px);
+    align-items: center;
+  }
+  .problem-col {
+    display: flex;
+    align-items: center;
+    gap: clamp(20px, 3vw, 40px);
+  }
+  /* Both columns flow in source order — bullets `flex: 1` pushes the phone
+     to the inner edge of its column (toward the section center), leaving
+     bullets at the outer edge. Matches Figma's "bullets-outside, phones-middle". */
+  .problem-col--left,
+  .problem-col--right {
+    flex-direction: row;
+  }
+  .problem-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    flex: 1;
+  }
+  .problem-list li {
+    font-family: var(--font-sans);
+    font-size: clamp(13px, 1.05vw, 15px);
+    line-height: 1.4;
+    color: var(--color-body);
+    position: relative;
+    padding-left: 22px;
+  }
+  .problem-list--problems li::before,
+  .problem-list--solutions li::before {
+    content: '•';
+    position: absolute;
+    left: 4px;
+    top: -2px;
+    color: #100f0d;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  .problem-phone {
+    position: relative;
+    flex-shrink: 0;
+  }
+  /* Phone sizes match Figma exactly at 1440 viewport:
+     small = 205.46 × 418.66, big = 273.95 × 558.22.
+     aspect-ratio enforces the precise height regardless of source-image padding. */
+  .problem-phone--small {
+    width: clamp(140px, 14.268vw, 205.46px);
+    aspect-ratio: 205.46 / 418.66;
+  }
+  /* Big phone: PNG is cropped tight to phone body; the bottom red glow is
+     painted in CSS as a soft radial gradient pseudo-element so it fades into
+     the cream section background seamlessly with no PNG/CSS edge mismatch. */
+  .problem-phone--big {
+    width: clamp(190px, 19.024vw, 273.95px);
+    aspect-ratio: 824 / 1678;
+    overflow: visible;
+  }
+  .problem-phone--big::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -6%;
+    width: 90%;
+    height: 14%;
+    transform: translateX(-50%);
+    background: rgba(239, 68, 58, 0.6);
+    border-radius: 50%;
+    filter: blur(22px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .problem-phone--big .problem-phone__img {
+    position: relative;
+    z-index: 1;
+  }
+  .problem-phone__img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .problem-phone__label {
+    position: absolute;
+    top: 18%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-brand);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .problem-phone__label--solution {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--color-brand);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  /* ── Benefits section uses FeatureRow ──────────────────────────────────────── */
+  .benefits-section {
+    background: #FBF4F4;
+    padding: clamp(64px, 9vw, 120px) 0 0;
+  }
+  /* Tighten spacing between feature rows inside the benefits section without
+     affecting FeatureRow usage on other pages. */
+  .benefits-section :global(.feature-row) {
+    padding: clamp(24px, 3vw, 48px) 0;
+  }
+
+  /* ── Compare section (HTML table) ──────────────────────────────────────────── */
+  .compare-section {
+    background: var(--color-bg-grey);
+    padding: clamp(40px, 5vw, 72px) clamp(20px, 4vw, 64px);
+  }
+  .compare-section__inner {
+    max-width: 1060px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .compare-section .section-heading {
+    color: #292929;
+    font-weight: 400;
+  }
+  .compare-section .section-heading em {
+    font-weight: 600;
+  }
+  .compare-section__body {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--color-body);
+    margin: 0 auto clamp(40px, 5vw, 56px);
+    max-width: 843px;
+    letter-spacing: -0.5px;
+  }
+  .compare-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: left;
+    border: 1px solid var(--color-divider);
+    border-radius: 16px;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    font-size: clamp(15px, 1.4vw, 20px);
+  }
+  .compare-table th,
+  .compare-table td {
+    padding: 24px;
+    border-top: 1px solid var(--color-divider);
+    vertical-align: middle;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .compare-table th:not(:last-child),
+  .compare-table td:not(:last-child) {
+    border-right: 1px solid var(--color-divider);
+  }
+  .compare-table th strong,
+  .compare-table td strong {
+    font-weight: inherit;
+  }
+  .compare-table thead th { border-top: 0; height: 72px; }
+  .compare-table tbody th {
+    color: var(--color-body);
+  }
+  .compare-table th:nth-child(2),
+  .compare-table td:nth-child(2) {
+    color: #adacac;
+  }
+  .compare-table th:nth-child(3),
+  .compare-table td:nth-child(3) {
+    color: #100f0d;
+  }
+  .compare-table thead th:nth-child(3) {
+    background: var(--color-surface-zebra);
+  }
+  .compare-table tbody td:nth-child(3) {
+    background: var(--color-surface-soft);
+  }
+  .compare-table__brand {
+    display: inline-block;
+    width: 190px;
+    max-width: 100%;
+    line-height: 0;
+  }
+  .compare-table__brand :global(svg) {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .compare-section__footnote {
+    margin-top: 32px;
+    font-family: var(--font-sans);
+    font-size: 18px;
+    color: var(--color-body);
+  }
+  .compare-section__link {
+    color: var(--color-brand);
+    font-weight: 500;
+    margin-left: 8px;
+    transition: opacity 0.2s ease;
+  }
+  .compare-section__link:hover { opacity: 0.75; }
+
+  /* ── Personas section ──────────────────────────────────────────────────────── */
+  .personas-section {
+    background: var(--color-surface-soft);
+    padding: clamp(64px, 9vw, 120px) clamp(20px, 4vw, 64px);
+  }
+  .personas-section__inner {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .personas-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(20px, 2.5vw, 32px);
+  }
+  /* Persona cards are rendered as PNG exports from Figma (1:1 visual fidelity).
+     The card itself is the anchor so the whole tile is clickable. The PNG's
+     own rounded corners are authoritative — we do NOT clip with border-radius
+     on the container, because the PNG's corner radius scales with width while
+     a fixed CSS border-radius does not, which causes visible corner slivers.
+     The shadow uses drop-shadow so it follows the PNG's alpha (rounded). */
+  .persona-card {
+    display: block;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .persona-card:hover {
+    transform: translateY(-4px);
+  }
+  .persona-card:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 4px;
+    border-radius: 24px;
+  }
+  .persona-card__img {
+    width: 100%;
+    height: auto;
+    display: block;
+    filter:
+      drop-shadow(0 1px 6px rgba(0, 0, 0, 0.04))
+      drop-shadow(0 12px 24px rgba(0, 0, 0, 0.03));
+    transition: filter 0.3s ease;
+  }
+  .persona-card:hover .persona-card__img {
+    filter:
+      drop-shadow(0 4px 12px rgba(0, 0, 0, 0.06))
+      drop-shadow(0 24px 40px rgba(0, 0, 0, 0.05));
+  }
+
+  /* ── Only-app section (HTML table) ─────────────────────────────────────────── */
+  .onlyapp-section {
+    background: var(--color-surface);
+    padding: clamp(64px, 9vw, 120px) clamp(20px, 4vw, 64px);
+  }
+  .onlyapp-section__inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .onlyapp-section__body {
+    font-family: var(--font-sans);
+    font-size: clamp(14px, 1.1vw, 16px);
+    line-height: 1.6;
+    color: var(--color-body);
+    margin: 0 auto clamp(40px, 5vw, 56px);
+    max-width: 60ch;
+  }
+  .onlyapp-table-wrap {
+    overflow-x: auto;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  .onlyapp-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: center;
+    background: #fff;
+    font-family: var(--font-sans);
+    font-size: clamp(12px, 1vw, 14px);
+    min-width: 720px;
+  }
+  .onlyapp-table th,
+  .onlyapp-table td {
+    padding: 18px 16px;
+    border-top: 1px solid var(--color-divider);
+    color: var(--color-caption);
+  }
+  .onlyapp-table thead th { border-top: 0; font-weight: 600; color: #100f0d; }
+  .onlyapp-table tbody th {
+    text-align: left;
+    color: #100f0d;
+    font-weight: 500;
+    min-width: 200px;
+  }
+  .onlyapp-table .onlyapp-table__us {
+    background: rgba(239, 68, 58, 0.05);
+    color: var(--color-brand);
+    font-weight: 600;
+  }
+  .onlyapp-check {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(239, 68, 58, 0.12);
+    color: var(--color-brand);
+    font-weight: 700;
+  }
+  .onlyapp-table__brand {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--color-brand);
+  }
+  .onlyapp-table__brand small {
+    font-size: 0.7em;
+    color: var(--color-caption);
+    margin-left: 2px;
+  }
+  .onlyapp-section__cta {
+    margin-top: 28px;
+  }
+  .onlyapp-section__cta a {
+    color: var(--color-brand);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 15px;
+    transition: opacity 0.2s ease;
+  }
+  .onlyapp-section__cta a:hover { opacity: 0.75; }
+
+  /* ── Responsive across new sections ────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .home-hero__inner {
+      grid-template-columns: 1fr;
+      gap: 32px;
+      text-align: center;
+    }
+    .home-hero__text { max-width: 100%; align-items: center; }
+    .home-hero__ctas { justify-content: center; }
+    .problem-section__cols { grid-template-columns: 1fr; gap: 48px; }
+    .problem-col,
+    .problem-col--right { flex-direction: column-reverse; align-items: center; }
+    .problem-col--right { flex-direction: column; }
+    .personas-grid { grid-template-columns: 1fr; max-width: 520px; margin: 0 auto; }
+    .compare-table tbody th { width: auto; }
+  }
+  @media (max-width: 560px) {
+    .home-hero__headline { font-size: 40px; }
+    .compare-table th,
+    .compare-table td { padding: 14px 12px; font-size: 13px; }
+  }
+
+  /* ── Steps Section — sticky horizontal scrollytelling ─────────────────────── */
+  .steps-section {
+    background: var(--color-bg-grey);
+    position: relative;
+  }
+
+  .steps-section__heading {
+    padding: clamp(56px, 8vw, 96px) clamp(20px, 4vw, 64px) clamp(24px, 4vw, 40px);
+    text-align: center;
+  }
+  .steps-section__title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(32px, 5vw, 56px);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--color-ink-strong);
+    margin: 0;
+  }
+  .steps-section__title em {
+    color: var(--color-brand);
+    font-style: normal;
+  }
+
+  /* The scroller is taller than the viewport — vertical scroll drives the
+     horizontal step transitions. Tuned for ~30vh per transition so the section
+     feels alive but doesn't outstay its welcome.
+     Total: 100vh dwell + 6 transitions × 30vh = 280vh.
+
+     `dvh` is the right unit here: it always reflects the *currently visible*
+     viewport, so the sticky pane never clips behind a mobile address bar.
+     Plain `vh` is kept as a fallback for the ~2% of browsers without dvh. */
+  .steps-scroller {
+    height: 280vh;
+    height: 280dvh;
+    position: relative;
+  }
+  .steps-scroller__sticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-bottom: 80px;
+  }
+
+  .steps-track {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    /* JS sets --steps-x in % */
+    transform: translate3d(var(--steps-x, 0%), 0, 0);
+    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .step-card {
+    flex-shrink: 0;
+    width: 100vw;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 clamp(20px, 6vw, 96px);
+    gap: clamp(12px, 1.5vw, 20px);
+    position: relative;
+  }
+  .step-card__num {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(64px, 9vw, 128px);
+    line-height: 0.9;
+    color: rgba(239, 68, 58, 0.12);
+    letter-spacing: -0.04em;
+    position: absolute;
+    top: clamp(8px, 1.5vw, 24px);
+    left: clamp(24px, 6vw, 96px);
+    pointer-events: none;
+    user-select: none;
+  }
+  .step-card__title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(24px, 3.4vw, 40px);
+    line-height: 1.15;
+    color: var(--color-ink-strong);
+    letter-spacing: -0.02em;
+    text-align: center;
+    max-width: 22ch;
+    /* Animate in when card becomes active */
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    transition-delay: 0.15s;
+  }
+  .step-card.is-active .step-card__title {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .step-card__img-wrap {
+    width: 100%;
+    max-width: 1100px;
+    aspect-ratio: 990 / 449;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow:
+      0 1px 6px rgba(0, 0, 0, 0.05),
+      0 6px 16px rgba(0, 0, 0, 0.04),
+      0 22px 32px rgba(0, 0, 0, 0.04);
+    transform: scale(0.94);
+    opacity: 0.4;
+    filter: blur(2px);
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.6s ease,
+                filter 0.6s ease;
+  }
+  .step-card.is-active .step-card__img-wrap {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+  .step-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+
+  /* Progress nav (dots + bar) */
+  .steps-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: clamp(20px, 3vw, 36px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(12px, 1.5vw, 24px);
+    z-index: 5;
+  }
+  .steps-progress__dot {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--color-caption);
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    position: relative;
+    transition: background 0.3s ease, color 0.3s ease, transform 0.3s ease,
+                box-shadow 0.3s ease, width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+  .steps-progress__dot:hover {
+    background: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1);
+  }
+  .steps-progress__dot.is-active {
+    background: var(--color-brand);
+    color: #fff;
+    width: auto;
+    padding: 0 16px;
+    box-shadow:
+      0 4px 12px rgba(239, 68, 58, 0.35),
+      0 0 0 4px rgba(239, 68, 58, 0.15);
+  }
+  .steps-progress__dot-num {
+    display: inline-block;
+  }
+  .steps-progress__dot-label {
+    display: none;
+    margin-left: 8px;
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .steps-progress__dot.is-active .steps-progress__dot-label {
+    display: inline-block;
+  }
+  .steps-progress__bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -16px;
+    height: 2px;
+    background: rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    border-radius: 2px;
+    margin: 0 clamp(20px, 4vw, 64px);
+    pointer-events: none;
+  }
+  .steps-progress__bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg,
+      rgba(194, 214, 255, 1) 0%,
+      var(--color-brand) 50%,
+      rgba(251, 223, 177, 1) 100%);
+    transition: width 0.2s linear;
+  }
+
+  /* Mobile / tablet: swap sticky-scroll for a native swipeable carousel */
+  @media (max-width: 768px) {
+    .steps-scroller {
+      height: auto;
+    }
+    .steps-scroller__sticky {
+      position: relative;
+      top: auto;
+      height: auto;
+      overflow: visible;
+      padding: 0 0 24px;
+    }
+    .steps-track {
+      flex-direction: row;
+      transform: none !important;
+      transition: none;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      height: auto;
+      padding-bottom: 16px;
+    }
+    .steps-track::-webkit-scrollbar { display: none; }
+
+    .step-card {
+      width: 100%;
+      height: auto;
+      padding: 32px 20px 24px;
+      scroll-snap-align: start;
+      flex-shrink: 0;
+    }
+    .step-card__title,
+    .step-card__img-wrap {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+    .step-card__img-wrap {
+      max-width: 100%;
+    }
+    .step-card__num {
+      font-size: 56px;
+      top: 4px;
+      left: 16px;
+    }
+    .steps-progress {
+      position: relative;
+      bottom: auto;
+      padding: 8px 16px 0;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .steps-progress__bar {
+      bottom: -8px;
+      margin: 0 16px;
+    }
+    .steps-progress__dot {
+      width: 32px;
+      height: 32px;
+      font-size: 12px;
+    }
+    .steps-progress__dot.is-active {
+      padding: 0 12px;
+    }
+    .steps-progress__dot-label {
+      font-size: 11px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .steps-track { transition: none; }
+    .step-card__title,
+    .step-card__img-wrap {
+      opacity: 1;
+      transform: none;
+      filter: none;
+      transition: none;
+    }
+  }
+
+  /* ── CTA Section (Section 8) — full HTML rebuild for accessibility ─────────── */
+  .cta-section {
+    position: relative;
+    background:
+      radial-gradient(60% 80% at 50% 50%, rgba(239, 68, 58, 0.06) 0%, rgba(239, 68, 58, 0) 70%),
+      var(--color-bg-cream);
+    padding: clamp(72px, 9vw, 130px) clamp(20px, 4vw, 64px);
+  }
+  .cta-section__inner {
+    max-width: 720px;
+    margin: 0 auto;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(20px, 2.5vw, 32px);
+  }
+  .cta-section__title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(36px, 5.5vw, 60px);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--color-brand);
+    margin: 0;
+  }
+  .cta-section__body {
+    font-family: var(--font-sans);
+    font-size: clamp(15px, 1.4vw, 16px);
+    line-height: 1.6;
+    color: var(--color-body);
+    margin: 0;
+    max-width: 56ch;
+  }
+  .cta-form {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    max-width: 560px;
+  }
+  .cta-form__input-wrap {
+    position: relative;
+    flex: 1;
+    background: #fff;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px 0 16px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  .cta-form__icon {
+    flex-shrink: 0;
+    margin-right: 8px;
+  }
+  .cta-form__input {
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    height: 56px;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    color: var(--color-ink);
+    min-width: 0;
+  }
+  .cta-form__input::placeholder {
+    color: var(--color-input-placeholder);
+  }
+
+  .cta-form__submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 24px;
+    height: 56px;
+    background: var(--color-brand);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.5px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-cta);
+    border: 0;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+  .cta-form__submit:hover:not(:disabled) {
+    background: #f25147;
+    transform: translateY(-2px);
+  }
+  .cta-form__arrow {
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .cta-form__submit:hover:not(:disabled) .cta-form__arrow {
+    transform: translateX(4px);
+  }
+
+  /* Input focus glow */
+  .cta-form__input-wrap {
+    transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+  }
+  .cta-form__input-wrap:focus-within {
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 4px rgba(239, 68, 58, 0.15);
+    transform: translateY(-1px);
+  }
+  .cta-form__submit:disabled {
+    opacity: 0.85;
+    cursor: default;
+  }
+
+  .cta-section__fineprint {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--color-caption);
+    margin: 0;
+  }
+
+  /* Compact form on narrow screens */
+  @media (max-width: 640px) {
+    .cta-form {
+      flex-direction: column;
+    }
+    .cta-form__input {
+      height: 48px;
+    }
+    .cta-form__submit {
+      height: 48px;
+      justify-content: center;
+    }
+  }
+</style>
