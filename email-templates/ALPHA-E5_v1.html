@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<title>ALPHA * E5 · {{ person.first_name | default: 'there' }}, your two weeks are up.</title>
+<title>ALPHA * E5 · {{ person.first_name | default: 'there', true }}, your two weeks are up.</title>
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
 <![endif]-->
@@ -87,7 +87,7 @@
         </h1>
 
         <p style="font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0 0 18px;">
-          {{ person.meals_cooked | default: 0 }} meals cooked from the app.<br>{{ person.spoilage_saves | default: 0 }} items saved from the bin.<br>{{ person.pantry_items | default: 0 }} items in your pantry right now.<br>{% if person.weekly_savings > 0 %}An estimated ${{ person.weekly_savings }} saved this month.{% endif %}
+          {{ person.meals_cooked | default: 0, true }} meals cooked from the app.<br>{{ person.spoilage_saves | default: 0, true }} items saved from the bin.<br>{{ person.pantry_items | default: 0, true }} items in your pantry right now.<br>{% if person.weekly_savings > 0 %}An estimated ${{ person.weekly_savings }} saved this month.{% endif %}
         </p>
 
         <p style="font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0 0 18px;">
@@ -178,7 +178,7 @@
   {SEQUENCE}      ALPHA * E5
   {FLOW}          QYwGdj (Alpha Flow)
   {SEND_DAY}      Day 14
-  {SUBJECT}       {{ person.first_name | default: 'there' }}, your two weeks are up.
+  {SUBJECT}       {{ person.first_name | default: 'there', true }}, your two weeks are up.
   {PREVIEW}       Here's what you built.
   {RULE}          EMAIL_LP_RELATIONSHIP_001 -- dynamic Liquid properties
   {STATUS}        APPROVED -- Taylor approved May 20 2026

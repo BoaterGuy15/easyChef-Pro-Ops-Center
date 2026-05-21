@@ -124,7 +124,7 @@ Run in order after confirmed launch:
 - **Propose Firebase rewrites to proxy to external URLs** — Firebase Hosting rewrites only support Cloud Functions/Run destinations, not arbitrary external URLs. The CORS fix is always `text/plain`, not a proxy.
 - **Build new LPs on `launch.easychefpro.com` after July 1** — before July 1 use launch subdomain; after July 1 use `easychefpro.com`. Check the current date before choosing the LP domain.
 - **Hardcode `launch.easychefpro.com` in DL_IDs or UTM URLs created after July 1** — use `easychefpro.com` for all new deep links from July 1 onward.
-- **Use wrong default filter syntax in Klaviyo templates** — Klaviyo uses standard Liquid 1-arg syntax. CORRECT: `{{ person.first_name | default: 'there' }}` · WRONG (2-arg): `{{ person.first_name | default: 'there', true }}` · WRONG (Jinja2): `{{person.first_name|default('there', true)}}`. Numeric: `{{ person.meals_cooked | default: 0 }}`. DO NOT include `, true` — Klaviyo rejects it as "invalid syntax." Applies to ALL personalization in email HTML templates. Subject lines: use plain text only — no Liquid in flow step subject fields (Klaviyo subject parser is stricter than body parser).
+- **Use wrong default filter syntax in Klaviyo templates** — Klaviyo body HTML requires the 2-arg form. CORRECT (body HTML): `{{ person.first_name | default: 'there', true }}` · CORRECT numeric: `{{ person.meals_cooked | default: 0, true }}` · WRONG (Jinja2): `{{person.first_name|default('there', true)}}`. The `, true` IS required in body HTML — Klaviyo's template parser will reject 1-arg form with "default filter requires 2 arguments." Subject lines: plain text only — NO Liquid at all in flow step subject fields (Klaviyo subject parser does not support Liquid).
 
 ---
 

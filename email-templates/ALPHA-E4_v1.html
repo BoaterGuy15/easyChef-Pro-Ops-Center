@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<title>ALPHA * E4 · Quick question, {{ person.first_name | default: 'there' }}.</title>
+<title>ALPHA * E4 · Quick question, {{ person.first_name | default: 'there', true }}.</title>
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
 <![endif]-->
@@ -83,7 +83,7 @@
 
         <!-- The recognition -->
         <h1 class="h1-main" style="font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:700;line-height:1.2;color:#000000;margin:0 0 20px;">
-          {{ person.tasks_completed | default: 0 }}/4 tasks complete.<br>Four days left.
+          {{ person.tasks_completed | default: 0, true }}/4 tasks complete.<br>Four days left.
         </h1>
 
         <p style="font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0 0 18px;">
@@ -178,7 +178,7 @@
   {SEQUENCE}      ALPHA * E4
   {FLOW}          QYwGdj (Alpha Flow)
   {SEND_DAY}      Day 10
-  {SUBJECT}       Quick question, {{ person.first_name | default: 'there' }}.
+  {SUBJECT}       Quick question, {{ person.first_name | default: 'there', true }}.
   {PREVIEW}       Four days left. Where are you?
   {RULE}          EMAIL_LP_RELATIONSHIP_001 -- dynamic Liquid properties
   {STATUS}        APPROVED -- Taylor approved May 20 2026
