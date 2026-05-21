@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<title>ALPHA * E2 · {{ person.first_name | default: 'there' }}, here are your 4 tasks.</title>
+<title>ALPHA * E2 · {{ person.first_name|default('there', true) }}, here are your 4 tasks.</title>
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
 <![endif]-->
@@ -87,7 +87,7 @@
         </h1>
 
         <p style="font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0 0 18px;">
-          <strong style="color:#000000;font-weight:600;">Task 1:</strong> Build your pantry — {{ person.pantry_items | default: 0 }}/20 items<br><br><strong style="color:#000000;font-weight:600;">Task 2:</strong> Cook from the app — {{ person.meals_cooked | default: 0 }}/3 meals<br><br><strong style="color:#000000;font-weight:600;">Task 3:</strong> Save something from spoilage — {{ person.spoilage_saves | default: 0 }}/1 saves<br><br><strong style="color:#000000;font-weight:600;">Task 4:</strong> Generate a grocery list
+          <strong style="color:#000000;font-weight:600;">Task 1:</strong> Build your pantry — {{ person.pantry_items|default(0, true) }}/20 items<br><br><strong style="color:#000000;font-weight:600;">Task 2:</strong> Cook from the app — {{ person.meals_cooked|default(0, true) }}/3 meals<br><br><strong style="color:#000000;font-weight:600;">Task 3:</strong> Save something from spoilage — {{ person.spoilage_saves|default(0, true) }}/1 saves<br><br><strong style="color:#000000;font-weight:600;">Task 4:</strong> Generate a grocery list
         </p>
 
         <p style="font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0 0 18px;">
@@ -178,7 +178,7 @@
   {SEQUENCE}      ALPHA * E2
   {FLOW}          QYwGdj (Alpha Flow)
   {SEND_DAY}      Day 1
-  {SUBJECT}       {{ person.first_name | default: 'there' }}, here are your 4 tasks.
+  {SUBJECT}       {{ person.first_name|default('there', true) }}, here are your 4 tasks.
   {PREVIEW}       Two weeks. Four things. That's it.
   {RULE}          EMAIL_LP_RELATIONSHIP_001 -- dynamic Liquid properties
   {STATUS}        APPROVED -- Taylor approved May 20 2026
