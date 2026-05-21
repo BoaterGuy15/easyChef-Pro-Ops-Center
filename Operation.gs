@@ -2499,6 +2499,23 @@ function doPost(e) {
       var _gtr = _klfFetch('GET', 'templates/' + body.template_id + '/', null);
       return respond({ ok: _gtr.code === 200, code: _gtr.code, data: _gtr.data });
     }
+    if(body.action === 'klaviyo_list_templates') {
+      var _allTpls = []; var _nextCursor = null; var _page = 0;
+      do {
+        var _ltrPath = 'templates/?page[size]=10&sort=-created' + (_nextCursor ? '&page[cursor]=' + _nextCursor : '');
+        var _ltr = _klfFetch('GET', _ltrPath, null);
+        if(_ltr.code !== 200) return respond({ ok: false, code: _ltr.code, error: _klfErr(_ltr), fetched: _allTpls.length });
+        var _batch = (_ltr.data && _ltr.data.data) ? _ltr.data.data : [];
+        _batch.forEach(function(t){ _allTpls.push({ id: t.id, name: (t.attributes && t.attributes.name)||'', created: (t.attributes && t.attributes.created)||'' }); });
+        var _links = (_ltr.data && _ltr.data.links) || {};
+        _nextCursor = null;
+        if(_links.next) { var _m = String(_links.next).match(/page\[cursor\]=([^&]+)/); if(_m) _nextCursor = _m[1]; }
+        _page++;
+        if(_page > 30) break; // safety — max 300 templates
+        Utilities.sleep(200);
+      } while(_nextCursor);
+      return respond({ ok: true, count: _allTpls.length, templates: _allTpls });
+    }
     if(body.action === 'klaviyo_build_beta_flow') {
       return respond(klaviyoBuildBetaFlow());
     }

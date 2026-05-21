@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>ALPHA * E4 · Quick question, {{ person.first_name | default: 'there' }}.</title>
+<!--[if mso]>
+<noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<![endif]-->
+<link href="https://fonts.googleapis.com/css2?family=Proza+Libre:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+  body { margin: 0; padding: 0; width: 100%; min-width: 100%; background-color: #F6EFE8; }
+  table { border-collapse: collapse; }
+
+  @media only screen and (max-width: 620px) {
+    .email-wrapper { padding: 0 !important; }
+    .email-body { border-radius: 0 !important; box-shadow: none !important; }
+    .section-pad { padding-left: 24px !important; padding-right: 24px !important; }
+    .scene-p { font-size: 17px !important; }
+    .h1-main { font-size: 24px !important; }
+    .cta-headline { font-size: 22px !important; }
+    .cta-btn { display: block !important; width: 100% !important; box-sizing: border-box !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#F6EFE8;">
+
+<!-- ── PREHEADER ── Four days left. -->
+<div style="display:none;font-size:1px;color:#F6EFE8;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+  Four days left. Where are you?&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+</div>
+
+<!-- ════════════════════════════════════════
+     EMAIL_LP_RELATIONSHIP_001
+     SCENE: Four days left.
+     ICP: alpha_tester
+     ONE moment. ONE realization. ONE CTA.
+     Do NOT add feature cards, flow bars, or proof stats.
+     Those live on the LP. This email opens a door.
+════════════════════════════════════════ -->
+
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F6EFE8;">
+<tr><td align="center" style="padding:32px 16px;" class="email-wrapper">
+
+  <table width="600" cellpadding="0" cellspacing="0" border="0" class="email-body"
+         style="max-width:600px;width:100%;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 12px 40px rgba(42,37,34,0.10);">
+
+    <!-- RED BRAND STRIPE -->
+    <tr>
+      <td style="background-color:#FF0000;height:5px;font-size:0;line-height:0;">&nbsp;</td>
+    </tr>
+
+    <!-- HEADER -->
+    <tr>
+      <td style="background-color:#ffffff;padding:20px 40px 16px;border-bottom:1px solid #E0D8CE;text-align:center;" class="section-pad">
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#FF0000;margin:0 0 10px;">Alpha Family</p>
+        <a href="https://launch.easychefpro.com?utm_source=email&utm_medium=email&utm_campaign=EC-2026-001" style="text-decoration:none;">
+          <img src="https://launch.easychefpro.com/assets/logo.png" alt="easyChef Pro" height="38" style="height:38px;width:auto;display:block;margin:0 auto;">
+        </a>
+      </td>
+    </tr>
+
+    <!-- ════════════════════════════════════
+         THE SCENE
+         Four days left.
+         Open in the middle of the moment.
+    ════════════════════════════════════ -->
+    <tr>
+      <td style="padding:40px 40px 36px;background-color:#F6EFE8;" class="section-pad">
+
+        <!-- Scene block: the exact moment -->
+        <div style="background-color:#ffffff;border:1.5px solid #E0D8CE;border-left:4px solid #FF0000;border-radius:12px;padding:22px 24px;margin-bottom:28px;box-shadow:0 2px 8px rgba(255,0,0,0.05);">
+          <p class="scene-p" style="font-family:'Proza Libre',Georgia,serif;font-size:20px;font-weight:600;line-height:1.45;color:#000000;margin:0 0 10px;">
+            Four days left.
+          </p>
+          <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:16px;font-weight:400;color:#555555;line-height:1.65;margin:0;">
+            The alpha window closes June 22. Here's where you are.
+          </p>
+        </div>
+
+        <!-- The recognition -->
+        <h1 class="h1-main" style="font-family:'Proza Libre',Georgia,serif;font-size:28px;font-weight:700;line-height:1.2;color:#000000;margin:0 0 20px;">
+          {{ person.tasks_completed | default: 0 }}/4 tasks complete.<br>Four days left.
+        </h1>
+
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0 0 18px;">
+          {% if person.tasks_completed >= 4 %}All four tasks done. You've done exactly what we needed. Your feedback window opens now — leave your notes before June 22.{% elsif person.tasks_completed >= 2 %}Halfway there. Four days is enough time to finish. Open the app tonight and keep going.{% else %}Still at the start? Four days is still four days. Even completing two tasks gives us useful data. Open the app and start with pantry — 10 minutes.{% endif %}
+        </p>
+
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0 0 18px;">
+          That is what $111 a month looks like. Not bad decisions. Not overspending. Just a gap that has never had a system to close it.
+        </p>
+
+        <!-- Loss block -->
+        <div style="background-color:#000000;border-top:4px solid #FF0000;border-radius:12px;padding:24px 28px;margin:0 0 24px;">
+          <p style="font-family:'Proza Libre',Georgia,serif;font-size:19px;font-weight:600;line-height:1.45;color:#ffffff;margin:0;">
+            The problem was never you. The system was disconnected.
+          </p>
+        </div>
+
+        <!-- One-line solve -->
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0;">
+          Four days. Whatever you can finish — finish it.
+        </p>
+
+      </td>
+    </tr>
+
+    <!-- ════════════════════════════════════
+         CTA
+         Simple. One action. Outcome-framed.
+    ════════════════════════════════════ -->
+    <!-- REPLACE: utm_content = DL_ID · utm_term = ASSET_ID -->
+    <tr>
+      <td style="padding:36px 40px;text-align:center;background-color:#000000;border-top:5px solid #FF0000;" class="section-pad">
+
+        <h2 class="cta-headline" style="font-family:'Proza Libre',Georgia,serif;font-size:26px;font-weight:700;color:#ffffff;line-height:1.15;margin:0 0 10px;">
+          Leave your alpha feedback.<br>Window closes June 22.
+        </h2>
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:14px;color:#FF0000;font-weight:600;margin:0 0 20px;">
+          Alpha deadline: June 22
+        </p>
+
+        <a href="https://launch.easychefpro.com/alpha-feedback?utm_source=klaviyo&utm_medium=email&utm_campaign=EC-2026-001&utm_content=DL-ALPHA-E4&utm_term=ALPHA-E4"
+           style="display:inline-block;background-color:#FF0000;color:#ffffff;font-family:'Proza Libre',Georgia,serif;font-size:17px;font-weight:700;text-decoration:none;padding:16px 40px;border-radius:100px;letter-spacing:0.01em;box-shadow:0 8px 24px rgba(255,0,0,0.35);">
+          Leave feedback &#8594;
+        </a>
+
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:12px;color:#555555;margin:16px 0 0;">
+          Alpha deadline is June 22. Reply anytime.
+        </p>
+
+      </td>
+    </tr>
+
+    <!-- SIGNATURE -->
+    <tr>
+      <td style="padding:32px 40px;background-color:#F6EFE8;border-top:1px solid #E0D8CE;" class="section-pad">
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#FF0000;margin:0 0 14px;">From the kitchen</p>
+        <div style="border-top:1px dashed #FF0000;margin:0 0 18px;opacity:0.3;"></div>
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:16px;line-height:1.75;color:#444444;margin:0 0 18px;">Talk soon,</p>
+        <p style="font-family:'Proza Libre',Georgia,serif;font-size:17px;font-weight:700;color:#000000;margin:0 0 4px;">Taylor</p>
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:14px;color:#555555;margin:0 0 20px;">Founder, easyChef Pro</p>
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:13px;color:#888888;font-style:italic;margin:0;">
+          P.S. Even partial feedback is useful. Don't wait until you're done.
+        </p>
+      </td>
+    </tr>
+
+    <!-- FOOTER -->
+    <tr>
+      <td style="background-color:#000000;padding:20px 40px;text-align:center;" class="section-pad">
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:12px;color:#444444;margin:0 0 6px;line-height:1.5;">
+          You're receiving this because you joined the easyChef Pro waitlist.
+        </p>
+        <p style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:12px;color:#444444;margin:0;line-height:1.5;">
+          Digital Galactica Labs &nbsp;·&nbsp; easyChef Pro &nbsp;·&nbsp;
+          <a href="{{unsubscribe_url}}" style="color:#666666;text-decoration:underline;">Unsubscribe</a> &nbsp;·&nbsp;
+          <a href="https://launch.easychefpro.com/privacy" style="color:#666666;text-decoration:underline;">Privacy</a>
+        </p>
+      </td>
+    </tr>
+
+  </table>
+
+</td></tr>
+</table>
+
+<!--
+================================================================
+  ASSET METADATA
+  {ASSET_ID}      EC-2026-001-ALPHA-E4
+  {KLAVIYO_ID}    Uxet8P (standalone -- wire to QYwGdj Alpha Flow)
+  {ICP}           alpha_tester
+  {SEQUENCE}      ALPHA * E4
+  {FLOW}          QYwGdj (Alpha Flow)
+  {SEND_DAY}      Day 10
+  {SUBJECT}       Quick question, {{ person.first_name | default: 'there' }}.
+  {PREVIEW}       Four days left. Where are you?
+  {RULE}          EMAIL_LP_RELATIONSHIP_001 -- dynamic Liquid properties
+  {STATUS}        APPROVED -- Taylor approved May 20 2026
+  {VERSION}       v1 -- initial write
+================================================================
+-->
+
+</body>
+</html>
