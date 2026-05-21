@@ -2492,6 +2492,99 @@ function doPost(e) {
     if(body.action === 'klaviyo_update_template') {
       return respond(klaviyoUpdateTemplateHtml(body.template_id, body.html));
     }
+    if(body.action === 'klaviyo_update_campaign_subject') {
+      var _ucsContent = { subject: body.subject };
+      if(body.preview_text) _ucsContent.preview_text = body.preview_text;
+      if(body.from_email)   _ucsContent.from_email   = body.from_email;
+      if(body.from_label)   _ucsContent.from_label   = body.from_label;
+      var _ucs = _klfFetch('PATCH', 'campaign-messages/' + body.msg_id + '/', {
+        data: { type: 'campaign-message', id: body.msg_id,
+          attributes: { definition: { channel: 'email', content: _ucsContent } }
+        }
+      });
+      return respond({ ok: _ucs.code === 200 || _ucs.code === 204, code: _ucs.code, error: _klfErr(_ucs) });
+    }
+    if(body.action === 'klaviyo_get_msg') {
+      var _gm = _klfFetch('GET', 'campaign-messages/' + body.msg_id + '/', null);
+      return respond({ ok: _gm.code === 200, code: _gm.code, data: _gm.data });
+    }
+    // Cancel scheduled send-job → reverts campaign to Draft (2025-04-15 pattern).
+    if(body.action === 'klaviyo_cancel_send_job') {
+      var _cid = body.campaign_id;
+      if(!_cid) return respond({ok:false,error:'campaign_id required'});
+      // Primary: POST campaign-cancel-jobs/ (2025-04-15 canonical endpoint)
+      var _ccj = _klfFetch('POST','campaign-cancel-jobs/',{
+        data:{type:'campaign-cancel-job',id:_cid}
+      });
+      if(_ccj.code>=200&&_ccj.code<300) return respond({ok:true,code:_ccj.code,method:'cancel_job'});
+      // Fallback A: GET actual send-job ID then DELETE it
+      var _sjr = _klfFetch('GET','campaigns/'+_cid+'/campaign-send-jobs/');
+      if(_sjr.code===200 && _sjr.data && _sjr.data.data && _sjr.data.data.length) {
+        var _sjId = _sjr.data.data[0].id;
+        var _del  = _klfFetch('DELETE','campaign-send-jobs/'+_sjId+'/');
+        if(_del.code>=200&&_del.code<300||_del.code===404) return respond({ok:true,code:_del.code,method:'delete_sj',sj_id:_sjId});
+      }
+      // Fallback B: PATCH send-job with action=cancel (2025-04-15: 'action' is required field)
+      var _sjIdFb = (_sjr.code===200&&_sjr.data&&_sjr.data.data&&_sjr.data.data.length)?_sjr.data.data[0].id:_cid;
+      var _pat = _klfFetch('PATCH','campaign-send-jobs/'+_sjIdFb+'/',{
+        data:{type:'campaign-send-job',id:_sjIdFb,attributes:{action:'cancel'}}
+      });
+      return respond({ok:(_pat.code>=200&&_pat.code<300),code:_pat.code,method:'patch_action_cancel',
+        cancel_job_error:_klfErr(_ccj),error:_klfErr(_pat)});
+    }
+    // PATCH campaign send_strategy while it is in Draft.
+    if(body.action === 'klaviyo_set_send_date') {
+      var _ssd = body.campaign_id; var _sdt = body.scheduled_at;
+      if(!_ssd||!_sdt) return respond({ok:false,error:'campaign_id and scheduled_at required'});
+      var _sdr = _klfFetch('PATCH','campaigns/'+_ssd+'/',{
+        data:{type:'campaign',id:_ssd,
+          attributes:{send_strategy:{method:'static',datetime:_sdt}}}
+      });
+      return respond({ok:(_sdr.code===200||_sdr.code===204),code:_sdr.code,error:_klfErr(_sdr)});
+    }
+    // POST send-job → moves Draft campaign to Scheduled at stored send_strategy.datetime.
+    if(body.action === 'klaviyo_post_send_job') {
+      var _psj = body.campaign_id;
+      if(!_psj) return respond({ok:false,error:'campaign_id required'});
+      var _psr = _klfFetch('POST','campaign-send-jobs/',{data:{type:'campaign-send-job',id:_psj}});
+      return respond({ok:(_psr.code>=200&&_psr.code<300),code:_psr.code,error:_klfErr(_psr)});
+    }
+    if(body.action === 'klaviyo_assign_campaign_template') {
+      var _act = _klfFetch('POST', 'campaign-message-assign-template/', {
+        data: { type: 'campaign-message', id: body.msg_id,
+          relationships: { template: { data: { type: 'template', id: body.template_id } } }
+        }
+      });
+      return respond({ ok: _act.code >= 200 && _act.code < 300, code: _act.code, error: _klfErr(_act) });
+    }
+    if(body.action === 'klaviyo_delete_campaign') {
+      var _dc = _klfFetch('DELETE','campaigns/'+body.campaign_id+'/');
+      return respond({ok:(_dc.code>=200&&_dc.code<300)||_dc.code===404,code:_dc.code,error:_klfErr(_dc)});
+    }
+    if(body.action === 'klaviyo_create_campaign') {
+      var _ccr = _klfFetch('POST','campaigns/',{
+        data:{type:'campaign',attributes:{
+          name:body.name,
+          audiences:{included:[body.list_id],excluded:[body.excl_id]},
+          send_options:{use_smart_sending:false},
+          tracking_options:{is_tracking_opens:true,is_tracking_clicks:true},
+          send_strategy:{method:'static',datetime:body.scheduled_at},
+          'campaign-messages':{data:[{type:'campaign-message',attributes:{definition:{channel:'email'}}}]}
+        }}
+      });
+      var _newCid=null,_newMsgId=null;
+      if(_ccr.data&&_ccr.data.data){
+        _newCid=_ccr.data.data.id;
+        try{var _crd=_ccr.data.data.relationships;var _cmd=_crd&&_crd['campaign-messages']&&_crd['campaign-messages'].data;if(_cmd&&_cmd.length)_newMsgId=_cmd[0].id;}catch(e){}
+      }
+      return respond({ok:_ccr.code>=200&&_ccr.code<300,code:_ccr.code,campaign_id:_newCid,msg_id:_newMsgId,error:_klfErr(_ccr)});
+    }
+    if(body.action === 'klaviyo_get_campaign_messages') {
+      var _gcm = _klfFetch('GET','campaigns/'+body.campaign_id+'/campaign-messages/');
+      var _msgs=(_gcm.data&&_gcm.data.data)||[];
+      var _msgId=_msgs.length?_msgs[0].id:null;
+      return respond({ok:_gcm.code===200,code:_gcm.code,msg_id:_msgId,error:_klfErr(_gcm)});
+    }
     if(body.action === 'klaviyo_create_template') {
       return respond(klaviyoCreateNamedTemplate(body.name, body.html));
     }
@@ -2517,6 +2610,21 @@ function doPost(e) {
       return respond({ ok: true, count: _allTpls.length, templates: _allTpls });
     }
     // Swap the template assigned to a flow message — exhaustive method sweep.
+    // Get template ID + subject currently attached to a campaign's message.
+    if(body.action === 'klaviyo_get_campaign_template') {
+      var _cgcId = body.campaign_id;
+      if(!_cgcId) return respond({ok:false,error:'campaign_id required'});
+      var _cgcR = _klfFetch('GET','campaigns/'+_cgcId+'/campaign-messages/?include=template&fields[template]=id,name',null);
+      if(_cgcR.code !== 200) return respond({ok:false,code:_cgcR.code,error:_klfErr(_cgcR)});
+      var _cgcMsgs = (_cgcR.data&&_cgcR.data.data)||[];
+      if(!_cgcMsgs.length) return respond({ok:false,error:'no campaign messages found'});
+      var _cgcMsg = _cgcMsgs[0];
+      var _cgcMsgId = _cgcMsg.id;
+      var _cgcSubj  = (_cgcMsg.attributes&&_cgcMsg.attributes.subject)||'';
+      var _cgcTplRel = (_cgcMsg.relationships&&_cgcMsg.relationships.template&&_cgcMsg.relationships.template.data)||null;
+      var _cgcTplId  = _cgcTplRel ? _cgcTplRel.id : '';
+      return respond({ok:true, msg_id:_cgcMsgId, template_id:_cgcTplId, subject:_cgcSubj});
+    }
     if(body.action === 'klaviyo_swap_flow_template') {
       var _fmId  = body.flow_msg_id;
       var _newTid = body.template_id;
@@ -2668,6 +2776,10 @@ function doPost(e) {
     if(body.action === 'klaviyo_patch_template') {
       if(!body.template_id||!body.find_url||!body.replace_url) return respond({ok:false,error:'template_id, find_url, replace_url required'});
       return respond(_klfPatchTemplate(body.template_id, body.find_url, body.replace_url));
+    }
+    if(body.action === 'klaviyo_update_scheduled_subjects') {
+      if(!Array.isArray(body.updates)||!body.updates.length) return respond({ok:false,error:'updates array required'});
+      return respond(klaviyoUpdateScheduledSubjects(body.updates));
     }
 
 

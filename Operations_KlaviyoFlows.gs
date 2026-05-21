@@ -3067,3 +3067,68 @@ function klaviyoCleanupDraftCancelledCampaigns() {
     return { ok: false, error: e.message };
   }
 }
+
+// ── klaviyoUpdateScheduledSubjects ────────────────────────────────────────────
+// Unschedule → patch subject → reschedule for an array of campaigns.
+// Each item: { campaign_id, msg_id, subject_line }
+// Send datetime is preserved (stored on campaign send_strategy; POST send-job reuses it).
+function klaviyoUpdateScheduledSubjects(updates) {
+  var results = [];
+  updates.forEach(function(item) {
+    var cid  = item.campaign_id;
+    var mid  = item.msg_id;
+    var subj = item.subject_line;
+    var row  = { campaign_id: cid, subject_line: subj };
+
+    // Step 1: cancel send-job (unschedule → Draft)
+    // Try: GET actual send-job ID → DELETE it
+    var cancelOk = false;
+    var cancelMethod = '';
+    var sjr = _klfFetch('GET', 'campaigns/' + cid + '/campaign-send-jobs/');
+    if (sjr.code === 200 && sjr.data && sjr.data.data && sjr.data.data.length) {
+      var sjId = sjr.data.data[0].id;
+      var del  = _klfFetch('DELETE', 'campaign-send-jobs/' + sjId + '/');
+      if (del.code >= 200 && del.code < 300 || del.code === 404) {
+        cancelOk = true; cancelMethod = 'delete_sj';
+      }
+    }
+    // Fallback: PATCH send-job with action=cancel
+    if (!cancelOk) {
+      var sjIdFb = (sjr.data && sjr.data.data && sjr.data.data.length) ? sjr.data.data[0].id : cid;
+      var pat = _klfFetch('PATCH', 'campaign-send-jobs/' + sjIdFb + '/', {
+        data: { type: 'campaign-send-job', id: sjIdFb, attributes: { action: 'cancel' } }
+      });
+      if (pat.code >= 200 && pat.code < 300) { cancelOk = true; cancelMethod = 'patch_cancel'; }
+    }
+    if (!cancelOk) {
+      row.ok = false; row.step = 'cancel'; row.error = 'could not unschedule — GET:' + sjr.code;
+      results.push(row); return;
+    }
+    row.cancel_method = cancelMethod;
+    Utilities.sleep(400);
+
+    // Step 2: patch subject line on campaign-message
+    var patchR = _klfFetch('PATCH', 'campaign-messages/' + mid + '/', {
+      data: { type: 'campaign-message', id: mid,
+        attributes: { definition: { channel: 'email', content: { subject: subj } } }
+      }
+    });
+    if (patchR.code !== 200 && patchR.code !== 204) {
+      row.ok = false; row.step = 'patch_subject'; row.code = patchR.code; row.error = _klfErr(patchR);
+      results.push(row); return;
+    }
+    Utilities.sleep(400);
+
+    // Step 3: reschedule (POST send-job reuses existing send_strategy.datetime)
+    var schedR = _klfFetch('POST', 'campaign-send-jobs/', {
+      data: { type: 'campaign-send-job', id: cid }
+    });
+    row.ok   = schedR.code >= 200 && schedR.code < 300;
+    row.step = row.ok ? 'done' : 'reschedule';
+    row.code = schedR.code;
+    if (!row.ok) row.error = _klfErr(schedR);
+    results.push(row);
+    Utilities.sleep(400);
+  });
+  return { ok: results.every(function(r){return r.ok;}), results: results };
+}
