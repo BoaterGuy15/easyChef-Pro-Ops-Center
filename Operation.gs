@@ -2516,6 +2516,63 @@ function doPost(e) {
       } while(_nextCursor);
       return respond({ ok: true, count: _allTpls.length, templates: _allTpls });
     }
+    // Swap the template assigned to a flow message — exhaustive method sweep.
+    if(body.action === 'klaviyo_swap_flow_template') {
+      var _fmId  = body.flow_msg_id;
+      var _newTid = body.template_id;
+      if(!_fmId || !_newTid) return respond({ok:false,error:'flow_msg_id and template_id required'});
+      var _relBody  = {data:{type:'template',id:_newTid}};
+      var _resBody  = {data:{type:'flow-message',id:_fmId,relationships:{template:{data:{type:'template',id:_newTid}}}}};
+      var _attempts = [
+        ['PATCH','flow-messages/'+_fmId+'/relationships/template/', _relBody],
+        ['POST', 'flow-messages/'+_fmId+'/relationships/template/', _relBody],
+        ['PUT',  'flow-messages/'+_fmId+'/relationships/template/', _relBody],
+        ['PATCH','flow-messages/'+_fmId+'/', _resBody],
+        ['PUT',  'flow-messages/'+_fmId+'/', _resBody],
+      ];
+      var _results = [];
+      for(var _ai=0; _ai<_attempts.length; _ai++){
+        var _a = _attempts[_ai];
+        var _r = _klfFetch(_a[0], _a[1], _a[2]);
+        _results.push({method:_a[0],path:_a[1],code:_r.code,body:JSON.stringify(_r.data||'').substring(0,150)});
+        if(_r.code >= 200 && _r.code < 300) return respond({ok:true,method:_a[0]+' '+_a[1],code:_r.code});
+        Utilities.sleep(300);
+      }
+      return respond({ok:false,attempts:_results});
+    }
+    // Get flow action IDs (needed to try action-level template swaps).
+    if(body.action === 'klaviyo_get_flow_actions') {
+      var _flowId = body.flow_id;
+      if(!_flowId) return respond({ok:false,error:'flow_id required'});
+      var _far = _klfFetch('GET','flows/'+_flowId+'/flow-actions/?page[size]=50',null);
+      if(_far.code !== 200) return respond({ok:false,code:_far.code,error:_klfErr(_far)});
+      var _actions = (_far.data&&_far.data.data)||[];
+      var _out = _actions.map(function(a){return{
+        id:a.id,
+        type:(a.attributes&&a.attributes.action_type)||'',
+        status:(a.attributes&&a.attributes.status)||''
+      };});
+      return respond({ok:true,count:_out.length,actions:_out});
+    }
+    // Try patching a flow ACTION's template relationship (different from flow-message endpoint).
+    if(body.action === 'klaviyo_patch_flow_action_template') {
+      var _faId = body.action_id;
+      var _faTid = body.template_id;
+      if(!_faId || !_faTid) return respond({ok:false,error:'action_id and template_id required'});
+      // Attempt 1: PATCH flow-action with template in relationships
+      var _fa1 = _klfFetch('PATCH','flow-actions/'+_faId+'/',{data:{type:'flow-action',id:_faId,relationships:{template:{data:{type:'template',id:_faTid}}}}});
+      if(_fa1.code>=200&&_fa1.code<300) return respond({ok:true,method:'PATCH-action-rel',code:_fa1.code});
+      // Attempt 2: PATCH relationships/template on action
+      var _fa2 = _klfFetch('PATCH','flow-actions/'+_faId+'/relationships/template/',{data:{type:'template',id:_faTid}});
+      if(_fa2.code>=200&&_fa2.code<300) return respond({ok:true,method:'PATCH-action-rel-endpoint',code:_fa2.code});
+      // Attempt 3: GET the action first to see what attributes exist
+      var _fa3 = _klfFetch('GET','flow-actions/'+_faId+'/?fields[flow-action]=action_type,status&include=flow-messages',null);
+      return respond({ok:false,
+        r1:{code:_fa1.code,body:JSON.stringify(_fa1.data||'').substring(0,200)},
+        r2:{code:_fa2.code,body:JSON.stringify(_fa2.data||'').substring(0,200)},
+        action_detail:{code:_fa3.code,body:JSON.stringify(_fa3.data||'').substring(0,500)}
+      });
+    }
     if(body.action === 'klaviyo_build_beta_flow') {
       return respond(klaviyoBuildBetaFlow());
     }
