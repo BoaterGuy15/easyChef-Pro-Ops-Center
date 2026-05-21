@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<title>ALPHA * E6 · {{ person.first_name|default('there', true) }}, here is what your feedback built.</title>
+<title>ALPHA * E6 · {{ person.first_name | default: 'there' }}, here is what your feedback built.</title>
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
 <![endif]-->
@@ -103,7 +103,7 @@
 
         <!-- One-line solve -->
         <p style="font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:1.8;color:#444444;margin:0;">
-          Thank you for being one of 50, {{ person.first_name|default('there', true) }}.
+          Thank you for being one of 50, {{ person.first_name | default: 'there' }}.
         </p>
 
       </td>
@@ -145,7 +145,7 @@
         <p style="font-family:Georgia,'Times New Roman',serif;font-size:17px;font-weight:700;color:#000000;margin:0 0 4px;">Taylor</p>
         <p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#555555;margin:0 0 20px;">Founder, easyChef Pro</p>
         <p style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#888888;font-style:italic;margin:0;">
-          P.S. You'll always be alpha #{{ person.alpha_number|default('one of our 50', true) }}. That's permanent.
+          P.S. You'll always be alpha #{{ person.alpha_number | default: 'one of our 50' }}. That's permanent.
         </p>
       </td>
     </tr>
@@ -178,7 +178,7 @@
   {SEQUENCE}      ALPHA * E6
   {FLOW}          QYwGdj (Alpha Flow)
   {SEND_DAY}      Day 16
-  {SUBJECT}       {{ person.first_name|default('there', true) }}, here is what your feedback built.
+  {SUBJECT}       {{ person.first_name | default: 'there' }}, here is what your feedback built.
   {PREVIEW}       Engineering has your list.
   {RULE}          EMAIL_LP_RELATIONSHIP_001 -- dynamic Liquid properties
   {STATUS}        APPROVED -- Taylor approved May 20 2026
