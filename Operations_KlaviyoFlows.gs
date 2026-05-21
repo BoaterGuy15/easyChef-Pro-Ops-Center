@@ -3069,66 +3069,93 @@ function klaviyoCleanupDraftCancelledCampaigns() {
 }
 
 // ── klaviyoUpdateScheduledSubjects ────────────────────────────────────────────
-// Unschedule → patch subject → reschedule for an array of campaigns.
-// Each item: { campaign_id, msg_id, subject_line }
-// Send datetime is preserved (stored on campaign send_strategy; POST send-job reuses it).
+// For each item: DELETE cancelled campaign → recreate with new subject → assign
+// template → POST send-job to reschedule.
+// Each item must include: campaign_id, campaign_name, subject_line, preview_text,
+//   template_id, send_datetime, included_list, excluded_list
 function klaviyoUpdateScheduledSubjects(updates) {
   var results = [];
   updates.forEach(function(item) {
-    var cid  = item.campaign_id;
-    var mid  = item.msg_id;
-    var subj = item.subject_line;
-    var row  = { campaign_id: cid, subject_line: subj };
+    var row = { campaign_id: item.campaign_id, subject_line: item.subject_line };
 
-    // Step 1: cancel send-job (unschedule → Draft)
-    // Try: GET actual send-job ID → DELETE it
-    var cancelOk = false;
-    var cancelMethod = '';
-    var sjr = _klfFetch('GET', 'campaigns/' + cid + '/campaign-send-jobs/');
-    if (sjr.code === 200 && sjr.data && sjr.data.data && sjr.data.data.length) {
-      var sjId = sjr.data.data[0].id;
-      var del  = _klfFetch('DELETE', 'campaign-send-jobs/' + sjId + '/');
-      if (del.code >= 200 && del.code < 300 || del.code === 404) {
-        cancelOk = true; cancelMethod = 'delete_sj';
-      }
-    }
-    // Fallback: PATCH send-job with action=cancel
-    if (!cancelOk) {
-      var sjIdFb = (sjr.data && sjr.data.data && sjr.data.data.length) ? sjr.data.data[0].id : cid;
-      var pat = _klfFetch('PATCH', 'campaign-send-jobs/' + sjIdFb + '/', {
-        data: { type: 'campaign-send-job', id: sjIdFb, attributes: { action: 'cancel' } }
-      });
-      if (pat.code >= 200 && pat.code < 300) { cancelOk = true; cancelMethod = 'patch_cancel'; }
-    }
-    if (!cancelOk) {
-      row.ok = false; row.step = 'cancel'; row.error = 'could not unschedule — GET:' + sjr.code;
+    // Step 1: DELETE the cancelled campaign
+    Utilities.sleep(300);
+    var delR = _klfFetch('DELETE', 'campaigns/' + item.campaign_id + '/');
+    if (delR.code !== 200 && delR.code !== 204 && delR.code !== 404) {
+      row.ok = false; row.step = 'delete'; row.code = delR.code; row.error = _klfErr(delR);
       results.push(row); return;
     }
-    row.cancel_method = cancelMethod;
     Utilities.sleep(400);
 
-    // Step 2: patch subject line on campaign-message
-    var patchR = _klfFetch('PATCH', 'campaign-messages/' + mid + '/', {
-      data: { type: 'campaign-message', id: mid,
-        attributes: { definition: { channel: 'email', content: { subject: subj } } }
+    // Step 2: Recreate campaign with correct subject in send_strategy + audience
+    var createR = _klfFetch('POST', 'campaigns/', {
+      data: { type: 'campaign', attributes: {
+        name: item.campaign_name,
+        audiences: { included: [item.included_list], excluded: [item.excluded_list] },
+        send_options: { use_smart_sending: false },
+        tracking_options: { is_tracking_opens: true, is_tracking_clicks: true },
+        send_strategy: { method: 'static', datetime: item.send_datetime },
+        'campaign-messages': { data: [{ type: 'campaign-message',
+          attributes: { definition: { channel: 'email' } }
+        }]}
+      }}
+    });
+    if (createR.code < 200 || createR.code >= 300 || !createR.data || !createR.data.data) {
+      row.ok = false; row.step = 'create'; row.code = createR.code; row.error = _klfErr(createR);
+      results.push(row); return;
+    }
+    var newCid = createR.data.data.id;
+    row.new_campaign_id = newCid;
+    Utilities.sleep(400);
+
+    // Step 3: GET the new campaign-message ID
+    var msgR = _klfFetch('GET', 'campaigns/' + newCid + '/campaign-messages/');
+    if (msgR.code !== 200 || !msgR.data || !msgR.data.data || !msgR.data.data.length) {
+      row.ok = false; row.step = 'get_msg'; row.code = msgR.code; row.error = _klfErr(msgR);
+      results.push(row); return;
+    }
+    var newMid = msgR.data.data[0].id;
+    row.new_msg_id = newMid;
+    Utilities.sleep(300);
+
+    // Step 4: PATCH subject + preview + from on the new message
+    var patchR = _klfFetch('PATCH', 'campaign-messages/' + newMid + '/', {
+      data: { type: 'campaign-message', id: newMid,
+        attributes: { definition: { channel: 'email', content: {
+          subject:      item.subject_line,
+          preview_text: item.preview_text,
+          from_email:   _KLF_FROM_EMAIL,
+          from_label:   _KLF_FROM_NAME
+        }}}
       }
     });
     if (patchR.code !== 200 && patchR.code !== 204) {
       row.ok = false; row.step = 'patch_subject'; row.code = patchR.code; row.error = _klfErr(patchR);
       results.push(row); return;
     }
-    Utilities.sleep(400);
+    Utilities.sleep(300);
 
-    // Step 3: reschedule (POST send-job reuses existing send_strategy.datetime)
+    // Step 5: Assign the original template
+    var tplR = _klfFetch('POST', 'campaign-message-assign-template/', {
+      data: { type: 'campaign-message', id: newMid,
+        relationships: { template: { data: { type: 'template', id: item.template_id } } }
+      }
+    });
+    if (tplR.code < 200 || tplR.code >= 300) {
+      row.ok = false; row.step = 'assign_template'; row.code = tplR.code; row.error = _klfErr(tplR);
+      results.push(row); return;
+    }
+    Utilities.sleep(300);
+
+    // Step 6: POST send-job to reschedule at send_strategy.datetime
     var schedR = _klfFetch('POST', 'campaign-send-jobs/', {
-      data: { type: 'campaign-send-job', id: cid }
+      data: { type: 'campaign-send-job', id: newCid }
     });
     row.ok   = schedR.code >= 200 && schedR.code < 300;
     row.step = row.ok ? 'done' : 'reschedule';
     row.code = schedR.code;
     if (!row.ok) row.error = _klfErr(schedR);
     results.push(row);
-    Utilities.sleep(400);
   });
-  return { ok: results.every(function(r){return r.ok;}), results: results };
+  return { ok: results.every(function(r){ return r.ok; }), results: results };
 }
