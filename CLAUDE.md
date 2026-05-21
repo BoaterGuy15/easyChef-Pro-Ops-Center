@@ -566,24 +566,28 @@ API working @934. GET experience 200 confirmed.
 ## ALPHA PROGRAM — CONFIRMED OFFER
 
 **Audience:** Existing founders from TebDTM waitlist (warm traffic only — NOT cold)
-**Gate:** QST-E1 broadcast (May 28) → click → /lp/alpha → fill questionnaire → Taylor selects 50
+**Gate:** QST-E1 broadcast (May 28) → click → /lp/alpha → fill questionnaire → Taylor selects
 **Selection window:** Jun 3–7 · App access begins Jun 8
 
+**Alpha cap:** Up to 50 families — fills on a rolling basis as Taylor reviews and selects. No hard close date on selections — Taylor selects until 50 spots are filled.
+
+**Tier name:** Selected alpha families = **easyChef Pro Community Members** (use this name in all emails and LP copy — NOT "Builder", NOT "Alpha families")
+
 **Alpha offer (locked — Taylor confirmed May 21 2026):**
-- Complete questionnaire + Taylor selects = ALPHA status
+- Complete questionnaire + Taylor selects = easyChef Pro Community Member status
 - Year 1 completely FREE
 - Then $7.99/month FOREVER (never changes)
-- Compare: standard founding members pay $7.99/month from day 1 — alpha is better
+- Compare: standard founding members pay $7.99/month from day 1 — Community Members get year 1 free
 
 **LP:** `launch.easychefpro.com/lp/alpha` — 3 sections, warm tone, no cold traffic copy
-- Section 1: "We want you in the first 50." — invite framing
-- Section 2: What alpha means (bullets) + red callout box showing offer vs standard founding price
+- Section 1: "We want you in the first 50." — invite framing · "Up to 50 families" language
+- Section 2: What alpha means (bullets) + red callout box · "easyChef Pro Community Members (if selected)"
 - Section 3: CTA "Apply in 3 minutes →" → alpha-questionnaire with UTM
 - GA4 event: `alpha_application_started` on CTA click
 - noindex/nofollow (not public-facing)
 
 **Alpha flow emails (QYwGdj — fires when added to UPRemk):**
-- ALPHA-E1 (UM8eaZ): Day 0 — welcome + confirm free year offer
+- ALPHA-E1 (UM8eaZ): Day 0 — welcome as "easyChef Pro Community Member" + confirm free year offer
 - ALPHA-E3 (XEjGdW): confirm $7.99/month locked forever
 
 **Flow path:** cold → LP-A/B → founder (TebDTM) → QST-E1 (May 28) → /lp/alpha → questionnaire → selected → UPRemk → Alpha flow
