@@ -3159,3 +3159,31 @@ function klaviyoUpdateScheduledSubjects(updates) {
   });
   return { ok: results.every(function(r){ return r.ok; }), results: results };
 }
+
+// ── klaviyoUpdateFlowSubjects ─────────────────────────────────────────────────
+// Attempts PATCH /api/flow-messages/{id}/ to set subject on each flow step.
+// Expected to return 405 (Klaviyo blocks flow-message writes in 2025-04-15).
+// Each item: { flow_message_id, subject_line }
+function klaviyoUpdateFlowSubjects(updates) {
+  var results = [];
+  updates.forEach(function(item) {
+    Utilities.sleep(300);
+    var r = _klfFetch('PATCH', 'flow-messages/' + item.flow_message_id + '/', {
+      data: {
+        type: 'flow-message',
+        id:   item.flow_message_id,
+        attributes: {
+          content: { subject: item.subject_line }
+        }
+      }
+    });
+    results.push({
+      flow_message_id: item.flow_message_id,
+      subject_line:    item.subject_line,
+      ok:    r.code >= 200 && r.code < 300,
+      code:  r.code,
+      error: r.code >= 400 ? _klfErr(r) : null
+    });
+  });
+  return { ok: results.every(function(r){ return r.ok; }), results: results };
+}

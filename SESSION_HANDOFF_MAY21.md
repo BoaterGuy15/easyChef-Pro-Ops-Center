@@ -102,6 +102,73 @@ Sets all 7 flows to live status. Run this last, after all UI wiring is done.
 
 ---
 
+## Flow Routing Architecture — CONFIRMED
+
+LP-A signup → GAS adds profile to **TebDTM** + **UQTdyL** (icp_code=super_mom_money)
+LP-B signup → GAS adds profile to **TebDTM** + **VpgZPZ** (icp_code=super_mom_time)
+
+Both Flow A and Flow B trigger off TebDTM. Routing happens via **flow filter**:
+- Flow A (XfqUtU): filter = member of UQTdyL → money-angle subscribers only
+- Flow B (XCyc4m): filter = member of VpgZPZ → time-angle subscribers only
+
+UQTdyL and VpgZPZ are **Klaviyo lists** (not segments). GAS populates them automatically at signup based on `lp_variant` in the form payload. No manual management needed.
+
+---
+
+## Email Sequence Architecture — CONFIRMED
+
+```
+Cold traffic → LP-A or LP-B → signup → founder
+     ↓
+SEQ-1 (Flow steps 1-3)     Day 0        Welcome, reinforce decision
+SEQ-2 (Flow steps 4-8)     Days 8-28    Deeper nurture
+SEQ-3 (campaigns)          Jun 10-25    Urgency before launch
+SEQ-4 (campaigns)          Jul 2-5      App is live, drive downloads
+```
+
+---
+
+## Two Email Fixes Required (confirmed May 21)
+
+### Fix 1 — SEQ-1-E1-A and SEQ-1-E1-B (HIGHEST PRIORITY, before May 27)
+
+**Problem:** CTA says "Claim my founding spot" — but the subscriber JUST claimed their spot. They are already a founder.
+
+**Required:** Welcome-only email. No "claim" CTA.
+- Tone: You're in. Your spot is locked. Here's what happens next.
+- Remove or replace CTA button — no LP link needed in this email
+- Soft close only (e.g. "Watch your inbox" or no button at all)
+
+**Templates to update:**
+- SEQ-1-E1-A → standalone template `UxsJ3U` → Flow A step 1
+- SEQ-1-E1-B → standalone template `RmZJyL` → Flow B step 1
+
+**Important:** These are flow-step templates. Cannot update via API. Process:
+1. Update standalone templates UxsJ3U + RmZJyL with new HTML
+2. In Klaviyo UI → Flow A step 1 → Edit email → Change template → UxsJ3U
+3. In Klaviyo UI → Flow B step 1 → Edit email → Change template → RmZJyL
+
+### Fix 2 — SEQ-4 emails (all 6, before July 1)
+
+**Problem:** CTAs link to LP waitlist — but by July 2-5 the app is live. The waitlist is closed.
+
+**Required:** App download CTA (App Store + Google Play links)
+
+**Templates to update:**
+| Campaign | Standalone Template |
+|---|---|
+| SEQ-4-E1-A | RAevtk |
+| SEQ-4-E1-B | Y4hJxf |
+| SEQ-4-E2-A | W6BkjY |
+| SEQ-4-E2-B | SXw7eR |
+| SEQ-4-E3-A | Wp7mz3 |
+| SEQ-4-E3-B | RsauRg |
+
+**Blocker:** App store URLs not yet confirmed. Get from dev team (Sabri/Moeez) before July 1.
+When URLs are ready: update standalones via `klaviyo_update_template` → campaigns already have them assigned.
+
+---
+
 ## Known Klaviyo API constraints (for reference)
 
 - `PATCH campaign-send-jobs` with `status: 'cancelled'` returns 400 but DOES process — campaigns will enter Cancelled state. Use `DELETE campaign-send-jobs/{id}/` instead.
