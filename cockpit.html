@@ -4024,10 +4024,11 @@
         var statusLbl = (c.status || 'draft').toUpperCase();
         var klavUrl   = 'https://www.klaviyo.com/campaign/' + c.id + '/edit';
 
-        // Format send date
+        // Format send date — use send_at (actual scheduled send) over scheduled_at (creation timestamp)
         var sendHtml = '—';
-        if (c.scheduled_at) {
-          var d = new Date(c.scheduled_at);
+        var sendTs = c.send_at || c.scheduled_at;
+        if (sendTs) {
+          var d = new Date(sendTs);
           var dateStr = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
           var timeStr = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
           sendHtml = '<div class="ec-send-date">'+dateStr+'</div><div class="ec-send-time">'+timeStr+'</div>';

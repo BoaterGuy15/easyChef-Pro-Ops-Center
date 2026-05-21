@@ -1317,7 +1317,8 @@
         var sc=st==='scheduled'||st==='sent'?'ec-status-live':'ec-status-draft';
         var kurl=st==='scheduled'?'https://www.klaviyo.com/campaign/'+c.id+'/scheduled':st==='sent'?'https://www.klaviyo.com/campaign/'+c.id+'/sent':'https://www.klaviyo.com/campaigns/email';
         var sendHtml='—';
-        if(c.scheduled_at){var d=new Date(c.scheduled_at);sendHtml='<div class="ec-send-date">'+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'</div><div class="ec-send-time">'+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'})+'</div>';}
+        var sendTs=c.send_at||c.scheduled_at;
+        if(sendTs){var d=new Date(sendTs);sendHtml='<div class="ec-send-date">'+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'</div><div class="ec-send-time">'+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'})+'</div>';}
         return '<tr><td><div class="ec-camp-name">'+_esc(c.name||'—')+'</div>'+(c.subject?'<div class="ec-camp-subject">'+_esc(c.subject)+'</div>':'')+'</td>'
           +'<td>'+sendHtml+'</td>'
           +'<td><span class="ec-id-pill">'+_esc(c.id||'—')+'</span></td>'

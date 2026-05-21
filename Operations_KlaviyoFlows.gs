@@ -1096,7 +1096,7 @@ function getKlaviyoCampaignsBoard(campaignId) {
 
     // Campaign list from Klaviyo — filter by EC-2026-001 name prefix
     var campPrefix = (campaignId && campaignId !== 'all') ? campaignId : 'EC-2026-001';
-    var cr = _klfFetch('GET', "campaigns/?filter=equals(messages.channel,'email')&page[size]=50&fields[campaign]=name,status,scheduled_at,created_at,audiences");
+    var cr = _klfFetch('GET', "campaigns/?filter=equals(messages.channel,'email')&page[size]=50&fields[campaign]=name,status,scheduled_at,created_at,audiences,send_strategy");
     var kampList = [];
     if (cr.code === 200 && cr.data && cr.data.data) {
       kampList = cr.data.data
@@ -1104,9 +1104,10 @@ function getKlaviyoCampaignsBoard(campaignId) {
         .map(function(c) {
           var a  = c.attributes || {};
           var inc = ((a.audiences && a.audiences.included) || []).map(function(s) { return s.id || ''; }).join(',');
-          return { id:c.id, name:a.name||'', status:a.status||'', scheduled_at:a.scheduled_at||'', created_at:a.created_at||'', segment_ids:inc };
+          var sendAt = (a.send_strategy && a.send_strategy.datetime) ? a.send_strategy.datetime : (a.scheduled_at || '');
+          return { id:c.id, name:a.name||'', status:a.status||'', send_at:sendAt, scheduled_at:a.scheduled_at||'', created_at:a.created_at||'', segment_ids:inc };
         });
-      kampList.sort(function(a,b) { return (a.scheduled_at||'') < (b.scheduled_at||'') ? -1 : 1; });
+      kampList.sort(function(a,b) { return (a.send_at||'') < (b.send_at||'') ? -1 : 1; });
     }
 
     // Cross-reference with EmailSequences for template_id + dl_id + subject
